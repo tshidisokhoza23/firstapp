@@ -10,25 +10,16 @@ import com.example.firstapp.data.ShortService
 import com.example.firstapp.model.*
 import com.example.firstapp.model.Short as AppShort
 import com.example.firstapp.util.Resource
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 class AppRepositoryImpl : AppRepository {
 
-    // Simulating API calls with dummy data and a small delay
-    // Base URL for future reference: https://firstapp.com/api/
-
     override fun getChats(): Flow<Resource<List<ChatMessage>>> = flow {
-        emit(Resource.Loading())
-        delay(500) // Simulate network delay
         emit(Resource.Success(ChatService.dummyChats))
     }
 
     override fun getMessages(chatId: Int): Flow<Resource<List<Message>>> = flow {
-        emit(Resource.Loading())
-        delay(300)
-        // For now, returning the same dummy messages regardless of chatId
         val dummyMessages = listOf(
             Message(1, "K", "13:37", false),
             Message(2, "My brada ke batla o nzame ka 2K", "19:20", true),
@@ -44,38 +35,26 @@ class AppRepositoryImpl : AppRepository {
     }
 
     override fun getJobs(): Flow<Resource<List<Job>>> = flow {
-        emit(Resource.Loading())
-        delay(500)
         emit(Resource.Success(JobService.dummyJobs))
     }
 
     override fun getAdverts(): Flow<Resource<List<Advert>>> = flow {
-        emit(Resource.Loading())
-        delay(500)
         emit(Resource.Success(AdvertService.dummyAdverts))
     }
 
     override fun getChannels(): Flow<Resource<List<Channel>>> = flow {
-        emit(Resource.Loading())
-        delay(500)
         emit(Resource.Success(ChannelService.dummyChannels))
     }
 
     override fun getShorts(): Flow<Resource<List<AppShort>>> = flow {
-        emit(Resource.Loading())
-        delay(500)
         emit(Resource.Success(ShortService.dummyShorts))
     }
 
     override fun getSongs(): Flow<Resource<List<Song>>> = flow {
-        emit(Resource.Loading())
-        delay(500)
         emit(Resource.Success(MusicService.dummySongs))
     }
 
     override fun getPosts(): Flow<Resource<List<Post>>> = flow {
-        emit(Resource.Loading())
-        delay(500)
         emit(Resource.Success(MediaService.dummyPosts))
     }
 }

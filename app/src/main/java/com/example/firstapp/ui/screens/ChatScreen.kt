@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -129,7 +131,12 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
             )
         },
         bottomBar = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .background(AppSecondary) // Match the bottom bar color
+                    .navigationBarsPadding() // Adds padding for the system navigation bar
+                    .imePadding() // Moves the input up when the keyboard appears
+            ) {
                 if (showAttachments) {
                     AttachmentPanel()
                 }
@@ -330,7 +337,13 @@ data class AttachmentItem(val label: String, val icon: ImageVector, val color: C
 fun ChatScreenPreview() {
     FirstAppTheme {
         ChatScreen(
-            chat = ChatMessage(1, "Joel", "", "", 0, Color(0xFF8B4513)),
+            chat = ChatMessage(
+                id = 1,
+                senderName = "Joel",
+                lastMessage = "Hello!",
+                time = "10:00",
+                avatarColor = Color(0xFF8B4513)
+            ),
             onBack = {}
         )
     }

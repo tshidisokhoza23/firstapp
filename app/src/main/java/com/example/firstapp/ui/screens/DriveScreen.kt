@@ -43,16 +43,59 @@ fun DriveScreen() {
     }
 
     val rideOptions = listOf(
-        RideOption(1, "FirstApp Go", "R45.00", "3 mins", "Affordable, compact rides", Color(0xFF4CAF50)),
-        RideOption(2, "FirstApp Comfort", "R65.00", "5 mins", "Newer cars with extra legroom", Color(0xFF2196F3)),
-        RideOption(3, "FirstApp Premium", "R120.00", "4 mins", "Luxury vehicles & top-rated drivers", Color(0xFF9C27B0)),
-        RideOption(4, "FirstApp XL", "R85.00", "7 mins", "SUVs for up to 6 people", Color(0xFFFF9800))
+        RideOption(
+            id = 1,
+            name = "FirstApp Go",
+            price = "45.00",
+            arrivalTime = "3 mins",
+            description = "Affordable, compact rides",
+            iconColor = Color(0xFF4CAF50)
+        ),
+        RideOption(
+            id = 2,
+            name = "FirstApp Comfort",
+            price = "65.00",
+            arrivalTime = "5 mins",
+            description = "Newer cars with extra legroom",
+            iconColor = Color(0xFF2196F3)
+        ),
+        RideOption(
+            id = 3,
+            name = "FirstApp Premium",
+            price = "120.00",
+            arrivalTime = "4 mins",
+            description = "Luxury vehicles & top-rated drivers",
+            iconColor = Color(0xFF9C27B0)
+        ),
+        RideOption(
+            id = 4,
+            name = "FirstApp XL",
+            price = "85.00",
+            arrivalTime = "7 mins",
+            description = "SUVs for up to 6 people",
+            iconColor = Color(0xFFFF9800)
+        )
     )
 
     val recentDestinations = listOf(
-        Destination(1, "Home", "123 Innovation Drive, Sandton", Color(0xFF4CAF50)),
-        Destination(2, "Office", "Building 5, Tech Park, Midrand", Color(0xFF2196F3)),
-        Destination(3, "Mall of Africa", "Lone Creek Cres, Waterval City", Color(0xFFFFC107))
+        Destination(
+            id = 1,
+            name = "Home",
+            address = "123 Innovation Drive, Sandton",
+            iconColor = Color(0xFF4CAF50)
+        ),
+        Destination(
+            id = 2,
+            name = "Office",
+            address = "Building 5, Tech Park, Midrand",
+            iconColor = Color(0xFF2196F3)
+        ),
+        Destination(
+            id = 3,
+            name = "Mall of Africa",
+            address = "Lone Creek Cres, Waterval City",
+            iconColor = Color(0xFFFFC107)
+        )
     )
 
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
@@ -85,33 +128,32 @@ fun DriveScreen() {
         // Overlay UI
         Column(modifier = Modifier.fillMaxSize()) {
             // Top Navigation Bar
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = AppBackground.copy(alpha = 0.8f),
-                tonalElevation = 4.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            if (step > 0 || isSearching) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AppBackground.copy(alpha = 0.8f),
+                    tonalElevation = 4.dp
                 ) {
-                    if (step > 0 || isSearching) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         IconButton(onClick = { 
                             if (isSearching) isSearching = false else step-- 
                         }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
                         }
+                        Text(
+                            text = when {
+                                isSearching -> "Search Destination"
+                                step == 1 -> "Select Ride"
+                                else -> "Arriving in 2 mins"
+                            },
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                    Text(
-                        text = when {
-                            isSearching -> "Search Destination"
-                            step == 0 -> "FirstApp Drive"
-                            step == 1 -> "Select Ride"
-                            else -> "Arriving in 2 mins"
-                        },
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
 

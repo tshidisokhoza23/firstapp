@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +30,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     var selectedBottomItem by remember { mutableIntStateOf(0) }
     var selectedTabItem by remember { mutableIntStateOf(0) }
     var selectedChat by remember { mutableStateOf<ChatMessage?>(null) }
+    var showStories by remember { mutableStateOf(false) }
     var selectedJob by remember { mutableStateOf<Job?>(null) }
     var selectedChannel by remember { mutableStateOf<Channel?>(null) }
     var selectedAdvert by remember { mutableStateOf<Advert?>(null) }
@@ -41,14 +44,65 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     val songsState by viewModel.songs.collectAsState()
     val postsState by viewModel.posts.collectAsState()
 
+    MainContent(
+        selectedBottomItem = selectedBottomItem,
+        onBottomItemSelect = { selectedBottomItem = it },
+        selectedTabItem = selectedTabItem,
+        onTabItemSelect = { selectedTabItem = it },
+        selectedChat = selectedChat,
+        onChatSelect = { selectedChat = it },
+        showStories = showStories,
+        onShowStories = { showStories = it },
+        selectedJob = selectedJob,
+        onJobSelect = { selectedJob = it },
+        selectedChannel = selectedChannel,
+        onChannelSelect = { selectedChannel = it },
+        selectedAdvert = selectedAdvert,
+        onAdvertSelect = { selectedAdvert = it },
+        chatsState = chatsState,
+        jobsState = jobsState,
+        advertsState = advertsState,
+        channelsState = channelsState,
+        shortsState = shortsState,
+        songsState = songsState,
+        postsState = postsState
+    )
+}
+
+@Composable
+fun MainContent(
+    selectedBottomItem: Int,
+    onBottomItemSelect: (Int) -> Unit,
+    selectedTabItem: Int,
+    onTabItemSelect: (Int) -> Unit,
+    selectedChat: ChatMessage?,
+    onChatSelect: (ChatMessage?) -> Unit,
+    selectedJob: Job?,
+    onJobSelect: (Job?) -> Unit,
+    selectedChannel: Channel?,
+    onChannelSelect: (Channel?) -> Unit,
+    selectedAdvert: Advert?,
+    onAdvertSelect: (Advert?) -> Unit,
+    showStories: Boolean,
+    onShowStories: (Boolean) -> Unit,
+    chatsState: Resource<List<ChatMessage>>,
+    jobsState: Resource<List<Job>>,
+    advertsState: Resource<List<Advert>>,
+    channelsState: Resource<List<Channel>>,
+    shortsState: Resource<List<com.example.firstapp.model.Short>>,
+    songsState: Resource<List<Song>>,
+    postsState: Resource<List<Post>>
+) {
     if (selectedChat != null) {
-        ChatScreen(chat = selectedChat!!, onBack = { selectedChat = null })
+        ChatScreen(chat = selectedChat, onBack = { onChatSelect(null) })
+    } else if (showStories) {
+        StoryScreen(onBack = { onShowStories(false) })
     } else if (selectedJob != null) {
-        JobDetailScreen(job = selectedJob!!, onBack = { selectedJob = null })
+        JobDetailScreen(job = selectedJob, onBack = { onJobSelect(null) })
     } else if (selectedChannel != null) {
-        ChannelDetailScreen(channel = selectedChannel!!, onBack = { selectedChannel = null })
+        ChannelDetailScreen(channel = selectedChannel, onBack = { onChannelSelect(null) })
     } else if (selectedAdvert != null) {
-        AdvertDetailScreen(advert = selectedAdvert!!, onBack = { selectedAdvert = null })
+        AdvertDetailScreen(advert = selectedAdvert, onBack = { onAdvertSelect(null) })
     } else {
         val bottomItems = listOf("Chats", "Media", "Music", "Drive", "Shorts")
         val bottomIcons = listOf(
@@ -62,18 +116,34 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            floatingActionButton = {
+                if (selectedBottomItem == 0 && selectedTabItem == 0) {
+                    FloatingActionButton(
+                        onClick = { onShowStories(true) },
+                        containerColor = AppAccent,
+                        contentColor = AppBackground,
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = "Stories")
+                    }
+                }
+            },
             topBar = {
-                Column(modifier = Modifier.background(AppBackground)) {
+                Column(
+                    modifier = Modifier
+                        .background(AppBackground)
+                        .statusBarsPadding() // Ensures it doesn't overlap with the notch/status bar
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = if (selectedBottomItem == 0 && selectedTabItem != 0) tabs[selectedTabItem] else "FirstApp",
                             color = AppTextPrimary,
-                            fontSize = 22.sp,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
@@ -81,27 +151,37 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                             Icon(Icons.Default.Search, contentDescription = "Search", tint = AppTextPrimary)
                         }
                         IconButton(onClick = { }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = AppTextPrimary)
+                        }
+                        IconButton(onClick = { }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextPrimary)
                         }
                     }
 
                     if (selectedBottomItem == 0) {
-                        ScrollableTabRow(
+                        TabRow( // Changed from ScrollableTabRow to TabRow for better distribution on most screens
                             selectedTabIndex = selectedTabItem,
                             containerColor = AppBackground,
                             contentColor = AppAccent,
-                            edgePadding = 0.dp,
-                            divider = {}
+                            divider = {},
+                            indicator = { tabPositions ->
+                                TabRowDefaults.SecondaryIndicator(
+                                    Modifier.tabIndicatorOffset(tabPositions[selectedTabItem]),
+                                    color = AppAccent
+                                )
+                            }
                         ) {
                             tabs.forEachIndexed { index, title ->
                                 Tab(
                                     selected = selectedTabItem == index,
-                                    onClick = { selectedTabItem = index },
+                                    onClick = { onTabItemSelect(index) },
                                     text = {
                                         Text(
                                             text = title,
                                             color = if (selectedTabItem == index) AppAccent else AppTextSecondary,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            maxLines = 1
                                         )
                                     }
                                 )
@@ -111,13 +191,16 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                 }
             },
             bottomBar = {
-                NavigationBar(containerColor = AppSecondary) {
+                NavigationBar(
+                    containerColor = AppSecondary,
+                    tonalElevation = 8.dp
+                ) {
                     bottomItems.forEachIndexed { index, item ->
                         NavigationBarItem(
                             icon = { Icon(bottomIcons[index], contentDescription = item) },
                             label = { Text(item) },
                             selected = selectedBottomItem == index,
-                            onClick = { selectedBottomItem = index },
+                            onClick = { onBottomItemSelect(index) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = AppTextPrimary,
                                 unselectedIconColor = AppTextSecondary,
@@ -137,16 +220,16 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                 when (selectedBottomItem) {
                     0 -> when (selectedTabItem) {
                         0 -> DataStateHandler(chatsState) { chats ->
-                            ChatList(chats) { selectedChat = it }
+                            ChatList(chats) { onChatSelect(it) }
                         }
                         1 -> DataStateHandler(jobsState) { jobs ->
-                            JobList(jobs) { selectedJob = it }
+                            JobList(jobs) { onJobSelect(it) }
                         }
                         2 -> DataStateHandler(advertsState) { adverts ->
-                            AdvertList(adverts) { selectedAdvert = it }
+                            AdvertList(adverts) { onAdvertSelect(it) }
                         }
                         3 -> DataStateHandler(channelsState) { channels ->
-                            ChannelList(channels) { selectedChannel = it }
+                            ChannelList(channels) { onChannelSelect(it) }
                         }
                     }
                     1 -> DataStateHandler(postsState) { posts ->
@@ -200,7 +283,10 @@ fun <T> DataStateHandler(
 
 @Composable
 fun ChatList(chats: List<ChatMessage>, onChatClick: (ChatMessage) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 16.dp) // Adds padding at the very end of the list
+    ) {
         items(chats) { chat ->
             Column(modifier = Modifier.clickable { onChatClick(chat) }) {
                 ChatItem(chat)
@@ -266,6 +352,28 @@ fun AdvertList(adverts: List<Advert>, onAdvertClick: (Advert) -> Unit) {
 @Composable
 fun MainScreenPreview() {
     FirstAppTheme {
-        MainScreen()
+        MainContent(
+            selectedBottomItem = 0,
+            onBottomItemSelect = {},
+            selectedTabItem = 0,
+            onTabItemSelect = {},
+            selectedChat = null,
+            onChatSelect = {},
+            selectedJob = null,
+            onJobSelect = {},
+            selectedChannel = null,
+            onChannelSelect = {},
+            selectedAdvert = null,
+            onAdvertSelect = {},
+            showStories = false,
+            onShowStories = {},
+            chatsState = Resource.Success(com.example.firstapp.data.ChatService.dummyChats),
+            jobsState = Resource.Success(emptyList()),
+            advertsState = Resource.Success(emptyList()),
+            channelsState = Resource.Success(emptyList()),
+            shortsState = Resource.Success(emptyList()),
+            songsState = Resource.Success(emptyList()),
+            postsState = Resource.Success(emptyList())
+        )
     }
 }

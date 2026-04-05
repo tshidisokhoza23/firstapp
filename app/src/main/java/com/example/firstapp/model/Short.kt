@@ -8,6 +8,10 @@ data class Short(
     val description: String,
     val likes: String,
     val comments: String,
-    val thumbnailColor: Color,
-    val profilePictureColor: Color = Color.Gray
+    val shares: String = "0",
+    val videoUrl: String = "",
+    val thumbnailColor: Color = Color.Black,
+    val profilePictureColor: Color = Color.Gray,
+    val isLiked: Boolean = false,
+    val isSubscribed: Boolean = false
 )

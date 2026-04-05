@@ -1,14 +1,16 @@
 package com.example.firstapp.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -21,111 +23,182 @@ import com.example.firstapp.model.Short
 
 @Composable
 fun ShortItem(short: Short) {
+    var isLiked by remember { mutableStateOf(short.isLiked) }
+    var isSubscribed by remember { mutableStateOf(short.isSubscribed) }
+
+    val likeIconColor by animateColorAsState(
+        targetValue = if (isLiked) Color.Red else Color.White,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "LikeAnimation"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(short.thumbnailColor)
     ) {
-        // Gradient for text readability
+        // Full screen video placeholder / Gradient for text readability
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
-                        startY = 500f
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
+                        startY = 600f
                     )
                 )
         )
 
-        // Right side buttons
+        // Right side action bar (TikTok/YouTube style)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 80.dp, end = 12.dp),
+                .padding(bottom = 32.dp, end = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            ShortActionButton(Icons.Default.ThumbUp, short.likes)
-            ShortActionButton(Icons.Default.ThumbDown, "Dislike")
-            ShortActionButton(Icons.Default.Comment, short.comments)
-            ShortActionButton(Icons.Default.Share, "Share")
-            ShortActionButton(Icons.Default.Loop, "Remix")
-            
-            // Profile music circle at bottom right
+            // Profile with "plus" icon (Sub status)
+            Box(contentAlignment = Alignment.BottomCenter) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(short.profilePictureColor, CircleShape)
+                        .padding(2.dp)
+                        .background(Color.White, CircleShape)
+                )
+                if (!isSubscribed) {
+                    Icon(
+                        Icons.Default.AddCircle,
+                        contentDescription = null,
+                        tint = Color.Red,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .offset(y = 8.dp)
+                            .background(Color.White, CircleShape)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ShortActionButton(
+                icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                text = short.likes,
+                iconColor = likeIconColor,
+                onClick = { isLiked = !isLiked }
+            )
+
+            ShortActionButton(
+                icon = Icons.Default.Comment,
+                text = short.comments,
+                onClick = { /* Open Comments */ }
+            )
+
+            ShortActionButton(
+                icon = Icons.Default.Share,
+                text = short.shares,
+                onClick = { /* Share */ }
+            )
+
+            // Spinning Vinyl Icon (Music)
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(Color.DarkGray, CircleShape),
+                    .size(44.dp)
+                    .background(Color(0xFF2C2C2E), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
 
-        // Bottom details
+        // Bottom Content (Creator details & Description)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 12.dp, bottom = 20.dp, end = 80.dp)
+                .padding(start = 16.dp, bottom = 32.dp, end = 80.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(short.profilePictureColor, CircleShape)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = short.creatorName,
+                    text = "@${short.creatorName}",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Box(
-                    modifier = Modifier
-                        .background(Color.Red, CircleShape)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                
+                Button(
+                    onClick = { isSubscribed = !isSubscribed },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSubscribed) Color.Gray.copy(alpha = 0.5f) else Color.White,
+                        contentColor = if (isSubscribed) Color.White else Color.Black
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp),
+                    shape = CircleShape
                 ) {
-                    Text("Join", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (isSubscribed) "Subscribed" else "Subscribe",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
             Text(
                 text = short.description,
                 color = Color.White,
                 fontSize = 14.sp,
-                maxLines = 2
+                lineHeight = 20.sp,
+                maxLines = 3
             )
-        }
-        
-        // Top right search and more
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 40.dp, end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.Search, contentDescription = null, tint = Color.White)
-            }
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White)
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Music info scrolling effect placeholder
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Original Audio - ${short.creatorName}",
+                    color = Color.White,
+                    fontSize = 13.sp
+                )
             }
         }
     }
 }
 
 @Composable
-fun ShortActionButton(icon: ImageVector, text: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(30.dp)
+fun ShortActionButton(
+    icon: ImageVector,
+    text: String,
+    iconColor: Color = Color.White,
+    onClick: () -> Unit = {}
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(60.dp)
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
         )
-        Text(text = text, color = Color.White, fontSize = 12.sp)
     }
 }

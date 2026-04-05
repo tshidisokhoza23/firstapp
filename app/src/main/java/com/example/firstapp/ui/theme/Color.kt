@@ -2,18 +2,20 @@ package com.example.firstapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// Modern "Boyish" Purple & Blue Palette
+val DeepIndigo = Color(0xFF1A237E)
+val ModernPurple = Color(0xFF673AB7)
+val BoyishPurple = Color(0xFF7E57C2)
+val SlateBlue = Color(0xFF455A64)
+val DarkGunmetal = Color(0xFF1C1C1E)
+val Charcoal = Color(0xFF2C2C2E)
+val SoftWhite = Color(0xFFF2F2F7)
+val MutedSlate = Color(0xFF8E8E93)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
-
-// --- Unique Colors (Teal/Dark theme mix) ---
-val AppPrimary = Color(0xFF005C4B)
-val AppSecondary = Color(0xFF202C33)
-val AppBackground = Color(0xFF111B21)
-val AppTextPrimary = Color(0xFFE9EDEF)
-val AppTextSecondary = Color(0xFF8696A0)
-val AppAccent = Color(0xFF25D366)
+// Brand Colors
+val AppPrimary = Color(0xFF5E35B1) // Deep Purple
+val AppSecondary = Charcoal
+val AppBackground = DarkGunmetal
+val AppTextPrimary = SoftWhite
+val AppTextSecondary = MutedSlate
+val AppAccent = Color(0xFF3949AB) // Indigo Accent

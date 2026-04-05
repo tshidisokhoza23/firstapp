@@ -1,10 +1,12 @@
 package com.example.firstapp.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,48 +31,73 @@ fun ChatItem(chat: ChatMessage) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar
-        Spacer(
+        // Adaptive Avatar with Initial
+        Box(
             modifier = Modifier
-                .size(50.dp)
+                .size(52.dp)
                 .clip(CircleShape)
-                .background(chat.avatarColor)
-        )
+                .background(chat.avatarColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = chat.senderName.take(1).uppercase(),
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
         
         Spacer(modifier = Modifier.width(16.dp))
         
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = chat.senderName,
-                color = AppTextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-            Text(
-                text = chat.lastMessage,
-                color = AppTextSecondary,
-                fontSize = 14.sp,
-                maxLines = 1
-            )
-        }
-        
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = chat.time,
-                color = if (chat.unreadCount > 0) AppAccent else AppTextSecondary,
-                fontSize = 12.sp
-            )
-            if (chat.unreadCount > 0) {
-                Spacer(modifier = Modifier.size(4.dp))
-                BoxWithText(
-                    text = chat.unreadCount.toString(),
-                    backgroundColor = AppAccent,
-                    textColor = AppBackground
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = chat.senderName,
+                    color = AppTextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
                 )
+                Text(
+                    text = chat.time,
+                    color = if (chat.unreadCount > 0) AppAccent else AppTextSecondary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = chat.lastMessage,
+                    color = AppTextSecondary,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (chat.unreadCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(AppAccent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString(),
+                            color = AppBackground,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
             }
         }
     }

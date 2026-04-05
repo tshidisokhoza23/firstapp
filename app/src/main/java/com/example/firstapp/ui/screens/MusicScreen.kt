@@ -28,23 +28,6 @@ fun MusicScreen(songs: List<Song>) {
     
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Discover",
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = {}) {
-                    Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White)
-                }
-            }
-
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 120.dp)
