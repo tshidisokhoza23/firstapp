@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.model.ChatMessage
 import com.example.firstapp.ui.theme.AppAccent
+import com.example.firstapp.util.formatWhatsAppTime
 import com.example.firstapp.ui.theme.AppBackground
 import com.example.firstapp.ui.theme.AppTextPrimary
 import com.example.firstapp.ui.theme.AppTextSecondary
@@ -63,7 +64,7 @@ fun ChatItem(chat: ChatMessage) {
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = chat.time,
+                    text = formatWhatsAppTime(chat.time),
                     color = if (chat.unreadCount > 0) AppAccent else AppTextSecondary,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 8.dp)

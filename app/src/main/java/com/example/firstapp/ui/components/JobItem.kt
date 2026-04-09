@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.example.firstapp.model.Job
 import com.example.firstapp.ui.theme.AppTextPrimary
 import com.example.firstapp.ui.theme.AppTextSecondary
+import com.example.firstapp.util.formatPostedTime
 
 @Composable
 fun JobItem(job: Job) {
@@ -77,7 +76,7 @@ fun JobItem(job: Job) {
             }
 
             Text(
-                text = "${job.companyName} - LL",
+                text = job.companyName,
                 color = AppTextPrimary,
                 fontSize = 16.sp
             )
@@ -87,14 +86,21 @@ fun JobItem(job: Job) {
                 color = AppTextSecondary,
                 fontSize = 15.sp
             )
-        }
 
-        IconButton(onClick = { /* Dismiss or similar action */ }) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Close",
-                tint = AppTextPrimary
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = listOf(job.jobType, job.salaryRange).filter { it.isNotBlank() }.joinToString(" • "),
+                color = AppTextSecondary,
+                fontSize = 13.sp
             )
+
+            if (job.postedTime.isNotBlank()) {
+                Text(
+                    text = formatPostedTime(job.postedTime),
+                    color = AppTextSecondary.copy(alpha = 0.8f),
+                    fontSize = 12.sp
+                )
+            }
         }
     }
 }

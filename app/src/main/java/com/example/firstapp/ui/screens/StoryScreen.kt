@@ -22,51 +22,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.firstapp.data.ChatService
 import com.example.firstapp.model.UserStory
 import com.example.firstapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StoryScreen(onBack: () -> Unit) {
+fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
     var viewingUserStory by remember { mutableStateOf<UserStory?>(null) }
-    val stories = remember { mutableStateListOf(*ChatService.dummyStories.toTypedArray()) }
-    
-    val recentUpdates = stories.filter { !it.allViewed && it.id != 1 }
-    val viewedUpdates = stories.filter { it.allViewed && it.id != 1 }
-    val myStatus = stories.find { it.id == 1 }
+    val storyList = stories
+    val recentUpdates = storyList.filter { !it.allViewed }
+    val viewedUpdates = storyList.filter { it.allViewed }
+    val myStatus = storyList.firstOrNull()
 
     if (viewingUserStory != null) {
         StatusViewer(
             userStory = viewingUserStory!!,
-            onStoryViewed = { storyIndex ->
-                val userIndex = stories.indexOfFirst { it.id == viewingUserStory!!.id }
-                if (userIndex != -1) {
-                    val user = stories[userIndex]
-                    if (!user.stories[storyIndex].isViewed) {
-                        val updatedStories = user.stories.mapIndexed { index, story ->
-                            if (index == storyIndex) story.copy(isViewed = true) else story
-                        }
-                        stories[userIndex] = user.copy(stories = updatedStories)
-                        // Keep viewingUserStory in sync to avoid UI glitches
-                        viewingUserStory = stories[userIndex]
-                    }
-                }
-            },
-            onFinish = {
-                if (viewingUserStory!!.id == 1) {
-                    // "My Status" finished, just close
-                    viewingUserStory = null
-                } else {
-                    // Find the next user who has unviewed stories
-                    val nextUser = stories.filter { !it.allViewed && it.id != 1 && it.id != viewingUserStory!!.id }.firstOrNull()
-                    if (nextUser != null) {
-                        viewingUserStory = nextUser
-                    } else {
-                        viewingUserStory = null
-                    }
-                }
-            },
+            onStoryViewed = { /* no-op for backend story state */ },
+            onFinish = { viewingUserStory = null },
             onClose = { viewingUserStory = null }
         )
     } else {

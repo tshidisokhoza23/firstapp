@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -19,7 +20,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -48,6 +49,24 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
+    implementation(libs.play.services.auth)
+    implementation(libs.play.services.ads)
+    implementation(libs.play.services.location)
+    implementation(libs.places)
+    implementation(libs.google.maps.services)
+    implementation(libs.coil.compose)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+
+    // HTTP Client
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

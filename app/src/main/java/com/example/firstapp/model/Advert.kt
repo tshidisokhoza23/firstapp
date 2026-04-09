@@ -17,5 +17,7 @@ data class Advert(
     val targetUrl: String = "",
     val isSponsored: Boolean = true,
     val impressions: String = "0",
-    val clicks: String = "0"
+    val clicks: String = "0",
+    val isNativeAd: Boolean = false,
+    val isViewed: Boolean = false
 )

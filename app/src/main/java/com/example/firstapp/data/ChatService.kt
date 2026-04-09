@@ -74,9 +74,13 @@ object ChatService {
     )
 
     val dummySongs = listOf(
-        Song(id = 1, title = "Midnight City", artist = "M83", albumArtColor = Color(0xFF6A1B9A), duration = "4:03", category = "Synth-pop"),
-        Song(id = 2, title = "Starboy", artist = "The Weeknd", albumArtColor = Color(0xFF212121), duration = "3:50", category = "R&B"),
-        Song(id = 3, title = "Blinding Lights", artist = "The Weeknd", albumArtColor = Color(0xFF880E4F), duration = "3:20", category = "Synth-pop")
+        Song(id = 1, title = "Midnight City", artist = "M83", albumArtColor = Color(0xFF6A1B9A), duration = "4:03", category = "Synth-pop", albumName = "Hurry Up, We're Dreaming"),
+        Song(id = 2, title = "Starboy", artist = "The Weeknd", albumArtColor = Color(0xFF212121), duration = "3:50", category = "R&B", albumName = "Starboy"),
+        Song(id = 3, title = "Blinding Lights", artist = "The Weeknd", albumArtColor = Color(0xFF880E4F), duration = "3:20", category = "Synth-pop", albumName = "After Hours"),
+        Song(id = 4, title = "Save Your Tears", artist = "The Weeknd", albumArtColor = Color(0xFFD32F2F), duration = "3:35", category = "Synth-pop", albumName = "After Hours"),
+        Song(id = 5, title = "In Your Eyes", artist = "The Weeknd", albumArtColor = Color(0xFF7B1FA2), duration = "3:57", category = "Synth-pop", albumName = "After Hours"),
+        Song(id = 6, title = "Heartless", artist = "The Weeknd", albumArtColor = Color(0xFF303F9F), duration = "3:18", category = "R&B", albumName = "After Hours"),
+        Song(id = 7, title = "Faith", artist = "The Weeknd", albumArtColor = Color(0xFF00796B), duration = "4:43", category = "R&B", albumName = "After Hours")
     )
 
     val dummyPosts = listOf(

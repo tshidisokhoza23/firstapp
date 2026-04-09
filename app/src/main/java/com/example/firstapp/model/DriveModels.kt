@@ -24,7 +24,8 @@ data class Destination(
     val longitude: Double = 0.0,
     val iconColor: Color = Color.Gray,
     val isFavorite: Boolean = false,
-    val type: DestinationType = DestinationType.RECENT
+    val type: DestinationType = DestinationType.RECENT,
+    val placeId: String? = null
 )
 
 enum class DestinationType {

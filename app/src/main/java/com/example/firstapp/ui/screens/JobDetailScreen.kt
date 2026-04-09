@@ -42,7 +42,7 @@ import com.example.firstapp.ui.theme.AppTextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JobDetailScreen(job: Job, onBack: () -> Unit) {
+fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -54,7 +54,7 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit) {
                 },
                 actions = {
                     Button(
-                        onClick = { /* Apply logic */ },
+                        onClick = onApply,
                         colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
                         modifier = Modifier.padding(end = 8.dp)
                     ) {
@@ -137,7 +137,7 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
             
             Button(
-                onClick = { /* Apply logic */ },
+                onClick = onApply,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
             ) {

@@ -7,92 +7,183 @@ object MusicService {
     val dummySongs = listOf(
         Song(
             id = 1,
-            title = "Sleepless",
-            artist = "The Big Hash",
-            albumArtColor = Color(0xFFE91E63),
-            duration = "3:45",
-            category = "Trending"
+            title = "Midnight Drive",
+            artist = "Nova Bloom",
+            albumName = "City Lights",
+            albumArtColor = Color(0xFF5B42F3),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            duration = "4:12",
+            category = "For You",
+            releaseDate = "2026-03-28",
+            playCount = "1.2M"
         ),
         Song(
             id = 2,
-            title = "Amandla",
-            artist = "Kabza De Small",
-            albumArtColor = Color(0xFF9C27B0),
-            duration = "6:12",
-            category = "Amapiano"
+            title = "Neon Rhythm",
+            artist = "Kaya Soul",
+            albumName = "Pulse",
+            albumArtColor = Color(0xFFFF6D00),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+            duration = "3:58",
+            category = "Afro Pop",
+            releaseDate = "2026-04-01",
+            playCount = "890K"
         ),
         Song(
             id = 3,
-            title = "Imithandazo",
-            artist = "Mthunzi",
-            albumArtColor = Color(0xFF673AB7),
-            duration = "5:34",
-            category = "Amapiano"
+            title = "Skyline",
+            artist = "Ari Sun",
+            albumName = "After Hours",
+            albumArtColor = Color(0xFF00BFA5),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+            duration = "3:34",
+            category = "Chill",
+            releaseDate = "2026-04-04",
+            playCount = "740K"
         ),
         Song(
             id = 4,
-            title = "Paris",
-            artist = "Masego",
-            albumArtColor = Color(0xFF3F51B5),
-            duration = "3:20",
-            category = "Soul"
+            title = "High Tide",
+            artist = "Aza Groove",
+            albumName = "Waveform",
+            albumArtColor = Color(0xFF00838F),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+            duration = "5:08",
+            category = "Amapiano",
+            releaseDate = "2026-03-30",
+            playCount = "1.1M"
         ),
         Song(
             id = 5,
-            title = "Starboy",
-            artist = "The Weeknd",
-            albumArtColor = Color(0xFF2196F3),
-            duration = "3:50",
-            category = "Pop"
+            title = "Sunset Drive",
+            artist = "Luna Rae",
+            albumName = "Golden Hour",
+            albumArtColor = Color(0xFFD81B60),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+            duration = "4:26",
+            category = "New Releases",
+            releaseDate = "2026-04-07",
+            playCount = "360K"
         ),
         Song(
             id = 6,
-            title = "Bling",
-            artist = "Tyla",
-            albumArtColor = Color(0xFF00BCD4),
-            duration = "2:55",
-            category = "Pop"
+            title = "Pulse Ride",
+            artist = "Symon",
+            albumName = "Night Shift",
+            albumArtColor = Color(0xFF7C4DFF),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+            duration = "3:45",
+            category = "Hip Hop",
+            releaseDate = "2026-04-02",
+            playCount = "520K"
         ),
         Song(
             id = 7,
-            title = "Mnike",
-            artist = "Tyler ICU",
-            albumArtColor = Color(0xFF009688),
-            duration = "7:10",
-            category = "Amapiano"
+            title = "Cloud Nine",
+            artist = "Orion",
+            albumName = "Dreamscape",
+            albumArtColor = Color(0xFF4A148C),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+            duration = "4:05",
+            category = "Pop",
+            releaseDate = "2026-03-25",
+            playCount = "980K"
         ),
         Song(
             id = 8,
-            title = "Dalie",
-            artist = "Kamo Mphela",
-            albumArtColor = Color(0xFF4CAF50),
-            duration = "4:20",
-            category = "Amapiano"
+            title = "Moonlit Streets",
+            artist = "Elle Nova",
+            albumName = "Urban Nights",
+            albumArtColor = Color(0xFF4527A0),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+            duration = "3:22",
+            category = "For You",
+            releaseDate = "2026-04-05",
+            playCount = "640K"
         ),
         Song(
             id = 9,
-            title = "Lemons",
-            artist = "AKA",
-            albumArtColor = Color(0xFF8BC34A),
-            duration = "3:15",
-            category = "Hip Hop"
+            title = "Groove Station",
+            artist = "Milo Keys",
+            albumName = "Afterglow",
+            albumArtColor = Color(0xFF039BE5),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3",
+            duration = "4:40",
+            category = "Trending",
+            releaseDate = "2026-03-29",
+            playCount = "1.5M"
         ),
         Song(
             id = 10,
-            title = "SETE",
-            artist = "K.O",
-            albumArtColor = Color(0xFFCDDC39),
-            duration = "4:05",
-            category = "Hip Hop"
-        )
-    ) + List(20) { index ->
+            title = "Noir Pulse",
+            artist = "Talia Reed",
+            albumName = "Midnight Mix",
+            albumArtColor = Color(0xFFD500F9),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
+            duration = "5:10",
+            category = "Chill",
+            releaseDate = "2026-04-03",
+            playCount = "470K"
+        ),
         Song(
-            id = index + 11,
-            title = "Song ${index + 11}",
-            artist = "Artist ${index + 1}",
-            albumArtColor = Color((0..255).random(), (0..255).random(), (0..255).random()),
-            duration = "4:00",
-            category = if (index % 2 == 0) "Recommended" else "New Releases"
+            id = 11,
+            title = "Glow Up",
+            artist = "Jet Moon",
+            albumName = "Rise",
+            albumArtColor = Color(0xFFFF5722),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            duration = "3:18",
+            category = "New Releases",
+            releaseDate = "2026-04-08",
+            playCount = "320K"
+        ),
+        Song(
+            id = 12,
+            title = "Electric Coast",
+            artist = "Vera Sky",
+            albumName = "Horizon",
+            albumArtColor = Color(0xFF00ACC1),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+            duration = "4:52",
+            category = "House",
+            releaseDate = "2026-03-26",
+            playCount = "600K"
+        ),
+        Song(
+            id = 13,
+            title = "Weekend High",
+            artist = "Rae Nova",
+            albumName = "Weekend Vibes",
+            albumArtColor = Color(0xFF8E24AA),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+            duration = "3:30",
+            category = "For You",
+            releaseDate = "2026-04-06",
+            playCount = "710K"
+        ),
+        Song(
+            id = 14,
+            title = "South City",
+            artist = "Kendai",
+            albumName = "Streetwave",
+            albumArtColor = Color(0xFF43A047),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+            duration = "4:15",
+            category = "Afro Pop",
+            releaseDate = "2026-04-01",
+            playCount = "820K"
+        ),
+        Song(
+            id = 15,
+            title = "Late Night Echo",
+            artist = "Marin Sky",
+            albumName = "Stillness",
+            albumArtColor = Color(0xFF1E88E5),
+            audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+            duration = "4:55",
+            category = "Chill",
+            releaseDate = "2026-03-31",
+            playCount = "560K"
         )
-    }
+    )
 }
