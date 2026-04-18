@@ -39,6 +39,7 @@ import com.example.firstapp.util.Resource
 fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), musicViewModel: MusicViewModel = viewModel()) {
     var selectedBottomItem by remember { mutableIntStateOf(0) }
     var selectedTabItem by remember { mutableIntStateOf(0) }
+    var selectedMediaFeedTab by remember { mutableIntStateOf(0) }
     var selectedChat by remember { mutableStateOf<ChatMessage?>(null) }
     var showStories by remember { mutableStateOf(false) }
     var selectedJob by remember { mutableStateOf<Job?>(null) }
@@ -84,6 +85,8 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
         onBottomItemSelect = { selectedBottomItem = it },
         selectedTabItem = selectedTabItem,
         onTabItemSelect = { selectedTabItem = it },
+        selectedMediaFeedTab = selectedMediaFeedTab,
+        onMediaFeedTabSelect = { selectedMediaFeedTab = it },
         selectedChat = selectedChat,
         onChatSelect = { selectedChat = it },
         showStories = showStories,
@@ -140,6 +143,8 @@ fun MainContent(
     onBottomItemSelect: (Int) -> Unit,
     selectedTabItem: Int,
     onTabItemSelect: (Int) -> Unit,
+    selectedMediaFeedTab: Int,
+    onMediaFeedTabSelect: (Int) -> Unit,
     selectedChat: ChatMessage?,
     onChatSelect: (ChatMessage?) -> Unit,
     selectedJob: Job?,
@@ -319,6 +324,18 @@ fun MainContent(
                     android.widget.Toast.makeText(context, "Reminder set for ${application.jobTitle}", android.widget.Toast.LENGTH_SHORT).show()
                 }
             )
+        } else if (selectedPost != null) {
+            PostDetailContent(
+                post = selectedPost,
+                onBack = { onPostSelect(null) },
+                onReplySubmit = { parentReplyId, content ->
+                    viewModel.createPostReply(selectedPost.id, content, parentReplyId)
+                },
+                onReplyLike = { replyId ->
+                    viewModel.likePostReply(replyId)
+                },
+                onMediaClick = { _, _ -> }
+            )
         } else if (selectedJob != null) {
             JobDetailScreen(
                 job = selectedJob,
@@ -445,15 +462,30 @@ fun MainContent(
                                             modifier = Modifier.weight(1f)
                                         )
                                     } else {
-                                        Text(
-                                            text = if (selectedBottomItem == 0 && selectedTabItem != 0) tabs[selectedTabItem] 
-                                                   else if (selectedBottomItem == 1) "Media"
-                                                   else "FirstApp",
-                                            color = AppTextPrimary,
-                                            fontSize = 24.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.weight(1f)
-                                        )
+                                        if (selectedBottomItem == 1) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0xFF3A4B57)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.White)
+                                                }
+                                            }
+                                        } else {
+                                            Text(
+                                                text = if (selectedBottomItem == 0 && selectedTabItem != 0) tabs[selectedTabItem] else "FirstApp",
+                                                color = AppTextPrimary,
+                                                fontSize = 24.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
                                     }
                                     
                                     if (selectedPost == null) {
@@ -555,6 +587,36 @@ fun MainContent(
                                                     text = title,
                                                     color = if (selectedTabItem == index) Color.White else Color.White.copy(alpha = 0.6f),
                                                     fontWeight = if (selectedTabItem == index) FontWeight.Bold else FontWeight.Normal,
+                                                    fontSize = 14.sp,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            } else if (selectedBottomItem == 1) {
+                                val mediaTabs = listOf("You", "Following", "Trending")
+                                TabRow(
+                                    selectedTabIndex = selectedMediaFeedTab,
+                                    containerColor = AppBackground,
+                                    contentColor = AppAccent,
+                                    divider = {},
+                                    indicator = { tabPositions ->
+                                        TabRowDefaults.SecondaryIndicator(
+                                            Modifier.tabIndicatorOffset(tabPositions[selectedMediaFeedTab]),
+                                            color = AppAccent
+                                        )
+                                    }
+                                ) {
+                                    mediaTabs.forEachIndexed { index, title ->
+                                        Tab(
+                                            selected = selectedMediaFeedTab == index,
+                                            onClick = { onMediaFeedTabSelect(index) },
+                                            text = {
+                                                Text(
+                                                    text = title,
+                                                    color = if (selectedMediaFeedTab == index) Color.White else Color.White.copy(alpha = 0.6f),
+                                                    fontWeight = if (selectedMediaFeedTab == index) FontWeight.Bold else FontWeight.Normal,
                                                     fontSize = 14.sp,
                                                     maxLines = 1
                                                 )
@@ -707,8 +769,15 @@ fun MainContent(
                         1 -> DataStateHandler(postsState) { posts ->
                             MediaScreen(
                                 posts = posts,
+                                mediaFeedTab = selectedMediaFeedTab,
                                 selectedPost = selectedPost,
                                 onPostSelect = onPostSelect,
+                                onCreatePost = { content, mediaUrls ->
+                                    viewModel.createPost(content, mediaUrls)
+                                },
+                                onLikePost = { postId ->
+                                    viewModel.likePost(postId)
+                                },
                                 onReplySubmit = { postId, parentReplyId, content ->
                                     viewModel.createPostReply(postId, content, parentReplyId)
                                 },
@@ -987,6 +1056,8 @@ fun MainScreenPreview() {
             onBottomItemSelect = {},
             selectedTabItem = 0,
             onTabItemSelect = {},
+            selectedMediaFeedTab = 0,
+            onMediaFeedTabSelect = {},
             selectedChat = null,
             onChatSelect = {},
             selectedJob = null,

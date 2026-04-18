@@ -12,6 +12,7 @@ enum class PostType {
 
 data class Post(
     val id: Int,
+    val authorId: Int = 0,
     val authorName: String,
     val authorHandle: String,
     val authorAvatarUrl: String? = null,

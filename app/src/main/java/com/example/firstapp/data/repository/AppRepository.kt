@@ -30,6 +30,8 @@ interface AppRepository {
     fun getShorts(): Flow<Resource<List<com.example.firstapp.model.Short>>>
     fun getSongs(): Flow<Resource<List<Song>>>
     fun getPosts(): Flow<Resource<List<Post>>>
+    fun createPost(content: String, mediaUrls: List<String> = emptyList()): Flow<Resource<Boolean>>
+    fun likePost(postId: Int): Flow<Resource<Boolean>>
     fun createPostReply(postId: Int, content: String, parentReplyId: Int? = null): Flow<Resource<Boolean>>
     fun likePostReply(replyId: Int): Flow<Resource<Boolean>>
     fun getStories(): Flow<Resource<List<UserStory>>>

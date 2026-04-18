@@ -100,6 +100,27 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun createPost(content: String, mediaUrls: List<String> = emptyList()) {
+        if (content.isBlank()) return
+        viewModelScope.launch {
+            repository.createPost(content.trim(), mediaUrls).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    fetchPosts()
+                }
+            }
+        }
+    }
+
+    fun likePost(postId: Int) {
+        viewModelScope.launch {
+            repository.likePost(postId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    fetchPosts()
+                }
+            }
+        }
+    }
+
     fun likePostReply(replyId: Int) {
         viewModelScope.launch {
             repository.likePostReply(replyId).collect { result ->

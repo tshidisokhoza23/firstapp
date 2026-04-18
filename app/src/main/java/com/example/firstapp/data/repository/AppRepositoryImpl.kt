@@ -1,5 +1,6 @@
 package com.example.firstapp.data.repository
 
+import android.util.Log
 import com.example.firstapp.data.api.*
 import com.example.firstapp.model.*
 import com.example.firstapp.model.Short as AppShort
@@ -306,7 +307,7 @@ class AppRepositoryImpl : AppRepository {
             emit(Resource.Loading())
             val response = apiService.getChannels()
             val body = response.body()
-            if (response.isSuccessful && body != null && body.channels.isNotEmpty()) {
+            if (response.isSuccessful && body != null) {
                 val channels = body.channels.map { apiChannel ->
                     Channel(
                         id = apiChannel.id,
@@ -323,7 +324,7 @@ class AppRepositoryImpl : AppRepository {
                         lastPostImageColor = androidx.compose.ui.graphics.Color(0xFFE8EAF6),
                         lastPostTime = apiChannel.last_post_time ?: ""
                     )
-                } ?: emptyList()
+                }
                 emit(Resource.Success(channels))
             } else {
                 emit(Resource.Error("Failed to load channels"))
@@ -338,7 +339,7 @@ class AppRepositoryImpl : AppRepository {
             emit(Resource.Loading())
             val response = apiService.getShorts()
             val body = response.body()
-            if (response.isSuccessful && body != null && body.shorts.isNotEmpty()) {
+            if (response.isSuccessful && body != null) {
                 val shorts = body.shorts.map { apiShort ->
                     AppShort(
                         id = apiShort.id,
@@ -368,7 +369,7 @@ class AppRepositoryImpl : AppRepository {
             emit(Resource.Loading())
             val response = apiService.getSongs()
             val body = response.body()
-            if (response.isSuccessful && body != null && body.songs.isNotEmpty()) {
+            if (response.isSuccessful && body != null) {
                 val songs = body.songs.map { apiSong ->
                     Song(
                         id = apiSong.id,
@@ -404,6 +405,7 @@ class AppRepositoryImpl : AppRepository {
                 val posts = response.body()?.posts?.map { apiPost ->
                     Post(
                         id = apiPost.id,
+                        authorId = apiPost.author_id,
                         authorName = apiPost.author?.display_name ?: "Unknown",
                         authorHandle = apiPost.author?.username ?: "",
                         authorAvatarUrl = apiPost.author?.avatar_url,
@@ -429,35 +431,7 @@ class AppRepositoryImpl : AppRepository {
                         isLiked = apiPost.is_liked,
                         isReposted = apiPost.is_reposted,
                         isBookmarked = apiPost.is_bookmarked,
-                        replies = apiPost.replies?.map { apiReply ->
-                            PostReply(
-                                id = apiReply.id,
-                                authorName = apiReply.author?.display_name ?: "Unknown",
-                                authorHandle = apiReply.author?.username ?: "",
-                                authorAvatarUrl = apiReply.author?.avatar_url,
-                                authorAvatarColor = androidx.compose.ui.graphics.Color(0xFF90CAF9),
-                                isVerifiedAuthor = apiReply.author?.is_verified ?: false,
-                                content = apiReply.content,
-                                timestamp = apiReply.created_at ?: "",
-                                likes = apiReply.likes.toString(),
-                                isLiked = apiReply.is_liked,
-                                nestedReplies = apiReply.nested_replies?.map { nested ->
-                                    PostReply(
-                                        id = nested.id,
-                                        authorName = nested.author?.display_name ?: "Unknown",
-                                        authorHandle = nested.author?.username ?: "",
-                                        authorAvatarUrl = nested.author?.avatar_url,
-                                        authorAvatarColor = androidx.compose.ui.graphics.Color(0xFF90CAF9),
-                                        isVerifiedAuthor = nested.author?.is_verified ?: false,
-                                        content = nested.content,
-                                        timestamp = nested.created_at ?: "",
-                                        likes = nested.likes.toString(),
-                                        isLiked = nested.is_liked,
-                                        nestedReplies = emptyList()
-                                    )
-                                } ?: emptyList()
-                            )
-                        } ?: emptyList(),
+                        replies = apiPost.replies?.map { apiReply -> mapApiPostReply(apiReply) } ?: emptyList(),
                         location = apiPost.location,
                         tags = apiPost.tags ?: emptyList()
                     )
@@ -465,6 +439,60 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Success(posts))
             } else {
                 emit(Resource.Error("Failed to load posts"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun createPost(content: String, mediaUrls: List<String>): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            
+            // Log media URL count
+            Log.d("createPost", "URL count: ${mediaUrls.size}")
+            
+            // Log the URLs
+            Log.d("createPost", "URLs: $mediaUrls")
+            
+            // Log request timestamp
+            Log.d("createPost", "Request being sent at ${System.currentTimeMillis()}")
+            
+            val trimmed = content.trim()
+            if (trimmed.isEmpty() && mediaUrls.isEmpty()) {
+                emit(Resource.Error("Post content or media is required"))
+                return@flow
+            }
+
+            val response = apiService.createPost(
+                CreatePostRequest(
+                    content = trimmed,
+                    media_urls = mediaUrls,
+                    post_type = if (mediaUrls.isEmpty()) "text_only" else "image_with_text"
+                )
+            )
+            
+            // Log response received
+            Log.d("createPost", "Response received: ${response.code()} - Success: ${response.isSuccessful}")
+            
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to create post"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun likePost(postId: Int): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.likePost(postId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to like post"))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Unknown error"))
@@ -543,6 +571,22 @@ class AppRepositoryImpl : AppRepository {
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Unknown error"))
         }
+    }
+
+    private fun mapApiPostReply(apiReply: ApiPostReply): PostReply {
+        return PostReply(
+            id = apiReply.id,
+            authorName = apiReply.author?.display_name ?: "Unknown",
+            authorHandle = apiReply.author?.username ?: "",
+            authorAvatarUrl = apiReply.author?.avatar_url,
+            authorAvatarColor = androidx.compose.ui.graphics.Color(0xFF90CAF9),
+            isVerifiedAuthor = apiReply.author?.is_verified ?: false,
+            content = apiReply.content,
+            timestamp = apiReply.created_at ?: "",
+            likes = apiReply.likes.toString(),
+            isLiked = apiReply.is_liked,
+            nestedReplies = apiReply.nested_replies?.map { mapApiPostReply(it) } ?: emptyList()
+        )
     }
 
     private fun mapApiMessage(apiMessage: ApiMessage): Message {
