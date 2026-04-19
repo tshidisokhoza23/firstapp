@@ -48,5 +48,7 @@ data class PostReply(
     val timestamp: String,
     val likes: String,
     val isLiked: Boolean = false,
+    val isReposted: Boolean = false,
+    val isBookmarked: Boolean = false,
     val nestedReplies: List<PostReply> = emptyList()
 )

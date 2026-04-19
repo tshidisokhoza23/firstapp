@@ -32,8 +32,12 @@ interface AppRepository {
     fun getPosts(): Flow<Resource<List<Post>>>
     fun createPost(content: String, mediaUrls: List<String> = emptyList()): Flow<Resource<Boolean>>
     fun likePost(postId: Int): Flow<Resource<Boolean>>
+    fun repostPost(postId: Int): Flow<Resource<Boolean>>
+    fun bookmarkPost(postId: Int): Flow<Resource<Boolean>>
     fun createPostReply(postId: Int, content: String, parentReplyId: Int? = null): Flow<Resource<Boolean>>
     fun likePostReply(replyId: Int): Flow<Resource<Boolean>>
+    fun repostPostReply(replyId: Int): Flow<Resource<Boolean>>
+    fun bookmarkPostReply(replyId: Int): Flow<Resource<Boolean>>
     fun getStories(): Flow<Resource<List<UserStory>>>
     fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
     fun search(query: String): Flow<Resource<SearchResult>>

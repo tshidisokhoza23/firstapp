@@ -1,5 +1,6 @@
 package com.example.firstapp.ui.screens
 
+import android.util.Base64
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -26,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.firstapp.data.TokenManager
 import com.example.firstapp.data.repository.SearchResult
 import com.example.firstapp.model.*
 import com.example.firstapp.ui.components.*
@@ -33,6 +35,7 @@ import com.example.firstapp.ui.theme.*
 import com.example.firstapp.ui.viewmodel.MainViewModel
 import com.example.firstapp.ui.viewmodel.MusicViewModel
 import com.example.firstapp.util.Resource
+import org.json.JSONObject
 
 
 @Composable
@@ -196,7 +199,32 @@ fun MainContent(
     var showMenu by remember { mutableStateOf(false) }
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var isMediaProfileActive by remember { mutableStateOf(false) }
+    var openMediaProfileRequest by remember { mutableIntStateOf(0) }
+    var closeMediaProfileRequest by remember { mutableIntStateOf(0) }
     val searchResults by viewModel.searchResults.collectAsState()
+    var cachedSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+
+    LaunchedEffect(songsState) {
+        val latestSongs = (songsState as? Resource.Success<List<Song>>)?.data.orEmpty()
+        if (latestSongs.isNotEmpty()) {
+            cachedSongs = latestSongs
+        }
+    }
+
+    val mediaSongs = (songsState as? Resource.Success<List<Song>>)?.data
+        ?.takeIf { it.isNotEmpty() }
+        ?: cachedSongs
+
+    val currentUserId = remember { getCurrentUserIdFromTokenForMain() }
+    val mediaProfileSourcePost = (postsState as? Resource.Success<List<Post>>)
+        ?.data
+        ?.let { allPosts ->
+            if (currentUserId != null) allPosts.firstOrNull { it.authorId == currentUserId } else allPosts.firstOrNull()
+        }
+    val mediaProfileName = mediaProfileSourcePost?.authorName ?: "You"
+    val mediaProfileHandle = mediaProfileSourcePost?.authorHandle ?: "you"
+    val mediaProfileAvatarColor = mediaProfileSourcePost?.authorAvatarColor ?: Color(0xFF3A4B57)
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.isBlank()) {
@@ -205,6 +233,16 @@ fun MainContent(
             viewModel.search(searchQuery)
         }
     }
+
+    val selectedPostFromFeed = when (postsState) {
+        is Resource.Success -> {
+            val allPosts = (postsState as Resource.Success<List<Post>>).data ?: emptyList()
+            val selectedId = selectedPost?.id
+            if (selectedId != null) allPosts.firstOrNull { it.id == selectedId } else null
+        }
+        else -> null
+    }
+    val effectiveSelectedPost = selectedPostFromFeed ?: selectedPost
 
     val onBackAction = {
         if (isNowPlayingVisible) {
@@ -220,7 +258,8 @@ fun MainContent(
         else if (showJobProfile) onShowJobProfile(false)
         else if (showApplications) onShowApplications(false)
         else if (showDirectMessages) onShowDirectMessages(false)
-        else if (selectedPost != null) onPostSelect(null)
+        else if (isMediaProfileActive) closeMediaProfileRequest += 1
+        else if (effectiveSelectedPost != null) onPostSelect(null)
         else if (selectedJob != null) onJobSelect(null)
         else if (selectedChannel != null) onChannelSelect(null)
         else if (selectedAdvert != null) onAdvertSelect(null)
@@ -232,7 +271,7 @@ fun MainContent(
     }
 
     androidx.activity.compose.BackHandler(
-        enabled = isNowPlayingVisible || isSearchActive || selectedChat != null || showStories || showContactPicker || showJobProfile || showApplications || showDirectMessages || selectedJob != null || selectedChannel != null || selectedAdvert != null || showAdvertViewer || selectedBottomItem != 0,
+        enabled = isNowPlayingVisible || isSearchActive || selectedChat != null || showStories || showContactPicker || showJobProfile || showApplications || showDirectMessages || isMediaProfileActive || selectedJob != null || effectiveSelectedPost != null || selectedChannel != null || selectedAdvert != null || showAdvertViewer || selectedBottomItem != 0,
         onBack = onBackAction
     )
 
@@ -324,15 +363,25 @@ fun MainContent(
                     android.widget.Toast.makeText(context, "Reminder set for ${application.jobTitle}", android.widget.Toast.LENGTH_SHORT).show()
                 }
             )
-        } else if (selectedPost != null) {
+        } else if (effectiveSelectedPost != null) {
             PostDetailContent(
-                post = selectedPost,
+                post = effectiveSelectedPost,
+                songs = mediaSongs,
                 onBack = { onPostSelect(null) },
+                onLikePost = { viewModel.likePost(effectiveSelectedPost.id) },
+                onRepostPost = { viewModel.repostPost(effectiveSelectedPost.id) },
+                onBookmarkPost = { viewModel.bookmarkPost(effectiveSelectedPost.id) },
                 onReplySubmit = { parentReplyId, content ->
-                    viewModel.createPostReply(selectedPost.id, content, parentReplyId)
+                    viewModel.createPostReply(effectiveSelectedPost.id, content, parentReplyId)
                 },
                 onReplyLike = { replyId ->
                     viewModel.likePostReply(replyId)
+                },
+                onReplyRepost = { replyId ->
+                    viewModel.repostPostReply(replyId)
+                },
+                onBookmarkReply = { replyId ->
+                    viewModel.bookmarkPostReply(replyId)
                 },
                 onMediaClick = { _, _ -> }
             )
@@ -402,7 +451,7 @@ fun MainContent(
                     }
                 },
                 topBar = {
-                    if (selectedBottomItem == 0 || selectedBottomItem == 1) {
+                    if (selectedBottomItem == 0 || (selectedBottomItem == 1 && !isMediaProfileActive)) {
                         Column(
                             modifier = Modifier
                                 .background(AppBackground)
@@ -471,7 +520,8 @@ fun MainContent(
                                                     modifier = Modifier
                                                         .size(36.dp)
                                                         .clip(CircleShape)
-                                                        .background(Color(0xFF3A4B57)),
+                                                        .background(mediaProfileAvatarColor)
+                                                        .clickable { openMediaProfileRequest += 1 },
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.White)
@@ -629,7 +679,8 @@ fun MainContent(
                     }
                 },
                 bottomBar = {
-                    Column {
+                    if (!(selectedBottomItem == 1 && isMediaProfileActive)) {
+                        Column {
                         // Global Mini Player
                         currentlyPlaying?.let { song ->
                             if (!isNowPlayingVisible) {
@@ -707,6 +758,7 @@ fun MainContent(
                             }
                         }
                     }
+                    }
                 },
                 containerColor = AppBackground
             ) { innerPadding ->
@@ -766,25 +818,48 @@ fun MainContent(
                                 ChannelList(channels) { onChannelSelect(it) }
                             }
                         }
-                        1 -> DataStateHandler(postsState) { posts ->
-                            MediaScreen(
-                                posts = posts,
-                                mediaFeedTab = selectedMediaFeedTab,
-                                selectedPost = selectedPost,
-                                onPostSelect = onPostSelect,
-                                onCreatePost = { content, mediaUrls ->
-                                    viewModel.createPost(content, mediaUrls)
-                                },
-                                onLikePost = { postId ->
-                                    viewModel.likePost(postId)
-                                },
-                                onReplySubmit = { postId, parentReplyId, content ->
-                                    viewModel.createPostReply(postId, content, parentReplyId)
-                                },
-                                onReplyLike = { replyId ->
-                                    viewModel.likePostReply(replyId)
-                                }
-                            )
+                        1 -> key(mediaSongs.size, (postsState as? Resource.Success<List<Post>>)?.data?.size ?: -1) {
+                            DataStateHandler(postsState) { posts ->
+                                MediaScreen(
+                                    posts = posts,
+                                    songs = mediaSongs,
+                                    mediaFeedTab = selectedMediaFeedTab,
+                                    selectedPost = effectiveSelectedPost,
+                                    openOwnProfileRequest = openMediaProfileRequest,
+                                    closeOwnProfileRequest = closeMediaProfileRequest,
+                                    ownProfileName = mediaProfileName,
+                                    ownProfileHandle = mediaProfileHandle,
+                                    ownProfileAvatarColor = mediaProfileAvatarColor,
+                                    onPostSelect = onPostSelect,
+                                    onCreatePost = { content, mediaUrls ->
+                                        viewModel.createPost(content, mediaUrls)
+                                    },
+                                    onLikePost = { postId ->
+                                        viewModel.likePost(postId)
+                                    },
+                                    onRepostPost = { postId ->
+                                        viewModel.repostPost(postId)
+                                    },
+                                    onReplySubmit = { postId, parentReplyId, content ->
+                                        viewModel.createPostReply(postId, content, parentReplyId)
+                                    },
+                                    onReplyLike = { replyId ->
+                                        viewModel.likePostReply(replyId)
+                                    },
+                                    onReplyRepost = { replyId ->
+                                        viewModel.repostPostReply(replyId)
+                                    },
+                                    onBookmarkPost = { postId ->
+                                        viewModel.bookmarkPost(postId)
+                                    },
+                                    onBookmarkReply = { replyId ->
+                                        viewModel.bookmarkPostReply(replyId)
+                                    },
+                                    onProfileViewChange = { active ->
+                                        isMediaProfileActive = active
+                                    }
+                                )
+                            }
                         }
                         2 -> DataStateHandler(songsState) { songs ->
                             MusicScreen(songs, musicViewModel)
@@ -823,6 +898,18 @@ fun MainContent(
                 )
             }
         }
+    }
+}
+
+private fun getCurrentUserIdFromTokenForMain(): Int? {
+    return try {
+        val token = TokenManager.getToken() ?: return null
+        val parts = token.split('.')
+        if (parts.size < 2) return null
+        val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP))
+        JSONObject(payload).optInt("user_id", -1).takeIf { it > 0 }
+    } catch (_: Exception) {
+        null
     }
 }
 

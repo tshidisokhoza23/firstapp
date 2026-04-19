@@ -106,6 +106,12 @@ interface ApiService {
     @POST("posts/{postId}/like")
     suspend fun likePost(@Path("postId") postId: Int): Response<StatusResponse>
 
+    @POST("posts/{postId}/repost")
+    suspend fun repostPost(@Path("postId") postId: Int): Response<StatusResponse>
+
+    @POST("posts/{postId}/bookmark")
+    suspend fun bookmarkPost(@Path("postId") postId: Int): Response<StatusResponse>
+
     @POST("posts/{postId}/replies")
     suspend fun createPostReply(
         @Path("postId") postId: Int,
@@ -114,6 +120,12 @@ interface ApiService {
 
     @POST("post-replies/{replyId}/like")
     suspend fun likePostReply(@Path("replyId") replyId: Int): Response<StatusResponse>
+
+    @POST("post-replies/{replyId}/repost")
+    suspend fun repostPostReply(@Path("replyId") replyId: Int): Response<StatusResponse>
+
+    @POST("post-replies/{replyId}/bookmark")
+    suspend fun bookmarkPostReply(@Path("replyId") replyId: Int): Response<StatusResponse>
 
     // Stories
     @GET("stories")
@@ -324,6 +336,7 @@ data class ApiPostReply(
     val created_at: String?,
     val likes: Long,
     val is_liked: Boolean,
+    val is_reposted: Boolean,
     val parent_reply_id: Int?,
     val author: ApiPostAuthor?,
     val nested_replies: List<ApiPostReply>?

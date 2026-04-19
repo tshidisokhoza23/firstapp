@@ -1,6 +1,4 @@
 package com.example.firstapp.ui.screens
-
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,11 +21,6 @@ fun MusicScreen(
     viewModel: MusicViewModel = viewModel()
 ) {
     var currentScreen by remember { mutableStateOf("Recommendations") }
-
-    // Internal back navigation: only active when current screen is not Recommendations
-    BackHandler(currentScreen != "Recommendations") {
-        currentScreen = "Recommendations"
-    }
 
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {

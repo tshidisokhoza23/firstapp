@@ -12,6 +12,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
     private const val BASE_URL = "http://192.168.100.7:8082/api/v1/" // Local backend with fixed queries
+    private val refreshLock = Any()
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -42,35 +43,62 @@ object ApiClient {
             path.endsWith("/auth/logout")
         if (isAuthEndpoint) return@Authenticator null
 
-        val refreshToken = TokenManager.getRefreshToken() ?: return@Authenticator null
-        val refreshRequest = TokenRefreshRequest(refresh_token = refreshToken)
+        if (responseCount(response) >= 2) return@Authenticator null
 
-        try {
-            val refreshResponse = runBlocking {
-                Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .addConverterFactory(GsonConverterFactory.create())
+        val previousAuthHeader = response.request.header("Authorization")
+        val previousToken = previousAuthHeader
+            ?.takeIf { it.startsWith("Bearer ") }
+            ?.removePrefix("Bearer ")
+
+        synchronized(refreshLock) {
+            // Another request may have already refreshed the token while this one was waiting.
+            val latestToken = TokenManager.getToken()
+            if (!latestToken.isNullOrBlank() && latestToken != previousToken) {
+                return@Authenticator response.request.newBuilder()
+                    .header("Authorization", "Bearer $latestToken")
                     .build()
-                    .create(ApiService::class.java)
-                    .refresh(refreshRequest)
             }
 
-            if (refreshResponse.isSuccessful) {
-                val body = refreshResponse.body()
-                if (body != null && body.token.isNotBlank() && body.refreshToken.isNotBlank()) {
-                    TokenManager.setToken(body.token)
-                    TokenManager.setRefreshToken(body.refreshToken)
-                    return@Authenticator response.request.newBuilder()
-                        .header("Authorization", "Bearer ${body.token}")
+            val refreshToken = TokenManager.getRefreshToken() ?: return@Authenticator null
+            val refreshRequest = TokenRefreshRequest(refresh_token = refreshToken)
+
+            try {
+                val refreshResponse = runBlocking {
+                    Retrofit.Builder()
+                        .baseUrl(BASE_URL)
+                        .addConverterFactory(GsonConverterFactory.create())
                         .build()
+                        .create(ApiService::class.java)
+                        .refresh(refreshRequest)
                 }
-            }
-        } catch (_: Exception) {
-            // refresh failed
-        }
 
-        TokenManager.clearToken()
-        null
+                if (refreshResponse.isSuccessful) {
+                    val body = refreshResponse.body()
+                    if (body != null && body.token.isNotBlank() && body.refreshToken.isNotBlank()) {
+                        TokenManager.setToken(body.token)
+                        TokenManager.setRefreshToken(body.refreshToken)
+                        return@Authenticator response.request.newBuilder()
+                            .header("Authorization", "Bearer ${body.token}")
+                            .build()
+                    }
+                }
+            } catch (_: Exception) {
+                // refresh failed
+            }
+
+            // Keep current token state to avoid wiping valid tokens during concurrent refresh races.
+            return@Authenticator null
+        }
+    }
+
+    private fun responseCount(response: okhttp3.Response): Int {
+        var result = 1
+        var prior = response.priorResponse
+        while (prior != null) {
+            result++
+            prior = prior.priorResponse
+        }
+        return result
     }
 
     private val client = OkHttpClient.Builder()

@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.firstapp.data.TokenManager
 import com.example.firstapp.data.api.ApiClient
+import com.example.firstapp.data.realtime.PostSocketListener
+import com.example.firstapp.data.realtime.PostWebSocketClient
 import com.example.firstapp.data.repository.AppRepository
 import com.example.firstapp.data.repository.AppRepositoryImpl
 import com.example.firstapp.data.repository.SearchResult
@@ -61,6 +63,7 @@ class MainViewModel : ViewModel() {
 
     private val _syncedContacts = MutableStateFlow<List<Contact>>(emptyList())
     val syncedContacts: StateFlow<List<Contact>> = _syncedContacts.asStateFlow()
+    private var lastRealtimePostRefreshMs: Long = 0L
 
     init {
         fetchChats()
@@ -73,6 +76,26 @@ class MainViewModel : ViewModel() {
         fetchStories()
         fetchContacts()
         fetchJobApplications()
+        connectPostRealtime()
+    }
+
+    private fun connectPostRealtime() {
+        PostWebSocketClient.connect(object : PostSocketListener {
+            override fun onOpen() {
+                // No-op; realtime posts channel is connected.
+            }
+
+            override fun onPostsEvent(action: String, postId: Int?) {
+                val now = System.currentTimeMillis()
+                if (now - lastRealtimePostRefreshMs < 800) return
+                lastRealtimePostRefreshMs = now
+                fetchPosts()
+            }
+
+            override fun onError(error: String) {
+                // Realtime fallback is manual refresh and mutation-triggered fetches.
+            }
+        })
     }
 
     fun withdrawApplication(applicationId: Int) {
@@ -101,7 +124,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun createPost(content: String, mediaUrls: List<String> = emptyList()) {
-        if (content.isBlank()) return
+        if (content.isBlank() && mediaUrls.isEmpty()) return
         viewModelScope.launch {
             repository.createPost(content.trim(), mediaUrls).collect { result ->
                 if (result is Resource.Success && result.data == true) {
@@ -115,7 +138,27 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             repository.likePost(postId).collect { result ->
                 if (result is Resource.Success && result.data == true) {
-                    fetchPosts()
+                    // Optimistic UI handles this without a full feed reload.
+                }
+            }
+        }
+    }
+
+    fun repostPost(postId: Int) {
+        viewModelScope.launch {
+            repository.repostPost(postId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    // Optimistic UI handles this without a full feed reload.
+                }
+            }
+        }
+    }
+
+    fun bookmarkPost(postId: Int) {
+        viewModelScope.launch {
+            repository.bookmarkPost(postId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    // Optimistic UI handles this without a full feed reload.
                 }
             }
         }
@@ -125,7 +168,27 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             repository.likePostReply(replyId).collect { result ->
                 if (result is Resource.Success && result.data == true) {
-                    fetchPosts()
+                    // Optimistic UI handles this without a full feed reload.
+                }
+            }
+        }
+    }
+
+    fun repostPostReply(replyId: Int) {
+        viewModelScope.launch {
+            repository.repostPostReply(replyId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    // Optimistic UI handles this without a full feed reload.
+                }
+            }
+        }
+    }
+
+    fun bookmarkPostReply(replyId: Int) {
+        viewModelScope.launch {
+            repository.bookmarkPostReply(replyId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    // Optimistic UI handles this without a full feed reload.
                 }
             }
         }
@@ -196,6 +259,11 @@ class MainViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        PostWebSocketClient.close()
+        super.onCleared()
     }
 
     fun fetchStories() {

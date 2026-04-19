@@ -499,6 +499,34 @@ class AppRepositoryImpl : AppRepository {
         }
     }
 
+    override fun repostPost(postId: Int): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.repostPost(postId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to repost post"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun bookmarkPost(postId: Int): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.bookmarkPost(postId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to bookmark post"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
     override fun createPostReply(postId: Int, content: String, parentReplyId: Int?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
@@ -527,6 +555,34 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Failed to like reply"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun repostPostReply(replyId: Int): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.repostPostReply(replyId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to repost reply"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun bookmarkPostReply(replyId: Int): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.bookmarkPostReply(replyId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to bookmark reply"))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Unknown error"))
@@ -585,6 +641,8 @@ class AppRepositoryImpl : AppRepository {
             timestamp = apiReply.created_at ?: "",
             likes = apiReply.likes.toString(),
             isLiked = apiReply.is_liked,
+            isReposted = apiReply.is_reposted,
+            isBookmarked = false, // Assuming bookmark status might be added later to reply model if API supports it
             nestedReplies = apiReply.nested_replies?.map { mapApiPostReply(it) } ?: emptyList()
         )
     }
