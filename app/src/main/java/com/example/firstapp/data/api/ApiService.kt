@@ -112,6 +112,9 @@ interface ApiService {
     @POST("posts/{postId}/bookmark")
     suspend fun bookmarkPost(@Path("postId") postId: Int): Response<StatusResponse>
 
+    @POST("posts/{postId}/view")
+    suspend fun viewPost(@Path("postId") postId: Int): Response<StatusResponse>
+
     @POST("posts/{postId}/replies")
     suspend fun createPostReply(
         @Path("postId") postId: Int,
@@ -131,6 +134,9 @@ interface ApiService {
     @GET("stories")
     suspend fun getStories(): Response<StoriesResponse>
 
+    @POST("stories")
+    suspend fun createStory(@Body request: CreateStoryRequest): Response<CreateStoryResponse>
+
     // Ride options
     @GET("ride-options")
     suspend fun getRideOptions(): Response<RideOptionsResponse>
@@ -138,6 +144,9 @@ interface ApiService {
     // Destinations
     @GET("destinations")
     suspend fun getDestinations(): Response<DestinationsResponse>
+
+    @POST("destinations")
+    suspend fun saveDestination(@Body request: SaveDestinationRequest): Response<SaveDestinationResponse>
 }
 
 // Request/Response models
@@ -390,9 +399,30 @@ data class ApiStoryResponse(
 
 data class StoriesResponse(val stories: List<ApiStoryResponse>)
 
+data class CreateStoryRequest(
+    val content: String = "",
+    val content_url: String? = null,
+    val story_type: String = "text",
+    val duration_ms: Int = 5000
+)
+
+data class CreateStoryResponse(val story: ApiStoryItem)
+
 data class RideOptionsResponse(val ride_options: List<RideOption>)
 
 data class DestinationsResponse(val destinations: List<Destination>)
+
+data class SaveDestinationRequest(
+    val name: String,
+    val address: String,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val is_favorite: Boolean = false,
+    val destination_type: String = "recent",
+    val place_id: String? = null
+)
+
+data class SaveDestinationResponse(val destination: Destination)
 
 // Update User model to match backend
 data class User(

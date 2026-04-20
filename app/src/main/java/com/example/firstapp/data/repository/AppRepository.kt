@@ -41,6 +41,8 @@ interface AppRepository {
     fun getStories(): Flow<Resource<List<UserStory>>>
     fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
     fun search(query: String): Flow<Resource<SearchResult>>
+    fun viewPost(postId: Int): Flow<Resource<Boolean>>
+    fun saveDestination(name: String, address: String, latitude: Double, longitude: Double, isFavorite: Boolean, type: String): Flow<Resource<Boolean>>
 }
 
 data class SearchResult(

@@ -855,6 +855,9 @@ fun MainContent(
                                     onBookmarkReply = { replyId ->
                                         viewModel.bookmarkPostReply(replyId)
                                     },
+                                    onViewPost = { postId ->
+                                        viewModel.viewPost(postId)
+                                    },
                                     onProfileViewChange = { active ->
                                         isMediaProfileActive = active
                                     }

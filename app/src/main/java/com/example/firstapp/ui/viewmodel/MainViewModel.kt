@@ -194,6 +194,18 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun viewPost(postId: Int) {
+        viewModelScope.launch {
+            repository.viewPost(postId).collect { /* fire and forget */ }
+        }
+    }
+
+    fun saveDestination(name: String, address: String, latitude: Double = 0.0, longitude: Double = 0.0, isFavorite: Boolean = false, type: String = "recent") {
+        viewModelScope.launch {
+            repository.saveDestination(name, address, latitude, longitude, isFavorite, type).collect { /* no UI feedback needed */ }
+        }
+    }
+
     fun fetchSongs() {
         viewModelScope.launch {
             repository.getSongs().collect { _songs.value = it }

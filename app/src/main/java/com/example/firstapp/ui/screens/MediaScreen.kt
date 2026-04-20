@@ -89,6 +89,7 @@ fun MediaScreen(
     onReplyRepost: (replyId: Int) -> Unit,
     onBookmarkPost: (postId: Int) -> Unit,
     onBookmarkReply: (replyId: Int) -> Unit,
+    onViewPost: (postId: Int) -> Unit = {},
     onProfileViewChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -295,6 +296,7 @@ fun MediaScreen(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(displayedPostsWithOptimistic) { post ->
+                        LaunchedEffect(post.id) { onViewPost(post.id) }
                         PostItem(
                             post,
                             songs = effectiveSongs,

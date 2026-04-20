@@ -629,6 +629,35 @@ class AppRepositoryImpl : AppRepository {
         }
     }
 
+    override fun viewPost(postId: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.viewPost(postId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to record view"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun saveDestination(name: String, address: String, latitude: Double, longitude: Double, isFavorite: Boolean, type: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.saveDestination(SaveDestinationRequest(
+                name = name,
+                address = address,
+                latitude = latitude,
+                longitude = longitude,
+                is_favorite = isFavorite,
+                destination_type = type
+            ))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to save destination"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
     private fun mapApiPostReply(apiReply: ApiPostReply): PostReply {
         return PostReply(
             id = apiReply.id,
