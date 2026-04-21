@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.firstapp.ui.screens
 
 import androidx.compose.foundation.background
@@ -35,6 +37,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import retrofit2.Response
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -129,7 +134,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     errorMessage = apiMessage ?: "Request failed (${response.code()})"
                 }
             } catch (e: Exception) {
-                errorMessage = "Network error: ${e.localizedMessage}"
+                errorMessage = e.toLoginMessage()
             } finally {
                 isLoading = false
             }
@@ -315,5 +320,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 Text("Continue with Google", fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
         }
+    }
+}
+
+private fun Throwable.toLoginMessage(): String {
+    return when (this) {
+        is ConnectException,
+        is UnknownHostException,
+        is SocketTimeoutException -> "Can't reach the server. Check that the backend is running and try again."
+        else -> localizedMessage?.takeIf { it.isNotBlank() }
+            ?.let { "Network error: $it" }
+            ?: "Sign in failed. Please try again."
     }
 }

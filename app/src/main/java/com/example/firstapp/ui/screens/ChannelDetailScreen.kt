@@ -17,14 +17,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Reply
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +43,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.model.Channel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import com.example.firstapp.ui.theme.AppBackground
 import com.example.firstapp.ui.theme.AppSecondary
 import com.example.firstapp.ui.theme.AppTextPrimary
@@ -48,7 +56,10 @@ import com.example.firstapp.ui.theme.AppTextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit) {
+fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit, onSubscribe: (Int) -> Unit = {}) {
+    val context = LocalContext.current
+    var isSubscribed by remember { mutableStateOf(channel.isSubscribed) }
+    var showMenu by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -73,7 +84,21 @@ fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) { Icon(Icons.Default.MoreVert, "More") }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, "More") }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Refresh") },
+                                onClick = {
+                                    showMenu = false
+                                    Toast.makeText(context, "Channel refreshed", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = AppSecondary,
@@ -92,12 +117,15 @@ fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Button(
-                    onClick = { },
+                    onClick = {
+                        isSubscribed = !isSubscribed
+                        onSubscribe(channel.id)
+                    },
                     modifier = Modifier.fillMaxWidth().height(45.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                     shape = RoundedCornerShape(25.dp)
                 ) {
-                    Text("Follow channel", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text(if (isSubscribed) "Unfollow" else "Follow channel", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -174,7 +202,7 @@ fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Reply, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("478", color = AppTextSecondary, fontSize = 14.sp)
                 }

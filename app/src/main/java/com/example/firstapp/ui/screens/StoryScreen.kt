@@ -19,19 +19,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import com.example.firstapp.model.UserStory
 import com.example.firstapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
+    val context = LocalContext.current
     var viewingUserStory by remember { mutableStateOf<UserStory?>(null) }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showViewedFirst by remember { mutableStateOf(false) }
     val storyList = stories
-    val recentUpdates = storyList.filter { !it.allViewed }
-    val viewedUpdates = storyList.filter { it.allViewed }
+    val filteredStories = remember(storyList, searchQuery) {
+        if (searchQuery.isBlank()) {
+            storyList
+        } else {
+            val q = searchQuery.trim().lowercase()
+            storyList.filter { it.userName.lowercase().contains(q) }
+        }
+    }
+    val recentUpdates = filteredStories.filter { !it.allViewed }
+    val viewedUpdates = filteredStories.filter { it.allViewed }
     val myStatus = storyList.firstOrNull()
 
     if (viewingUserStory != null) {
@@ -52,10 +66,15 @@ fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
                         }
                     },
                     actions = {
-                        IconButton(onClick = {}) { Icon(Icons.Default.CameraAlt, "Camera", tint = AppTextPrimary) }
-                        IconButton(onClick = {}) { Icon(Icons.Default.Search, "Search", tint = AppTextPrimary) }
-                        IconButton(onClick = {}) { Icon(Icons.Default.Edit, "Edit", tint = AppTextPrimary) }
-                        IconButton(onClick = {}) { Icon(Icons.Default.MoreVert, "More", tint = AppTextPrimary) }
+                        IconButton(onClick = {
+                            myStatus?.let { viewingUserStory = it }
+                                ?: Toast.makeText(context, "No status available", Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.CameraAlt, "Camera", tint = AppTextPrimary) }
+                        IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Default.Search, "Search", tint = AppTextPrimary) }
+                        IconButton(onClick = {
+                            Toast.makeText(context, "Status composer will be added next", Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.Edit, "Edit", tint = AppTextPrimary) }
+                        IconButton(onClick = { showViewedFirst = !showViewedFirst }) { Icon(Icons.Default.MoreVert, "More", tint = AppTextPrimary) }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
                 )
@@ -67,6 +86,20 @@ fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
                     .fillMaxSize()
                     .padding(padding)
             ) {
+                if (showSearch) {
+                    item {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            label = { Text("Search status") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+
                 item {
                     Text(
                         "Status",
@@ -83,32 +116,35 @@ fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
                     }
                 }
 
-                if (recentUpdates.isNotEmpty()) {
+                val firstUpdates = if (showViewedFirst) viewedUpdates else recentUpdates
+                val secondUpdates = if (showViewedFirst) recentUpdates else viewedUpdates
+
+                if (firstUpdates.isNotEmpty()) {
                     item {
                         Text(
-                            "Recent updates",
+                            if (showViewedFirst) "Viewed updates" else "Recent updates",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             color = AppTextSecondary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(recentUpdates) { userStory ->
+                    items(firstUpdates) { userStory ->
                         StoryListItem(userStory, onClick = { viewingUserStory = userStory })
                     }
                 }
 
-                if (viewedUpdates.isNotEmpty()) {
+                if (secondUpdates.isNotEmpty()) {
                     item {
                         Text(
-                            "Viewed updates",
+                            if (showViewedFirst) "Recent updates" else "Viewed updates",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             color = AppTextSecondary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(viewedUpdates) { userStory ->
+                    items(secondUpdates) { userStory ->
                         StoryListItem(userStory, onClick = { viewingUserStory = userStory })
                     }
                 }

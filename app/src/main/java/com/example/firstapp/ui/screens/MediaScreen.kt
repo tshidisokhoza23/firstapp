@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -914,6 +915,7 @@ fun PostDetailContent(
     var tempReplyIdSeed by remember(post.id) { mutableStateOf(-1) }
     var focusedReplyId by remember(post.id) { mutableStateOf<Int?>(null) }
     var showReplyComposer by remember(post.id) { mutableStateOf(false) }
+    var showPostMenu by remember(post.id) { mutableStateOf(false) }
     var composerText by remember(post.id) { mutableStateOf("") }
     var replyTargetId by remember(post.id) { mutableStateOf<Int?>(null) }
     var replyTargetName by remember(post.id) { mutableStateOf("") }
@@ -953,8 +955,30 @@ fun PostDetailContent(
                     fontSize = 18.sp,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = {}) {
-                    Icon(Icons.Default.MoreHoriz, contentDescription = "More", tint = AppTextSecondary)
+                Box {
+                    IconButton(onClick = { showPostMenu = true }) {
+                        Icon(Icons.Default.MoreHoriz, contentDescription = "More", tint = AppTextSecondary)
+                    }
+                    DropdownMenu(
+                        expanded = showPostMenu,
+                        onDismissRequest = { showPostMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Reply") },
+                            onClick = {
+                                showPostMenu = false
+                                focusedReplyId = null
+                                showReplyComposer = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Back to feed") },
+                            onClick = {
+                                showPostMenu = false
+                                onBack()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -1129,7 +1153,7 @@ fun PostDetailContent(
                         authorHandle = "you",
                         authorAvatarColor = Color(0xFF90CAF9),
                         content = content,
-                        timestamp = "now",
+                        timestamp = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.getDefault()).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }.format(java.util.Date()),
                         likes = "0",
                         isLiked = false,
                         nestedReplies = emptyList()
@@ -1957,7 +1981,7 @@ private fun postMusicTypeIcon(tags: List<String>): ImageVector? {
     val normalized = tags.map { it.trim().lowercase() }.toSet()
     return when {
         "album" in normalized -> Icons.Default.Album
-        "playlist" in normalized -> Icons.Default.QueueMusic
+        "playlist" in normalized -> Icons.AutoMirrored.Filled.QueueMusic
         "song" in normalized -> Icons.Default.MusicNote
         else -> null
     }
@@ -2207,6 +2231,13 @@ private fun getCurrentUserIdFromToken(): Int? {
 
 @Composable
 fun ProfileView(onBack: () -> Unit, posts: List<Post>) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    var profileName by remember { mutableStateOf("Tshidiso") }
+    var profileHandle by remember { mutableStateOf("@tshidiso_dev") }
+    var profileBio by remember {
+        mutableStateOf("Fullstack Developer | Building the future with FirstApp 🚀 | Android & Cloud Enthusiast")
+    }
+
     Scaffold(
         topBar = {
             Row(
@@ -2266,7 +2297,7 @@ fun ProfileView(onBack: () -> Unit, posts: List<Post>) {
                         }
 
                         Button(
-                            onClick = {},
+                            onClick = { showEditDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                             shape = RoundedCornerShape(20.dp),
                             modifier = Modifier.height(36.dp)
@@ -2275,11 +2306,11 @@ fun ProfileView(onBack: () -> Unit, posts: List<Post>) {
                         }
                     }
 
-                    Text("Tshidiso", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                    Text("@tshidiso_dev", color = AppTextSecondary, fontSize = 14.sp)
+                    Text(profileName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    Text(profileHandle, color = AppTextSecondary, fontSize = 14.sp)
                     
                     Text(
-                        "Fullstack Developer | Building the future with FirstApp 🚀 | Android & Cloud Enthusiast",
+                        profileBio,
                         color = Color.White,
                         fontSize = 15.sp,
                         modifier = Modifier.padding(vertical = 12.dp)
@@ -2309,6 +2340,30 @@ fun ProfileView(onBack: () -> Unit, posts: List<Post>) {
                 PostItem(post)
                 HorizontalDivider(color = Color(0xFF233138), thickness = 0.5.dp)
             }
+        }
+
+        if (showEditDialog) {
+            AlertDialog(
+                onDismissRequest = { showEditDialog = false },
+                title = { Text("Edit profile") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = profileName, onValueChange = { profileName = it }, label = { Text("Name") }, singleLine = true)
+                        OutlinedTextField(value = profileHandle, onValueChange = { profileHandle = it }, label = { Text("Handle") }, singleLine = true)
+                        OutlinedTextField(value = profileBio, onValueChange = { profileBio = it }, label = { Text("Bio") })
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showEditDialog = false }) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEditDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }

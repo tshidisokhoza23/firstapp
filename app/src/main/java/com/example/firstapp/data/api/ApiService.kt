@@ -5,7 +5,6 @@ import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
-
 /**
  * Interface for API calls.
  * Base URL: http://10.0.2.2:8080/api/v1/ (for Android emulator)
@@ -32,6 +31,9 @@ interface ApiService {
     @PUT("users/me")
     suspend fun updateUser(@Body request: UpdateUserRequest): Response<UserResponse>
 
+    @POST("devices/push-token")
+    suspend fun upsertPushToken(@Body request: PushTokenRequest): Response<StatusResponse>
+
     // Contacts and Messages
     @GET("contacts")
     suspend fun getContacts(): Response<ContactsResponse>
@@ -44,6 +46,12 @@ interface ApiService {
 
     @GET("chats")
     suspend fun getChats(): Response<ChatsResponse>
+
+    @POST("chats")
+    suspend fun createChat(@Body request: CreateChatRequest): Response<Any>
+
+    @GET("calls")
+    suspend fun getCalls(): Response<CallsResponse>
 
     @GET("conversations/{contactId}/messages")
     suspend fun getMessages(@Path("contactId") contactId: Int, @Query("page") page: Int = 1): Response<MessagesResponse>
@@ -68,6 +76,9 @@ interface ApiService {
     @GET("applications")
     suspend fun getJobApplications(): Response<JobApplicationsResponse>
 
+    @DELETE("applications/{applicationId}")
+    suspend fun withdrawApplication(@Path("applicationId") applicationId: Int): Response<StatusResponse>
+
     // Adverts
     @GET("adverts")
     suspend fun getAdverts(): Response<AdvertsResponse>
@@ -87,7 +98,10 @@ interface ApiService {
     suspend fun getShorts(): Response<ShortsResponse>
 
     @POST("shorts/{shortId}/like")
-    suspend fun likeShort(@Path("shortId") shortId: Int): Response<StatusResponse>
+    suspend fun likeShort(@Path("shortId") shortId: Int): Response<ShortLikeResponse>
+
+    @POST("shorts/{shortId}/subscribe")
+    suspend fun subscribeToShortCreator(@Path("shortId") shortId: Int): Response<ShortSubscribeResponse>
 
     // Songs
     @GET("songs")
@@ -96,12 +110,18 @@ interface ApiService {
     @POST("songs/{songId}/like")
     suspend fun likeSong(@Path("songId") songId: Int): Response<StatusResponse>
 
+    @POST("songs/{songId}/play")
+    suspend fun incrementSongPlay(@Path("songId") songId: Int): Response<StatusResponse>
+
     // Posts
     @GET("posts")
     suspend fun getPosts(@Query("page") page: Int = 1): Response<PostsResponse>
 
     @POST("posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
+
+    @DELETE("posts/{postId}")
+    suspend fun deletePost(@Path("postId") postId: Int): Response<StatusResponse>
 
     @POST("posts/{postId}/like")
     suspend fun likePost(@Path("postId") postId: Int): Response<StatusResponse>
@@ -159,6 +179,7 @@ data class AuthResponse(
 )
 data class UserResponse(val user: User)
 data class UpdateUserRequest(val display_name: String? = null, val bio: String? = null, val location: String? = null)
+data class PushTokenRequest(val token: String, val device_id: String, val platform: String = "android")
 
 data class ApiUser(
     val id: Int,
@@ -172,6 +193,7 @@ data class ApiUser(
 data class ContactsResponse(val contacts: List<ApiUser>)
 
 data class SyncContactsRequest(val phone_numbers: List<String>)
+data class CreateChatRequest(val contact_id: Int)
 
 data class SearchResponse(val chats: List<ChatSummary>, val contacts: List<ApiUser>)
 
@@ -185,6 +207,23 @@ data class ChatSummary(
 )
 
 data class ChatsResponse(val chats: List<ChatSummary>)
+
+data class ApiCallLog(
+    val id: Int,
+    val session_id: String,
+    val caller_id: Int,
+    val callee_id: Int,
+    val contact_id: Int,
+    val contact_name: String,
+    val contact_avatar: String? = null,
+    val call_type: String,
+    val status: String,
+    val duration_seconds: Int,
+    val started_at: String,
+    val ended_at: String? = null
+)
+
+data class CallsResponse(val calls: List<ApiCallLog>)
 
 data class ApiMessage(
     val id: Int,
@@ -275,7 +314,8 @@ data class ApiAdvert(
     val impressions: Long,
     val clicks: Long,
     val is_native_ad: Boolean,
-    val is_viewed: Boolean
+    val is_viewed: Boolean,
+    val created_at: String? = null
 )
 
 data class AdvertsResponse(val adverts: List<ApiAdvert>)
@@ -310,6 +350,17 @@ data class ApiShort(
 )
 
 data class ShortsResponse(val shorts: List<ApiShort>)
+
+data class ShortLikeResponse(
+    val status: String,
+    val is_liked: Boolean,
+    val likes: Long
+)
+
+data class ShortSubscribeResponse(
+    val status: String,
+    val is_subscribed: Boolean
+)
 
 data class ApiSong(
     val id: Int,

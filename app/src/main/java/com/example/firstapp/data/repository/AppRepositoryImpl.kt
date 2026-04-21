@@ -5,8 +5,12 @@ import com.example.firstapp.data.api.*
 import com.example.firstapp.model.*
 import com.example.firstapp.model.Short as AppShort
 import com.example.firstapp.util.Resource
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import retrofit2.HttpException
 
 class AppRepositoryImpl : AppRepository {
 
@@ -37,7 +41,37 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load chats"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun getCallLogs(): Flow<Resource<List<CallLog>>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.getCalls()
+            if (response.isSuccessful) {
+                val calls = response.body()?.calls?.map { apiCall ->
+                    CallLog(
+                        id = apiCall.id,
+                        sessionId = apiCall.session_id,
+                        callerId = apiCall.caller_id,
+                        calleeId = apiCall.callee_id,
+                        contactId = apiCall.contact_id,
+                        contactName = apiCall.contact_name,
+                        contactAvatar = apiCall.contact_avatar,
+                        callType = apiCall.call_type,
+                        status = apiCall.status,
+                        durationSeconds = apiCall.duration_seconds,
+                        startedAt = apiCall.started_at,
+                        endedAt = apiCall.ended_at
+                    )
+                } ?: emptyList()
+                emit(Resource.Success(calls))
+            } else {
+                emit(Resource.Error("Failed to load call logs"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -52,7 +86,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load messages"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -97,7 +131,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to send message"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -123,7 +157,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load contacts"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -138,8 +172,14 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to sync contacts"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
+    }
+
+    override suspend fun createChat(contactId: Int) {
+        try {
+            apiService.createChat(CreateChatRequest(contactId))
+        } catch (_: Exception) {}
     }
 
     override fun search(query: String): Flow<Resource<SearchResult>> = flow {
@@ -161,7 +201,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to search"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -218,7 +258,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load jobs"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -232,7 +272,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to apply for job"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -263,7 +303,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load applications"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -278,7 +318,7 @@ class AppRepositoryImpl : AppRepository {
                         advertiserName = apiAd.advertiser_name,
                         advertiserId = apiAd.advertiser_id ?: "",
                         title = apiAd.title ?: "",
-                        time = apiAd.time ?: "",
+                        time = apiAd.created_at ?: apiAd.time ?: "",
                         avatarUrl = apiAd.avatar_url,
                         avatarColor = androidx.compose.ui.graphics.Color(0xFF283593),
                         contentUrl = apiAd.content_url,
@@ -298,7 +338,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load adverts"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -330,7 +370,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load channels"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -349,6 +389,7 @@ class AppRepositoryImpl : AppRepository {
                         comments = apiShort.comments.toString(),
                         shares = apiShort.shares.toString(),
                         videoUrl = apiShort.video_url ?: "",
+                        thumbnailUrl = apiShort.thumbnail_url,
                         thumbnailColor = androidx.compose.ui.graphics.Color(0xFF000000),
                         profilePictureColor = androidx.compose.ui.graphics.Color(0xFF607D8B),
                         isLiked = apiShort.is_liked,
@@ -360,7 +401,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load shorts"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -393,7 +434,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load songs"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -441,7 +482,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to load posts"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -481,7 +522,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to create post"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -495,7 +536,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to like post"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -509,7 +550,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to repost post"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -523,7 +564,7 @@ class AppRepositoryImpl : AppRepository {
                 emit(Resource.Error("Failed to bookmark post"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unknown error"))
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 
@@ -640,6 +681,50 @@ class AppRepositoryImpl : AppRepository {
         }
     }
 
+    override fun deletePost(postId: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.deletePost(postId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to delete post"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun withdrawApplication(applicationId: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.withdrawApplication(applicationId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to withdraw application"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun subscribeToChannel(channelId: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.subscribeToChannel(channelId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to subscribe"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun incrementSongPlay(songId: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.incrementSongPlay(songId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to track play"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
     override fun saveDestination(name: String, address: String, latitude: Double, longitude: Double, isFavorite: Boolean, type: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
@@ -701,5 +786,16 @@ class AppRepositoryImpl : AppRepository {
             latitude = apiMessage.latitude,
             longitude = apiMessage.longitude
         )
+    }
+
+    private fun Throwable.toUserMessage(): String {
+        return when (this) {
+            is ConnectException,
+            is UnknownHostException,
+            is SocketTimeoutException -> "Can't reach the server. Check that the backend is running and try again."
+            is HttpException -> "Server error (${code()}). Please try again."
+            else -> localizedMessage?.takeIf { it.isNotBlank() }
+                ?: "Something went wrong. Please try again."
+        }
     }
 }

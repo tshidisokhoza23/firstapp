@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.*
@@ -19,15 +20,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.widget.Toast
 import com.example.firstapp.data.TokenManager
+import com.example.firstapp.data.media.ShortsVideoCache
 import com.example.firstapp.data.repository.SearchResult
 import com.example.firstapp.model.*
 import com.example.firstapp.ui.components.*
@@ -44,6 +53,24 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
     var selectedTabItem by remember { mutableIntStateOf(0) }
     var selectedMediaFeedTab by remember { mutableIntStateOf(0) }
     var selectedChat by remember { mutableStateOf<ChatMessage?>(null) }
+
+        // Global incoming call state
+        val incomingCall by com.example.firstapp.data.realtime.GlobalCallState.incomingCall.collectAsState()
+        val autoAcceptSessionId by com.example.firstapp.data.realtime.GlobalCallState.autoAcceptSessionId.collectAsState()
+        val chatsState0 by viewModel.chats.collectAsState()
+        val chatsForOverlay = (chatsState0 as? Resource.Success)?.data ?: emptyList()
+
+    // Navigate to caller's chat when Accept was tapped in notification
+    androidx.compose.runtime.LaunchedEffect(autoAcceptSessionId, incomingCall?.senderId) {
+        val sessionId = autoAcceptSessionId ?: return@LaunchedEffect
+        val call = incomingCall ?: return@LaunchedEffect
+        if (call.sessionId == sessionId && selectedChat?.id != call.senderId) {
+            val callerChat = chatsForOverlay.firstOrNull { it.id == call.senderId }
+                ?: ChatMessage(id = call.senderId, senderName = "User ${call.senderId}", lastMessage = "", time = "", avatarColor = androidx.compose.ui.graphics.Color.Gray)
+            selectedChat = callerChat
+        }
+    }
+
     var showStories by remember { mutableStateOf(false) }
     var selectedJob by remember { mutableStateOf<Job?>(null) }
     var selectedPost by remember { mutableStateOf<Post?>(null) }
@@ -66,6 +93,7 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
     val songsState by viewModel.songs.collectAsState()
     val postsState by viewModel.posts.collectAsState()
     val storiesState by viewModel.stories.collectAsState()
+    val callLogsState by viewModel.callLogs.collectAsState()
     val applications by viewModel.applications.collectAsState()
 
     // Music State
@@ -82,61 +110,128 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
         musicViewModel.initPlayer(context)
     }
 
-    MainContent(
-        viewModel = viewModel,
-        selectedBottomItem = selectedBottomItem,
-        onBottomItemSelect = { selectedBottomItem = it },
-        selectedTabItem = selectedTabItem,
-        onTabItemSelect = { selectedTabItem = it },
-        selectedMediaFeedTab = selectedMediaFeedTab,
-        onMediaFeedTabSelect = { selectedMediaFeedTab = it },
-        selectedChat = selectedChat,
-        onChatSelect = { selectedChat = it },
-        showStories = showStories,
-        onShowStories = { showStories = it },
-        selectedJob = selectedJob,
-        onJobSelect = { selectedJob = it },
-        selectedPost = selectedPost,
-        onPostSelect = { selectedPost = it },
-        selectedChannel = selectedChannel,
-        onChannelSelect = { selectedChannel = it },
-        selectedAdvert = selectedAdvert,
-        onAdvertSelect = { selectedAdvert = it },
-        showAdvertViewer = showAdvertViewer,
-        onShowAdvertViewer = { showAdvertViewer = it },
-        adsToView = adsToView,
-        onSetAdsToView = { adsToView = it },
-        viewerInitialIndex = viewerInitialIndex,
-        onSetViewerInitialIndex = { viewerInitialIndex = it },
-        onAdvertViewed = { viewModel.markAdvertAsViewed(it) },
-        chatsState = chatsState,
-        jobsState = jobsState,
-        advertsState = advertsState,
-        channelsState = channelsState,
-        shortsState = shortsState,
-        songsState = songsState,
-        postsState = postsState,
-        storiesState = storiesState,
-        onLogout = onLogout,
-        showContactPicker = showContactPicker,
-        onShowContactPicker = { showContactPicker = it },
-        showJobProfile = showJobProfile,
-        onShowJobProfile = { showJobProfile = it },
-        showApplications = showApplications,
-        onShowApplications = { showApplications = it },
-        applications = applications,
-        showDirectMessages = showDirectMessages,
-        onShowDirectMessages = { showDirectMessages = it },
-        musicViewModel = musicViewModel,
-        currentlyPlaying = currentlyPlaying,
-        isPlaying = isPlaying,
-        progress = progress,
-        isShuffleEnabled = isShuffleEnabled,
-        repeatMode = repeatMode,
-        likedSongs = likedSongs,
-        isNowPlayingVisible = isNowPlayingVisible,
-        onSetNowPlayingVisible = { isNowPlayingVisible = it }
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        MainContent(
+            viewModel = viewModel,
+            selectedBottomItem = selectedBottomItem,
+            onBottomItemSelect = { selectedBottomItem = it },
+            selectedTabItem = selectedTabItem,
+            onTabItemSelect = { selectedTabItem = it },
+            selectedMediaFeedTab = selectedMediaFeedTab,
+            onMediaFeedTabSelect = { selectedMediaFeedTab = it },
+            selectedChat = selectedChat,
+            onChatSelect = { selectedChat = it },
+            showStories = showStories,
+            onShowStories = { showStories = it },
+            selectedJob = selectedJob,
+            onJobSelect = { selectedJob = it },
+            selectedPost = selectedPost,
+            onPostSelect = { selectedPost = it },
+            selectedChannel = selectedChannel,
+            onChannelSelect = { selectedChannel = it },
+            selectedAdvert = selectedAdvert,
+            onAdvertSelect = { selectedAdvert = it },
+            showAdvertViewer = showAdvertViewer,
+            onShowAdvertViewer = { showAdvertViewer = it },
+            adsToView = adsToView,
+            onSetAdsToView = { adsToView = it },
+            viewerInitialIndex = viewerInitialIndex,
+            onSetViewerInitialIndex = { viewerInitialIndex = it },
+            onAdvertViewed = { viewModel.markAdvertAsViewed(it) },
+            chatsState = chatsState,
+            jobsState = jobsState,
+            advertsState = advertsState,
+            channelsState = channelsState,
+            shortsState = shortsState,
+            songsState = songsState,
+            postsState = postsState,
+            storiesState = storiesState,
+            callLogsState = callLogsState,
+            onLogout = onLogout,
+            showContactPicker = showContactPicker,
+            onShowContactPicker = { showContactPicker = it },
+            showJobProfile = showJobProfile,
+            onShowJobProfile = { showJobProfile = it },
+            showApplications = showApplications,
+            onShowApplications = { showApplications = it },
+            applications = applications,
+            showDirectMessages = showDirectMessages,
+            onShowDirectMessages = { showDirectMessages = it },
+            musicViewModel = musicViewModel,
+            currentlyPlaying = currentlyPlaying,
+            isPlaying = isPlaying,
+            progress = progress,
+            isShuffleEnabled = isShuffleEnabled,
+            repeatMode = repeatMode,
+            likedSongs = likedSongs,
+            isNowPlayingVisible = isNowPlayingVisible,
+            onSetNowPlayingVisible = { isNowPlayingVisible = it }
+        )
+
+        incomingCall?.let { call ->
+            if (selectedChat?.id != call.senderId) {
+                val callerMsg = chatsForOverlay.firstOrNull { it.id == call.senderId }
+                val callerName = callerMsg?.senderName ?: "User ${call.senderId}"
+                val callLabel = if (call.callType == com.example.firstapp.data.realtime.CallType.VIDEO) {
+                    "Incoming video call"
+                } else {
+                    "Incoming voice call"
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(color = Color(0xDD000000))
+                        .zIndex(100f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                    ) {
+                        Text(callLabel, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(callerName, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                FloatingActionButton(
+                                    onClick = {
+                                        com.example.firstapp.data.realtime.CallWebSocketClient.reject(
+                                            receiverId = call.senderId,
+                                            sessionId = call.sessionId,
+                                            callType = call.callType
+                                        )
+                                        com.example.firstapp.data.realtime.GlobalCallState.clear()
+                                    },
+                                    containerColor = Color.Red
+                                ) {
+                                    Icon(Icons.Filled.CallEnd, contentDescription = "Decline", tint = Color.White)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Text("Decline", color = Color.White, fontSize = 12.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                val acceptChat = callerMsg ?: ChatMessage(
+                                    id = call.senderId,
+                                    senderName = callerName,
+                                    lastMessage = "",
+                                    time = "",
+                                    avatarColor = Color(0xFF37474F)
+                                )
+                                FloatingActionButton(
+                                    onClick = { selectedChat = acceptChat },
+                                    containerColor = Color(0xFF4CAF50)
+                                ) {
+                                    Icon(Icons.Filled.Call, contentDescription = "Accept", tint = Color.White)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Text("Accept", color = Color.White, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -175,6 +270,7 @@ fun MainContent(
     songsState: Resource<List<Song>>,
     postsState: Resource<List<Post>>,
     storiesState: Resource<List<UserStory>>,
+    callLogsState: Resource<List<CallLog>>,
     onLogout: () -> Unit,
     showContactPicker: Boolean,
     onShowContactPicker: (Boolean) -> Unit,
@@ -196,6 +292,7 @@ fun MainContent(
     onSetNowPlayingVisible: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     var showMenu by remember { mutableStateOf(false) }
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -204,6 +301,7 @@ fun MainContent(
     var closeMediaProfileRequest by remember { mutableIntStateOf(0) }
     val searchResults by viewModel.searchResults.collectAsState()
     var cachedSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var bottomBarHeight by remember { mutableStateOf(0.dp) }
 
     LaunchedEffect(songsState) {
         val latestSongs = (songsState as? Resource.Success<List<Song>>)?.data.orEmpty()
@@ -270,6 +368,12 @@ fun MainContent(
         else if (selectedBottomItem != 0) onBottomItemSelect(0)
     }
 
+    LaunchedEffect(showDirectMessages) {
+        if (showDirectMessages) {
+            viewModel.fetchCallLogs()
+        }
+    }
+
     androidx.activity.compose.BackHandler(
         enabled = isNowPlayingVisible || isSearchActive || selectedChat != null || showStories || showContactPicker || showJobProfile || showApplications || showDirectMessages || isMediaProfileActive || selectedJob != null || effectiveSelectedPost != null || selectedChannel != null || selectedAdvert != null || showAdvertViewer || selectedBottomItem != 0,
         onBack = onBackAction
@@ -285,10 +389,23 @@ fun MainContent(
             )
         } else if (showDirectMessages) {
             val chats = (chatsState as? Resource.Success)?.data ?: emptyList()
+            val callLogs = (callLogsState as? Resource.Success)?.data ?: emptyList()
             DirectMessagesScreen(
                 chats = chats,
+                calls = callLogs,
                 onBack = { onShowDirectMessages(false) },
                 onChatSelect = { chat ->
+                    onChatSelect(chat)
+                },
+                onCallSelect = { call ->
+                    val existing = chats.firstOrNull { it.id == call.contactId }
+                    val chat = existing ?: ChatMessage(
+                        id = call.contactId,
+                        senderName = call.contactName,
+                        lastMessage = if (call.callType == "video") "Video call" else "Voice call",
+                        time = call.startedAt,
+                        avatarColor = Color.Gray
+                    )
                     onChatSelect(chat)
                 },
                 onNewDM = {
@@ -311,6 +428,7 @@ fun MainContent(
                         time = "",
                         avatarColor = Color.Gray
                     )
+                    viewModel.createChat(contact.id)
                     onChatSelect(newChat)
                     onShowContactPicker(false)
                 },
@@ -397,7 +515,7 @@ fun MainContent(
                 }
             )
         } else if (selectedChannel != null) {
-            ChannelDetailScreen(channel = selectedChannel, onBack = { onChannelSelect(null) })
+            ChannelDetailScreen(channel = selectedChannel, onBack = { onChannelSelect(null) }, onSubscribe = { viewModel.subscribeToChannel(it) })
         } else if (selectedAdvert != null) {
             AdvertDetailScreen(advert = selectedAdvert, onBack = { onAdvertSelect(null) })
         } else if (showAdvertViewer && adsToView.isNotEmpty()) {
@@ -415,9 +533,36 @@ fun MainContent(
                 }
             )
         } else {
+            val connectionIssueMessage = remember(
+                selectedBottomItem,
+                selectedTabItem,
+                chatsState,
+                jobsState,
+                advertsState,
+                channelsState,
+                shortsState,
+                songsState,
+                postsState,
+                storiesState,
+                callLogsState
+            ) {
+                currentConnectionIssue(
+                    selectedBottomItem = selectedBottomItem,
+                    selectedTabItem = selectedTabItem,
+                    chatsState = chatsState,
+                    jobsState = jobsState,
+                    advertsState = advertsState,
+                    channelsState = channelsState,
+                    shortsState = shortsState,
+                    songsState = songsState,
+                    postsState = postsState,
+                    storiesState = storiesState,
+                    callLogsState = callLogsState
+                )
+            }
             val bottomItems = listOf("Chats", "Media", "Music", "Drive", "Shorts")
             val bottomIcons = listOf(
-                Icons.Filled.Chat,
+                Icons.AutoMirrored.Filled.Chat,
                 Icons.Filled.PermMedia,
                 Icons.Filled.MusicNote,
                 Icons.Filled.DirectionsCar,
@@ -574,7 +719,10 @@ fun MainContent(
                                                 }
                                             }
                                         }
-                                        IconButton(onClick = { }) {
+                                        IconButton(onClick = {
+                                            viewModel.refreshAll()
+                                            Toast.makeText(context, "Refreshing from server...", Toast.LENGTH_SHORT).show()
+                                        }) {
                                             Icon(Icons.Default.Settings, contentDescription = "Settings", tint = AppTextPrimary)
                                         }
                                         Box {
@@ -680,7 +828,11 @@ fun MainContent(
                 },
                 bottomBar = {
                     if (!(selectedBottomItem == 1 && isMediaProfileActive)) {
-                        Column {
+                        Column(
+                            modifier = Modifier.onGloballyPositioned { coordinates ->
+                                bottomBarHeight = with(density) { coordinates.size.height.toDp() }
+                            }
+                        ) {
                         // Global Mini Player
                         currentlyPlaying?.let { song ->
                             if (!isNowPlayingVisible) {
@@ -767,6 +919,16 @@ fun MainContent(
                         .padding(if (selectedBottomItem == 2 || selectedBottomItem == 3 || selectedBottomItem == 4) PaddingValues(0.dp) else innerPadding)
                         .fillMaxSize()
                 ) {
+                    if (connectionIssueMessage != null) {
+                        ServerConnectionBanner(
+                            message = connectionIssueMessage,
+                            onRetry = { viewModel.refreshAll() },
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .zIndex(2f)
+                        )
+                    }
                     when (selectedBottomItem) {
                         0 -> when (selectedTabItem) {
                             0 -> DataStateHandler(chatsState) { chats ->
@@ -868,8 +1030,28 @@ fun MainContent(
                             MusicScreen(songs, musicViewModel)
                         }
                         3 -> DriveScreen(bottomPadding = innerPadding.calculateBottomPadding())
-                        4 -> DataStateHandler(shortsState) { shorts ->
-                            ShortsList(shorts, viewModel)
+                        4 -> when (shortsState) {
+                            is Resource.Loading -> {
+                                ShortsLoadingState()
+                            }
+                            is Resource.Error -> {
+                                ShortsMessageState(
+                                    icon = Icons.Filled.WifiOff,
+                                    title = "Shorts are offline",
+                                    message = (shortsState as Resource.Error<List<com.example.firstapp.model.Short>>).message
+                                        ?: "We couldn't refresh the feed right now. Check your connection and try again.",
+                                    actionLabel = "Retry feed",
+                                    onAction = { viewModel.fetchShorts() }
+                                )
+                            }
+                            is Resource.Success -> {
+                                ShortsList(
+                                    shorts = shortsState.data ?: emptyList(),
+                                    viewModel = viewModel,
+                                    onRetry = { viewModel.fetchShorts() },
+                                    bottomPadding = bottomBarHeight
+                                )
+                            }
                         }
                     }
                 }
@@ -904,6 +1086,114 @@ fun MainContent(
     }
 }
 
+private fun currentConnectionIssue(
+    selectedBottomItem: Int,
+    selectedTabItem: Int,
+    chatsState: Resource<List<ChatMessage>>,
+    jobsState: Resource<List<Job>>,
+    advertsState: Resource<List<Advert>>,
+    channelsState: Resource<List<Channel>>,
+    shortsState: Resource<List<com.example.firstapp.model.Short>>,
+    songsState: Resource<List<Song>>,
+    postsState: Resource<List<Post>>,
+    storiesState: Resource<List<UserStory>>,
+    callLogsState: Resource<List<CallLog>>
+): String? {
+    val activeError = when (selectedBottomItem) {
+        0 -> when (selectedTabItem) {
+            0 -> chatsState
+            1 -> jobsState
+            2 -> advertsState
+            3 -> channelsState
+            else -> chatsState
+        }
+        1 -> postsState
+        2 -> songsState
+        4 -> shortsState
+        else -> null
+    }
+
+    val messages = buildList {
+        listOfNotNull(
+            (activeError as? Resource.Error)?.message,
+            (storiesState as? Resource.Error)?.message,
+            (callLogsState as? Resource.Error)?.message
+        ).forEach(::add)
+    }
+
+    return messages.firstOrNull { it.isConnectionIssue() }
+}
+
+private fun String.isConnectionIssue(): Boolean {
+    val normalized = lowercase()
+    return normalized.contains("can't reach the server") ||
+        normalized.contains("failed to connect") ||
+        normalized.contains("unable to resolve host") ||
+        normalized.contains("connection refused") ||
+        normalized.contains("timeout")
+}
+
+@Composable
+private fun ServerConnectionBanner(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xE61A242A),
+        tonalElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x22FFB84D)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CloudOff,
+                    contentDescription = null,
+                    tint = Color(0xFFFFB84D)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Server unavailable",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = message,
+                    color = Color.White.copy(alpha = 0.74f),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            FilledTonalButton(
+                onClick = onRetry,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = Color(0xFFFFB84D),
+                    contentColor = Color(0xFF15191C)
+                )
+            ) {
+                Text("Retry", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 private fun getCurrentUserIdFromTokenForMain(): Int? {
     return try {
         val token = TokenManager.getToken() ?: return null
@@ -918,18 +1208,223 @@ private fun getCurrentUserIdFromTokenForMain(): Int? {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ShortsList(shorts: List<com.example.firstapp.model.Short>, viewModel: MainViewModel) {
+fun ShortsList(
+    shorts: List<com.example.firstapp.model.Short>,
+    viewModel: MainViewModel,
+    onRetry: () -> Unit,
+    bottomPadding: Dp
+) {
+    if (shorts.isEmpty()) {
+        ShortsMessageState(
+            icon = Icons.Filled.SlowMotionVideo,
+            title = "No shorts yet",
+            message = "Creators haven't uploaded anything for this feed yet. Pull in a fresh batch when you're ready.",
+            actionLabel = "Refresh feed",
+            onAction = onRetry
+        )
+        return
+    }
+    val context = LocalContext.current
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { shorts.size })
+
+    LaunchedEffect(shorts, pagerState.currentPage) {
+        val preloadIndexes = listOf(
+            pagerState.currentPage - 1,
+            pagerState.currentPage + 1,
+            pagerState.currentPage + 2
+        ).filter { it in shorts.indices }
+
+        ShortsVideoCache.preload(
+            context = context,
+            urls = preloadIndexes.map { index -> shorts[index].videoUrl }
+        )
+    }
+
+    DisposableEffect(shorts) {
+        onDispose {
+            ShortsVideoCache.releasePreloadsExcept(emptyList())
+        }
+    }
+
     androidx.compose.foundation.pager.VerticalPager(
         state = pagerState,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        beyondBoundsPageCount = 1
     ) { page ->
-        ShortItem(
-            short = shorts[page],
-            isVisible = pagerState.currentPage == page,
-            onLikeClick = { viewModel.likeShort(it) },
-            onSubscribeClick = { viewModel.subscribeToShortCreator(it) }
+        val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+        val scale = 1f - 0.08f * kotlin.math.abs(pageOffset)
+        val alpha = 1f - 0.4f * kotlin.math.abs(pageOffset)
+        val translationY = 48f * pageOffset
+
+        val autoScrollToNext: () -> Unit = {
+            if (pagerState.currentPage == page && page < shorts.lastIndex) {
+                // Use LaunchedEffect to animate scroll
+                androidx.compose.runtime.LaunchedEffect(page) {
+                    pagerState.animateScrollToPage(page + 1)
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    this.alpha = alpha.coerceIn(0.6f, 1f)
+                    this.scaleX = scale.coerceIn(0.92f, 1f)
+                    this.scaleY = scale.coerceIn(0.92f, 1f)
+                    this.translationY = translationY
+                }
+        ) {
+            ShortItem(
+                short = shorts[page],
+                isVisible = pagerState.currentPage == page,
+                bottomInset = bottomPadding,
+                onLikeClick = { viewModel.likeShort(it) },
+                onSubscribeClick = { viewModel.subscribeToShortCreator(it) },
+                onVideoEnded = autoScrollToNext
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShortsLoadingState() {
+    ShortsStateScaffold {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xCC0F171B),
+            tonalElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = Color(0xFFFFB84D), strokeWidth = 3.dp)
+                Spacer(modifier = Modifier.height(18.dp))
+                Text(
+                    text = "Loading your Shorts feed",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Fetching the latest clips, creators, and engagement state.",
+                    color = Color.White.copy(alpha = 0.72f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShortsMessageState(
+    icon: ImageVector,
+    title: String,
+    message: String,
+    actionLabel: String,
+    onAction: () -> Unit
+) {
+    ShortsStateScaffold {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xCC10181D),
+            tonalElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = Color(0xFFFFB84D),
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = message,
+                    color = Color.White.copy(alpha = 0.72f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 21.sp
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = onAction,
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFFB84D),
+                        contentColor = Color(0xFF14191C)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp)
+                ) {
+                    Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = actionLabel, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShortsStateScaffold(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF06080A),
+                        Color(0xFF101820),
+                        Color(0xFF1B242B)
+                    )
+                )
+            )
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+                .offset(x = 110.dp, y = (-180).dp)
+                .clip(CircleShape)
+                .background(Color(0x22FFB84D))
         )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .height(180.dp)
+                .offset(x = (-120).dp, y = 220.dp)
+                .clip(CircleShape)
+                .background(Color(0x221CC7D0))
+        )
+        content()
     }
 }
 
@@ -1175,6 +1670,7 @@ fun MainScreenPreview() {
             songsState = Resource.Success(emptyList()),
             postsState = Resource.Success(emptyList()),
             storiesState = Resource.Success(emptyList()),
+            callLogsState = Resource.Success(emptyList()),
             onLogout = {},
             showContactPicker = false,
             onShowContactPicker = {},

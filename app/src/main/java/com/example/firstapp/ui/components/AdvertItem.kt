@@ -66,7 +66,7 @@ fun AdvertItem(advert: Advert) {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = advert.time,
+                text = com.example.firstapp.util.formatPostedTime(advert.time),
                 color = AppTextSecondary,
                 fontSize = 14.sp
             )

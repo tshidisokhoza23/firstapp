@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.firstapp.ui.screens
 
 import android.Manifest
@@ -6,36 +8,47 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.annotation.SuppressLint
 import android.media.MediaRecorder
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.ContactsContract
 import android.widget.Toast
-import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -45,13 +58,23 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.core.content.ContextCompat
+import com.example.firstapp.data.realtime.CallEvent
+import com.example.firstapp.data.realtime.GlobalCallState
+import com.example.firstapp.data.realtime.CallSocketListener
+import com.example.firstapp.data.realtime.CallType
+import com.example.firstapp.data.realtime.CallWebSocketClient
 import com.example.firstapp.data.realtime.ChatSocketListener
 import com.example.firstapp.data.realtime.ChatWebSocketClient
+import com.example.firstapp.data.realtime.WebRtcCallManager
 import com.example.firstapp.data.api.ApiClient
 import com.example.firstapp.data.api.UploadResponse
 import com.example.firstapp.data.repository.AppRepositoryImpl
 import com.example.firstapp.util.Resource
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -65,6 +88,7 @@ import com.example.firstapp.model.Message
 import com.example.firstapp.model.MessageType
 import com.example.firstapp.ui.theme.*
 import com.example.firstapp.util.formatMessageTime
+import com.example.firstapp.util.formatWhatsAppTime
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -79,8 +103,77 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
     val repository = remember { AppRepositoryImpl() }
 
     val messages = remember { mutableStateListOf<Message>() }
+    val messagesScrollState = rememberScrollState()
     var isWebSocketConnected by remember { mutableStateOf(false) }
     var isLoadingMessages by remember { mutableStateOf(true) }
+    var showChatMenu by remember { mutableStateOf(false) }
+    var incomingCallEvent by remember { mutableStateOf<CallEvent?>(null) }
+    val globalIncomingCall by GlobalCallState.incomingCall.collectAsState()
+    val autoAcceptSessionId by GlobalCallState.autoAcceptSessionId.collectAsState()
+    var activeCallType by remember { mutableStateOf<CallType?>(null) }
+    var activeCallSessionId by remember { mutableStateOf<String?>(null) }
+    var isOutgoingRinging by remember { mutableStateOf(false) }
+    var isCallConnected by remember { mutableStateOf(false) }
+    var callStartedAtMs by remember { mutableLongStateOf(0L) }
+    var callDurationSeconds by remember { mutableIntStateOf(0) }
+    var isMicMuted by remember { mutableStateOf(false) }
+    var isSpeakerEnabled by remember { mutableStateOf(false) }
+    var isCameraEnabled by remember { mutableStateOf(true) }
+    val webRtcManager = remember { WebRtcCallManager(context) }
+    val ringtone = remember { mutableStateOf<Ringtone?>(null) }
+
+    fun showToast(message: String) {
+        scope.launch {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            showToast("Permission denied")
+        }
+    }
+
+    // Consume app-wide incoming call state when this chat matches the caller.
+    LaunchedEffect(globalIncomingCall?.sessionId, chat.id) {
+        val pending = globalIncomingCall ?: return@LaunchedEffect
+        if (pending.senderId == chat.id) {
+            incomingCallEvent = pending
+        }
+    }
+
+    fun ensureCallPermissions(type: CallType): Boolean {
+        val micPermission = Manifest.permission.RECORD_AUDIO
+        if (ContextCompat.checkSelfPermission(context, micPermission) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(micPermission)
+            showToast("Grant microphone permission to place calls")
+            return false
+        }
+
+        if (type == CallType.VIDEO) {
+            val cameraPermission = Manifest.permission.CAMERA
+            if (ContextCompat.checkSelfPermission(context, cameraPermission) != PackageManager.PERMISSION_GRANTED) {
+                permissionLauncher.launch(cameraPermission)
+                showToast("Grant camera permission to start video calls")
+                return false
+            }
+        }
+        return true
+    }
+
+    fun bindWebRtcSignal(sessionId: String, callType: CallType) {
+        webRtcManager.onSignal = { signalType, payload ->
+            CallWebSocketClient.signal(
+                receiverId = chat.id,
+                sessionId = sessionId,
+                callType = callType,
+                signalType = signalType,
+                signalPayload = payload
+            )
+        }
+    }
 
     // Load initial messages
     LaunchedEffect(chat.id) {
@@ -122,9 +215,265 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
         ChatWebSocketClient.connect(chat.id, socketListener)
     }
 
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            messagesScrollState.animateScrollTo(messagesScrollState.maxValue)
+        }
+    }
+
+    val callSocketListener = remember(chat.id) {
+        object : CallSocketListener {
+            override fun onOpen() {}
+
+            override fun onEvent(event: CallEvent) {
+                scope.launch {
+                    if (event.senderId != chat.id && event.receiverId != chat.id) {
+                        return@launch
+                    }
+
+                    when (event.type) {
+                        "call_invite" -> {
+                            if (event.senderId == chat.id) {
+                                if (activeCallSessionId != null || isOutgoingRinging || isCallConnected) {
+                                    CallWebSocketClient.reject(
+                                        receiverId = event.senderId,
+                                        sessionId = event.sessionId,
+                                        callType = event.callType,
+                                        reason = "busy"
+                                    )
+                                    return@launch
+                                }
+                                incomingCallEvent = event
+                            }
+                        }
+                        "call_accept" -> {
+                            if (event.senderId == chat.id && activeCallSessionId == event.sessionId) {
+                                isOutgoingRinging = false
+                                isCallConnected = true
+                                callStartedAtMs = System.currentTimeMillis()
+                                callDurationSeconds = 0
+                                webRtcManager.createOffer()
+                            }
+                        }
+                        "call_reject" -> {
+                            if (activeCallSessionId == event.sessionId) {
+                                webRtcManager.end()
+                                incomingCallEvent = null
+                                isOutgoingRinging = false
+                                isCallConnected = false
+                                activeCallSessionId = null
+                                activeCallType = null
+                                callStartedAtMs = 0L
+                                callDurationSeconds = 0
+                                val reason = event.endReason ?: "declined"
+                                val message = if (reason == "busy") "User is busy on another call" else "Call declined"
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        "call_end" -> {
+                            val isActiveSession = activeCallSessionId == event.sessionId
+                            val isRingingIncomingSession = incomingCallEvent?.sessionId == event.sessionId
+                            if (isActiveSession || isRingingIncomingSession) {
+                                webRtcManager.end()
+                                incomingCallEvent = null
+                                GlobalCallState.onCallEnded(event.sessionId)
+                                isOutgoingRinging = false
+                                isCallConnected = false
+                                activeCallSessionId = null
+                                activeCallType = null
+                                callStartedAtMs = 0L
+                                callDurationSeconds = 0
+                                val reason = event.endReason ?: "ended"
+                                val message = if (reason == "missed" || reason == "timeout") "Missed call" else "Call ended"
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        "call_signal" -> {
+                            if (activeCallSessionId == event.sessionId) {
+                                webRtcManager.handleSignal(event.signalType, event.signalPayload)
+                            }
+                        }
+                    }
+                }
+            }
+
+            override fun onError(error: String) {
+                scope.launch {
+                    Toast.makeText(context, "Call connection error: $error", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    DisposableEffect(chat.id) {
+        CallWebSocketClient.connect(callSocketListener)
+        onDispose {
+            CallWebSocketClient.disconnect(callSocketListener)
+        }
+    }
+
+    LaunchedEffect(isCallConnected, callStartedAtMs) {
+        if (!isCallConnected || callStartedAtMs == 0L) {
+            callDurationSeconds = 0
+            return@LaunchedEffect
+        }
+        while (isCallConnected) {
+            callDurationSeconds = ((System.currentTimeMillis() - callStartedAtMs) / 1000L).toInt().coerceAtLeast(0)
+            delay(1000)
+        }
+    }
+
+    LaunchedEffect(isOutgoingRinging, activeCallSessionId, activeCallType) {
+        if (!isOutgoingRinging || activeCallSessionId == null || activeCallType == null) {
+            return@LaunchedEffect
+        }
+
+        delay(30000)
+
+        if (isOutgoingRinging && !isCallConnected && activeCallSessionId != null && activeCallType != null) {
+            CallWebSocketClient.end(
+                receiverId = chat.id,
+                sessionId = activeCallSessionId!!,
+                callType = activeCallType!!,
+                durationSeconds = 0,
+                reason = "missed"
+            )
+            webRtcManager.end()
+            isOutgoingRinging = false
+            activeCallSessionId = null
+            activeCallType = null
+            callStartedAtMs = 0L
+            callDurationSeconds = 0
+            Toast.makeText(context, "No answer", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(incomingCallEvent != null) {
+        if (incomingCallEvent != null) {
+            try {
+                val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                val rt = RingtoneManager.getRingtone(context, uri)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    rt.isLooping = true
+                }
+                rt.play()
+                ringtone.value = rt
+
+                @Suppress("DEPRECATION")
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 1000, 1000), 0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(longArrayOf(0, 1000, 1000), 0)
+                }
+            } catch (_: Exception) {
+            }
+        } else {
+            try {
+                ringtone.value?.stop()
+                ringtone.value = null
+                @Suppress("DEPRECATION")
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                vibrator.cancel()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun startOutgoingCall(callType: CallType) {
+        if (activeCallSessionId != null) {
+            return
+        }
+        if (!ensureCallPermissions(callType)) {
+            return
+        }
+
+        val sessionId = "${System.currentTimeMillis()}-${chat.id}"
+        activeCallSessionId = sessionId
+        activeCallType = callType
+        isOutgoingRinging = true
+        isCallConnected = false
+        callDurationSeconds = 0
+        callStartedAtMs = 0L
+        isMicMuted = false
+        isSpeakerEnabled = callType == CallType.VIDEO
+        isCameraEnabled = true
+
+        webRtcManager.start(callType)
+        bindWebRtcSignal(sessionId, callType)
+        CallWebSocketClient.invite(receiverId = chat.id, sessionId = sessionId, callType = callType)
+    }
+
+    fun acceptIncomingCall() {
+        val call = incomingCallEvent ?: return
+        if (!ensureCallPermissions(call.callType)) {
+            return
+        }
+        incomingCallEvent = null
+        activeCallSessionId = call.sessionId
+        activeCallType = call.callType
+        isOutgoingRinging = false
+        isCallConnected = true
+        callStartedAtMs = System.currentTimeMillis()
+        callDurationSeconds = 0
+        isMicMuted = false
+        isSpeakerEnabled = call.callType == CallType.VIDEO
+        isCameraEnabled = true
+        GlobalCallState.onCallEnded(call.sessionId)
+        webRtcManager.start(call.callType)
+        bindWebRtcSignal(call.sessionId, call.callType)
+        CallWebSocketClient.accept(receiverId = chat.id, sessionId = call.sessionId, callType = call.callType)
+    }
+
+    fun rejectIncomingCall() {
+        val call = incomingCallEvent ?: return
+        CallWebSocketClient.reject(receiverId = chat.id, sessionId = call.sessionId, callType = call.callType)
+        webRtcManager.end()
+        incomingCallEvent = null
+        GlobalCallState.onCallEnded(call.sessionId)
+    }
+
+    fun endActiveCall() {
+        val callType = activeCallType ?: return
+        val sessionId = activeCallSessionId ?: return
+        CallWebSocketClient.end(
+            receiverId = chat.id,
+            sessionId = sessionId,
+            callType = callType,
+            durationSeconds = callDurationSeconds
+        )
+        webRtcManager.end()
+        isOutgoingRinging = false
+        isCallConnected = false
+        activeCallSessionId = null
+        activeCallType = null
+        callStartedAtMs = 0L
+        callDurationSeconds = 0
+    }
+
+    // Auto-accept when the user tapped Accept in the notification.
+    LaunchedEffect(autoAcceptSessionId, incomingCallEvent?.sessionId) {
+        val targetSession = autoAcceptSessionId ?: return@LaunchedEffect
+        val call = incomingCallEvent ?: return@LaunchedEffect
+        if (call.sessionId == targetSession) {
+            GlobalCallState.clearAutoAccept()
+            acceptIncomingCall()
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             ChatWebSocketClient.close()
+            webRtcManager.release()
+            try {
+                ringtone.value?.stop()
+                ringtone.value = null
+                @Suppress("DEPRECATION")
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                vibrator.cancel()
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -134,16 +483,6 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var audioFile by remember { mutableStateOf<File?>(null) }
     var recordingStartMs by remember { mutableLongStateOf(0L) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            // Permission granted
-        } else {
-            Toast.makeText(context, "Permission denied", Toast.LENGTH_SHORT).show()
-        }
-    }
 
     fun copyUriToTempFile(uri: Uri): File? {
         val resolver = context.contentResolver
@@ -356,7 +695,8 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    Scaffold(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = {
@@ -365,10 +705,15 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(chat.senderName, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            val presenceText = when {
+                                chat.isOnline -> "online"
+                                chat.time.isNotBlank() -> "offline • last seen ${formatWhatsAppTime(chat.time)}"
+                                else -> "offline"
+                            }
                             Text(
-                                text = if (isWebSocketConnected) "online" else "connecting...",
+                                text = presenceText,
                                 fontSize = 12.sp,
-                                color = if (isWebSocketConnected) AppAccent else Color.Gray
+                                color = if (chat.isOnline) AppAccent else Color.Gray
                             )
                         }
                     }
@@ -377,9 +722,47 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 },
                 actions = {
-                    IconButton(onClick = {}) { Icon(Icons.Filled.VideoCall, "Video") }
-                    IconButton(onClick = {}) { Icon(Icons.Filled.Call, "Call") }
-                    IconButton(onClick = {}) { Icon(Icons.Filled.MoreVert, "More") }
+                    IconButton(onClick = { startOutgoingCall(CallType.VIDEO) }) { Icon(Icons.Filled.VideoCall, "Video") }
+                    IconButton(onClick = { startOutgoingCall(CallType.VOICE) }) { Icon(Icons.Filled.Call, "Call") }
+                    Box {
+                        IconButton(onClick = { showChatMenu = true }) { Icon(Icons.Filled.MoreVert, "More") }
+                        DropdownMenu(
+                            expanded = showChatMenu,
+                            onDismissRequest = { showChatMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Refresh messages") },
+                                onClick = {
+                                    showChatMenu = false
+                                    scope.launch {
+                                        repository.getMessages(chat.id).collect { resource ->
+                                            when (resource) {
+                                                is com.example.firstapp.util.Resource.Success -> {
+                                                    messages.clear()
+                                                    messages.addAll(resource.data ?: emptyList())
+                                                    isLoadingMessages = false
+                                                }
+                                                is com.example.firstapp.util.Resource.Error -> {
+                                                    Toast.makeText(context, "Failed to refresh messages", Toast.LENGTH_SHORT).show()
+                                                    isLoadingMessages = false
+                                                }
+                                                is com.example.firstapp.util.Resource.Loading -> {
+                                                    isLoadingMessages = true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Clear current view") },
+                                onClick = {
+                                    showChatMenu = false
+                                    messages.clear()
+                                }
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = AppSecondary, titleContentColor = AppTextPrimary)
             )
@@ -456,16 +839,20 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
         containerColor = AppBackground
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                items(messages) { message -> 
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(messagesScrollState)
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                messages.forEach { message ->
                     MessageBubble(
                         message = message, 
                         onVideoClick = { uri -> fullScreenVideoUri = uri },
                         onImageClick = { uri -> fullScreenImageUri = uri }
                     ) 
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
             }
             
             fullScreenVideoUri?.let { uri ->
@@ -476,6 +863,307 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
             }
         }
     }
+
+        if (isOutgoingRinging || isCallConnected) {
+            ActiveCallScreen(
+                callerName = chat.senderName,
+                isVideoCall = activeCallType == CallType.VIDEO,
+                isConnected = isCallConnected,
+                callDurationSeconds = callDurationSeconds,
+                webRtcManager = webRtcManager,
+                isMicMuted = isMicMuted,
+                isSpeakerEnabled = isSpeakerEnabled,
+                isCameraEnabled = isCameraEnabled,
+                onToggleMic = {
+                    isMicMuted = !isMicMuted
+                    webRtcManager.setMicEnabled(!isMicMuted)
+                },
+                onToggleSpeaker = {
+                    isSpeakerEnabled = !isSpeakerEnabled
+                    webRtcManager.setSpeakerEnabled(isSpeakerEnabled)
+                },
+                onToggleCamera = {
+                    isCameraEnabled = !isCameraEnabled
+                    webRtcManager.setCameraEnabled(isCameraEnabled)
+                },
+                onEnd = { endActiveCall() }
+            )
+        }
+
+        incomingCallEvent?.let { event ->
+            IncomingCallScreen(
+                callerName = chat.senderName,
+                isVideoCall = event.callType == CallType.VIDEO,
+                onAccept = { acceptIncomingCall() },
+                onDecline = { rejectIncomingCall() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun IncomingCallScreen(
+    callerName: String,
+    isVideoCall: Boolean,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0D1B2A))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Spacer(modifier = Modifier.height(80.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                val pulseScale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.12f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pulse"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .scale(pulseScale)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1E88E5)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (isVideoCall) Icons.Default.Videocam else Icons.Default.Call,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(callerName, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    if (isVideoCall) "Incoming video call" else "Incoming voice call",
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 72.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = onDecline,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE53935))
+                    ) {
+                        Icon(Icons.Default.CallEnd, contentDescription = "Decline", tint = Color.White, modifier = Modifier.size(36.dp))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Decline", color = Color.White, fontSize = 14.sp)
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = onAccept,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF43A047))
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = "Accept", tint = Color.White, modifier = Modifier.size(36.dp))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Accept", color = Color.White, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveCallScreen(
+    callerName: String,
+    isVideoCall: Boolean,
+    isConnected: Boolean,
+    callDurationSeconds: Int,
+    webRtcManager: WebRtcCallManager,
+    isMicMuted: Boolean,
+    isSpeakerEnabled: Boolean,
+    isCameraEnabled: Boolean,
+    onToggleMic: () -> Unit,
+    onToggleSpeaker: () -> Unit,
+    onToggleCamera: () -> Unit,
+    onEnd: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        if (isVideoCall && isConnected) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    org.webrtc.SurfaceViewRenderer(ctx).apply {
+                        webRtcManager.attachRemoteRenderer(this)
+                    }
+                },
+                onRelease = { it.release() }
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 52.dp, end = 12.dp)
+                    .size(width = 110.dp, height = 150.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        org.webrtc.SurfaceViewRenderer(ctx).apply {
+                            webRtcManager.attachLocalRenderer(this)
+                        }
+                    },
+                    onRelease = { it.release() }
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Brush.verticalGradient(listOf(Color(0xFF0D1B2A), Color(0xFF1C3A58))))
+            )
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (!isVideoCall || !isConnected) {
+                val infiniteTransition = rememberInfiniteTransition(label = "ring")
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = if (!isConnected) 1.15f else 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "scale"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .scale(scale)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1E88E5)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (isVideoCall) Icons.Default.Videocam else Icons.Default.Call,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            Text(callerName, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                if (isConnected) formatCallDuration(callDurationSeconds) else "Ringing...",
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 16.sp
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .background(Color.Black.copy(alpha = if (isVideoCall && isConnected) 0.45f else 0.7f))
+                .padding(bottom = 44.dp, top = 20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CallControlButton(
+                    icon = if (isMicMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                    label = if (isMicMuted) "Unmute" else "Mute",
+                    active = isMicMuted,
+                    activeColor = Color(0xFF8E24AA),
+                    onClick = onToggleMic
+                )
+                CallControlButton(
+                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                    label = "Speaker",
+                    active = isSpeakerEnabled,
+                    activeColor = Color(0xFF00897B),
+                    onClick = onToggleSpeaker
+                )
+                if (isVideoCall) {
+                    CallControlButton(
+                        icon = if (isCameraEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
+                        label = if (isCameraEnabled) "Camera" else "Cam Off",
+                        active = !isCameraEnabled,
+                        activeColor = Color(0xFF1565C0),
+                        onClick = onToggleCamera
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = onEnd,
+                        modifier = Modifier.size(64.dp).clip(CircleShape).background(Color(0xFFE53935))
+                    ) {
+                        Icon(Icons.Default.CallEnd, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("End", color = Color.White, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CallControlButton(
+    icon: ImageVector,
+    label: String,
+    active: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(56.dp).clip(CircleShape).background(if (active) activeColor else Color(0xFF37474F))
+        ) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(label, color = Color.White, fontSize = 11.sp)
+    }
+}
+
+private fun formatCallDuration(totalSeconds: Int): String {
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
 }
 
 @Composable
@@ -691,7 +1379,6 @@ fun MessageBubble(message: Message, onVideoClick: (String) -> Unit, onImageClick
                                 Text(message.duration ?: "0:10", color = AppTextSecondary, fontSize = 12.sp)
                             }
                         }
-                        else -> { Text(message.text, color = textColor) }
                     }
                     Text(
                         text = formatMessageTime(message.time),
@@ -737,13 +1424,18 @@ fun ChatBottomBar(
                 onValueChange = onTextChange,
                 placeholder = { Text("Message", color = AppTextSecondary) },
                 modifier = Modifier.weight(1f),
+                textStyle = LocalTextStyle.current.copy(color = AppTextPrimary, fontSize = 16.sp),
+                maxLines = 6,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     disabledContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = AppAccent
+                    cursorColor = AppAccent,
+                    focusedTextColor = AppTextPrimary,
+                    unfocusedTextColor = AppTextPrimary
                 )
             )
             IconButton(onClick = onAttachClick) {

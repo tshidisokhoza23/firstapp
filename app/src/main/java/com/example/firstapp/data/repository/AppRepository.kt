@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface AppRepository {
     fun getChats(): Flow<Resource<List<ChatMessage>>>
+    fun getCallLogs(): Flow<Resource<List<CallLog>>>
     fun getMessages(chatId: Int): Flow<Resource<List<Message>>>
     fun sendMessage(
         chatId: Int,
@@ -40,9 +41,14 @@ interface AppRepository {
     fun bookmarkPostReply(replyId: Int): Flow<Resource<Boolean>>
     fun getStories(): Flow<Resource<List<UserStory>>>
     fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
+    suspend fun createChat(contactId: Int)
     fun search(query: String): Flow<Resource<SearchResult>>
     fun viewPost(postId: Int): Flow<Resource<Boolean>>
+    fun deletePost(postId: Int): Flow<Resource<Boolean>>
     fun saveDestination(name: String, address: String, latitude: Double, longitude: Double, isFavorite: Boolean, type: String): Flow<Resource<Boolean>>
+    fun withdrawApplication(applicationId: Int): Flow<Resource<Boolean>>
+    fun subscribeToChannel(channelId: Int): Flow<Resource<Boolean>>
+    fun incrementSongPlay(songId: Int): Flow<Resource<Boolean>>
 }
 
 data class SearchResult(

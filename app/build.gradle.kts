@@ -8,6 +8,14 @@ android {
     namespace = "com.example.firstapp"
     compileSdk = 35
 
+    val hostIp = (project.findProperty("HOST_IP") as String?)
+        ?: System.getenv("HOST_IP")
+    val defaultHost = hostIp?.takeIf { it.isNotBlank() } ?: "10.0.2.2"
+    val apiBaseUrl = (project.findProperty("API_BASE_URL") as String?)
+        ?: "http://$defaultHost:8082/api/v1/"
+    val wsBaseUrl = (project.findProperty("WS_BASE_URL") as String?)
+        ?: "ws://$defaultHost:8082/api/v1/"
+
     defaultConfig {
         applicationId = "com.example.firstapp"
         minSdk = 24
@@ -16,6 +24,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "WS_BASE_URL", "\"$wsBaseUrl\"")
     }
 
     buildTypes {
@@ -33,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -56,7 +67,10 @@ dependencies {
     implementation(libs.google.maps.services)
     implementation(libs.coil.compose)
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.datasource)
+    implementation(libs.media3.database)
     implementation(libs.media3.ui)
+    implementation("io.github.webrtc-sdk:android:144.7559.01")
 
     // HTTP Client
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -66,6 +80,7 @@ dependencies {
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.messaging)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

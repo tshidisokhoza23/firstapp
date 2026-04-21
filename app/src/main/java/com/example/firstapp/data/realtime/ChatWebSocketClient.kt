@@ -1,11 +1,21 @@
 package com.example.firstapp.data.realtime
 
+import com.example.firstapp.BuildConfig
 import com.example.firstapp.data.TokenManager
+import com.example.firstapp.data.api.ApiClient
 import com.example.firstapp.data.api.ApiMessage
+import com.example.firstapp.data.api.TokenRefreshRequest
 import com.example.firstapp.model.Message
 import com.example.firstapp.model.MessageType
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -35,16 +45,28 @@ object ChatWebSocketClient {
     private val gson = Gson()
     private var webSocket: WebSocket? = null
     private val httpClient = OkHttpClient()
+    private val reconnectScope = CoroutineScope(Dispatchers.IO)
+    private var reconnectJob: Job? = null
+    private val activeContactId = AtomicReference<Int?>(null)
+    private var activeListener: ChatSocketListener? = null
+    @Volatile
+    private var manualClose = false
+    @Volatile
+    private var refreshInProgress = false
 
     fun connect(contactId: Int, listener: ChatSocketListener) {
+        activeContactId.set(contactId)
+        activeListener = listener
         val token = TokenManager.getToken()
         if (token.isNullOrBlank()) {
             listener.onError("Missing auth token")
             return
         }
 
+        manualClose = false
+
         val request = Request.Builder()
-            .url("ws://192.168.100.7:8082/api/v1/ws/conversations/$contactId")
+            .url("${BuildConfig.WS_BASE_URL}ws/conversations/$contactId")
             .addHeader("Authorization", "Bearer $token")
             .build()
 
@@ -70,9 +92,62 @@ object ChatWebSocketClient {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                this@ChatWebSocketClient.webSocket = null
+                if (response?.code == 401) {
+                    if (refreshTokenIfPossible()) {
+                        scheduleReconnect(immediate = true)
+                    } else {
+                        listener.onError("Chat auth expired. Please log in again.")
+                    }
+                    return
+                }
                 listener.onError(t.localizedMessage ?: "WebSocket failed")
+                scheduleReconnect()
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                this@ChatWebSocketClient.webSocket = null
+                if (!manualClose) {
+                    scheduleReconnect()
+                }
             }
         })
+    }
+
+    private fun scheduleReconnect(immediate: Boolean = false) {
+        if (manualClose) return
+        if (reconnectJob?.isActive == true) return
+        val contactId = activeContactId.get() ?: return
+        val listener = activeListener ?: return
+        reconnectJob = reconnectScope.launch {
+            if (!immediate) {
+                delay(2000)
+            }
+            if (!manualClose && webSocket == null) {
+                connect(contactId, listener)
+            }
+        }
+    }
+
+    private fun refreshTokenIfPossible(): Boolean {
+        if (refreshInProgress) return false
+        val refreshToken = TokenManager.getRefreshToken() ?: return false
+        refreshInProgress = true
+        return try {
+            val response = runBlocking {
+                ApiClient.apiService.refresh(TokenRefreshRequest(refresh_token = refreshToken))
+            }
+            if (!response.isSuccessful) return false
+            val body = response.body() ?: return false
+            if (body.token.isBlank() || body.refreshToken.isBlank()) return false
+            TokenManager.setToken(body.token)
+            TokenManager.setRefreshToken(body.refreshToken)
+            true
+        } catch (_: Exception) {
+            false
+        } finally {
+            refreshInProgress = false
+        }
     }
 
     fun sendMessage(receiverId: Int, body: String) {
@@ -82,8 +157,12 @@ object ChatWebSocketClient {
     }
 
     fun close() {
+        manualClose = true
+        reconnectJob?.cancel()
         webSocket?.close(1000, "Goodbye")
         webSocket = null
+        activeContactId.set(null)
+        activeListener = null
     }
 
     private fun mapApiMessage(apiMessage: ApiMessage): Message {

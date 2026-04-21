@@ -11,7 +11,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.automirrored.filled.CallMissed
+import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
@@ -24,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.firstapp.model.CallLog
 import com.example.firstapp.model.ChatMessage
 import com.example.firstapp.ui.theme.*
 import com.example.firstapp.util.formatWhatsAppTime
@@ -42,11 +47,14 @@ private fun avatarColorFor(name: String): Color =
 @Composable
 fun DirectMessagesScreen(
     chats: List<ChatMessage>,
+    calls: List<CallLog>,
     onBack: () -> Unit,
     onChatSelect: (ChatMessage) -> Unit,
+    onCallSelect: (CallLog) -> Unit,
     onNewDM: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableStateOf(0) }
 
     val filteredChats = remember(chats, searchQuery) {
         if (searchQuery.isBlank()) chats
@@ -58,6 +66,18 @@ fun DirectMessagesScreen(
 
     // Split: contacts with recent messages vs active (online heuristic)
     val activeContacts = remember(chats) { chats.take(5) }
+
+    val filteredCalls = remember(calls, searchQuery) {
+        if (searchQuery.isBlank()) {
+            calls
+        } else {
+            calls.filter {
+                it.contactName.contains(searchQuery, ignoreCase = true) ||
+                    it.callType.contains(searchQuery, ignoreCase = true) ||
+                    it.status.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -129,9 +149,21 @@ fun DirectMessagesScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = AppBackground,
+            contentColor = AppAccent,
+            divider = {}
+        ) {
+            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Messages") })
+            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Calls") })
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             // Active contacts row (story-ring style)
-            if (searchQuery.isBlank() && activeContacts.isNotEmpty()) {
+            if (selectedTab == 0 && searchQuery.isBlank() && activeContacts.isNotEmpty()) {
                 item {
                     Column {
                         Text(
@@ -159,7 +191,11 @@ fun DirectMessagesScreen(
             // Header
             item {
                 Text(
-                    text = if (searchQuery.isBlank()) "Messages" else "Results",
+                    text = when {
+                        selectedTab == 0 && searchQuery.isBlank() -> "Messages"
+                        selectedTab == 1 && searchQuery.isBlank() -> "Recent Calls"
+                        else -> "Results"
+                    },
                     color = AppTextSecondary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -167,7 +203,7 @@ fun DirectMessagesScreen(
                 )
             }
 
-            if (filteredChats.isEmpty()) {
+            if (selectedTab == 0 && filteredChats.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -192,9 +228,104 @@ fun DirectMessagesScreen(
                 }
             }
 
+            if (selectedTab == 1 && filteredCalls.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (searchQuery.isBlank()) "No call history yet." else "No call results for \"$searchQuery\"",
+                            color = AppTextSecondary,
+                            fontSize = 14.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            } else if (selectedTab == 1) {
+                items(filteredCalls, key = { it.id }) { call ->
+                    DirectCallItem(call = call, onClick = { onCallSelect(call) })
+                }
+            }
+
             // Bottom spacing
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
+    }
+}
+
+@Composable
+private fun DirectCallItem(call: CallLog, onClick: () -> Unit) {
+    val avatarColor = avatarColorFor(call.contactName)
+    val (icon, statusColor, subtitle) = when (call.status.lowercase()) {
+        "rejected", "declined" -> Triple(Icons.AutoMirrored.Filled.CallMissed, Color(0xFFE53935), "Declined")
+        "missed", "timeout" -> Triple(Icons.AutoMirrored.Filled.CallMissed, Color(0xFFE53935), "Missed")
+        "connected" -> Triple(Icons.AutoMirrored.Filled.CallReceived, AppAccent, "Connected")
+        else -> Triple(Icons.Default.Call, AppTextSecondary, "${call.callType.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} • ${call.durationSeconds}s")
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(avatarColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = call.contactName.take(1).uppercase(),
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = call.contactName,
+                color = AppTextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = statusColor, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = subtitle,
+                    color = AppTextSecondary,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        Text(
+            text = formatWhatsAppTime(call.startedAt),
+            color = AppTextSecondary,
+            fontSize = 12.sp
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Icon(
+            imageVector = if (call.callType == "video") Icons.AutoMirrored.Filled.CallMade else Icons.Default.Call,
+            contentDescription = null,
+            tint = AppAccent,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 

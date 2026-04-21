@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -91,11 +93,25 @@ fun StatusViewer(
                     modifier = Modifier.padding(32.dp)
                 )
             } else {
-                Text(
-                    text = "Video Status Placeholder\n${currentStory.content}",
-                    color = Color.White,
-                    textAlign = TextAlign.Center
-                )
+                if (!currentStory.contentUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = currentStory.contentUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                if (!currentStory.content.isNullOrBlank()) {
+                    Text(
+                        text = currentStory.content,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 80.dp, start = 16.dp, end = 16.dp)
+                    )
+                }
             }
         }
 

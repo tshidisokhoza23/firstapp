@@ -2,10 +2,13 @@ package com.example.firstapp.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -154,6 +157,7 @@ fun DriveScreen(
 
 @Composable
 fun DriveDrawerContent() {
+    val context = LocalContext.current
     ModalDrawerSheet(
         drawerContainerColor = AppSecondary,
         modifier = Modifier.width(320.dp),
@@ -185,26 +189,26 @@ fun DriveDrawerContent() {
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        DrawerItem(Icons.AutoMirrored.Filled.List, "My Rides")
-        DrawerItem(Icons.Default.Payment, "Payment Methods")
-        DrawerItem(Icons.Default.CardGiftcard, "Promotions")
-        DrawerItem(Icons.Default.SupportAgent, "Support")
-        DrawerItem(Icons.Default.Info, "About FirstApp")
+        DrawerItem(Icons.AutoMirrored.Filled.List, "My Rides") { Toast.makeText(context, "My rides coming soon", Toast.LENGTH_SHORT).show() }
+        DrawerItem(Icons.Default.Payment, "Payment Methods") { Toast.makeText(context, "Payment methods coming soon", Toast.LENGTH_SHORT).show() }
+        DrawerItem(Icons.Default.CardGiftcard, "Promotions") { Toast.makeText(context, "Promotions coming soon", Toast.LENGTH_SHORT).show() }
+        DrawerItem(Icons.Default.SupportAgent, "Support") { Toast.makeText(context, "Support coming soon", Toast.LENGTH_SHORT).show() }
+        DrawerItem(Icons.Default.Info, "About FirstApp") { Toast.makeText(context, "FirstApp Drive v1", Toast.LENGTH_SHORT).show() }
         
         Spacer(modifier = Modifier.weight(1f))
         
         HorizontalDivider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(horizontal = 24.dp))
-        DrawerItem(Icons.Default.Settings, "Settings")
+        DrawerItem(Icons.Default.Settings, "Settings") { Toast.makeText(context, "Settings coming soon", Toast.LENGTH_SHORT).show() }
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-fun DrawerItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+fun DrawerItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit = {}) {
     NavigationDrawerItem(
         label = { Text(label, color = Color.White, fontWeight = FontWeight.Medium) },
         selected = false,
-        onClick = { },
+        onClick = onClick,
         icon = { Icon(icon, contentDescription = null, tint = Color.White.copy(0.7f)) },
         colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent),
         modifier = Modifier.padding(horizontal = 12.dp)
@@ -519,7 +523,7 @@ fun DriveMainContent(
                 
                 if (step == 0 && !isSearchingView) {
                     IconButton(
-                        onClick = { },
+                        onClick = { Toast.makeText(context, "Safety center opened", Toast.LENGTH_SHORT).show() },
                         modifier = Modifier.background(AppSecondary, CircleShape).size(48.dp)
                     ) {
                         Icon(Icons.Default.Shield, contentDescription = "Safety", tint = AppAccent)
@@ -1023,6 +1027,7 @@ fun LiveTrackingFlow(
     onCancel: () -> Unit,
     viewModel: DriveViewModel
 ) {
+    val context = LocalContext.current
     val assignedDriver = viewModel.assignedDriver.value
     
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1083,19 +1088,41 @@ fun LiveTrackingFlow(
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = {}, modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)) {
+                    IconButton(
+                        onClick = {
+                            val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+27100000000"))
+                            context.startActivity(dialIntent)
+                        },
+                        modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
+                    ) {
                         Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White)
                     }
                     Text("Call", color = Color.White, fontSize = 12.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = {}, modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)) {
+                    IconButton(
+                        onClick = {
+                            val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:+27100000000"))
+                            smsIntent.putExtra("sms_body", "Hi, I am at the pickup point.")
+                            context.startActivity(smsIntent)
+                        },
+                        modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = Color.White)
                     }
                     Text("Message", color = Color.White, fontSize = 12.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = {}, modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)) {
+                    IconButton(
+                        onClick = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "I am currently on a FirstApp Drive trip.")
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share trip"))
+                        },
+                        modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
+                    ) {
                         Icon(Icons.Default.Share, contentDescription = null, tint = Color.White)
                     }
                     Text("Share", color = Color.White, fontSize = 12.sp)

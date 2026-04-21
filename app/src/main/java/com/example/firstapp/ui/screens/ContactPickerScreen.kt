@@ -45,6 +45,8 @@ fun ContactPickerScreen(
     val context = LocalContext.current
     val contacts by viewModel.contacts.collectAsState()
     val phoneContacts = remember { mutableStateListOf<Contact>() }
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearch by remember { mutableStateOf(false) }
     val isContactsPermissionGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -111,6 +113,19 @@ fun ContactPickerScreen(
         mergedFromPhone + remainingBackend
     }
 
+    val visibleContacts = remember(mergedContacts, searchQuery) {
+        if (searchQuery.isBlank()) {
+            mergedContacts
+        } else {
+            val q = searchQuery.trim().lowercase()
+            mergedContacts.filter {
+                it.displayName.lowercase().contains(q) ||
+                    it.phoneNumber.lowercase().contains(q) ||
+                    it.username.lowercase().contains(q)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -126,8 +141,17 @@ fun ContactPickerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) { Icon(Icons.Default.Search, "Search") }
-                    IconButton(onClick = {}) { Icon(Icons.Default.Person, "More") }
+                    IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Default.Search, "Search") }
+                    IconButton(onClick = {
+                        viewModel.fetchContacts()
+                        if (isContactsPermissionGranted) {
+                            val numbers = phoneContacts.map { it.phoneNumber }.filter { it.isNotBlank() }
+                            if (numbers.isNotEmpty()) {
+                                viewModel.syncContacts(numbers)
+                            }
+                        }
+                        Toast.makeText(context, "Contacts refreshed", Toast.LENGTH_SHORT).show()
+                    }) { Icon(Icons.Default.Person, "More") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = AppSecondary,
@@ -140,12 +164,26 @@ fun ContactPickerScreen(
         containerColor = AppBackground
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
-            val (registered, unregistered) = mergedContacts.partition { it.isRegistered }
+            val (registered, unregistered) = visibleContacts.partition { it.isRegistered }
             
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Select contact", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTextPrimary)
-                    Text("${mergedContacts.size} contacts", fontSize = 12.sp, color = AppTextSecondary)
+                    Text("${visibleContacts.size} contacts", fontSize = 12.sp, color = AppTextSecondary)
+                }
+            }
+
+            if (showSearch) {
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        label = { Text("Search contacts") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
                 }
             }
 

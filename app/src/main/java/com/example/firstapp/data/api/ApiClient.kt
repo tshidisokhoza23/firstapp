@@ -1,5 +1,6 @@
 package com.example.firstapp.data.api
 
+import com.example.firstapp.BuildConfig
 import com.example.firstapp.data.TokenManager
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
@@ -11,7 +12,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
-    private const val BASE_URL = "http://192.168.100.7:8082/api/v1/" // Local backend with fixed queries
+    private const val BASE_URL = BuildConfig.API_BASE_URL
     private val refreshLock = Any()
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

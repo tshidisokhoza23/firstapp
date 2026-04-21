@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.firstapp.ui.screens
 
 import android.content.Context

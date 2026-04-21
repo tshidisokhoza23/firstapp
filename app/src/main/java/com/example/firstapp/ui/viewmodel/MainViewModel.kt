@@ -31,6 +31,9 @@ class MainViewModel : ViewModel() {
     private val _chats = MutableStateFlow<Resource<List<ChatMessage>>>(Resource.Loading())
     val chats: StateFlow<Resource<List<ChatMessage>>> = _chats.asStateFlow()
 
+    private val _callLogs = MutableStateFlow<Resource<List<CallLog>>>(Resource.Loading())
+    val callLogs: StateFlow<Resource<List<CallLog>>> = _callLogs.asStateFlow()
+
     private val _jobs = MutableStateFlow<Resource<List<Job>>>(Resource.Loading())
     val jobs: StateFlow<Resource<List<Job>>> = _jobs.asStateFlow()
 
@@ -64,9 +67,15 @@ class MainViewModel : ViewModel() {
     private val _syncedContacts = MutableStateFlow<List<Contact>>(emptyList())
     val syncedContacts: StateFlow<List<Contact>> = _syncedContacts.asStateFlow()
     private var lastRealtimePostRefreshMs: Long = 0L
+    private val shortLikeInFlight = mutableSetOf<Int>()
+    private val shortSubscribeInFlight = mutableSetOf<Int>()
+    private val shortLikeLastTapMs = mutableMapOf<Int, Long>()
+    private val shortSubscribeLastTapMs = mutableMapOf<Int, Long>()
+    private val shortsTapDebounceMs = 350L
 
     init {
         fetchChats()
+        fetchCallLogs()
         fetchJobs()
         fetchAdverts()
         fetchChannels()
@@ -99,7 +108,11 @@ class MainViewModel : ViewModel() {
     }
 
     fun withdrawApplication(applicationId: Int) {
+        // Optimistic UI remove
         _applications.value = _applications.value.filter { it.id != applicationId }
+        viewModelScope.launch {
+            repository.withdrawApplication(applicationId).collect { /* done */ }
+        }
     }
 
     fun updateJobProfile(profile: JobProfileData) {
@@ -220,7 +233,21 @@ class MainViewModel : ViewModel() {
 
     fun fetchChats() {
         viewModelScope.launch {
-            repository.getChats().collect { _chats.value = it }
+            repository.getChats().collect { resource ->
+                _chats.value = resource
+                // Keep GlobalCallState name cache fresh so notifications show real names
+                if (resource is Resource.Success) {
+                    resource.data?.forEach { chat ->
+                        com.example.firstapp.data.realtime.GlobalCallState.updateContactName(chat.id, chat.senderName)
+                    }
+                }
+            }
+        }
+    }
+
+    fun fetchCallLogs() {
+        viewModelScope.launch {
+            repository.getCallLogs().collect { _callLogs.value = it }
         }
     }
 
@@ -323,8 +350,16 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun createChat(contactId: Int) {
+        viewModelScope.launch {
+            repository.createChat(contactId)
+            fetchChats()
+        }
+    }
+
     fun refreshAll() {
         fetchChats()
+        fetchCallLogs()
         fetchJobs()
         fetchAdverts()
         fetchChannels()
@@ -337,25 +372,108 @@ class MainViewModel : ViewModel() {
     }
 
     fun likeShort(shortId: Int) {
-        // Optimistic UI update could go here
+        val now = System.currentTimeMillis()
+        val lastTap = shortLikeLastTapMs[shortId] ?: 0L
+        if (now - lastTap < shortsTapDebounceMs) return
+        shortLikeLastTapMs[shortId] = now
+        if (shortLikeInFlight.contains(shortId)) return
+
+        val current = (_shorts.value as? Resource.Success)?.data ?: return
+        val previous = current
+        val optimistic = current.map { s ->
+            if (s.id != shortId) s else {
+                val likes = s.likes.toLongOrNull() ?: 0L
+                val nextLiked = !s.isLiked
+                s.copy(
+                    isLiked = nextLiked,
+                    likes = (if (nextLiked) likes + 1 else (likes - 1).coerceAtLeast(0)).toString()
+                )
+            }
+        }
+        _shorts.value = Resource.Success(optimistic)
+        shortLikeInFlight.add(shortId)
+
         viewModelScope.launch {
             try {
-                ApiClient.apiService.likeShort(shortId)
-            } catch (e: Exception) {
-                // Handle error
+                val response = ApiClient.apiService.likeShort(shortId)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    if (body != null) {
+                        val synced = ( (_shorts.value as? Resource.Success)?.data ?: optimistic ).map { s ->
+                            if (s.id != shortId) s else s.copy(isLiked = body.is_liked, likes = body.likes.toString())
+                        }
+                        _shorts.value = Resource.Success(synced)
+                    }
+                } else {
+                    _shorts.value = Resource.Success(previous)
+                }
+            } catch (_: Exception) {
+                _shorts.value = Resource.Success(previous)
+            } finally {
+                shortLikeInFlight.remove(shortId)
             }
         }
     }
 
     fun subscribeToShortCreator(shortId: Int) {
-        // In a real app, we'd probably subscribe to a userId, but the API has subscribeToChannel
-        // which might be what's intended for "creators" in this context.
+        val now = System.currentTimeMillis()
+        val lastTap = shortSubscribeLastTapMs[shortId] ?: 0L
+        if (now - lastTap < shortsTapDebounceMs) return
+        shortSubscribeLastTapMs[shortId] = now
+        if (shortSubscribeInFlight.contains(shortId)) return
+
+        val current = (_shorts.value as? Resource.Success)?.data ?: return
+        val previous = current
+        val optimistic = current.map { s ->
+            if (s.id != shortId) s else s.copy(isSubscribed = !s.isSubscribed)
+        }
+        _shorts.value = Resource.Success(optimistic)
+        shortSubscribeInFlight.add(shortId)
+
         viewModelScope.launch {
             try {
-                // apiService.subscribeToChannel(shortId) // Placeholder
-            } catch (e: Exception) {
-                // Handle error
+                val response = ApiClient.apiService.subscribeToShortCreator(shortId)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    if (body != null) {
+                        val synced = ( (_shorts.value as? Resource.Success)?.data ?: optimistic ).map { s ->
+                            if (s.id != shortId) s else s.copy(isSubscribed = body.is_subscribed)
+                        }
+                        _shorts.value = Resource.Success(synced)
+                    }
+                } else {
+                    _shorts.value = Resource.Success(previous)
+                }
+            } catch (_: Exception) {
+                _shorts.value = Resource.Success(previous)
+            } finally {
+                shortSubscribeInFlight.remove(shortId)
             }
+        }
+    }
+
+    fun subscribeToChannel(channelId: Int) {
+        viewModelScope.launch {
+            repository.subscribeToChannel(channelId).collect { result ->
+                if (result is Resource.Success) fetchChannels()
+            }
+        }
+    }
+
+    fun deletePost(postId: Int) {
+        viewModelScope.launch {
+            repository.deletePost(postId).collect { result ->
+                if (result is Resource.Success) {
+                    val currentPosts = (_posts.value as? Resource.Success)?.data ?: return@collect
+                    _posts.value = Resource.Success(currentPosts.filter { it.id != postId })
+                }
+            }
+        }
+    }
+
+    fun incrementSongPlay(songId: Int) {
+        viewModelScope.launch {
+            repository.incrementSongPlay(songId).collect { /* fire and forget */ }
         }
     }
 }
