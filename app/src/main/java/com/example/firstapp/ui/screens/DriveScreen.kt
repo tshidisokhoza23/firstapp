@@ -61,6 +61,13 @@ fun DriveScreen(
     viewModel: DriveViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    var showHistory by remember { mutableStateOf(false) }
+    
+    if (showHistory) {
+        DriveHistoryScreen(onBack = { showHistory = false })
+        return
+    }
+
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -110,7 +117,12 @@ fun DriveScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        drawerContent = { DriveDrawerContent() },
+        drawerContent = { 
+            DriveDrawerContent(onShowHistory = { 
+                showHistory = true 
+                scope.launch { drawerState.close() }
+            }) 
+        },
         gesturesEnabled = drawerState.isOpen
     ) {
         DriveMainContent(
@@ -156,7 +168,7 @@ fun DriveScreen(
 }
 
 @Composable
-fun DriveDrawerContent() {
+fun DriveDrawerContent(onShowHistory: () -> Unit) {
     val context = LocalContext.current
     ModalDrawerSheet(
         drawerContainerColor = AppSecondary,
@@ -189,7 +201,7 @@ fun DriveDrawerContent() {
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        DrawerItem(Icons.AutoMirrored.Filled.List, "My Rides") { Toast.makeText(context, "My rides coming soon", Toast.LENGTH_SHORT).show() }
+        DrawerItem(Icons.AutoMirrored.Filled.List, "My Rides") { onShowHistory() }
         DrawerItem(Icons.Default.Payment, "Payment Methods") { Toast.makeText(context, "Payment methods coming soon", Toast.LENGTH_SHORT).show() }
         DrawerItem(Icons.Default.CardGiftcard, "Promotions") { Toast.makeText(context, "Promotions coming soon", Toast.LENGTH_SHORT).show() }
         DrawerItem(Icons.Default.SupportAgent, "Support") { Toast.makeText(context, "Support coming soon", Toast.LENGTH_SHORT).show() }

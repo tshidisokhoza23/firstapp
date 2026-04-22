@@ -15,47 +15,91 @@ import com.example.firstapp.model.Song
 import com.example.firstapp.ui.theme.*
 import com.example.firstapp.ui.viewmodel.MusicViewModel
 
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+
+import androidx.compose.material.icons.filled.MusicNote
+
 @Composable
 fun MusicScreen(
     songs: List<Song>,
     viewModel: MusicViewModel = viewModel()
 ) {
     var currentScreen by remember { mutableStateOf("Recommendations") }
+    val tabs = listOf("Recommendations", "Library", "Search")
 
-    Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-            // Top Navigation Tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                listOf("Recommendations", "Library", "Search").forEach { screen ->
+    Scaffold(
+        topBar = {
+            Column(modifier = Modifier.background(AppBackground)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = screen,
-                        color = if (currentScreen == screen) AppAccent else Color.White.copy(alpha = 0.6f),
-                        fontWeight = if (currentScreen == screen) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 16.sp,
-                        modifier = Modifier
-                            .clip(MaterialTheme.shapes.small)
-                            .clickable { currentScreen = screen }
-                            .padding(8.dp)
+                        "Music",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
+                    Row {
+                        IconButton(onClick = { /* Search */ }) {
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                        }
+                        IconButton(onClick = { /* Settings */ }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                        }
+                    }
+                }
+                
+                ScrollableTabRow(
+                    selectedTabIndex = tabs.indexOf(currentScreen),
+                    containerColor = Color.Transparent,
+                    contentColor = AppAccent,
+                    edgePadding = 16.dp,
+                    divider = {}
+                ) {
+                    tabs.forEach { tab ->
+                        Tab(
+                            selected = currentScreen == tab,
+                            onClick = { currentScreen = tab },
+                            text = {
+                                Text(
+                                    tab,
+                                    fontSize = 16.sp,
+                                    fontWeight = if (currentScreen == tab) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        )
+                    }
                 }
             }
-
-            // Main Content Area
-            Box(modifier = Modifier.weight(1f)) {
+        },
+        containerColor = AppBackground
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (songs.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No songs found", color = Color.Gray, fontSize = 18.sp)
+                    }
+                }
+            } else {
                 when (currentScreen) {
-                    "Recommendations" -> RecommendationsScreen(songs) { viewModel.playSong(it) }
-                    "Library" -> LibraryScreen(songs) { viewModel.playSong(it) }
-                    "Search" -> SearchScreen(songs) { viewModel.playSong(it) }
+                    "Recommendations" -> RecommendationsScreen(songs) { song, queue -> viewModel.playSong(song, queue) }
+                    "Library" -> LibraryScreen(songs) { song, queue -> viewModel.playSong(song, queue) }
+                    "Search" -> SearchScreen(songs) { song, queue -> viewModel.playSong(song, queue) }
                 }
             }
-            
-            // Space for the global mini player which is in MainScreen
-            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }

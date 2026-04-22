@@ -1,11 +1,15 @@
 package com.example.firstapp.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -15,55 +19,92 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
 import com.example.firstapp.ui.theme.AppAccent
 import com.example.firstapp.ui.theme.AppTextSecondary
 import com.example.firstapp.model.Song
-import com.example.firstapp.ui.theme.AppTextSecondary
+import com.example.firstapp.ui.theme.AppSecondary
 
 @Composable
-fun MusicSectionHeader(title: String) {
-    Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
+fun MusicSectionHeader(title: String, onSeeAll: (() -> Unit)? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        if (onSeeAll != null) {
+            Text(
+                "See all",
+                color = AppAccent,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onSeeAll() }
+            )
+        }
+    }
 }
 
 @Composable
 fun SongCard(song: Song, isPlaying: Boolean = false, onClick: () -> Unit) {
-    Column(modifier = Modifier.width(150.dp).clickable { onClick() }) {
+    Column(
+        modifier = Modifier
+            .width(160.dp)
+            .padding(start = 16.dp)
+            .clickable { onClick() }
+    ) {
         Box(
             modifier = Modifier
-                .size(150.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(160.dp)
+                .clip(RoundedCornerShape(16.dp))
                 .background(song.albumArtColor),
             contentAlignment = Alignment.Center
         ) {
+            if (!song.albumArtUrl.isNullOrBlank()) {
+                Image(
+                    painter = rememberAsyncImagePainter(song.albumArtUrl),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
             if (isPlaying) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
+                        .background(Color.Black.copy(alpha = 0.4f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = AppAccent,
                         modifier = Modifier.size(48.dp)
                     )
                 }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = song.title,
             color = if (isPlaying) AppAccent else Color.White,
             fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Text(song.artist, color = AppTextSecondary, fontSize = 12.sp, maxLines = 1)
+        Text(
+            text = song.artist,
+            color = AppTextSecondary,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -73,58 +114,188 @@ fun SongListItem(song: Song, isPlaying: Boolean = false, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(16.dp, 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(56.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(song.albumArtColor),
             contentAlignment = Alignment.Center
         ) {
+            if (!song.albumArtUrl.isNullOrBlank()) {
+                Image(
+                    painter = rememberAsyncImagePainter(song.albumArtUrl),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
             if (isPlaying) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = AppAccent, modifier = Modifier.size(24.dp))
+                }
             }
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
                 color = if (isPlaying) AppAccent else Color.White,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1
+                fontSize = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Text(song.artist, color = AppTextSecondary, fontSize = 12.sp, maxLines = 1)
+            Text(
+                text = song.artist,
+                color = AppTextSecondary,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-        Text(song.duration, color = AppTextSecondary, fontSize = 12.sp)
+        IconButton(onClick = { /* More actions */ }) {
+            Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextSecondary)
+        }
     }
 }
 
 @Composable
-fun AlbumCard(name: String, artist: String, color: Color) {
-    Column {
-        Box(modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(color))
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(artist, color = AppTextSecondary, fontSize = 12.sp)
+fun ArtistCard(name: String, imageUrl: String?, color: Color) {
+    Column(
+        modifier = Modifier
+            .width(120.dp)
+            .padding(start = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(color),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!imageUrl.isNullOrBlank()) {
+                Image(
+                    painter = rememberAsyncImagePainter(imageUrl),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = name,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
 @Composable
 fun ArtistListItem(name: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.Gray.copy(0.3f)), contentAlignment = Alignment.Center) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.Gray.copy(0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
         }
         Spacer(modifier = Modifier.width(16.dp))
-        Text(name, color = Color.White, fontWeight = FontWeight.Medium)
+        Text(name, color = Color.White, fontWeight = FontWeight.Medium, fontSize = 16.sp)
     }
 }
 
 @Composable
-fun PlaylistCard(name: String) {
-    Box(modifier = Modifier.aspectRatio(1.6f).clip(RoundedCornerShape(12.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF2C3E50), Color(0xFF4CA1AF)))), contentAlignment = Alignment.Center) {
-        Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+fun AlbumCard(name: String, artist: String, color: Color) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(color)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            name,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            fontSize = 14.sp
+        )
+        Text(
+            artist,
+            color = AppTextSecondary,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun FeaturedPlaylistCard(name: String, description: String, imageUrl: String?) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background gradient if no image
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF1DB954).copy(alpha = 0.8f), Color.Black)
+                        )
+                    )
+            )
+            
+            if (!imageUrl.isNullOrBlank()) {
+                Image(
+                    painter = rememberAsyncImagePainter(imageUrl),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.6f
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = name,
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = description,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 14.sp
+                )
+            }
+        }
     }
 }

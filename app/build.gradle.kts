@@ -10,7 +10,7 @@ android {
 
     val hostIp = (project.findProperty("HOST_IP") as String?)
         ?: System.getenv("HOST_IP")
-    val defaultHost = hostIp?.takeIf { it.isNotBlank() } ?: "10.0.2.2"
+    val defaultHost = hostIp?.takeIf { it.isNotBlank() } ?: "192.168.100.7"
     val apiBaseUrl = (project.findProperty("API_BASE_URL") as String?)
         ?: "http://$defaultHost:8082/api/v1/"
     val wsBaseUrl = (project.findProperty("WS_BASE_URL") as String?)

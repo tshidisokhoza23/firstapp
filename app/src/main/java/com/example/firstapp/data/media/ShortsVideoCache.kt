@@ -75,6 +75,17 @@ object ShortsVideoCache {
     }
 
     @Synchronized
+    fun acquirePlayer(context: Context, url: String): ExoPlayer {
+        val player = preloadPlayers.remove(url)
+        if (player != null) {
+            return player.apply {
+                volume = 1f
+            }
+        }
+        return buildPlayer(context)
+    }
+
+    @Synchronized
     fun preload(context: Context, urls: List<String>) {
         val wantedUrls = urls
             .asSequence()

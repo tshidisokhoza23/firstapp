@@ -2,6 +2,7 @@ package com.example.firstapp.ui.screens
 
 import android.util.Base64
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,6 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.widget.Toast
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.launch
+import androidx.media3.common.util.UnstableApi
 import com.example.firstapp.data.TokenManager
 import com.example.firstapp.data.media.ShortsVideoCache
 import com.example.firstapp.data.repository.SearchResult
@@ -83,6 +87,11 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
     var showJobProfile by remember { mutableStateOf(false) }
     var showApplications by remember { mutableStateOf(false) }
     var showDirectMessages by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showEditProfile by remember { mutableStateOf(false) }
+    var showCreateGroup by remember { mutableStateOf(false) }
+    var showSharedMedia by remember { mutableStateOf(false) }
+    var selectedContactsForGroup by remember { mutableStateOf<List<Contact>>(emptyList()) }
 
     // Collect states from ViewModel
     val chatsState by viewModel.chats.collectAsState()
@@ -95,6 +104,7 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
     val storiesState by viewModel.stories.collectAsState()
     val callLogsState by viewModel.callLogs.collectAsState()
     val applications by viewModel.applications.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
 
     // Music State
     val currentlyPlaying by musicViewModel.currentlyPlaying.collectAsState()
@@ -103,12 +113,20 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
     val isShuffleEnabled by musicViewModel.isShuffleEnabled.collectAsState()
     val repeatMode by musicViewModel.repeatMode.collectAsState()
     val likedSongs by musicViewModel.likedSongs.collectAsState()
+    val currentQueue by musicViewModel.currentQueue.collectAsState()
     var isNowPlayingVisible by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         musicViewModel.initPlayer(context)
     }
+
+    var showShortComments by remember { mutableStateOf(false) }
+    var showShortMoreMenu by remember { mutableStateOf(false) }
+    var activeShortIdForComments by remember { mutableIntStateOf(-1) }
+    var activeShortForMoreMenu by remember { mutableStateOf<com.example.firstapp.model.Short?>(null) }
+
+    val shortRepliesState by viewModel.shortReplies.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         MainContent(
@@ -157,6 +175,17 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
             applications = applications,
             showDirectMessages = showDirectMessages,
             onShowDirectMessages = { showDirectMessages = it },
+            currentUser = currentUser,
+            showSettings = showSettings,
+            onShowSettings = { showSettings = it },
+            showEditProfile = showEditProfile,
+            onShowEditProfile = { showEditProfile = it },
+            showCreateGroup = showCreateGroup,
+            onShowCreateGroup = { showCreateGroup = it },
+            showSharedMedia = showSharedMedia,
+            onShowSharedMedia = { showSharedMedia = it },
+            selectedContactsForGroup = selectedContactsForGroup,
+            onSetSelectedContactsForGroup = { selectedContactsForGroup = it },
             musicViewModel = musicViewModel,
             currentlyPlaying = currentlyPlaying,
             isPlaying = isPlaying,
@@ -164,9 +193,52 @@ fun MainScreen(onLogout: () -> Unit, viewModel: MainViewModel = viewModel(), mus
             isShuffleEnabled = isShuffleEnabled,
             repeatMode = repeatMode,
             likedSongs = likedSongs,
+            currentQueue = currentQueue,
             isNowPlayingVisible = isNowPlayingVisible,
-            onSetNowPlayingVisible = { isNowPlayingVisible = it }
+            onSetNowPlayingVisible = { isNowPlayingVisible = it },
+            onShowShortComments = { id ->
+                activeShortIdForComments = id
+                viewModel.fetchShortReplies(id)
+                showShortComments = true
+            },
+            onShowShortMoreMenu = { short ->
+                activeShortForMoreMenu = short
+                showShortMoreMenu = true
+            },
+            onSearchShorts = { query ->
+                viewModel.searchShorts(query)
+            }
         )
+
+        if (showShortComments && activeShortIdForComments != -1) {
+            ShortCommentsSheet(
+                shortId = activeShortIdForComments,
+                repliesState = shortRepliesState,
+                onDismiss = {
+                    showShortComments = false
+                    activeShortIdForComments = -1
+                    viewModel.clearActiveShortReplies()
+                },
+                onSendReply = { content ->
+                    viewModel.replyToShort(activeShortIdForComments, content)
+                }
+            )
+        }
+
+        activeShortForMoreMenu?.let { short ->
+            if (showShortMoreMenu) {
+                ShortMoreMenuSheet(
+                    short = short,
+                    onDismiss = {
+                        showShortMoreMenu = false
+                        activeShortForMoreMenu = null
+                    },
+                    onAction = { action ->
+                        Toast.makeText(context, "Action: $action", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        }
 
         incomingCall?.let { call ->
             if (selectedChat?.id != call.senderId) {
@@ -281,6 +353,17 @@ fun MainContent(
     applications: List<JobApplication>,
     showDirectMessages: Boolean,
     onShowDirectMessages: (Boolean) -> Unit,
+    currentUser: User?,
+    showSettings: Boolean,
+    onShowSettings: (Boolean) -> Unit,
+    showEditProfile: Boolean,
+    onShowEditProfile: (Boolean) -> Unit,
+    showCreateGroup: Boolean,
+    onShowCreateGroup: (Boolean) -> Unit,
+    showSharedMedia: Boolean,
+    onShowSharedMedia: (Boolean) -> Unit,
+    onSetSelectedContactsForGroup: (List<Contact>) -> Unit,
+    selectedContactsForGroup: List<Contact>,
     musicViewModel: MusicViewModel,
     currentlyPlaying: Song?,
     isPlaying: Boolean,
@@ -288,14 +371,20 @@ fun MainContent(
     isShuffleEnabled: Boolean,
     repeatMode: Int,
     likedSongs: Set<Int>,
+    currentQueue: List<Song>,
     isNowPlayingVisible: Boolean,
-    onSetNowPlayingVisible: (Boolean) -> Unit
+    onSetNowPlayingVisible: (Boolean) -> Unit,
+    onShowShortComments: (Int) -> Unit,
+    onShowShortMoreMenu: (com.example.firstapp.model.Short) -> Unit,
+    onSearchShorts: (String) -> Unit
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
     var showMenu by remember { mutableStateOf(false) }
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var isShortsSearchActive by remember { mutableStateOf(false) }
+    var shortsSearchQuery by remember { mutableStateOf("") }
     var isMediaProfileActive by remember { mutableStateOf(false) }
     var openMediaProfileRequest by remember { mutableIntStateOf(0) }
     var closeMediaProfileRequest by remember { mutableIntStateOf(0) }
@@ -346,6 +435,11 @@ fun MainContent(
         if (isNowPlayingVisible) {
             onSetNowPlayingVisible(false)
         }
+        else if (isShortsSearchActive) {
+            isShortsSearchActive = false
+            shortsSearchQuery = ""
+            viewModel.fetchShorts()
+        }
         else if (isSearchActive) {
             isSearchActive = false
             searchQuery = ""
@@ -354,6 +448,10 @@ fun MainContent(
         else if (showStories) onShowStories(false)
         else if (showContactPicker) onShowContactPicker(false)
         else if (showJobProfile) onShowJobProfile(false)
+        else if (showSettings) onShowSettings(false)
+        else if (showEditProfile) onShowEditProfile(false)
+        else if (showCreateGroup) onShowCreateGroup(false)
+        else if (showSharedMedia) onShowSharedMedia(false)
         else if (showApplications) onShowApplications(false)
         else if (showDirectMessages) onShowDirectMessages(false)
         else if (isMediaProfileActive) closeMediaProfileRequest += 1
@@ -375,18 +473,25 @@ fun MainContent(
     }
 
     androidx.activity.compose.BackHandler(
-        enabled = isNowPlayingVisible || isSearchActive || selectedChat != null || showStories || showContactPicker || showJobProfile || showApplications || showDirectMessages || isMediaProfileActive || selectedJob != null || effectiveSelectedPost != null || selectedChannel != null || selectedAdvert != null || showAdvertViewer || selectedBottomItem != 0,
+        enabled = isNowPlayingVisible || isShortsSearchActive || isSearchActive || selectedChat != null || showStories || showContactPicker || showJobProfile || showApplications || showDirectMessages || isMediaProfileActive || selectedJob != null || effectiveSelectedPost != null || selectedChannel != null || selectedAdvert != null || showAdvertViewer || selectedBottomItem != 0,
         onBack = onBackAction
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (selectedChat != null) {
-            ChatScreen(
-                chat = selectedChat,
-                onBack = {
-                    onChatSelect(null)
-                }
-            )
+            if (showSharedMedia) {
+                SharedMediaScreen(
+                    chat = selectedChat,
+                    messages = emptyList(),
+                    onBack = { onShowSharedMedia(false) }
+                )
+            } else {
+                ChatScreen(
+                    chat = selectedChat,
+                    onBack = { onChatSelect(null) },
+                    onShowSharedMedia = { onShowSharedMedia(true) }
+                )
+            }
         } else if (showDirectMessages) {
             val chats = (chatsState as? Resource.Success)?.data ?: emptyList()
             val callLogs = (callLogsState as? Resource.Success)?.data ?: emptyList()
@@ -415,7 +520,11 @@ fun MainContent(
             )
         } else if (showStories) {
             val stories = (storiesState as? Resource.Success)?.data ?: emptyList()
-            StoryScreen(stories = stories, onBack = { onShowStories(false) })
+            StoryScreen(
+                stories = stories, 
+                onBack = { onShowStories(false) },
+                onPostStory = { content, url -> viewModel.postStory(content, url) }
+            )
         } else if (showContactPicker) {
             ContactPickerScreen(
                 viewModel = viewModel,
@@ -438,6 +547,24 @@ fun MainContent(
                         putExtra("sms_body", "Hey! Download FirstApp to chat with me: https://firstapp.com/download")
                     }
                     context.startActivity(intent)
+                },
+                onGroupCreate = { contacts ->
+                    onSetSelectedContactsForGroup(contacts)
+                    onShowContactPicker(false)
+                    onShowCreateGroup(true)
+                }
+            )
+        } else if (showCreateGroup) {
+            CreateGroupScreen(
+                selectedContacts = selectedContactsForGroup,
+                onBack = {
+                    onShowCreateGroup(false)
+                    onShowContactPicker(true)
+                },
+                onCreate = { name, ids ->
+                    // For now just simulate creating a group
+                    onShowCreateGroup(false)
+                    onChatSelect(ChatMessage(id = 9999, senderName = name, lastMessage = "Group created", time = "now", avatarColor = Color.Magenta))
                 }
             )
         } else if (showJobProfile) {
@@ -479,6 +606,25 @@ fun MainContent(
                 },
                 onSetReminder = { application ->
                     android.widget.Toast.makeText(context, "Reminder set for ${application.jobTitle}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            )
+        } else if (showSettings) {
+            SettingsScreen(
+                user = currentUser,
+                onBack = { onShowSettings(false) },
+                onLogout = onLogout,
+                onEditProfile = {
+                    onShowSettings(false)
+                    onShowEditProfile(true)
+                }
+            )
+        } else if (showEditProfile) {
+            JobProfileScreen(
+                initialData = JobProfileData("John Doe", "john@example.com", "0712345678", "Cape Town", "", "", "", "", "", "", "", "", ""),
+                onClose = { onShowEditProfile(false) },
+                onSubmit = {
+                    viewModel.updateJobProfile(it)
+                    onShowEditProfile(false)
                 }
             )
         } else if (effectiveSelectedPost != null) {
@@ -596,10 +742,10 @@ fun MainContent(
                     }
                 },
                 topBar = {
-                    if (selectedBottomItem == 0 || (selectedBottomItem == 1 && !isMediaProfileActive)) {
+                    if (selectedBottomItem == 0 || (selectedBottomItem == 1 && !isMediaProfileActive) || selectedBottomItem == 4) {
                         Column(
                             modifier = Modifier
-                                .background(AppBackground)
+                                .background(if (selectedBottomItem == 4 && !isShortsSearchActive) Color.Transparent else AppBackground)
                                 .statusBarsPadding()
                         ) {
                             if (isSearchActive) {
@@ -634,6 +780,57 @@ fun MainContent(
                                     if (searchQuery.isNotEmpty()) {
                                         IconButton(onClick = { searchQuery = "" }) {
                                             Icon(Icons.Default.Clear, contentDescription = "Clear", tint = AppTextPrimary)
+                                        }
+                                    }
+                                }
+                            } else if (isShortsSearchActive && selectedBottomItem == 4) {
+                                // Transparent blurred search bar for Shorts
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .clip(RoundedCornerShape(24.dp)),
+                                    color = Color.Black.copy(alpha = 0.3f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(onClick = {
+                                            isShortsSearchActive = false
+                                            shortsSearchQuery = ""
+                                            viewModel.clearSearch()
+                                        }) {
+                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                                        }
+                                        TextField(
+                                            value = shortsSearchQuery,
+                                            onValueChange = { 
+                                                shortsSearchQuery = it
+                                                onSearchShorts(it)
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            placeholder = { Text("Search shorts...", color = Color.White.copy(alpha = 0.5f)) },
+                                            colors = TextFieldDefaults.colors(
+                                                focusedContainerColor = Color.Transparent,
+                                                unfocusedContainerColor = Color.Transparent,
+                                                focusedIndicatorColor = Color.Transparent,
+                                                unfocusedIndicatorColor = Color.Transparent,
+                                                cursorColor = Color.White,
+                                                focusedTextColor = Color.White,
+                                                unfocusedTextColor = Color.White
+                                            ),
+                                            singleLine = true
+                                        )
+                                        if (shortsSearchQuery.isNotEmpty()) {
+                                            IconButton(onClick = { 
+                                                shortsSearchQuery = ""
+                                                viewModel.clearSearch()
+                                            }) {
+                                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                                            }
                                         }
                                     }
                                 }
@@ -673,23 +870,33 @@ fun MainContent(
                                                 }
                                             }
                                         } else {
-                                            Text(
-                                                text = if (selectedBottomItem == 0 && selectedTabItem != 0) tabs[selectedTabItem] else "FirstApp",
-                                                color = AppTextPrimary,
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.weight(1f)
-                                            )
+                                            if (!isShortsSearchActive) {
+                                                Text(
+                                                    text = if (selectedBottomItem == 4) "Shorts" else if (selectedBottomItem == 0 && selectedTabItem != 0) tabs[selectedTabItem] else "FirstApp",
+                                                    color = if (selectedBottomItem == 4) Color.White else AppTextPrimary,
+                                                    fontSize = 24.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            } else {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
                                         }
                                     }
                                     
                                     if (selectedPost == null) {
-                                        IconButton(onClick = { 
-                                            if (selectedBottomItem == 0) {
-                                                isSearchActive = true
+                                        if (selectedBottomItem == 4 && !isShortsSearchActive) {
+                                            IconButton(onClick = { isShortsSearchActive = true }) {
+                                                Icon(Icons.Default.Search, contentDescription = "Search Shorts", tint = Color.White)
                                             }
-                                        }) {
-                                            Icon(Icons.Default.Search, contentDescription = "Search", tint = AppTextPrimary)
+                                        } else if (selectedBottomItem != 4) {
+                                            IconButton(onClick = { 
+                                                if (selectedBottomItem == 0) {
+                                                    isSearchActive = true
+                                                }
+                                            }) {
+                                                Icon(Icons.Default.Search, contentDescription = "Search", tint = AppTextPrimary)
+                                            }
                                         }
                                         // Direct Messages icon
                                         if (selectedBottomItem == 1) {
@@ -719,44 +926,58 @@ fun MainContent(
                                                 }
                                             }
                                         }
-                                        IconButton(onClick = {
-                                            viewModel.refreshAll()
-                                            Toast.makeText(context, "Refreshing from server...", Toast.LENGTH_SHORT).show()
-                                        }) {
-                                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = AppTextPrimary)
-                                        }
-                                        Box {
-                                            IconButton(onClick = { showMenu = true }) {
-                                                Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextPrimary)
+                                        if (selectedBottomItem != 4) {
+                                            IconButton(onClick = { onShowSettings(true) }) {
+                                                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = AppTextPrimary)
                                             }
-                                            DropdownMenu(
-                                                expanded = showMenu,
-                                                onDismissRequest = { showMenu = false },
-                                                modifier = Modifier.background(AppSecondary)
-                                            ) {
-                                                if (selectedBottomItem == 0 && selectedTabItem == 1) {
+                                            Box {
+                                                IconButton(onClick = { showMenu = true }) {
+                                                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextPrimary)
+                                                }
+                                                DropdownMenu(
+                                                    expanded = showMenu,
+                                                    onDismissRequest = { showMenu = false },
+                                                    modifier = Modifier.background(AppSecondary)
+                                                ) {
                                                     DropdownMenuItem(
-                                                        text = { Text("Job Profile", color = Color.White) },
+                                                        text = { Text("Refresh content", color = Color.White) },
                                                         onClick = {
                                                             showMenu = false
-                                                            onShowJobProfile(true)
+                                                            viewModel.refreshAll()
+                                                            Toast.makeText(context, "Refreshing from server...", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    )
+                                                    if (selectedBottomItem == 0 && selectedTabItem == 1) {
+                                                        DropdownMenuItem(
+                                                            text = { Text("Job Profile", color = Color.White) },
+                                                            onClick = {
+                                                                showMenu = false
+                                                                onShowJobProfile(true)
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Application History", color = Color.White) },
+                                                            onClick = {
+                                                                showMenu = false
+                                                                onShowApplications(true)
+                                                            }
+                                                        )
+                                                    }
+                                                    DropdownMenuItem(
+                                                        text = { Text("Settings", color = Color.White) },
+                                                        onClick = {
+                                                            showMenu = false
+                                                            onShowSettings(true)
                                                         }
                                                     )
                                                     DropdownMenuItem(
-                                                        text = { Text("Application History", color = Color.White) },
+                                                        text = { Text("Logout", color = Color.White) },
                                                         onClick = {
                                                             showMenu = false
-                                                            onShowApplications(true)
+                                                            onLogout()
                                                         }
                                                     )
                                                 }
-                                                DropdownMenuItem(
-                                                    text = { Text("Logout", color = Color.White) },
-                                                    onClick = {
-                                                        showMenu = false
-                                                        onLogout()
-                                                    }
-                                                )
                                             }
                                         }
                                     }
@@ -1049,7 +1270,9 @@ fun MainContent(
                                     shorts = shortsState.data ?: emptyList(),
                                     viewModel = viewModel,
                                     onRetry = { viewModel.fetchShorts() },
-                                    bottomPadding = bottomBarHeight
+                                    bottomPadding = bottomBarHeight,
+                                    onShowComments = onShowShortComments,
+                                    onShowMoreMenu = onShowShortMoreMenu
                                 )
                             }
                         }
@@ -1067,6 +1290,7 @@ fun MainContent(
             currentlyPlaying?.let { song ->
                 NowPlayingScreen(
                     song = song,
+                    queue = currentQueue,
                     isPlaying = isPlaying,
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
@@ -1079,7 +1303,8 @@ fun MainContent(
                     onPrevious = { musicViewModel.skipPrevious() },
                     onNext = { musicViewModel.skipNext() },
                     onSeek = { musicViewModel.seekTo(it) },
-                    onToggleLike = { musicViewModel.toggleLike(song.id) }
+                    onToggleLike = { musicViewModel.toggleLike(song.id) },
+                    onPlayFromQueue = { musicViewModel.playSong(it) }
                 )
             }
         }
@@ -1207,12 +1432,15 @@ private fun getCurrentUserIdFromTokenForMain(): Int? {
 }
 
 @OptIn(ExperimentalFoundationApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun ShortsList(
     shorts: List<com.example.firstapp.model.Short>,
     viewModel: MainViewModel,
     onRetry: () -> Unit,
-    bottomPadding: Dp
+    bottomPadding: Dp,
+    onShowComments: (Int) -> Unit,
+    onShowMoreMenu: (com.example.firstapp.model.Short) -> Unit
 ) {
     if (shorts.isEmpty()) {
         ShortsMessageState(
@@ -1246,21 +1474,32 @@ fun ShortsList(
         }
     }
 
+    val scope = rememberCoroutineScope()
+
     androidx.compose.foundation.pager.VerticalPager(
         state = pagerState,
         modifier = Modifier.fillMaxSize(),
-        beyondBoundsPageCount = 1
+        beyondBoundsPageCount = 1,
+        pageSpacing = 0.dp,
+        flingBehavior = androidx.compose.foundation.pager.PagerDefaults.flingBehavior(
+            state = pagerState,
+            snapPositionalThreshold = 0.3f
+        )
     ) { page ->
         val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-        val scale = 1f - 0.08f * kotlin.math.abs(pageOffset)
-        val alpha = 1f - 0.4f * kotlin.math.abs(pageOffset)
-        val translationY = 48f * pageOffset
-
+        
+        // Professional transition: subtle scaling and opacity change
+        // mimicking premium short-form video apps
+        val scale = 1f - (0.1f * kotlin.math.abs(pageOffset).coerceIn(0f, 1f))
+        val alpha = 1f - (0.5f * kotlin.math.abs(pageOffset).coerceIn(0f, 1f))
+        
         val autoScrollToNext: () -> Unit = {
             if (pagerState.currentPage == page && page < shorts.lastIndex) {
-                // Use LaunchedEffect to animate scroll
-                androidx.compose.runtime.LaunchedEffect(page) {
-                    pagerState.animateScrollToPage(page + 1)
+                scope.launch {
+                    pagerState.animateScrollToPage(
+                        page + 1,
+                        animationSpec = tween(durationMillis = 500)
+                    )
                 }
             }
         }
@@ -1269,10 +1508,11 @@ fun ShortsList(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    this.alpha = alpha.coerceIn(0.6f, 1f)
-                    this.scaleX = scale.coerceIn(0.92f, 1f)
-                    this.scaleY = scale.coerceIn(0.92f, 1f)
-                    this.translationY = translationY
+                    this.alpha = alpha
+                    this.scaleX = scale
+                    this.scaleY = scale
+                    // Smooth parallax effect
+                    this.translationY = size.height * (pageOffset * 0.1f)
                 }
         ) {
             ShortItem(
@@ -1281,6 +1521,10 @@ fun ShortsList(
                 bottomInset = bottomPadding,
                 onLikeClick = { viewModel.likeShort(it) },
                 onSubscribeClick = { viewModel.subscribeToShortCreator(it) },
+                onCommentClick = { onShowComments(it) },
+                onRepostClick = { viewModel.repostShort(it) },
+                onBookmarkClick = { viewModel.bookmarkShort(it) },
+                onMoreClick = { onShowMoreMenu(shorts[page]) },
                 onVideoEnded = autoScrollToNext
             )
         }
@@ -1681,6 +1925,17 @@ fun MainScreenPreview() {
             applications = emptyList(),
             showDirectMessages = false,
             onShowDirectMessages = {},
+            currentUser = null,
+            showSettings = false,
+            onShowSettings = {},
+            showEditProfile = false,
+            onShowEditProfile = {},
+            showCreateGroup = false,
+            onShowCreateGroup = {},
+            showSharedMedia = false,
+            onShowSharedMedia = {},
+            selectedContactsForGroup = emptyList(),
+            onSetSelectedContactsForGroup = {},
             musicViewModel = viewModel(),
             currentlyPlaying = null,
             isPlaying = false,
@@ -1688,8 +1943,12 @@ fun MainScreenPreview() {
             isShuffleEnabled = false,
             repeatMode = 0,
             likedSongs = emptySet(),
+            currentQueue = emptyList(),
             isNowPlayingVisible = false,
-            onSetNowPlayingVisible = {}
+            onSetNowPlayingVisible = {},
+            onShowShortComments = {},
+            onShowShortMoreMenu = {},
+            onSearchShorts = {}
         )
     }
 }

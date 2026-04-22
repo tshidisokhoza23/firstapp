@@ -96,7 +96,11 @@ import android.provider.OpenableColumns
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
+fun ChatScreen(
+    chat: ChatMessage,
+    onBack: () -> Unit,
+    onShowSharedMedia: () -> Unit
+) {
     var messageText by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -208,7 +212,7 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
 
             override fun onError(error: String) {
                 isWebSocketConnected = false
-                Toast.makeText(context, "Connection error: $error", Toast.LENGTH_SHORT).show()
+                showToast("Connection error: $error")
             }
         }
 
@@ -752,6 +756,13 @@ fun ChatScreen(chat: ChatMessage, onBack: () -> Unit) {
                                             }
                                         }
                                     }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Shared media") },
+                                onClick = {
+                                    showChatMenu = false
+                                    onShowSharedMedia()
                                 }
                             )
                             DropdownMenuItem(
@@ -1558,7 +1569,8 @@ fun ChatScreenPreview() {
                 time = "10:00",
                 avatarColor = Color(0xFF8B4513)
             ),
-            onBack = {}
+            onBack = {},
+            onShowSharedMedia = {}
         )
     }
 }

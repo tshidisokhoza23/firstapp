@@ -29,6 +29,11 @@ interface AppRepository {
     fun getAdverts(): Flow<Resource<List<Advert>>>
     fun getChannels(): Flow<Resource<List<Channel>>>
     fun getShorts(): Flow<Resource<List<com.example.firstapp.model.Short>>>
+    fun createShort(description: String, videoUrl: String, thumbnailUrl: String): Flow<Resource<Long>>
+    fun repostShort(shortId: Int): Flow<Resource<Boolean>>
+    fun bookmarkShort(shortId: Int): Flow<Resource<Boolean>>
+    fun replyToShort(shortId: Int, content: String): Flow<Resource<Boolean>>
+    fun getShortReplies(shortId: Int): Flow<Resource<List<ShortReply>>>
     fun getSongs(): Flow<Resource<List<Song>>>
     fun getPosts(): Flow<Resource<List<Post>>>
     fun createPost(content: String, mediaUrls: List<String> = emptyList()): Flow<Resource<Boolean>>
@@ -40,15 +45,19 @@ interface AppRepository {
     fun repostPostReply(replyId: Int): Flow<Resource<Boolean>>
     fun bookmarkPostReply(replyId: Int): Flow<Resource<Boolean>>
     fun getStories(): Flow<Resource<List<UserStory>>>
+    fun createStory(content: String, contentUrl: String? = null, type: String = "text"): Flow<Resource<Boolean>>
     fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
     suspend fun createChat(contactId: Int)
     fun search(query: String): Flow<Resource<SearchResult>>
+    fun searchShorts(query: String): Flow<Resource<List<AppShort>>>
     fun viewPost(postId: Int): Flow<Resource<Boolean>>
     fun deletePost(postId: Int): Flow<Resource<Boolean>>
     fun saveDestination(name: String, address: String, latitude: Double, longitude: Double, isFavorite: Boolean, type: String): Flow<Resource<Boolean>>
     fun withdrawApplication(applicationId: Int): Flow<Resource<Boolean>>
     fun subscribeToChannel(channelId: Int): Flow<Resource<Boolean>>
     fun incrementSongPlay(songId: Int): Flow<Resource<Boolean>>
+    fun likeSong(songId: Int): Flow<Resource<Boolean>>
+    fun getCurrentUser(): Flow<Resource<User>>
 }
 
 data class SearchResult(

@@ -23,13 +23,15 @@ import okio.ByteString
 interface PostSocketListener {
     fun onOpen()
     fun onPostsEvent(action: String, postId: Int?)
+    fun onShortsEvent(action: String, shortId: Int?)
     fun onError(error: String)
 }
 
-private data class WsPostEvent(
+private data class WsEvent(
     val type: String,
     val action: String,
-    @SerializedName("post_id") val postId: Int?
+    @SerializedName("post_id") val postId: Int?,
+    @SerializedName("short_id") val shortId: Int?
 )
 
 object PostWebSocketClient {
@@ -70,12 +72,17 @@ object PostWebSocketClient {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
-                    val event = gson.fromJson(text, WsPostEvent::class.java)
-                    if (event.type == "posts_event") {
-                        listeners.forEach { it.onPostsEvent(event.action, event.postId) }
+                    val event = gson.fromJson(text, WsEvent::class.java)
+                    when (event.type) {
+                        "posts_event" -> {
+                            listeners.forEach { it.onPostsEvent(event.action, event.postId) }
+                        }
+                        "shorts_event" -> {
+                            listeners.forEach { it.onShortsEvent(event.action, event.shortId) }
+                        }
                     }
                 } catch (e: Exception) {
-                    notifyError("Failed to parse posts websocket message: ${e.localizedMessage}")
+                    notifyError("Failed to parse websocket message: ${e.localizedMessage}")
                 }
             }
 

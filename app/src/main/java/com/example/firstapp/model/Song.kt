@@ -12,6 +12,7 @@ data class Song(
     val albumArtColor: Color,
     val audioUrl: String = "",
     val duration: String,
+    val lyrics: String? = null,
     val category: String, // e.g., Pop, Rock, Synth-pop
     val releaseDate: String = "",
     val playCount: String = "0",

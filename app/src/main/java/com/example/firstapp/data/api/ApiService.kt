@@ -97,11 +97,29 @@ interface ApiService {
     @GET("shorts")
     suspend fun getShorts(): Response<ShortsResponse>
 
+    @GET("shorts/search")
+    suspend fun searchShorts(@Query("query") query: String, @Query("page") page: Int = 1): Response<ShortsResponse>
+
     @POST("shorts/{shortId}/like")
     suspend fun likeShort(@Path("shortId") shortId: Int): Response<ShortLikeResponse>
 
     @POST("shorts/{shortId}/subscribe")
     suspend fun subscribeToShortCreator(@Path("shortId") shortId: Int): Response<ShortSubscribeResponse>
+
+    @POST("shorts")
+    suspend fun createShort(@Body request: CreateShortRequest): Response<CreateShortResponse>
+
+    @POST("shorts/{shortId}/repost")
+    suspend fun repostShort(@Path("shortId") shortId: Int): Response<StatusResponse>
+
+    @POST("shorts/{shortId}/bookmark")
+    suspend fun bookmarkShort(@Path("shortId") shortId: Int): Response<StatusResponse>
+
+    @POST("shorts/{shortId}/replies")
+    suspend fun replyToShort(@Path("shortId") shortId: Int, @Body request: CreateShortReplyRequest): Response<StatusResponse>
+
+    @GET("shorts/{shortId}/replies")
+    suspend fun getShortReplies(@Path("shortId") shortId: Int): Response<ShortRepliesResponse>
 
     // Songs
     @GET("songs")
@@ -375,7 +393,8 @@ data class ApiSong(
     val release_date: String?,
     val play_count: Long,
     val is_liked: Boolean,
-    val is_explicit: Boolean
+    val is_explicit: Boolean,
+    val lyrics: String? = null
 )
 
 data class SongsResponse(val songs: List<ApiSong>)
@@ -474,16 +493,3 @@ data class SaveDestinationRequest(
 )
 
 data class SaveDestinationResponse(val destination: Destination)
-
-// Update User model to match backend
-data class User(
-    val id: Int,
-    val username: String,
-    val display_name: String,
-    val phone_number: String? = null,
-    val created_at: String,
-    val avatar_url: String? = null,
-    val bio: String? = null,
-    val location: String? = null,
-    val is_verified: Boolean = false
-)

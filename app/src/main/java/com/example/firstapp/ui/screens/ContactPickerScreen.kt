@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.database.Cursor
 import android.provider.ContactsContract
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,13 +11,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,13 +37,17 @@ fun ContactPickerScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
     onContactSelected: (Contact) -> Unit,
-    onInviteClicked: (String) -> Unit
+    onInviteClicked: (String) -> Unit,
+    onGroupCreate: (List<Contact>) -> Unit
 ) {
     val context = LocalContext.current
     val contacts by viewModel.contacts.collectAsState()
     val phoneContacts = remember { mutableStateListOf<Contact>() }
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
+    var isGroupMode by remember { mutableStateOf(false) }
+    val selectedForGroup = remember { mutableStateListOf<Contact>() }
+    
     val isContactsPermissionGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -71,7 +72,6 @@ fun ContactPickerScreen(
             phoneContacts.clear()
             val loaded = loadPhoneContacts(context)
             phoneContacts.addAll(loaded)
-            // WhatsApp-style: sync local numbers to backend to discover registered users
             val phoneNumbers = loaded.map { it.phoneNumber }.filter { it.isNotBlank() }
             if (phoneNumbers.isNotEmpty()) {
                 viewModel.syncContacts(phoneNumbers)
@@ -107,8 +107,8 @@ fun ContactPickerScreen(
             }
         }
 
-        val phoneNumbers = mergedFromPhone.map { normalizePhoneNumber(it.phoneNumber) }.toSet()
-        val remainingBackend = contacts.filter { it.phoneNumber.isNotBlank() && normalizePhoneNumber(it.phoneNumber) !in phoneNumbers }
+        val phoneNumbersSet = mergedFromPhone.map { normalizePhoneNumber(it.phoneNumber) }.toSet()
+        val remainingBackend = contacts.filter { it.phoneNumber.isNotBlank() && normalizePhoneNumber(it.phoneNumber) !in phoneNumbersSet }
 
         mergedFromPhone + remainingBackend
     }
@@ -131,27 +131,28 @@ fun ContactPickerScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Select contact", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text("${mergedContacts.size} contacts", fontSize = 12.sp, color = AppTextSecondary)
+                        Text(if (isGroupMode) "Add participants" else "Select contact", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isGroupMode) "${selectedForGroup.size} of ${mergedContacts.size} selected" else "${mergedContacts.size} contacts",
+                            fontSize = 12.sp, 
+                            color = AppTextSecondary
+                        )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (isGroupMode) {
+                            isGroupMode = false
+                            selectedForGroup.clear()
+                        } else {
+                            onBack()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
                     IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Default.Search, "Search") }
-                    IconButton(onClick = {
-                        viewModel.fetchContacts()
-                        if (isContactsPermissionGranted) {
-                            val numbers = phoneContacts.map { it.phoneNumber }.filter { it.isNotBlank() }
-                            if (numbers.isNotEmpty()) {
-                                viewModel.syncContacts(numbers)
-                            }
-                        }
-                        Toast.makeText(context, "Contacts refreshed", Toast.LENGTH_SHORT).show()
-                    }) { Icon(Icons.Default.Person, "More") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = AppSecondary,
@@ -161,15 +162,128 @@ fun ContactPickerScreen(
                 )
             )
         },
+        floatingActionButton = {
+            if (isGroupMode && selectedForGroup.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = { onGroupCreate(selectedForGroup.toList()) },
+                    containerColor = AppAccent,
+                    contentColor = AppBackground,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next")
+                }
+            }
+        },
         containerColor = AppBackground
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (isGroupMode && selectedForGroup.isNotEmpty()) {
+                item {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(AppBackground)
+                            .padding(vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(selectedForGroup) { contact ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.width(60.dp)
+                            ) {
+                                Box(modifier = Modifier.size(50.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(AppAccent),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(contact.displayName.take(1).uppercase(), color = AppBackground, fontWeight = FontWeight.Bold)
+                                    }
+                                    IconButton(
+                                        onClick = { selectedForGroup.remove(contact) },
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .align(Alignment.BottomEnd)
+                                            .background(Color.Gray, CircleShape)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                    }
+                                }
+                                Text(
+                                    contact.displayName.split(" ").first(),
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                }
+            }
+
             val (registered, unregistered) = visibleContacts.partition { it.isRegistered }
             
-            item {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Select contact", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTextPrimary)
-                    Text("${visibleContacts.size} contacts", fontSize = 12.sp, color = AppTextSecondary)
+            if (!isGroupMode) {
+                item {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isGroupMode = true }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(48.dp).clip(CircleShape).background(AppAccent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Group, contentDescription = null, tint = AppBackground)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("New group", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { /* Handle New Contact */ }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(48.dp).clip(CircleShape).background(AppAccent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = AppBackground)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("New contact", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.QrCode, contentDescription = null, tint = AppTextSecondary)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { /* Handle Communities */ }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(48.dp).clip(CircleShape).background(AppAccent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Groups, contentDescription = null, tint = AppBackground)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("New community", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
 
@@ -187,7 +301,7 @@ fun ContactPickerScreen(
                 }
             }
 
-            if (!isContactsPermissionGranted) {
+            if (!isContactsPermissionGranted && !isGroupMode) {
                 item {
                     Text(
                         "Grant contacts permission so FirstApp can detect which numbers already use the app.",
@@ -201,11 +315,25 @@ fun ContactPickerScreen(
             if (registered.isNotEmpty()) {
                 item { Text("Contacts on FirstApp", modifier = Modifier.padding(16.dp), color = AppAccent, fontWeight = FontWeight.Bold) }
                 items(registered) { contact ->
-                    ContactItem(contact) { onContactSelected(contact) }
+                    ContactItem(
+                        contact = contact,
+                        isSelected = selectedForGroup.contains(contact),
+                        onClick = {
+                            if (isGroupMode) {
+                                if (selectedForGroup.contains(contact)) {
+                                    selectedForGroup.remove(contact)
+                                } else {
+                                    selectedForGroup.add(contact)
+                                }
+                            } else {
+                                onContactSelected(contact)
+                            }
+                        }
+                    )
                 }
             }
             
-            if (unregistered.isNotEmpty()) {
+            if (unregistered.isNotEmpty() && !isGroupMode) {
                 item { Text("Invite to FirstApp", modifier = Modifier.padding(16.dp), color = AppTextSecondary, fontWeight = FontWeight.Bold) }
                 items(unregistered) { contact ->
                     ContactItem(contact) { onInviteClicked(contact.phoneNumber) }
@@ -216,7 +344,7 @@ fun ContactPickerScreen(
 }
 
 @Composable
-fun ContactItem(contact: Contact, onClick: () -> Unit) {
+fun ContactItem(contact: Contact, isSelected: Boolean = false, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -231,14 +359,18 @@ fun ContactItem(contact: Contact, onClick: () -> Unit) {
                 .background(if (contact.isRegistered) AppAccent else Color.Gray),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Person, contentDescription = null, tint = AppBackground)
+            if (isSelected) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = AppBackground)
+            } else {
+                Icon(Icons.Default.Person, contentDescription = null, tint = AppBackground)
+            }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(contact.displayName, color = AppTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text(contact.username, color = AppTextSecondary, fontSize = 14.sp)
         }
-        if (!contact.isAuthenticated) {
+        if (!contact.isAuthenticated && !isSelected) {
             Text("INVITE", color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
     }
@@ -259,7 +391,7 @@ private fun loadPhoneContacts(context: Context): List<Contact> {
         ContactsContract.CommonDataKinds.Phone.NUMBER
     )
     val cursor = resolver.query(uri, projection, null, null, "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC")
-    val contacts = mutableMapOf<String, Contact>()
+    val contactsMap = mutableMapOf<String, Contact>()
 
     cursor?.use {
         while (it.moveToNext()) {
@@ -268,8 +400,8 @@ private fun loadPhoneContacts(context: Context): List<Contact> {
             val normalized = normalizePhoneNumber(rawNumber)
             if (normalized.isEmpty()) continue
 
-            if (contacts[normalized] == null) {
-                contacts[normalized] = Contact(
+            if (contactsMap[normalized] == null) {
+                contactsMap[normalized] = Contact(
                     id = normalized.hashCode(),
                     username = rawNumber,
                     displayName = displayName,
@@ -281,5 +413,5 @@ private fun loadPhoneContacts(context: Context): List<Contact> {
         }
     }
 
-    return contacts.values.toList()
+    return contactsMap.values.toList()
 }

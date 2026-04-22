@@ -13,6 +13,7 @@ import com.example.firstapp.data.repository.SearchResult
 import com.example.firstapp.model.*
 import com.example.firstapp.ui.screens.JobProfileData
 import com.example.firstapp.util.Resource
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,9 @@ import kotlinx.coroutines.launch
 class MainViewModel : ViewModel() {
 
     private val repository: AppRepository = AppRepositoryImpl()
+
+    private var currentSearchJob: kotlinx.coroutines.Job? = null
+    private var currentShortsSearchJob: kotlinx.coroutines.Job? = null
 
     private val _jobProfile = MutableStateFlow<JobProfileData?>(null)
     val jobProfile: StateFlow<JobProfileData?> = _jobProfile.asStateFlow()
@@ -55,6 +59,9 @@ class MainViewModel : ViewModel() {
     private val _stories = MutableStateFlow<Resource<List<UserStory>>>(Resource.Loading())
     val stories: StateFlow<Resource<List<UserStory>>> = _stories.asStateFlow()
 
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
 
@@ -66,6 +73,12 @@ class MainViewModel : ViewModel() {
 
     private val _syncedContacts = MutableStateFlow<List<Contact>>(emptyList())
     val syncedContacts: StateFlow<List<Contact>> = _syncedContacts.asStateFlow()
+
+    private val _shortReplies = MutableStateFlow<Resource<List<ShortReply>>>(Resource.Loading())
+    val shortReplies: StateFlow<Resource<List<ShortReply>>> = _shortReplies.asStateFlow()
+
+    private var activeShortIdForReplies: Int? = null
+
     private var lastRealtimePostRefreshMs: Long = 0L
     private val shortLikeInFlight = mutableSetOf<Int>()
     private val shortSubscribeInFlight = mutableSetOf<Int>()
@@ -74,6 +87,7 @@ class MainViewModel : ViewModel() {
     private val shortsTapDebounceMs = 350L
 
     init {
+        fetchCurrentUser()
         fetchChats()
         fetchCallLogs()
         fetchJobs()
@@ -99,6 +113,15 @@ class MainViewModel : ViewModel() {
                 if (now - lastRealtimePostRefreshMs < 800) return
                 lastRealtimePostRefreshMs = now
                 fetchPosts()
+            }
+
+            override fun onShortsEvent(action: String, shortId: Int?) {
+                if (action == "new_short" || action == "reply") {
+                    fetchShorts()
+                    if (action == "reply" && shortId != null && shortId == activeShortIdForReplies) {
+                        fetchShortReplies(shortId)
+                    }
+                }
             }
 
             override fun onError(error: String) {
@@ -311,18 +334,44 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun fetchCurrentUser() {
+        viewModelScope.launch {
+            repository.getCurrentUser().collect { resource ->
+                if (resource is Resource.Success) {
+                    _currentUser.value = resource.data
+                }
+            }
+        }
+    }
+
+    fun postStory(content: String, contentUrl: String?) {
+        viewModelScope.launch {
+            val type = if (contentUrl != null) "image" else "text"
+            repository.createStory(content, contentUrl, type).collect { result ->
+                if (result is Resource.Success) {
+                    fetchStories()
+                }
+            }
+        }
+    }
+
     fun fetchJobApplications() {
         viewModelScope.launch {
             repository.getJobApplications().collect { _applications.value = it.data ?: emptyList() }
         }
     }
 
+    private var searchJob: Job? = null
+    private var searchShortsJob: Job? = null
+
     fun search(query: String) {
+        currentSearchJob?.cancel()
         if (query.isBlank()) {
             _searchResults.value = null
             return
         }
-        viewModelScope.launch {
+        currentSearchJob = viewModelScope.launch {
+            delay(300)
             _isSearching.value = true
             repository.search(query).collect { result ->
                 if (result is Resource.Success) {
@@ -333,8 +382,25 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun searchShorts(query: String) {
+        currentShortsSearchJob?.cancel()
+        if (query.isBlank()) {
+            fetchShorts()
+            return
+        }
+        currentShortsSearchJob = viewModelScope.launch {
+            delay(300)
+            repository.searchShorts(query).collect { resource ->
+                _shorts.value = resource
+            }
+        }
+    }
+
     fun clearSearch() {
+        currentSearchJob?.cancel()
+        currentShortsSearchJob?.cancel()
         _searchResults.value = null
+        fetchShorts()
     }
 
     fun syncContacts(phoneNumbers: List<String>) {
@@ -450,6 +516,52 @@ class MainViewModel : ViewModel() {
                 shortSubscribeInFlight.remove(shortId)
             }
         }
+    }
+
+    fun repostShort(shortId: Int) {
+        viewModelScope.launch {
+            repository.repostShort(shortId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    fetchShorts()
+                }
+            }
+        }
+    }
+
+    fun bookmarkShort(shortId: Int) {
+        viewModelScope.launch {
+            repository.bookmarkShort(shortId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    // Optional: show toast or update UI state
+                }
+            }
+        }
+    }
+
+    fun replyToShort(shortId: Int, content: String) {
+        if (content.isBlank()) return
+        viewModelScope.launch {
+            repository.replyToShort(shortId, content).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    fetchShorts()
+                    fetchShortReplies(shortId)
+                }
+            }
+        }
+    }
+
+    fun fetchShortReplies(shortId: Int) {
+        activeShortIdForReplies = shortId
+        viewModelScope.launch {
+            _shortReplies.value = Resource.Loading()
+            repository.getShortReplies(shortId).collect {
+                _shortReplies.value = it
+            }
+        }
+    }
+
+    fun clearActiveShortReplies() {
+        activeShortIdForReplies = null
     }
 
     fun subscribeToChannel(channelId: Int) {

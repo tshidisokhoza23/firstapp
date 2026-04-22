@@ -13,6 +13,100 @@ import kotlinx.coroutines.flow.flow
 import retrofit2.HttpException
 
 class AppRepositoryImpl : AppRepository {
+    override fun createShort(description: String, videoUrl: String, thumbnailUrl: String): Flow<Resource<Long>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.createShort(
+                com.example.firstapp.data.api.CreateShortRequest(
+                    description = description,
+                    video_url = videoUrl,
+                    thumbnail_url = thumbnailUrl
+                )
+            )
+            if (response.isSuccessful) {
+                val id = response.body()?.id
+                if (id != null) {
+                    emit(Resource.Success(id))
+                } else {
+                    emit(Resource.Error("Invalid create short response"))
+                }
+            } else {
+                emit(Resource.Error("Failed to create short"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun repostShort(shortId: Int): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.repostShort(shortId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to repost short"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun bookmarkShort(shortId: Int): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.bookmarkShort(shortId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to bookmark short"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun replyToShort(shortId: Int, content: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.replyToShort(shortId, com.example.firstapp.data.api.CreateShortReplyRequest(content))
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to reply to short"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun getShortReplies(shortId: Int): Flow<Resource<List<ShortReply>>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.getShortReplies(shortId)
+            if (response.isSuccessful) {
+                val replies = response.body()?.replies?.map { apiReply ->
+                    ShortReply(
+                        id = apiReply.id,
+                        authorName = apiReply.author?.display_name ?: "Unknown",
+                        authorHandle = apiReply.author?.username ?: "",
+                        authorAvatarUrl = apiReply.author?.avatar_url,
+                        authorAvatarColor = androidx.compose.ui.graphics.Color(0xFF90CAF9),
+                        isVerifiedAuthor = apiReply.author?.is_verified ?: false,
+                        content = apiReply.content,
+                        timestamp = apiReply.created_at ?: "",
+                        likes = apiReply.likes.toString(),
+                        isLiked = apiReply.is_liked
+                    )
+                } ?: emptyList()
+                emit(Resource.Success(replies))
+            } else {
+                emit(Resource.Error("Failed to load replies"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
 
     private val apiService = ApiClient.apiService
 
@@ -199,6 +293,37 @@ class AppRepositoryImpl : AppRepository {
                 }
             } else {
                 emit(Resource.Error("Failed to search"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun searchShorts(query: String): Flow<Resource<List<AppShort>>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = apiService.searchShorts(query)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                val shorts = body.shorts.map { apiShort ->
+                    AppShort(
+                        id = apiShort.id,
+                        creatorName = apiShort.creator_name,
+                        description = apiShort.description,
+                        likes = apiShort.likes.toString(),
+                        comments = apiShort.comments.toString(),
+                        shares = apiShort.shares.toString(),
+                        videoUrl = apiShort.video_url ?: "",
+                        thumbnailUrl = apiShort.thumbnail_url,
+                        thumbnailColor = androidx.compose.ui.graphics.Color(0xFF000000),
+                        profilePictureColor = androidx.compose.ui.graphics.Color(0xFF607D8B),
+                        isLiked = apiShort.is_liked,
+                        isSubscribed = apiShort.is_subscribed
+                    )
+                }
+                emit(Resource.Success(shorts))
+            } else {
+                emit(Resource.Error("Failed to search shorts"))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.toUserMessage()))
@@ -423,6 +548,7 @@ class AppRepositoryImpl : AppRepository {
                         audioUrl = apiSong.audio_url ?: "",
                         duration = apiSong.duration ?: "",
                         category = apiSong.category ?: "",
+                        lyrics = apiSong.lyrics,
                         releaseDate = apiSong.release_date ?: "",
                         playCount = apiSong.play_count.toString(),
                         isLiked = apiSong.is_liked,
@@ -670,6 +796,23 @@ class AppRepositoryImpl : AppRepository {
         }
     }
 
+    override fun createStory(content: String, contentUrl: String?, type: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.createStory(
+                com.example.firstapp.data.api.CreateStoryRequest(
+                    content = content,
+                    content_url = contentUrl,
+                    story_type = type
+                )
+            )
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to post story"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
     override fun viewPost(postId: Int): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
@@ -722,6 +865,31 @@ class AppRepositoryImpl : AppRepository {
             else emit(Resource.Error("Failed to track play"))
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun likeSong(songId: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.likeSong(songId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to like song"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error"))
+        }
+    }
+
+    override fun getCurrentUser(): Flow<Resource<User>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.getCurrentUser()
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.user))
+            } else {
+                emit(Resource.Error("Failed to fetch user profile"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
         }
     }
 

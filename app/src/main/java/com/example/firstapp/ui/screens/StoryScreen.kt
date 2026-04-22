@@ -9,10 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,17 +21,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.firstapp.model.UserStory
 import com.example.firstapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
+fun StoryScreen(
+    stories: List<UserStory>,
+    onBack: () -> Unit,
+    onPostStory: (String, String?) -> Unit
+) {
     val context = LocalContext.current
     var viewingUserStory by remember { mutableStateOf<UserStory?>(null) }
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var showViewedFirst by remember { mutableStateOf(false) }
+    var showComposer by remember { mutableStateOf(false) }
+    var composerText by remember { mutableStateOf("") }
+
     val storyList = stories
     val filteredStories = remember(storyList, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -48,7 +54,64 @@ fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
     val viewedUpdates = filteredStories.filter { it.allViewed }
     val myStatus = storyList.firstOrNull()
 
-    if (viewingUserStory != null) {
+    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            onPostStory("Image story", it.toString())
+            Toast.makeText(context, "Story posted!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (showComposer) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Compose Status") },
+                    navigationIcon = {
+                        IconButton(onClick = { showComposer = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { imageLauncher.launch("image/*") }) {
+                            Icon(Icons.Default.Photo, "Gallery")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White)
+                )
+            },
+            bottomBar = {
+                Button(
+                    onClick = {
+                        if (composerText.isNotBlank()) {
+                            onPostStory(composerText, null)
+                            composerText = ""
+                            showComposer = false
+                            Toast.makeText(context, "Story posted!", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                ) {
+                    Text("Post Status", color = AppBackground, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = AppBackground
+        ) { p ->
+            TextField(
+                value = composerText,
+                onValueChange = { composerText = it },
+                modifier = Modifier.fillMaxSize().padding(p),
+                placeholder = { Text("Type a status...", color = Color.Gray, fontSize = 24.sp) },
+                textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Medium),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                )
+            )
+        }
+    } else if (viewingUserStory != null) {
         StatusViewer(
             userStory = viewingUserStory!!,
             onStoryViewed = { /* no-op for backend story state */ },
@@ -72,7 +135,7 @@ fun StoryScreen(stories: List<UserStory>, onBack: () -> Unit) {
                         }) { Icon(Icons.Default.CameraAlt, "Camera", tint = AppTextPrimary) }
                         IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Default.Search, "Search", tint = AppTextPrimary) }
                         IconButton(onClick = {
-                            Toast.makeText(context, "Status composer will be added next", Toast.LENGTH_SHORT).show()
+                            showComposer = true
                         }) { Icon(Icons.Default.Edit, "Edit", tint = AppTextPrimary) }
                         IconButton(onClick = { showViewedFirst = !showViewedFirst }) { Icon(Icons.Default.MoreVert, "More", tint = AppTextPrimary) }
                     },

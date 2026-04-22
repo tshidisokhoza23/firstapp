@@ -2,10 +2,16 @@ package com.example.firstapp.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,18 +19,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
 import com.example.firstapp.model.Song
+import com.example.firstapp.ui.components.SongListItem
 import com.example.firstapp.ui.theme.AppAccent
-import com.example.firstapp.ui.theme.AppBackground
-import com.example.firstapp.ui.theme.AppTextSecondary
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(
     song: Song,
+    queue: List<Song>,
     isPlaying: Boolean,
     isShuffleEnabled: Boolean,
     repeatMode: Int,
@@ -37,66 +47,242 @@ fun NowPlayingScreen(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Float) -> Unit,
-    onToggleLike: () -> Unit
+    onToggleLike: () -> Unit,
+    onPlayFromQueue: (Song) -> Unit
 ) {
-    val context = LocalContext.current
     var currentProgress by remember { mutableStateOf(progress) }
+    var showQueue by remember { mutableStateOf(false) }
+    var showLyrics by remember { mutableStateOf(false) }
 
-    // Update currentProgress when progress changes from outside (e.g. from ViewModel)
     LaunchedEffect(progress) {
         currentProgress = progress
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF2C3E50), AppBackground))).statusBarsPadding().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            IconButton(onClick = onClose) { Icon(Icons.Default.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(32.dp)) }
-            Text("Now Playing", color = Color.White, fontWeight = FontWeight.Bold)
-            IconButton(onClick = {
-                val sendIntent: android.content.Intent = android.content.Intent().apply {
-                    action = android.content.Intent.ACTION_SEND
-                    putExtra(android.content.Intent.EXTRA_TEXT, "Check out this song: ${song.title} by ${song.artist}")
-                    type = "text/plain"
-                }
-                val shareIntent = android.content.Intent.createChooser(sendIntent, null)
-                context.startActivity(shareIntent)
-            }) { Icon(Icons.Default.Share, null, tint = Color.White) }
-        }
-        Spacer(modifier = Modifier.height(48.dp))
-        Surface(modifier = Modifier.aspectRatio(1f).fillMaxWidth().clip(RoundedCornerShape(24.dp)), color = song.albumArtColor) {
-            Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.MusicNote, null, tint = Color.White.copy(0.3f), modifier = Modifier.size(100.dp)) }
-        }
-        Spacer(modifier = Modifier.height(48.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(song.title, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(song.artist, color = AppTextSecondary, fontSize = 18.sp, maxLines = 1)
-            }
-            IconButton(onClick = onToggleLike) { Icon(if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = if (isLiked) Color.Red else Color.White, modifier = Modifier.size(28.dp)) }
-        }
-        Spacer(modifier = Modifier.height(32.dp))
-        Slider(
-            value = currentProgress,
-            onValueChange = { currentProgress = it },
-            onValueChangeFinished = { onSeek(currentProgress) },
-            colors = SliderDefaults.colors(thumbColor = AppAccent, activeTrackColor = AppAccent)
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // Background Artwork Blur Effect
+        Image(
+            painter = rememberAsyncImagePainter(song.albumArtUrl),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = 0.3f
         )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("0:00", color = AppTextSecondary, fontSize = 12.sp)
-            Text(song.duration, color = AppTextSecondary, fontSize = 12.sp)
-        }
-        Spacer(modifier = Modifier.weight(1f))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onToggleShuffle) { Icon(Icons.Default.Shuffle, null, tint = if (isShuffleEnabled) AppAccent else Color.White) }
-            IconButton(onClick = onPrevious) { Icon(Icons.Default.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(48.dp)) }
-            FloatingActionButton(onClick = onTogglePlay, containerColor = Color.White, shape = CircleShape, modifier = Modifier.size(72.dp)) {
-                Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, modifier = Modifier.size(40.dp))
+        
+        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black))))
+
+        Column(
+            modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "PLAYING FROM ${song.category.uppercase()}",
+                        color = Color.White.copy(0.7f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(song.albumName, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = { /* More actions */ }) {
+                    Icon(Icons.Default.MoreVert, null, tint = Color.White)
+                }
             }
-            IconButton(onClick = onNext) { Icon(Icons.Default.SkipNext, null, tint = Color.White, modifier = Modifier.size(48.dp)) }
-            IconButton(onClick = onToggleRepeat) { Icon(if (repeatMode == 1) Icons.Default.RepeatOne else Icons.Default.Repeat, null, tint = if (repeatMode != 0) AppAccent else Color.White) }
+
+            if (showQueue) {
+                // Queue View
+                Column(modifier = Modifier.fillMaxSize().padding(top = 32.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Up Next", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { showQueue = false }) {
+                            Text("Show Player", color = AppAccent)
+                        }
+                    }
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        itemsIndexed(queue) { _, queueSong ->
+                            SongListItem(
+                                song = queueSong,
+                                isPlaying = queueSong.id == song.id,
+                                onClick = { onPlayFromQueue(queueSong) }
+                            )
+                        }
+                    }
+                }
+            } else if (showLyrics) {
+                // Lyrics View
+                Column(modifier = Modifier.fillMaxSize().padding(top = 32.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Lyrics", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { showLyrics = false }) {
+                            Icon(Icons.Default.Close, null, tint = Color.White)
+                        }
+                    }
+                    Box(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                        Text(
+                            text = song.lyrics ?: "Lyrics not available for this track.",
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 36.sp,
+                            modifier = Modifier.padding(bottom = 48.dp)
+                        )
+                    }
+                }
+            } else {
+                // Main Player View
+                Spacer(modifier = Modifier.weight(1f))
+                
+                Surface(
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .padding(12.dp),
+                    color = song.albumArtColor,
+                    shadowElevation = 20.dp
+                ) {
+                    if (!song.albumArtUrl.isNullOrBlank()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(song.albumArtUrl),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.MusicNote, null, tint = Color.White.copy(0.3f), modifier = Modifier.size(100.dp))
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.weight(0.8f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(song.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(song.artist, color = Color.White.copy(0.7f), fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = onToggleLike) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = null,
+                            tint = if (isLiked) Color.Red else Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Column {
+                    Slider(
+                        value = currentProgress,
+                        onValueChange = { currentProgress = it },
+                        onValueChangeFinished = { onSeek(currentProgress) },
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.White,
+                            activeTrackColor = Color.White,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                        )
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(formatDuration(currentProgress, song.duration), color = Color.White.copy(0.6f), fontSize = 12.sp)
+                        Text(song.duration, color = Color.White.copy(0.6f), fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onToggleShuffle) {
+                        Icon(Icons.Default.Shuffle, null, tint = if (isShuffleEnabled) AppAccent else Color.White)
+                    }
+                    IconButton(onClick = onPrevious) {
+                        Icon(Icons.Default.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                    }
+                    Surface(
+                        onClick = onTogglePlay,
+                        shape = CircleShape,
+                        color = Color.White,
+                        modifier = Modifier.size(80.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+                    }
+                    IconButton(onClick = onNext) {
+                        Icon(Icons.Default.SkipNext, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                    }
+                    IconButton(onClick = onToggleRepeat) {
+                        Icon(
+                            imageVector = if (repeatMode == 1) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                            contentDescription = null,
+                            tint = if (repeatMode != 0) AppAccent else Color.White
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = { showLyrics = true }) {
+                        Icon(Icons.Default.Mic, null, tint = Color.White.copy(0.7f))
+                    }
+                    IconButton(onClick = { /* Bluetooth/Cast */ }) {
+                        Icon(Icons.Default.Cast, null, tint = Color.White.copy(0.7f))
+                    }
+                    IconButton(onClick = { showQueue = true }) {
+                        Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = Color.White.copy(0.7f))
+                    }
+                }
+            }
         }
-        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+private fun formatDuration(progress: Float, totalDuration: String): String {
+    try {
+        val parts = totalDuration.split(":")
+        val totalSeconds = if (parts.size == 2) {
+            parts[0].toInt() * 60 + parts[1].toInt()
+        } else 0
+        
+        val currentSeconds = (progress * totalSeconds).toInt()
+        return String.format(Locale.getDefault(), "%d:%02d", currentSeconds / 60, currentSeconds % 60)
+    } catch (_: Exception) {
+        return "0:00"
     }
 }
