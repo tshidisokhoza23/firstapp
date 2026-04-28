@@ -1,5 +1,6 @@
 package com.example.firstapp.data.repository
 
+import com.example.firstapp.data.api.UploadResponse
 import com.example.firstapp.model.*
 import com.example.firstapp.model.Short as AppShort
 import com.example.firstapp.util.Resource
@@ -8,7 +9,11 @@ import kotlinx.coroutines.flow.Flow
 interface AppRepository {
     fun getChats(): Flow<Resource<List<ChatMessage>>>
     fun getCallLogs(): Flow<Resource<List<CallLog>>>
-    fun getMessages(chatId: Int): Flow<Resource<List<Message>>>
+    fun getMessages(chatId: Int, page: Int = 1): Flow<Resource<List<Message>>>
+    fun markAsRead(chatId: Int): Flow<Resource<Boolean>>
+    fun deleteMessage(messageId: Int): Flow<Resource<Boolean>>
+    fun editMessage(messageId: Int, newBody: String): Flow<Resource<Message>>
+    fun reactToMessage(messageId: Int, emoji: String): Flow<Resource<Boolean>>
     fun sendMessage(
         chatId: Int,
         body: String,
@@ -20,8 +25,14 @@ interface AppRepository {
         contactName: String? = null,
         contactPhone: String? = null,
         latitude: Double? = null,
-        longitude: Double? = null
+        longitude: Double? = null,
+        replyToId: Int? = null
     ): Flow<Resource<Message>>
+    suspend fun saveMessage(chatId: Int, message: Message)
+    suspend fun updateMessageInCache(chatId: Int, message: Message)
+    suspend fun updatePresence(chatId: Int, isOnline: Boolean, lastSeen: String)
+    suspend fun updateTyping(chatId: Int, isTyping: Boolean)
+    suspend fun updateLastMessage(chatId: Int, lastMessage: String, time: String)
     fun getContacts(): Flow<Resource<List<Contact>>>
     fun getJobs(): Flow<Resource<List<Job>>>
     fun applyForJob(jobId: Int): Flow<Resource<Boolean>>
@@ -36,7 +47,7 @@ interface AppRepository {
     fun getShortReplies(shortId: Int): Flow<Resource<List<ShortReply>>>
     fun getSongs(): Flow<Resource<List<Song>>>
     fun getPosts(): Flow<Resource<List<Post>>>
-    fun createPost(content: String, mediaUrls: List<String> = emptyList()): Flow<Resource<Boolean>>
+    fun createPost(content: String, mediaUrls: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList()): Flow<Resource<Boolean>>
     fun likePost(postId: Int): Flow<Resource<Boolean>>
     fun repostPost(postId: Int): Flow<Resource<Boolean>>
     fun bookmarkPost(postId: Int): Flow<Resource<Boolean>>
@@ -46,10 +57,22 @@ interface AppRepository {
     fun bookmarkPostReply(replyId: Int): Flow<Resource<Boolean>>
     fun getStories(): Flow<Resource<List<UserStory>>>
     fun createStory(content: String, contentUrl: String? = null, type: String = "text"): Flow<Resource<Boolean>>
+    fun markStoryAsViewed(userId: Int, storyId: Int): Flow<Resource<Boolean>>
+    fun muteStory(userId: Int, isMuted: Boolean): Flow<Resource<Boolean>>
     fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
     suspend fun createChat(contactId: Int)
+    suspend fun createGroup(name: String, contactIds: List<Int>): Flow<Resource<ChatMessage>>
+    fun pinChat(chatId: Int, isPinned: Boolean): Flow<Resource<Boolean>>
+    fun muteChat(chatId: Int, isMuted: Boolean): Flow<Resource<Boolean>>
+    fun deleteChat(chatId: Int): Flow<Resource<Boolean>>
+    suspend fun clearMessages(chatId: Int)
     fun search(query: String): Flow<Resource<SearchResult>>
+    fun searchLocalMessages(chatId: Int, query: String): Flow<List<Message>>
+    fun searchLocalChats(query: String): Flow<List<ChatMessage>>
+    fun searchLocalContacts(query: String): Flow<List<Contact>>
     fun searchShorts(query: String): Flow<Resource<List<AppShort>>>
+    fun getRideOptions(): Flow<Resource<List<RideOption>>>
+    fun getDestinations(): Flow<Resource<List<Destination>>>
     fun viewPost(postId: Int): Flow<Resource<Boolean>>
     fun deletePost(postId: Int): Flow<Resource<Boolean>>
     fun saveDestination(name: String, address: String, latitude: Double, longitude: Double, isFavorite: Boolean, type: String): Flow<Resource<Boolean>>
@@ -57,10 +80,13 @@ interface AppRepository {
     fun subscribeToChannel(channelId: Int): Flow<Resource<Boolean>>
     fun incrementSongPlay(songId: Int): Flow<Resource<Boolean>>
     fun likeSong(songId: Int): Flow<Resource<Boolean>>
-    fun getCurrentUser(): Flow<Resource<User>>
+    fun uploadFile(file: java.io.File): Flow<Resource<UploadResponse>>
+    fun starMessage(messageId: Int, isStarred: Boolean): Flow<Resource<Boolean>>
+    suspend fun updateWallpaper(chatId: Int, wallpaperUrl: String?)
 }
 
 data class SearchResult(
     val chats: List<ChatMessage>,
-    val contacts: List<Contact>
+    val contacts: List<Contact>,
+    val messages: List<Message> = emptyList()
 )

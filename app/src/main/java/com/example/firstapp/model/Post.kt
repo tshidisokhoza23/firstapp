@@ -7,7 +7,8 @@ enum class PostType {
     IMAGE_WITH_TEXT,
     VIDEO_WITH_TEXT,
     POLL,
-    ARTICLE
+    ARTICLE,
+    SONG
 }
 
 data class Post(

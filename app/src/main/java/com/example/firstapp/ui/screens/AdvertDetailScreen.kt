@@ -1,7 +1,7 @@
 package com.example.firstapp.ui.screens
 
 import android.content.Intent
-import android.widget.Toast
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +32,7 @@ import com.example.firstapp.model.Advert
 fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -42,16 +43,17 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .padding(top = 12.dp, start = 8.dp, end = 8.dp)
             ) {
                 LinearProgressIndicator(
-                    progress = { 0.7f },
+                    progress = { 0.75f },
                     modifier = Modifier
                         .weight(1f)
                         .height(2.dp)
                         .clip(RoundedCornerShape(1.dp)),
                     color = Color.White,
-                    trackColor = Color.Gray.copy(alpha = 0.5f),
+                    trackColor = Color.White.copy(alpha = 0.2f),
                 )
             }
 
@@ -67,17 +69,26 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                 }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(advert.avatarColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(advert.advertiserName.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                    if (!advert.avatarUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = advert.avatarUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Text(advert.advertiserName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.ExtraBold)
+                    }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(advert.advertiserName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text("Today, ${advert.time}", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Text("Sponsored", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
                 }
                 Box {
                     IconButton(onClick = { showMenu = true }) {
@@ -85,13 +96,14 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                     }
                     DropdownMenu(
                         expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(com.example.firstapp.ui.theme.AppSecondary)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Share advert") },
+                            text = { Text("Share advert", color = Color.White) },
                             onClick = {
                                 showMenu = false
-                                val shareText = "${advert.advertiserName}: ${advert.contentText}"
+                                val shareText = "${advert.advertiserName}: ${advert.targetUrl}"
                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, shareText)
@@ -99,66 +111,73 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                                 context.startActivity(Intent.createChooser(shareIntent, "Share advert"))
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("Report") },
-                            onClick = {
-                                showMenu = false
-                                Toast.makeText(context, "Advert reported", Toast.LENGTH_SHORT).show()
-                            }
-                        )
                     }
                 }
             }
 
-            // Content Area (Image placeholder)
+            // Content Area
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(vertical = 16.dp)
-                    .background(advert.contentColor),
+                    .background(com.example.firstapp.ui.theme.AppBackground),
                 contentAlignment = Alignment.Center
             ) {
-                if (advert.contentText.isNotEmpty()) {
-                    Text(
-                        text = advert.contentText,
-                        color = Color.Black,
-                        fontSize = 18.sp,
-                        modifier = Modifier.padding(24.dp),
-                        lineHeight = 28.sp
+                if (!advert.contentUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = advert.contentUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
                     )
-                } else {
-                    Text("Ad Content for ${advert.advertiserName}", color = Color.Gray)
+                }
+                
+                if (advert.contentText.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                        color = Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = advert.contentText,
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(20.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 26.sp
+                        )
+                    }
                 }
             }
 
             // Bottom Interaction Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.Black.copy(alpha = 0.8f)
             ) {
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    placeholder = { Text("Reply", color = Color.White) },
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = Color(0xFF1F2C34),
-                        focusedContainerColor = Color(0xFF1F2C34),
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = Color.Transparent,
-                        cursorColor = Color.White
-                    )
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Icon(Icons.Default.Sync, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(28.dp))
-                Spacer(modifier = Modifier.width(16.dp))
-                Icon(Icons.Default.FavoriteBorder, contentDescription = "Like", tint = Color.White, modifier = Modifier.size(28.dp))
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(advert.targetUrl))
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.ui.theme.AppAccent),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text(advert.actionText ?: "Learn More", color = com.example.firstapp.ui.theme.AppBackground, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    IconButton(onClick = {}) { Icon(Icons.Default.Sync, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(28.dp)) }
+                    IconButton(onClick = {}) { Icon(Icons.Default.FavoriteBorder, contentDescription = "Like", tint = Color.White, modifier = Modifier.size(28.dp)) }
+                }
             }
         }
     }

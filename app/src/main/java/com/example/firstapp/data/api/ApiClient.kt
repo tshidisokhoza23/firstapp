@@ -102,10 +102,11 @@ object ApiClient {
         return result
     }
 
-    private val client = OkHttpClient.Builder()
+    internal val client = OkHttpClient.Builder()
         .authenticator(tokenAuthenticator)
         .addInterceptor(authInterceptor)
         .addInterceptor(loggingInterceptor)
+        .pingInterval(30, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
     val apiService: ApiService = Retrofit.Builder()

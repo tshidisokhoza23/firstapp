@@ -25,12 +25,17 @@ import androidx.compose.ui.unit.sp
 import com.example.firstapp.model.Song
 import com.example.firstapp.ui.components.*
 import com.example.firstapp.ui.theme.AppAccent
+import com.example.firstapp.ui.theme.AppBackground
 import com.example.firstapp.ui.theme.AppSecondary
 import com.example.firstapp.ui.theme.AppTextSecondary
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun LibraryScreen(songs: List<Song>, onPlay: (Song, List<Song>) -> Unit) {
+fun LibraryScreen(
+    songs: List<Song>,
+    onPlay: (Song, List<Song>) -> Unit,
+    onShare: (Song) -> Unit = {}
+) {
     var selectedTab by remember { mutableStateOf("Songs") }
     val tabs = listOf("Songs", "Playlists", "Artists", "Albums")
     var sortBy by remember { mutableStateOf("Recently Played") }
@@ -47,13 +52,14 @@ fun LibraryScreen(songs: List<Song>, onPlay: (Song, List<Song>) -> Unit) {
                 Surface(
                     onClick = { selectedTab = tab },
                     color = if (isSelected) AppAccent else AppSecondary,
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.padding(end = 8.dp)
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.padding(end = 8.dp),
+                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
                 ) {
                     Text(
                         text = tab,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = if (isSelected) Color.Black else Color.White,
+                        color = if (isSelected) AppBackground else Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -84,7 +90,11 @@ fun LibraryScreen(songs: List<Song>, onPlay: (Song, List<Song>) -> Unit) {
                     contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
                     items(songs) { song ->
-                        SongListItem(song) { onPlay(song, songs) }
+                        SongListItem(
+                            song = song,
+                            onClick = { onPlay(song, songs) },
+                            onShare = { onShare(song) }
+                        )
                     }
                 }
             }

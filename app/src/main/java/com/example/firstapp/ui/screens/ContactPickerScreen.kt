@@ -35,6 +35,7 @@ import com.example.firstapp.ui.viewmodel.MainViewModel
 @Composable
 fun ContactPickerScreen(
     viewModel: MainViewModel,
+    initialIsGroupMode: Boolean = false,
     onBack: () -> Unit,
     onContactSelected: (Contact) -> Unit,
     onInviteClicked: (String) -> Unit,
@@ -45,7 +46,7 @@ fun ContactPickerScreen(
     val phoneContacts = remember { mutableStateListOf<Contact>() }
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
-    var isGroupMode by remember { mutableStateOf(false) }
+    var isGroupMode by remember { mutableStateOf(initialIsGroupMode) }
     val selectedForGroup = remember { mutableStateListOf<Contact>() }
     
     val isContactsPermissionGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
@@ -227,27 +228,12 @@ fun ContactPickerScreen(
             }
 
             val (registered, unregistered) = visibleContacts.partition { it.isRegistered }
+            val sortedRegistered = registered.sortedBy { it.displayName.lowercase() }
+            val sortedUnregistered = unregistered.sortedBy { it.displayName.lowercase() }
             
             if (!isGroupMode) {
                 item {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { isGroupMode = true }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier.size(48.dp).clip(CircleShape).background(AppAccent),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Group, contentDescription = null, tint = AppBackground)
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text("New group", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -266,23 +252,6 @@ fun ContactPickerScreen(
                             Spacer(modifier = Modifier.weight(1f))
                             Icon(Icons.Default.QrCode, contentDescription = null, tint = AppTextSecondary)
                         }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { /* Handle Communities */ }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier.size(48.dp).clip(CircleShape).background(AppAccent),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Groups, contentDescription = null, tint = AppBackground)
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text("New community", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
                     }
                 }
             }
@@ -296,7 +265,15 @@ fun ContactPickerScreen(
                         label = { Text("Search contacts") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = AppAccent,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = AppAccent,
+                            unfocusedLabelColor = Color.Gray
+                        )
                     )
                 }
             }
@@ -312,9 +289,9 @@ fun ContactPickerScreen(
                 }
             }
 
-            if (registered.isNotEmpty()) {
+            if (sortedRegistered.isNotEmpty()) {
                 item { Text("Contacts on FirstApp", modifier = Modifier.padding(16.dp), color = AppAccent, fontWeight = FontWeight.Bold) }
-                items(registered) { contact ->
+                items(sortedRegistered) { contact ->
                     ContactItem(
                         contact = contact,
                         isSelected = selectedForGroup.contains(contact),
@@ -333,9 +310,9 @@ fun ContactPickerScreen(
                 }
             }
             
-            if (unregistered.isNotEmpty() && !isGroupMode) {
+            if (sortedUnregistered.isNotEmpty() && !isGroupMode) {
                 item { Text("Invite to FirstApp", modifier = Modifier.padding(16.dp), color = AppTextSecondary, fontWeight = FontWeight.Bold) }
-                items(unregistered) { contact ->
+                items(sortedUnregistered) { contact ->
                     ContactItem(contact) { onInviteClicked(contact.phoneNumber) }
                 }
             }

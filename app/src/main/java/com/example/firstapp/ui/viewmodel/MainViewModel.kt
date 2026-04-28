@@ -3,16 +3,21 @@ package com.example.firstapp.ui.viewmodel
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.firstapp.AppContainer
 import com.example.firstapp.data.TokenManager
 import com.example.firstapp.data.api.ApiClient
+import com.example.firstapp.data.realtime.ChatSocketListener
+import com.example.firstapp.data.realtime.ChatWebSocketClient
 import com.example.firstapp.data.realtime.PostSocketListener
 import com.example.firstapp.data.realtime.PostWebSocketClient
 import com.example.firstapp.data.repository.AppRepository
-import com.example.firstapp.data.repository.AppRepositoryImpl
 import com.example.firstapp.data.repository.SearchResult
 import com.example.firstapp.model.*
 import com.example.firstapp.ui.screens.JobProfileData
 import com.example.firstapp.util.Resource
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,10 +26,20 @@ import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
 
-    private val repository: AppRepository = AppRepositoryImpl()
+    private val repository: AppRepository = AppContainer.repository
+    private val userRepository = AppContainer.userRepository
 
     private var currentSearchJob: kotlinx.coroutines.Job? = null
     private var currentShortsSearchJob: kotlinx.coroutines.Job? = null
+    private var messagesFetchJob: kotlinx.coroutines.Job? = null
+    private val fetchJobs = mutableMapOf<String, kotlinx.coroutines.Job>()
+
+    private fun launchFetch(key: String, block: suspend () -> Unit) {
+        fetchJobs[key]?.cancel()
+        fetchJobs[key] = viewModelScope.launch {
+            block()
+        }
+    }
 
     private val _jobProfile = MutableStateFlow<JobProfileData?>(null)
     val jobProfile: StateFlow<JobProfileData?> = _jobProfile.asStateFlow()
@@ -59,8 +74,14 @@ class MainViewModel : ViewModel() {
     private val _stories = MutableStateFlow<Resource<List<UserStory>>>(Resource.Loading())
     val stories: StateFlow<Resource<List<UserStory>>> = _stories.asStateFlow()
 
+    private val _messages = MutableStateFlow<Resource<List<Message>>>(Resource.Loading())
+    val messages: StateFlow<Resource<List<Message>>> = _messages.asStateFlow()
+
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
@@ -71,13 +92,23 @@ class MainViewModel : ViewModel() {
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _chatSearchResults = MutableStateFlow<List<Message>>(emptyList())
+    val chatSearchResults: StateFlow<List<Message>> = _chatSearchResults.asStateFlow()
+
+    private val _navigationRequest = MutableStateFlow<String?>(null)
+    val navigationRequest: StateFlow<String?> = _navigationRequest.asStateFlow()
+
     private val _syncedContacts = MutableStateFlow<List<Contact>>(emptyList())
     val syncedContacts: StateFlow<List<Contact>> = _syncedContacts.asStateFlow()
+
+    private val _selectedContactsForGroup = MutableStateFlow<List<Contact>>(emptyList())
+    val selectedContactsForGroup: StateFlow<List<Contact>> = _selectedContactsForGroup.asStateFlow()
 
     private val _shortReplies = MutableStateFlow<Resource<List<ShortReply>>>(Resource.Loading())
     val shortReplies: StateFlow<Resource<List<ShortReply>>> = _shortReplies.asStateFlow()
 
     private var activeShortIdForReplies: Int? = null
+    private var activeChatId: Int? = null
 
     private var lastRealtimePostRefreshMs: Long = 0L
     private val shortLikeInFlight = mutableSetOf<Int>()
@@ -85,6 +116,12 @@ class MainViewModel : ViewModel() {
     private val shortLikeLastTapMs = mutableMapOf<Int, Long>()
     private val shortSubscribeLastTapMs = mutableMapOf<Int, Long>()
     private val shortsTapDebounceMs = 350L
+
+    private val _destinations = MutableStateFlow<Resource<List<Destination>>>(Resource.Loading())
+    val destinations: StateFlow<Resource<List<Destination>>> = _destinations.asStateFlow()
+
+    private val _rideOptions = MutableStateFlow<Resource<List<RideOption>>>(Resource.Loading())
+    val rideOptions: StateFlow<Resource<List<RideOption>>> = _rideOptions.asStateFlow()
 
     init {
         fetchCurrentUser()
@@ -99,7 +136,117 @@ class MainViewModel : ViewModel() {
         fetchStories()
         fetchContacts()
         fetchJobApplications()
+        fetchRideOptions()
+        fetchDestinations()
         connectPostRealtime()
+        connectChatRealtime()
+    }
+
+    fun fetchRideOptions() {
+        launchFetch("rideOptions") {
+            repository.getRideOptions().collect { _rideOptions.value = it }
+        }
+    }
+
+    fun fetchDestinations() {
+        launchFetch("destinations") {
+            repository.getDestinations().collect { _destinations.value = it }
+        }
+    }
+
+    private fun connectChatRealtime() {
+        ChatWebSocketClient.connect(-1, object : ChatSocketListener {
+            override fun onOpen() {}
+            override fun onMessage(contactId: Int, message: Message) {
+                // If it's the active chat, add to messages list
+                if (activeChatId == contactId) {
+                    val currentRes = _messages.value
+                    if (currentRes is Resource.Success) {
+                        val currentList = currentRes.data ?: emptyList()
+                        if (!currentList.any { it.id == message.id }) {
+                            _messages.value = Resource.Success(currentList + message)
+                        }
+                    }
+                    // Mark as read immediately if it's the active chat
+                    ChatWebSocketClient.sendRead(contactId)
+                }
+                // Save to cache
+                viewModelScope.launch {
+                    repository.saveMessage(contactId, message)
+                }
+                // Update chat list summary
+                updateChatLastMessage(contactId, message)
+            }
+            override fun onMessageDeleted(contactId: Int, messageId: Int) {
+                if (activeChatId == contactId) {
+                    val currentRes = _messages.value
+                    if (currentRes is Resource.Success) {
+                        val updated = (currentRes.data ?: emptyList()).filter { it.id != messageId }
+                        _messages.value = Resource.Success(updated)
+                    }
+                }
+                // Refresh chats to update last message if needed
+                fetchChats()
+            }
+            override fun onMessageEdited(contactId: Int, message: Message) {
+                if (activeChatId == contactId) {
+                    val currentRes = _messages.value
+                    if (currentRes is Resource.Success) {
+                        val updated = (currentRes.data ?: emptyList()).map {
+                            if (it.id == message.id) message else it
+                        }
+                        _messages.value = Resource.Success(updated)
+                    }
+                }
+                // Update cache
+                viewModelScope.launch {
+                    repository.updateMessageInCache(contactId, message)
+                }
+                // Optionally update chat list summary if it was the last message
+                val chatsRes = _chats.value
+                if (chatsRes is Resource.Success) {
+                    val lastMsgId = chatsRes.data?.find { it.id == contactId }?.lastMessage // this is text, not id.
+                    // A better way is to always update if it's currently the last message text matches.
+                    // But usually, refreshing chats or just updating the state is fine.
+                    fetchChats()
+                }
+            }
+            override fun onReaction(contactId: Int, messageId: Int, reactions: Map<String, Int>) {
+                if (activeChatId == contactId) {
+                    val currentRes = _messages.value
+                    if (currentRes is Resource.Success) {
+                        val updated = (currentRes.data ?: emptyList()).map {
+                            if (it.id == messageId) {
+                                val updatedMsg = it.copy(reactions = reactions)
+                                // Update cache for reactions
+                                viewModelScope.launch {
+                                    repository.updateMessageInCache(contactId, updatedMsg)
+                                }
+                                updatedMsg
+                            } else it
+                        }
+                        _messages.value = Resource.Success(updated)
+                    }
+                }
+            }
+            override fun onTyping(contactId: Int, isTyping: Boolean) {
+                updateChatTyping(contactId, isTyping)
+            }
+            override fun onRead(contactId: Int) {
+                if (activeChatId == contactId) {
+                    val currentRes = _messages.value
+                    if (currentRes is Resource.Success) {
+                        val updated = (currentRes.data ?: emptyList()).map { it.copy(isRead = true) }
+                        _messages.value = Resource.Success(updated)
+                    }
+                }
+                fetchChats() // Refresh to clear unread counts
+            }
+            override fun onPresence(contactId: Int, isOnline: Boolean, lastSeen: String?) {
+                updateChatPresence(contactId, isOnline, lastSeen)
+            }
+            override fun onError(error: String) {}
+        })
     }
 
     private fun connectPostRealtime() {
@@ -143,7 +290,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun fetchPosts() {
-        viewModelScope.launch {
+        launchFetch("posts") {
             repository.getPosts().collect { _posts.value = it }
         }
     }
@@ -159,15 +306,20 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun createPost(content: String, mediaUrls: List<String> = emptyList()) {
+    fun createPost(content: String, mediaUrls: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList()) {
         if (content.isBlank() && mediaUrls.isEmpty()) return
         viewModelScope.launch {
-            repository.createPost(content.trim(), mediaUrls).collect { result ->
+            repository.createPost(content.trim(), mediaUrls, postType, tags).collect { result ->
                 if (result is Resource.Success && result.data == true) {
                     fetchPosts()
                 }
             }
         }
+    }
+
+    fun shareSong(song: Song, content: String) {
+        val tags = listOf("song", "artist:${song.artist}", "song_id:${song.id}")
+        createPost(content, emptyList(), "song", tags)
     }
 
     fun likePost(postId: Int) {
@@ -243,19 +395,19 @@ class MainViewModel : ViewModel() {
     }
 
     fun fetchSongs() {
-        viewModelScope.launch {
+        launchFetch("songs") {
             repository.getSongs().collect { _songs.value = it }
         }
     }
 
     fun fetchShorts() {
-        viewModelScope.launch {
+        launchFetch("shorts") {
             repository.getShorts().collect { _shorts.value = it }
         }
     }
 
     fun fetchChats() {
-        viewModelScope.launch {
+        launchFetch("chats") {
             repository.getChats().collect { resource ->
                 _chats.value = resource
                 // Keep GlobalCallState name cache fresh so notifications show real names
@@ -269,13 +421,38 @@ class MainViewModel : ViewModel() {
     }
 
     fun fetchCallLogs() {
-        viewModelScope.launch {
+        launchFetch("callLogs") {
             repository.getCallLogs().collect { _callLogs.value = it }
         }
     }
 
-    fun fetchJobs() {
+    fun fetchMessages(chatId: Int) {
+        activeChatId = chatId
+        messagesFetchJob?.cancel()
+        messagesFetchJob = viewModelScope.launch {
+            repository.getMessages(chatId).collect { resource ->
+                _messages.value = resource
+            }
+        }
+    }
+
+    fun loadMoreMessages(chatId: Int, page: Int) {
         viewModelScope.launch {
+            // We just need to trigger the network fetch. 
+            // The first page observer in fetchMessages() will see the new DB entries.
+            repository.getMessages(chatId, page).collect { /* trigger fetch */ }
+        }
+    }
+
+    fun clearMessages() {
+        activeChatId = null
+        messagesFetchJob?.cancel()
+        messagesFetchJob = null
+        _messages.value = Resource.Loading()
+    }
+
+    fun fetchJobs() {
+        launchFetch("jobs") {
             repository.getJobs().collect { _jobs.value = it }
         }
     }
@@ -292,7 +469,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun fetchAdverts() {
-        viewModelScope.launch {
+        launchFetch("adverts") {
             repository.getAdverts().collect { _adverts.value = it }
         }
     }
@@ -308,13 +485,13 @@ class MainViewModel : ViewModel() {
     }
 
     fun fetchChannels() {
-        viewModelScope.launch {
+        launchFetch("channels") {
             repository.getChannels().collect { _channels.value = it }
         }
     }
 
     fun fetchContacts() {
-        viewModelScope.launch {
+        launchFetch("contacts") {
             repository.getContacts().collect { result ->
                 if (result is Resource.Success) {
                     _contacts.value = result.data ?: emptyList()
@@ -325,22 +502,177 @@ class MainViewModel : ViewModel() {
 
     override fun onCleared() {
         PostWebSocketClient.close()
+        ChatWebSocketClient.close()
         super.onCleared()
     }
 
     fun fetchStories() {
-        viewModelScope.launch {
+        launchFetch("stories") {
             repository.getStories().collect { _stories.value = it }
         }
     }
 
     fun fetchCurrentUser() {
-        viewModelScope.launch {
-            repository.getCurrentUser().collect { resource ->
+        launchFetch("currentUser") {
+            userRepository.getCurrentUser().collect { resource ->
                 if (resource is Resource.Success) {
                     _currentUser.value = resource.data
                 }
             }
+        }
+    }
+
+    fun updateProfile(displayName: String?, bio: String?, location: String?, avatarUrl: String?) {
+        viewModelScope.launch {
+            userRepository.updateUser(displayName, bio, location, avatarUrl).collect { resource ->
+                if (resource is Resource.Success) {
+                    _currentUser.value = resource.data
+                    _toastMessage.value = "Profile updated successfully"
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to update profile"
+                }
+            }
+        }
+    }
+
+    fun uploadProfilePicture(file: java.io.File) {
+        viewModelScope.launch {
+            repository.uploadFile(file).collect { resource ->
+                if (resource is Resource.Success) {
+                    val avatarUrl = resource.data?.url
+                    updateProfile(null, null, null, avatarUrl)
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = "Failed to upload image: ${resource.message}"
+                }
+            }
+        }
+    }
+
+    fun forgotPassword(emailOrUsername: String) {
+        viewModelScope.launch {
+            userRepository.forgotPassword(emailOrUsername).collect { resource ->
+                if (resource is Resource.Success) {
+                    _toastMessage.value = "Password reset instructions sent"
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Request failed"
+                }
+            }
+        }
+    }
+
+    fun deleteAccount(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            userRepository.deleteAccount().collect { resource ->
+                if (resource is Resource.Success) {
+                    TokenManager.clear()
+                    onSuccess()
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to delete account"
+                }
+            }
+        }
+    }
+
+    fun clearToast() {
+        _toastMessage.value = null
+    }
+
+    fun sendMessage(
+        chatId: Int,
+        body: String,
+        messageType: String = "text",
+        mediaUrl: String? = null,
+        duration: String? = null,
+        fileName: String? = null,
+        fileSize: String? = null,
+        contactName: String? = null,
+        contactPhone: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        replyToId: Int? = null
+    ) {
+        // Optimistic UI update
+        val tempId = -(System.currentTimeMillis() % 1000000).toInt()
+        val tempMessage = Message(
+            id = tempId,
+            text = body,
+            senderId = 0, // Placeholder
+            time = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()),
+            isFromMe = true,
+            type = when (messageType) {
+                "image" -> MessageType.IMAGE
+                "video" -> MessageType.VIDEO
+                "audio" -> MessageType.AUDIO_MESSAGE
+                "location" -> MessageType.LOCATION
+                "contact" -> MessageType.CONTACT
+                "document" -> MessageType.DOCUMENT
+                else -> MessageType.TEXT
+            },
+            mediaUri = mediaUrl,
+            fileName = fileName,
+            fileSize = fileSize,
+            contactName = contactName,
+            contactPhone = contactPhone,
+            latitude = latitude,
+            longitude = longitude,
+            replyToId = replyToId
+        )
+
+        val currentMessages = _messages.value.data ?: emptyList()
+        _messages.value = Resource.Success(currentMessages + tempMessage)
+
+        viewModelScope.launch {
+            repository.sendMessage(
+                chatId = chatId,
+                body = body,
+                messageType = messageType,
+                mediaUrl = mediaUrl,
+                duration = duration,
+                fileName = fileName,
+                fileSize = fileSize,
+                contactName = contactName,
+                contactPhone = contactPhone,
+                latitude = latitude,
+                longitude = longitude,
+                replyToId = replyToId
+            ).collect { resource ->
+                if (resource is Resource.Error) {
+                    _toastMessage.value = "Failed to send: ${resource.message}"
+                    // Remove temp message on error
+                    val updated = _messages.value.data?.filter { it.id != tempId }
+                    if (updated != null) _messages.value = Resource.Success(updated)
+                } else if (resource is Resource.Success) {
+                    // Replace temp message with actual one
+                    val updated = _messages.value.data?.map {
+                        if (it.id == tempId) resource.data!! else it
+                    }
+                    if (updated != null) _messages.value = Resource.Success(updated)
+                }
+            }
+        }
+    }
+
+    fun reactToMessage(messageId: Int, emoji: String) {
+        viewModelScope.launch {
+            repository.reactToMessage(messageId, emoji).collect { /* websocket handles update */ }
+        }
+    }
+
+    fun updateChatTyping(contactId: Int, isTyping: Boolean) {
+        viewModelScope.launch {
+            repository.updateTyping(contactId, isTyping)
+        }
+    }
+
+    fun updateChatPresence(contactId: Int, isOnline: Boolean, lastSeen: String?) {
+        viewModelScope.launch {
+            repository.updatePresence(contactId, isOnline, lastSeen ?: "")
+        }
+    }
+
+    fun updateChatLastMessage(contactId: Int, message: Message) {
+        viewModelScope.launch {
+            repository.updateLastMessage(contactId, message.text, message.time)
         }
     }
 
@@ -355,8 +687,20 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun fetchJobApplications() {
+    fun markStoryAsViewed(userId: Int, storyId: Int) {
         viewModelScope.launch {
+            repository.markStoryAsViewed(userId, storyId).collect { /* local update */ }
+        }
+    }
+
+    fun muteStory(userId: Int, isMuted: Boolean) {
+        viewModelScope.launch {
+            repository.muteStory(userId, isMuted).collect { /* local update */ }
+        }
+    }
+
+    fun fetchJobApplications() {
+        launchFetch("jobApplications") {
             repository.getJobApplications().collect { _applications.value = it.data ?: emptyList() }
         }
     }
@@ -370,6 +714,7 @@ class MainViewModel : ViewModel() {
             _searchResults.value = null
             return
         }
+
         currentSearchJob = viewModelScope.launch {
             delay(300)
             _isSearching.value = true
@@ -378,6 +723,21 @@ class MainViewModel : ViewModel() {
                     _searchResults.value = result.data
                 }
                 _isSearching.value = false
+            }
+        }
+    }
+
+    private var currentChatSearchJob: kotlinx.coroutines.Job? = null
+    fun searchInChat(chatId: Int, query: String) {
+        currentChatSearchJob?.cancel()
+        if (query.isBlank()) {
+            _chatSearchResults.value = emptyList()
+            return
+        }
+        currentChatSearchJob = viewModelScope.launch {
+            delay(300)
+            repository.searchLocalMessages(chatId, query).collect { results ->
+                _chatSearchResults.value = results
             }
         }
     }
@@ -421,6 +781,58 @@ class MainViewModel : ViewModel() {
             repository.createChat(contactId)
             fetchChats()
         }
+    }
+
+    fun pinChat(chatId: Int, isPinned: Boolean) {
+        viewModelScope.launch {
+            repository.pinChat(chatId, isPinned).collect { result ->
+                if (result is Resource.Success) fetchChats()
+            }
+        }
+    }
+
+    fun muteChat(chatId: Int, isMuted: Boolean) {
+        viewModelScope.launch {
+            repository.muteChat(chatId, isMuted).collect { result ->
+                if (result is Resource.Success) fetchChats()
+            }
+        }
+    }
+
+    fun deleteChat(chatId: Int) {
+        viewModelScope.launch {
+            repository.deleteChat(chatId).collect { result ->
+                if (result is Resource.Success) fetchChats()
+            }
+        }
+    }
+
+    fun clearChat(chatId: Int) {
+        viewModelScope.launch {
+            repository.clearMessages(chatId)
+            // If server supports clearing without deleting chat, call it here.
+            // For now, we clear locally.
+            _messages.value = Resource.Success(emptyList())
+            fetchChats()
+        }
+    }
+
+    fun createGroup(name: String, contactIds: List<Int>, onSuccess: (ChatMessage) -> Unit) {
+        viewModelScope.launch {
+            repository.createGroup(name, contactIds).collect { resource ->
+                if (resource is Resource.Success) {
+                    resource.data?.let {
+                        _selectedContactsForGroup.value = emptyList()
+                        fetchChats()
+                        onSuccess(it)
+                    }
+                }
+            }
+        }
+    }
+
+    fun setSelectedContactsForGroup(contacts: List<Contact>) {
+        _selectedContactsForGroup.value = contacts
     }
 
     fun refreshAll() {
@@ -586,6 +998,50 @@ class MainViewModel : ViewModel() {
     fun incrementSongPlay(songId: Int) {
         viewModelScope.launch {
             repository.incrementSongPlay(songId).collect { /* fire and forget */ }
+        }
+    }
+
+    fun deleteMessage(messageId: Int) {
+        viewModelScope.launch {
+            repository.deleteMessage(messageId).collect { result ->
+                if (result is Resource.Success && result.data == true) {
+                    val current = (_messages.value as? Resource.Success)?.data ?: return@collect
+                    _messages.value = Resource.Success(current.filter { it.id != messageId })
+                }
+            }
+        }
+    }
+
+    fun onNewMessage(message: Message) {
+        val chatId = activeChatId ?: return
+        val currentRes = _messages.value
+        if (currentRes is Resource.Success) {
+            val currentList = currentRes.data ?: emptyList()
+            if (!currentList.any { it.id == message.id }) {
+                _messages.value = Resource.Success(currentList + message)
+            }
+        }
+        updateChatLastMessage(chatId, message)
+    }
+
+    fun starMessage(messageId: Int, isStarred: Boolean) {
+        viewModelScope.launch {
+            repository.starMessage(messageId, isStarred).collect { /* logic */ }
+        }
+    }
+
+    fun requestNavigation(route: String) {
+        _navigationRequest.value = route
+    }
+
+    fun clearNavigationRequest() {
+        _navigationRequest.value = null
+    }
+
+    fun updateWallpaper(chatId: Int, wallpaperUrl: String?) {
+        viewModelScope.launch {
+            repository.updateWallpaper(chatId, wallpaperUrl)
+            fetchChats()
         }
     }
 }

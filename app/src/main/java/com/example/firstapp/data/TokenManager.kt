@@ -38,13 +38,13 @@ object TokenManager {
 
     fun getRefreshToken(): String? = refreshToken
 
-    fun clearToken() {
+    fun isLoggedIn(): Boolean = token != null
+
+    fun clear() {
         token = null
         refreshToken = null
         if (::prefs.isInitialized) {
             prefs.edit().remove(KEY_TOKEN).remove(KEY_REFRESH_TOKEN).apply()
         }
     }
-
-    fun isLoggedIn(): Boolean = token != null
 }

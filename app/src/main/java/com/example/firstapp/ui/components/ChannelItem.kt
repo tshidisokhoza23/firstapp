@@ -23,6 +23,19 @@ import com.example.firstapp.model.Channel
 import com.example.firstapp.ui.theme.AppTextPrimary
 import com.example.firstapp.ui.theme.AppTextSecondary
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.Icon
+import com.example.firstapp.ui.theme.AppAccent
+import androidx.compose.foundation.layout.fillMaxSize
+
 @Composable
 fun ChannelItem(channel: Channel) {
     Row(
@@ -34,33 +47,65 @@ fun ChannelItem(channel: Channel) {
         // Avatar
         Box(
             modifier = Modifier
-                .size(60.dp)
+                .size(56.dp)
                 .clip(CircleShape)
                 .background(channel.avatarColor),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = channel.name.take(1),
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (!channel.avatarUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = channel.avatarUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = channel.name.take(1).uppercase(),
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Column {
-            Text(
-                text = channel.name,
-                color = AppTextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = channel.name,
+                    color = AppTextPrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (channel.isVerified) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Filled.Verified,
+                        contentDescription = "Verified",
+                        tint = AppAccent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
             Text(
                 text = "${channel.followers} followers",
                 color = AppTextSecondary,
                 fontSize = 14.sp
             )
+        }
+        
+        if (!channel.isSubscribed) {
+            Button(
+                onClick = { /* Subscribe */ },
+                colors = ButtonDefaults.buttonColors(containerColor = AppAccent.copy(alpha = 0.1f), contentColor = AppAccent),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                modifier = Modifier.height(32.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Follow", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

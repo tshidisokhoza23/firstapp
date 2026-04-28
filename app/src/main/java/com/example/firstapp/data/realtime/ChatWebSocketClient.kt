@@ -16,7 +16,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -25,30 +24,42 @@ import okio.ByteString
 
 interface ChatSocketListener {
     fun onOpen()
-    fun onMessage(message: Message)
+    fun onMessage(contactId: Int, message: Message)
+    fun onMessageEdited(contactId: Int, message: Message)
+    fun onMessageDeleted(contactId: Int, messageId: Int)
+    fun onReaction(contactId: Int, messageId: Int, reactions: Map<String, Int>)
+    fun onTyping(contactId: Int, isTyping: Boolean)
+    fun onRead(contactId: Int)
+    fun onPresence(contactId: Int, isOnline: Boolean, lastSeen: String?)
     fun onError(error: String)
 }
 
 private data class WsOutgoingMessage(
     val type: String = "message",
-    val body: String,
-    @SerializedName("receiver_id") val receiverId: Int
+    val body: String? = null,
+    @SerializedName("receiver_id") val receiverId: Int,
+    @SerializedName("is_typing") val isTyping: Boolean? = null
 )
 
 private data class WsIncomingMessage(
     val type: String,
-    val message: ApiMessage,
-    @SerializedName("contact_id") val contactId: Int
+    val message: ApiMessage? = null,
+    @SerializedName("contact_id") val contactId: Int,
+    @SerializedName("message_id") val messageId: Int? = null,
+    val reactions: Map<String, Int>? = null,
+    @SerializedName("is_typing") val isTyping: Boolean? = null,
+    @SerializedName("is_online") val isOnline: Boolean? = null,
+    @SerializedName("last_seen") val lastSeen: String? = null
 )
 
 object ChatWebSocketClient {
     private val gson = Gson()
     private var webSocket: WebSocket? = null
-    private val httpClient = OkHttpClient()
+    private val httpClient = ApiClient.client
     private val reconnectScope = CoroutineScope(Dispatchers.IO)
     private var reconnectJob: Job? = null
     private val activeContactId = AtomicReference<Int?>(null)
-    private var activeListener: ChatSocketListener? = null
+    private val listeners = java.util.concurrent.CopyOnWriteArraySet<ChatSocketListener>()
     @Volatile
     private var manualClose = false
     @Volatile
@@ -56,12 +67,22 @@ object ChatWebSocketClient {
 
     fun connect(contactId: Int, listener: ChatSocketListener) {
         activeContactId.set(contactId)
-        activeListener = listener
+        listeners.add(listener)
+        ensureConnected(contactId)
+    }
+
+    fun disconnect(listener: ChatSocketListener) {
+        listeners.remove(listener)
+    }
+
+    private fun ensureConnected(contactId: Int) {
         val token = TokenManager.getToken()
         if (token.isNullOrBlank()) {
-            listener.onError("Missing auth token")
+            listeners.forEach { it.onError("Missing auth token") }
             return
         }
+
+        if (webSocket != null) return
 
         manualClose = false
 
@@ -70,20 +91,51 @@ object ChatWebSocketClient {
             .addHeader("Authorization", "Bearer $token")
             .build()
 
-        webSocket?.close(1000, null)
         webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                listener.onOpen()
+                listeners.forEach { it.onOpen() }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val payload = gson.fromJson(text, WsIncomingMessage::class.java)
-                    if (payload.type == "message") {
-                        listener.onMessage(mapApiMessage(payload.message))
+                    when (payload.type) {
+                        "message" -> {
+                            payload.message?.let { msg ->
+                                val mapped = mapApiMessage(msg)
+                                listeners.forEach { it.onMessage(payload.contactId, mapped) }
+                            }
+                        }
+                        "edit" -> {
+                            payload.message?.let { msg ->
+                                val mapped = mapApiMessage(msg)
+                                listeners.forEach { it.onMessageEdited(payload.contactId, mapped) }
+                            }
+                        }
+                        "reaction" -> {
+                            payload.message?.let { msg ->
+                                if (msg.reactions != null) {
+                                    listeners.forEach { it.onReaction(payload.contactId, msg.id, msg.reactions) }
+                                }
+                            }
+                        }
+                        "delete" -> {
+                            payload.message?.let { msg ->
+                                listeners.forEach { it.onMessageDeleted(payload.contactId, msg.id) }
+                            }
+                        }
+                        "typing" -> {
+                            listeners.forEach { it.onTyping(payload.contactId, payload.isTyping ?: false) }
+                        }
+                        "read" -> {
+                            listeners.forEach { it.onRead(payload.contactId) }
+                        }
+                        "presence" -> {
+                            listeners.forEach { it.onPresence(payload.contactId, payload.isOnline ?: false, payload.lastSeen) }
+                        }
                     }
                 } catch (e: Exception) {
-                    listener.onError("Failed to parse websocket message: ${e.localizedMessage}")
+                    listeners.forEach { it.onError("Failed to parse websocket message: ${e.localizedMessage}") }
                 }
             }
 
@@ -97,11 +149,11 @@ object ChatWebSocketClient {
                     if (refreshTokenIfPossible()) {
                         scheduleReconnect(immediate = true)
                     } else {
-                        listener.onError("Chat auth expired. Please log in again.")
+                        listeners.forEach { it.onError("Chat auth expired. Please log in again.") }
                     }
                     return
                 }
-                listener.onError(t.localizedMessage ?: "WebSocket failed")
+                listeners.forEach { it.onError(t.localizedMessage ?: "WebSocket failed") }
                 scheduleReconnect()
             }
 
@@ -118,13 +170,12 @@ object ChatWebSocketClient {
         if (manualClose) return
         if (reconnectJob?.isActive == true) return
         val contactId = activeContactId.get() ?: return
-        val listener = activeListener ?: return
         reconnectJob = reconnectScope.launch {
             if (!immediate) {
                 delay(2000)
             }
             if (!manualClose && webSocket == null) {
-                connect(contactId, listener)
+                ensureConnected(contactId)
             }
         }
     }
@@ -152,7 +203,19 @@ object ChatWebSocketClient {
 
     fun sendMessage(receiverId: Int, body: String) {
         val socket = webSocket ?: return
-        val message = WsOutgoingMessage(body = body, receiverId = receiverId)
+        val message = WsOutgoingMessage(type = "message", body = body, receiverId = receiverId)
+        socket.send(gson.toJson(message))
+    }
+
+    fun sendTyping(receiverId: Int, isTyping: Boolean) {
+        val socket = webSocket ?: return
+        val message = WsOutgoingMessage(type = "typing", receiverId = receiverId, isTyping = isTyping)
+        socket.send(gson.toJson(message))
+    }
+
+    fun sendRead(receiverId: Int) {
+        val socket = webSocket ?: return
+        val message = WsOutgoingMessage(type = "read", receiverId = receiverId)
         socket.send(gson.toJson(message))
     }
 
@@ -162,13 +225,15 @@ object ChatWebSocketClient {
         webSocket?.close(1000, "Goodbye")
         webSocket = null
         activeContactId.set(null)
-        activeListener = null
+        listeners.clear()
     }
 
     private fun mapApiMessage(apiMessage: ApiMessage): Message {
         return Message(
             id = apiMessage.id,
             text = apiMessage.body,
+            senderId = apiMessage.sender_id,
+            senderName = apiMessage.sender_name,
             time = apiMessage.created_at ?: "",
             isFromMe = apiMessage.direction == "outgoing",
             type = when (apiMessage.message_type?.lowercase()) {
@@ -188,7 +253,12 @@ object ChatWebSocketClient {
             contactName = apiMessage.contact_name,
             contactPhone = apiMessage.contact_phone,
             latitude = apiMessage.latitude,
-            longitude = apiMessage.longitude
+            longitude = apiMessage.longitude,
+            isRead = apiMessage.read_at != null,
+            replyToId = apiMessage.parent_id,
+            replyToText = apiMessage.parent_body,
+            replyToSenderName = apiMessage.parent_sender_name,
+            reactions = apiMessage.reactions ?: emptyMap()
         )
     }
 }

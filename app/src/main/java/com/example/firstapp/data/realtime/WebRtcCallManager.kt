@@ -3,7 +3,12 @@
 package com.example.firstapp.data.realtime
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
+import android.os.PowerManager
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import org.webrtc.AudioSource
@@ -27,11 +32,20 @@ import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class WebRtcCallManager(context: Context) {
     private val appContext = context.applicationContext
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+    private var proximityWakeLock: PowerManager.WakeLock? = null
     private val eglBase = EglBase.create()
+
+    private val observationScope = CoroutineScope(Dispatchers.Main)
 
     private var peerConnection: PeerConnection? = null
     private var audioSource: AudioSource? = null
@@ -76,17 +90,35 @@ class WebRtcCallManager(context: Context) {
 
     private val factory: PeerConnectionFactory by lazy {
         ensureFactoryInitialized(appContext)
+
+        val audioAttributes = org.webrtc.audio.JavaAudioDeviceModule.builder(appContext)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            .createAudioDeviceModule()
+
         PeerConnectionFactory.builder()
+            .setAudioDeviceModule(audioAttributes)
             .setVideoEncoderFactory(DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, true))
             .setVideoDecoderFactory(DefaultVideoDecoderFactory(eglBase.eglBaseContext))
             .createPeerConnectionFactory()
     }
+
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     @Synchronized
     fun start(callType: CallType) {
         this.callType = callType
         releasePeerConnectionOnly()
 
+        requestAudioFocus()
+        if (callType == CallType.VOICE) {
+            enableProximitySensor()
+        }
+        
         val rtcConfig = PeerConnection.RTCConfiguration(
             listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         )
@@ -271,7 +303,17 @@ class WebRtcCallManager(context: Context) {
 
     fun setSpeakerEnabled(enabled: Boolean) {
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        audioManager.isSpeakerphoneOn = enabled
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val devices = audioManager.availableCommunicationDevices
+            val targetType = if (enabled) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+            val device = devices.firstOrNull { it.type == targetType }
+            if (device != null) {
+                audioManager.setCommunicationDevice(device)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = enabled
+        }
     }
 
     fun setCameraEnabled(enabled: Boolean) {
@@ -291,27 +333,99 @@ class WebRtcCallManager(context: Context) {
         }
     }
 
+    fun switchCamera() {
+        videoCapturer?.switchCamera(null)
+    }
+
     fun attachLocalRenderer(renderer: SurfaceViewRenderer) {
+        localRenderer?.let { localVideoTrack?.removeSink(it) }
         localRenderer = renderer
-        renderer.init(eglBase.eglBaseContext, null)
-        renderer.setEnableHardwareScaler(true)
-        renderer.setMirror(true)
+        try {
+            renderer.init(eglBase.eglBaseContext, null)
+            renderer.setEnableHardwareScaler(true)
+            renderer.setMirror(true)
+        } catch (_: Exception) {}
         localVideoTrack?.addSink(renderer)
     }
 
+    fun detachLocalRenderer() {
+        localRenderer?.let { localVideoTrack?.removeSink(it) }
+        localRenderer = null
+    }
+
     fun attachRemoteRenderer(renderer: SurfaceViewRenderer) {
+        remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
         remoteRenderer = renderer
-        renderer.init(eglBase.eglBaseContext, null)
-        renderer.setEnableHardwareScaler(true)
-        renderer.setMirror(false)
+        try {
+            renderer.init(eglBase.eglBaseContext, null)
+            renderer.setEnableHardwareScaler(true)
+            renderer.setMirror(false)
+        } catch (_: Exception) {}
         remoteVideoTrack?.addSink(renderer)
+    }
+
+    fun detachRemoteRenderer() {
+        remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
+        remoteRenderer = null
+    }
+
+    private fun requestAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(attributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener { }
+                .build()
+            audioManager.requestAudioFocus(audioFocusRequest!!)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
+    }
+
+    private fun enableProximitySensor() {
+        if (proximityWakeLock == null) {
+            try {
+                proximityWakeLock = powerManager.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "FirstApp:ProximityLock")
+            } catch (_: Exception) {}
+        }
+        proximityWakeLock?.let {
+            if (!it.isHeld) it.acquire(10 * 60 * 1000L) // 10 min fallback
+        }
+    }
+
+    private fun disableProximitySensor() {
+        proximityWakeLock?.let {
+            if (it.isHeld) it.release()
+        }
+        proximityWakeLock = null
     }
 
     @Synchronized
     fun end() {
         releasePeerConnectionOnly()
+        abandonAudioFocus()
+        disableProximitySensor()
         audioManager.mode = AudioManager.MODE_NORMAL
-        audioManager.isSpeakerphoneOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.clearCommunicationDevice()
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = false
+        }
         audioManager.isMicrophoneMute = false
     }
 

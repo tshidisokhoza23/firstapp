@@ -54,18 +54,33 @@ import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.BorderStroke
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriveScreen(
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
-    viewModel: DriveViewModel = viewModel()
+    viewModel: DriveViewModel = viewModel(),
+    mainViewModel: com.example.firstapp.ui.viewmodel.MainViewModel = viewModel(),
+    onShowSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var showHistory by remember { mutableStateOf(false) }
+    var currentSubScreen by remember { mutableStateOf<String?>(null) }
+    val user by mainViewModel.currentUser.collectAsState()
     
-    if (showHistory) {
-        DriveHistoryScreen(onBack = { showHistory = false })
-        return
+    when (currentSubScreen) {
+        "history" -> {
+            DriveHistoryScreen(onBack = { currentSubScreen = null })
+            return
+        }
+        "payment" -> {
+            PaymentScreen(onBack = { currentSubScreen = null })
+            return
+        }
+        "support" -> {
+            SupportScreen(onBack = { currentSubScreen = null })
+            return
+        }
     }
 
     var hasLocationPermission by remember {
@@ -118,10 +133,13 @@ fun DriveScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = { 
-            DriveDrawerContent(onShowHistory = { 
-                showHistory = true 
-                scope.launch { drawerState.close() }
-            }) 
+            DriveDrawerContent(
+                user = user,
+                onShowHistory = { currentSubScreen = "history"; scope.launch { drawerState.close() } },
+                onShowPayment = { currentSubScreen = "payment"; scope.launch { drawerState.close() } },
+                onShowSupport = { currentSubScreen = "support"; scope.launch { drawerState.close() } },
+                onShowSettings = { onShowSettings(); scope.launch { drawerState.close() } }
+            )
         },
         gesturesEnabled = drawerState.isOpen
     ) {
@@ -168,50 +186,72 @@ fun DriveScreen(
 }
 
 @Composable
-fun DriveDrawerContent(onShowHistory: () -> Unit) {
+fun DriveDrawerContent(
+    user: com.example.firstapp.model.User?,
+    onShowHistory: () -> Unit, 
+    onShowPayment: () -> Unit, 
+    onShowSupport: () -> Unit, 
+    onShowSettings: () -> Unit
+) {
     val context = LocalContext.current
     ModalDrawerSheet(
         drawerContainerColor = AppSecondary,
         modifier = Modifier.width(320.dp),
-        drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
+        drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(AppAccent.copy(0.1f), Color.Transparent)))
-                .padding(24.dp)
+                .background(Brush.verticalGradient(listOf(AppAccent.copy(0.15f), Color.Transparent)))
+                .padding(top = 40.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
         ) {
             Column {
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
-                        .background(AppAccent, CircleShape),
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(AppPrimary),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("JD", color = AppBackground, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp)
+                    if (user?.avatar_url != null) {
+                        coil.compose.AsyncImage(
+                            model = user.avatar_url,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            user?.display_name?.take(1)?.uppercase() ?: "U", 
+                            color = Color.White, 
+                            fontWeight = FontWeight.ExtraBold, 
+                            fontSize = 28.sp
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("John Doe", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                Text(user?.display_name ?: "Guest", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
-                    Text(" 4.98 • Gold Member", color = AppTextSecondary, fontSize = 14.sp)
+                    Icon(Icons.Default.Star, contentDescription = null, tint = NiceOrange, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("${user?.streak ?: 0} Streak • Gold Member", color = AppTextSecondary, fontSize = 14.sp)
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        DrawerItem(Icons.AutoMirrored.Filled.List, "My Rides") { onShowHistory() }
-        DrawerItem(Icons.Default.Payment, "Payment Methods") { Toast.makeText(context, "Payment methods coming soon", Toast.LENGTH_SHORT).show() }
-        DrawerItem(Icons.Default.CardGiftcard, "Promotions") { Toast.makeText(context, "Promotions coming soon", Toast.LENGTH_SHORT).show() }
-        DrawerItem(Icons.Default.SupportAgent, "Support") { Toast.makeText(context, "Support coming soon", Toast.LENGTH_SHORT).show() }
-        DrawerItem(Icons.Default.Info, "About FirstApp") { Toast.makeText(context, "FirstApp Drive v1", Toast.LENGTH_SHORT).show() }
+        DrawerItem(Icons.AutoMirrored.Filled.List, "My Trips") { onShowHistory() }
+        DrawerItem(Icons.Default.Payment, "Wallet") { onShowPayment() }
+        DrawerItem(Icons.Default.CardGiftcard, "Promotions") { onShowPayment() }
+        DrawerItem(Icons.Default.SupportAgent, "Help Center") { onShowSupport() }
+        DrawerItem(Icons.Default.Info, "Legal") { Toast.makeText(context, "FirstApp Drive v1.2", Toast.LENGTH_SHORT).show() }
         
         Spacer(modifier = Modifier.weight(1f))
         
         HorizontalDivider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(horizontal = 24.dp))
-        DrawerItem(Icons.Default.Settings, "Settings") { Toast.makeText(context, "Settings coming soon", Toast.LENGTH_SHORT).show() }
-        Spacer(modifier = Modifier.height(24.dp))
+        DrawerItem(Icons.Default.Settings, "Settings") { onShowSettings() }
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -498,6 +538,7 @@ fun DriveMainContent(
             // Map overlay buttons
             Column(
                 modifier = Modifier
+                    .statusBarsPadding()
                     .padding(16.dp)
                     .align(Alignment.TopStart)
                     .fillMaxWidth(),
@@ -577,7 +618,7 @@ private fun createCarBitmap(context: Context): BitmapDescriptor {
     
     // Car Body
     paint.alpha = 255
-    paint.color = android.graphics.Color.parseColor("#32D74B") // Bolt Green
+    paint.color = AppAccent.toArgb()
     canvas.drawRoundRect(
         size * 0.25f, size * 0.15f, size * 0.75f, size * 0.85f, 
         size * 0.15f, size * 0.15f, paint

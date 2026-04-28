@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,7 +109,14 @@ fun SongCard(song: Song, isPlaying: Boolean = false, onClick: () -> Unit) {
 }
 
 @Composable
-fun SongListItem(song: Song, isPlaying: Boolean = false, onClick: () -> Unit) {
+fun SongListItem(
+    song: Song,
+    isPlaying: Boolean = false,
+    onClick: () -> Unit,
+    onShare: (() -> Unit)? = null
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -159,8 +166,25 @@ fun SongListItem(song: Song, isPlaying: Boolean = false, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(onClick = { /* More actions */ }) {
-            Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextSecondary)
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextSecondary)
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Play next") },
+                    onClick = { showMenu = false; onClick() }
+                )
+                if (onShare != null) {
+                    DropdownMenuItem(
+                        text = { Text("Share") },
+                        onClick = { showMenu = false; onShare() }
+                    )
+                }
+            }
         }
     }
 }
@@ -258,13 +282,12 @@ fun FeaturedPlaylistCard(name: String, description: String, imageUrl: String?) {
         shape = RoundedCornerShape(20.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background gradient if no image
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color(0xFF1DB954).copy(alpha = 0.8f), Color.Black)
+                            listOf(com.example.firstapp.ui.theme.AppPrimary.copy(alpha = 0.8f), Color.Black)
                         )
                     )
             )

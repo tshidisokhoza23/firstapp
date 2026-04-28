@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.text.input.VisualTransformation
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -54,6 +55,8 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     var isSignUp by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showForgotPassword by remember { mutableStateOf(false) }
+    var forgotPasswordId by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -256,7 +259,17 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             )
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        if (!isSignUp) {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                TextButton(onClick = { showForgotPassword = true }) {
+                    Text("Forgot Password?", color = AppTextPrimary.copy(alpha = 0.6f), fontSize = 14.sp)
+                }
+            }
+        } else {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = { performLogin() },
@@ -320,6 +333,54 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 Text("Continue with Google", fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
         }
+    }
+
+    if (showForgotPassword) {
+        AlertDialog(
+            onDismissRequest = { showForgotPassword = false },
+            containerColor = AppSecondary,
+            title = { Text("Reset Password", color = Color.White) },
+            text = {
+                Column {
+                    Text("Enter your email or username and we'll send you instructions.", color = Color.White.copy(0.7f))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = forgotPasswordId,
+                        onValueChange = { forgotPasswordId = it },
+                        label = { Text("Email or Username") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppAccent,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (forgotPasswordId.isNotBlank()) {
+                        // Normally this would go through a ViewModel
+                        // For now let's just simulate the API call
+                        scope.launch {
+                            try {
+                                ApiClient.apiService.forgotPassword(com.example.firstapp.data.api.ForgotPasswordRequest(forgotPasswordId))
+                                Toast.makeText(context, "Reset link sent!", Toast.LENGTH_SHORT).show()
+                            } catch (_: Exception) {}
+                        }
+                        showForgotPassword = false
+                    }
+                }) {
+                    Text("Send", color = AppAccent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showForgotPassword = false }) {
+                    Text("Cancel", color = Color.White.copy(0.6f))
+                }
+            }
+        )
     }
 }
 

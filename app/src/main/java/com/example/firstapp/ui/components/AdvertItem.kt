@@ -24,20 +24,28 @@ import com.example.firstapp.model.Advert
 import com.example.firstapp.ui.theme.AppTextPrimary
 import com.example.firstapp.ui.theme.AppTextSecondary
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import com.example.firstapp.ui.theme.AppAccent
+
 @Composable
 fun AdvertItem(advert: Advert) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 16.dp),
+            .padding(vertical = 10.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Status Avatar with Green Ring
+        // Status Avatar with Accent Ring
         Box(
             modifier = Modifier
-                .size(60.dp)
-                .border(2.dp, Color(0xFF25D366), CircleShape)
-                .padding(3.dp),
+                .size(64.dp)
+                .border(2.5.dp, AppAccent, CircleShape)
+                .padding(3.5.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
@@ -47,18 +55,27 @@ fun AdvertItem(advert: Advert) {
                     .background(advert.avatarColor),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = advert.advertiserName.take(1),
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (!advert.avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = advert.avatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = advert.advertiserName.take(1).uppercase(),
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = advert.advertiserName,
                 color = AppTextPrimary,
@@ -69,6 +86,20 @@ fun AdvertItem(advert: Advert) {
                 text = com.example.firstapp.util.formatPostedTime(advert.time),
                 color = AppTextSecondary,
                 fontSize = 14.sp
+            )
+        }
+        
+        Surface(
+            color = AppAccent.copy(alpha = 0.1f),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, AppAccent.copy(alpha = 0.2f))
+        ) {
+            Text(
+                text = "Ad",
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+                color = AppAccent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
             )
         }
     }

@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -50,6 +52,8 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.example.firstapp.data.media.ShortsVideoCache
 import com.example.firstapp.model.Short
+import com.example.firstapp.ui.theme.AppAccent
+import com.example.firstapp.ui.theme.AppPrimary
 import kotlinx.coroutines.delay
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -155,6 +159,7 @@ fun ShortItem(
             
             onDispose {
                 player.removeListener(listener)
+                player.release()
             }
         }
     }
@@ -301,7 +306,7 @@ fun ShortItem(
                         Icon(
                             Icons.Filled.AddCircle,
                             contentDescription = null,
-                            tint = Color.Red,
+                            tint = AppAccent,
                             modifier = Modifier
                                 .size(20.dp)
                                 .offset(y = 10.dp)
@@ -313,11 +318,15 @@ fun ShortItem(
                 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                val haptic = LocalHapticFeedback.current
                 ShortActionButton(
                     icon = if (short.isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     text = short.likes,
                     iconColor = likeIconColor,
-                    onClick = { onLikeClick(short.id) }
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLikeClick(short.id) 
+                    }
                 )
                 ShortActionButton(
                     icon = Icons.AutoMirrored.Filled.Comment,
@@ -366,12 +375,12 @@ fun ShortItem(
                         Surface(
                             onClick = { onSubscribeClick(short.id) },
                             color = Color.Transparent,
-                            border = BorderStroke(1.dp, Color.White),
+                            border = BorderStroke(1.dp, AppAccent),
                             shape = RoundedCornerShape(4.dp),
                             modifier = Modifier.height(28.dp)
                         ) {
                             Box(modifier = Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-                                Text("Subscribe", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Subscribe", color = AppAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -415,7 +424,7 @@ fun ShortItem(
                         modifier = Modifier
                             .fillMaxWidth(progress.coerceIn(0f, 1f))
                             .fillMaxHeight()
-                            .background(Color.White)
+                            .background(AppAccent)
                     )
                 }
             }

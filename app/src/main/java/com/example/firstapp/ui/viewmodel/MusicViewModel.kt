@@ -7,8 +7,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.example.firstapp.AppContainer
 import com.example.firstapp.data.repository.AppRepository
-import com.example.firstapp.data.repository.AppRepositoryImpl
 import com.example.firstapp.model.Song
 import com.example.firstapp.util.Resource
 import kotlinx.coroutines.delay
@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class MusicViewModel : ViewModel() {
-    private val repository: AppRepository = AppRepositoryImpl()
+    private val repository: AppRepository = AppContainer.repository
     private var exoPlayer: ExoPlayer? = null
 
     private val _currentlyPlaying = MutableStateFlow<Song?>(null)

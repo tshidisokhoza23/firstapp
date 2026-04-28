@@ -42,6 +42,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.filled.PermMedia
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
 import com.example.firstapp.model.Channel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,13 +72,16 @@ fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit, onSubscribe: (Int)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(35.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
-                                .background(channel.avatarColor)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                                .background(channel.avatarColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(channel.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(channel.name, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(channel.name, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                             Text("${channel.followers} followers", fontSize = 12.sp, color = AppTextSecondary)
                         }
                     }
@@ -84,14 +92,16 @@ fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit, onSubscribe: (Int)
                     }
                 },
                 actions = {
+                    IconButton(onClick = { /* Share */ }) { Icon(Icons.Default.Share, null) }
                     Box {
                         IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, "More") }
                         DropdownMenu(
                             expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(AppSecondary)
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Refresh") },
+                                text = { Text("Refresh", color = Color.White) },
                                 onClick = {
                                     showMenu = false
                                     Toast.makeText(context, "Channel refreshed", Toast.LENGTH_SHORT).show()
@@ -102,30 +112,39 @@ fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit, onSubscribe: (Int)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = AppSecondary,
-                    titleContentColor = AppTextPrimary,
-                    navigationIconContentColor = AppTextPrimary,
-                    actionIconContentColor = AppTextPrimary
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         },
         bottomBar = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(AppSecondary)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = AppSecondary,
+                tonalElevation = 8.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
             ) {
-                Button(
-                    onClick = {
-                        isSubscribed = !isSubscribed
-                        onSubscribe(channel.id)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(45.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(25.dp)
+                Box(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(if (isSubscribed) "Unfollow" else "Follow channel", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = {
+                            isSubscribed = !isSubscribed
+                            onSubscribe(channel.id)
+                        },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isSubscribed) Color.White.copy(alpha = 0.1f) else Color.White,
+                            contentColor = if (isSubscribed) Color.White else Color.Black
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(if (isSubscribed) "Unfollow" else "Follow channel", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    }
                 }
             }
         },
@@ -136,77 +155,111 @@ fun ChannelDetailScreen(channel: Channel, onBack: () -> Unit, onSubscribe: (Int)
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(12.dp)
+                .padding(16.dp)
         ) {
-            // Post Card
+            // Channel Info Header
+            Text(
+                text = "About this channel",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            Text(
+                text = channel.description ?: "Daily updates and news from ${channel.name}.",
+                color = AppTextSecondary,
+                fontSize = 15.sp,
+                lineHeight = 22.sp
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Last Post
+            Text(
+                text = "Recent updates",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = AppSecondary),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
             ) {
                 Column {
-                    // Image Placeholder
+                    // Post Media
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(350.dp)
-                            .background(channel.lastPostImageColor)
+                            .height(260.dp)
+                            .background(channel.lastPostImageColor.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
                     ) {
+                        if (channel.lastPostImageUrl != null) {
+                            coil.compose.AsyncImage(
+                                model = channel.lastPostImageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Icon(Icons.Default.PermMedia, null, tint = Color.White.copy(alpha = 0.1f), modifier = Modifier.size(64.dp))
+                        }
+                        
                         // Download Overlay
                         Box(
                             modifier = Modifier
                                 .padding(12.dp)
                                 .align(Alignment.BottomStart)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.Black.copy(alpha = 0.6f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("83 kB", color = Color.White, fontSize = 12.sp)
+                                Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Media Content", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
 
                     // Text Content
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = channel.lastPostText,
-                            color = AppTextPrimary,
+                            color = Color.White,
                             fontSize = 16.sp,
-                            lineHeight = 22.sp
+                            lineHeight = 24.sp
                         )
                         
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         
-                        Text(
-                            text = "08:12",
-                            color = AppTextSecondary,
-                            fontSize = 12.sp,
-                            modifier = Modifier.align(Alignment.End)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("❤️ 42", color = AppTextSecondary, fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("💬 12", color = AppTextSecondary, fontSize = 12.sp)
+                            }
+                            Text(
+                                text = channel.lastPostTime ?: "Recent",
+                                color = AppTextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
             }
-
-            // Reactions Row
-            Row(
-                modifier = Modifier.padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("❤️🤍💯🖤", fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("3K", color = AppTextSecondary, fontSize = 14.sp)
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("478", color = AppTextSecondary, fontSize = 14.sp)
-                }
-            }
+            
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.firstapp
 
+import android.app.NotificationManager
 import android.app.KeyguardManager
 import android.os.Build
 import android.os.Bundle
@@ -106,6 +107,10 @@ class IncomingCallActivity : ComponentActivity() {
                                             )
                                             GlobalCallState.onCallEnded(sessionId)
                                         }
+                                        if (notifId != 0) {
+                                            val manager = getSystemService(NotificationManager::class.java)
+                                            manager.cancel(notifId)
+                                        }
                                         finish()
                                     },
                                     containerColor = Color(0xFFE53935),
@@ -129,6 +134,10 @@ class IncomingCallActivity : ComponentActivity() {
                                     onClick = {
                                         if (sessionId != null) {
                                             GlobalCallState.setAutoAccept(sessionId)
+                                        }
+                                        if (notifId != 0) {
+                                            val manager = getSystemService(NotificationManager::class.java)
+                                            manager.cancel(notifId)
                                         }
                                         val mainIntent = Intent(this@IncomingCallActivity, MainActivity::class.java).apply {
                                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP

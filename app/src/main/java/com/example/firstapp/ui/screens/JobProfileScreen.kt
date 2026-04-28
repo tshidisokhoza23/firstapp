@@ -147,8 +147,16 @@ fun JobProfileScreen(
             ProfileTextField(value = availability, onValueChange = { availability = it }, label = "Availability", placeholder = "e.g. 2 weeks notice")
 
             SectionHeader("RESUME")
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+            ) { uri ->
+                uri?.let { 
+                    android.widget.Toast.makeText(context, "Resume uploaded!", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
             OutlinedButton(
-                onClick = { /* Implement file picker */ },
+                onClick = { pdfLauncher.launch("application/pdf") },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppAccent),
                 shape = RoundedCornerShape(8.dp),

@@ -14,6 +14,33 @@ object GlobalCallState {
     private val _incomingCall = MutableStateFlow<CallEvent?>(null)
     val incomingCall: StateFlow<CallEvent?> = _incomingCall.asStateFlow()
 
+    private val _isCallActive = MutableStateFlow(false)
+    val isCallActive: StateFlow<Boolean> = _isCallActive.asStateFlow()
+
+    private val _activeSessionId = MutableStateFlow<String?>(null)
+    val activeSessionId: StateFlow<String?> = _activeSessionId.asStateFlow()
+
+    private val _activeParticipantId = MutableStateFlow<Int?>(null)
+    val activeParticipantId: StateFlow<Int?> = _activeParticipantId.asStateFlow()
+
+    private val _activeCallType = MutableStateFlow<CallType?>(null)
+    val activeCallType: StateFlow<CallType?> = _activeCallType.asStateFlow()
+
+    private val _isConnectionEstablished = MutableStateFlow(false)
+    val isConnectionEstablished: StateFlow<Boolean> = _isConnectionEstablished.asStateFlow()
+
+    fun setCallActive(active: Boolean, sessionId: String? = null, participantId: Int? = null, callType: CallType? = null) {
+        _isCallActive.value = active
+        _activeSessionId.value = sessionId
+        _activeParticipantId.value = participantId
+        _activeCallType.value = callType
+        if (!active) _isConnectionEstablished.value = false
+    }
+
+    fun setConnectionEstablished(established: Boolean) {
+        _isConnectionEstablished.value = established
+    }
+
     /** Set by CallNotificationActionReceiver when user taps Accept in notification. */
     private val _autoAcceptSessionId = MutableStateFlow<String?>(null)
     val autoAcceptSessionId: StateFlow<String?> = _autoAcceptSessionId.asStateFlow()
@@ -37,11 +64,18 @@ object GlobalCallState {
     }
 
     fun onCallEnded(sessionId: String) {
-        if (_incomingCall.value?.sessionId == sessionId) {
+        if (_incomingCall.value?.sessionId == sessionId || sessionId == "force_all") {
             _incomingCall.value = null
         }
-        if (_autoAcceptSessionId.value == sessionId) {
+        if (_autoAcceptSessionId.value == sessionId || sessionId == "force_all") {
             _autoAcceptSessionId.value = null
+        }
+        if (_activeSessionId.value == sessionId || sessionId == "force_all") {
+            _isCallActive.value = false
+            _activeSessionId.value = null
+            _activeParticipantId.value = null
+            _activeCallType.value = null
+            _isConnectionEstablished.value = false
         }
     }
 
@@ -56,5 +90,10 @@ object GlobalCallState {
     fun clear() {
         _incomingCall.value = null
         _autoAcceptSessionId.value = null
+        _isCallActive.value = false
+        _activeSessionId.value = null
+        _activeParticipantId.value = null
+        _activeCallType.value = null
+        _isConnectionEstablished.value = false
     }
 }

@@ -15,5 +15,7 @@ data class ChatMessage(
     val isMuted: Boolean = false,
     val isPinned: Boolean = false,
     val isTyping: Boolean = false,
+    val isGroup: Boolean = false,
+    val wallpaperUrl: String? = null,
     val messages: List<Message> = emptyList()
 )

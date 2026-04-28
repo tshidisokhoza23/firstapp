@@ -29,7 +29,21 @@ class CallNotificationActionReceiver : BroadcastReceiver() {
             }
             ACTION_ACCEPT -> {
                 GlobalCallState.setAutoAccept(sessionId)
-                // Bring the app to foreground so ChatScreen can complete the accept
+                
+                // Perform signaling accept immediately to stop ringing on the other side
+                CallWebSocketClient.accept(
+                    receiverId = senderId,
+                    sessionId = sessionId,
+                    callType = callType
+                )
+                
+                // Initialize WebRTC as well if possible, or let the auto-accept handle it.
+                // Starting it here ensures it begins negotiation while the app is coming to foreground.
+                com.example.firstapp.AppContainer.webRtcCallManager.start(callType)
+                GlobalCallState.setCallActive(true, sessionId, senderId, callType)
+                GlobalCallState.setConnectionEstablished(true)
+
+                // Bring the app to foreground
                 val launch = Intent(context, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     putExtra(EXTRA_SESSION_ID, sessionId)
@@ -46,6 +60,7 @@ class CallNotificationActionReceiver : BroadcastReceiver() {
         const val ACTION_DECLINE = "com.example.firstapp.CALL_DECLINE"
         const val EXTRA_SESSION_ID = "session_id"
         const val EXTRA_SENDER_ID  = "sender_id"
+        const val EXTRA_SENDER_NAME = "sender_name"
         const val EXTRA_CALL_TYPE  = "call_type"
         const val EXTRA_NOTIF_ID   = "notif_id"
     }

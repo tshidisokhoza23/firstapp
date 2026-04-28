@@ -22,9 +22,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.BorderStroke
 import com.example.firstapp.ui.theme.*
 
 import com.example.firstapp.model.User
+
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,8 +37,11 @@ fun SettingsScreen(
     user: User?,
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onEditProfile: () -> Unit
+    onEditProfile: () -> Unit,
+    onDeleteAccount: () -> Unit = {}
 ) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -59,36 +67,64 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             // Profile Section
-            Row(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onEditProfile() }
                     .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(24.dp),
+                color = AppSecondary.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
             ) {
-                Box(
+                Row(
                     modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(AppAccent),
-                    contentAlignment = Alignment.Center
+                        .clickable { onEditProfile() }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = user?.display_name?.take(1)?.uppercase() ?: "U",
-                        color = AppBackground,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(AppPrimary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (user?.avatar_url != null) {
+                            AsyncImage(
+                                model = user.avatar_url,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = user?.display_name?.take(1)?.uppercase() ?: "U",
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(20.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = user?.display_name ?: "User", 
+                            color = Color.White, 
+                            fontSize = 20.sp, 
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = user?.bio ?: "Hey there! I am using FirstApp.", 
+                            color = AppTextSecondary, 
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AppTextSecondary)
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(user?.display_name ?: "User", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(user?.bio ?: "Hey there! I am using FirstApp.", color = AppTextSecondary, fontSize = 14.sp)
-                }
-                Icon(Icons.Default.QrCode, contentDescription = null, tint = AppAccent)
             }
 
-            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Settings Items
             SettingsItem(Icons.Default.Key, "Account", "Security notifications, change number")
@@ -113,6 +149,18 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Text("Log out", color = Color.Red, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDeleteConfirm = true }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color.Red.copy(alpha = 0.6f))
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Delete Account", color = Color.Red.copy(alpha = 0.6f), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
             
             Spacer(modifier = Modifier.height(32.dp))
             
@@ -122,10 +170,37 @@ fun SettingsScreen(
             ) {
                 Text("from", color = AppTextSecondary, fontSize = 12.sp)
                 Text("FIRSTAPP", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Version 1.0.6 (Stable)", color = AppTextSecondary, fontSize = 11.sp)
             }
             
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            containerColor = AppSecondary,
+            title = { Text("Delete Account?", color = Color.White) },
+            text = { Text("This will permanently delete your account and all your data. This action cannot be undone.", color = Color.White.copy(0.7f)) },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        showDeleteConfirm = false
+                        onDeleteAccount() 
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Delete Forever", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel", color = Color.White.copy(0.6f))
+                }
+            }
+        )
     }
 }
 
@@ -135,14 +210,23 @@ fun SettingsItem(icon: ImageVector, title: String, subtitle: String) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { /* Handle click */ }
-            .padding(16.dp),
+            .padding(vertical = 14.dp, horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(24.dp))
-        Spacer(modifier = Modifier.width(24.dp))
-        Column {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.03f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(22.dp))
+            }
+        }
+        Spacer(modifier = Modifier.width(20.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Text(subtitle, color = AppTextSecondary, fontSize = 13.sp)
         }
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.1f), modifier = Modifier.size(20.dp))
     }
 }

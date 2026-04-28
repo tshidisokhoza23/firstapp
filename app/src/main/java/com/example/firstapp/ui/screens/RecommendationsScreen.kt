@@ -11,13 +11,17 @@ import androidx.compose.ui.unit.dp
 import com.example.firstapp.model.Song
 import com.example.firstapp.ui.components.MusicSectionHeader
 import com.example.firstapp.ui.components.SongCard
-
-import androidx.compose.ui.graphics.Color
 import com.example.firstapp.ui.components.ArtistCard
 import com.example.firstapp.ui.components.FeaturedPlaylistCard
+import com.example.firstapp.ui.theme.AppSecondary
+import androidx.compose.ui.graphics.Color
 
 @Composable
-fun RecommendationsScreen(songs: List<Song>, onPlay: (Song, List<Song>) -> Unit) {
+fun RecommendationsScreen(
+    songs: List<Song>,
+    onPlay: (Song, List<Song>) -> Unit,
+    onShare: (Song) -> Unit = {}
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp)
@@ -35,47 +39,37 @@ fun RecommendationsScreen(songs: List<Song>, onPlay: (Song, List<Song>) -> Unit)
             val quickPicks = remember(songs) { songs.shuffled().take(5) }
             Column {
                 quickPicks.forEach { song ->
-                    com.example.firstapp.ui.components.SongListItem(song) { onPlay(song, quickPicks) }
-                }
-            }
-        }
-
-        item { MusicSectionHeader("Jump Back In") }
-        item {
-            val recs = remember(songs) { songs.shuffled().take(10) }
-            LazyRow(
-                contentPadding = PaddingValues(end = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp) // Spacing handled inside SongCard padding
-            ) {
-                items(recs) { song -> SongCard(song) { onPlay(song, recs) } }
-            }
-        }
-
-        item { MusicSectionHeader("Trending Artists") }
-        item {
-            val artists = remember(songs) { songs.map { it.artist }.distinct().shuffled().take(10) }
-            LazyRow(
-                contentPadding = PaddingValues(end = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                items(artists) { artist ->
-                    ArtistCard(
-                        name = artist,
-                        imageUrl = null,
-                        color = Color(0xFF37474F)
+                    com.example.firstapp.ui.components.SongListItem(
+                        song = song,
+                        onClick = { onPlay(song, quickPicks) },
+                        onShare = { onShare(song) }
                     )
                 }
             }
         }
 
-        item { MusicSectionHeader("New Releases") }
+        item { MusicSectionHeader("Recommended Artists") }
         item {
-            val newR = remember(songs) { songs.shuffled().take(10) }
             LazyRow(
-                contentPadding = PaddingValues(end = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(newR) { song -> SongCard(song) { onPlay(song, newR) } }
+                val artists = songs.map { it.artist }.distinct().take(10)
+                items(artists) { artist ->
+                    ArtistCard(name = artist, imageUrl = null, color = AppSecondary)
+                }
+            }
+        }
+
+        item { MusicSectionHeader("Recently Played") }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(songs.take(10)) { song ->
+                    SongCard(song = song, onClick = { onPlay(song, songs) })
+                }
             }
         }
     }

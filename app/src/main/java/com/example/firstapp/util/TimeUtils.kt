@@ -39,6 +39,36 @@ fun formatWhatsAppTime(date: Date): String {
     }
 }
 
+fun isSameDay(date1: String, date2: String): Boolean {
+    val d1 = parseIso(date1) ?: return false
+    val d2 = parseIso(date2) ?: return false
+    val cal1 = Calendar.getInstance().apply { time = d1 }
+    val cal2 = Calendar.getInstance().apply { time = d2 }
+    return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+            cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+}
+
+fun formatChatDateHeader(isoTimestamp: String): String {
+    val date = parseIso(isoTimestamp) ?: return isoTimestamp
+    val now = Calendar.getInstance()
+    val cal = Calendar.getInstance().apply { time = date }
+
+    val isToday = now.get(Calendar.YEAR) == cal.get(Calendar.YEAR) &&
+            now.get(Calendar.DAY_OF_YEAR) == cal.get(Calendar.DAY_OF_YEAR)
+
+    val isYesterday = run {
+        val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+        yesterday.get(Calendar.YEAR) == cal.get(Calendar.YEAR) &&
+                yesterday.get(Calendar.DAY_OF_YEAR) == cal.get(Calendar.DAY_OF_YEAR)
+    }
+
+    return when {
+        isToday -> "Today"
+        isYesterday -> "Yesterday"
+        else -> SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(date)
+    }
+}
+
 /** Same as above but always returns HH:mm (used inside chat bubble). */
 fun formatMessageTime(isoTimestamp: String?): String {
     if (isoTimestamp.isNullOrBlank()) return ""

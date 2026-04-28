@@ -29,7 +29,11 @@ import androidx.compose.ui.unit.sp
 import com.example.firstapp.ui.theme.AppSecondary
 
 @Composable
-fun SearchScreen(songs: List<Song>, onPlay: (Song, List<Song>) -> Unit) {
+fun SearchScreen(
+    songs: List<Song>,
+    onPlay: (Song, List<Song>) -> Unit,
+    onShare: (Song) -> Unit = {}
+) {
     var query by remember { mutableStateOf("") }
     val filtered = remember(query) {
         if (query.isEmpty()) emptyList() else songs.filter { it.title.contains(query, true) || it.artist.contains(query, true) }
@@ -58,37 +62,50 @@ fun SearchScreen(songs: List<Song>, onPlay: (Song, List<Song>) -> Unit) {
 
         if (query.isEmpty()) {
             Text(
-                "Browse all",
+                "Explore Genres",
                 color = Color.White,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(categories) { cat ->
+                    val color = remember(cat) { 
+                        listOf(Color(0xFF673AB7), Color(0xFF3949AB), Color(0xFF00897B), Color(0xFFD81B60), 
+                               Color(0xFF0288D1), Color(0xFF2E7D32), Color(0xFFF57C00), Color(0xFF5E35B1)).random()
+                    }
                     Box(
                         modifier = Modifier
-                            .height(100.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .height(110.dp)
+                            .clip(RoundedCornerShape(16.dp))
                             .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF2C3E50), Color(0xFF4CA1AF))
+                                Brush.verticalGradient(
+                                    listOf(color.copy(alpha = 0.8f), color.copy(alpha = 0.4f))
                                 )
                             )
                             .clickable { query = cat },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(cat, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(cat, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                     }
                 }
             }
-        } else {
-            LazyColumn { items(filtered) { SongListItem(it) { onPlay(it, filtered) } } }
+        }
+else {
+            LazyColumn {
+                items(filtered) { song ->
+                    SongListItem(
+                        song = song,
+                        onClick = { onPlay(song, filtered) },
+                        onShare = { onShare(song) }
+                    )
+                }
+            }
         }
     }
 }

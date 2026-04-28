@@ -13,7 +13,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -37,7 +36,7 @@ private data class WsEvent(
 object PostWebSocketClient {
     private val gson = Gson()
     private var webSocket: WebSocket? = null
-    private val httpClient = OkHttpClient()
+    private val httpClient = ApiClient.client
     private val listeners = CopyOnWriteArraySet<PostSocketListener>()
     private val reconnectScope = CoroutineScope(Dispatchers.IO)
     private var reconnectJob: Job? = null

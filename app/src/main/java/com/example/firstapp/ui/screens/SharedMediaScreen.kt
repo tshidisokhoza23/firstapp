@@ -30,6 +30,9 @@ fun SharedMediaScreen(
     messages: List<Message>,
     onBack: () -> Unit
 ) {
+    var fullScreenVideoUri by remember { mutableStateOf<String?>(null) }
+    var fullScreenImageUri by remember { mutableStateOf<String?>(null) }
+
     val mediaMessages = remember(messages) {
         messages.filter { it.type == MessageType.IMAGE || it.type == MessageType.VIDEO }
     }
@@ -69,7 +72,13 @@ fun SharedMediaScreen(
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .clickable { /* Full view */ }
+                            .clickable { 
+                                if (message.type == MessageType.VIDEO) {
+                                    fullScreenVideoUri = message.mediaUri
+                                } else {
+                                    fullScreenImageUri = message.mediaUri
+                                }
+                            }
                     ) {
                         AsyncImage(
                             model = message.mediaUri ?: message.text,
@@ -87,6 +96,13 @@ fun SharedMediaScreen(
                         }
                     }
                 }
+            }
+            
+            fullScreenVideoUri?.let { uri ->
+                FullScreenVideoPlayer(uri = uri, onBack = { fullScreenVideoUri = null })
+            }
+            fullScreenImageUri?.let { uri ->
+                FullScreenImagePlayer(uri = uri, onBack = { fullScreenImageUri = null })
             }
         }
     }

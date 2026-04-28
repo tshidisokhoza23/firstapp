@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 private val DarkColorScheme = darkColorScheme(
     primary = AppPrimary,
     secondary = AppSecondary,
-    tertiary = BoyishPurple,
+    tertiary = AppAccent,
     background = AppBackground,
     surface = AppSecondary,
     onPrimary = Color.White,
@@ -38,7 +38,7 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun FirstAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true, // Force dark theme for now to match AppBackground usage
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = false, // Disabled to ensure custom theme colors are used
     content: @Composable () -> Unit

@@ -29,16 +29,21 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
 
         val data = message.data
         val type = data["type"] ?: ""
-        if (type != "call_invite") {
-            return
+        
+        when (type) {
+            "call_invite" -> handleIncomingCall(data)
+            "new_message" -> handleNewMessage(data)
         }
+    }
 
+    private fun handleIncomingCall(data: Map<String, String>) {
         val callType = data["call_type"] ?: "voice"
         val callerName = data["caller_name"] ?: "Incoming call"
         val sessionId = data["session_id"] ?: return
         val senderId = data["caller_id"]?.toIntOrNull() ?: return
         val receiverId = data["receiver_id"]?.toIntOrNull() ?: 0
         val typeEnum = if (callType == "video") CallType.VIDEO else CallType.VOICE
+        
         GlobalCallState.onCallInvite(
             CallEvent(
                 type = "call_invite",
@@ -49,6 +54,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
                 senderName = callerName
             )
         )
+        
         val title = if (callType == "video") "Incoming video call" else "Incoming voice call"
         val body = "$callerName is calling"
 
@@ -115,6 +121,37 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         manager.notify(sessionId.hashCode(), notification)
     }
 
+    private fun handleNewMessage(data: Map<String, String>) {
+        val senderName = data["sender_name"] ?: "New Message"
+        val body = data["body"] ?: ""
+        val chatId = data["contact_id"]?.toIntOrNull() ?: 0
+        
+        createMessagesChannel()
+
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_chat_id", chatId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            chatId,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(senderName)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(chatId, notification)
+    }
+
     private fun createIncomingCallsChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return
@@ -142,7 +179,24 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         manager.createNotificationChannel(channel)
     }
 
+    private fun createMessagesChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return
+        }
+
+        val manager = getSystemService(NotificationManager::class.java)
+        val channel = NotificationChannel(
+            CHANNEL_MESSAGES,
+            "Messages",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "New message alerts"
+        }
+        manager.createNotificationChannel(channel)
+    }
+
     companion object {
         private const val CHANNEL_INCOMING_CALLS = "incoming_calls"
+        private const val CHANNEL_MESSAGES = "messages"
     }
 }

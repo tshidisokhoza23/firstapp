@@ -28,76 +28,100 @@ import com.example.firstapp.ui.theme.AppTextPrimary
 import com.example.firstapp.ui.theme.AppTextSecondary
 import com.example.firstapp.util.formatPostedTime
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.filled.Verified
+import com.example.firstapp.ui.theme.AppAccent
+
 @Composable
 fun JobItem(job: Job) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(vertical = 12.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Company Logo Placeholder
+        // Company Logo
         Box(
             modifier = Modifier
-                .size(60.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(56.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .background(job.logoColor),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = job.companyName.take(1),
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (!job.companyLogoUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = job.companyLogoUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Text(
+                    text = job.companyName.take(1).uppercase(),
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = job.title,
+                color = AppTextPrimary,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2
+            )
+            
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = job.title,
-                    color = AppTextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 2
+                    text = job.companyName,
+                    color = AppTextPrimary.copy(alpha = 0.9f),
+                    fontSize = 15.sp
                 )
+                if (job.isVerified) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Filled.Verified,
+                        contentDescription = "Verified",
+                        tint = AppAccent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
-            
-            if (job.isVerified) {
-                Icon(
-                    imageVector = Icons.Default.VerifiedUser,
-                    contentDescription = "Verified",
-                    tint = Color(0xFF5F6368),
-                    modifier = Modifier.size(18.dp).padding(vertical = 2.dp)
-                )
-            }
-
-            Text(
-                text = job.companyName,
-                color = AppTextPrimary,
-                fontSize = 16.sp
-            )
             
             Text(
                 text = job.location,
                 color = AppTextSecondary,
-                fontSize = 15.sp
+                fontSize = 14.sp
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = listOf(job.jobType, job.salaryRange).filter { it.isNotBlank() }.joinToString(" • "),
-                color = AppTextSecondary,
-                fontSize = 13.sp
-            )
+            Spacer(modifier = Modifier.height(6.dp))
+            
+            Surface(
+                color = Color.White.copy(alpha = 0.05f),
+                shape = RoundedCornerShape(4.dp)
+            ) {
+                Text(
+                    text = job.jobType,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    color = AppTextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
 
             if (job.postedTime.isNotBlank()) {
                 Text(
                     text = formatPostedTime(job.postedTime),
-                    color = AppTextSecondary.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(top = 4.dp),
+                    color = AppTextSecondary.copy(alpha = 0.6f),
                     fontSize = 12.sp
                 )
             }

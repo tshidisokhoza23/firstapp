@@ -31,6 +31,12 @@ interface ApiService {
     @PUT("users/me")
     suspend fun updateUser(@Body request: UpdateUserRequest): Response<UserResponse>
 
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<StatusResponse>
+
+    @DELETE("users/me")
+    suspend fun deleteAccount(): Response<StatusResponse>
+
     @POST("devices/push-token")
     suspend fun upsertPushToken(@Body request: PushTokenRequest): Response<StatusResponse>
 
@@ -50,6 +56,9 @@ interface ApiService {
     @POST("chats")
     suspend fun createChat(@Body request: CreateChatRequest): Response<Any>
 
+    @POST("groups")
+    suspend fun createGroup(@Body request: CreateGroupRequest): Response<ChatSummary>
+
     @GET("calls")
     suspend fun getCalls(): Response<CallsResponse>
 
@@ -59,8 +68,26 @@ interface ApiService {
     @POST("conversations/{contactId}/messages")
     suspend fun sendMessage(@Path("contactId") contactId: Int, @Body request: SendMessageRequest): Response<MessageResponse>
 
+    @DELETE("messages/{messageId}")
+    suspend fun deleteMessage(@Path("messageId") messageId: Int): Response<StatusResponse>
+
+    @PUT("messages/{messageId}")
+    suspend fun editMessage(@Path("messageId") messageId: Int, @Body request: EditMessageRequest): Response<MessageResponse>
+
+    @POST("messages/{messageId}/reactions")
+    suspend fun reactToMessage(@Path("messageId") messageId: Int, @Body request: ReactionRequest): Response<StatusResponse>
+
     @POST("conversations/{contactId}/read")
     suspend fun markAsRead(@Path("contactId") contactId: Int): Response<StatusResponse>
+
+    @POST("chats/{chatId}/pin")
+    suspend fun pinChat(@Path("chatId") chatId: Int, @Body request: PinRequest): Response<StatusResponse>
+
+    @POST("chats/{chatId}/mute")
+    suspend fun muteChat(@Path("chatId") chatId: Int, @Body request: MuteRequest): Response<StatusResponse>
+
+    @DELETE("chats/{chatId}")
+    suspend fun deleteChat(@Path("chatId") chatId: Int): Response<StatusResponse>
 
     @Multipart
     @POST("uploads")
@@ -175,6 +202,12 @@ interface ApiService {
     @POST("stories")
     suspend fun createStory(@Body request: CreateStoryRequest): Response<CreateStoryResponse>
 
+    @POST("stories/{storyId}/view")
+    suspend fun markStoryViewed(@Path("storyId") storyId: Int): Response<StatusResponse>
+
+    @POST("users/{userId}/mute")
+    suspend fun muteUser(@Path("userId") userId: Int, @Body request: MuteRequest): Response<StatusResponse>
+
     // Ride options
     @GET("ride-options")
     suspend fun getRideOptions(): Response<RideOptionsResponse>
@@ -196,7 +229,8 @@ data class AuthResponse(
     @SerializedName("user") val user: User
 )
 data class UserResponse(val user: User)
-data class UpdateUserRequest(val display_name: String? = null, val bio: String? = null, val location: String? = null)
+data class UpdateUserRequest(val display_name: String? = null, val bio: String? = null, val location: String? = null, val avatar_url: String? = null)
+data class ForgotPasswordRequest(val email_or_username: String)
 data class PushTokenRequest(val token: String, val device_id: String, val platform: String = "android")
 
 data class ApiUser(
@@ -212,8 +246,11 @@ data class ContactsResponse(val contacts: List<ApiUser>)
 
 data class SyncContactsRequest(val phone_numbers: List<String>)
 data class CreateChatRequest(val contact_id: Int)
+data class CreateGroupRequest(val name: String, val contact_ids: List<Int>)
+data class PinRequest(val is_pinned: Boolean)
+data class MuteRequest(val is_muted: Boolean)
 
-data class SearchResponse(val chats: List<ChatSummary>, val contacts: List<ApiUser>)
+data class SearchResponse(val chats: List<ChatSummary>, val contacts: List<ApiUser>, val messages: List<ApiMessage> = emptyList())
 
 data class ChatSummary(
     val contact_id: Int,
@@ -221,7 +258,8 @@ data class ChatSummary(
     val last_message: String,
     val time: String,
     val unread_count: Int,
-    val avatar_url: String? = null
+    val avatar_url: String? = null,
+    val is_group: Boolean = false
 )
 
 data class ChatsResponse(val chats: List<ChatSummary>)
@@ -246,6 +284,8 @@ data class CallsResponse(val calls: List<ApiCallLog>)
 data class ApiMessage(
     val id: Int,
     val direction: String,
+    val sender_id: Int? = null,
+    val sender_name: String? = null,
     val body: String,
     val created_at: String,
     val read_at: String? = null,
@@ -257,7 +297,11 @@ data class ApiMessage(
     val contact_name: String? = null,
     val contact_phone: String? = null,
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val parent_id: Int? = null,
+    val parent_body: String? = null,
+    val parent_sender_name: String? = null,
+    val reactions: Map<String, Int>? = null
 )
 
 data class MessagesResponse(val messages: List<ApiMessage>, val page: Int)
@@ -272,10 +316,16 @@ data class SendMessageRequest(
     val contact_name: String? = null,
     val contact_phone: String? = null,
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val parent_id: Int? = null,
+    val parent_body: String? = null,
+    val parent_sender_name: String? = null,
+    val reactions: Map<String, Int>? = null
 )
 
 data class MessageResponse(val message: ApiMessage)
+data class EditMessageRequest(val body: String)
+data class ReactionRequest(val emoji: String)
 
 data class UploadResponse(
     val url: String,

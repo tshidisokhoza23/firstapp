@@ -209,7 +209,7 @@ fun AdvertViewer(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(currentAd?.avatarColor ?: Color.Gray),
+                        .background(currentAd?.avatarColor ?: com.example.firstapp.ui.theme.BoyishPurple),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
