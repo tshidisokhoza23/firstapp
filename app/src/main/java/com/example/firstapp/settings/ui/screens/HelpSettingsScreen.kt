@@ -1,0 +1,84 @@
+package com.example.firstapp.settings.ui.screens
+
+import androidx.hilt.navigation.compose.hiltViewModel
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.firstapp.common.ui.theme.*
+import com.example.firstapp.settings.ui.viewmodel.HelpSettingsViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HelpSettingsScreen(
+    onBack: () -> Unit,
+    viewModel: HelpSettingsViewModel = hiltViewModel()
+) {
+    val appVersion by viewModel.appVersion.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Help", color = Color.White, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AppBackground
+                )
+            )
+        },
+        containerColor = AppBackground
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            HelpItem(Icons.AutoMirrored.Filled.Help, "Help Center", "Get answers, contact us")
+            HelpItem(Icons.Default.Group, "Contact us", "Questions? Need help?")
+            HelpItem(Icons.Default.Description, "Terms and Privacy Policy", "")
+            HelpItem(Icons.Default.Info, "App info", "Version $appVersion")
+        }
+    }
+}
+
+@Composable
+fun HelpItem(icon: ImageVector, title: String, subtitle: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { /* Action */ }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = AppTextSecondary)
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            if (subtitle.isNotEmpty()) {
+                Text(subtitle, color = AppTextSecondary, fontSize = 14.sp)
+            }
+        }
+    }
+}

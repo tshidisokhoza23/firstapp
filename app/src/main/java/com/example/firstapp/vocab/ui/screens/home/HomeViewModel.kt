@@ -4,18 +4,22 @@ import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.firstapp.vocab.model.Lesson
-import com.example.firstapp.model.User
+import com.example.firstapp.common.model.User
 import com.example.firstapp.vocab.domain.repository.LessonRepository
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.vocab.utils.Constants
-import com.example.firstapp.vocab.ads.AdManager
+import com.example.firstapp.media.ads.AdManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class HomeViewModel(
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+@HiltViewModel
+class HomeViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val lessonRepository: LessonRepository,
     private val adManager: AdManager

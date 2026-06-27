@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.example.firstapp.MainActivity
 import com.example.firstapp.vocab.model.Lesson
-import com.example.firstapp.model.User
+import com.example.firstapp.common.model.User
 import com.example.firstapp.vocab.ui.util.UiTranslations
 import com.example.firstapp.vocab.ui.components.VocabAdBlock
 
@@ -410,7 +410,7 @@ fun UnitHeader(
             progress = { unit.progress },
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
             strokeCap = StrokeCap.Round,
-            color = com.example.firstapp.ui.theme.BoyishPurple,
+            color = com.example.firstapp.common.ui.theme.BoyishPurple,
             trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
     }
@@ -424,13 +424,13 @@ fun UserStatusCard(
     onBuyFreeze: () -> Unit
 ) {
     val nativeLang = user.nativeLanguage
-    val purple = com.example.firstapp.ui.theme.BoyishPurple
-    val orange = com.example.firstapp.ui.theme.NiceOrange
+    val purple = com.example.firstapp.common.ui.theme.BoyishPurple
+    val orange = com.example.firstapp.common.ui.theme.NiceOrange
     
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        color = com.example.firstapp.ui.theme.AppSecondary,
+        color = com.example.firstapp.common.ui.theme.AppSecondary,
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
     ) {
         Row(
@@ -549,14 +549,14 @@ fun DailyUnlockProgress(
             LinearProgressIndicator(
                 progress = { adsWatched / 2f },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
-                color = com.example.firstapp.ui.theme.NiceOrange,
+                color = com.example.firstapp.common.ui.theme.NiceOrange,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onWatchAd,
                 modifier = Modifier.align(Alignment.End),
-                colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.ui.theme.NiceOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.common.ui.theme.NiceOrange)
             ) {
                 val buttonText = "${UiTranslations.getString("watch_ad", nativeLang)} ($adsWatched/2)"
                 Text(buttonText)

@@ -1,0 +1,207 @@
+package com.example.firstapp.profile.ui.screens
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.firstapp.common.ui.theme.*
+import com.example.firstapp.common.ui.viewmodel.UserViewModel
+import com.example.firstapp.common.util.MediaUtils
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditProfileScreen(
+    onBack: () -> Unit,
+    userViewModel: UserViewModel
+) {
+    val user by userViewModel.currentUser.collectAsState()
+    val context = LocalContext.current
+    
+    var displayName by remember(user) { mutableStateOf(user?.display_name ?: "") }
+    var bio by remember(user) { mutableStateOf(user?.bio ?: "") }
+    var location by remember(user) { mutableStateOf(user?.location ?: "") }
+
+    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            val file = MediaUtils.getFileFromUri(context, it)
+            if (file != null) {
+                userViewModel.uploadProfilePicture(file, false)
+            }
+        }
+    }
+
+    val bannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            val file = MediaUtils.getFileFromUri(context, it)
+            if (file != null) {
+                userViewModel.uploadProfilePicture(file, true)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Edit Profile", color = Color.White, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        userViewModel.updateProfile(
+                            displayName = displayName,
+                            bio = bio,
+                            location = location,
+                            avatarUrl = null,
+                            bannerUrl = null,
+                            isArtist = null
+                        )
+                        onBack()
+                    }) {
+                        Text("Save", color = AppAccent, fontWeight = FontWeight.Bold)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+            )
+        },
+        containerColor = AppBackground
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Banner Section
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .background(AppSecondary)
+                    .clickable { bannerLauncher.launch("image/*") }
+            ) {
+                if (user?.banner_url != null) {
+                    AsyncImage(
+                        model = user?.banner_url,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.CameraAlt, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(32.dp))
+                }
+            }
+
+            // Avatar Section
+            Box(
+                modifier = Modifier
+                    .padding(start = 24.dp)
+                    .offset(y = (-50).dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(AppPrimary, AppAccent)))
+                        .clickable { imageLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (user?.avatar_url != null) {
+                        AsyncImage(
+                            model = user?.avatar_url,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(user?.display_name?.take(1)?.uppercase() ?: "U", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                }
+            }
+
+            // Form Section
+            Column(modifier = Modifier.padding(horizontal = 24.dp).offset(y = (-30).dp)) {
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    label = { Text("Display Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AppAccent,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                    )
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { bio = it },
+                    label = { Text("Bio") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AppAccent,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = location,
+                    onValueChange = { location = it },
+                    label = { Text("Location") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AppAccent,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                    ),
+                    leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = AppAccent) }
+                )
+            }
+        }
+    }
+}

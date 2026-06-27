@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.app.KeyguardManager
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -22,14 +23,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.firstapp.data.realtime.CallNotificationActionReceiver
-import com.example.firstapp.data.realtime.CallType
-import com.example.firstapp.data.realtime.CallWebSocketClient
-import com.example.firstapp.data.realtime.GlobalCallState
-import com.example.firstapp.ui.theme.FirstAppTheme
-import android.content.Intent
+import com.example.firstapp.chat.data.*
+import com.example.firstapp.common.ui.theme.FirstAppTheme
 
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+
+@AndroidEntryPoint
 class IncomingCallActivity : ComponentActivity() {
+
+    @Inject lateinit var webRtcCallManager: WebRtcCallManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,8 +62,10 @@ class IncomingCallActivity : ComponentActivity() {
         setContent {
             FirstAppTheme {
                 val incomingCall by GlobalCallState.incomingCall.collectAsState()
-                val callerName = incomingCall?.senderName?.takeIf { it.isNotBlank() }
-                    ?: (if (senderId > 0) "User $senderId" else "Unknown")
+                val callerName = incomingCall?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("User ") }
+                    ?: GlobalCallState.getContactName(senderId)
+                    ?: GlobalCallState.getContactPhone(senderId)
+                    ?: (if (senderId > 0) "$senderId" else "Unknown")
                 val callLabel = if (callType == CallType.VIDEO) "Incoming video call" else "Incoming voice call"
 
                 // If the call was cancelled while this screen was open, close ourselves
@@ -134,6 +139,16 @@ class IncomingCallActivity : ComponentActivity() {
                                     onClick = {
                                         if (sessionId != null) {
                                             GlobalCallState.setAutoAccept(sessionId)
+                                            GlobalCallState.acceptCall(
+                                                CallEvent(
+                                                    type = "call_invite",
+                                                    senderId = senderId,
+                                                    receiverId = -1,
+                                                    sessionId = sessionId,
+                                                    callType = callType
+                                                ),
+                                                webRtcCallManager
+                                            )
                                         }
                                         if (notifId != 0) {
                                             val manager = getSystemService(NotificationManager::class.java)

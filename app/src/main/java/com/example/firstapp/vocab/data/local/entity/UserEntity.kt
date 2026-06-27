@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class UserEntity(
     @PrimaryKey val id: Int,
     val username: String = "",
+    val email: String? = null,
     val display_name: String = "",
     val phone_number: String? = null,
     val created_at: String = "",
@@ -26,5 +27,21 @@ data class UserEntity(
     val nativeLanguage: String = "English",
     val targetLanguage: String = "Spanish",
     val streakFreezes: Int = 0,
-    val lastStreakActivity: Long = 0
+    val lastStreakActivity: Long = 0,
+    val walletBalance: Int = 0,
+    val bannerUrl: String? = null,
+    val isArtist: Boolean = false,
+    val jobFullName: String? = null,
+    val jobEmail: String? = null,
+    val jobPhone: String? = null,
+    val jobLocation: String? = null,
+    val jobEducation: String? = null,
+    val jobExperience: String? = null,
+    val jobSkills: String? = null,
+    val jobAboutMe: String? = null,
+    val jobLinkedinUrl: String? = null,
+    val jobPortfolioUrl: String? = null,
+    val jobWorkPreference: String? = null,
+    val jobAvailability: String? = null,
+    val jobExpectedSalary: String? = null
 )

@@ -1,38 +1,45 @@
 package com.example.firstapp.vocab.ui.screens.lesson
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.example.firstapp.vocab.ui.util.UiTranslations
-import com.example.firstapp.vocab.ui.util.rememberLessonSpeechPlayer
-import com.example.firstapp.vocab.ui.util.rememberLessonFeedbackPlayer
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicNone
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.example.firstapp.common.ui.theme.AppBackground
+import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.vocab.model.ContentType
 import com.example.firstapp.vocab.model.LessonContent
 import com.example.firstapp.vocab.ui.components.VocabAdBlock
+import com.example.firstapp.vocab.ui.util.UiTranslations
+import com.example.firstapp.vocab.ui.util.rememberLessonFeedbackPlayer
+import com.example.firstapp.vocab.ui.util.rememberLessonSpeechPlayer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import nl.dionsegijn.konfetti.compose.KonfettiView
 import nl.dionsegijn.konfetti.core.Party
 import nl.dionsegijn.konfetti.core.Position
@@ -83,9 +90,15 @@ fun LessonScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AppBackground,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
-        }
+        },
+        containerColor = AppBackground
     ) { padding ->
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -122,7 +135,7 @@ fun LessonScreen(
                     LinearProgressIndicator(
                         progress = { progress },
                         modifier = Modifier.weight(1f).height(10.dp).clip(CircleShape),
-                        color = com.example.firstapp.ui.theme.BoyishPurple,
+                        color = com.example.firstapp.common.ui.theme.BoyishPurple,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,
                         strokeCap = StrokeCap.Round
                     )
@@ -180,9 +193,15 @@ fun LessonScreen(
                             )
                         }
                         ContentType.SPEAKING -> {
-                            LaunchedEffect(Unit) {
-                                viewModel.onNextClicked()
-                            }
+                            SpeakingContent(
+                                content = currentContent,
+                                uiState = uiState,
+                                nativeLang = nativeLang,
+                                onNext = viewModel::onNextClicked,
+                                onBack = viewModel::onBackClicked,
+                                canGoBack = viewModel.canGoBack(),
+                                onListen = { speechPlayer.speak(currentContent.audioText) }
+                            )
                         }
                     }
                 }
@@ -523,7 +542,7 @@ fun QuestionContent(
                         Text(
                             text = content.explanation,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.White.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -546,7 +565,7 @@ fun QuestionContent(
                 onClick = onNext,
                 enabled = canGoNext,
                 modifier = Modifier.weight(1f).height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.ui.theme.BoyishPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.common.ui.theme.BoyishPurple)
             ) {
                 Text(
                     if (uiState.currentStep < (uiState.lesson?.content?.size ?: 0) - 1)
@@ -555,6 +574,150 @@ fun QuestionContent(
                         UiTranslations.getString("finish", nativeLang),
                     style = MaterialTheme.typography.titleMedium
                 )
+            }
+        }
+    }
+}
+
+
+@Composable
+fun SpeakingContent(
+    content: LessonContent,
+    uiState: LessonUiState,
+    nativeLang: String,
+    onNext: () -> Unit,
+    onBack: () -> Unit,
+    canGoBack: Boolean,
+    onListen: () -> Unit
+) {
+    var isListening by remember { mutableStateOf(false) }
+    var recognizedText by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Speak this phrase",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Card(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = content.translations[nativeLang] ?: "",
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Text(
+                        text = content.translations[uiState.lesson?.language ?: "English"] ?: "",
+                        style = MaterialTheme.typography.headlineMedium,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    if (recognizedText.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Text(
+                            text = "You said:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        Text(
+                            text = recognizedText,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (recognizedText.lowercase() == content.audioText.lowercase()) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(CircleShape)
+                .background(if (isListening) Color.Red.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer)
+                .clickable {
+                    if (!isListening) {
+                        isListening = true
+                        scope.launch {
+                            delay(2000) // Simulate listening
+                            isListening = false
+                            recognizedText = content.audioText // Simulate correct recognition
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isListening) Icons.Default.Mic else Icons.Default.MicNone,
+                contentDescription = "Microphone",
+                modifier = Modifier.size(40.dp),
+                tint = if (isListening) Color.Red else MaterialTheme.colorScheme.primary
+            )
+            
+            if (isListening) {
+                val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.4f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1000),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "mic_scale"
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .scale(scale)
+                        .border(2.dp, Color.Red.copy(alpha = 0.5f), CircleShape)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = onBack,
+                enabled = canGoBack,
+                modifier = Modifier.weight(1f).height(56.dp)
+            ) {
+                Text(UiTranslations.getString("back", nativeLang), style = MaterialTheme.typography.titleMedium)
+            }
+
+            Button(
+                onClick = onNext,
+                enabled = recognizedText.isNotEmpty() || !isListening,
+                modifier = Modifier.weight(1f).height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.common.ui.theme.BoyishPurple)
+            ) {
+                Text(UiTranslations.getString("next", nativeLang), style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -608,7 +771,8 @@ fun LessonFinishedScreen(
         Text(
             text = UiTranslations.getString("lesson_completed", nativeLang), 
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = Color.White
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -617,25 +781,28 @@ fun LessonFinishedScreen(
             } else {
                 UiTranslations.getString("pass_perfect_required", nativeLang).format(score, maxScore)
             }, 
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White.copy(alpha = 0.8f)
         )
 
         if (!isPerfect && missedPrompts.isNotEmpty()) {
             Spacer(modifier = Modifier.height(20.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                colors = CardDefaults.cardColors(containerColor = AppSecondary)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
                         text = UiTranslations.getString("review_missed_title", nativeLang),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     missedPrompts.take(4).forEach { prompt ->
                         Text(
                             text = "• $prompt",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -653,7 +820,7 @@ fun LessonFinishedScreen(
         Button(
             onClick = onFinish,
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.ui.theme.BoyishPurple)
+            colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.common.ui.theme.BoyishPurple)
         ) {
             Text(UiTranslations.getString("back_home", nativeLang), style = MaterialTheme.typography.titleMedium)
         }

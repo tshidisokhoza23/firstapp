@@ -1,5 +1,6 @@
 pluginManagement {
     repositories {
+        gradlePluginPortal()
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -8,7 +9,6 @@ pluginManagement {
             }
         }
         mavenCentral()
-        gradlePluginPortal()
     }
 }
 plugins {
@@ -24,4 +24,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "FirstApp"
 include(":app")
- 

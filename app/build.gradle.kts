@@ -1,19 +1,15 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
     namespace = "com.example.firstapp"
     compileSdk = 35
     
-    kotlin {
-        jvmToolchain(11)
-    }
-
     val hostIp = (project.findProperty("HOST_IP") as String?)
         ?: System.getenv("HOST_IP")
     val defaultHost = hostIp?.takeIf { it.isNotBlank() } ?: "192.168.100.7"
@@ -38,6 +34,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -52,6 +49,12 @@ android {
         compose = true
         buildConfig = true
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
@@ -59,6 +62,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -78,6 +82,7 @@ dependencies {
     implementation(libs.media3.datasource)
     implementation(libs.media3.database)
     implementation(libs.media3.ui)
+    implementation("androidx.media3:media3-session:1.2.1")
     implementation("io.github.webrtc-sdk:android:144.7559.01")
 
     // HTTP Client
@@ -89,15 +94,38 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.inappmessaging)
 
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
     ksp(libs.androidx.room.compiler)
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite.ktx)
 
     implementation("nl.dionsegijn:konfetti-compose:2.0.5")
+    implementation(libs.androidx.work.runtime.ktx)
+
+    // Paging 3
+    implementation(libs.paging.runtime)
+    implementation(libs.paging.compose)
+
+    // Hilt
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
+    // Security & Biometrics
+    implementation("androidx.security:security-crypto:1.1.0")
+    implementation("androidx.biometric:biometric-ktx:1.2.0-alpha05")
 
     testImplementation(libs.junit)
+    testImplementation("org.robolectric:robolectric:4.11.1")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

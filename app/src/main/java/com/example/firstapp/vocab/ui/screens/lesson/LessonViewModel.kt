@@ -7,7 +7,7 @@ import com.example.firstapp.vocab.model.LessonContent
 import com.example.firstapp.vocab.model.ContentType
 import com.example.firstapp.vocab.domain.repository.LessonRepository
 import com.example.firstapp.vocab.domain.repository.UserRepository
-import com.example.firstapp.model.User
+import com.example.firstapp.common.model.User
 import com.example.firstapp.vocab.utils.Constants
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +15,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
-class LessonViewModel(
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+@HiltViewModel
+class LessonViewModel @Inject constructor(
     private val lessonRepository: LessonRepository,
     private val userRepository: UserRepository
 ) : ViewModel() {

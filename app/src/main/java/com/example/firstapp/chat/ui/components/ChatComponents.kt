@@ -1,0 +1,462 @@
+package com.example.firstapp.chat.ui.components
+
+import android.net.Uri
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.runtime.*
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
+import com.example.firstapp.chat.model.ChatMessage
+import com.example.firstapp.chat.model.Message
+import com.example.firstapp.chat.model.MessageType
+import com.example.firstapp.common.ui.theme.*
+import com.example.firstapp.common.util.formatWhatsAppTime
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun MessageItem(
+    message: Message,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onImageClick: (String) -> Unit,
+    onVideoClick: (String) -> Unit
+) {
+    val alignment = if (message.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
+    val bgColor = if (message.isFromMe) AppPrimary else AppSecondary
+    
+    // Log for debugging
+    android.util.Log.d("MessageItem", "Rendering message: ${message.id} from ${message.senderName}: ${message.content}")
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        contentAlignment = alignment
+    ) {
+        Surface(
+            color = if (isSelected) bgColor.copy(alpha = 0.5f) else bgColor,
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (message.isFromMe) 16.dp else 4.dp,
+                bottomEnd = if (message.isFromMe) 4.dp else 16.dp
+            ),
+            tonalElevation = 2.dp
+        ) {
+            Column(modifier = Modifier.padding(8.dp).widthIn(max = 260.dp)) {
+                if (!message.isFromMe) {
+                    Text(
+                        text = message.senderName ?: "Unknown",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppAccent,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                if (message.mediaUri != null && message.mediaUri.isNotBlank()) {
+                    when (message.type) {
+                        MessageType.IMAGE -> {
+                            AsyncImage(
+                                model = message.mediaUri,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onImageClick(message.mediaUri) },
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        MessageType.VIDEO -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.3f))
+                                    .clickable { onVideoClick(message.mediaUri) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PlayCircle, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+
+                if (message.content.isNotEmpty()) {
+                    Text(
+                        text = message.content,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                
+                Row(
+                    modifier = Modifier.align(Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatWhatsAppTime(message.timestamp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                    if (message.isFromMe) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (message.isRead) Icons.Default.DoneAll else Icons.Default.Done,
+                            contentDescription = null,
+                            tint = if (message.isRead) AppAccent else Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ChatBottomBar(
+    text: String,
+    onTextChange: (String) -> Unit,
+    onSend: () -> Unit,
+    onAttachClick: () -> Unit,
+    onEmojiClick: () -> Unit,
+    isRecording: Boolean,
+    recordingDurationSeconds: Int,
+    onMicClick: () -> Unit,
+    onMicDragCancel: () -> Unit,
+    onMicDragRelease: () -> Unit,
+    onCameraIconClick: () -> Unit
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextField(
+            value = text,
+            onValueChange = onTextChange,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("Message") },
+            trailingIcon = {
+                Row {
+                    IconButton(onClick = onAttachClick) { Icon(Icons.Default.AttachFile, null) }
+                    IconButton(onClick = onCameraIconClick) { Icon(Icons.Default.CameraAlt, null) }
+                }
+            },
+            leadingIcon = {
+                IconButton(onClick = onEmojiClick) { Icon(Icons.Default.EmojiEmotions, null) }
+            },
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Send
+            ),
+            keyboardActions = KeyboardActions(
+                onSend = {
+                    if (text.isNotBlank()) {
+                        onSend()
+                        keyboardController?.hide()
+                    }
+                }
+            ),
+            colors = TextFieldDefaults.colors(
+                unfocusedContainerColor = AppSecondary,
+                focusedContainerColor = AppSecondary,
+                unfocusedTextColor = Color.White,
+                focusedTextColor = Color.White
+            ),
+            shape = RoundedCornerShape(24.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        FloatingActionButton(
+            onClick = { 
+                if (text.isNotBlank()) {
+                    onSend()
+                    keyboardController?.hide()
+                } else {
+                    onMicClick()
+                }
+            },
+            containerColor = AppAccent,
+            contentColor = Color.White,
+            shape = CircleShape,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(if (text.isNotBlank()) Icons.AutoMirrored.Filled.Send else Icons.Default.Mic, null)
+        }
+    }
+}
+
+@Composable
+fun AttachmentPanel(
+    onImageClick: () -> Unit,
+    onVideoClick: () -> Unit,
+    onDocClick: () -> Unit,
+    onContactClick: () -> Unit,
+    onCameraClick: () -> Unit,
+    onAudioClick: () -> Unit,
+    onLocationClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(containerColor = AppSecondary)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                AttachmentIcon(Icons.Default.Description, "Document", Color(0xFF7E57C2), onDocClick)
+                AttachmentIcon(Icons.Default.CameraAlt, "Camera", Color(0xFFF06292), onCameraClick)
+                AttachmentIcon(Icons.Default.Image, "Gallery", Color(0xFFBA68C8), onImageClick)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                AttachmentIcon(Icons.Default.Headphones, "Audio", Color(0xFFFF8A65), onAudioClick)
+                AttachmentIcon(Icons.Default.LocationOn, "Location", Color(0xFF81C784), onLocationClick)
+                AttachmentIcon(Icons.Default.Person, "Contact", Color(0xFF4FC3F7), onContactClick)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Spacer(modifier = Modifier.width(24.dp))
+                AttachmentIcon(Icons.Default.Videocam, "Video", Color(0xFFFFB74D), onVideoClick)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
+        Box(modifier = Modifier.size(50.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Color.White)
+        }
+        Text(label, color = Color.White, fontSize = 12.sp)
+    }
+}
+
+@Composable
+fun EmojiPicker(onEmojiSelect: (String) -> Unit) {
+    val categories = remember {
+        listOf(
+            "😀" to listOf("😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕"),
+            "🐾" to listOf("🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐻‍❄️", "🐨", "🐯", "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒", "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦢", "🦉", "🦩", " peacock", "🦜", "🐸", "🐊", "🐢", "🦎", "🐍", "🐲", "🐉", "🦕", "🦖"),
+            "🍕" to listOf("🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥬", "🥒", "🌶", "🫑", "🌽", "🥕", "🫒", "🧄", "🧅", "🍄", "🥜", "🫘", "🌰", "🍞", "🥐", "🥖", "🫓", "🥨", "🥯", "🥞", "🧇", "🧀", "🍖", "🍗", "🥩", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥚", "🍳", "🥘", "🍲", "🥣", "🥗", "🍿", "🍖", "🧂", "🥫"),
+            "⚽️" to listOf("⚽️", "🏀", "🏈", "⚾️", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🪃", "🥅", "⛳️", "🪁", "🏹", "🎣", "🤿", "🥊", "🥋", "🎽", "🛹", "🛼", "🛷", "⛸", " curling_stone", "🎿", "⛷", "🏂", "🪂"),
+            "💡" to listOf("⌚️", "📱", "📲", "💻", "⌨️", "🖥", "🖨", "🖱", "trackball", "🕹", "🗜", "💽", "💾", "💿", "📀", "📼", "📷", "📸", "📹", "🎥", "📽", "🎞", "📞", "☎️", "📟", "📠", "📺", "📻", "🎙", "🎚", "🎛", "🧭", "⏱", "⏲", "⏰", "🕰", "⌛️", "⏳", "📡", "🔋", "🔌", "💡", "🔦", "🕯", "🪔", "🧯", "🛢", "💸", "💵", "💴", "💶", "💷", "🪙", "💰", "💳", "💎", "⚖️", "🪜", "🧰", "🪛", "🔧", "🔨", "⚒", "🛠", "⛏", "🪚", "🔩", "⚙️", "🪝", "🧱", "⛓", "🧲", "🔫", "💣", "🧨", "🪓", "🔪", "🗡", "⚔️", "🛡", "🚬", "⚰️", "🪦", "⚱️", "🏺", "🔮", "📿", "🧿", "💈", "⚗️", "🔭", "🔬", "🕳", "🩹", "🩺", "💊", "💉", "🩸", "🧬", "🦠", "🧫", "🧪", "🌡")
+        )
+    }
+
+    var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp)
+            .background(AppSecondary)
+    ) {
+        ScrollableTabRow(
+            selectedTabIndex = selectedCategoryIndex,
+            containerColor = AppSecondary,
+            contentColor = AppAccent,
+            edgePadding = 16.dp,
+            divider = {}
+        ) {
+            categories.forEachIndexed { index, pair ->
+                Tab(
+                    selected = selectedCategoryIndex == index,
+                    onClick = { selectedCategoryIndex = index },
+                    text = { Text(pair.first, fontSize = 20.sp) }
+                )
+            }
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 45.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(8.dp)
+        ) {
+            items(categories[selectedCategoryIndex].second) { emoji ->
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .clickable { onEmojiSelect(emoji) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(emoji, fontSize = 24.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReactionPickerOverlay(onDismiss: () -> Unit, onEmojiSelect: (String) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        title = { Text("Reactions") },
+        text = {
+            Row {
+                listOf("👍", "❤️", "😂", "😮", "😢", "🙏").forEach { emoji ->
+                    Text(emoji, fontSize = 24.sp, modifier = Modifier.clickable { onEmojiSelect(emoji) }.padding(8.dp))
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun ForwardDialog(chats: List<ChatMessage>, onDismiss: () -> Unit, onForward: (List<ChatMessage>) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Forward to...") },
+        text = {
+            LazyColumn {
+                items(chats) { chat ->
+                    Text(chat.senderName, color = Color.White, modifier = Modifier.fillMaxWidth().clickable { onForward(listOf(chat)) }.padding(16.dp))
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun FullScreenImagePlayer(uri: String, onBack: () -> Unit) {
+    var scale by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val state = rememberTransformableState { zoomChange, offsetChange, _ ->
+        scale *= zoomChange
+        offset += offsetChange
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { onBack() })
+            }
+    ) {
+        AsyncImage(
+            model = uri,
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer(
+                    scaleX = scale.coerceIn(1f, 5f),
+                    scaleY = scale.coerceIn(1f, 5f),
+                    translationX = offset.x,
+                    translationY = offset.y
+                )
+                .transformable(state = state),
+            contentScale = ContentScale.Fit
+        )
+        
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(16.dp)
+                .align(Alignment.TopStart)
+                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+        }
+    }
+}
+
+@Composable
+fun FullScreenVideoPlayer(uri: String, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val exoPlayer = remember {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(Uri.parse(uri)))
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        AndroidView(
+            factory = {
+                androidx.media3.ui.PlayerView(context).apply {
+                    player = exoPlayer
+                    useController = true
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(16.dp)
+                .align(Alignment.TopStart)
+                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+        }
+    }
+}

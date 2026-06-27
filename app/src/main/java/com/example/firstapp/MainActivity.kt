@@ -8,24 +8,38 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.example.firstapp.data.TokenManager
-import com.example.firstapp.data.realtime.*
+import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.ui.navigation.AppNavigation
 import com.example.firstapp.ui.navigation.Screen
-import com.example.firstapp.ui.theme.AppBackground
-import com.example.firstapp.ui.theme.FirstAppTheme
-import com.example.firstapp.ui.viewmodel.MainViewModel
-import com.example.firstapp.ui.viewmodel.MusicViewModel
-import com.example.firstapp.util.GlobalNavigation
+import com.example.firstapp.common.ui.theme.AppBackground
+import com.example.firstapp.common.ui.theme.FirstAppTheme
+import com.example.firstapp.home.ui.viewmodel.MainViewModel
+import com.example.firstapp.music.ui.viewmodel.MusicViewModel
+import com.example.firstapp.chat.data.*
+import com.example.firstapp.chat.ui.components.CallOverlay
+import com.example.firstapp.common.util.GlobalNavigation
 import com.google.android.gms.ads.MobileAds
 import com.google.android.libraries.places.api.Places
 
-class MainActivity : ComponentActivity() {
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
+import com.example.firstapp.common.util.BiometricHelper
+import com.example.firstapp.common.util.RootUtils
+import android.widget.Toast
+
+ @dagger.hilt.android.AndroidEntryPoint
+class MainActivity : FragmentActivity() {
 
     private fun consumeIncomingCallIntent(intent: Intent?) {
         intent ?: return
@@ -47,20 +61,61 @@ class MainActivity : ComponentActivity() {
                 receiverId = 0,
                 sessionId = sessionId,
                 callType = callType,
-                senderName = callerName
-            )
+                senderName = callerName,
+            ),
         )
+    }
+
+    private fun handleDeepLink(intent: Intent?) {
+        val data: android.net.Uri? = intent?.data
+        if (data != null && (data.scheme == "firstapp")) {
+            when (data.host) {
+                "chat" -> {
+                    val id = data.lastPathSegment?.toIntOrNull()
+                    id?.let { GlobalNavigation.navigateTo(Screen.Chat.createRoute(it)) }
+                }
+                "post" -> {
+                    // Navigate to single post view if available, or media feed
+                    GlobalNavigation.navigateTo(Screen.Main.route + "?tab=media")
+                }
+                "song" -> {
+                    // Navigate to music search or player
+                    GlobalNavigation.navigateTo(Screen.Main.route + "?tab=music")
+                }
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (RootUtils.isDeviceRooted()) {
+            Toast.makeText(this, "Security Warning: Device appears to be rooted. App integrity cannot be guaranteed.", Toast.LENGTH_LONG).show()
+        }
+
+        // Prevent screenshots and screen recording for high security
+        window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+
         consumeIncomingCallIntent(intent)
+        handleDeepLink(intent)
 
         if (
             android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2001)
+        }
+
+        // Request calling permissions early if possible
+        val permissionsToRequest = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        if (permissionsToRequest.isNotEmpty()) {
+            requestPermissions(permissionsToRequest.toTypedArray(), 2002)
         }
 
         MobileAds.initialize(this) {}
@@ -75,13 +130,28 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            FirstAppTheme {
+            FirstAppTheme(darkTheme = true) {
                 val navController = rememberNavController()
-                val viewModel: MainViewModel = viewModel()
-                val musicViewModel: MusicViewModel = viewModel()
+                val viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 var isLoggedIn by remember { mutableStateOf(TokenManager.isLoggedIn()) }
+                var isAppLocked by remember { mutableStateOf(isLoggedIn) }
 
                 LaunchedEffect(isLoggedIn) {
+                    if (isLoggedIn && BiometricHelper.isBiometricAvailable(this@MainActivity)) {
+                        BiometricHelper.showBiometricPrompt(
+                            activity = this@MainActivity,
+                            onSuccess = { isAppLocked = false },
+                            onError = { _, _ -> /* Handle error */ },
+                            onFailed = { /* Handle failure */ }
+                        )
+                    } else {
+                        isAppLocked = false
+                    }
+                }
+
+                LaunchedEffect(isLoggedIn) {
+                    android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn")
                     val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
                     if (isLoggedIn) {
                         ContextCompat.startForegroundService(applicationContext, serviceIntent)
@@ -93,19 +163,49 @@ class MainActivity : ComponentActivity() {
 
                 val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Login.route
                 
-                AppNavigation(
-                    navController = navController,
-                    startDestination = startDestination,
-                    viewModel = viewModel,
-                    musicViewModel = musicViewModel,
-                    onLogout = {
-                        TokenManager.clear()
-                        isLoggedIn = false
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(0) { inclusive = true }
+                Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+                    if (!isAppLocked) {
+                        AppNavigation(
+                            navController = navController,
+                            startDestination = startDestination,
+                            viewModel = viewModel,
+                            musicViewModel = musicViewModel,
+                            onLogout = {
+                                TokenManager.clear()
+                                isLoggedIn = false
+                                navController.navigate(Screen.Login.route) {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        )
+                    } else {
+                        // Show a placeholder or lock screen
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("App Locked", color = androidx.compose.ui.graphics.Color.White, fontSize = 24.sp)
+                            Button(
+                                onClick = {
+                                    if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {
+                                        BiometricHelper.showBiometricPrompt(
+                                            activity = this@MainActivity,
+                                            onSuccess = { isAppLocked = false },
+                                            onError = { _, _ -> },
+                                            onFailed = { }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.padding(top = 16.dp)
+                            ) {
+                                Text("Unlock")
+                            }
                         }
                     }
-                )
+
+                    CallOverlay()
+                }
 
                 LaunchedEffect(Unit) {
                     GlobalNavigation.navigationEvents.collect { route ->
@@ -141,8 +241,9 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         consumeIncomingCallIntent(intent)
+        handleDeepLink(intent)
         
-        // Handle navigation for already running activity
+        // Handle notification-specific navigation
         val senderId = intent.getIntExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, -1)
         if (senderId > 0 && TokenManager.isLoggedIn()) {
             GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId))

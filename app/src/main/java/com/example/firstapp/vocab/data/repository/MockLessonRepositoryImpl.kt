@@ -9,8 +9,11 @@ import com.example.firstapp.vocab.utils.Constants
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import com.example.firstapp.common.util.Resource
 
-class MockLessonRepositoryImpl(
+import javax.inject.Inject
+
+class MockLessonRepositoryImpl @Inject constructor(
     private val lessonProgressDao: LessonProgressDao
 ) : LessonRepository {
 
