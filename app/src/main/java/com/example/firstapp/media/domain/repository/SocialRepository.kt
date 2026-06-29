@@ -11,9 +11,10 @@ import kotlinx.coroutines.flow.Flow
 interface SocialRepository {
     fun getPosts(page: Int = 1): Flow<Resource<List<Post>>>
     fun getFollowingPosts(page: Int = 1): Flow<Resource<List<Post>>>
+    fun getChannelPosts(channelId: Int, page: Int = 1): Flow<Resource<List<Post>>>
     fun getPostsPaging(following: Boolean = false): Flow<PagingData<Post>>
     suspend fun updatePostLikeLocally(postId: Int, likes: String, isLiked: Boolean)
-    fun createPost(content: String, mediaUrls: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList()): Flow<Resource<Boolean>>
+    fun createPost(content: String, mediaUrls: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: Int? = null): Flow<Resource<Boolean>>
     fun likePost(postId: Int): Flow<Resource<Boolean>>
     fun repostPost(postId: Int): Flow<Resource<Boolean>>
     fun bookmarkPost(postId: Int): Flow<Resource<Boolean>>

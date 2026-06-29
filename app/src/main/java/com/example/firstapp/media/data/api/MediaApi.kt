@@ -17,6 +17,9 @@ interface MediaApi {
     @GET("adverts")
     suspend fun getAdverts(): Response<AdvertsResponse>
 
+    @POST("dev/reset-ads")
+    suspend fun resetAds(): Response<StatusResponse>
+
     @GET("adverts/viewed")
     suspend fun getViewedAdverts(): Response<AdvertsResponse>
 
@@ -71,7 +74,7 @@ data class ApiAdvert(
     val clicks: Long,
     val is_native_ad: Boolean,
     val is_viewed: Boolean,
-    val created_at: String? = null
+    val created_at: Long? = null
 )
 
 data class AdvertsResponse(val adverts: List<ApiAdvert>)

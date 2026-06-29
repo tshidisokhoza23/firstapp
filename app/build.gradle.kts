@@ -117,8 +117,6 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.hilt.work)
     ksp(libs.hilt.work.compiler)
-    implementation(libs.hilt.work)
-    ksp(libs.hilt.work.compiler)
 
     // Security & Biometrics
     implementation("androidx.security:security-crypto:1.1.0")

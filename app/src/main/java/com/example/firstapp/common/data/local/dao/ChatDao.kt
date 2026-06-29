@@ -55,11 +55,19 @@ interface ChatDao {
     @Query("SELECT * FROM messages WHERE isStarred = 1 ORDER BY timestamp DESC")
     fun getStarredMessages(): Flow<List<MessageEntity>>
 
-    @Query("SELECT * FROM messages WHERE chatId = :chatId AND LOWER(content) LIKE '%' || LOWER(:query) || '%' ORDER BY timestamp DESC")
+    @Query("SELECT * FROM messages WHERE chatId = :chatId AND id IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH :query) ORDER BY timestamp DESC")
     fun searchMessages(chatId: Int, query: String): Flow<List<MessageEntity>>
 
-    @Query("SELECT * FROM messages WHERE LOWER(content) LIKE '%' || LOWER(:query) || '%' ORDER BY timestamp DESC")
+    @Query("SELECT * FROM messages WHERE id IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH :query) ORDER BY timestamp DESC")
     fun searchMessagesAcrossAll(query: String): Flow<List<MessageEntity>>
+
+    @Query("""
+        SELECT * FROM messages 
+        WHERE (:ftsQuery = '' OR id IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH :ftsQuery))
+        AND (:type = '' OR type = :type)
+        ORDER BY timestamp DESC
+    """)
+    fun searchMessagesComplex(ftsQuery: String, type: String): Flow<List<MessageEntity>>
 
     @Query("SELECT * FROM chats WHERE LOWER(senderName) LIKE '%' || LOWER(:query) || '%' ORDER BY timestamp DESC")
     fun searchChats(query: String): Flow<List<ChatEntity>>

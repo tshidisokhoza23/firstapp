@@ -225,7 +225,12 @@ object ChatWebSocketClient {
             val response = runBlocking {
                 ApiClient.authApi.refresh(TokenRefreshRequest(refresh_token = refreshToken))
             }
-            if (!response.isSuccessful) return false
+            if (!response.isSuccessful) {
+                if (response.code() == 401 || response.code() == 400) {
+                    TokenManager.clear()
+                }
+                return false
+            }
             val body = response.body() ?: return false
             if (body.token.isBlank() || body.refreshToken.isBlank()) return false
             TokenManager.setToken(body.token)

@@ -6,6 +6,7 @@ import com.example.firstapp.chat.model.Message
 import com.example.firstapp.common.data.api.UserApi
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.search.domain.repository.SearchRepository
+import com.example.firstapp.search.model.SearchFilter
 import com.example.firstapp.search.model.SearchResult
 import com.example.firstapp.search.model.SearchType
 import com.example.firstapp.domain.repository.ChatRepository
@@ -14,9 +15,10 @@ import com.example.firstapp.media.domain.repository.ChannelRepository
 import com.example.firstapp.music.domain.repository.MusicRepository
 import com.example.firstapp.common.data.repository.*
 import com.example.firstapp.music.model.Song
+import com.example.firstapp.jobs.model.Job
+import com.example.firstapp.common.ui.theme.AppPrimary
 import kotlinx.coroutines.flow.*
 import androidx.compose.ui.graphics.Color
-import android.util.Log
 
 import javax.inject.Inject
 
@@ -28,14 +30,22 @@ class SearchRepositoryImpl @Inject constructor(
     private val channelRepository: ChannelRepository
 ) : SearchRepository {
 
-    override fun search(query: String, type: SearchType): Flow<Resource<SearchResult>> = flow {
+    override fun search(query: String, type: SearchType, filter: SearchFilter): Flow<Resource<SearchResult>> = flow {
         emit(Resource.Loading())
         
+        val typeStr = when (type) {
+            SearchType.CHATS -> "chats"
+            SearchType.JOBS -> "jobs"
+            SearchType.CHANNELS -> "channels"
+            SearchType.MUSIC -> "music"
+            SearchType.GLOBAL -> "global"
+        }
+
         when (type) {
             SearchType.CHATS -> {
                 val localChats = chatRepository.searchLocalChats(query).firstOrNull() ?: emptyList()
                 val localContacts = chatRepository.searchLocalContacts(query).firstOrNull() ?: emptyList()
-                val localMessages = chatRepository.searchMessagesAcrossAll(query).firstOrNull() ?: emptyList()
+                val localMessages = chatRepository.searchMessagesAcrossAll(query, filter).firstOrNull() ?: emptyList()
                 
                 emit(Resource.Success(SearchResult(
                     chats = localChats,
@@ -43,18 +53,14 @@ class SearchRepositoryImpl @Inject constructor(
                     messages = localMessages
                 )))
                 
-                // Remote search for users by contact number only
                 try {
-                    val response = userApi.search(query)
+                    val response = userApi.search(query, typeStr)
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
-                        // Filter remote users to only those matching query in phone_number
-                        val users = body.contacts.map { mapApiContact(it) }.filter { 
-                            it.phoneNumber.contains(query) 
-                        }
+                        val remoteUsers = body.contacts.map { mapApiContact(it) }
                         emit(Resource.Success(SearchResult(
                             chats = localChats,
-                            contacts = (localContacts + users).distinctBy { it.id },
+                            contacts = (localContacts + remoteUsers).distinctBy { it.id },
                             messages = localMessages
                         )))
                     }
@@ -63,27 +69,60 @@ class SearchRepositoryImpl @Inject constructor(
             SearchType.JOBS -> {
                 val localJobs = jobRepository.searchJobs(query).firstOrNull() ?: emptyList()
                 emit(Resource.Success(SearchResult(jobs = localJobs)))
+
+                try {
+                    val response = userApi.search(query, typeStr)
+                    if (response.isSuccessful && response.body() != null) {
+                        val body = response.body()!!
+                        val remoteJobs = body.jobs.map { mapApiJob(it) }
+                        emit(Resource.Success(SearchResult(
+                            jobs = (localJobs + remoteJobs).distinctBy { it.id }
+                        )))
+                    }
+                } catch (_: Exception) {}
             }
             SearchType.CHANNELS -> {
                 val localChannels = channelRepository.searchChannels(query).firstOrNull() ?: emptyList()
                 emit(Resource.Success(SearchResult(channels = localChannels)))
+
+                try {
+                    val response = userApi.search(query, typeStr)
+                    if (response.isSuccessful && response.body() != null) {
+                        val body = response.body()!!
+                        val remoteChannels = body.channels.map { mapApiChannel(it) }
+                        emit(Resource.Success(SearchResult(
+                            channels = (localChannels + remoteChannels).distinctBy { it.id }
+                        )))
+                    }
+                } catch (_: Exception) {}
             }
             SearchType.MUSIC -> {
-                // Implement music search if needed
+                try {
+                    val response = userApi.search(query, typeStr)
+                    if (response.isSuccessful && response.body() != null) {
+                        val body = response.body()!!
+                        emit(Resource.Success(SearchResult(
+                            songs = body.songs.map { mapApiSongToModel(it) },
+                            artists = body.artists.map { mapApiContact(it) }
+                        )))
+                    }
+                } catch (_: Exception) {}
             }
             SearchType.GLOBAL -> {
                 val localChats = chatRepository.searchLocalChats(query).firstOrNull() ?: emptyList()
                 val localContacts = chatRepository.searchLocalContacts(query).firstOrNull() ?: emptyList()
-                val localMessages = chatRepository.searchMessagesAcrossAll(query).firstOrNull() ?: emptyList()
+                val localMessages = chatRepository.searchMessagesAcrossAll(query, filter).firstOrNull() ?: emptyList()
+                val localChannels = channelRepository.searchChannels(query).firstOrNull() ?: emptyList()
                 
                 emit(Resource.Success(SearchResult(
                     chats = localChats,
                     contacts = localContacts,
-                    messages = localMessages
+                    messages = localMessages,
+                    channels = localChannels
                 )))
 
                 try {
-                    val response = userApi.search(query)
+                    val response = userApi.search(query, typeStr)
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
                         emit(Resource.Success(SearchResult(
@@ -91,7 +130,9 @@ class SearchRepositoryImpl @Inject constructor(
                             contacts = body.contacts.map { mapApiContact(it) },
                             messages = body.messages.map { mapApiMessage(it) },
                             songs = body.songs.map { mapApiSongToModel(it) },
-                            artists = body.artists.map { mapApiContact(it) }
+                            artists = body.artists.map { mapApiContact(it) },
+                            channels = body.channels.map { mapApiChannel(it) },
+                            jobs = body.jobs.map { mapApiJob(it) }
                         )))
                     }
                 } catch (_: Exception) {}
@@ -116,6 +157,25 @@ class SearchRepositoryImpl @Inject constructor(
             playCount = apiSong.play_count.toString(),
             isLiked = apiSong.is_liked,
             isExplicit = apiSong.is_explicit
+        )
+    }
+
+    private fun mapApiJob(apiJob: com.example.firstapp.jobs.data.api.ApiJob): Job {
+        return Job(
+            id = apiJob.id,
+            title = apiJob.title,
+            companyName = apiJob.company_name,
+            companyLogoUrl = formatUrl(apiJob.company_logo_url),
+            location = apiJob.location,
+            logoColor = AppPrimary,
+            salaryRange = apiJob.salary_range ?: "",
+            jobType = apiJob.job_type ?: "Full-time",
+            postedTime = apiJob.posted_time ?: "",
+            description = apiJob.description ?: "",
+            requirements = apiJob.requirements ?: emptyList(),
+            isVerified = apiJob.is_verified,
+            isApplied = apiJob.is_applied,
+            isSaved = apiJob.is_saved
         )
     }
 }

@@ -87,6 +87,12 @@ fun OtpVerificationScreen(
         }
     }
 
+    LaunchedEffect(otpCode) {
+        if (otpCode.length == 6) {
+            verify()
+        }
+    }
+
     val errorMessage = (otpState as? Resource.Error)?.message ?: (authState as? Resource.Error)?.message
     val isLoading = otpState is Resource.Loading || authState is Resource.Loading
 
@@ -104,8 +110,9 @@ fun OtpVerificationScreen(
             fontWeight = FontWeight.Bold,
             color = Color.White
         )
+        
         Text(
-            text = "Enter the 6-digit code sent to $phoneNumber",
+            text = "Enter the 6-digit code sent to your registered number",
             fontSize = 16.sp,
             color = Color.Gray,
             modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)

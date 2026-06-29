@@ -21,22 +21,29 @@ import com.example.firstapp.common.ui.theme.BoyishPurple
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.ui.navigation.Screen
 
+import com.example.firstapp.common.model.ConversationType
+
 fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
     composable(
         route = Screen.Chat.route,
         arguments = listOf(
             navArgument("chatId") { type = NavType.IntType },
-            navArgument("isGroup") { type = NavType.BoolType; defaultValue = false }
+            navArgument("type") { type = NavType.StringType; defaultValue = "direct" }
         )
     ) { backStackEntry ->
         val chatViewModel: ChatViewModel = hiltViewModel()
         val chatId = backStackEntry.arguments?.getInt("chatId") ?: return@composable
-        val isGroupParam = backStackEntry.arguments?.getBoolean("isGroup") ?: false
+        val typeStr = backStackEntry.arguments?.getString("type") ?: "direct"
+        val type = if (typeStr == "group") ConversationType.GROUP 
+                   else if (typeStr == "channel") ConversationType.CHANNEL 
+                   else ConversationType.DIRECT
+        
         val chatsState by chatViewModel.chats.collectAsState()
         val chats = chatsState.data ?: emptyList()
-        val existingChat = chats.find { it.id == chatId }
-        val chat = existingChat ?: run {
-            val baseName = if (isGroupParam) (chatViewModel.getCachedGroupName(chatId) ?: "Group") 
+        val existingChat = chats.find { it.id == chatId && it.type == type }
+        val chat = (existingChat ?: run {
+            val baseName = if (type == ConversationType.GROUP) (chatViewModel.getCachedGroupName(chatId) ?: "Group") 
+                else if (type == ConversationType.CHANNEL) "Channel"
                 else GlobalCallState.getContactName(chatId)
                     ?: GlobalCallState.getContactPhone(chatId) 
                     ?: "User $chatId"
@@ -51,13 +58,15 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
 
             ChatMessage(
                 id = chatId,
+                type = type,
                 senderName = sanitized,
                 lastMessage = "",
                 timestamp = 0L,
                 avatarColor = BoyishPurple,
-                isGroup = isGroupParam
+                isGroup = type == ConversationType.GROUP,
+                isAdmin = false
             )
-        }
+        }).copy(type = type)
         
         LaunchedEffect(chatId) {
             chatViewModel.fetchMessages(chatId)
@@ -75,7 +84,12 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
         val chatViewModel: ChatViewModel = hiltViewModel()
         ArchivedChatsScreen(
             onBack = { navController.popBackStack() },
-            onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id, isGroup = chat.isGroup)) },
+            onChatClick = { chat -> 
+                val typeStr = if (chat.type == ConversationType.CHANNEL) "channel" 
+                             else if (chat.type == ConversationType.GROUP) "group" 
+                             else "direct"
+                navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
+            },
             viewModel = chatViewModel
         )
     }
@@ -129,7 +143,7 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
                 chatViewModel.updateSelectedContacts(updated)
             },
             onCreated = { chat ->
-                navController.navigate(Screen.Chat.createRoute(chat.id, isGroup = true)) {
+                navController.navigate(Screen.Chat.createRoute(chat.id, type = "group")) {
                     popUpTo(Screen.CreateGroup.route) { inclusive = true }
                 }
             },
@@ -141,7 +155,12 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
         val directMessagesViewModel: DirectMessagesViewModel = hiltViewModel()
         DirectMessagesScreen(
             onBack = { navController.popBackStack() },
-            onChatSelect = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id, isGroup = chat.isGroup)) },
+            onChatSelect = { chat -> 
+                val typeStr = if (chat.type == ConversationType.CHANNEL) "channel" 
+                             else if (chat.type == ConversationType.GROUP) "group" 
+                             else "direct"
+                navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
+            },
             onCallSelect = { call -> 
                 navController.navigate(Screen.Chat.createRoute(call.contactId))
             },

@@ -17,20 +17,27 @@ class AdRepositoryImpl @Inject constructor(
 
     override fun getAdverts(): Flow<Resource<List<Advert>>> = flow {
         // 1. Emit cached data first as Loading
-        val cached = advertDao.getAdverts().first().map { it.toModel() }
-        emit(Resource.Loading(cached))
+        val cached = advertDao.getAdverts().first()
+        val mappedCached = cached.map { it.toModel() }
+        emit(Resource.Loading(mappedCached))
 
         // 2. Perform network sync
         try {
             val response = mediaApi.getAdverts()
             if (response.isSuccessful) {
                 val apiAdverts = response.body()?.adverts ?: emptyList()
-                android.util.Log.d("AdRepository", "API returned ${apiAdverts.size} adverts: ${apiAdverts.map { it.id }}")
+                android.util.Log.d("AdRepository", "API returned ${apiAdverts.size} adverts")
+                
                 val entities = apiAdverts.map { mapApiAdvert(it).toEntity() }
+                
+                // Clear ONLY unviewed ads before inserting new ones from server to avoid duplicates/stale items
+                // Actually, let's just use REPLACE strategy in Dao which is already there.
                 advertDao.insertAdverts(entities)
+            } else {
+                android.util.Log.e("AdRepository", "API error: ${response.code()}")
             }
         } catch (e: Exception) {
-            android.util.Log.e("AdRepository", "Sync failed", e)
+            android.util.Log.e("AdRepository", "Sync failed: ${e.message}")
         }
 
         // 3. Emit the final state from DB as Success
@@ -59,6 +66,21 @@ class AdRepositoryImpl @Inject constructor(
 
     override suspend fun clearLocalAdverts() {
         advertDao.clearAdverts()
+    }
+
+    override fun resetAds(): Flow<Resource<Unit>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = mediaApi.resetAds()
+            if (response.isSuccessful) {
+                advertDao.clearAdverts()
+                emit(Resource.Success(Unit))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
     }
 
     override fun markAdvertViewed(advertId: Int): Flow<Resource<Boolean>> = flow {

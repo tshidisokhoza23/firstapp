@@ -30,6 +30,7 @@ class ShortsViewModel @Inject constructor(
 
     private var activeShortIdForReplies: Int? = null
     private var currentShortsSearchJob: kotlinx.coroutines.Job? = null
+    private var postSocketListener: PostSocketListener? = null
 
     private val shortLikeInFlight = mutableSetOf<Int>()
     private val shortSubscribeInFlight = mutableSetOf<Int>()
@@ -43,7 +44,7 @@ class ShortsViewModel @Inject constructor(
     }
 
     private fun connectPostRealtime() {
-        PostWebSocketClient.connect(object : PostSocketListener {
+        val listener = object : PostSocketListener {
             override fun onOpen() {}
             override fun onPostsEvent(action: String, postId: Int?) {}
             override fun onShortsEvent(action: String, shortId: Int?) {
@@ -56,7 +57,9 @@ class ShortsViewModel @Inject constructor(
             }
             override fun onStoriesEvent(action: String, storyId: Int?) {}
             override fun onError(error: String) {}
-        })
+        }
+        postSocketListener = listener
+        PostWebSocketClient.connect(listener)
     }
 
     fun fetchShorts() {
@@ -159,7 +162,7 @@ class ShortsViewModel @Inject constructor(
     fun clearActiveShortReplies() { activeShortIdForReplies = null }
 
     override fun onCleared() {
-        PostWebSocketClient.close()
+        postSocketListener?.let { PostWebSocketClient.disconnect(it) }
         super.onCleared()
     }
 }

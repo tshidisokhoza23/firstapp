@@ -23,6 +23,10 @@ class CallServiceBootstrapReceiver : BroadcastReceiver() {
         }
 
         val serviceIntent = Intent(context, CallListenerService::class.java)
-        ContextCompat.startForegroundService(context, serviceIntent)
+        try {
+            ContextCompat.startForegroundService(context, serviceIntent)
+        } catch (e: Exception) {
+            // Background start not allowed or other service error
+        }
     }
 }

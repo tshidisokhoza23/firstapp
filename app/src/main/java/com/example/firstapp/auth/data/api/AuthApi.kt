@@ -25,4 +25,11 @@ interface AuthApi {
 
     @POST("auth/verify-otp")
     suspend fun verifyOTP(@Body request: Map<String, String>): Response<StatusResponse>
+
+    @GET("auth/availability")
+    suspend fun checkAvailability(
+        @Query("username") username: String?,
+        @Query("email") email: String?,
+        @Query("phone") phone: String?
+    ): Response<Map<String, Boolean>>
 }

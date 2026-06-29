@@ -78,6 +78,8 @@ import com.example.firstapp.jobs.ui.components.*
 import com.example.firstapp.jobs.model.*
 import com.example.firstapp.profile.ui.viewmodel.*
 import com.example.firstapp.profile.ui.screens.*
+import com.example.firstapp.common.model.ConversationType
+import java.util.Locale
 import com.example.firstapp.common.model.*
 import com.example.firstapp.common.model.User
 import com.example.firstapp.media.model.ShortMedia
@@ -87,6 +89,8 @@ import com.example.firstapp.common.ui.viewmodel.CalendarViewModel
 import com.example.firstapp.common.util.*
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.search.model.SearchType
+import com.example.firstapp.search.model.SearchFilter
+import androidx.compose.foundation.lazy.LazyRow
 import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.media.data.ShortsVideoCache
 import com.example.firstapp.media.data.api.TrendingTopic
@@ -203,16 +207,13 @@ private fun MainScreenContent(
 
     LaunchedEffect(activeSessionId, activeParticipantId) {
         if (activeSessionId != null && activeParticipantId != null) {
+            val participantId = activeParticipantId ?: return@LaunchedEffect
             if (navController.currentDestination?.route?.startsWith(Screen.Main.route) == true) {
-                 navController.navigate(Screen.Chat.createRoute(activeParticipantId!!))
+                 navController.navigate(Screen.Chat.createRoute(participantId))
             }
         }
     }
 
-    var showAdvertViewer by remember { mutableStateOf(false) }
-    var adsToView by remember { mutableStateOf<List<Advert>>(emptyList()) }
-    var viewerInitialIndex by remember { mutableIntStateOf(0) }
-    
     var showMoreSheet by remember { mutableStateOf(false) }
     var createPostTrigger by remember { mutableIntStateOf(0) }
     var showAddChannelDialog by remember { mutableStateOf(false) }
@@ -226,16 +227,27 @@ private fun MainScreenContent(
     val storiesState by storyViewModel.stories.collectAsState()
     val archivedChatsState by chatViewModel.archivedChats.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
+    val points by advertsViewModel.points.collectAsState()
     val toastMessage by userViewModel.toastMessage.collectAsState()
+    val adToastMessage by advertsViewModel.toastMessage.collectAsState()
+    val channelToastMessage by channelsViewModel.toastMessage.collectAsState()
 
     val mediaUiState by mediaViewModel.uiState.collectAsState()
 
     val context = LocalContext.current
 
-    LaunchedEffect(toastMessage) {
+    LaunchedEffect(toastMessage, adToastMessage, channelToastMessage) {
         toastMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
             userViewModel.clearToast()
+        }
+        adToastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            advertsViewModel.clearToast()
+        }
+        channelToastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            channelsViewModel.clearToast()
         }
     }
 
@@ -257,9 +269,10 @@ private fun MainScreenContent(
     // Periodic refresh for real-time feel
     LaunchedEffect(Unit) {
         while(true) {
-            delay(60000)
             chatViewModel.fetchChats()
+            chatViewModel.fetchContacts()
             storyViewModel.fetchStories()
+            delay(60000)
         }
     }
 
@@ -308,13 +321,25 @@ private fun MainScreenContent(
                 activeShortForMoreMenu = short
                 showShortMoreMenu = true
             },
-            onAdvertClick = { ad, ads ->
-                adsToView = ads
-                viewerInitialIndex = ads.indexOf(ad)
-                showAdvertViewer = true
+            onAdvertClick = { ad ->
+                val activity = context as? android.app.Activity
+                if (activity != null) {
+                    advertsViewModel.adManager.showRewardedAd(
+                        activity = activity,
+                        onRewardEarned = {
+                            advertsViewModel.markAdvertAsViewed(ad.id)
+                            Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
+                        },
+                        onAdClosed = {
+                            // Pre-load next ad
+                            advertsViewModel.adManager.loadRewardedAd()
+                        }
+                    )
+                }
             },
             sanitizedChats = sanitizedChats,
             currentUser = currentUser,
+            points = points,
             onLogout = onLogout,
             unreadChatsCount = chatsState.data?.sumOf { it.unreadCount } ?: 0,
             archivedChatsCount = archivedChatsState.data?.size ?: 0
@@ -404,16 +429,6 @@ private fun MainScreenContent(
                     }
                 },
                 containerColor = AppSecondary
-            )
-        }
-
-        if (showAdvertViewer) {
-            AdvertViewer(
-                adverts = adsToView,
-                initialIndex = viewerInitialIndex,
-                onAdvertViewed = { advertsViewModel.markAdvertAsViewed(it) },
-                onFinish = { showAdvertViewer = false },
-                onClose = { showAdvertViewer = false }
             )
         }
 
@@ -568,9 +583,10 @@ fun MainContent(
     onCreatePostTrigger: () -> Unit,
     onShowShortComments: (Int) -> Unit,
     onShowShortMoreMenu: (ShortMedia) -> Unit,
-    onAdvertClick: (Advert, List<Advert>) -> Unit,
+    onAdvertClick: (Advert) -> Unit,
     sanitizedChats: List<ChatMessage>,
     currentUser: User?,
+    points: Double,
     onLogout: () -> Unit,
     unreadChatsCount: Int,
     archivedChatsCount: Int
@@ -593,6 +609,18 @@ fun MainContent(
 
     val mediaSongs = songsState.data?.takeIf { it.isNotEmpty() } ?: cachedSongs
     
+    LaunchedEffect(selectedTabItem, isSearchActive) {
+        if (isSearchActive && searchQuery.isNotEmpty() && selectedBottomItem == 0) {
+            val searchType = when (selectedTabItem) {
+                0 -> SearchType.CHATS
+                2 -> SearchType.JOBS
+                3 -> SearchType.CHANNELS
+                else -> SearchType.GLOBAL
+            }
+            searchViewModel.search(searchQuery, searchType)
+        }
+    }
+
     val onBackAction = {
         if (isNowPlayingVisible) onSetNowPlayingVisible(false)
         else if (isShortsSearchActive) { isShortsSearchActive = false; shortsViewModel.fetchShorts() }
@@ -611,7 +639,7 @@ fun MainContent(
 
     val bottomItems = listOf("Chat", "Media", "Shorts", "Music", "Drive", "More")
     val bottomIcons = listOf(Icons.AutoMirrored.Filled.Chat, Icons.Filled.PermMedia, Icons.Filled.PlayArrow, Icons.Filled.MusicNote, Icons.Filled.DirectionsCar, Icons.Filled.MoreHoriz)
-    val tabs = listOf("Chats", "Adverts", "Jobs", "Channels")
+    val tabs = listOf("Chats", "Rewards", "Jobs", "Channels")
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -901,7 +929,7 @@ fun MainContent(
                         val isMore = item == "More"
                         val isSelected = if (isMore) showMoreSheet else (selectedBottomItem == index && !showMoreSheet)
                         
-                        val count = if (item == "Home") unreadChatsCount else 0
+                        val count = if (item == "Chat") unreadChatsCount else 0
 
                         NavigationBarItem(
                             icon = { 
@@ -973,8 +1001,15 @@ fun MainContent(
                             val searchResults by searchViewModel.searchResults.collectAsState()
                             
                             if (isSearchActive && searchQuery.isNotEmpty()) {
+                                val searchType = when (selectedTabItem) {
+                                    0 -> SearchType.CHATS
+                                    2 -> SearchType.JOBS
+                                    3 -> SearchType.CHANNELS
+                                    else -> SearchType.GLOBAL
+                                }
                                 SearchResultsView(
                                     results = searchResults,
+                                    type = searchType,
                                     onChatClick = { chat: ChatMessage ->
                                         navController.navigate(Screen.Chat.createRoute(chat.id))
                                     },
@@ -988,6 +1023,9 @@ fun MainContent(
                                     onArtistClick = { artist ->
                                         musicViewModel.requestArtist(artist.displayName)
                                         onBottomItemSelect(3)
+                                    },
+                                    onContactClick = { contact ->
+                                        navController.navigate(Screen.Chat.createRoute(contact.id))
                                     }
                                 )
                             } else {
@@ -1000,7 +1038,14 @@ fun MainContent(
                                     currentUserId = currentUser?.id,
                                     initialScrollDone = isChatInitialScrollDone,
                                     onInitialScrollDone = { isChatInitialScrollDone = it },
-                                    onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id, isGroup = chat.isGroup)) },
+                                    onChatClick = { chat -> 
+                                        val typeStr = when (chat.type) {
+                                            ConversationType.CHANNEL -> "channel"
+                                            ConversationType.GROUP -> "group"
+                                            else -> "direct"
+                                        }
+                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
+                                    },
                                     onStoryClick = { story: UserStory -> navController.navigate(Screen.Story.createRoute(story.id)) },
                                     onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
                                     onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
@@ -1021,10 +1066,16 @@ fun MainContent(
                             } else if (isError && ads.isEmpty() && viewedAds.isEmpty()) {
                                 ErrorStateView(advertsState.message ?: viewedAdvertsState.message)
                             } else {
-                                AdvertList(
+                                RewardsScreen(
                                     adverts = ads,
-                                    viewedAdverts = viewedAds
-                                ) { onAdvertClick(it, ads + viewedAds) }
+                                    viewedAdverts = viewedAds,
+                                    adsWatched = currentUser?.adsWatchedToday ?: 0,
+                                    points = points,
+                                    totalAdsToWatch = 20,
+                                    onAdvertClick = { ad -> onAdvertClick(ad) },
+                                    onRefresh = { advertsViewModel.fetchAdverts() },
+                                    onResetAds = { advertsViewModel.resetAds() }
+                                )
                             }
                         }
                         2 -> {
@@ -1032,9 +1083,13 @@ fun MainContent(
                             if (isSearchActive && searchQuery.isNotEmpty()) {
                                 SearchResultsView(
                                     results = searchResults,
+                                    type = SearchType.JOBS,
                                     onChatClick = {},
                                     onMessageClick = {},
-                                    onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) }
+                                    onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
+                                    onContactClick = { contact ->
+                                        navController.navigate(Screen.Chat.createRoute(contact.id))
+                                    }
                                 )
                             } else {
                                 DataStateHandler(jobsState) { jobs -> JobList(jobs) { navController.navigate(Screen.JobDetail.createRoute(it.id)) } }
@@ -1045,12 +1100,16 @@ fun MainContent(
                             if (isSearchActive && searchQuery.isNotEmpty()) {
                                 SearchResultsView(
                                     results = searchResults,
+                                    type = SearchType.CHANNELS,
                                     onChatClick = {},
                                     onMessageClick = {},
-                                    onChannelClick = { navController.navigate(Screen.ChannelDetail.createRoute(it.id)) }
+                                    onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) },
+                                    onContactClick = { contact ->
+                                        navController.navigate(Screen.Chat.createRoute(contact.id))
+                                    }
                                 )
                             } else {
-                                DataStateHandler(channelsState) { channels -> ChannelList(channels) { navController.navigate(Screen.ChannelDetail.createRoute(it.id)) } }
+                                DataStateHandler(channelsState) { channels -> ChannelList(channels) { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) } }
                             }
                         }
                     }
@@ -1524,12 +1583,14 @@ fun ChatList(
 @Composable
 fun SearchResultsView(
     results: com.example.firstapp.search.model.SearchResult?,
+    type: com.example.firstapp.search.model.SearchType = com.example.firstapp.search.model.SearchType.GLOBAL,
     onChatClick: (ChatMessage) -> Unit,
     onMessageClick: (Message) -> Unit,
     onSongClick: (Song, List<Song>) -> Unit = { _, _ -> },
     onArtistClick: (Contact) -> Unit = {},
     onJobClick: (Job) -> Unit = {},
-    onChannelClick: (Channel) -> Unit = {}
+    onChannelClick: (Channel) -> Unit = {},
+    onContactClick: (Contact) -> Unit = {}
 ) {
     if (results == null) return
     
@@ -1541,8 +1602,25 @@ fun SearchResultsView(
     val jobs = results.jobs
     val channels = results.channels
 
+    val showChats = type == SearchType.GLOBAL || type == SearchType.CHATS
+    val showContacts = type == SearchType.GLOBAL || type == SearchType.CHATS
+    val showMessages = type == SearchType.GLOBAL || type == SearchType.CHATS
+    val showJobs = type == SearchType.GLOBAL || type == SearchType.JOBS
+    val showChannels = type == SearchType.GLOBAL || type == SearchType.CHANNELS
+    val showMusic = type == SearchType.GLOBAL || type == SearchType.MUSIC
+
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        if (artists.isNotEmpty()) {
+        if (showContacts && contacts.isNotEmpty()) {
+            item { SearchSectionHeader("Contacts") }
+            items(items = contacts, key = { "contact_${it.id}" }) { contactItem: Contact ->
+                Column(modifier = Modifier.clickable { onContactClick(contactItem) }) {
+                    ContactSearchItem(contactItem)
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                }
+            }
+        }
+
+        if (showMusic && artists.isNotEmpty()) {
             item { SearchSectionHeader("Artists") }
             items(artists, key = { "artist_${it.id}" }) { artist ->
                 Column(modifier = Modifier.clickable { onArtistClick(artist) }) {
@@ -1552,7 +1630,7 @@ fun SearchResultsView(
             }
         }
 
-        if (songs.isNotEmpty()) {
+        if (showMusic && songs.isNotEmpty()) {
             item { SearchSectionHeader("Songs") }
             items(songs, key = { "song_${it.id}" }) { song ->
                 Column(modifier = Modifier.clickable { onSongClick(song, songs) }) {
@@ -1562,7 +1640,7 @@ fun SearchResultsView(
             }
         }
 
-        if (jobs.isNotEmpty()) {
+        if (showJobs && jobs.isNotEmpty()) {
             item { SearchSectionHeader("Jobs") }
             items(jobs, key = { "job_${it.id}" }) { job ->
                 Column(modifier = Modifier.clickable { onJobClick(job) }) {
@@ -1572,7 +1650,7 @@ fun SearchResultsView(
             }
         }
 
-        if (channels.isNotEmpty()) {
+        if (showChannels && channels.isNotEmpty()) {
             item { SearchSectionHeader("Channels") }
             items(channels, key = { "channel_${it.id}" }) { channel ->
                 Column(modifier = Modifier.clickable { onChannelClick(channel) }) {
@@ -1582,7 +1660,7 @@ fun SearchResultsView(
             }
         }
 
-        if (allChats.isNotEmpty()) {
+        if (showChats && allChats.isNotEmpty()) {
             item { SearchSectionHeader("Chats") }
             items(allChats, key = { "chat_${it.id}" }) { chat ->
                 Column(modifier = Modifier.clickable { onChatClick(chat) }) {
@@ -1590,6 +1668,56 @@ fun SearchResultsView(
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
                 }
             }
+        }
+
+        if (showMessages && messages.isNotEmpty()) {
+            item { SearchSectionHeader("Messages") }
+            items(messages, key = { "message_${it.id}" }) { message ->
+                Column(modifier = Modifier.clickable { onMessageClick(message) }) {
+                    MessageSearchItem(message)
+                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MessageSearchItem(message: Message) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val icon = when (message.type) {
+            MessageType.IMAGE -> Icons.Default.Image
+            MessageType.VIDEO -> Icons.Default.VideoLibrary
+            MessageType.AUDIO_MESSAGE -> Icons.Default.Audiotrack
+            MessageType.DOCUMENT -> Icons.Default.Description
+            MessageType.LOCATION -> Icons.Default.LocationOn
+            MessageType.CONTACT -> Icons.Default.Person
+            else -> Icons.AutoMirrored.Filled.Message
+        }
+        
+        Box(
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(AppSecondary),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = AppAccent, modifier = Modifier.size(20.dp))
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(message.senderName ?: "Unknown", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.weight(1f))
+                Text(formatWhatsAppTime(message.timestamp), color = Color.Gray, fontSize = 12.sp)
+            }
+            Text(
+                text = if (message.type == MessageType.TEXT) message.content else message.type.name,
+                color = Color.Gray,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -1653,25 +1781,6 @@ fun ContactSearchItem(contact: Contact) {
     }
 }
 
-@Composable
-fun MessageSearchItem(message: Message) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier.size(48.dp).clip(CircleShape).background(AppPrimary.copy(alpha = 0.2f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, tint = AppPrimary, modifier = Modifier.size(24.dp))
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column {
-            Text(message.senderName ?: "Unknown", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(message.content, color = Color.Gray, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
 
 @Composable
 fun JobList(jobs: List<Job>, onJobClick: (Job) -> Unit) {
@@ -1766,6 +1875,56 @@ fun ShortsList(shorts: List<ShortMedia>, shortsViewModel: ShortsViewModel, botto
 
     androidx.compose.foundation.pager.VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
         ShortItem(short = shorts[page], isVisible = pagerState.currentPage == page, bottomInset = bottomPadding, onLikeClick = { shortsViewModel.likeShort(it) }, onSubscribeClick = { shortsViewModel.subscribeToShortCreator(it) }, onCommentClick = { onShowComments(it) }, onRepostClick = { shortsViewModel.repostShort(it) }, onBookmarkClick = { shortsViewModel.bookmarkShort(it) }, onMoreClick = { onShowMoreMenu(shorts[page]) })
+    }
+}
+
+@Composable
+fun SearchFilterChips(
+    activeFilter: com.example.firstapp.search.model.SearchFilter,
+    onFilterChange: (com.example.firstapp.search.model.SearchFilter) -> Unit
+) {
+    val filters = com.example.firstapp.search.model.SearchFilter.values()
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items(filters) { filter ->
+            val isSelected = activeFilter == filter
+            val icon = when (filter) {
+                com.example.firstapp.search.model.SearchFilter.PHOTOS -> Icons.Default.Image
+                com.example.firstapp.search.model.SearchFilter.VIDEOS -> Icons.Default.VideoLibrary
+                com.example.firstapp.search.model.SearchFilter.LINKS -> Icons.Default.Link
+                com.example.firstapp.search.model.SearchFilter.GIFS -> Icons.Default.Animation
+                com.example.firstapp.search.model.SearchFilter.AUDIO -> Icons.Default.Audiotrack
+                com.example.firstapp.search.model.SearchFilter.DOCUMENTS -> Icons.Default.Description
+                else -> null
+            }
+            val label = filter.name
+
+            Surface(
+                onClick = { onFilterChange(filter) },
+                color = if (isSelected) AppAccent.copy(alpha = 0.2f) else AppSecondary,
+                shape = RoundedCornerShape(20.dp),
+                border = if (isSelected) BorderStroke(1.dp, AppAccent) else BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (icon != null) {
+                        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (isSelected) AppAccent else Color.White)
+                    }
+                    Text(
+                        text = label,
+                        color = if (isSelected) AppAccent else Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
     }
 }
 

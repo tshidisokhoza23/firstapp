@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
+import com.example.firstapp.common.model.ConversationType
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.data.*
 import androidx.compose.runtime.*
@@ -257,136 +258,178 @@ fun ChatScreen(
                                 .padding(vertical = 12.dp, horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { if (selectedMessages.isNotEmpty()) selectedMessages.clear() else onBack() }) {
-                                Icon(if (selectedMessages.isEmpty()) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.Close, "Back", tint = Color.White)
-                            }
-
-                            if (selectedMessages.isEmpty()) {
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable { onShowProfile(chat.id, chat.isGroup) }
-                                        .padding(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                Brush.linearGradient(
-                                                    colors = listOf(AppPrimary, AppAccent)
-                                                )
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (chat.avatarUrl != null) {
-                                            AsyncImage(
-                                                model = chat.avatarUrl,
-                                                contentDescription = null,
-                                                modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                                contentScale = ContentScale.Crop
-                                            )
-                                        } else {
-                                            Text(
-                                                text = chat.senderName.take(1).uppercase(),
-                                                color = Color.White,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 18.sp
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                text = sanitizedName,
-                                                fontSize = 17.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            if (chat.publicKey != null) {
-                                                Spacer(Modifier.width(4.dp))
-                                                Icon(
-                                                    Icons.Default.Lock,
-                                                    "Encrypted",
-                                                    tint = AppAccent,
-                                                    modifier = Modifier.size(12.dp)
-                                                )
-                                            }
-                                        }
-                                        
-                                        val presenceText = when {
-                                            chat.isGroup -> "group info"
-                                            chat.isOnline -> "online"
-                                            chat.lastSeen > 0L -> "last seen ${formatWhatsAppTime(chat.lastSeen)}"
-                                            else -> "offline"
-                                        }
-                                        Text(
-                                            text = presenceText,
-                                            fontSize = 12.sp,
-                                            color = if (chat.isOnline) AppAccent else Color.White.copy(alpha = 0.5f)
-                                        )
-                                    }
+                            if (isSearchMode) {
+                                IconButton(onClick = { 
+                                    isSearchMode = false
+                                    chatSearchQuery = ""
+                                }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                                 }
-
-                                Row {
-                                    IconButton(onClick = { chatViewModel.initiateCall(chat.id, CallType.VOICE) }) {
-                                        Icon(Icons.Default.Call, "Voice Call", tint = Color.White, modifier = Modifier.size(22.dp))
-                                    }
-                                    IconButton(onClick = { chatViewModel.initiateCall(chat.id, CallType.VIDEO) }) {
-                                        Icon(Icons.Default.VideoCall, "Video Call", tint = Color.White, modifier = Modifier.size(22.dp))
-                                    }
-                                    var showMenu by remember { mutableStateOf(false) }
-                                    Box {
-                                        IconButton(onClick = { showMenu = true }) {
-                                            Icon(Icons.Default.MoreVert, "More", tint = Color.White, modifier = Modifier.size(22.dp))
-                                        }
-                                        DropdownMenu(
-                                            expanded = showMenu,
-                                            onDismissRequest = { showMenu = false },
-                                            modifier = Modifier.background(AppSecondary)
-                                        ) {
-                                            DropdownMenuItem(
-                                                text = { Text("View Contact", color = Color.White) },
-                                                onClick = { showMenu = false; onShowProfile(chat.id, chat.isGroup) }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Search", color = Color.White) },
-                                                onClick = { showMenu = false; isSearchMode = true }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Mute Notifications", color = Color.White) },
-                                                onClick = { showMenu = false }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Clear Chat", color = Color.White) },
-                                                onClick = { showMenu = false; chatViewModel.clearChat(chat.id) }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Delete Chat", color = Color.White) },
-                                                onClick = { 
-                                                    showMenu = false
-                                                    chatViewModel.deleteChat(chat.id)
-                                                    onBack()
-                                                }
-                                            )
-                                        }
+                                TextField(
+                                    value = chatSearchQuery,
+                                    onValueChange = { chatSearchQuery = it },
+                                    modifier = Modifier.weight(1f),
+                                    placeholder = { Text("Search messages...", color = Color.White.copy(alpha = 0.5f)) },
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        cursorColor = AppAccent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent
+                                    ),
+                                    singleLine = true
+                                )
+                                if (chatSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { chatSearchQuery = "" }) {
+                                        Icon(Icons.Default.Close, "Clear", tint = Color.White)
                                     }
                                 }
                             } else {
-                                Text(
-                                    text = "${selectedMessages.size}",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 20.sp,
-                                    modifier = Modifier.weight(1f).padding(start = 16.dp)
-                                )
-                                IconButton(onClick = { deleteSelectedMessages() }) { Icon(Icons.Default.Delete, "Delete", tint = Color.White) }
-                                IconButton(onClick = { /* Forward */ }) { Icon(Icons.Default.Forward, "Forward", tint = Color.White) }
+                                IconButton(onClick = { if (selectedMessages.isNotEmpty()) selectedMessages.clear() else onBack() }) {
+                                    Icon(if (selectedMessages.isEmpty()) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.Close, "Back", tint = Color.White)
+                                }
+
+                                if (selectedMessages.isEmpty()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable { onShowProfile(chat.id, chat.isGroup) }
+                                            .padding(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    Brush.linearGradient(
+                                                        colors = listOf(AppPrimary, AppAccent)
+                                                    )
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (chat.avatarUrl != null) {
+                                                AsyncImage(
+                                                    model = chat.avatarUrl,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = chat.senderName.take(1).uppercase(),
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 18.sp
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = sanitizedName,
+                                                    fontSize = 17.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (chat.type == ConversationType.CHANNEL && chat.isAdmin) {
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Icon(
+                                                        Icons.Default.AdminPanelSettings,
+                                                        "Admin",
+                                                        tint = AppAccent,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                                if (chat.publicKey != null) {
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Icon(
+                                                        Icons.Default.Lock,
+                                                        "Encrypted",
+                                                        tint = AppAccent,
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                }
+                                            }
+                                            
+                                            val presenceText = when {
+                                                chat.type == ConversationType.CHANNEL -> "${chat.followers} followers"
+                                                chat.isGroup -> "group info"
+                                                chat.isOnline -> "online"
+                                                chat.lastSeen > 0L -> "last seen ${formatWhatsAppTime(chat.lastSeen)}"
+                                                else -> "offline"
+                                            }
+                                            Text(
+                                                text = presenceText,
+                                                fontSize = 12.sp,
+                                                color = if (chat.isOnline) AppAccent else Color.White.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                    }
+
+                                    Row {
+                                        if (chat.type == ConversationType.DIRECT) {
+                                            IconButton(onClick = { chatViewModel.initiateCall(chat.id, CallType.VOICE) }) {
+                                                Icon(Icons.Default.Call, "Voice Call", tint = Color.White, modifier = Modifier.size(22.dp))
+                                            }
+                                            IconButton(onClick = { chatViewModel.initiateCall(chat.id, CallType.VIDEO) }) {
+                                                Icon(Icons.Default.VideoCall, "Video Call", tint = Color.White, modifier = Modifier.size(22.dp))
+                                            }
+                                        }
+                                        var showMenu by remember { mutableStateOf(false) }
+                                        Box {
+                                            IconButton(onClick = { showMenu = true }) {
+                                                Icon(Icons.Default.MoreVert, "More", tint = Color.White, modifier = Modifier.size(22.dp))
+                                            }
+                                            DropdownMenu(
+                                                expanded = showMenu,
+                                                onDismissRequest = { showMenu = false },
+                                                modifier = Modifier.background(AppSecondary)
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("View Contact", color = Color.White) },
+                                                    onClick = { showMenu = false; onShowProfile(chat.id, chat.isGroup) }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Search", color = Color.White) },
+                                                    onClick = { showMenu = false; isSearchMode = true }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Mute Notifications", color = Color.White) },
+                                                    onClick = { showMenu = false }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Clear Chat", color = Color.White) },
+                                                    onClick = { showMenu = false; chatViewModel.clearChat(chat.id) }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Delete Chat", color = Color.White) },
+                                                    onClick = { 
+                                                        showMenu = false
+                                                        chatViewModel.deleteChat(chat.id)
+                                                        onBack()
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = "${selectedMessages.size}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 20.sp,
+                                        modifier = Modifier.weight(1f).padding(start = 16.dp)
+                                    )
+                                    IconButton(onClick = { deleteSelectedMessages() }) { Icon(Icons.Default.Delete, "Delete", tint = Color.White) }
+                                    IconButton(onClick = { /* Forward */ }) { Icon(Icons.Default.Forward, "Forward", tint = Color.White) }
+                                }
                             }
                         }
                     }
@@ -409,45 +452,73 @@ fun ChatScreen(
                             )
                         }
                         
-                        replyingToMessage?.let { replyMsg ->
-                            Surface(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White.copy(alpha = 0.05f)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(modifier = Modifier.width(3.dp).height(32.dp).clip(CircleShape).background(AppAccent))
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = if (replyMsg.isFromMe) "You" else chat.senderName, color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                        Text(text = replyMsg.content.ifBlank { replyMsg.type.name }, color = AppTextSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    IconButton(onClick = { replyingToMessage = null }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.Close, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
-                                    }
+                        val uiState by chatViewModel.uiState.collectAsState()
+                        val myUserId = uiState.currentUser?.id
+                        val canPost = when (chat.type) {
+                            ConversationType.DIRECT, ConversationType.GROUP -> true
+                            ConversationType.CHANNEL -> {
+                                val isAdm = chat.isAdmin || (chat.createdBy != null && chat.createdBy == myUserId)
+                                if (!isAdm) {
+                                    android.util.Log.d("ChatScreen", "Post Denied: chat.isAdmin=${chat.isAdmin}, chat.createdBy=${chat.createdBy}, myUserId=$myUserId")
                                 }
+                                isAdm
                             }
                         }
 
-                        ChatBottomBarUnique(
-                            text = messageText,
-                            onTextChange = { messageText = it },
-                            onSend = {
-                                if (messageText.isNotBlank()) {
-                                    sendToServer(body = messageText.trim(), messageType = "text")
-                                    messageText = ""
-                                    keyboardController?.hide()
+                        if (canPost) {
+                            replyingToMessage?.let { replyMsg ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White.copy(alpha = 0.05f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(modifier = Modifier.width(3.dp).height(32.dp).clip(CircleShape).background(AppAccent))
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(text = if (replyMsg.isFromMe) "You" else chat.senderName, color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text(text = replyMsg.content.ifBlank { replyMsg.type.name }, color = AppTextSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                        IconButton(onClick = { replyingToMessage = null }, modifier = Modifier.size(24.dp)) {
+                                            Icon(Icons.Default.Close, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
                                 }
-                            },
-                            onAttachClick = { showAttachments = !showAttachments },
-                            onEmojiClick = { showEmojiPicker = !showEmojiPicker },
-                            onMicClick = { if (isRecording) stopRecording() else startRecording() },
-                            isRecording = isRecording,
-                            recordingDuration = recordingDurationSeconds
-                        )
+                            }
+
+                            ChatBottomBarUnique(
+                                text = messageText,
+                                onTextChange = { messageText = it },
+                                onSend = {
+                                    if (messageText.isNotBlank()) {
+                                        sendToServer(body = messageText.trim(), messageType = "text")
+                                        messageText = ""
+                                        keyboardController?.hide()
+                                    }
+                                },
+                                onAttachClick = { showAttachments = !showAttachments },
+                                onEmojiClick = { showEmojiPicker = !showEmojiPicker },
+                                onMicClick = { if (isRecording) stopRecording() else startRecording() },
+                                isRecording = isRecording,
+                                recordingDuration = recordingDurationSeconds
+                            )
+                        } else {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                color = Color.Transparent
+                            ) {
+                                Text(
+                                    text = "Only admins can send messages to this channel",
+                                    color = AppTextSecondary,
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -3,9 +3,11 @@ package com.example.firstapp.chat.ui.viewmodel
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.Contact
+import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.Resource
 
 data class ChatUiState(
+    val currentUser: User? = null,
     val chats: Resource<List<ChatMessage>> = Resource.Loading(),
     val archivedChats: Resource<List<ChatMessage>> = Resource.Loading(),
     val messages: Resource<List<Message>> = Resource.Loading(),

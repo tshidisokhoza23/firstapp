@@ -18,20 +18,30 @@ import java.security.spec.PKCS8EncodedKeySpec
 import com.example.firstapp.common.ui.theme.AppPrimary
 import com.example.firstapp.common.ui.theme.BoyishPurple
 import com.example.firstapp.BuildConfig
+import com.example.firstapp.common.model.ConversationType
 
 fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     val timestamp = chat.time ?: System.currentTimeMillis()
-    val id = if (chat.is_group == true && chat.group_id != null) chat.group_id else chat.contact_id
+    val id = if (chat.type == "channel" && chat.channel_id != null) chat.channel_id 
+             else if (chat.is_group == true && chat.group_id != null) chat.group_id 
+             else chat.contact_id
+             
+    val type = when (chat.type) {
+        "group" -> ConversationType.GROUP
+        "channel" -> ConversationType.CHANNEL
+        else -> if (chat.is_group == true) ConversationType.GROUP else ConversationType.DIRECT
+    }
 
     val resolvedName = chat.contact_name?.takeIf { it.isNotBlank() && !it.startsWith("User ") } 
         ?: GlobalCallState.getContactName(id)
         ?: chat.phone_number?.takeIf { it.isNotBlank() }
         ?: GlobalCallState.getContactPhone(id)
         ?: chat.contact_name?.takeIf { it.isNotBlank() }
-        ?: (if (chat.is_group == true) "Group" else "User $id")
+        ?: (if (type == ConversationType.GROUP) "Group" else if (type == ConversationType.CHANNEL) "Channel" else "User $id")
 
     return ChatMessage(
         id = id,
+        type = type,
         senderName = resolvedName,
         lastMessage = chat.last_message ?: "",
         timestamp = timestamp,
@@ -43,11 +53,14 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         isMuted = chat.is_muted ?: false,
         isPinned = chat.is_pinned ?: false,
         isTyping = false,
-        isGroup = chat.is_group ?: false,
+        isGroup = type == ConversationType.GROUP,
         isArchived = chat.is_archived ?: false,
+        isAdmin = chat.is_admin ?: false,
+        isSubscribed = true, // If it's in ChatSummary, user is part of it
         wallpaperUrl = chat.wallpaper_url,
         lastMessageIsFromMe = false,
-        lastMessageRead = false
+        lastMessageRead = false,
+        publicKey = chat.public_key
     )
 }
 
@@ -55,7 +68,7 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
     var body = apiMessage.body
     val isEncrypted = apiMessage.body.startsWith("ENC:")
     if (isEncrypted) {
-        val encryptedText = apiMessage.body.removePrefix("ENC:")
+        val encryptedText = body.removePrefix("ENC:")
         val privateKeyStr = TokenManager.getPrivateKey()
         if (privateKeyStr != null) {
             try {
@@ -131,6 +144,7 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
 
 fun ChatMessage.toEntity() = ChatEntity(
     id = id,
+    type = type,
     senderName = senderName,
     lastMessage = lastMessage,
     timestamp = timestamp,
@@ -143,6 +157,12 @@ fun ChatMessage.toEntity() = ChatEntity(
     isTyping = isTyping,
     isGroup = isGroup,
     isArchived = isArchived,
+    isAdmin = isAdmin,
+    isVerified = isVerified,
+    isSubscribed = isSubscribed,
+    createdBy = createdBy,
+    followers = followers,
+    category = category,
     wallpaperUrl = wallpaperUrl,
     customNotificationTone = customNotificationTone,
     mediaVisibility = mediaVisibility,
@@ -154,6 +174,7 @@ fun ChatMessage.toEntity() = ChatEntity(
 
 fun ChatEntity.toModel() = ChatMessage(
     id = id,
+    type = type,
     senderName = senderName,
     lastMessage = lastMessage,
     timestamp = timestamp,
@@ -167,6 +188,12 @@ fun ChatEntity.toModel() = ChatMessage(
     isTyping = isTyping,
     isGroup = isGroup,
     isArchived = isArchived,
+    isAdmin = isAdmin,
+    isVerified = isVerified,
+    isSubscribed = isSubscribed,
+    createdBy = createdBy,
+    followers = followers,
+    category = category,
     wallpaperUrl = wallpaperUrl,
     customNotificationTone = customNotificationTone,
     mediaVisibility = mediaVisibility,

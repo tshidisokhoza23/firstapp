@@ -106,7 +106,11 @@ data class ChatSummary(
     val unread_count: Int? = null,
     val avatar_url: String? = null,
     val is_group: Boolean? = false,
+    val is_admin: Boolean? = false,
     val group_id: Int? = null,
+    val channel_id: Int? = null,
+    val created_by: Int? = null,
+    val type: String? = null, // "direct", "group", "channel"
     val wallpaper_url: String? = null,
     val is_online: Boolean? = false,
     val last_seen: Long? = null,

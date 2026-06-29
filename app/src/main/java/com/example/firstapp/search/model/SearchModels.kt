@@ -20,3 +20,7 @@ data class SearchResult(
 enum class SearchType {
     CHATS, JOBS, CHANNELS, MUSIC, GLOBAL
 }
+
+enum class SearchFilter {
+    ALL, PHOTOS, VIDEOS, LINKS, GIFS, AUDIO, DOCUMENTS
+}

@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val repository: ChatRepository,
+    private val userRepository: com.example.firstapp.vocab.domain.repository.UserRepository,
     private val webRtcCallManager: WebRtcCallManager,
     private val callTonePlayer: CallTonePlayer
 ) : ViewModel() {
@@ -36,13 +37,32 @@ class ChatViewModel @Inject constructor(
     val chatSearchResults = uiState.flowMap { it.chatSearchResults }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val selectedContactsForGroup = uiState.flowMap { it.selectedContactsForGroup }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val contacts = repository.getContacts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+
+    fun fetchContacts() {
+        viewModelScope.launch {
+            repository.getContacts().collect { /* just triggering a sync */ }
+        }
+    }
+
     private var activeChatId: Int? = null
     private var messagesFetchJob: kotlinx.coroutines.Job? = null
     private val groupNameCache = mutableMapOf<Int, String>()
 
     init {
         handleIntent(ChatIntent.FetchChats)
+        fetchCurrentUser()
         connectChatRealtime()
+    }
+
+    private fun fetchCurrentUser() {
+        viewModelScope.launch {
+            userRepository.getCurrentUser().collect { resource ->
+                if (resource is Resource.Success) {
+                    _uiState.update { it.copy(currentUser = resource.data) }
+                }
+            }
+        }
     }
 
     fun handleIntent(intent: ChatIntent) {
@@ -106,6 +126,11 @@ class ChatViewModel @Inject constructor(
             repository.getMessages(chatId).collect { resource ->
                 _uiState.update { it.copy(messages = resource) }
             }
+        }
+        
+        // Also refresh chat info to ensure isAdmin/createdBy are up to date
+        viewModelScope.launch {
+            repository.getChats().collect { /* just triggering a refresh */ }
         }
     }
 

@@ -72,7 +72,7 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    fun createPost(content: String, mediaUris: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList()) {
+    fun createPost(content: String, mediaUris: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: Int? = null) {
         if (content.isBlank() && mediaUris.isEmpty()) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -95,7 +95,7 @@ class MediaViewModel @Inject constructor(
                     finalUrls.add(uriStr)
                 }
             }
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags).collect { }
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId).collect { }
             _uiState.update { it.copy(isLoading = false) }
         }
     }

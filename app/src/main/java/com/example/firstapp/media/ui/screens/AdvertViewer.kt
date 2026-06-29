@@ -57,19 +57,22 @@ fun AdvertViewer(
     LaunchedEffect(currentIndex) {
         if (currentIndex < 0 || currentIndex >= adverts.size) return@LaunchedEffect
         
-        val ad = adverts[currentIndex]
-        onAdvertViewed(ad.id)
-        
         progress.snapTo(0f)
         progress.animateTo(
             targetValue = 1f,
             animationSpec = tween(
-                durationMillis = 10000, // 10 seconds for real ads
+                durationMillis = 10000, // 10 seconds per ad
                 easing = LinearEasing
             )
         )
         
-        // Only auto-advance if we are still on the same settled page
+        // Loop logic: mark as viewed and go to next
+        val adToMark = adverts[currentIndex]
+        onAdvertViewed(adToMark.id)
+
+        // Delay slightly after progress finishes to show the ad fully
+        kotlinx.coroutines.delay(500)
+
         if (pagerState.settledPage == currentIndex) {
             if (currentIndex < adverts.size - 1) {
                 pagerState.animateScrollToPage(currentIndex + 1)

@@ -32,7 +32,11 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         com.example.firstapp.common.util.ContextProvider.context = applicationContext
-        TokenManager.initialize(this)
+        try {
+            TokenManager.initialize(this)
+        } catch (e: Exception) {
+            android.util.Log.e("FirstApp", "TokenManager init failed", e)
+        }
         scheduleSync()
     }
 
@@ -65,18 +69,22 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
     }
 
     private fun scheduleSync() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+        try {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
 
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(constraints)
-            .build()
+            val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+                .setConstraints(constraints)
+                .build()
 
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "message_sync",
-            ExistingPeriodicWorkPolicy.KEEP,
-            request
-        )
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "message_sync",
+                ExistingPeriodicWorkPolicy.KEEP,
+                request
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("FirstApp", "Failed to schedule sync", e)
+        }
     }
 }

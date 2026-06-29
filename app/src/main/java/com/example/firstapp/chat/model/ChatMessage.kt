@@ -2,9 +2,13 @@ package com.example.firstapp.chat.model
 
 import androidx.compose.ui.graphics.Color
 
+import com.example.firstapp.common.model.ConversationType
+
 data class ChatMessage(
     val id: Int,
+    val type: ConversationType = ConversationType.DIRECT,
     val senderName: String,
+    val description: String = "",
     val senderId: String = "",
     val lastMessage: String,
     val timestamp: Long, // Changed from time: String - Rule 20
@@ -18,6 +22,12 @@ data class ChatMessage(
     val isTyping: Boolean = false,
     val isGroup: Boolean = false,
     val isArchived: Boolean = false,
+    val isVerified: Boolean = false,
+    val isAdmin: Boolean = false,
+    val isSubscribed: Boolean = false,
+    val createdBy: Int? = null,
+    val followers: String = "0",
+    val category: String = "Community",
     val wallpaperUrl: String? = null,
     val customNotificationTone: String? = null,
     val mediaVisibility: Boolean = true,

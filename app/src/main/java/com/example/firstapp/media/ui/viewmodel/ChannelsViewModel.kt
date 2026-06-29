@@ -21,6 +21,9 @@ class ChannelsViewModel @Inject constructor(
     private val _channels = MutableStateFlow<Resource<List<Channel>>>(Resource.Loading())
     val channels: StateFlow<Resource<List<Channel>>> = _channels.asStateFlow()
 
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+
     init {
         fetchChannels()
     }
@@ -31,10 +34,13 @@ class ChannelsViewModel @Inject constructor(
         }
     }
 
+    fun clearToast() { _toastMessage.value = null }
+
     fun subscribeToChannel(channelId: Int) {
         viewModelScope.launch {
             repository.subscribeToChannel(channelId).collect {
                 if (it is Resource.Success) fetchChannels()
+                else if (it is Resource.Error) _toastMessage.value = it.message
             }
         }
     }
@@ -43,6 +49,7 @@ class ChannelsViewModel @Inject constructor(
         viewModelScope.launch {
             repository.muteChannel(channelId, isMuted).collect {
                 if (it is Resource.Success) fetchChannels()
+                else if (it is Resource.Error) _toastMessage.value = it.message
             }
         }
     }
@@ -50,7 +57,34 @@ class ChannelsViewModel @Inject constructor(
     fun createChannel(name: String, description: String) {
         viewModelScope.launch {
             repository.createChannel(name, description).collect {
-                if (it is Resource.Success) fetchChannels()
+                if (it is Resource.Success) {
+                    _toastMessage.value = "Channel created successfully"
+                    fetchChannels()
+                } else if (it is Resource.Error) {
+                    _toastMessage.value = it.message
+                }
+            }
+        }
+    }
+
+    fun addAdmin(channelId: Int, userId: Int) {
+        viewModelScope.launch {
+            repository.addAdmin(channelId, userId).collect {
+                if (it is Resource.Success) {
+                    _toastMessage.value = "Admin added"
+                    fetchChannels()
+                } else if (it is Resource.Error) _toastMessage.value = it.message
+            }
+        }
+    }
+
+    fun removeAdmin(channelId: Int, userId: Int) {
+        viewModelScope.launch {
+            repository.removeAdmin(channelId, userId).collect {
+                if (it is Resource.Success) {
+                    _toastMessage.value = "Admin removed"
+                    fetchChannels()
+                } else if (it is Resource.Error) _toastMessage.value = it.message
             }
         }
     }

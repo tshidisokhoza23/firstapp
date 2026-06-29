@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 import com.example.firstapp.vocab.domain.repository.UserRepository
+import java.util.Locale
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -28,6 +29,9 @@ class AuthViewModel @Inject constructor(
 
     private val _otpState = MutableStateFlow<Resource<String>?>(null)
     val otpState: StateFlow<Resource<String>?> = _otpState.asStateFlow()
+
+    private val _fieldErrors = MutableStateFlow<Map<String, String>>(emptyMap())
+    val fieldErrors: StateFlow<Map<String, String>> = _fieldErrors.asStateFlow()
 
     var lastRequestedPhone: String = ""
         private set
@@ -65,7 +69,7 @@ class AuthViewModel @Inject constructor(
                 val response = ApiClient.authApi.requestOTP(mapOf("phone_number" to phoneNumber))
                 if (response.isSuccessful) {
                     val body = response.body()
-                    val msg = body?.code?.let { "DEBUG OTP: $it" } ?: "Code sent to $phoneNumber"
+                    val msg = body?.code?.let { "DEBUG OTP: $it" } ?: "Verification code requested"
                     _otpState.value = Resource.Success(msg)
                 } else {
                     _otpState.value = Resource.Error(response.errorBody()?.string() ?: "Failed to send code")
@@ -127,5 +131,62 @@ class AuthViewModel @Inject constructor(
 
     fun resetOtpState() {
         _otpState.value = null
+    }
+
+    fun setFieldError(field: String, error: String?) {
+        val current = _fieldErrors.value.toMutableMap()
+        if (error == null) {
+            current.remove(field)
+        } else {
+            current.put(field, error)
+        }
+        _fieldErrors.value = current
+    }
+
+    fun checkAvailability(username: String? = null, email: String? = null, phone: String? = null, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _authState.value = Resource.Loading()
+            var allAvailable = false
+            try {
+                val response = ApiClient.authApi.checkAvailability(username, email, phone)
+                if (response.isSuccessful) {
+                    val availability = response.body()
+                    if (availability != null) {
+                        allAvailable = true
+                        for (entry in availability.entries) {
+                            val field = entry.key
+                            val isAvailable = entry.value
+                            if (!isAvailable) {
+                                allAvailable = false
+                                val label = when(field) {
+                                    "phone" -> "Phone number"
+                                    "username" -> "Username"
+                                    "email" -> "Email"
+                                    else -> field
+                                }
+                                setFieldError(field, "$label is already taken")
+                            } else {
+                                setFieldError(field, null)
+                            }
+                        }
+                    }
+                } else {
+                    _authState.value = Resource.Error("Availability check failed")
+                }
+            } catch (e: Exception) {
+                _authState.value = Resource.Error("Connection error: ${e.localizedMessage}")
+            }
+
+            if (allAvailable) {
+                _authState.value = null
+            } else if (_authState.value !is Resource.Error) {
+                _authState.value = Resource.Error("Some details are already taken")
+            }
+            onResult(allAvailable)
+        }
+    }
+
+    fun clearFieldErrors() {
+        _fieldErrors.value = emptyMap()
     }
 }

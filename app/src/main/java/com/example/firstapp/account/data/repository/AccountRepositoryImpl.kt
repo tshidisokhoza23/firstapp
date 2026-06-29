@@ -22,7 +22,8 @@ import javax.inject.Inject
 class AccountRepositoryImpl @Inject constructor(
     private val userApi: UserApi,
     private val mediaApi: MediaApi,
-    private val contactDao: ContactDao
+    private val contactDao: ContactDao,
+    private val chatRepository: javax.inject.Provider<com.example.firstapp.domain.repository.ChatRepository>
 ) : AccountRepository {
 
     override fun getCurrentUser(): Flow<Resource<User>> = flow {
@@ -52,15 +53,8 @@ class AccountRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
-    override fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>> = flow {
-        try {
-            emit(Resource.Loading())
-            val res = userApi.search("") // Fallback or use a specific sync endpoint if available in UserApi
-            // For now, let's assume we use the chatApi for sync in a real app, but here we try to keep it in account.
-            // Actually, syncContacts was in ChatApi earlier. Let's move it to UserApi if it's "account" related.
-            // Wait, I put syncContacts in ChatApi.
-            emit(Resource.Error("Use ChatRepository for syncContacts"))
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+    override fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>> {
+        return chatRepository.get().syncContacts(phoneNumbers)
     }
 
     override fun getPrivacySettings(): Flow<Resource<PrivacySettings>> = flow {

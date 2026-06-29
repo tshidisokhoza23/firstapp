@@ -39,7 +39,8 @@ class CallListenerService : Service() {
     @Inject lateinit var callTonePlayer: CallTonePlayer
 
     private val activeIncomingNotifications = ConcurrentHashMap<String, Int>()
-    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val serviceJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
     
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -157,8 +158,8 @@ class CallListenerService : Service() {
             GlobalCallState.incomingCall.collect { call ->
                 if (call == null) {
                     val manager = getSystemService(NotificationManager::class.java)
-                    activeIncomingNotifications.forEach { (_, id) ->
-                        manager.cancel(id)
+                    activeIncomingNotifications.values.forEach { id ->
+                        manager?.cancel(id)
                     }
                     activeIncomingNotifications.clear()
                 }
@@ -275,16 +276,10 @@ class CallListenerService : Service() {
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
         connectivityManager.unregisterNetworkCallback(networkCallback)
         CallWebSocketClient.disconnect(listener)
-        if (TokenManager.isLoggedIn()) {
-            scheduleRestart()
-        }
         super.onDestroy()
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (TokenManager.isLoggedIn()) {
-            scheduleRestart()
-        }
         super.onTaskRemoved(rootIntent)
     }
 
@@ -382,18 +377,19 @@ class CallListenerService : Service() {
             return
         }
 
-        val manager = getSystemService(NotificationManager::class.java)
+        val manager = getSystemService(NotificationManager::class.java) ?: return
 
+        // 1. Service Channel (Minimized)
         val serviceChannel = NotificationChannel(
             CHANNEL_CALL_SERVICE,
-            "Call listener",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Keeps incoming call listener active"
-            setSound(null, null)
-            enableVibration(false)
-        }
+            "System Service",
+            NotificationManager.IMPORTANCE_MIN
+        )
+        serviceChannel.description = "Background connectivity"
+        serviceChannel.setShowBadge(false)
+        manager.createNotificationChannel(serviceChannel)
 
+        // 2. Incoming Call Channel (High Priority)
         val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
@@ -404,15 +400,13 @@ class CallListenerService : Service() {
             CHANNEL_INCOMING_CALLS,
             "Incoming calls",
             NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Alerts for incoming calls"
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            setSound(ringtoneUri, audioAttributes)
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 1000, 1000)
-        }
+        )
+        incomingChannel.description = "Alerts for incoming calls"
+        incomingChannel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        incomingChannel.setSound(ringtoneUri, audioAttributes)
+        incomingChannel.enableVibration(true)
+        incomingChannel.vibrationPattern = longArrayOf(0, 1000, 1000)
 
-        manager.createNotificationChannel(serviceChannel)
         manager.createNotificationChannel(incomingChannel)
     }
 
@@ -431,19 +425,6 @@ class CallListenerService : Service() {
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun scheduleRestart() {
-        val restartIntent = Intent(applicationContext, CallListenerService::class.java)
-        val pendingIntent = PendingIntent.getService(
-            this,
-            9020,
-            restartIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val alarmManager = getSystemService(AlarmManager::class.java)
-        val triggerAt = System.currentTimeMillis() + 1500L
-        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
     }
 
     companion object {

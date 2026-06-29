@@ -94,7 +94,7 @@ class MainActivity : FragmentActivity() {
         }
 
         // Prevent screenshots and screen recording for high security
-        window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        // window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
 
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
@@ -113,6 +113,9 @@ class MainActivity : FragmentActivity() {
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
         }
         if (permissionsToRequest.isNotEmpty()) {
             requestPermissions(permissionsToRequest.toTypedArray(), 2002)
@@ -134,8 +137,8 @@ class MainActivity : FragmentActivity() {
                 val navController = rememberNavController()
                 val viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-                var isLoggedIn by remember { mutableStateOf(TokenManager.isLoggedIn()) }
-                var isAppLocked by remember { mutableStateOf(isLoggedIn) }
+                val isLoggedIn by TokenManager.authState.collectAsState()
+                var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }
 
                 LaunchedEffect(isLoggedIn) {
                     if (isLoggedIn && BiometricHelper.isBiometricAvailable(this@MainActivity)) {
@@ -152,10 +155,19 @@ class MainActivity : FragmentActivity() {
 
                 LaunchedEffect(isLoggedIn) {
                     android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn")
+                    if (!isLoggedIn) {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                     val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
                     if (isLoggedIn) {
-                        ContextCompat.startForegroundService(applicationContext, serviceIntent)
-                        PushTokenRegistrar.syncCurrentToken(applicationContext)
+                        try {
+                            ContextCompat.startForegroundService(applicationContext, serviceIntent)
+                            PushTokenRegistrar.syncCurrentToken(applicationContext)
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainActivity", "Failed to start CallListenerService", e)
+                        }
                     } else {
                         applicationContext.stopService(serviceIntent)
                     }
@@ -172,7 +184,6 @@ class MainActivity : FragmentActivity() {
                             musicViewModel = musicViewModel,
                             onLogout = {
                                 TokenManager.clear()
-                                isLoggedIn = false
                                 navController.navigate(Screen.Login.route) {
                                     popUpTo(0) { inclusive = true }
                                 }
@@ -233,7 +244,11 @@ class MainActivity : FragmentActivity() {
         super.onResume()
         if (TokenManager.isLoggedIn()) {
             val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
-            ContextCompat.startForegroundService(applicationContext, serviceIntent)
+            try {
+                ContextCompat.startForegroundService(applicationContext, serviceIntent)
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Failed to start service on resume", e)
+            }
         }
     }
 

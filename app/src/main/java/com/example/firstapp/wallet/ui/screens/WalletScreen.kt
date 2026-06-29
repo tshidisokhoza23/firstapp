@@ -81,7 +81,7 @@ fun WalletScreen(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "$points",
+                                text = java.lang.String.format(java.util.Locale.US, "%.1f", points),
                                 color = Color.White,
                                 fontSize = 48.sp,
                                 fontWeight = FontWeight.Black

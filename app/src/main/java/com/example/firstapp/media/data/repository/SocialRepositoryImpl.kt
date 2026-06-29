@@ -80,7 +80,22 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.createPost(com.example.firstapp.media.data.api.CreatePostRequest(content, mediaUrls, postType ?: "text_only", null, tags)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun getChannelPosts(channelId: Int, page: Int): Flow<Resource<List<Post>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.getPosts(page, channelId = channelId)
+            if (response.isSuccessful) {
+                val posts = response.body()?.posts?.map { mapApiPost(it) } ?: emptyList()
+                emit(Resource.Success(posts))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Error"))
+        }
+    }
+
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: Int?): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.createPost(com.example.firstapp.media.data.api.CreatePostRequest(content, mediaUrls, postType ?: "text_only", null, tags, null, channelId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     
     override fun likePost(postId: Int): Flow<Resource<Boolean>> = flow {
         try {

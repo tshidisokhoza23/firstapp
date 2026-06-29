@@ -10,4 +10,6 @@ interface ChannelRepository {
     fun muteChannel(channelId: Int, isMuted: Boolean): Flow<Resource<Boolean>>
     fun createChannel(name: String, description: String): Flow<Resource<Boolean>>
     fun searchChannels(query: String): Flow<List<Channel>>
+    fun addAdmin(channelId: Int, userId: Int): Flow<Resource<Boolean>>
+    fun removeAdmin(channelId: Int, userId: Int): Flow<Resource<Boolean>>
 }

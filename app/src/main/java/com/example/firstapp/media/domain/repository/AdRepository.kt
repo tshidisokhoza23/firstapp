@@ -8,5 +8,6 @@ interface AdRepository {
     fun getAdverts(): Flow<Resource<List<Advert>>>
     fun getViewedAdverts(): Flow<Resource<List<Advert>>>
     fun markAdvertViewed(advertId: Int): Flow<Resource<Boolean>>
+    fun resetAds(): Flow<Resource<Unit>>
     suspend fun clearLocalAdverts()
 }

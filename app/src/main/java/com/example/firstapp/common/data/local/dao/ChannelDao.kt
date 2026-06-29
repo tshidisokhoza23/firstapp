@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChannelDao {
-    @Query("SELECT * FROM channels")
+    @Query("SELECT * FROM channels ORDER BY CAST(followers AS INTEGER) DESC")
     fun getChannels(): Flow<List<ChannelEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -27,6 +27,6 @@ interface ChannelDao {
     @Query("UPDATE channels SET isMuted = :isMuted WHERE id = :channelId")
     suspend fun updateMuted(channelId: Int, isMuted: Boolean)
 
-    @Query("SELECT * FROM channels WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%' OR LOWER(description) LIKE '%' || LOWER(:query) || '%'")
+    @Query("SELECT * FROM channels WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%' OR LOWER(description) LIKE '%' || LOWER(:query) || '%' ORDER BY CAST(followers AS INTEGER) DESC")
     fun searchChannels(query: String): Flow<List<ChannelEntity>>
 }

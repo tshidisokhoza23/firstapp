@@ -26,19 +26,32 @@ import com.example.firstapp.common.util.CryptoUtils
 import java.security.KeyFactory
 import java.security.spec.PKCS8EncodedKeySpec
 import com.example.firstapp.chat.data.GlobalCallState
+import com.example.firstapp.common.model.ConversationType
+import com.example.firstapp.common.model.Conversation
+import com.example.firstapp.common.model.canPost
 
 fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     val timestamp = chat.time ?: System.currentTimeMillis()
-    val id = if (chat.is_group == true && chat.group_id != null) chat.group_id else chat.contact_id
+    val id = if (chat.type == "channel" && chat.channel_id != null) chat.channel_id 
+             else if (chat.is_group == true && chat.group_id != null) chat.group_id 
+             else chat.contact_id
+             
+    val type = when (chat.type) {
+        "group" -> ConversationType.GROUP
+        "channel" -> ConversationType.CHANNEL
+        else -> if (chat.is_group == true) ConversationType.GROUP else ConversationType.DIRECT
+    }
+
     val resolvedName = chat.contact_name?.takeIf { it.isNotBlank() && !it.startsWith("User ") } 
         ?: GlobalCallState.getContactName(id)
         ?: chat.phone_number?.takeIf { it.isNotBlank() }
         ?: GlobalCallState.getContactPhone(id)
         ?: chat.contact_name?.takeIf { it.isNotBlank() }
-        ?: (if (chat.is_group == true) "Group" else "User $id")
+        ?: (if (type == ConversationType.GROUP) "Group" else if (type == ConversationType.CHANNEL) "Channel" else "User $id")
 
     return ChatMessage(
         id = id,
+        type = type,
         senderName = resolvedName,
         lastMessage = chat.last_message ?: "",
         timestamp = timestamp,
@@ -50,8 +63,11 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         isMuted = chat.is_muted ?: false,
         isPinned = chat.is_pinned ?: false,
         isTyping = false,
-        isGroup = chat.is_group ?: false,
+        isGroup = type == ConversationType.GROUP,
         isArchived = chat.is_archived ?: false,
+        isAdmin = chat.is_admin ?: false,
+        isSubscribed = true, // If it's in ChatSummary, user is part of it
+        createdBy = chat.created_by,
         wallpaperUrl = chat.wallpaper_url,
         lastMessageIsFromMe = false,
         lastMessageRead = false,
@@ -129,6 +145,21 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
     )
 }
 
+fun mapApiCallLog(apiCall: ApiCallLog) = CallLog(
+    id = apiCall.id,
+    sessionId = apiCall.session_id,
+    callerId = apiCall.caller_id,
+    calleeId = apiCall.callee_id,
+    contactId = apiCall.contact_id,
+    contactName = apiCall.contact_name,
+    contactAvatar = formatUrl(apiCall.contact_avatar),
+    callType = apiCall.call_type,
+    status = apiCall.status,
+    durationSeconds = apiCall.duration_seconds,
+    timestamp = apiCall.started_at,
+    endedAt = apiCall.ended_at?.toString()
+)
+
 fun mapApiContact(apiUser: ApiUser) = Contact(apiUser.id, apiUser.username, apiUser.display_name.takeIf { it.isNotBlank() && !it.startsWith("User ") } ?: apiUser.phone_number ?: apiUser.username, formatUrl(apiUser.avatar_url), apiUser.phone_number ?: "", apiUser.phone_number != null, true, apiUser.is_verified, apiUser.bio, apiUser.public_key)
 
 fun mapApiPost(apiPost: ApiPost) = Post(id = apiPost.id, authorId = apiPost.author_id, authorName = apiPost.author?.display_name ?: "Unknown", authorHandle = apiPost.author?.username ?: "", authorAvatarUrl = formatUrl(apiPost.author?.avatar_url), authorAvatarColor = AppPrimary, isVerifiedAuthor = apiPost.author?.is_verified ?: false, content = apiPost.content, mediaUrls = apiPost.media_urls?.map { formatUrl(it) } ?: emptyList(), timestamp = apiPost.created_at ?: "", likes = apiPost.likes.toString(), repliesCount = apiPost.replies_count.toString(), shares = apiPost.shares.toString(), views = apiPost.views.toString(), type = when (apiPost.post_type) { "image_with_text" -> PostType.IMAGE_WITH_TEXT; "video_with_text" -> PostType.VIDEO_WITH_TEXT; "article" -> PostType.ARTICLE; "poll" -> PostType.POLL; "song" -> PostType.SONG; else -> PostType.TEXT_ONLY }, mediaPlaceholderColor = AppPrimary.copy(0.2f), hasThread = apiPost.has_thread, threadCount = apiPost.thread_count, isLiked = apiPost.is_liked, isReposted = apiPost.is_reposted, isBookmarked = apiPost.is_bookmarked, isAuthorFollowed = apiPost.is_followed, replies = apiPost.replies?.map { mapApiPostReply(it) } ?: emptyList(), poll = apiPost.poll?.let { apiPoll -> PostPoll(expiresAt = apiPoll.expires_at, options = apiPoll.options.map { PollOption(it.id, it.option_text, it.vote_count) }, userVote = apiPoll.user_vote) }, location = apiPost.location, tags = apiPost.tags ?: emptyList())
@@ -137,14 +168,90 @@ fun mapApiPostReply(apiReply: ApiPostReply): PostReply = PostReply(id = apiReply
 
 fun mapApiStory(apiStory: ApiStoryResponse) = UserStory(id = apiStory.user_id, userName = apiStory.user_name, userAvatarUrl = formatUrl(apiStory.avatar_url), userAvatarColor = Color(0xFF455A64), stories = apiStory.stories.map { StoryItem(id = it.id, content = it.content ?: "", contentUrl = formatUrl(it.content_url), type = when (it.story_type) { "video" -> StoryType.VIDEO; "image" -> StoryType.IMAGE; else -> StoryType.TEXT }, timestamp = it.created_at?.let { ts -> java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ts)) } ?: "", createdAt = it.created_at ?: System.currentTimeMillis(), backgroundColor = Color(0xFF546E7A).copy(0.75f), isViewed = it.is_viewed ?: false, durationMs = it.duration_ms ?: 5000) }, lastUpdated = apiStory.stories.firstOrNull()?.created_at?.toString() ?: "recently", isMuted = false)
 
-fun mapApiAdvert(apiAd: ApiAdvert) = Advert(id = apiAd.id, advertiserName = apiAd.advertiser_name, advertiserId = apiAd.advertiser_id ?: "", title = apiAd.title ?: "", time = apiAd.created_at ?: apiAd.time ?: "", avatarUrl = formatUrl(apiAd.avatar_url), avatarColor = Color(0xFF283593), contentUrl = formatUrl(apiAd.content_url), contentColor = Color(0xFFE8EAF6), contentText = apiAd.content_text, actionText = apiAd.action_text ?: "Learn More", targetUrl = apiAd.target_url ?: "", isSponsored = apiAd.is_sponsored, impressions = apiAd.impressions.toString(), clicks = apiAd.clicks.toString(), isNativeAd = apiAd.is_native_ad, isViewed = apiAd.is_viewed)
+fun mapApiAdvert(apiAd: ApiAdvert) = Advert(
+    id = apiAd.id,
+    advertiserName = apiAd.advertiser_name,
+    advertiserId = apiAd.advertiser_id ?: "",
+    title = apiAd.title ?: "",
+    time = apiAd.created_at?.toString() ?: apiAd.time ?: "",
+    avatarUrl = formatUrl(apiAd.avatar_url),
+    avatarColor = Color(0xFF283593),
+    contentUrl = formatUrl(apiAd.content_url),
+    contentColor = Color(0xFFE8EAF6),
+    contentText = apiAd.content_text,
+    actionText = apiAd.action_text ?: "Learn More",
+    targetUrl = apiAd.target_url ?: "",
+    isSponsored = apiAd.is_sponsored,
+    impressions = apiAd.impressions.toString(),
+    clicks = apiAd.clicks.toString(),
+    isNativeAd = apiAd.is_native_ad,
+    isViewed = apiAd.is_viewed
+)
 
-fun mapApiChannel(apiChannel: ApiChannel) = Channel(id = apiChannel.id, name = apiChannel.name, description = apiChannel.description ?: "", followers = (apiChannel.followers).toString(), avatarUrl = formatUrl(apiChannel.avatar_url), avatarColor = Color(0xFF1A237E), isVerified = apiChannel.is_verified, isSubscribed = apiChannel.is_subscribed, category = apiChannel.category ?: "Community", lastPostText = apiChannel.last_post_text ?: "", lastPostImageUrl = formatUrl(apiChannel.last_post_image_url), lastPostImageColor = Color(0xFFE8EAF6), lastPostTime = apiChannel.last_post_time ?: "")
+fun mapApiChannel(apiChannel: ApiChannel) = Channel(id = apiChannel.id, name = apiChannel.name, description = apiChannel.description ?: "", followers = (apiChannel.followers).toString(), avatarUrl = formatUrl(apiChannel.avatar_url), avatarColor = Color(0xFF1A237E), isVerified = apiChannel.is_verified, isSubscribed = apiChannel.is_subscribed, isAdmin = apiChannel.is_admin, category = apiChannel.category ?: "Community", createdBy = apiChannel.created_by, lastPostText = apiChannel.last_post_text ?: "", lastPostImageUrl = formatUrl(apiChannel.last_post_image_url), lastPostImageColor = Color(0xFFE8EAF6), lastPostTime = apiChannel.last_post_time ?: "")
 
 fun mapApiShort(apiShort: ApiShort) = AppShort(id = apiShort.id, creatorName = apiShort.creator_name, description = apiShort.description, likes = apiShort.likes.toString(), comments = apiShort.comments.toString(), shares = apiShort.shares.toString(), videoUrl = formatUrl(apiShort.video_url), thumbnailUrl = formatUrl(apiShort.thumbnail_url), thumbnailColor = Color.Black, profilePictureColor = Color.Gray, isLiked = apiShort.is_liked, isSubscribed = apiShort.is_subscribed)
 
-fun ChatMessage.toEntity() = ChatEntity(id = id, senderName = senderName, lastMessage = lastMessage, timestamp = timestamp, unreadCount = unreadCount, lastSeen = lastSeen, avatarUrl = avatarUrl, isOnline = isOnline, isMuted = isMuted, isPinned = isPinned, isTyping = isTyping, isGroup = isGroup, isArchived = isArchived, wallpaperUrl = wallpaperUrl, customNotificationTone = customNotificationTone, mediaVisibility = mediaVisibility, disappearingMessagesDuration = disappearingMessagesDuration, lastMessageIsFromMe = lastMessageIsFromMe, lastMessageRead = lastMessageRead, publicKey = publicKey)
-fun ChatEntity.toModel() = ChatMessage(id = id, senderName = senderName, lastMessage = lastMessage, timestamp = timestamp, unreadCount = unreadCount, lastSeen = lastSeen, avatarColor = AppPrimary, avatarUrl = avatarUrl, isOnline = isOnline, isMuted = isMuted, isPinned = isPinned, isTyping = isTyping, isGroup = isGroup, isArchived = isArchived, wallpaperUrl = wallpaperUrl, customNotificationTone = customNotificationTone, mediaVisibility = mediaVisibility, disappearingMessagesDuration = disappearingMessagesDuration, lastMessageIsFromMe = lastMessageIsFromMe, lastMessageRead = lastMessageRead, publicKey = publicKey)
+fun ChatMessage.toEntity() = ChatEntity(
+    id = id,
+    type = type,
+    senderName = senderName,
+    lastMessage = lastMessage,
+    timestamp = timestamp,
+    unreadCount = unreadCount,
+    lastSeen = lastSeen,
+    avatarUrl = avatarUrl,
+    isOnline = isOnline,
+    isMuted = isMuted,
+    isPinned = isPinned,
+    isTyping = isTyping,
+    isGroup = isGroup,
+    isArchived = isArchived,
+    isAdmin = isAdmin,
+    isVerified = isVerified,
+    isSubscribed = isSubscribed,
+    createdBy = createdBy,
+    followers = followers,
+    category = category,
+    wallpaperUrl = wallpaperUrl,
+    customNotificationTone = customNotificationTone,
+    mediaVisibility = mediaVisibility,
+    disappearingMessagesDuration = disappearingMessagesDuration,
+    lastMessageIsFromMe = lastMessageIsFromMe,
+    lastMessageRead = lastMessageRead,
+    publicKey = publicKey
+)
+
+fun ChatEntity.toModel() = ChatMessage(
+    id = id,
+    type = type,
+    senderName = senderName,
+    lastMessage = lastMessage,
+    timestamp = timestamp,
+    unreadCount = unreadCount,
+    lastSeen = lastSeen,
+    avatarColor = AppPrimary,
+    avatarUrl = avatarUrl,
+    isOnline = isOnline,
+    isMuted = isMuted,
+    isPinned = isPinned,
+    isTyping = isTyping,
+    isGroup = isGroup,
+    isArchived = isArchived,
+    isAdmin = isAdmin,
+    isVerified = isVerified,
+    isSubscribed = isSubscribed,
+    createdBy = createdBy,
+    followers = followers,
+    category = category,
+    wallpaperUrl = wallpaperUrl,
+    customNotificationTone = customNotificationTone,
+    mediaVisibility = mediaVisibility,
+    disappearingMessagesDuration = disappearingMessagesDuration,
+    lastMessageIsFromMe = lastMessageIsFromMe,
+    lastMessageRead = lastMessageRead,
+    publicKey = publicKey
+)
 fun Message.toEntity(chatId: Int) = MessageEntity(id, chatId, content, senderId, senderName, timestamp, isFromMe, type, duration, mediaUri, fileName, fileSize, contactName, contactPhone, latitude, longitude, isRead, isDelivered, replyToId, replyToText, replyToSenderName, senderAvatarUrl, isStarred, isViewOnce, expiresAt, status, reactions, isEncrypted, clientId)
 fun MessageEntity.toModel() = Message(id = id, chatId = chatId, content = content, senderId = senderId, senderName = senderName, timestamp = timestamp, isFromMe = isFromMe, type = type, duration = duration, mediaUri = mediaUri, fileName = fileName, fileSize = fileSize, contactName = contactName, contactPhone = contactPhone, latitude = latitude, longitude = longitude, isRead = isRead, isDelivered = isDelivered, replyToId = replyToId, replyToText = replyToText, replyToSenderName = replyToSenderName, senderAvatarUrl = senderAvatarUrl, isStarred = isStarred, isViewOnce = isViewOnce, expiresAt = expiresAt, status = status, reactions = reactions, isEncrypted = isEncrypted, clientId = clientId)
 fun ChatSummary.toEntity() = mapApiChatSummary(this).toEntity()
@@ -177,8 +284,8 @@ fun AdvertEntity.toModel() = Advert(
     isViewed = isViewed
 )
 
-fun Channel.toEntity() = ChannelEntity(id = id, name = name, description = description, followers = followers, avatarUrl = avatarUrl, avatarColor = avatarColor.toArgb(), isVerified = isVerified, isSubscribed = isSubscribed, isMuted = isMuted, category = category, lastPostText = lastPostText, lastPostImageUrl = lastPostImageUrl, lastPostImageColor = lastPostImageColor.toArgb(), lastPostTime = lastPostTime)
-fun ChannelEntity.toModel() = Channel(id = id, name = name, description = description, followers = followers, avatarUrl = avatarUrl, avatarColor = Color(avatarColor), isVerified = isVerified, isSubscribed = isSubscribed, isMuted = isMuted, category = category, lastPostText = lastPostText, lastPostImageUrl = lastPostImageUrl, lastPostImageColor = Color(lastPostImageColor), lastPostTime = lastPostTime)
+fun Channel.toEntity() = ChannelEntity(id = id, name = name, description = description, followers = followers, avatarUrl = avatarUrl, avatarColor = avatarColor.toArgb(), isVerified = isVerified, isSubscribed = isSubscribed, isAdmin = isAdmin, isMuted = isMuted, category = category, createdBy = createdBy, lastPostText = lastPostText, lastPostImageUrl = lastPostImageUrl, lastPostImageColor = lastPostImageColor.toArgb(), lastPostTime = lastPostTime)
+fun ChannelEntity.toModel() = Channel(id = id, name = name, description = description, followers = followers, avatarUrl = avatarUrl, avatarColor = Color(avatarColor), isVerified = isVerified, isSubscribed = isSubscribed, isAdmin = isAdmin, isMuted = isMuted, category = category, createdBy = createdBy, lastPostText = lastPostText, lastPostImageUrl = lastPostImageUrl, lastPostImageColor = Color(lastPostImageColor), lastPostTime = lastPostTime)
 
 fun Post.toEntity() = PostEntity(id, authorId, authorName, authorHandle, authorAvatarUrl, authorAvatarColor.toArgb(), isVerifiedAuthor, content, mediaUrls, timestamp, likes, repliesCount, shares, views, type, mediaPlaceholderColor?.toArgb(), hasThread, threadCount, isLiked, isReposted, isBookmarked, isAuthorFollowed, replies, poll, location, tags)
 fun PostEntity.toModel() = Post(id = id, authorId = authorId, authorName = authorName, authorHandle = authorHandle, authorAvatarUrl = authorAvatarUrl, Color(authorAvatarColor), isVerifiedAuthor = isVerifiedAuthor, content = content, mediaUrls = mediaUrls, timestamp = timestamp, likes = likes, repliesCount = repliesCount, shares = shares, views = views, type = type, mediaPlaceholderColor = mediaPlaceholderColor?.let { Color(it) }, hasThread = hasThread, threadCount = threadCount, isLiked = isLiked, isReposted = isReposted, isBookmarked = isBookmarked, isAuthorFollowed = isAuthorFollowed, replies = replies, poll = poll, location = location, tags = tags)

@@ -35,9 +35,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         PlaylistEntity::class,
         PlaylistSongCrossRef::class,
         RecentlyPlayedEntity::class,
-        PostRemoteKeys::class
+        PostRemoteKeys::class,
+        MessageFtsEntity::class
     ], 
-    version = 29,
+    version = 33,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -64,7 +65,7 @@ abstract class AppDatabase : RoomDatabase() {
     }
 
     companion object {
-        const val DATABASE_NAME = "firstapp_v6_encrypted.db"
+        const val DATABASE_NAME = "firstapp_v7_encrypted.db"
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -79,7 +80,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val passphrase = com.example.firstapp.common.data.TokenManager.getDbPassphrase().toByteArray()
                 val factory = SupportOpenHelperFactory(passphrase)
 
-                instance ?: androidx.room.Room.databaseBuilder(
+                val db = androidx.room.Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     DATABASE_NAME
@@ -87,7 +88,10 @@ abstract class AppDatabase : RoomDatabase() {
                 .openHelperFactory(factory)
                 .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
                 .fallbackToDestructiveMigration()
-                .build().also { instance = it }
+                .build()
+                
+                instance = db
+                db
             }
         }
     }

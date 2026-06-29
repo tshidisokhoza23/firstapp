@@ -11,6 +11,7 @@ import com.example.firstapp.common.ui.theme.AppPrimary
 import com.example.firstapp.common.ui.theme.AppAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.example.firstapp.common.data.repository.formatUrl
 import com.example.firstapp.BuildConfig
 
 fun mapApiPost(apiPost: ApiPost): Post = Post(
@@ -142,12 +143,3 @@ fun StoryEntity.toModel() = UserStory(id, userId, userName, userAvatarUrl, Color
 
 fun ShortMedia.toEntity() = ShortEntity(id, creatorName, description, likes, comments, shares, videoUrl, thumbnailUrl, thumbnailColor.toArgb(), profilePictureColor.toArgb(), isLiked, isSubscribed)
 fun ShortEntity.toModel() = ShortMedia(id, creatorName, description, likes, comments, shares, videoUrl, thumbnailUrl, Color(thumbnailColor), Color(profilePictureColor), isLiked, isSubscribed)
-
-fun formatUrl(url: String?): String {
-    if (url == null || url.isBlank()) return ""
-    if (url.startsWith("http") || url.startsWith("https") || url.startsWith("data:") || url.startsWith("local://") || url.startsWith("file://")) {
-        return url
-    }
-    val baseUrl = BuildConfig.API_BASE_URL.removeSuffix("/api/v1").removeSuffix("/api/v1/")
-    return if (url.startsWith("/")) "$baseUrl$url" else "$baseUrl/$url"
-}

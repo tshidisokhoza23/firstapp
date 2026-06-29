@@ -30,7 +30,8 @@ class MusicRepositoryImpl @Inject constructor(
         try {
             val response = musicApi.getSongs()
             if (response.isSuccessful && response.body() != null) {
-                val songs = response.body()!!.songs.map { apiSong -> 
+                val apiSongs = response.body()?.songs ?: emptyList()
+                val mappedSongs = apiSongs.map { apiSong -> 
                     Song(
                         id = apiSong.id, 
                         title = apiSong.title, 
@@ -50,7 +51,7 @@ class MusicRepositoryImpl @Inject constructor(
                     ) 
                 }
                 songDao.clearSongs()
-                songDao.insertSongs(songs.map { it.toEntity() })
+                songDao.insertSongs(mappedSongs.map { it.toEntity() })
             }
         } catch (e: Exception) {
             Log.e("MusicRepositoryImpl", "getSongs failed", e)
@@ -90,8 +91,8 @@ class MusicRepositoryImpl @Inject constructor(
         try {
             val response = musicApi.getPlaylists()
             if (response.isSuccessful && response.body() != null) {
-                val playlists = response.body()!!.playlists
-                playlistDao.insertPlaylists(playlists.map { it.toEntity() })
+                val playlistList = response.body()?.playlists ?: emptyList()
+                playlistDao.insertPlaylists(playlistList.map { it.toEntity() })
             }
         } catch (_: Exception) {}
         playlistDao.getPlaylists().collect { entities ->
@@ -189,30 +190,31 @@ class MusicRepositoryImpl @Inject constructor(
         try {
             val response = musicApi.search(query)
             if (response.isSuccessful && response.body() != null) {
-                val body = response.body()!!
+                val apiSongs = response.body()?.songs ?: emptyList()
+                val mappedSongs = apiSongs.map { apiSong ->
+                    Song(
+                        id = apiSong.id,
+                        title = apiSong.title,
+                        artist = apiSong.artist,
+                        artistId = apiSong.artist_id ?: "",
+                        albumName = apiSong.album_name ?: "",
+                        albumArtUrl = formatUrl(apiSong.album_art_url),
+                        albumArtColor = androidx.compose.ui.graphics.Color(0xFF6A1B9A),
+                        audioUrl = formatUrl(apiSong.audio_url),
+                        duration = apiSong.duration ?: "",
+                        category = apiSong.category ?: "",
+                        lyrics = apiSong.lyrics ?: "",
+                        releaseDate = apiSong.release_date ?: "",
+                        playCount = apiSong.play_count.toString(),
+                        isLiked = apiSong.is_liked,
+                        isExplicit = apiSong.is_explicit
+                    )
+                }
                 emit(Resource.Success(SearchResult(
                     chats = emptyList(),
                     contacts = emptyList(),
                     messages = emptyList(),
-                    songs = body.songs.map { apiSong ->
-                        Song(
-                            id = apiSong.id,
-                            title = apiSong.title,
-                            artist = apiSong.artist,
-                            artistId = apiSong.artist_id ?: "",
-                            albumName = apiSong.album_name ?: "",
-                            albumArtUrl = formatUrl(apiSong.album_art_url),
-                            albumArtColor = androidx.compose.ui.graphics.Color(0xFF6A1B9A),
-                            audioUrl = formatUrl(apiSong.audio_url),
-                            duration = apiSong.duration ?: "",
-                            category = apiSong.category ?: "",
-                            lyrics = apiSong.lyrics ?: "",
-                            releaseDate = apiSong.release_date ?: "",
-                            playCount = apiSong.play_count.toString(),
-                            isLiked = apiSong.is_liked,
-                            isExplicit = apiSong.is_explicit
-                        )
-                    },
+                    songs = mappedSongs,
                     artists = emptyList() // The new endpoint only returns songs for now
                 )))
             } else {

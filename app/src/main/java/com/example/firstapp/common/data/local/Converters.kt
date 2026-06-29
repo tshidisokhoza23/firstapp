@@ -1,6 +1,7 @@
 package com.example.firstapp.common.data.local
 
 import androidx.room.TypeConverter
+import com.example.firstapp.common.model.ConversationType
 import com.example.firstapp.chat.model.MessageStatus
 import com.example.firstapp.chat.model.MessageType
 import com.example.firstapp.drive.model.DestinationType
@@ -11,6 +12,12 @@ import com.google.gson.reflect.TypeToken
 
 class Converters {
     private val gson = Gson()
+
+    @TypeConverter
+    fun fromConversationType(value: ConversationType): String = value.name
+
+    @TypeConverter
+    fun toConversationType(value: String): ConversationType = ConversationType.valueOf(value)
 
     @TypeConverter
     fun fromMessageType(value: MessageType): String = value.name

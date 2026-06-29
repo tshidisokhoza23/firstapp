@@ -28,7 +28,7 @@ data class UserEntity(
     val targetLanguage: String = "Spanish",
     val streakFreezes: Int = 0,
     val lastStreakActivity: Long = 0,
-    val walletBalance: Int = 0,
+    val walletBalance: Double = 0.0,
     val bannerUrl: String? = null,
     val isArtist: Boolean = false,
     val jobFullName: String? = null,

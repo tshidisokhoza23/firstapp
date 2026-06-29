@@ -2,13 +2,13 @@ package com.example.firstapp.ui.navigation
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
-    object Main : Screen("main")
+    object Main : Screen("main?tab={tab}")
     object OtpVerification : Screen("otp_verification/{phoneNumber}/{username}/{email}/{displayName}/{password}") {
         fun createRoute(phoneNumber: String, username: String, email: String, displayName: String, password: String) = 
             "otp_verification/${android.net.Uri.encode(phoneNumber)}/${android.net.Uri.encode(username)}/${android.net.Uri.encode(email)}/${android.net.Uri.encode(displayName)}/${android.net.Uri.encode(password)}"
     }
-    object Chat : Screen("chat/{chatId}?isGroup={isGroup}") {
-        fun createRoute(chatId: Int, isGroup: Boolean = false) = "chat/$chatId?isGroup=$isGroup"
+    object Chat : Screen("chat/{chatId}?type={type}") {
+        fun createRoute(chatId: Int, type: String = "direct") = "chat/$chatId?type=$type"
     }
     object Vocab : Screen("vocab")
     object Files : Screen("files")

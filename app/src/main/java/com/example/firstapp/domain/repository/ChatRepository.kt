@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 interface ChatRepository {
     fun getChats(): Flow<Resource<List<ChatMessage>>>
     fun getContacts(): Flow<Resource<List<Contact>>>
+    fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
     fun getArchivedChats(): Flow<Resource<List<ChatMessage>>>
     fun getCallLogs(): Flow<Resource<List<CallLog>>>
     fun getMessages(chatId: Int, page: Int = 1): Flow<Resource<List<Message>>>
@@ -69,6 +70,6 @@ interface ChatRepository {
     fun searchLocalMessages(chatId: Int, query: String): Flow<List<Message>>
     fun searchLocalChats(query: String): Flow<List<ChatMessage>>
     fun searchLocalContacts(query: String): Flow<List<Contact>>
-    fun searchMessagesAcrossAll(query: String): Flow<List<Message>>
+    fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter = com.example.firstapp.search.model.SearchFilter.ALL): Flow<List<Message>>
     fun getAllFiles(): Flow<Resource<List<Message>>>
 }

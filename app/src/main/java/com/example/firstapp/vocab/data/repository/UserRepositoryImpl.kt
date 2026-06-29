@@ -99,6 +99,7 @@ class UserRepositoryImpl @Inject constructor(
                     level = it.level,
                     streak = it.streak,
                     isPremium = it.isPremium,
+                    adsWatchedToday = it.adsWatchedToday,
                     walletBalance = it.walletBalance,
                     banner_url = it.bannerUrl,
                     isArtist = it.isArtist,
@@ -140,6 +141,7 @@ class UserRepositoryImpl @Inject constructor(
                 level = cached.level,
                 streak = cached.streak,
                 isPremium = cached.isPremium,
+                adsWatchedToday = cached.adsWatchedToday,
                 walletBalance = cached.walletBalance,
                 banner_url = cached.bannerUrl,
                 isArtist = cached.isArtist,
@@ -254,7 +256,7 @@ class UserRepositoryImpl @Inject constructor(
                 isPremium = false,
                 lastDailyUnlock = 0,
                 adsWatchedToday = 0,
-                walletBalance = 0
+                walletBalance = 0.0
             )
             userDao.insertUser(newUser)
         }

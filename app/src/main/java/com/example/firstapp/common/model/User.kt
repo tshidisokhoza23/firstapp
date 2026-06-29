@@ -32,7 +32,7 @@ data class User(
     val lessonMastery: Map<String, Int> = emptyMap(),
     @SerializedName("streak_freezes") val streakFreezes: Int = 0,
     @SerializedName("last_streak_activity") val lastStreakActivity: Long = 0,
-    @SerializedName("wallet_balance") val walletBalance: Int = 0,
+    @SerializedName("wallet_balance") val walletBalance: Double = 0.0,
 
     // Job Profile Fields
     @SerializedName("job_full_name") val jobFullName: String? = null,

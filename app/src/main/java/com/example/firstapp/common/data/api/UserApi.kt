@@ -46,7 +46,7 @@ interface UserApi {
     suspend fun reportUser(@Path("userId") userId: Int, @Body request: ReportRequest): Response<StatusResponse>
     
     @GET("search")
-    suspend fun search(@Query("query") query: String): Response<SearchResponse>
+    suspend fun search(@Query("query") query: String, @Query("type") type: String? = null): Response<SearchResponse>
 }
 
 data class UserResponse(val user: User)
@@ -89,7 +89,9 @@ data class SearchResponse(
     val contacts: List<ApiUser>,
     val messages: List<ApiMessage> = emptyList(),
     val songs: List<ApiSong> = emptyList(),
-    val artists: List<ApiUser> = emptyList()
+    val artists: List<ApiUser> = emptyList(),
+    val channels: List<com.example.firstapp.media.data.api.ApiChannel> = emptyList(),
+    val jobs: List<com.example.firstapp.jobs.data.api.ApiJob> = emptyList()
 )
 
 data class PublicKeyResponse(val public_key: String)

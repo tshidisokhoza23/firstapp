@@ -7,7 +7,11 @@ import retrofit2.http.*
 
 interface SocialApi {
     @GET("posts")
-    suspend fun getPosts(@Query("page") page: Int = 1, @Query("following") following: Boolean = false): Response<PostsResponse>
+    suspend fun getPosts(
+        @Query("page") page: Int = 1, 
+        @Query("following") following: Boolean = false,
+        @Query("channel_id") channelId: Int? = null
+    ): Response<PostsResponse>
 
     @POST("posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
@@ -78,9 +82,25 @@ interface SocialApi {
     @GET("channels")
     suspend fun getChannels(): Response<ChannelsResponse>
 
+    @POST("channels-create")
+    suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiChannel>
+
     @POST("channels/{channelId}/subscribe")
     suspend fun subscribeToChannel(@Path("channelId") channelId: Int): Response<StatusResponse>
+
+    @POST("channels/{channelId}/admins")
+    suspend fun addChannelAdmin(@Path("channelId") channelId: Int, @Body request: UserIdRequest): Response<StatusResponse>
+
+    @HTTP(method = "DELETE", path = "channels/{channelId}/admins", hasBody = true)
+    suspend fun removeChannelAdmin(@Path("channelId") channelId: Int, @Body request: UserIdRequest): Response<StatusResponse>
 }
+
+data class UserIdRequest(val user_id: Int)
+
+data class CreateChannelRequest(
+    val name: String,
+    val description: String
+)
 
 data class CreatePostRequest(
     val content: String,
@@ -88,7 +108,8 @@ data class CreatePostRequest(
     val post_type: String = "text_only",
     val location: String? = null,
     val tags: List<String> = emptyList(),
-    val poll: CreatePollRequest? = null
+    val poll: CreatePollRequest? = null,
+    val channel_id: Int? = null
 )
 
 data class CreatePollRequest(
@@ -204,6 +225,8 @@ data class ApiChannel(
     val avatar_url: String?,
     val is_verified: Boolean,
     val is_subscribed: Boolean,
+    val is_admin: Boolean = false,
+    val created_by: Int? = null,
     val category: String? = null,
     val last_post_text: String? = null,
     val last_post_image_url: String? = null,

@@ -5,6 +5,10 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 object TokenManager {
     private const val PREFS_NAME = "first_app_secure_prefs"
     private const val KEY_TOKEN = "auth_token"
@@ -16,6 +20,9 @@ object TokenManager {
     private lateinit var prefs: SharedPreferences
     private var token: String? = null
     private var refreshToken: String? = null
+
+    private val _authState = MutableStateFlow(false)
+    val authState: StateFlow<Boolean> = _authState.asStateFlow()
 
     fun initialize(context: Context) {
         if (!::prefs.isInitialized) {
@@ -35,7 +42,8 @@ object TokenManager {
                 // Ensure a DB passphrase exists
                 if (prefs.getString(KEY_DB_PASSPHRASE, null) == null) {
                     val newPass = java.util.UUID.randomUUID().toString()
-                    prefs.edit().putString(KEY_DB_PASSPHRASE, newPass).apply()
+                    // Use commit() here because the DB needs this immediately to open
+                    prefs.edit().putString(KEY_DB_PASSPHRASE, newPass).commit()
                 }
 
                 token = prefs.getString(KEY_TOKEN, null)
@@ -44,6 +52,16 @@ object TokenManager {
                 // Fallback or handle error (e.g., keystore corruption)
                 prefs = context.getSharedPreferences("first_app_fallback_prefs", Context.MODE_PRIVATE)
             }
+
+            // Ensure a DB passphrase exists in whatever prefs we ended up with
+            if (prefs.getString(KEY_DB_PASSPHRASE, null) == null) {
+                val newPass = java.util.UUID.randomUUID().toString()
+                prefs.edit().putString(KEY_DB_PASSPHRASE, newPass).commit()
+            }
+
+            token = prefs.getString(KEY_TOKEN, null)
+            refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)
+            _authState.value = token != null
         }
     }
 
@@ -53,6 +71,7 @@ object TokenManager {
 
     fun setToken(newToken: String) {
         token = newToken
+        _authState.value = true
         if (::prefs.isInitialized) {
             prefs.edit().putString(KEY_TOKEN, newToken).apply()
         }
@@ -94,6 +113,7 @@ object TokenManager {
     fun clear() {
         token = null
         refreshToken = null
+        _authState.value = false
         if (::prefs.isInitialized) {
             prefs.edit().remove(KEY_TOKEN).remove(KEY_REFRESH_TOKEN).apply()
         }

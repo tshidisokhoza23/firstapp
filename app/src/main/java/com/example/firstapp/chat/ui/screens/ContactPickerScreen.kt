@@ -1,5 +1,7 @@
 package com.example.firstapp.chat.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +29,8 @@ import com.example.firstapp.chat.ui.viewmodel.ContactPickerViewModel
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.util.Resource
+import kotlin.collections.List
+import kotlin.collections.emptyList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,7 +138,6 @@ fun ContactPickerScreen(
                 }
                 item {
                     ContactActionItem(icon = Icons.Default.PersonAdd, label = "New contact") {
-                        /* Add contact */
                     }
                 }
             }
@@ -146,8 +150,10 @@ fun ContactPickerScreen(
                     showCheckbox = isGroupMode,
                     onClick = {
                         if (isGroupMode) {
-                            if (isSelected) selectedContacts.remove(contact)
-                            else selectedContacts.add(contact)
+                            if (contact.isRegistered) {
+                                if (isSelected) selectedContacts.remove(contact)
+                                else selectedContacts.add(contact)
+                            }
                         } else {
                             onContactSelected(contact)
                         }
@@ -198,7 +204,7 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.Gray),
+                .background(if (contact.isRegistered) AppAccent else Color.Gray),
             contentAlignment = Alignment.Center
         ) {
             Text(contact.displayName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
@@ -206,14 +212,28 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(contact.displayName, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(contact.bio ?: "Available", color = Color.Gray, fontSize = 14.sp)
+            Text(if (contact.isRegistered) (contact.bio ?: "Available") else contact.phoneNumber, color = Color.Gray, fontSize = 14.sp)
         }
-        if (showCheckbox) {
+        
+        if (showCheckbox && contact.isRegistered) {
             Checkbox(
                 checked = isSelected,
                 onCheckedChange = { onClick() },
                 colors = CheckboxDefaults.colors(checkedColor = AppAccent, checkmarkColor = AppBackground)
             )
+        } else if (!contact.isRegistered) {
+            val context = LocalContext.current
+            TextButton(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_SENDTO)
+                    intent.data = Uri.parse("smsto:${contact.phoneNumber}")
+                    intent.putExtra("sms_body", "Join me on FirstApp! http://firstapp.com/download")
+                    context.startActivity(intent)
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = AppAccent)
+            ) {
+                Text("INVITE", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

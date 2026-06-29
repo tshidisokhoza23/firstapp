@@ -115,8 +115,13 @@ object NetworkModule {
                                 .header("Authorization", "Bearer ${body.token}")
                                 .build()
                         }
+                    } else if (refreshResponse.code() == 401 || refreshResponse.code() == 400) {
+                        // Refresh token is invalid or expired, log out
+                        TokenManager.clear()
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    android.util.Log.e("NetworkModule", "Token refresh failed", e)
+                }
                 return@Authenticator null
             }
         }

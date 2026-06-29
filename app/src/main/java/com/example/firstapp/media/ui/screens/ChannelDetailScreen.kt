@@ -58,14 +58,27 @@ import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.common.ui.theme.AppTextPrimary
 import com.example.firstapp.common.ui.theme.AppTextSecondary
+import androidx.compose.foundation.layout.PaddingValues
+
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material3.FloatingActionButton
+import com.example.firstapp.common.ui.theme.AppAccent
+
+import com.example.firstapp.media.model.Post
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChannelDetailScreen(
     channel: Channel,
+    posts: List<Post>,
     onBack: () -> Unit,
     onSubscribe: (Int) -> Unit = {},
-    onMute: (Int, Boolean) -> Unit = { _, _ -> }
+    onMute: (Int, Boolean) -> Unit = { _, _ -> },
+    onCreatePost: () -> Unit = {},
+    onAddAdmin: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var isSubscribed by remember { mutableStateOf(channel.isSubscribed) }
@@ -87,7 +100,13 @@ fun ChannelDetailScreen(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(channel.name, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(channel.name, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                                if (channel.isAdmin) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(Icons.Default.AdminPanelSettings, null, tint = AppAccent, modifier = Modifier.size(16.dp))
+                                }
+                            }
                             Text("${channel.followers} followers", fontSize = 12.sp, color = AppTextSecondary)
                         }
                     }
@@ -121,6 +140,17 @@ fun ChannelDetailScreen(
                                     onMute(channel.id, isMuted)
                                 }
                             )
+                            if (channel.isAdmin) {
+                                HorizontalDivider(color = Color.White.copy(0.1f))
+                                DropdownMenuItem(
+                                    text = { Text("Add Admin", color = Color.White) },
+                                    onClick = { 
+                                        showMenu = false
+                                        onAddAdmin()
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Add, null, tint = Color.White) }
+                                )
+                            }
                         }
                     }
                 },
@@ -132,148 +162,190 @@ fun ChannelDetailScreen(
                 )
             )
         },
-        bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = AppSecondary,
-                tonalElevation = 8.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+        floatingActionButton = {
+            if (channel.isAdmin) {
+                FloatingActionButton(
+                    onClick = onCreatePost,
+                    containerColor = AppAccent,
+                    contentColor = AppBackground
                 ) {
-                    Button(
-                        onClick = {
-                            isSubscribed = !isSubscribed
-                            onSubscribe(channel.id)
-                        },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSubscribed) Color.White.copy(alpha = 0.1f) else Color.White,
-                            contentColor = if (isSubscribed) Color.White else Color.Black
-                        ),
-                        shape = RoundedCornerShape(16.dp)
+                    Icon(Icons.Default.Add, contentDescription = "Post to Channel")
+                }
+            }
+        },
+        bottomBar = {
+            if (!channel.isSubscribed && !channel.isAdmin) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AppSecondary,
+                    tonalElevation = 8.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(if (isSubscribed) "Unfollow" else "Follow channel", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                        Button(
+                            onClick = {
+                                isSubscribed = true
+                                onSubscribe(channel.id)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("Follow channel", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                        }
                     }
                 }
             }
         },
         containerColor = AppBackground
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Channel Info Header
-            Text(
-                text = "About this channel",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            Text(
-                text = channel.description ?: "Daily updates and news from ${channel.name}.",
-                color = AppTextSecondary,
-                fontSize = 15.sp,
-                lineHeight = 22.sp
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-            Spacer(modifier = Modifier.height(24.dp))
+            item {
+                // Channel Info Header
+                Text(
+                    text = "About this channel",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                Text(
+                    text = channel.description.takeIf { it.isNotBlank() } ?: "Daily updates and news from ${channel.name}.",
+                    color = AppTextSecondary,
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // Last Post
-            Text(
-                text = "Recent updates",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+                // Recent Updates Title
+                Text(
+                    text = "Recent updates",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = AppSecondary),
-                shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
-            ) {
-                Column {
-                    // Post Media
+            if (posts.isEmpty()) {
+                item {
+                    // Empty State
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(260.dp)
-                            .background(channel.lastPostImageColor.copy(alpha = 0.2f)),
+                            .padding(vertical = 40.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (channel.lastPostImageUrl != null) {
-                            coil.compose.AsyncImage(
-                                model = channel.lastPostImageUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.PermMedia, 
+                                null, 
+                                tint = Color.White.copy(alpha = 0.1f), 
+                                modifier = Modifier.size(80.dp)
                             )
-                        } else {
-                            Icon(Icons.Default.PermMedia, null, tint = Color.White.copy(alpha = 0.1f), modifier = Modifier.size(64.dp))
-                        }
-                        
-                        // Download Overlay
-                        Box(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .align(Alignment.BottomStart)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.Black.copy(alpha = 0.6f))
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Media Content", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    // Text Content
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = channel.lastPostText,
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp
-                        )
-                        
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("❤️ 42", color = AppTextSecondary, fontSize = 12.sp)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text("💬 12", color = AppTextSecondary, fontSize = 12.sp)
-                            }
+                            Spacer(Modifier.height(16.dp))
                             Text(
-                                text = channel.lastPostTime ?: "Recent",
-                                color = AppTextSecondary,
-                                fontSize = 12.sp
+                                "No updates yet", 
+                                color = AppTextSecondary, 
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
                             )
+                            if (channel.isAdmin) {
+                                Text(
+                                    "Share something with your followers", 
+                                    color = AppTextSecondary.copy(alpha = 0.6f), 
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
                         }
                     }
                 }
+            } else {
+                items(posts, key = { it.id }) { post ->
+                    ChannelPostItem(post)
+                }
             }
             
-            Spacer(modifier = Modifier.height(80.dp))
+            item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+    }
+}
+
+@Composable
+fun ChannelPostItem(post: Post) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = AppSecondary),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+    ) {
+        Column {
+            // Post Media
+            if (post.mediaUrls.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .background(Color.DarkGray.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    coil.compose.AsyncImage(
+                        model = post.mediaUrls.first(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                }
+            }
+
+            // Text Content
+            if (post.content.isNotBlank()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = post.content,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("❤️ ${post.likes}", color = AppTextSecondary, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("💬 ${post.repliesCount}", color = AppTextSecondary, fontSize = 12.sp)
+                        }
+                        Text(
+                            text = post.timestamp,
+                            color = AppTextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }

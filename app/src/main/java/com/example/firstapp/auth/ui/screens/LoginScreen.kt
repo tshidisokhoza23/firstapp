@@ -2,6 +2,7 @@
 
 package com.example.firstapp.auth.ui.screens
 
+import kotlin.text.Regex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,7 +51,7 @@ import androidx.core.content.ContextCompat
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onNavigateToOtp: (String, String, String, String, String) -> Unit,
+    onNavigateToOtp: (String, String?, String?, String?, String?) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     var username by remember { mutableStateOf("") }
@@ -70,6 +71,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val authState by viewModel.authState.collectAsState()
     val otpState by viewModel.otpState.collectAsState()
+    val fieldErrors by viewModel.fieldErrors.collectAsState()
     val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
@@ -91,67 +93,98 @@ fun LoginScreen(
             if (isSignUp) {
                 onNavigateToOtp(phone, username.trim(), email.trim(), displayName.trim(), password)
             } else {
-                onNavigateToOtp(phone, "NONE", "NONE", "NONE", "NONE")
+                onNavigateToOtp(phone, null, null, null, null)
             }
             viewModel.resetOtpState()
         }
     }
 
     fun performLogin() {
-        val cleanUsername = username.trim()
-        val cleanEmail = email.trim()
+        viewModel.clearFieldErrors()
+        val cleanUsername = username.trim().lowercase()
+        val cleanEmail = email.trim().lowercase()
         val cleanDisplayName = displayName.trim()
         val rawPhone = phoneNumber.trim()
         val cleanPassword = password
 
-        val cleanPhone = if (rawPhone.startsWith("+")) {
-            rawPhone
-        } else {
-            val dialCode = selectedCountry?.dialCode ?: ""
-            val formatted = if (rawPhone.startsWith("0")) rawPhone.substring(1) else rawPhone
-            dialCode + formatted
-        }
-
-        if (cleanUsername.isBlank() || cleanPassword.isBlank()) {
-            Toast.makeText(context, "Username and password are required", Toast.LENGTH_SHORT).show()
-            return
+        var hasError = false
+        if (cleanUsername.isBlank()) {
+            viewModel.setFieldError("username", "Username is required")
+            hasError = true
         }
         
+        if (cleanPassword.isBlank()) {
+            viewModel.setFieldError("password", "Password is required")
+            hasError = true
+        }
+
         if (isSignUp) {
-            if (cleanDisplayName.isBlank() || cleanPhone.isBlank() || cleanEmail.isBlank()) {
-                Toast.makeText(context, "All fields are required for sign up", Toast.LENGTH_SHORT).show()
-                return
+            if (cleanUsername.isNotBlank() && cleanUsername.length < 3) {
+                viewModel.setFieldError("username", "Username must be at least 3 characters")
+                hasError = true
+            } else if (cleanUsername.isNotBlank() && !cleanUsername.matches(Regex("^[a-z0-9._]*$"))) {
+                viewModel.setFieldError("username", "Username can only contain lowercase letters, numbers, dots and underscores")
+                hasError = true
             }
 
-            // Email Validation
-            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
-                Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
-                return
+            if (cleanPassword.isNotBlank() && cleanPassword.length < 8) {
+                viewModel.setFieldError("password", "Password must be at least 8 characters")
+                hasError = true
             }
 
-            // Phone Validation and Formatting
-            if (cleanPhone.length < 10) {
-                Toast.makeText(context, "Enter a valid phone number", Toast.LENGTH_SHORT).show()
-                return
+            if (cleanDisplayName.isBlank()) {
+                viewModel.setFieldError("displayName", "Display name is required")
+                hasError = true
+            } else if (cleanDisplayName.length < 2) {
+                viewModel.setFieldError("displayName", "Display name is too short")
+                hasError = true
+            }
+
+            if (cleanEmail.isBlank()) {
+                viewModel.setFieldError("email", "Email is required")
+                hasError = true
+            } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+                viewModel.setFieldError("email", "Enter a valid email address")
+                hasError = true
+            }
+
+            if (rawPhone.isBlank()) {
+                viewModel.setFieldError("phone", "Phone number is required")
+                hasError = true
+            }
+
+            val cleanPhone = if (rawPhone.startsWith("+")) rawPhone else {
+                val dialCode = selectedCountry?.dialCode ?: ""
+                val formatted = if (rawPhone.startsWith("0")) rawPhone.substring(1) else rawPhone
+                dialCode + formatted
+            }
+
+            if (rawPhone.isNotBlank() && cleanPhone.length < 10) {
+                viewModel.setFieldError("phone", "Enter a valid phone number")
+                hasError = true
             }
 
             if (password != confirmPassword) {
-                Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
-                return
+                viewModel.setFieldError("confirmPassword", "Passwords do not match")
+                hasError = true
             }
 
-            // Password strength check (min 8 chars)
-            if (password.length < 8) {
-                Toast.makeText(context, "Password must be at least 8 characters", Toast.LENGTH_SHORT).show()
-                return
-            }
+            if (hasError) return
 
-            // Request OTP
-            val client = SmsRetriever.getClient(context)
-            client.startSmsRetriever()
-            viewModel.requestOTP(cleanPhone)
+            // Check availability with backend before requesting OTP
+            viewModel.checkAvailability(cleanUsername, cleanEmail, cleanPhone) { isAvailable ->
+                if (isAvailable) {
+                    val client = SmsRetriever.getClient(context)
+                    client.startSmsRetriever()
+                    viewModel.requestOTP(cleanPhone)
+                }
+            }
         } else {
-            viewModel.login(cleanUsername, cleanPassword)
+            if (!hasError) {
+                val client = SmsRetriever.getClient(context)
+                client.startSmsRetriever()
+                viewModel.login(cleanUsername, cleanPassword)
+            }
         }
     }
 
@@ -189,88 +222,38 @@ fun LoginScreen(
             )
         }
 
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it; viewModel.resetState() },
-            label = { Text("Username") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AppAccent,
-                unfocusedBorderColor = AppSecondary,
-                focusedLabelColor = AppAccent,
-                unfocusedLabelColor = Color.Gray,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+        Column(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it; viewModel.setFieldError("username", null) },
+                label = { Text("Username") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                isError = fieldErrors.containsKey("username"),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AppAccent,
+                    unfocusedBorderColor = AppSecondary,
+                    focusedLabelColor = AppAccent,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                )
             )
-        )
+            ValidationText(fieldErrors["username"])
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isSignUp) {
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it; viewModel.resetState() },
-                label = { Text("Email Address") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AppAccent,
-                    unfocusedBorderColor = AppSecondary,
-                    focusedLabelColor = AppAccent,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                )
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = displayName,
-                onValueChange = { displayName = it; viewModel.resetState() },
-                label = { Text("Display Name") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AppAccent,
-                    unfocusedBorderColor = AppSecondary,
-                    focusedLabelColor = AppAccent,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                )
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val country = selectedCountry
-                if (country != null) {
-                    CountryPickerField(
-                        selectedCountry = country,
-                        onCountrySelected = { selectedCountry = it },
-                        modifier = Modifier.width(100.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                
+            Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
-                    value = phoneNumber,
-                    onValueChange = { input ->
-                        if (input.all { char: Char -> char.isDigit() || char == '+' }) {
-                            phoneNumber = input
-                        }
-                        viewModel.resetState() 
-                    },
-                    label = { Text("Phone Number") },
-                    placeholder = { Text("e.g. 812345678") },
-                    modifier = Modifier.weight(1f),
+                    value = email,
+                    onValueChange = { email = it; viewModel.setFieldError("email", null) },
+                    label = { Text("Email Address") },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
+                    isError = fieldErrors.containsKey("email"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AppAccent,
@@ -279,53 +262,92 @@ fun LoginScreen(
                         unfocusedLabelColor = Color.Gray,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
-                    ),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
                     )
                 )
+                ValidationText(fieldErrors["email"])
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it; viewModel.setFieldError("displayName", null) },
+                    label = { Text("Display Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    isError = fieldErrors.containsKey("displayName"),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppAccent,
+                        unfocusedBorderColor = AppSecondary,
+                        focusedLabelColor = AppAccent,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+                ValidationText(fieldErrors["displayName"])
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val country = selectedCountry
+                    if (country != null) {
+                        CountryPickerField(
+                            selectedCountry = country,
+                            onCountrySelected = { selectedCountry = it },
+                            modifier = Modifier.width(100.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    
+                    OutlinedTextField(
+                        value = phoneNumber,
+                        onValueChange = { input ->
+                            if (input.all { char: Char -> char.isDigit() || char == '+' }) {
+                                phoneNumber = input
+                            }
+                            viewModel.setFieldError("phone", null)
+                        },
+                        label = { Text("Phone Number") },
+                        placeholder = { Text("e.g. 812345678") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        isError = fieldErrors.containsKey("phone"),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppAccent,
+                            unfocusedBorderColor = AppSecondary,
+                            focusedLabelColor = AppAccent,
+                            unfocusedLabelColor = Color.Gray,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                        )
+                    )
+                }
+                ValidationText(fieldErrors["phone"])
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it; viewModel.resetState() },
-            label = { Text("Password") },
-            visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                    Icon(
-                        imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = null,
-                        tint = Color.Gray
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AppAccent,
-                unfocusedBorderColor = AppSecondary,
-                focusedLabelColor = AppAccent,
-                unfocusedLabelColor = Color.Gray,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
-            )
-        )
-
-        if (isSignUp) {
-            Spacer(modifier = Modifier.height(16.dp))
+        Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { confirmPassword = it; viewModel.resetState() },
-                label = { Text("Confirm Password") },
-                visualTransformation = if (isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                value = password,
+                onValueChange = { password = it; viewModel.setFieldError("password", null) },
+                label = { Text("Password") },
+                isError = fieldErrors.containsKey("password"),
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    IconButton(onClick = { isConfirmPasswordVisible = !isConfirmPasswordVisible }) {
+                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                         Icon(
-                            imageVector = if (isConfirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             contentDescription = null,
                             tint = Color.Gray
                         )
@@ -343,6 +365,41 @@ fun LoginScreen(
                     unfocusedTextColor = Color.White
                 )
             )
+            ValidationText(fieldErrors["password"])
+        }
+
+        if (isSignUp) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it; viewModel.setFieldError("confirmPassword", null) },
+                    label = { Text("Confirm Password") },
+                    isError = fieldErrors.containsKey("confirmPassword"),
+                    visualTransformation = if (isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { isConfirmPasswordVisible = !isConfirmPasswordVisible }) {
+                            Icon(
+                                imageVector = if (isConfirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = null,
+                                tint = Color.Gray
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppAccent,
+                        unfocusedBorderColor = AppSecondary,
+                        focusedLabelColor = AppAccent,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+                ValidationText(fieldErrors["confirmPassword"])
+            }
         }
 
         if (!isSignUp) {
@@ -377,6 +434,7 @@ fun LoginScreen(
         TextButton(onClick = { 
             isSignUp = !isSignUp
             viewModel.resetState()
+            viewModel.clearFieldErrors()
         }) {
             Text(
                 text = if (isSignUp) "Already have an account? Login" else "Don't have an account? Sign Up",
@@ -431,6 +489,18 @@ fun LoginScreen(
                     Text("Cancel", color = Color.White.copy(0.6f))
                 }
             }
+        )
+    }
+}
+
+@Composable
+fun ValidationText(text: String?) {
+    if (text != null) {
+        Text(
+            text = text,
+            color = Color.Red,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(start = 12.dp, top = 4.dp)
         )
     }
 }
