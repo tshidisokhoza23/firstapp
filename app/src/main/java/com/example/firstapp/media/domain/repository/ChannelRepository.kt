@@ -6,10 +6,10 @@ import kotlinx.coroutines.flow.Flow
 
 interface ChannelRepository {
     fun getChannels(): Flow<Resource<List<Channel>>>
-    fun subscribeToChannel(channelId: Int): Flow<Resource<Boolean>>
-    fun muteChannel(channelId: Int, isMuted: Boolean): Flow<Resource<Boolean>>
+    fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>>
+    fun muteChannel(channelId: String, isMuted: Boolean): Flow<Resource<Boolean>>
     fun createChannel(name: String, description: String): Flow<Resource<Boolean>>
     fun searchChannels(query: String): Flow<List<Channel>>
-    fun addAdmin(channelId: Int, userId: Int): Flow<Resource<Boolean>>
-    fun removeAdmin(channelId: Int, userId: Int): Flow<Resource<Boolean>>
+    fun addAdmin(channelId: String, userId: String): Flow<Resource<Boolean>>
+    fun removeAdmin(channelId: String, userId: String): Flow<Resource<Boolean>>
 }

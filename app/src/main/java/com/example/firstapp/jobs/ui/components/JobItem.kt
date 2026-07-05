@@ -120,7 +120,7 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
                 )
             }
 
-            if (job.postedTime.isNotBlank()) {
+            if (job.postedTime > 0L) {
                 Text(
                     text = formatPostedTime(job.postedTime),
                     modifier = Modifier.padding(top = 4.dp),

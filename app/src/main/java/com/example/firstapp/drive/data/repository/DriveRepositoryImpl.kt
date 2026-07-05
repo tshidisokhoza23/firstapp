@@ -23,41 +23,41 @@ class DriveRepositoryImpl @Inject constructor(
     override fun getRideOptions(): Flow<Resource<List<RideOption>>> = flow {
         emit(Resource.Loading())
         driveDao.getRideOptions().firstOrNull()?.let { 
-            if (it.isNotEmpty()) emit(Resource.Success(it.map { entity -> entity.toModel() })) 
+            if (it.isNotEmpty()) emit(Resource.Success(it.map { entity -> entity.toRideOption() })) 
         }
         try {
             val res = driveApi.getRideOptions()
             if (res.isSuccessful && res.body() != null) {
                 driveDao.clearRideOptions()
-                driveDao.insertRideOptions(res.body()!!.ride_options.map { it.toEntity() })
+                driveDao.insertRideOptions(res.body()!!.ride_options.map { it.toRideOptionEntity() })
             }
         } catch (_: Exception) {}
         driveDao.getRideOptions().collect { entities ->
-            emit(Resource.Success(entities.map { it.toModel() }))
+            emit(Resource.Success(entities.map { it.toRideOption() }))
         }
     }
 
     override fun getDestinations(): Flow<Resource<List<Destination>>> = flow {
         emit(Resource.Loading())
         driveDao.getDestinations().firstOrNull()?.let { 
-            if (it.isNotEmpty()) emit(Resource.Success(it.map { it.toModel() })) 
+            if (it.isNotEmpty()) emit(Resource.Success(it.map { it.toDestination() })) 
         }
         try {
             val res = driveApi.getDestinations()
             if (res.isSuccessful && res.body() != null) {
-                driveDao.insertDestinations(res.body()!!.destinations.map { it.toEntity() })
+                driveDao.insertDestinations(res.body()!!.destinations.map { it.toDestinationEntity() })
             }
         } catch (_: Exception) {}
         driveDao.getDestinations().collect { entities ->
-            emit(Resource.Success(entities.map { it.toModel() }))
+            emit(Resource.Success(entities.map { it.toDestination() }))
         }
     }
 
     override fun getTrips(): Flow<Resource<List<Trip>>> = flow {
         emit(Resource.Loading())
         emit(Resource.Success(listOf(
-            Trip(1, "Today, 10:24", "123 Innovation Drive", "Tech Park Building", "R85.50", "Toyota Corolla"),
-            Trip(2, "Yesterday, 18:45", "Mall of Africa", "123 Innovation Drive", "R120.00", "VW Polo")
+            Trip("1", "Today, 10:24", "123 Innovation Drive", "Tech Park Building", "R85.50", "Toyota Corolla"),
+            Trip("2", "Yesterday, 18:45", "Mall of Africa", "123 Innovation Drive", "R120.00", "VW Polo")
         )))
     }
 
@@ -70,7 +70,7 @@ class DriveRepositoryImpl @Inject constructor(
         type: String
     ): Flow<Resource<Boolean>> = flow {
         val destination = Destination(
-            id = 0,
+            id = java.util.UUID.randomUUID().toString(),
             name = name,
             address = address,
             latitude = latitude,
@@ -79,14 +79,14 @@ class DriveRepositoryImpl @Inject constructor(
             isFavorite = isFavorite,
             type = try { DestinationType.valueOf(type.uppercase()) } catch (_: Exception) { DestinationType.RECENT }
         )
-        driveDao.insertDestinations(listOf(destination.toEntity()))
+        driveDao.insertDestinations(listOf(destination.toDestinationEntity()))
         emit(Resource.Success(true))
         try {
             driveApi.saveDestination(SaveDestinationRequest(name, address, latitude, longitude, isFavorite, type))
         } catch (_: Exception) {}
     }
 
-    override fun deleteDestination(id: Int): Flow<Resource<Boolean>> = flow {
+    override fun deleteDestination(id: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         driveDao.deleteDestination(id)
         emit(Resource.Success(true))

@@ -12,6 +12,9 @@ interface UserApi {
     @GET("users/me")
     suspend fun getCurrentUser(): Response<UserResponse>
 
+    @GET("users/{userId}")
+    suspend fun getUserById(@Path("userId") userId: String): Response<UserResponse>
+
     @PUT("users/me")
     suspend fun updateUser(@Body request: UpdateUserRequest): Response<UserResponse>
 
@@ -22,10 +25,10 @@ interface UserApi {
     suspend fun upsertPushToken(@Body request: PushTokenRequest): Response<StatusResponse>
 
     @POST("users/{userId}/block")
-    suspend fun blockUser(@Path("userId") userId: Int): Response<StatusResponse>
+    suspend fun blockUser(@Path("userId") userId: String): Response<StatusResponse>
 
     @POST("users/{userId}/unblock")
-    suspend fun unblockUser(@Path("userId") userId: Int): Response<StatusResponse>
+    suspend fun unblockUser(@Path("userId") userId: String): Response<StatusResponse>
 
     @GET("users/blocked")
     suspend fun getBlockedUsers(): Response<ContactsResponse>
@@ -37,13 +40,16 @@ interface UserApi {
     suspend fun updatePrivacySettings(@Body request: PrivacySettings): Response<StatusResponse>
 
     @GET("users/{userId}/public-key")
-    suspend fun getPublicKey(@Path("userId") userId: Int): Response<PublicKeyResponse>
+    suspend fun getPublicKey(@Path("userId") userId: String): Response<PublicKeyResponse>
 
     @PUT("users/me/public-key")
     suspend fun setPublicKey(@Body request: PublicKeyResponse): Response<StatusResponse>
 
     @POST("users/{userId}/report")
-    suspend fun reportUser(@Path("userId") userId: Int, @Body request: ReportRequest): Response<StatusResponse>
+    suspend fun reportUser(@Path("userId") userId: String, @Body request: ReportRequest): Response<StatusResponse>
+
+    @POST("users/sync-contacts")
+    suspend fun syncContacts(@Body request: SyncContactsRequest): Response<ContactsResponse>
     
     @GET("search")
     suspend fun search(@Query("query") query: String, @Query("type") type: String? = null): Response<SearchResponse>
@@ -72,7 +78,7 @@ data class UpdateUserRequest(
 )
 
 data class ApiUser(
-    val id: Int,
+    val id: String,
     val username: String,
     val display_name: String,
     val phone_number: String? = null,
@@ -83,6 +89,7 @@ data class ApiUser(
 )
 
 data class ContactsResponse(val contacts: List<ApiUser>)
+data class SyncContactsRequest(val phone_numbers: List<String>)
 
 data class SearchResponse(
     val chats: List<ChatSummary>,

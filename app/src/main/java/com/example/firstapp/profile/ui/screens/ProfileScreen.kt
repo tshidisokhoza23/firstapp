@@ -38,10 +38,14 @@ import com.example.firstapp.common.util.MediaUtils
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.media.ui.screens.PostItem
 
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.paging.LoadState
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileView(
-    userId: Int? = null,
+    userId: String? = null,
     isGroup: Boolean = false,
     onBack: () -> Unit,
     posts: LazyPagingItems<Post>,
@@ -49,12 +53,12 @@ fun ProfileView(
     mediaViewModel: MediaViewModel,
     chatViewModel: ChatViewModel = hiltViewModel(),
     sharedMediaViewModel: SharedMediaViewModel = hiltViewModel(),
-    onNavigateToSharedMedia: (Int) -> Unit = {},
-    onNavigateToChat: (Int) -> Unit = {}
+    onNavigateToSharedMedia: (String) -> Unit = {},
+    onNavigateToChat: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val currentUser by userViewModel.currentUser.collectAsState()
-    val isMyProfile = userId == null || userId == currentUser?.id
+    val isMyProfile = userId.isNullOrBlank() || userId == currentUser?.id
     
     val contacts by userViewModel.contacts.collectAsState()
     val chatsResource by chatViewModel.chats.collectAsState()
@@ -96,6 +100,8 @@ fun ProfileView(
         }
     }
 
+    val isRefreshing = posts.loadState.refresh is LoadState.Loading
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -117,104 +123,121 @@ fun ProfileView(
         },
         containerColor = AppBackground
     ) { padding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { posts.refresh() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = padding.calculateBottomPadding())
         ) {
-            item {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
-                    AsyncImage(
-                        model = user?.banner_url,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize().background(AppSecondary).clickable(enabled = isMyProfile) { bannerLauncher.launch("image/*") },
-                        contentScale = ContentScale.Crop
-                    )
-                    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, AppBackground))))
-                }
-            }
-
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-50).dp)) {
-                    AsyncImage(
-                        model = user?.avatar_url,
-                        contentDescription = null,
-                        modifier = Modifier.size(100.dp).clip(CircleShape).border(4.dp, AppBackground, CircleShape).background(AppSecondary).clickable(enabled = isMyProfile) { imageLauncher.launch("image/*") },
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(user?.display_name ?: "Unknown", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text("@${user?.username ?: ""}", color = AppTextSecondary, fontSize = 16.sp)
-                    
-                    if (!isMyProfile) {
-                        Row(modifier = Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { onNavigateToChat(user?.id ?: 0) }, colors = ButtonDefaults.buttonColors(containerColor = AppAccent), modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Default.Chat, null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Message")
-                            }
-                            OutlinedButton(onClick = { /* Call */ }, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Default.Call, null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Call")
-                            }
-                        }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                        AsyncImage(
+                            model = user?.banner_url,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize().background(AppSecondary).clickable(enabled = isMyProfile) { bannerLauncher.launch("image/*") },
+                            contentScale = ContentScale.Crop
+                        )
+                        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, AppBackground))))
                     }
+                }
 
-                    // Chat specific options
-                    if (userId != null && !isMyProfile) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppSecondary.copy(alpha = 0.5f))
-                        ) {
-                            Column {
-                                ProfileOptionItem(Icons.Default.Image, "Media, Links, and Docs") { onNavigateToSharedMedia(userId) }
-                                ProfileOptionItem(Icons.Default.Star, "Starred Messages") { /* Navigate to Starred for this chat */ }
-                                ProfileOptionItem(
-                                    if (chat?.isMuted == true) Icons.Default.VolumeUp else Icons.Default.VolumeOff, 
-                                    if (chat?.isMuted == true) "Unmute Notifications" else "Mute Notifications"
-                                ) { chatViewModel.muteChat(userId, chat?.isMuted != true) }
-                            }
-                        }
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-50).dp)) {
+                        AsyncImage(
+                            model = user?.avatar_url,
+                            contentDescription = null,
+                            modifier = Modifier.size(100.dp).clip(CircleShape).border(4.dp, AppBackground, CircleShape).background(AppSecondary).clickable(enabled = isMyProfile) { imageLauncher.launch("image/*") },
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(user?.display_name ?: "Unknown", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text("@${user?.username ?: ""}", color = AppTextSecondary, fontSize = 16.sp)
                         
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppSecondary.copy(alpha = 0.5f))
-                        ) {
-                            Column {
-                                ProfileOptionItem(Icons.Default.Block, "Block ${user?.display_name ?: "User"}", color = Color.Red) { }
-                                ProfileOptionItem(Icons.Default.ThumbDown, "Report ${user?.display_name ?: "User"}", color = Color.Red) { }
+                        if (!isMyProfile && user != null) {
+                            Row(modifier = Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { onNavigateToChat(user.id) }, colors = ButtonDefaults.buttonColors(containerColor = AppAccent), modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.Chat, null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Message")
+                                }
+                                OutlinedButton(onClick = { /* Call */ }, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.Call, null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Call")
+                                }
+                            }
+                        }
+
+                        // Chat specific options
+                        if (userId != null && !isMyProfile) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                colors = CardDefaults.cardColors(containerColor = AppSecondary.copy(alpha = 0.5f))
+                            ) {
+                                Column {
+                                    ProfileOptionItem(Icons.Default.Image, "Media, Links, and Docs") { onNavigateToSharedMedia(userId) }
+                                    ProfileOptionItem(Icons.Default.Star, "Starred Messages") { /* Navigate to Starred for this chat */ }
+                                    ProfileOptionItem(
+                                        if (chat?.isMuted == true) Icons.Default.VolumeUp else Icons.Default.VolumeOff, 
+                                        if (chat?.isMuted == true) "Unmute Notifications" else "Mute Notifications"
+                                    ) { chatViewModel.muteChat(userId, chat?.isMuted != true) }
+                                }
+                            }
+                            
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                colors = CardDefaults.cardColors(containerColor = AppSecondary.copy(alpha = 0.5f))
+                            ) {
+                                Column {
+                                    ProfileOptionItem(Icons.Default.Block, "Block ${user?.display_name ?: "User"}", color = Color.Red) { }
+                                    ProfileOptionItem(Icons.Default.ThumbDown, "Report ${user?.display_name ?: "User"}", color = Color.Red) { }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            item {
-                Text(
-                    if (isMyProfile) "Your Posts" else "Posts",
-                    modifier = Modifier.padding(16.dp),
-                    color = AppAccent,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
-            
-            items(
-                count = posts.itemCount,
-                key = posts.itemKey { it.id }
-            ) { index ->
-                val post = posts[index]
-                if (post != null && (user == null || post.authorHandle == user.username)) {
-                    PostItem(
-                        post = post,
-                        onClick = {},
-                        onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
-                        onRepost = { mediaViewModel.repostPost(post.id) },
-                        onBookmark = { mediaViewModel.bookmarkPost(post.id) },
-                        onProfileClick = {}
+                item {
+                    Text(
+                        if (isRefreshing) "Loading Posts..." else if (isMyProfile) "Your Posts" else "Posts",
+                        modifier = Modifier.padding(16.dp),
+                        color = AppAccent,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
                     )
-                    HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
+                }
+                
+                items(
+                    count = posts.itemCount,
+                    key = posts.itemKey { it.id }
+                ) { index ->
+                    val post = posts[index]
+                    if (post != null) {
+                        PostItem(
+                            post = post,
+                            onClick = {},
+                            onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
+                            onRepost = { mediaViewModel.repostPost(post.id) },
+                            onBookmark = { mediaViewModel.bookmarkPost(post.id) },
+                            onReplyClick = { /* handle */ },
+                            onProfileClick = {},
+                            onPlaySong = { _, _ -> },
+                            onVotePoll = { _ -> }
+                        )
+                        HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
+                    }
+                }
+
+                if (posts.loadState.append is LoadState.Loading) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = AppAccent)
+                        }
+                    }
                 }
             }
         }

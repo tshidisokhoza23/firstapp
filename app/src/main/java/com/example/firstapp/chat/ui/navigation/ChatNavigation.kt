@@ -27,12 +27,12 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
     composable(
         route = Screen.Chat.route,
         arguments = listOf(
-            navArgument("chatId") { type = NavType.IntType },
+            navArgument("chatId") { type = NavType.StringType },
             navArgument("type") { type = NavType.StringType; defaultValue = "direct" }
         )
     ) { backStackEntry ->
         val chatViewModel: ChatViewModel = hiltViewModel()
-        val chatId = backStackEntry.arguments?.getInt("chatId") ?: return@composable
+        val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         val typeStr = backStackEntry.arguments?.getString("type") ?: "direct"
         val type = if (typeStr == "group") ConversationType.GROUP 
                    else if (typeStr == "channel") ConversationType.CHANNEL 
@@ -76,7 +76,40 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
             chat = chat,
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },
-            onShowProfile = { userId, isGroup -> navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) }
+            onShowProfile = { userId, isGroup -> 
+                navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) 
+            }
+        )
+    }
+
+    composable(
+        route = Screen.DirectChat.route,
+        arguments = listOf(navArgument("chatId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val chatViewModel: ChatViewModel = hiltViewModel()
+        val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
+        
+        val chatsState by chatViewModel.chats.collectAsState()
+        val chats = chatsState.data ?: emptyList()
+        val existingChat = chats.find { it.id == chatId && it.type == ConversationType.DIRECT }
+        val chat = existingChat ?: ChatMessage(
+            id = chatId,
+            type = ConversationType.DIRECT,
+            senderName = GlobalCallState.getContactName(chatId) ?: "User $chatId",
+            lastMessage = "",
+            timestamp = 0L,
+            unreadCount = 0,
+            avatarUrl = null,
+            avatarColor = BoyishPurple
+        )
+
+        ChatScreen(
+            chat = chat,
+            chatViewModel = chatViewModel,
+            onBack = { navController.popBackStack() },
+            onShowProfile = { userId, isGroup -> 
+                navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) 
+            }
         )
     }
 
@@ -171,11 +204,11 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
 
     composable(
         route = Screen.SharedMedia.route,
-        arguments = listOf(navArgument("chatId") { type = NavType.IntType })
+        arguments = listOf(navArgument("chatId") { type = NavType.StringType })
     ) { backStackEntry ->
         val sharedMediaViewModel: SharedMediaViewModel = hiltViewModel()
         val chatViewModel: ChatViewModel = hiltViewModel()
-        val chatId = backStackEntry.arguments?.getInt("chatId") ?: return@composable
+        val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         
         val chatsState by chatViewModel.chats.collectAsState()
         val existingChat = (chatsState.data ?: emptyList()).find { it.id == chatId }
@@ -194,7 +227,7 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
                 it.lowercase() != "unknown" && 
                 it.lowercase() != "null" && 
                 it.lowercase() != "undefined" 
-            } ?: c.id.toString()
+            } ?: c.id
             c.copy(senderName = sanitized)
         }
         

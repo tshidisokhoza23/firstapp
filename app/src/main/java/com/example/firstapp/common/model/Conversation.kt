@@ -8,7 +8,7 @@ enum class ConversationType {
 }
 
 data class Conversation(
-    val id: Int,
+    val id: String,
     val type: ConversationType,
     val title: String,
     val description: String = "",
@@ -25,7 +25,7 @@ data class Conversation(
     val isAdmin: Boolean = false,
     val isVerified: Boolean = false,
     val isSubscribed: Boolean = false,
-    val createdBy: Int? = null,
+    val createdBy: String? = null,
     val followers: String = "0",
     val category: String = "Community",
     val lastMessageIsFromMe: Boolean = false,
@@ -34,7 +34,7 @@ data class Conversation(
     val messages: List<Message> = emptyList()
 )
 
-fun Conversation.canPost(myUserId: Int?): Boolean {
+fun Conversation.canPost(myUserId: String?): Boolean {
     return when (type) {
         ConversationType.DIRECT -> true
         ConversationType.GROUP -> true // Default to true, or add a 'anyoneCanPost' flag

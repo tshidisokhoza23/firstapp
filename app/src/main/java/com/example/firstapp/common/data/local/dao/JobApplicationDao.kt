@@ -19,5 +19,5 @@ interface JobApplicationDao {
     suspend fun clearApplications()
 
     @Query("DELETE FROM job_applications WHERE id = :applicationId")
-    suspend fun deleteApplication(applicationId: Int)
+    suspend fun deleteApplication(applicationId: String)
 }

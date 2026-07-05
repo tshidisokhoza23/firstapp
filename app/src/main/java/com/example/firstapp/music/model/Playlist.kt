@@ -1,9 +1,9 @@
 package com.example.firstapp.music.model
 
 data class Playlist(
-    val id: Int,
+    val id: String,
     val name: String,
-    val ownerUserId: Int,
+    val ownerUserId: String,
     val coverArtUrl: String?,
     val isPublic: Boolean,
     val createdAt: Long

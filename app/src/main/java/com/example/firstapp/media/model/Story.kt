@@ -2,8 +2,10 @@ package com.example.firstapp.media.model
 
 import androidx.compose.ui.graphics.Color
 
+enum class StoryType { TEXT, IMAGE, VIDEO }
+
 data class UserStory(
-    val id: Int,
+    val id: String,
     val userId: String = "",
     val userName: String,
     val userAvatarUrl: String? = null,
@@ -16,17 +18,21 @@ data class UserStory(
 }
 
 data class StoryItem(
-    val id: Int,
+    val id: String,
     val content: String,
     val contentUrl: String? = null,
-    val type: StoryType,
+    val type: StoryType, 
     val timestamp: String,
-    val createdAt: Long = System.currentTimeMillis(), // Added for 24h expiration
-    val backgroundColor: Color = Color.Gray,
+    val createdAt: Long = 0,
+    val backgroundColor: Color = Color.DarkGray,
     val isViewed: Boolean = false,
-    val durationMs: Int = 5000 // Default 5 seconds per story
+    val durationMs: Int = 5000,
+    val expiresAt: String = ""
 )
 
-enum class StoryType {
-    TEXT, VIDEO, IMAGE
-}
+data class ApiViewer(
+    val id: String,
+    val display_name: String,
+    val avatar_url: String?,
+    val viewed_at: String
+)

@@ -51,16 +51,15 @@ class SocialViewModel @Inject constructor(
     private fun connectPostRealtime() {
         PostWebSocketClient.connect(object : PostSocketListener {
             override fun onOpen() {}
-            override fun onPostsEvent(action: String, postId: Int?) {
+            override fun onPostsEvent(action: String, postId: String?) {
                 val now = System.currentTimeMillis()
                 if (now - lastRealtimePostRefreshMs < 800) return
                 lastRealtimePostRefreshMs = now
                 fetchPosts()
             }
-            override fun onShortsEvent(action: String, shortId: Int?) {
-                // Shorts handled in ShortsViewModel, but maybe we want to refresh stories here too?
+            override fun onShortsEvent(action: String, shortId: String?) {
             }
-            override fun onStoriesEvent(action: String, storyId: Int?) {
+            override fun onStoriesEvent(action: String, storyId: String?) {
                 fetchStories()
             }
             override fun onError(error: String) {}
@@ -119,11 +118,11 @@ class SocialViewModel @Inject constructor(
         }
     }
 
-    fun likePost(postId: Int) { viewModelScope.launch { socialRepository.likePost(postId).collect { } } }
-    fun repostPost(postId: Int) { viewModelScope.launch { socialRepository.repostPost(postId).collect { } } }
-    fun bookmarkPost(postId: Int) { viewModelScope.launch { socialRepository.bookmarkPost(postId).collect { } } }
+    fun likePost(postId: String) { viewModelScope.launch { socialRepository.likePost(postId).collect { } } }
+    fun repostPost(postId: String) { viewModelScope.launch { socialRepository.repostPost(postId).collect { } } }
+    fun bookmarkPost(postId: String) { viewModelScope.launch { socialRepository.bookmarkPost(postId).collect { } } }
 
-    fun createPostReply(postId: Int, content: String, parentReplyId: Int? = null) {
+    fun createPostReply(postId: String, content: String, parentReplyId: String? = null) {
         if (content.isBlank()) return
         viewModelScope.launch {
             socialRepository.createPostReply(postId, content.trim(), parentReplyId).collect { result ->
@@ -132,12 +131,12 @@ class SocialViewModel @Inject constructor(
         }
     }
 
-    fun likePostReply(replyId: Int) { viewModelScope.launch { socialRepository.likePostReply(replyId).collect { } } }
-    fun repostPostReply(replyId: Int) { viewModelScope.launch { socialRepository.repostPostReply(replyId).collect { } } }
-    fun bookmarkPostReply(replyId: Int) { viewModelScope.launch { socialRepository.bookmarkPostReply(replyId).collect { } } }
+    fun likePostReply(replyId: String) { viewModelScope.launch { socialRepository.likePostReply(replyId).collect { } } }
+    fun repostPostReply(replyId: String) { viewModelScope.launch { socialRepository.repostPostReply(replyId).collect { } } }
+    fun bookmarkPostReply(replyId: String) { viewModelScope.launch { socialRepository.bookmarkPostReply(replyId).collect { } } }
     
-    fun viewPost(postId: Int) { viewModelScope.launch { socialRepository.viewPost(postId).collect { } } }
-    fun deletePost(postId: Int) {
+    fun viewPost(postId: String) { viewModelScope.launch { socialRepository.viewPost(postId).collect { } } }
+    fun deletePost(postId: String) {
         viewModelScope.launch {
             socialRepository.deletePost(postId).collect { result ->
                 if (result is Resource.Success) {
@@ -148,9 +147,9 @@ class SocialViewModel @Inject constructor(
         }
     }
 
-    fun followUser(userId: Int) { viewModelScope.launch { socialRepository.followUser(userId).collect { if (it is Resource.Success) { fetchSuggestedUsers(); fetchPosts() } } } }
-    fun unfollowUser(userId: Int) { viewModelScope.launch { socialRepository.unfollowUser(userId).collect { if (it is Resource.Success) { fetchSuggestedUsers(); fetchPosts() } } } }
-    fun votePoll(postId: Int, optionId: Int) { viewModelScope.launch { socialRepository.votePoll(postId, optionId).collect { if (it is Resource.Success) fetchPosts() } } }
+    fun followUser(userId: String) { viewModelScope.launch { socialRepository.followUser(userId).collect { if (it is Resource.Success) { fetchSuggestedUsers(); fetchPosts() } } } }
+    fun unfollowUser(userId: String) { viewModelScope.launch { socialRepository.unfollowUser(userId).collect { if (it is Resource.Success) { fetchSuggestedUsers(); fetchPosts() } } } }
+    fun votePoll(postId: String, optionId: String) { viewModelScope.launch { socialRepository.votePoll(postId, optionId).collect { if (it is Resource.Success) fetchPosts() } } }
 
     fun postStory(content: String, contentUrl: String?) {
         viewModelScope.launch {
@@ -187,11 +186,11 @@ class SocialViewModel @Inject constructor(
         }
     }
 
-    fun markStoryAsViewed(userId: Int, storyId: Int) { viewModelScope.launch { socialRepository.markStoryAsViewed(userId, storyId).collect { } } }
-    fun muteStory(userId: Int, isMuted: Boolean) { viewModelScope.launch { socialRepository.muteStory(userId, isMuted).collect { } } }
+    fun markStoryAsViewed(userId: String, storyId: String) { viewModelScope.launch { socialRepository.markStoryAsViewed(userId, storyId).collect { } } }
+    fun muteStory(userId: String, isMuted: Boolean) { viewModelScope.launch { socialRepository.muteStory(userId, isMuted).collect { } } }
 
     override fun onCleared() {
-        PostWebSocketClient.close()
+        // PostWebSocketClient.close() - using disconnect if appropriate or nothing
         super.onCleared()
     }
 }

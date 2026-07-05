@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import com.example.firstapp.common.model.User
 import java.io.File
 import java.io.FileOutputStream
 import com.example.firstapp.media.model.*
+import com.example.firstapp.media.ui.components.AdvertItem
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.util.formatTwitterTime
@@ -59,63 +61,88 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.IosShare
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
 import androidx.media3.common.util.UnstableApi
+import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.paging.compose.itemContentType
 import androidx.paging.LoadState
+import kotlinx.coroutines.flow.Flow
 import com.example.firstapp.media.data.api.TrendingTopic
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.activity.compose.BackHandler
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.ui.window.DialogProperties
+import java.util.*
+import kotlin.collections.*
+import kotlin.io.*
+import com.example.firstapp.chat.ui.components.FullScreenImagePlayer
+import com.example.firstapp.chat.ui.components.FullScreenVideoPlayer
+import java.util.Locale
 
 @Composable
 fun MediaScreen(
     posts: LazyPagingItems<Post>,
-    followingPosts: LazyPagingItems<Post>,
-    songs: List<Song> = emptyList(),
-    trendingTopics: List<TrendingTopic> = emptyList(),
-    suggestedUsers: List<Contact> = emptyList(),
-    mediaFeedTab: Int,
     selectedPost: Post?,
     openOwnProfileRequest: Int = 0,
     closeOwnProfileRequest: Int = 0,
+    ownProfileId: String = "",
     ownProfileName: String = "You",
     ownProfileHandle: String = "you",
+    ownProfileAvatarUrl: String? = null,
     ownProfileAvatarColor: Color = Color(0xFF3A4B57),
     onPostSelect: (Post?) -> Unit,
-    onCreatePost: (content: String, mediaUrls: List<String>, tags: List<String>) -> Unit,
-    onLikePost: (postId: Int, likes: String, isLiked: Boolean) -> Unit,
-    onRepostPost: (postId: Int) -> Unit,
-    onReplySubmit: (postId: Int, parentReplyId: Int?, content: String) -> Unit,
-    onReplyLike: (replyId: Int) -> Unit,
-    onReplyRepost: (replyId: Int) -> Unit,
-    onBookmarkPost: (postId: Int) -> Unit,
-    onBookmarkReply: (replyId: Int) -> Unit,
-    onViewPost: (postId: Int) -> Unit = {},
+    onCreatePost: (content: String, mediaUrls: List<String>, tags: List<String>, postType: String?) -> Unit,
+    onLikePost: (postId: String, likes: String, isLiked: Boolean) -> Unit,
+    onRepostPost: (postId: String) -> Unit,
+    onReplySubmit: (postId: String, parentReplyId: String?, content: String) -> Unit,
+    onReplyLike: (replyId: String) -> Unit,
+    onReplyRepost: (replyId: String) -> Unit,
+    onBookmarkPost: (postId: String) -> Unit,
+    onBookmarkReply: (replyId: String) -> Unit,
+    onViewPost: (postId: String) -> Unit = {},
     onProfileViewChange: (Boolean) -> Unit = {},
+    onGetUserPosts: (String) -> Flow<PagingData<Post>> = { _ -> kotlinx.coroutines.flow.flowOf() },
     onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
-    onVotePoll: (Int, Int) -> Unit = { _, _ -> },
-    onFollowUser: (Int) -> Unit = {},
+    onVotePoll: (postId: String, optionId: String) -> Unit = { _, _ -> },
+    onFollowUser: (userId: String) -> Unit = {},
+    onCallClick: (userId: String, CallType) -> Unit = { _, _ -> },
     onArtistClick: (String) -> Unit = {},
-    onCallClick: (Int, CallType) -> Unit = { _, _ -> },
     onCreatePostClick: Int = 0,
-    onRefresh: () -> Unit = {}
+    onRefresh: () -> Unit = {},
+    refreshTrigger: Int = 0
 ) {
     val context = LocalContext.current
+
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger > 0) {
+            posts.refresh()
+        }
+    }
+
     var showCreatePost by remember { mutableStateOf(false) }
-    var showProfile by remember { mutableStateOf(false) }
-    var selectedUser by remember { mutableStateOf<User?>(null) }
     var replyingToPost by remember { mutableStateOf<Post?>(null) }
-    
-    var isSearchActive by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-    
-    // Detailed View State
-    var activePostForDetail by remember { mutableStateOf<Post?>(null) }
+    var replyingToReply by remember { mutableStateOf<PostReply?>(null) }
     var fullScreenImageUri by remember { mutableStateOf<String?>(null) }
     var fullScreenVideoUri by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(selectedPost) {
-        if (selectedPost != null) {
-            activePostForDetail = selectedPost
+    var selectedUser by remember { mutableStateOf<User?>(null) }
+    var showProfile by remember { mutableStateOf(false) }
+
+    LaunchedEffect(openOwnProfileRequest) {
+        if (openOwnProfileRequest > 0) {
+            selectedUser = User(id = ownProfileId, username = ownProfileHandle, display_name = ownProfileName, avatar_url = ownProfileAvatarUrl)
+            showProfile = true
+            onPostSelect(null)
+            onProfileViewChange(true)
         }
     }
 
@@ -125,15 +152,6 @@ fun MediaScreen(
         }
     }
 
-    LaunchedEffect(openOwnProfileRequest) {
-        if (openOwnProfileRequest > 0) {
-            selectedUser = null
-            showProfile = true
-            activePostForDetail = null
-            onProfileViewChange(true)
-        }
-    }
-    
     LaunchedEffect(closeOwnProfileRequest) {
         if (closeOwnProfileRequest > 0) {
             showProfile = false
@@ -141,174 +159,109 @@ fun MediaScreen(
         }
     }
 
-    val backHandler = {
-        if (activePostForDetail != null) {
-            activePostForDetail = null
-            onPostSelect(null)
-        } else if (showProfile) {
-            showProfile = false
-            onProfileViewChange(false)
-        }
-    }
-
-    androidx.activity.compose.BackHandler(enabled = activePostForDetail != null || showProfile) {
-        backHandler()
-    }
-
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Header
-            if (activePostForDetail == null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isSearchActive) {
-                        TextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("Search media...", color = AppTextSecondary) },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = AppAccent
-                            ),
-                            leadingIcon = {
-                                IconButton(onClick = { isSearchActive = false; searchQuery = "" }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
-                                }
-                            },
-                            singleLine = true
-                        )
-                    } else {
-                        Text(
-                            text = if (showProfile) "Profile" else when(mediaFeedTab) {
-                                0 -> "My Feed"
-                                1 -> "Following"
-                                else -> "Trending"
-                            },
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = AppTextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        Row {
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Default.Search, null, tint = AppTextPrimary)
-                            }
-                            if (!showProfile) {
-                                IconButton(onClick = onRefresh) {
-                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = AppTextPrimary)
-                                }
-                                IconButton(onClick = { showCreatePost = true }) {
-                                    Icon(Icons.Default.Add, contentDescription = "Create Post", tint = AppAccent)
-                                }
-                            } else {
-                                IconButton(onClick = { 
-                                    showProfile = false
-                                    onProfileViewChange(false)
-                                }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AppAccent)
-                                }
-                            }
-                        }
-                    }
+        androidx.activity.compose.BackHandler(
+            enabled = selectedPost != null || showProfile || fullScreenImageUri != null || fullScreenVideoUri != null || showCreatePost || replyingToPost != null
+        ) {
+            when {
+                fullScreenImageUri != null -> fullScreenImageUri = null
+                fullScreenVideoUri != null -> fullScreenVideoUri = null
+                showCreatePost -> showCreatePost = false
+                replyingToPost != null -> {
+                    replyingToPost = null
+                    replyingToReply = null
+                }
+                selectedPost != null -> onPostSelect(null)
+                showProfile -> {
+                    showProfile = false
+                    onProfileViewChange(false)
                 }
             }
+        }
 
+        Column(modifier = Modifier.fillMaxSize()) {
             when {
-                activePostForDetail != null -> {
+                selectedPost != null -> {
                     PostDetailSection(
-                        post = activePostForDetail!!,
-                        onBack = { 
-                            activePostForDetail = null
-                            onPostSelect(null)
-                        },
-                        onLike = { onLikePost(it, activePostForDetail!!.likes, activePostForDetail!!.isLiked) },
+                        post = selectedPost,
+                        onBack = { onPostSelect(null) },
+                        onLike = { onLikePost(it, selectedPost.likes, selectedPost.isLiked) },
                         onRepost = onRepostPost,
                         onBookmark = onBookmarkPost,
-                        onReplyClick = { replyingToPost = it },
+                        onReplyClick = { p, r -> 
+                            replyingToPost = p
+                            replyingToReply = r
+                        },
                         onReplyLike = onReplyLike,
                         onReplyRepost = onReplyRepost,
                         onReplyBookmark = onBookmarkReply,
+                        onPlaySong = onPlaySong,
+                        onProfileClick = { user ->
+                            selectedUser = user
+                            showProfile = true
+                        }
+                    )
+                }
+                showProfile && selectedUser != null -> {
+                    UserProfileSection(
+                        user = selectedUser!!,
+                        onBack = { 
+                            showProfile = false
+                            onProfileViewChange(false)
+                        },
+                        onPostClick = onPostSelect,
+                        onGetUserPosts = onGetUserPosts,
+                        onFollowClick = { onFollowUser(it) },
+                        onCallClick = onCallClick,
                         onPlaySong = onPlaySong
                     )
                 }
-                showProfile -> {
-                    UserProfileSection(
-                        user = selectedUser,
-                        ownName = ownProfileName,
-                        ownHandle = ownProfileHandle,
-                        ownAvatarColor = ownProfileAvatarColor,
-                        posts = posts,
-                        onPostClick = { activePostForDetail = it },
-                        onPlaySong = onPlaySong,
-                        onCallClick = { type -> selectedUser?.let { onCallClick(it.id, type) } }
-                    )
-                }
                 else -> {
-                    MediaFeed(
+                    MainFeedSection(
                         posts = posts,
-                        followingPosts = followingPosts,
-                        songs = songs,
-                        trendingTopics = trendingTopics,
-                        suggestedUsers = suggestedUsers,
-                        searchQuery = searchQuery,
-                        mediaFeedTab = mediaFeedTab,
-                        onPostSelect = { 
-                            onPostSelect(it)
-                            activePostForDetail = it
-                            if (it != null) onViewPost(it.id)
-                        },
-                        onLike = { post -> onLikePost(post.id, post.likes, post.isLiked) },
+                        onPostClick = onPostSelect,
+                        onLike = onLikePost,
                         onRepost = onRepostPost,
                         onBookmark = onBookmarkPost,
+                        onReplyClick = { p, r -> 
+                            replyingToPost = p
+                            replyingToReply = r
+                        },
                         onProfileClick = { user ->
                             selectedUser = user
                             showProfile = true
                             onProfileViewChange(true)
                         },
                         onPlaySong = onPlaySong,
-                        onImageClick = { fullScreenImageUri = it },
-                        onVideoClick = { fullScreenVideoUri = it },
                         onVotePoll = onVotePoll,
-                        onFollowUser = onFollowUser,
-                        onArtistClick = onArtistClick
+                        onRefresh = onRefresh
                     )
                 }
             }
-        }
-
-        if (fullScreenImageUri != null) {
-            MediaFullScreenImagePlayer(uri = fullScreenImageUri!!, onBack = { fullScreenImageUri = null })
-        }
-        if (fullScreenVideoUri != null) {
-            MediaFullScreenVideoPlayer(uri = fullScreenVideoUri!!, onBack = { fullScreenVideoUri = null })
         }
 
         if (showCreatePost) {
             CreatePostDialog(
                 onDismiss = { showCreatePost = false },
-                onSubmit = { content, urls ->
-                    onCreatePost(content, urls, emptyList())
+                onSubmit = { content, media, tags, type ->
+                    onCreatePost(content, media, tags, type)
                     showCreatePost = false
                 }
             )
         }
 
-        replyingToPost?.let { post ->
+        if (replyingToPost != null) {
             ReplyDialog(
-                post = post,
-                onDismiss = { replyingToPost = null },
-                onSubmit = { content ->
-                    onReplySubmit(post.id, null, content)
+                post = replyingToPost!!,
+                reply = replyingToReply,
+                onDismiss = { 
                     replyingToPost = null
+                    replyingToReply = null
+                },
+                onSubmit = { content ->
+                    onReplySubmit(replyingToPost!!.id, replyingToReply?.id, content)
+                    replyingToPost = null
+                    replyingToReply = null
                 }
             )
         }
@@ -316,336 +269,115 @@ fun MediaScreen(
 }
 
 @Composable
-fun MediaFeed(
+fun MainFeedSection(
     posts: LazyPagingItems<Post>,
-    followingPosts: LazyPagingItems<Post>,
-    songs: List<Song> = emptyList(),
-    trendingTopics: List<TrendingTopic> = emptyList(),
-    suggestedUsers: List<Contact> = emptyList(),
-    searchQuery: String = "",
-    mediaFeedTab: Int = 0,
-    onPostSelect: (Post?) -> Unit,
-    onLike: (Post) -> Unit,
-    onRepost: (Int) -> Unit,
-    onBookmark: (Int) -> Unit,
-    onProfileClick: (User?) -> Unit,
-    onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
-    onImageClick: (String) -> Unit = {},
-    onVideoClick: (String) -> Unit = {},
-    onVotePoll: (Int, Int) -> Unit = { _, _ -> },
-    onFollowUser: (Int) -> Unit = {},
-    onArtistClick: (String) -> Unit = {}
+    onPostClick: (Post) -> Unit,
+    onLike: (String, String, Boolean) -> Unit,
+    onRepost: (String) -> Unit,
+    onBookmark: (String) -> Unit,
+    onReplyClick: (Post, PostReply?) -> Unit,
+    onProfileClick: (User) -> Unit,
+    onPlaySong: (Song, List<Song>) -> Unit,
+    onVotePoll: (String, String) -> Unit,
+    onRefresh: () -> Unit
 ) {
-    val activePosts = if (mediaFeedTab == 1) followingPosts else posts
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 180.dp)
-    ) {
-        if (mediaFeedTab == 2 && trendingTopics.isNotEmpty()) {
-            item {
-                TrendingTopicsSection(trendingTopics)
-            }
-        }
-
-        if (songs.isNotEmpty() && mediaFeedTab == 0) {
-            item {
-                Text(
-                    "Trending Music",
-                    modifier = Modifier.padding(16.dp),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(songs) { song ->
-                        TrendingMusicCard(
-                            song = song, 
-                            onClick = { onPlaySong(song, songs) },
-                            onArtistClick = onArtistClick
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
-            }
-        }
-
-        if (mediaFeedTab == 2 && suggestedUsers.isNotEmpty()) {
-            item {
-                SuggestedUsersSection(suggestedUsers, onFollow = onFollowUser)
-                HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
-            }
-        }
-
-        items(
-            count = activePosts.itemCount,
-            key = activePosts.itemKey { it.id },
-            contentType = activePosts.itemContentType { "post" }
-        ) { index ->
-            val post = activePosts[index]
-            if (post != null) {
-                PostItem(
-                    post = post,
-                    onClick = { onPostSelect(post) },
-                    onLike = { onLike(post) },
-                    onRepost = { onRepost(post.id) },
-                    onBookmark = { onBookmark(post.id) },
-                    onProfileClick = {
-                        onProfileClick(User(id = post.authorId, username = post.authorHandle, display_name = post.authorName, avatar_url = post.authorAvatarUrl, is_verified = post.isVerifiedAuthor))
-                    },
-                    onReplyClick = { onPostSelect(post) },
-                    onImageClick = onImageClick,
-                    onVideoClick = onVideoClick,
-                    onVotePoll = onVotePoll
-                )
-                HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
-            }
-        }
-
-        when (activePosts.loadState.append) {
-            is LoadState.Loading -> {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = AppAccent)
-                    }
-                }
-            }
-            is LoadState.Error -> {
-                item {
-                    Button(onClick = { activePosts.retry() }, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("Retry")
-                    }
-                }
-            }
-            else -> {}
-        }
-    }
-}
-
-@Composable
-fun TrendingTopicsSection(topics: List<TrendingTopic>) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Trending for you", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Spacer(Modifier.height(12.dp))
-        topics.take(5).forEach { topic ->
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Text("#${topic.tag}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("${topic.post_count} posts", color = AppTextSecondary, fontSize = 13.sp)
-            }
-        }
-    }
-    HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
-}
-
-@Composable
-fun SuggestedUsersSection(users: List<Contact>, onFollow: (Int) -> Unit) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Who to follow", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Spacer(Modifier.height(12.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(users) { user ->
-                Card(
-                    modifier = Modifier.width(150.dp),
-                    colors = CardDefaults.cardColors(containerColor = AppSecondary.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(AppAccent.copy(alpha = 0.2f))) {
-                            if (user.avatarUrl != null) {
-                                AsyncImage(model = user.avatarUrl, contentDescription = null, contentScale = ContentScale.Crop)
-                            } else {
-                                Text(user.displayName.take(1), modifier = Modifier.align(Alignment.Center), color = AppAccent, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(user.displayName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("@${user.username}", color = AppTextSecondary, fontSize = 12.sp, maxLines = 1)
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = { onFollow(user.id) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                            modifier = Modifier.height(32.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-                        ) {
-                            Text("Follow", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun TrendingMusicCard(song: Song, onClick: () -> Unit, onArtistClick: (String) -> Unit = {}) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.width(160.dp),
-        color = AppSecondary.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    when {
+        posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
             Box(
-                modifier = Modifier
-                    .size(136.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(song.albumArtColor)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = song.title,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = song.artist,
-                color = AppTextSecondary,
-                fontSize = 12.sp,
-                maxLines = 1,
-                modifier = Modifier.clickable { onArtistClick(song.artist) }
-            )
-        }
-    }
-}
-
-@Composable
-fun PostContent(text: String, onMentionClick: (String) -> Unit = {}, onHashtagClick: (String) -> Unit = {}) {
-    val annotatedString = buildAnnotatedString {
-        val words = text.split(" ")
-        words.forEachIndexed { index, word ->
-            when {
-                word.startsWith("@") && word.length > 1 -> {
-                    pushStringAnnotation(tag = "mention", annotation = word.substring(1))
-                    withStyle(style = SpanStyle(color = AppAccent, fontWeight = FontWeight.Bold)) {
-                        append(word)
-                    }
-                    pop()
-                }
-                word.startsWith("#") && word.length > 1 -> {
-                    pushStringAnnotation(tag = "hashtag", annotation = word.substring(1))
-                    withStyle(style = SpanStyle(color = AppAccent)) {
-                        append(word)
-                    }
-                    pop()
-                }
-                else -> append(word)
-            }
-            if (index < words.size - 1) append(" ")
-        }
-    }
-
-    ClickableText(
-        text = annotatedString,
-        style = MaterialTheme.typography.bodyLarge.copy(color = AppTextPrimary, lineHeight = 22.sp),
-        onClick = { offset ->
-            annotatedString.getStringAnnotations(tag = "mention", start = offset, end = offset)
-                .firstOrNull()?.let { onMentionClick(it.item) }
-            annotatedString.getStringAnnotations(tag = "hashtag", start = offset, end = offset)
-                .firstOrNull()?.let { onHashtagClick(it.item) }
-        }
-    )
-}
-
-@UnstableApi
-@Composable
-fun VideoPlayer(url: String) {
-    val context = LocalContext.current
-    val exoPlayer = remember {
-        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-            val mediaItem = androidx.media3.common.MediaItem.fromUri(url)
-            setMediaItem(mediaItem)
-            prepare()
-        }
-    }
-
-    DisposableEffect(exoPlayer) {
-        onDispose {
-            exoPlayer.release()
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(240.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.Black)
-    ) {
-        AndroidView(
-            factory = { ctx ->
-                androidx.media3.ui.PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = true
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
-
-@Composable
-fun PostPoll(poll: PostPoll, onVote: (Int) -> Unit) {
-    val totalVotes = remember(poll.options) { poll.options.sumOf { it.voteCount } }.coerceAtLeast(1L)
-    
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        poll.options.forEach { option ->
-            val percentage = ((option.voteCount.toFloat() / totalVotes) * 100).toInt()
-            val isSelected = poll.userVote == option.id
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .border(
-                        width = if (isSelected) 2.dp else 1.dp,
-                        color = if (isSelected) AppAccent else Color.White.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .clickable { onVote(option.id) }
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                // Progress Bar
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(percentage / 100f)
-                        .fillMaxHeight()
-                        .background(if (isSelected) AppAccent.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f))
+                CircularProgressIndicator(color = AppPrimary)
+            }
+            return
+        }
+        posts.loadState.refresh is LoadState.Error && posts.itemCount == 0 -> {
+            val error = (posts.loadState.refresh as LoadState.Error).error
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Could not load media feed",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(option.text, color = Color.White, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 14.sp)
-                    Text("$percentage%", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = error.localizedMessage ?: "Please check your connection and sign-in.",
+                    color = SecondaryText,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = {
+                    posts.retry()
+                    onRefresh()
+                }) {
+                    Text("Retry")
+                }
+            }
+            return
+        }
+        posts.itemCount == 0 && posts.loadState.refresh is LoadState.NotLoading -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "No posts yet",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Pull to refresh or try again in a moment.",
+                    color = SecondaryText,
+                    fontSize = 14.sp
+                )
+            }
+            return
+        }
+    }
+
+    PullToRefreshBox(
+        isRefreshing = posts.loadState.refresh is LoadState.Loading,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            items(
+                count = posts.itemCount,
+                key = posts.itemKey { it.id },
+                contentType = posts.itemContentType { "post" }
+            ) { index ->
+                val post = posts[index]
+                if (post != null) {
+                    PostItem(
+                        post = post,
+                        onClick = { onPostClick(post) },
+                        onLike = { onLike(post.id, post.likes, post.isLiked) },
+                        onRepost = { onRepost(post.id) },
+                        onBookmark = { onBookmark(post.id) },
+                        onReplyClick = { onReplyClick(post, null) },
+                        onProfileClick = { onProfileClick(post.authorToUser()) },
+                        onPlaySong = onPlaySong,
+                        onVotePoll = { onVotePoll(post.id, it) }
+                    )
+                    HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
                 }
             }
         }
-        Text("$totalVotes votes \u2022 ${poll.expiresAt}", color = AppTextSecondary, fontSize = 12.sp)
     }
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun PostItem(
     post: Post,
@@ -653,187 +385,122 @@ fun PostItem(
     onLike: () -> Unit,
     onRepost: () -> Unit,
     onBookmark: () -> Unit,
+    onReplyClick: () -> Unit,
     onProfileClick: () -> Unit,
-    onReplyClick: () -> Unit = {},
-    onPlaySong: (Song) -> Unit = {},
-    onImageClick: (String) -> Unit = {},
-    onVideoClick: (String) -> Unit = {},
-    onVotePoll: (Int, Int) -> Unit = { _, _ -> },
-    showThreadLine: Boolean = false,
-    isThreadChild: Boolean = false
+    onPlaySong: (Song, List<Song>) -> Unit,
+    onVotePoll: (String) -> Unit
 ) {
-    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        // Left Column: Avatar + Thread Line
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(42.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(42.dp).clickable { onProfileClick() },
-                shape = CircleShape,
-                color = post.authorAvatarColor ?: AppSecondary
-            ) {
-                if (post.authorAvatarUrl != null) {
-                    AsyncImage(
-                        model = post.authorAvatarUrl,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop
-                    )
-                }
-            }
-            if (showThreadLine || post.hasThread) {
-                Box(
-                    modifier = Modifier
-                        .width(2.dp)
-                        .weight(1f)
-                        .padding(vertical = 4.dp)
-                        .background(Color.White.copy(alpha = 0.15f))
-                )
-            }
+    when (post.type) {
+        PostType.EXTERNAL_AD_PLACEHOLDER -> {
+            ExternalAdItem()
         }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Right Column: Content
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(modifier = Modifier.weight(1f).clickable { onProfileClick() }, verticalAlignment = Alignment.CenterVertically) {
-                    Text(post.authorName, color = AppTextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    if (post.isVerifiedAuthor) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.Verified, contentDescription = null, tint = AppAccent, modifier = Modifier.size(14.dp))
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("@${post.authorHandle}", color = AppTextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Text("${formatTwitterTime(post.timestamp)}", color = AppTextSecondary, fontSize = 12.sp)
-                
-                IconButton(onClick = { 
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    onBookmark() 
-                }, modifier = Modifier.size(24.dp).padding(start = 8.dp)) {
-                    Icon(
-                        if (post.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                        contentDescription = null,
-                        tint = if (post.isBookmarked) AppAccent else AppTextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            PostContent(text = post.content)
-
-            if (post.type == PostType.POLL && post.poll != null) {
-                PostPoll(
-                    poll = post.poll,
-                    onVote = { optionId -> onVotePoll(post.id, optionId) }
-                )
-            }
-            
-            if (post.type == PostType.SONG && post.mediaUrls.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    onClick = { 
-                        val songIdTag = post.tags.find { it.startsWith("song_id:") }
-                        val songId = songIdTag?.substringAfter(":")?.toIntOrNull()
-                        if (songId != null) {
-                            onPlaySong(Song(id = songId, title = post.content, artist = post.authorName, albumArtUrl = post.mediaUrls.firstOrNull(), albumArtColor = AppPrimary, audioUrl = "", duration = "", category = "", playCount = "0", isLiked = false, isExplicit = false))
-                        }
-                    },
-                    color = AppSecondary.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(AppPrimary)) {
-                            if (post.mediaUrls.isNotEmpty()) {
-                                AsyncImage(model = post.mediaUrls.first(), contentDescription = null, contentScale = ContentScale.Crop)
-                            } else {
-                                Icon(Icons.Default.MusicNote, null, tint = Color.White, modifier = Modifier.align(Alignment.Center))
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Shared Song", color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                            Text(post.content.take(40), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Icon(Icons.Default.PlayArrow, null, tint = Color.White)
-                    }
-                }
-            }
-            
-            if (post.mediaUrls.isNotEmpty() && post.type != PostType.SONG) {
-                Spacer(modifier = Modifier.height(12.dp))
-                if (post.type == PostType.VIDEO_WITH_TEXT) {
-                    Box(modifier = Modifier.clickable { onVideoClick(post.mediaUrls.first()) }) {
-                        VideoPlayer(url = post.mediaUrls.first())
-                    }
-                } else if (post.mediaUrls.size == 1) {
-                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { onImageClick(post.mediaUrls.first()) }) {
-                        AsyncImage(
-                            model = post.mediaUrls.first(),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
-                            contentScale = ContentScale.FillWidth
-                        )
-                    }
-                } else {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(end = 16.dp)
+        else -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(12.dp)
+            ) {
+                if (post.type == PostType.INTERNAL_AD) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 48.dp, bottom = 4.dp)
                     ) {
-                        items(post.mediaUrls) { url ->
+                        Icon(
+                            Icons.Default.TrendingUp,
+                            contentDescription = null,
+                            tint = SecondaryText,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Promoted", color = SecondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(post.authorAvatarColor)
+                            .clickable(onClick = onProfileClick)
+                    ) {
+                        if (post.authorAvatarUrl != null) {
                             AsyncImage(
-                                model = url,
+                                model = post.authorAvatarUrl,
                                 contentDescription = null,
-                                modifier = Modifier
-                                    .size(240.dp, 160.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(AppSecondary.copy(alpha = 0.3f))
-                                    .clickable { onImageClick(url) },
+                                modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
                         }
                     }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PostStat(Icons.Default.ChatBubbleOutline, post.repliesCount, onClick = onReplyClick)
-                PostStat(
-                    Icons.Default.Repeat, 
-                    post.shares, 
-                    color = if (post.isReposted) Color(0xFF4CAF50) else AppTextSecondary,
-                    onClick = {
-                        onRepost()
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = post.authorName,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (post.isVerifiedAuthor) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.Verified,
+                                    contentDescription = null,
+                                    tint = TwitterBlue,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "@${post.authorHandle} · ${formatTwitterTime(post.timestamp)}",
+                                color = SecondaryText,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Text(
+                            text = post.content,
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+
+                        if (post.mediaUrls.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            MediaGrid(post.mediaUrls)
+                        }
+
+                        if (post.poll != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            PollView(post.poll, onVote = onVotePoll)
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            InteractionIcon(Icons.Outlined.ChatBubbleOutline, post.repliesCount, SecondaryText, onReplyClick)
+                            InteractionIcon(Icons.Default.Repeat, post.shares, if (post.isReposted) AppPrimary else SecondaryText, onRepost)
+                            InteractionIcon(
+                                if (post.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                                post.likes,
+                                if (post.isLiked) Color.Red else SecondaryText,
+                                onLike
+                            )
+                            InteractionIcon(Icons.Outlined.BarChart, post.views, SecondaryText) {}
+                            InteractionIcon(Icons.Outlined.IosShare, "", SecondaryText, onBookmark)
+                        }
                     }
-                )
-                PostStat(
-                    if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
-                    post.likes, 
-                    color = if (post.isLiked) Color(0xFFF44336) else AppTextSecondary,
-                    onClick = {
-                        onLike()
-                    }
-                )
-                PostStat(Icons.Default.BarChart, post.views)
-                IconButton(onClick = { /* Share */ }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Share, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -841,121 +508,369 @@ fun PostItem(
 }
 
 @Composable
-fun PostStat(icon: ImageVector, text: String, color: Color = AppTextSecondary, onClick: () -> Unit = {}) {
+fun ExternalAdItem() {
+    AndroidView(
+        factory = { ctx ->
+            com.google.android.gms.ads.AdView(ctx).apply {
+                setAdSize(com.google.android.gms.ads.AdSize.BANNER)
+                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
+                loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
+            }
+        },
+        modifier = Modifier.fillMaxWidth().padding(12.dp)
+    )
+}
+
+@Composable
+fun InteractionIcon(icon: ImageVector, count: String, color: Color, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.clickable { onClick() }.padding(4.dp)
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-        if (text.isNotEmpty() && text != "0") {
+        if (count.isNotEmpty() && count != "0") {
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text, color = color, fontSize = 12.sp)
+            Text(text = count, color = color, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+fun MediaGrid(urls: List<String>) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1.77f)
+            .clip(shape)
+            .border(0.5.dp, DividerColor, shape)
+    ) {
+        if (urls.size == 1) {
+            AsyncImage(
+                model = urls[0],
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Row(modifier = Modifier.fillMaxSize()) {
+                AsyncImage(
+                    model = urls[0],
+                    contentDescription = null,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    AsyncImage(
+                        model = urls[1],
+                        contentDescription = null,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentScale = ContentScale.Crop
+                    )
+                    if (urls.size > 2) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        AsyncImage(
+                            model = urls[2],
+                            contentDescription = null,
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PollView(poll: PostPoll, onVote: (String) -> Unit) {
+    val totalVotes = poll.options.sumOf { it.voteCount }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        poll.options.forEach { option ->
+            val percentage = if (totalVotes > 0) (option.voteCount.toFloat() / totalVotes) else 0f
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, TwitterBlue.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .clickable { onVote(option.id) }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(percentage)
+                        .background(TwitterBlue.copy(alpha = 0.2f))
+                )
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(option.text, color = Color.White, fontSize = 14.sp)
+                    Text("${(percentage * 100).toInt()}%", color = SecondaryText, fontSize = 14.sp)
+                }
+            }
+        }
+        Text(
+            "$totalVotes votes · ${poll.expiresAt}",
+            color = SecondaryText,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+fun PostDetailSection(
+    post: Post,
+    onBack: () -> Unit,
+    onLike: (String) -> Unit,
+    onRepost: (String) -> Unit,
+    onBookmark: (String) -> Unit,
+    onReplyClick: (Post, PostReply?) -> Unit,
+    onReplyLike: (String) -> Unit,
+    onReplyRepost: (String) -> Unit,
+    onReplyBookmark: (String) -> Unit,
+    onPlaySong: (Song, List<Song>) -> Unit,
+    onProfileClick: (User) -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Post", color = Color.White) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+            )
+        },
+        containerColor = AppBackground
+    ) { padding ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            item {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(post.authorAvatarColor)
+                                .clickable { onProfileClick(post.authorToUser()) }
+                        ) {
+                            if (post.authorAvatarUrl != null) {
+                                AsyncImage(
+                                    model = post.authorAvatarUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("@${post.authorHandle}", color = SecondaryText, fontSize = 15.sp)
+                        }
+                    }
+                    
+                    Text(
+                        post.content,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                    
+                    if (post.mediaUrls.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        MediaGrid(post.mediaUrls)
+                    }
+                    
+                    Text(
+                        "${post.timestamp} · ${post.views} Views",
+                        color = SecondaryText,
+                        fontSize = 15.sp,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                    
+                    HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 16.dp))
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                        InteractionIcon(Icons.Outlined.ChatBubbleOutline, "", if (post.repliesLocked) Color.Gray else SecondaryText) { 
+                            if (!post.repliesLocked) onReplyClick(post, null) 
+                        }
+                        InteractionIcon(Icons.Default.Repeat, post.shares, if (post.isReposted) AppPrimary else SecondaryText) { onRepost(post.id) }
+                        InteractionIcon(if (post.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, "", if (post.isLiked) Color.Red else SecondaryText) { onLike(post.id) }
+                        InteractionIcon(Icons.Outlined.IosShare, "", SecondaryText) { onBookmark(post.id) }
+                    }
+                    
+                    if (post.repliesLocked) {
+                        Text(
+                            "Replies are locked for this post.",
+                            color = SecondaryText,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                        )
+                    }
+                    
+                    HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 16.dp))
+                }
+            }
+            
+            items(post.replies, key = { it.id }) { reply ->
+                if (reply.type == PostType.EXTERNAL_AD_PLACEHOLDER) {
+                    ExternalAdItem()
+                } else {
+                    ReplyItem(
+                        reply = reply,
+                        onLike = { onReplyLike(reply.id) },
+                        onRepost = { onReplyRepost(reply.id) },
+                        onBookmark = { onReplyBookmark(reply.id) },
+                        onReplyClick = { onReplyClick(post, reply) },
+                        onProfileClick = { onProfileClick(reply.authorToUser()) }
+                    )
+                }
+                HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
+            }
+        }
+    }
+}
+
+@Composable
+fun ReplyItem(
+    reply: PostReply,
+    onLike: () -> Unit,
+    onRepost: () -> Unit,
+    onBookmark: () -> Unit,
+    onReplyClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(reply.authorAvatarColor)
+                .clickable(onClick = onProfileClick)
+        ) {
+            if (reply.authorAvatarUrl != null) {
+                AsyncImage(model = reply.authorAvatarUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(reply.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("@${reply.authorHandle} · ${formatTwitterTime(reply.timestamp)}", color = SecondaryText, fontSize = 13.sp)
+            }
+            Text(reply.content, color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                InteractionIcon(Icons.Outlined.ChatBubbleOutline, "", SecondaryText, onReplyClick)
+                InteractionIcon(Icons.Default.Repeat, reply.likes, if (reply.isLiked) AppPrimary else SecondaryText, onRepost)
+                InteractionIcon(if (reply.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, reply.likes, if (reply.isLiked) Color.Red else SecondaryText, onLike)
+                InteractionIcon(Icons.Outlined.IosShare, "", SecondaryText, onBookmark)
+            }
         }
     }
 }
 
 @Composable
 fun UserProfileSection(
-    user: User?,
-    ownName: String,
-    ownHandle: String,
-    ownAvatarColor: Color,
-    posts: LazyPagingItems<Post>,
+    user: User,
+    onBack: () -> Unit,
     onPostClick: (Post) -> Unit,
-    onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
-    onCallClick: (CallType) -> Unit = {}
+    onGetUserPosts: (String) -> Flow<PagingData<Post>>,
+    onFollowClick: (String) -> Unit,
+    onCallClick: (String, CallType) -> Unit,
+    onPlaySong: (Song, List<Song>) -> Unit
 ) {
-    val handle = user?.username ?: ownHandle
-    val avatarColor = if (user == null) ownAvatarColor else (if (user.is_verified) AppAccent else AppSecondary)
-
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-                .background(Brush.verticalGradient(listOf(AppSecondary, AppBackground)))
-        ) {
-            val bannerUrl = user?.banner_url ?: "https://images.unsplash.com/photo-1557683316-973673baf926?w=800"
-            AsyncImage(
-                model = bannerUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.5f
-            )
-        }
-        
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Surface(
-                    modifier = Modifier.size(84.dp).offset(y = (-42).dp),
-                    shape = CircleShape,
-                    color = avatarColor,
-                    border = BorderStroke(4.dp, AppBackground)
-                ) {
-                    val avatarUrl = user?.avatar_url
-                    if (avatarUrl != null) {
-                        AsyncImage(model = avatarUrl, contentDescription = null, contentScale = ContentScale.Crop)
+    val userPosts = remember(user.id) { onGetUserPosts(user.id) }.collectAsLazyPagingItems()
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(user.display_name, color = Color.White) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                     }
-                }
-                
-                Row(
-                    modifier = Modifier.padding(bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (user != null) {
-                        IconButton(
-                            onClick = { onCallClick(CallType.VOICE) },
-                            modifier = Modifier.background(AppSecondary, CircleShape).size(40.dp)
-                        ) {
-                            Icon(Icons.Default.Call, null, tint = AppAccent, modifier = Modifier.size(20.dp))
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+            )
+        },
+        containerColor = AppBackground
+    ) { padding ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            item {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(80.dp).clip(CircleShape).background(SecondaryText)) {
+                            if (user.avatar_url != null) {
+                                AsyncImage(model = user.avatar_url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            }
                         }
-                        IconButton(
-                            onClick = { onCallClick(CallType.VIDEO) },
-                            modifier = Modifier.background(AppSecondary, CircleShape).size(40.dp)
-                        ) {
-                            Icon(Icons.Default.VideoCall, null, tint = AppAccent, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.weight(1f))
+                        Row {
+                            IconButton(onClick = { onCallClick(user.id, CallType.VOICE) }) {
+                                Icon(Icons.Default.Call, null, tint = Color.White)
+                            }
+                            IconButton(onClick = { onCallClick(user.id, CallType.VIDEO) }) {
+                                Icon(Icons.Default.VideoCall, null, tint = Color.White)
+                            }
+                            Button(
+                                onClick = { onFollowClick(user.id) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                                shape = RoundedCornerShape(20.dp)
+                            ) {
+                                Text("Follow", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                     
-                    Button(
-                        onClick = { },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (user == null) AppSecondary else AppAccent),
-                        shape = RoundedCornerShape(24.dp)
-                    ) {
-                        Text(if (user == null) "Edit Profile" else "Follow", fontWeight = FontWeight.Bold)
+                    Text(user.display_name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.padding(top = 12.dp))
+                    Text("@${user.username}", color = SecondaryText, fontSize = 16.sp)
+                    
+                    if (user.bio != null) {
+                        Text(user.bio!!, color = Color.White, fontSize = 16.sp, modifier = Modifier.padding(top = 12.dp))
                     }
+                    
+                    Row(modifier = Modifier.padding(top = 12.dp)) {
+                        Text("${user.following_count}", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(" Following", color = SecondaryText)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text("${user.followers_count}", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(" Followers", color = SecondaryText)
+                    }
+                    
+                    HorizontalDivider(color = DividerColor, modifier = Modifier.padding(top = 16.dp))
                 }
             }
             
-            Column(modifier = Modifier.offset(y = (-32).dp)) {
-                Text(user?.display_name ?: ownName, color = AppTextPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-                Text("@$handle", color = AppTextSecondary, fontSize = 15.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(text = user?.bio ?: "", color = AppTextPrimary, fontSize = 15.sp)
-            }
-        }
-        
-        HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f), thickness = 0.5.dp)
-
-        Column {
-            for (i in 0 until posts.itemCount) {
-                val post = posts[i]
-                if (post != null && post.authorHandle == handle) {
+            items(
+                count = userPosts.itemCount,
+                key = userPosts.itemKey { it.id },
+                contentType = userPosts.itemContentType { "post" }
+            ) { index ->
+                val post = userPosts[index]
+                if (post != null) {
                     PostItem(
-                        post = post, 
-                        onClick = { onPostClick(post) }, 
-                        onLike = {}, 
-                        onRepost = {}, 
-                        onBookmark = {}, 
-                        onProfileClick = {},
-                        onPlaySong = { }
+                        post = post,
+                        onClick = { onPostClick(post) },
+                        onLike = { /* handle */ },
+                        onRepost = { /* handle */ },
+                        onBookmark = { /* handle */ },
+                        onReplyClick = { /* handle */ },
+                        onProfileClick = { /* already here */ },
+                        onPlaySong = onPlaySong,
+                        onVotePoll = { /* handle */ }
                     )
-                    HorizontalDivider(color = AppSecondary.copy(alpha = 0.3f))
+                    HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
                 }
             }
         }
@@ -963,285 +878,85 @@ fun UserProfileSection(
 }
 
 @Composable
-fun ProfileTabItem(label: String, isSelected: Boolean, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.clickable { },
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(vertical = 14.dp),
-            color = if (isSelected) Color.White else AppTextSecondary,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 15.sp
-        )
-        if (isSelected) {
-            Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(AppAccent, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
-        }
-    }
-}
-
-@Composable
-fun ProfileStat(count: String, label: String) {
-    Row {
-        Text(count, color = AppTextPrimary, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(label, color = AppTextSecondary)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PostDetailSection(
-    post: Post,
-    onBack: () -> Unit,
-    onLike: (Int) -> Unit,
-    onRepost: (Int) -> Unit,
-    onBookmark: (Int) -> Unit,
-    onReplyClick: (Post) -> Unit,
-    onReplyLike: (Int) -> Unit,
-    onReplyRepost: (Int) -> Unit,
-    onReplyBookmark: (Int) -> Unit,
-    onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> }
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Post", fontWeight = FontWeight.Bold) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White, navigationIconContentColor = Color.White)
-        )
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 180.dp)
-        ) {
-            item {
-                PostItem(
-                    post = post,
-                    onClick = {},
-                    onLike = { onLike(post.id) },
-                    onRepost = { onRepost(post.id) },
-                    onBookmark = { onBookmark(post.id) },
-                    onProfileClick = {},
-                    onReplyClick = { onReplyClick(post) },
-                    onPlaySong = { },
-                    showThreadLine = post.replies.isNotEmpty()
-                )
-                HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f), thickness = 8.dp)
-            }
-
-            if (post.replies.isNotEmpty()) {
-                items(post.replies) { reply ->
-                    PostReplyItem(
-                        reply = reply,
-                        onLike = { onReplyLike(reply.id) },
-                        onRepost = { onReplyRepost(reply.id) },
-                        onBookmark = { onReplyBookmark(reply.id) }
-                    )
-                    HorizontalDivider(color = AppSecondary.copy(alpha = 0.3f), modifier = Modifier.padding(start = 72.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PostReplyItem(
-    reply: PostReply,
-    onLike: () -> Unit,
-    onRepost: () -> Unit,
-    onBookmark: () -> Unit,
-    showConnector: Boolean = false
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(42.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = CircleShape,
-                color = reply.authorAvatarColor ?: AppSecondary
-            ) {
-                if (reply.authorAvatarUrl != null) {
-                    AsyncImage(model = reply.authorAvatarUrl, contentDescription = null, contentScale = ContentScale.Crop)
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.width(12.dp))
-        
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(reply.authorName, color = AppTextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("@${reply.authorHandle} \u2022 ${formatTwitterTime(reply.timestamp)}", color = AppTextSecondary, fontSize = 12.sp)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(reply.content, color = AppTextPrimary, fontSize = 15.sp)
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                PostStat(Icons.Default.FavoriteBorder, reply.likes, color = if (reply.isLiked) Color.Red else AppTextSecondary, onClick = onLike)
-                PostStat(Icons.Default.Repeat, "0", color = if (reply.isReposted) Color.Green else AppTextSecondary, onClick = onRepost)
-                IconButton(onClick = onBookmark, modifier = Modifier.size(20.dp)) {
-                    Icon(Icons.Default.BookmarkBorder, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ReplyDialog(
-    post: Post,
-    onDismiss: () -> Unit,
-    onSubmit: (String) -> Unit
-) {
+fun CreatePostDialog(onDismiss: () -> Unit, onSubmit: (String, List<String>, List<String>, String?) -> Unit) {
     var content by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = AppSecondary,
-        title = { Text("Reply to @${post.authorHandle}", color = Color.White, fontSize = 18.sp) },
+        title = { Text("Create Post") },
         text = {
-            Column {
-                Text(
-                    text = post.content,
-                    color = AppTextSecondary,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    placeholder = { Text("Post your reply") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppAccent,
-                        unfocusedBorderColor = AppTextSecondary,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-            }
+            TextField(
+                value = content,
+                onValueChange = { content = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("What's happening?") }
+            )
         },
         confirmButton = {
-            TextButton(onClick = { if (content.isNotBlank()) onSubmit(content) }) {
-                Text("Reply", color = AppAccent, fontWeight = FontWeight.Bold)
+            Button(onClick = { onSubmit(content, emptyList(), emptyList(), null) }) {
+                Text("Post")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = AppTextSecondary)
+                Text("Cancel")
             }
-        }
+        },
+        containerColor = SurfaceColor,
+        titleContentColor = Color.White,
+        textContentColor = Color.White
     )
 }
 
 @Composable
-fun CreatePostDialog(onDismiss: () -> Unit, onSubmit: (String, List<String>) -> Unit) {
+fun ReplyDialog(post: Post, reply: PostReply?, onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
     var content by remember { mutableStateOf("") }
-    val selectedMediaUris = remember { mutableStateListOf<Uri>() }
-    
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
-        selectedMediaUris.addAll(uris)
-    }
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = AppSecondary,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        title = {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = Color.White) }
-                Button(
-                    onClick = { onSubmit(content, selectedMediaUris.map { it.toString() }) },
-                    enabled = content.isNotBlank() || selectedMediaUris.isNotEmpty(),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppAccent, disabledContainerColor = AppAccent.copy(alpha = 0.5f))
-                ) {
-                    Text("Post", color = AppBackground, fontWeight = FontWeight.Bold)
-                }
-            }
-        },
+        title = { Text("Reply to @${reply?.authorHandle ?: post.authorHandle}") },
         text = {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = AppPrimary) {
-                        Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.padding(8.dp))
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    TextField(
-                        value = content,
-                        onValueChange = { content = it },
-                        modifier = Modifier.weight(1f).heightIn(min = 150.dp),
-                        placeholder = { Text("What's happening?", fontSize = 18.sp, color = AppTextSecondary) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp)
-                    )
-                }
-
-                if (selectedMediaUris.isNotEmpty()) {
-                    LazyRow(
-                        modifier = Modifier.padding(vertical = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(selectedMediaUris) { uri ->
-                            Box {
-                                AsyncImage(
-                                    model = uri,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-                                IconButton(
-                                    onClick = { selectedMediaUris.remove(uri) },
-                                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).background(Color.Black.copy(0.6f), CircleShape)
-                                ) {
-                                    Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-                
-                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { launcher.launch("image/*") }) { Icon(Icons.Default.Image, null, tint = AppAccent) }
-                    IconButton(onClick = { launcher.launch("video/*") }) { Icon(Icons.Default.Videocam, null, tint = AppAccent) }
-                    IconButton(onClick = { /* Poll */ }) { Icon(Icons.Default.Poll, null, tint = AppAccent) }
-                    IconButton(onClick = { /* Location */ }) { Icon(Icons.Default.LocationOn, null, tint = AppAccent) }
-                }
+            TextField(
+                value = content,
+                onValueChange = { content = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Post your reply") }
+            )
+        },
+        confirmButton = {
+            Button(onClick = { onSubmit(content) }) {
+                Text("Reply")
             }
         },
-        confirmButton = {},
-        dismissButton = {}
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        containerColor = SurfaceColor,
+        titleContentColor = Color.White,
+        textContentColor = Color.White
     )
 }
+
+fun Post.authorToUser() = User(
+    id = authorId,
+    username = authorHandle,
+    display_name = authorName,
+    avatar_url = authorAvatarUrl,
+    is_verified = isVerifiedAuthor
+)
+
+fun PostReply.authorToUser() = User(
+    id = authorId,
+    username = authorHandle,
+    display_name = authorName,
+    avatar_url = authorAvatarUrl,
+    is_verified = true 
+)
 
 fun copyUriToTempFile(context: Context, uri: Uri): File? {
     return try {
         val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-        val tempFile = File(context.cacheDir, "temp_media_${System.currentTimeMillis()}")
+        val tempFile = File.createTempFile("upload_", ".tmp", context.cacheDir)
         val outputStream = FileOutputStream(tempFile)
         inputStream.use { input ->
             outputStream.use { output ->
@@ -1249,39 +964,7 @@ fun copyUriToTempFile(context: Context, uri: Uri): File? {
             }
         }
         tempFile
-    } catch (_: Exception) {
+    } catch (e: Exception) {
         null
-    }
-}
-
-@Composable
-fun MediaFullScreenImagePlayer(uri: String, onBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black).zIndex(100f)) {
-        AsyncImage(
-            model = uri,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize().clickable { onBack() },
-            contentScale = ContentScale.Fit
-        )
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier.padding(16.dp).align(Alignment.TopStart).background(Color.Black.copy(0.4f), CircleShape)
-        ) {
-            Icon(Icons.Default.Close, null, tint = Color.White)
-        }
-    }
-}
-
-@androidx.annotation.OptIn(UnstableApi::class)
-@Composable
-fun MediaFullScreenVideoPlayer(uri: String, onBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black).zIndex(100f)) {
-        VideoPlayer(url = uri)
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier.padding(16.dp).align(Alignment.TopStart).background(Color.Black.copy(0.4f), CircleShape)
-        ) {
-            Icon(Icons.Default.Close, null, tint = Color.White)
-        }
     }
 }

@@ -1,120 +1,101 @@
 package com.example.firstapp.media.data.repository
 
-import androidx.compose.ui.graphics.Color
-import com.example.firstapp.media.domain.repository.ChannelRepository
-import com.example.firstapp.media.data.api.SocialApi
-import com.example.firstapp.media.data.api.CreateChannelRequest
-import com.example.firstapp.media.data.api.UserIdRequest
-import com.example.firstapp.common.data.local.dao.ChannelDao
-import com.example.firstapp.common.data.repository.*
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.media.data.api.*
+import com.example.firstapp.media.domain.repository.ChannelRepository
 import com.example.firstapp.media.model.Channel
-import com.example.firstapp.chat.model.ChatMessage
-import com.example.firstapp.common.model.ConversationType
-import java.util.ArrayList
-import kotlinx.coroutines.flow.*
-
+import com.example.firstapp.common.data.local.dao.ChannelDao
+import com.example.firstapp.media.data.repository.*
+import android.util.Log
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map as flowMap
 import javax.inject.Inject
+import kotlin.collections.*
 
 class ChannelRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
-    private val channelDao: ChannelDao,
-    private val chatDao: com.example.firstapp.common.data.local.dao.ChatDao
+    private val channelDao: ChannelDao
 ) : ChannelRepository {
 
     override fun getChannels(): Flow<Resource<List<Channel>>> = flow {
-        val cached = channelDao.getChannels().first().map { it.toModel() }
-        emit(Resource.Loading(cached))
+        val cachedEntities = channelDao.getChannels().first()
+        val cached = cachedEntities.map { it.toModel() }
+        if (cached.isNotEmpty()) {
+            emit(Resource.Loading(cached))
+        } else {
+            emit(Resource.Loading())
+        }
+
         try {
             val response = socialApi.getChannels()
-            if (response.isSuccessful) {
-                val channels = response.body()?.channels?.map { mapApiChannel(it) } ?: emptyList()
+            if (response.isSuccessful && response.body() != null) {
+                val apiChannels = response.body()!!.channels
+                Log.d("ChannelRepo", "Fetched ${apiChannels.size} channels")
+                val channels = apiChannels.map { apiChannel: com.example.firstapp.media.data.api.ApiChannel -> mapApiChannel(apiChannel) }
                 channelDao.clearChannels()
                 channelDao.insertChannels(channels.map { it.toEntity() })
+            } else {
+                Log.e("ChannelRepo", "getChannels failed: ${response.code()}")
             }
-        } catch (_: Exception) {}
-        
-        channelDao.getChannels().collect { entities ->
-            val models = entities.map { it.toModel() }
-            emit(Resource.Success(models))
+        } catch (e: Exception) {
+            Log.e("ChannelRepo", "getChannels exception", e)
         }
+        
+        emitAll(channelDao.getChannels().flowMap { entities ->
+            val models = entities.map { it.toModel() }
+            Resource.Success<List<Channel>>(models)
+        })
     }
 
-    override fun subscribeToChannel(channelId: Int): Flow<Resource<Boolean>> = flow {
+    override fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>> = flow {
         try {
             if (socialApi.subscribeToChannel(channelId).isSuccessful) {
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Fail"))
             }
-        } catch (e: Exception) {
-            emit(Resource.Error("Offline"))
-        }
+        } catch (e: Exception) { emit(Resource.Error("Offline")) }
     }
 
-    override fun muteChannel(channelId: Int, isMuted: Boolean): Flow<Resource<Boolean>> = flow {
+    override fun muteChannel(channelId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow {
         try {
-            channelDao.updateMuted(channelId, isMuted)
-            emit(Resource.Success(true))
-        } catch (e: Exception) {
-            emit(Resource.Error("Fail"))
-        }
+            if (socialApi.muteChannel(channelId, com.example.firstapp.common.data.api.MuteRequest(isMuted)).isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) { emit(Resource.Error("Offline")) }
     }
 
     override fun createChannel(name: String, description: String): Flow<Resource<Boolean>> = flow {
-        emit(Resource.Loading())
         try {
-            val response = socialApi.createChannel(CreateChannelRequest(name, description))
-            if (response.isSuccessful && response.body() != null) {
-                val apiCh = response.body()!!
-                val model = mapApiChannel(apiCh)
-                
-                // Insert into channels table
-                channelDao.insertChannel(model.toEntity())
-                
-                // Also insert into chats table (unified view)
-                val chatMsg = ChatMessage(
-                    id = model.id,
-                    type = ConversationType.CHANNEL,
-                    senderName = model.name,
-                    lastMessage = "",
-                    timestamp = System.currentTimeMillis(),
-                    avatarColor = model.avatarColor,
-                    avatarUrl = model.avatarUrl,
-                    isGroup = false,
-                    isAdmin = true,
-                    isSubscribed = true,
-                    createdBy = model.createdBy
-                )
-                val entities = ArrayList<com.example.firstapp.common.data.local.entity.ChatEntity>()
-                entities.add(chatMsg.toEntity())
-                chatDao.insertChats(entities)
-
+            if (socialApi.createChannel(CreateChannelRequest(name, description)).isSuccessful) {
                 emit(Resource.Success(true))
             } else {
-                emit(Resource.Error("Server error: ${response.code()}"))
+                emit(Resource.Error("Fail"))
             }
-        } catch (e: Exception) {
-            emit(Resource.Error("Failed to create channel: ${e.message}"))
-        }
+        } catch (e: Exception) { emit(Resource.Error("Offline")) }
     }
 
     override fun searchChannels(query: String): Flow<List<Channel>> = 
-        channelDao.searchChannels(query).map { list -> list.map { it.toModel() } }
+        channelDao.searchChannels(query).flowMap { list -> list.map { it.toModel() } }
 
-    override fun addAdmin(channelId: Int, userId: Int): Flow<Resource<Boolean>> = flow {
-        emit(Resource.Loading())
+    override fun addAdmin(channelId: String, userId: String): Flow<Resource<Boolean>> = flow {
         try {
-            val response = socialApi.addChannelAdmin(channelId, UserIdRequest(userId))
-            if (response.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+            if (socialApi.addChannelAdmin(channelId, UserIdRequest(userId)).isSuccessful) {
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Fail"))
+        } catch (e: Exception) { emit(Resource.Error("Offline")) }
     }
 
-    override fun removeAdmin(channelId: Int, userId: Int): Flow<Resource<Boolean>> = flow {
-        emit(Resource.Loading())
+    override fun removeAdmin(channelId: String, userId: String): Flow<Resource<Boolean>> = flow {
         try {
-            val response = socialApi.removeChannelAdmin(channelId, UserIdRequest(userId))
-            if (response.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+            if (socialApi.removeChannelAdmin(channelId, UserIdRequest(userId)).isSuccessful) {
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Fail"))
+        } catch (e: Exception) { emit(Resource.Error("Offline")) }
     }
 }

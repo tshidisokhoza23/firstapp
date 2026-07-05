@@ -1,7 +1,6 @@
 package com.example.firstapp.jobs.ui.screens
 
 import androidx.hilt.navigation.compose.hiltViewModel
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,7 +26,6 @@ import androidx.compose.ui.unit.sp
 import com.example.firstapp.jobs.model.JobApplication
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.util.formatWhatsAppTime
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.jobs.ui.viewmodel.JobApplicationsViewModel
 
 
@@ -35,8 +33,8 @@ import com.example.firstapp.jobs.ui.viewmodel.JobApplicationsViewModel
 @Composable
 fun JobApplicationsScreen(
     onBack: () -> Unit,
-    onViewJobDetails: (Int) -> Unit,
-    onContactRecruiter: (JobApplication) -> Unit,
+    onViewJobDetails: (String) -> Unit,
+    onContactRecruiter: (String) -> Unit, // Pass conversationId if available
     onSetReminder: (JobApplication) -> Unit,
     viewModel: JobApplicationsViewModel = hiltViewModel(),
 ) {
@@ -78,7 +76,7 @@ fun JobApplicationsScreen(
                         application = application,
                         onViewJobDetails = { onViewJobDetails(application.jobId) },
                         onWithdrawApplication = { viewModel.withdrawApplication(application.id) },
-                        onContactRecruiter = { onContactRecruiter(application) },
+                        onContactRecruiter = { /* In WASAPP logic, recruiter contact is automatic via DM */ },
                     ) { onSetReminder(application) }
                 }
             }

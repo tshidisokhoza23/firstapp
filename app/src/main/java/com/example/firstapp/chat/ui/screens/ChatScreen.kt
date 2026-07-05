@@ -77,7 +77,7 @@ fun ChatScreen(
     chat: ChatMessage,
     chatViewModel: ChatViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onShowProfile: (Int, Boolean) -> Unit
+    onShowProfile: (String, Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -86,6 +86,7 @@ fun ChatScreen(
     val messagesResource by chatViewModel.messages.collectAsState()
     val messages = messagesResource.data ?: emptyList()
     val messagesLazyListState = rememberLazyListState()
+    var lastMessageCount by remember(chat.id) { mutableIntStateOf(0) }
     
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
@@ -184,27 +185,49 @@ fun ChatScreen(
     }
 
     LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            delay(100)
-            messagesLazyListState.animateScrollToItem(messages.size)
+        if (messages.isEmpty()) {
+            lastMessageCount = 0
+            return@LaunchedEffect
         }
+
+        val shouldAutoScroll = lastMessageCount == 0 ||
+            messagesLazyListState.firstVisibleItemIndex >= (messages.size - 4).coerceAtLeast(0)
+        if (shouldAutoScroll) {
+            delay(100)
+            messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
+        }
+        lastMessageCount = messages.size
+    }
+
+    val shouldLoadOlder by remember {
+        derivedStateOf {
+            messages.isNotEmpty() &&
+                messagesLazyListState.firstVisibleItemIndex <= 2 &&
+                messagesLazyListState.firstVisibleItemScrollOffset == 0
+        }
+    }
+
+    LaunchedEffect(shouldLoadOlder, messages.firstOrNull()?.timestamp, chat.id) {
+        if (!shouldLoadOlder) return@LaunchedEffect
+        val oldestTs = messages.minOfOrNull { it.timestamp } ?: return@LaunchedEffect
+        chatViewModel.loadMoreMessages(chat.id, oldestTs)
     }
 
     var isTypingSent by remember { mutableStateOf(false) }
     LaunchedEffect(messageText) {
         if (messageText.isNotEmpty()) {
             if (!isTypingSent) {
-                ChatWebSocketClient.sendTyping(chat.id, true)
+                ChatWebSocketClient.sendTyping(chat.id.toString(), true)
                 isTypingSent = true
             }
             delay(3000)
             if (isTypingSent) {
-                ChatWebSocketClient.sendTyping(chat.id, false)
+                ChatWebSocketClient.sendTyping(chat.id.toString(), false)
                 isTypingSent = false
             }
         } else {
             if (isTypingSent) {
-                ChatWebSocketClient.sendTyping(chat.id, false)
+                ChatWebSocketClient.sendTyping(chat.id.toString(), false)
                 isTypingSent = false
             }
         }
@@ -454,6 +477,7 @@ fun ChatScreen(
                         
                         val uiState by chatViewModel.uiState.collectAsState()
                         val myUserId = uiState.currentUser?.id
+                        val isConversationClosed = uiState.closedConversationIds.contains(chat.id)
                         val canPost = when (chat.type) {
                             ConversationType.DIRECT, ConversationType.GROUP -> true
                             ConversationType.CHANNEL -> {
@@ -465,7 +489,9 @@ fun ChatScreen(
                             }
                         }
 
-                        if (canPost) {
+                        val canCompose = canPost && !isConversationClosed
+
+                        if (canCompose) {
                             replyingToMessage?.let { replyMsg ->
                                 Surface(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -511,7 +537,7 @@ fun ChatScreen(
                                 color = Color.Transparent
                             ) {
                                 Text(
-                                    text = "Only admins can send messages to this channel",
+                                    text = if (isConversationClosed) "Conversation closed by employer" else "Only admins can send messages to this channel",
                                     color = AppTextSecondary,
                                     fontSize = 14.sp,
                                     textAlign = TextAlign.Center,
@@ -594,7 +620,7 @@ fun ChatScreen(
                     modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 100.dp, end = 16.dp)
                 ) {
                     FloatingActionButton(
-                        onClick = { scope.launch { messagesLazyListState.animateScrollToItem(messages.size) } },
+                        onClick = { scope.launch { messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0)) } },
                         modifier = Modifier.size(44.dp),
                         containerColor = AppSecondary,
                         contentColor = AppAccent,

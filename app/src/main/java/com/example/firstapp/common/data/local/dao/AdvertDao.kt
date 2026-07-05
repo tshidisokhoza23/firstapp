@@ -16,10 +16,10 @@ interface AdvertDao {
     fun getViewedAdverts(): Flow<List<AdvertEntity>>
 
     @Query("UPDATE adverts SET isViewed = 1 WHERE id = :advertId")
-    suspend fun markAsViewed(advertId: Int)
+    suspend fun markAsViewed(advertId: String)
 
     @Query("SELECT * FROM adverts WHERE id = :advertId")
-    suspend fun getAdvertById(advertId: Int): AdvertEntity?
+    suspend fun getAdvertById(advertId: String): AdvertEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAdverts(adverts: List<AdvertEntity>)

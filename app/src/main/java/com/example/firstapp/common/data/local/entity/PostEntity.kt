@@ -5,11 +5,12 @@ import androidx.room.PrimaryKey
 import com.example.firstapp.media.model.PostPoll
 import com.example.firstapp.media.model.PostReply
 import com.example.firstapp.media.model.PostType
+import com.example.firstapp.media.model.Advert
 
 @Entity(tableName = "posts")
 data class PostEntity(
-    @PrimaryKey val id: Int,
-    val authorId: Int,
+    @PrimaryKey val id: String,
+    val authorId: String,
     val authorName: String,
     val authorHandle: String,
     val authorAvatarUrl: String?,
@@ -30,8 +31,10 @@ data class PostEntity(
     val isReposted: Boolean,
     val isBookmarked: Boolean,
     val isAuthorFollowed: Boolean,
+    val repliesLocked: Boolean = false,
     val replies: List<PostReply>,
     val poll: PostPoll? = null,
     val location: String?,
-    val tags: List<String>
+    val tags: List<String>,
+    val ad: Advert? = null
 )

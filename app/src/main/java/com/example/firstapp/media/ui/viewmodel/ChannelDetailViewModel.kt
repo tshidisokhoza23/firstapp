@@ -2,19 +2,17 @@ package com.example.firstapp.media.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.firstapp.media.model.Channel
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.media.model.Channel
+import com.example.firstapp.media.model.Post
+import com.example.firstapp.media.domain.repository.ChannelRepository
+import com.example.firstapp.media.domain.repository.SocialRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import com.example.firstapp.media.domain.repository.ChannelRepository
-
-import com.example.firstapp.media.model.Post
-import com.example.firstapp.media.domain.repository.SocialRepository
 
 @HiltViewModel
 class ChannelDetailViewModel @Inject constructor(
@@ -28,7 +26,7 @@ class ChannelDetailViewModel @Inject constructor(
     private val _posts = MutableStateFlow<Resource<List<Post>>>(Resource.Loading())
     val posts: StateFlow<Resource<List<Post>>> = _posts.asStateFlow()
 
-    fun loadChannel(channelId: Int) {
+    fun loadChannel(channelId: String) {
         viewModelScope.launch {
             repository.getChannels().collect { resource ->
                 if (resource is Resource.Success) {
@@ -43,13 +41,13 @@ class ChannelDetailViewModel @Inject constructor(
         loadPosts(channelId)
     }
 
-    fun loadPosts(channelId: Int) {
+    fun loadPosts(channelId: String) {
         viewModelScope.launch {
             socialRepository.getChannelPosts(channelId).collect { _posts.value = it }
         }
     }
 
-    fun subscribe(channelId: Int) {
+    fun subscribe(channelId: String) {
         viewModelScope.launch {
             repository.subscribeToChannel(channelId).collect {
                 if (it is Resource.Success) loadChannel(channelId)
@@ -57,7 +55,7 @@ class ChannelDetailViewModel @Inject constructor(
         }
     }
 
-    fun mute(channelId: Int, isMuted: Boolean) {
+    fun mute(channelId: String, isMuted: Boolean) {
         viewModelScope.launch {
             repository.muteChannel(channelId, isMuted).collect {
                 if (it is Resource.Success) loadChannel(channelId)
@@ -65,15 +63,13 @@ class ChannelDetailViewModel @Inject constructor(
         }
     }
 
-    fun addAdmin(channelId: Int, userId: Int) {
+    fun addAdmin(channelId: String, userId: String) {
         viewModelScope.launch {
-            repository.addAdmin(channelId, userId).collect {
-                if (it is Resource.Success) loadChannel(channelId)
-            }
+            repository.addAdmin(channelId, userId).collect { }
         }
     }
 
-    fun createPost(channelId: Int, content: String, mediaUrls: List<String>) {
+    fun createPost(channelId: String, content: String, mediaUrls: List<String>) {
         viewModelScope.launch {
             socialRepository.createPost(content, mediaUrls, channelId = channelId).collect {
                 if (it is Resource.Success) loadPosts(channelId)

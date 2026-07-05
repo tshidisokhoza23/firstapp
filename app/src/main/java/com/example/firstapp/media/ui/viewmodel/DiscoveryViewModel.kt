@@ -57,7 +57,7 @@ class DiscoveryViewModel @Inject constructor(
         }
     }
 
-    fun markAdvertAsViewed(advertId: Int) {
+    fun markAdvertAsViewed(advertId: String) {
         val current = _adverts.value
         if (current is Resource.Success) {
             val updated = current.data?.map { if (it.id == advertId) it.copy(isViewed = true) else it }
@@ -74,11 +74,11 @@ class DiscoveryViewModel @Inject constructor(
         }
     }
 
-    fun subscribeToChannel(channelId: Int) {
+    fun subscribeToChannel(channelId: String) {
         viewModelScope.launch { channelRepository.subscribeToChannel(channelId).collect { if (it is Resource.Success) fetchChannels() } }
     }
 
-    fun muteChannel(channelId: Int, isMuted: Boolean) {
+    fun muteChannel(channelId: String, isMuted: Boolean) {
         viewModelScope.launch { channelRepository.muteChannel(channelId, isMuted).collect { if (it is Resource.Success) fetchChannels() } }
     }
 
@@ -88,7 +88,7 @@ class DiscoveryViewModel @Inject constructor(
         }
     }
 
-    fun incrementSongPlay(songId: Int) {
+    fun incrementSongPlay(songId: String) {
         viewModelScope.launch { musicRepository.incrementSongPlay(songId).collect { } }
     }
 

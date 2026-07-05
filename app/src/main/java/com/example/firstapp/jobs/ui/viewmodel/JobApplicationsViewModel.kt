@@ -33,7 +33,7 @@ class JobApplicationsViewModel @Inject constructor(
         }
     }
 
-    fun withdrawApplication(applicationId: Int) {
+    fun withdrawApplication(applicationId: String) {
         viewModelScope.launch {
             repository.withdrawApplication(applicationId).collect {
                 if (it is Resource.Success<*>) fetchApplications()

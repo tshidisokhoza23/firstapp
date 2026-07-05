@@ -6,8 +6,8 @@ import com.example.firstapp.jobs.model.ApplicationStatus
 
 @Entity(tableName = "job_applications")
 data class JobApplicationEntity(
-    @PrimaryKey val id: Int,
-    val jobId: Int,
+    @PrimaryKey val id: String,
+    val jobId: String,
     val jobTitle: String,
     val companyName: String,
     val location: String,

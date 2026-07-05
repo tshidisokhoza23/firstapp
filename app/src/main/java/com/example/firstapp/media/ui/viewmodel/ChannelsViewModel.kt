@@ -36,7 +36,7 @@ class ChannelsViewModel @Inject constructor(
 
     fun clearToast() { _toastMessage.value = null }
 
-    fun subscribeToChannel(channelId: Int) {
+    fun subscribeToChannel(channelId: String) {
         viewModelScope.launch {
             repository.subscribeToChannel(channelId).collect {
                 if (it is Resource.Success) fetchChannels()
@@ -45,7 +45,7 @@ class ChannelsViewModel @Inject constructor(
         }
     }
 
-    fun muteChannel(channelId: Int, isMuted: Boolean) {
+    fun muteChannel(channelId: String, isMuted: Boolean) {
         viewModelScope.launch {
             repository.muteChannel(channelId, isMuted).collect {
                 if (it is Resource.Success) fetchChannels()
@@ -67,7 +67,7 @@ class ChannelsViewModel @Inject constructor(
         }
     }
 
-    fun addAdmin(channelId: Int, userId: Int) {
+    fun addAdmin(channelId: String, userId: String) {
         viewModelScope.launch {
             repository.addAdmin(channelId, userId).collect {
                 if (it is Resource.Success) {
@@ -78,7 +78,7 @@ class ChannelsViewModel @Inject constructor(
         }
     }
 
-    fun removeAdmin(channelId: Int, userId: Int) {
+    fun removeAdmin(channelId: String, userId: String) {
         viewModelScope.launch {
             repository.removeAdmin(channelId, userId).collect {
                 if (it is Resource.Success) {

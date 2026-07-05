@@ -21,7 +21,7 @@ class CreateGroupViewModel @Inject constructor(
     private val _createResult = MutableStateFlow<Resource<ChatMessage>?>(null)
     val createResult: StateFlow<Resource<ChatMessage>?> = _createResult.asStateFlow()
 
-    fun createGroup(name: String, contactIds: List<Int>) {
+    fun createGroup(name: String, contactIds: List<String>) {
         viewModelScope.launch {
             repository.createGroup(name, contactIds).collect {
                 _createResult.value = it

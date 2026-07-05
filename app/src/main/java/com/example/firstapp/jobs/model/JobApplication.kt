@@ -3,8 +3,8 @@ package com.example.firstapp.jobs.model
 import androidx.compose.ui.graphics.Color
 
 data class JobApplication(
-    val id: Int,
-    val jobId: Int,
+    val id: String,
+    val jobId: String,
     val jobTitle: String,
     val companyName: String,
     val location: String,
@@ -14,9 +14,9 @@ data class JobApplication(
 )
 
 enum class ApplicationStatus(val label: String, val color: Color) {
-    PENDING("Pending", Color(0xFFFFB300)),
-    REVIEWING("Under Review", Color(0xFF2196F3)),
-    INTERVIEW("Interviewing", Color(0xFF9C27B0)),
-    REJECTED("Not Selected", Color(0xFFF44336)),
-    OFFERED("Offer Received", Color(0xFF4CAF50))
+    PENDING("Pending", Color(0xFFFFB74D)),
+    REVIEWING("Reviewing", Color(0xFF64B5F6)),
+    INTERVIEW("Interview", Color(0xFF81C784)),
+    REJECTED("Rejected", Color(0xFFE57373)),
+    OFFERED("Offered", Color(0xFFBA68C8))
 }

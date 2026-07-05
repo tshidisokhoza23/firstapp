@@ -38,14 +38,14 @@ import com.example.firstapp.common.ui.theme.*
 @Composable
 fun StoryScreen(
     stories: List<UserStory>,
-    currentUserId: Int?,
-    initialViewingUserId: Int? = null,
+    currentUserId: String?,
+    initialViewingUserId: String? = null,
     initialShowComposer: Boolean = false,
     onBack: () -> Unit,
     onPostStory: (String, String?, String) -> Unit,
-    onDeleteStory: (Int) -> Unit,
-    onStoryViewed: (Int, Int) -> Unit,
-    onMuteStory: (Int, Boolean) -> Unit,
+    onDeleteStory: (String) -> Unit,
+    onStoryViewed: (String, String) -> Unit,
+    onMuteStory: (String, Boolean) -> Unit,
     onNavigateToNewStory: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -56,7 +56,7 @@ fun StoryScreen(
     
     // Use LaunchedEffect to handle initial viewing state if provided
     LaunchedEffect(initialViewingUserId, stories) {
-        if (viewingUserStory == null && initialViewingUserId != null) {
+        if (viewingUserStory == null && initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
             viewingUserStory = stories.find { it.id == initialViewingUserId }
             viewingStoryIndex = 0
         }
@@ -90,8 +90,6 @@ fun StoryScreen(
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
-            // Instead of posting directly, navigate to NewStory or show a dialog
-            // For now, let's assume we want to use the NewStoryScreen flow
             onNavigateToNewStory() 
         }
     }
@@ -105,15 +103,12 @@ fun StoryScreen(
         viewingUserStory?.let { current ->
             val updated = stories.find { it.id == current.id }
             if (updated != null) {
-                // Update the viewing story to the latest version from the repository
                 viewingUserStory = updated
-                // Adjust index if necessary
                 if (viewingStoryIndex >= updated.stories.size) {
                     viewingStoryIndex = (updated.stories.size - 1).coerceAtLeast(0)
                 }
-            } else if (current.id != -1) {
-                // If user's stories are gone, exit the viewer
-                if (initialViewingUserId != null) {
+            } else if (!current.id.isNullOrBlank()) {
+                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                     onBack()
                 } else {
                     viewingUserStory = null
@@ -123,7 +118,6 @@ fun StoryScreen(
     }
 
     if (showComposer) {
-        // ... (Composer code remains the same)
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -143,7 +137,6 @@ fun StoryScreen(
                             onPostStory(composerText, null, "text")
                             composerText = ""
                             showComposer = false
-                            // Notification handled by viewmodel/navigation
                         }
                     },
                     modifier = Modifier
@@ -190,10 +183,9 @@ fun StoryScreen(
                 onDeleteStory(storyId)
             },
             onFinish = { 
-                if (initialViewingUserId != null) {
+                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                     onBack()
                 } else {
-                    // Sequential loading: Find the next user in the list
                     val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
                     if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
                         viewingUserStory = allViewableStories[currentIndex + 1]
@@ -204,7 +196,7 @@ fun StoryScreen(
                 }
             },
             onClose = { 
-                if (initialViewingUserId != null) {
+                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                     onBack()
                 } else {
                     viewingUserStory = null 
@@ -288,7 +280,6 @@ fun StoryScreen(
                             viewingStoryIndex = 0
                         })
                     } ?: run {
-                        // ...
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -296,12 +287,29 @@ fun StoryScreen(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // ...
+                             Box(
+                                modifier = Modifier
+                                    .size(60.dp)
+                                    .clip(CircleShape)
+                                    .background(AppSecondary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(36.dp))
+                                Box(
+                                    modifier = Modifier.align(Alignment.BottomEnd).background(AppAccent, CircleShape).border(2.dp, AppBackground, CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Add, null, tint = AppBackground, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Column {
+                                Text("My status", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Tap to add status update", color = AppTextSecondary, fontSize = 14.sp)
+                            }
                         }
                     }
                 }
 
-                // Posted stories section
                 if (myStatus != null && myStatus.stories.isNotEmpty()) {
                     item {
                         Text(
@@ -312,7 +320,7 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(myStatus.stories.asReversed()) { story ->
+                    items(myStatus.stories.reversed()) { story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },
@@ -369,23 +377,6 @@ fun StoryScreen(
                         )
                     }
                 }
-
-                if (mutedStories.isNotEmpty()) {
-                    // ...
-                    if (showMutedUpdates) {
-                        items(mutedStories) { userStory ->
-                            StoryListItem(
-                                userStory = userStory,
-                                isOwnStatus = false,
-                                onClick = { 
-                                    viewingUserStory = userStory
-                                    viewingStoryIndex = 0
-                                },
-                                onLongClick = { storyToMute = userStory }
-                            )
-                        }
-                    }
-                }
                 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
@@ -430,12 +421,11 @@ fun MyStoryListItem(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Story Thumbnail
         Box(
             modifier = Modifier
                 .size(50.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (story.type == com.example.firstapp.media.model.StoryType.TEXT) story.backgroundColor else Color.Black),
+                .background(if (story.type == com.example.firstapp.media.model.StoryType.TEXT) Color.DarkGray else Color.Black),
             contentAlignment = Alignment.Center
         ) {
             if (!story.contentUrl.isNullOrBlank()) {
@@ -525,7 +515,6 @@ fun StoryListItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar with Segmented Story Ring
         Box(
             modifier = Modifier
                 .size(60.dp)

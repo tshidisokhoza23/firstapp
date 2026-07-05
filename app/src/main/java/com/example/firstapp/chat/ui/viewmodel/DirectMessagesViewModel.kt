@@ -38,7 +38,7 @@ class DirectMessagesViewModel @Inject constructor(
         }
     }
 
-    fun pinChat(chatId: Int, isPinned: Boolean) {
+    fun pinChat(chatId: String, isPinned: Boolean) {
         viewModelScope.launch {
             repository.pinChat(chatId, isPinned).collect {
                 if (it is Resource.Success) fetchData()
@@ -46,7 +46,7 @@ class DirectMessagesViewModel @Inject constructor(
         }
     }
 
-    fun muteChat(chatId: Int, isMuted: Boolean) {
+    fun muteChat(chatId: String, isMuted: Boolean) {
         viewModelScope.launch {
             repository.muteChat(chatId, isMuted).collect {
                 if (it is Resource.Success) fetchData()
@@ -54,7 +54,7 @@ class DirectMessagesViewModel @Inject constructor(
         }
     }
 
-    fun deleteChat(chatId: Int) {
+    fun deleteChat(chatId: String) {
         viewModelScope.launch {
             repository.deleteChat(chatId).collect {
                 if (it is Resource.Success) fetchData()

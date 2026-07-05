@@ -38,7 +38,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         PostRemoteKeys::class,
         MessageFtsEntity::class
     ], 
-    version = 33,
+    version = 51,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -65,7 +65,7 @@ abstract class AppDatabase : RoomDatabase() {
     }
 
     companion object {
-        const val DATABASE_NAME = "firstapp_v7_encrypted.db"
+        const val DATABASE_NAME = "firstapp_v8_encrypted.db"
 
         @Volatile
         private var instance: AppDatabase? = null

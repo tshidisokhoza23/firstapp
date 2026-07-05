@@ -40,6 +40,7 @@ object ShortsVideoCache {
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private var currentPlayer: ExoPlayer? = null
+    private var currentUrl: String? = null
 
     private fun appContext(context: Context): Context = context.applicationContext
 
@@ -63,9 +64,10 @@ object ShortsVideoCache {
 
     private fun cacheDataSourceFactory(context: Context): CacheDataSource.Factory {
         val upstreamFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36")
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(8_000)
-            .setReadTimeoutMs(12_000)
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(20_000)
 
         return CacheDataSource.Factory()
             .setCache(cache(context))
@@ -89,6 +91,7 @@ object ShortsVideoCache {
             }
         
         currentPlayer = player
+        currentUrl = url
         return player
     }
 
@@ -139,12 +142,13 @@ object ShortsVideoCache {
     }
 
     @Synchronized
-    fun releasePlayer(player: ExoPlayer) {
-        if (player === currentPlayer) {
+    fun releasePlayer(player: ExoPlayer, url: String) {
+        if (player === currentPlayer && url == currentUrl) {
             player.stop()
             player.clearMediaItems()
+            currentUrl = null
             // We keep the instance alive for reuse to avoid GC pressure/allocation overhead on 2GB RAM
-        } else {
+        } else if (player !== currentPlayer) {
             player.release()
         }
     }

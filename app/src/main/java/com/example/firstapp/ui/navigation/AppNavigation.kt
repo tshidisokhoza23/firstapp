@@ -1,6 +1,7 @@
 package com.example.firstapp.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,7 +20,7 @@ import com.example.firstapp.home.ui.viewmodel.SearchViewModel
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.example.firstapp.media.ui.viewmodel.ShortsViewModel
+import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
 import com.example.firstapp.media.ui.viewmodel.AdvertsViewModel
 import com.example.firstapp.media.ui.viewmodel.ChannelsViewModel
 import com.example.firstapp.media.ui.viewmodel.StoryViewModel
@@ -47,31 +48,23 @@ fun AppNavigation(
             arguments = listOf(navArgument("tab") { defaultValue = "home" })
         ) { backStackEntry ->
             val initialTab = backStackEntry.arguments?.getString("tab") ?: "home"
-            val chatViewModel: ChatViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val mediaViewModel: MediaViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val shortsViewModel: ShortsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val jobViewModel: JobViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val advertsViewModel: AdvertsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val channelsViewModel: ChannelsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val userViewModel: UserViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val storyViewModel: StoryViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            
+            LaunchedEffect(initialTab) {
+                val tabIndex = when(initialTab) {
+                    "media" -> 1
+                    "shorts" -> 2
+                    "music" -> 3
+                    "drive" -> 4
+                    else -> 0
+                }
+                viewModel.setSelectedBottomItem(tabIndex)
+            }
 
             MainScreen(
                 viewModel = viewModel,
-                chatViewModel = chatViewModel,
-                mediaViewModel = mediaViewModel,
-                shortsViewModel = shortsViewModel,
-                advertsViewModel = advertsViewModel,
-                channelsViewModel = channelsViewModel,
-                searchViewModel = searchViewModel,
-                jobViewModel = jobViewModel,
-                userViewModel = userViewModel,
                 musicViewModel = musicViewModel,
-                storyViewModel = storyViewModel,
                 navController = navController,
-                onLogout = onLogout,
-                initialTab = initialTab
+                onLogout = onLogout
             )
         }
         

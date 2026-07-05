@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,7 +39,7 @@ import kotlinx.coroutines.launch
 fun AdvertViewer(
     adverts: List<Advert>,
     initialIndex: Int,
-    onAdvertViewed: (Int) -> Unit,
+    onAdvertViewed: (String) -> Unit,
     onFinish: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -212,7 +213,7 @@ fun AdvertViewer(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(currentAd?.avatarColor ?: com.example.firstapp.common.ui.theme.BoyishPurple),
+                        .background(Color(currentAd?.avatarColor ?: com.example.firstapp.common.ui.theme.BoyishPurple.toArgb())),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

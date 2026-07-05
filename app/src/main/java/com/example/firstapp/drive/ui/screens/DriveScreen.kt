@@ -1637,7 +1637,7 @@ fun LiveTrackingFlow(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     IconButton(
                         onClick = {
-                            val driverId = assignedDriver.id.replace("driver_", "").toIntOrNull() ?: 1
+                            val driverId = assignedDriver.id.replace("driver_", "")
                             chatViewModel.initiateCall(driverId, com.example.firstapp.chat.data.CallType.VOICE)
                         },
                         modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
@@ -1649,7 +1649,7 @@ fun LiveTrackingFlow(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     IconButton(
                         onClick = {
-                            val driverId = assignedDriver.id.replace("driver_", "").toIntOrNull() ?: 1
+                            val driverId = assignedDriver.id.replace("driver_", "")
                             chatViewModel.initiateCall(driverId, com.example.firstapp.chat.data.CallType.VIDEO)
                         },
                         modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)

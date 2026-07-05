@@ -16,7 +16,7 @@ interface JobDao {
     suspend fun insertJobs(jobs: List<JobEntity>)
 
     @Query("UPDATE jobs SET isApplied = :isApplied WHERE id = :jobId")
-    suspend fun updateAppliedStatus(jobId: Int, isApplied: Boolean)
+    suspend fun updateAppliedStatus(jobId: String, isApplied: Boolean)
 
     @Query("DELETE FROM jobs")
     suspend fun clearJobs()

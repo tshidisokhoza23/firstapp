@@ -16,13 +16,13 @@ interface PlaylistDao {
     suspend fun insertPlaylists(playlists: List<PlaylistEntity>)
 
     @Query("DELETE FROM playlists WHERE id = :id")
-    suspend fun deletePlaylist(id: Int)
+    suspend fun deletePlaylist(id: String)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addSongToPlaylist(crossRef: PlaylistSongCrossRef)
 
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
-    suspend fun removeSongFromPlaylist(playlistId: Int, songId: Int)
+    suspend fun removeSongFromPlaylist(playlistId: String, songId: String)
 
     @Transaction
     @Query("""
@@ -31,7 +31,7 @@ interface PlaylistDao {
         WHERE ps.playlistId = :playlistId
         ORDER BY ps.addedAt ASC
     """)
-    fun getSongsForPlaylist(playlistId: Int): Flow<List<SongEntity>>
+    fun getSongsForPlaylist(playlistId: String): Flow<List<SongEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecentlyPlayed(item: RecentlyPlayedEntity)

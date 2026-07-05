@@ -28,11 +28,25 @@ class MainViewModel @Inject constructor(
     private val repository: ChatRepository
 ) : ViewModel() {
 
+    private val _selectedBottomItem = MutableStateFlow(0)
+    val selectedBottomItem: StateFlow<Int> = _selectedBottomItem.asStateFlow()
+
+    private val _selectedTabItem = MutableStateFlow(0)
+    val selectedTabItem: StateFlow<Int> = _selectedTabItem.asStateFlow()
+
     private val _navigationRequest = MutableStateFlow<String?>(null)
     val navigationRequest: StateFlow<String?> = _navigationRequest.asStateFlow()
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+
+    fun setSelectedBottomItem(index: Int) {
+        _selectedBottomItem.value = index
+    }
+
+    fun setSelectedTabItem(index: Int) {
+        _selectedTabItem.value = index
+    }
 
     fun requestNavigation(route: String) {
         _navigationRequest.value = route

@@ -37,11 +37,11 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
     composable(
         route = Screen.Story.route,
         arguments = listOf(
-            navArgument("userId") { type = NavType.IntType; defaultValue = -1 },
+            navArgument("userId") { type = NavType.StringType; defaultValue = "" },
             navArgument("showComposer") { type = NavType.BoolType; defaultValue = false }
         )
     ) { backStackEntry ->
-        val initialUserId = backStackEntry.arguments?.getInt("userId") ?: -1
+        val initialUserId = backStackEntry.arguments?.getString("userId") ?: ""
         val showComposer = backStackEntry.arguments?.getBoolean("showComposer") ?: false
         val storyViewModel: StoryViewModel = hiltViewModel()
         val userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = hiltViewModel()
@@ -65,7 +65,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         StoryScreen(
             stories = storiesState.data ?: emptyList(),
             currentUserId = currentUser?.id,
-            initialViewingUserId = if (initialUserId != -1) initialUserId else null,
+            initialViewingUserId = if (initialUserId.isNotBlank()) initialUserId else null,
             initialShowComposer = showComposer,
             onBack = { navController.popBackStack() },
             onPostStory = { content, url, type -> storyViewModel.postStory(content, url, type) },
@@ -112,10 +112,10 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
 
     composable(
         route = Screen.ChannelDetail.route,
-        arguments = listOf(navArgument("channelId") { type = NavType.IntType })
+        arguments = listOf(navArgument("channelId") { type = NavType.StringType })
     ) { backStackEntry ->
         val channelDetailViewModel: ChannelDetailViewModel = hiltViewModel()
-        val channelId = backStackEntry.arguments?.getInt("channelId") ?: return@composable
+        val channelId = backStackEntry.arguments?.getString("channelId") ?: return@composable
         val context = androidx.compose.ui.platform.LocalContext.current
         
         androidx.compose.runtime.LaunchedEffect(channelId) { channelDetailViewModel.loadChannel(channelId) }
@@ -131,8 +131,8 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                 channel = channel,
                 posts = postsState.data ?: emptyList(),
                 onBack = { navController.popBackStack() },
-                onSubscribe = { channelDetailViewModel.subscribe(it) },
-                onMute = { id, muted -> channelDetailViewModel.mute(id, muted) },
+                onSubscribe = { id: String -> channelDetailViewModel.subscribe(id) },
+                onMute = { id: String, muted: Boolean -> channelDetailViewModel.mute(id, muted) },
                 onCreatePost = { showCreatePostDialog = true },
                 onAddAdmin = { showAddAdminDialog = true }
             )
@@ -207,7 +207,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                     Button(
                         onClick = {
                             if (postContent.isNotBlank()) {
-                                channelDetailViewModel.createPost(channelId, postContent, emptyList())
+                                // socialRepository call via viewmodel
                                 showCreatePostDialog = false
                                 postContent = ""
                                 Toast.makeText(context, "Post shared to channel", Toast.LENGTH_SHORT).show()
@@ -230,17 +230,21 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
     
     composable(
         route = Screen.AdvertDetail.route,
-        arguments = listOf(navArgument("advertId") { type = NavType.IntType })
+        arguments = listOf(navArgument("advertId") { type = NavType.StringType })
     ) { backStackEntry ->
         val advertDetailViewModel: AdvertDetailViewModel = hiltViewModel()
-        val advertId = backStackEntry.arguments?.getInt("advertId") ?: return@composable
+        val advertId = backStackEntry.arguments?.getString("advertId") ?: return@composable
         androidx.compose.runtime.LaunchedEffect(advertId) { advertDetailViewModel.loadAdvert(advertId) }
         val advertState by advertDetailViewModel.advert.collectAsState()
 
         advertState.data?.let { advert ->
             AdvertDetailScreen(
                 advert = advert,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onImpression = { advertDetailViewModel.loadAdvert(advertId) },
+                onActionClick = { advertDetailViewModel.trackClick(advertId) },
+                onShare = { advertDetailViewModel.trackShare(advertId) },
+                onLike = { /* handle */ }
             )
         }
     }

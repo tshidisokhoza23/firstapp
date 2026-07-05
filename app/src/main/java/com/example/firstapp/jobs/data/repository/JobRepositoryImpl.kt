@@ -1,77 +1,70 @@
 package com.example.firstapp.jobs.data.repository
 
 import com.example.firstapp.jobs.data.api.*
-import com.example.firstapp.common.data.api.UserApi
 import com.example.firstapp.common.data.local.dao.JobDao
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.domain.repository.JobRepository
 import com.example.firstapp.jobs.model.Job
 import com.example.firstapp.jobs.model.JobApplication
 import com.example.firstapp.jobs.model.JobProfileData
-import com.example.firstapp.jobs.model.ApplicationStatus
-import com.example.firstapp.common.ui.theme.AppPrimary
-import com.example.firstapp.common.ui.theme.AppAccent
-import kotlinx.coroutines.flow.*
+import com.example.firstapp.common.data.repository.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map as flowMap
 import android.util.Log
-
+import kotlin.collections.*
+import kotlin.text.*
 import javax.inject.Inject
 
 class JobRepositoryImpl @Inject constructor(
     private val jobApi: JobApi,
-    private val userApi: UserApi,
     private val jobDao: JobDao,
 ) : JobRepository {
 
-    override fun getJobs(): Flow<Resource<List<Job>>> = flow {
-        val cached = jobDao.getJobs().first().map { it.toModel() }
-        emit(Resource.Loading(cached))
+    override fun getJobs(page: Int): Flow<Resource<List<Job>>> = flow {
+        val cachedEntities = jobDao.getJobs().first()
+        val cached = cachedEntities.map { it.toModel() }
+        if (cached.isNotEmpty()) {
+            emit(Resource.Loading(cached))
+        } else {
+            emit(Resource.Loading())
+        }
+
         try {
-            val response = jobApi.getJobs()
+            val response = jobApi.getJobs(page)
             if (response.isSuccessful) {
-                val jobs = response.body()?.jobs?.map { apiJob -> 
-                    Job(
-                        id = apiJob.id, 
-                        title = apiJob.title, 
-                        companyName = apiJob.company_name, 
-                        companyLogoUrl = apiJob.company_logo_url, 
-                        location = apiJob.location, 
-                        logoColor = AppPrimary, 
-                        salaryRange = apiJob.salary_range ?: "", 
-                        jobType = apiJob.job_type ?: "Full-time", 
-                        postedTime = apiJob.posted_time ?: "", 
-                        description = apiJob.description ?: "", 
-                        requirements = apiJob.requirements ?: emptyList(), 
-                        isVerified = apiJob.is_verified, 
-                        isApplied = apiJob.is_applied, 
-                        isSaved = apiJob.is_saved,
-                    ) 
-                } ?: emptyList()
-                jobDao.clearJobs()
+                val apiJobs = response.body()?.jobs ?: emptyList<ApiJob>()
+                Log.d("JobRepo", "Fetched ${apiJobs.size} jobs from network")
+                val jobs = apiJobs.map { aj: com.example.firstapp.jobs.data.api.ApiJob -> aj.toModel() }
+                if (page == 1) jobDao.clearJobs()
                 jobDao.insertJobs(jobs.map { it.toEntity() })
+            } else {
+                Log.e("JobRepo", "getJobs network failed: ${response.code()} ${response.errorBody()?.string()}")
             }
-        } catch (e: Exception) {
-            Log.e("JobRepositoryImpl", "getJobs failed", e)
+        } catch (e: Exception) { 
+            Log.e("JobRepo", "getJobs failed with exception", e)
         }
-        jobDao.getJobs().collect { entities ->
+
+        emitAll(jobDao.getJobs().flowMap { entities ->
             val models = entities.map { it.toModel() }
-            emit(Resource.Success(models))
-        }
+            Resource.Success<List<Job>>(models)
+        })
     }
 
-    override fun applyForJob(jobId: Int): Flow<Resource<Boolean>> = flow {
+    override fun applyForJob(jobId: String): Flow<Resource<String>> = flow {
         try {
             emit(Resource.Loading())
             val response = jobApi.applyForJob(jobId)
-            if (response.isSuccessful) {
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
                 jobDao.updateAppliedStatus(jobId = jobId, isApplied = true)
-                emit(Resource.Success(data = true))
+                emit(Resource.Success(body.conversation_id))
             } else {
-                emit(Resource.Error("Application failed: ${response.message()}"))
+                emit(Resource.Error("Application failed"))
             }
-        } catch (e: Exception) {
-            Log.e("JobRepositoryImpl", "applyForJob failed", e)
-            emit(Resource.Error("Network error: ${e.localizedMessage}"))
-        }
+        } catch (e: Exception) { emit(Resource.Error("Network error: ${e.message}")) }
     }
 
     override fun getJobApplications(): Flow<Resource<List<JobApplication>>> = flow {
@@ -79,100 +72,62 @@ class JobRepositoryImpl @Inject constructor(
         try {
             val response = jobApi.getJobApplications()
             if (response.isSuccessful) {
-                val applications = response.body()?.applications?.map { apiApp -> 
-                    JobApplication(
-                        id = apiApp.id, 
-                        jobId = apiApp.job_id, 
-                        jobTitle = apiApp.title ?: "Job #${apiApp.job_id}", 
-                        companyName = apiApp.company_name ?: "Unknown company", 
-                        location = apiApp.location ?: "",
-                        appliedDate = apiApp.applied_date, 
-                        status = when (apiApp.status.lowercase()) { 
-                            "reviewing" -> ApplicationStatus.REVIEWING
-                            "interview" -> ApplicationStatus.INTERVIEW
-                            "rejected" -> ApplicationStatus.REJECTED
-                            "offered" -> ApplicationStatus.OFFERED
-                            else -> ApplicationStatus.PENDING 
-                        }, 
-                        logoColor = AppAccent,
-                    ) 
-                } ?: emptyList()
+                val apiApps = response.body()?.applications ?: emptyList<ApiJobApplication>()
+                val applications = apiApps.map { aa: ApiJobApplication -> aa.toModel() }
                 emit(Resource.Success(applications))
-                
-                // Still update the local applied status of jobs if we have them
-                applications.forEach { 
-                    jobDao.updateAppliedStatus(it.jobId, true)
-                }
-            } else {
-                emit(Resource.Error("Failed to fetch applications from server"))
             }
-        } catch (e: Exception) {
-            Log.e("JobRepositoryImpl", "getJobApplications failed", e)
-            emit(Resource.Error("Network error: ${e.localizedMessage}"))
-        }
-    }
-
-    override fun withdrawApplication(applicationId: Int): Flow<Resource<Boolean>> = flow {
-        try {
-            emit(Resource.Loading())
-            val response = jobApi.withdrawApplication(applicationId)
-            if (response.isSuccessful) {
-                emit(Resource.Success(data = true))
-            } else {
-                emit(Resource.Error("Fail"))
-            }
-        } catch (e: Exception) {
-            Log.e("JobRepositoryImpl", "withdrawApplication failed", e)
-            emit(Resource.Error("Offline"))
-        }
+        } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
     override fun getJobProfile(): Flow<Resource<JobProfileData>> = flow {
         emit(Resource.Loading())
         try {
-            val response = userApi.getCurrentUser()
+            val response = jobApi.getJobProfile()
             if (response.isSuccessful && response.body() != null) {
-                val user = response.body()!!.user
-                val profile = JobProfileData(
-                    fullName = user.jobFullName ?: "",
-                    email = user.jobEmail ?: "",
-                    phone = user.jobPhone ?: "",
-                    location = user.jobLocation ?: "",
-                    education = user.jobEducation ?: "",
-                    experience = user.jobExperience ?: "",
-                    skills = user.jobSkills ?: "",
-                    aboutMe = user.jobAboutMe ?: "",
-                    linkedinUrl = user.jobLinkedinUrl ?: "",
-                    portfolioUrl = user.jobPortfolioUrl ?: "",
-                    workPreference = user.jobWorkPreference ?: "Remote",
-                    availability = user.jobAvailability ?: "Immediately",
-                    expectedSalary = user.jobExpectedSalary ?: ""
-                )
-                emit(Resource.Success(profile))
-            } else {
-                emit(Resource.Error("Failed to fetch profile"))
-            }
-        } catch (e: Exception) {
-            Log.e("JobRepositoryImpl", "getJobProfile failed", e)
-            emit(Resource.Error("Network error: ${e.localizedMessage}"))
-        }
+                emit(Resource.Success(response.body()!!))
+            } else emit(Resource.Error("Fail"))
+        } catch (e: Exception) { emit(Resource.Error("Error")) }
+    }
+
+    override fun withdrawApplication(applicationId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            if (jobApi.withdrawApplication(applicationId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
+        } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
     override fun updateJobProfile(profile: JobProfileData): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            val response = jobApi.updateJobProfile(profile)
-            if (response.isSuccessful) {
-                emit(Resource.Success(data = true))
-            } else {
-                emit(Resource.Error("Server update failed"))
-            }
-        } catch (e: Exception) {
-            Log.e("JobRepositoryImpl", "updateJobProfile failed", e)
-            emit(Resource.Error("Offline: ${e.localizedMessage}"))
-        }
+            if (jobApi.updateJobProfile(profile).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
+        } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
-    override fun searchJobs(query: String): Flow<List<Job>> = 
-        jobDao.searchJobs(query).map { list -> list.map { it.toModel() } }
+    override fun createJob(title: String, description: String, category: String, skills: List<String>, durationDays: Int): Flow<Resource<Job>> = flow {
+        emit(Resource.Loading())
+        try {
+            val req = CreateJobRequest(title, description, category, skills, durationDays)
+            val response = jobApi.createJob(req)
+            val apiJob = response.body()
+            if (response.isSuccessful && apiJob != null) {
+                emit(Resource.Success(apiJob.toModel()))
+            } else {
+                emit(Resource.Error("Failed to create job"))
+            }
+        } catch (e: Exception) { emit(Resource.Error("Network error: ${e.message}")) }
+    }
+
+    override fun searchJobs(query: String): Flow<Resource<List<Job>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = jobApi.getJobs(page = 1) 
+            if (response.isSuccessful) {
+                val apiJobs = response.body()?.jobs ?: emptyList<ApiJob>()
+                val filtered = apiJobs.filter { aj: ApiJob ->
+                    aj.title.contains(query, ignoreCase = true) || aj.company_name.contains(query, ignoreCase = true)
+                }.map { f: ApiJob -> f.toModel() }
+                emit(Resource.Success(filtered))
+            }
+        } catch (_: Exception) {}
+    }
 }

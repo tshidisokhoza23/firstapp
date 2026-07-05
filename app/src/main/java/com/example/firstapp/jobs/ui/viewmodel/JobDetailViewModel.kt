@@ -21,10 +21,10 @@ class JobDetailViewModel @Inject constructor(
     private val _job = MutableStateFlow<Resource<Job>>(Resource.Loading())
     val job: StateFlow<Resource<Job>> = _job.asStateFlow()
 
-    private val _applyResult = MutableStateFlow<Resource<Boolean>?>(null)
-    val applyResult: StateFlow<Resource<Boolean>?> = _applyResult.asStateFlow()
+    private val _applyResult = MutableStateFlow<Resource<String>?>(null)
+    val applyResult: StateFlow<Resource<String>?> = _applyResult.asStateFlow()
 
-    fun loadJob(jobId: Int) {
+    fun loadJob(jobId: String) {
         viewModelScope.launch {
             repository.getJobs().collect { resource ->
                 if (resource is Resource.Success) {
@@ -38,7 +38,7 @@ class JobDetailViewModel @Inject constructor(
         }
     }
 
-    fun applyForJob(jobId: Int) {
+    fun applyForJob(jobId: String) {
         viewModelScope.launch {
             repository.applyForJob(jobId).collect { result ->
                 _applyResult.value = result

@@ -14,10 +14,12 @@ import com.example.firstapp.domain.repository.JobRepository
 import com.example.firstapp.media.domain.repository.ChannelRepository
 import com.example.firstapp.music.domain.repository.MusicRepository
 import com.example.firstapp.common.data.repository.*
+import com.example.firstapp.media.data.repository.*
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.jobs.model.Job
 import com.example.firstapp.common.ui.theme.AppPrimary
 import kotlinx.coroutines.flow.*
+import kotlin.collections.*
 import androidx.compose.ui.graphics.Color
 
 import javax.inject.Inject
@@ -57,26 +59,31 @@ class SearchRepositoryImpl @Inject constructor(
                     val response = userApi.search(query, typeStr)
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
-                        val remoteUsers = body.contacts.map { mapApiContact(it) }
+                        val remoteUsers = body.contacts.map { 
+                            mapApiContact(it)
+                        }
+                        val allContacts = (localContacts + remoteUsers).associateBy { it.id }.values.toList()
                         emit(Resource.Success(SearchResult(
                             chats = localChats,
-                            contacts = (localContacts + remoteUsers).distinctBy { it.id },
+                            contacts = allContacts,
                             messages = localMessages
                         )))
                     }
                 } catch (_: Exception) {}
             }
             SearchType.JOBS -> {
-                val localJobs = jobRepository.searchJobs(query).firstOrNull() ?: emptyList()
+                val localRes = jobRepository.searchJobs(query).firstOrNull()
+                val localJobs = localRes?.data ?: emptyList()
                 emit(Resource.Success(SearchResult(jobs = localJobs)))
 
                 try {
                     val response = userApi.search(query, typeStr)
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
-                        val remoteJobs = body.jobs.map { mapApiJob(it) }
+                        val remoteJobs = body.jobs.map { it.toModel() }
+                        val allJobs = (localJobs + remoteJobs).associateBy { it.id }.values.toList()
                         emit(Resource.Success(SearchResult(
-                            jobs = (localJobs + remoteJobs).distinctBy { it.id }
+                            jobs = allJobs
                         )))
                     }
                 } catch (_: Exception) {}
@@ -90,8 +97,9 @@ class SearchRepositoryImpl @Inject constructor(
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
                         val remoteChannels = body.channels.map { mapApiChannel(it) }
+                        val allChannels = (localChannels + remoteChannels).associateBy { it.id }.values.toList()
                         emit(Resource.Success(SearchResult(
-                            channels = (localChannels + remoteChannels).distinctBy { it.id }
+                            channels = allChannels
                         )))
                     }
                 } catch (_: Exception) {}
@@ -170,7 +178,7 @@ class SearchRepositoryImpl @Inject constructor(
             logoColor = AppPrimary,
             salaryRange = apiJob.salary_range ?: "",
             jobType = apiJob.job_type ?: "Full-time",
-            postedTime = apiJob.posted_time ?: "",
+            postedTime = apiJob.posted_time,
             description = apiJob.description ?: "",
             requirements = apiJob.requirements ?: emptyList(),
             isVerified = apiJob.is_verified,

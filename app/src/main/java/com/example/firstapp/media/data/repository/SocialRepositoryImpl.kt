@@ -1,25 +1,28 @@
 package com.example.firstapp.media.data.repository
 
-import com.example.firstapp.media.data.api.SocialApi
-import com.example.firstapp.media.data.api.ApiPostAuthor
-import com.example.firstapp.common.data.local.dao.*
-import com.example.firstapp.common.util.Resource
-import com.example.firstapp.media.domain.repository.SocialRepository
-import com.example.firstapp.media.model.*
-import com.example.firstapp.chat.model.Contact
-import com.example.firstapp.common.data.local.AppDatabase
-import com.example.firstapp.media.data.paging.PostRemoteMediator
-import com.example.firstapp.common.ui.theme.AppPrimary
-import com.example.firstapp.common.ui.theme.AppAccent
-import androidx.compose.ui.graphics.Color
+import android.util.Log
 import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import androidx.paging.map
-import kotlinx.coroutines.flow.*
-import android.util.Log
+import androidx.paging.map as pagingMap
+import com.example.firstapp.chat.model.Contact
+import com.example.firstapp.common.data.local.AppDatabase
+import com.example.firstapp.common.data.local.dao.PostDao
+import com.example.firstapp.common.data.local.dao.StoryDao
+import com.example.firstapp.common.data.local.entity.StoryEntity
+import com.example.firstapp.common.util.Resource
+import com.example.firstapp.media.data.api.SocialApi
+import com.example.firstapp.media.data.paging.PostRemoteMediator
+import com.example.firstapp.media.domain.repository.SocialRepository
+import com.example.firstapp.media.model.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map as flowMap
 import javax.inject.Inject
+import kotlin.collections.*
 
 class SocialRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
@@ -29,40 +32,78 @@ class SocialRepositoryImpl @Inject constructor(
 ) : SocialRepository {
 
     @OptIn(ExperimentalPagingApi::class)
-    override fun getPostsPaging(following: Boolean): Flow<PagingData<Post>> {
-        return Pager(
-            config = PagingConfig(
-                pageSize = 20,
-                enablePlaceholders = false
-            ),
-            remoteMediator = PostRemoteMediator(socialApi, appDatabase, following),
-            pagingSourceFactory = { postDao.getPostsPaging() }
-        ).flow.map { pagingData ->
-            pagingData.map { it.toModel() }
+    override fun getPostsPaging(following: Boolean, authorId: String?): Flow<PagingData<Post>> {
+        val pagingSourceFactory = { postDao.getPostsPaging() }
+        
+        return if (authorId == null) {
+            Pager(
+                config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+                remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, null),
+                pagingSourceFactory = pagingSourceFactory
+            ).flow.flowMap { pagingData ->
+                pagingData.pagingMap { entity -> entity.toPost() }
+            }
+        } else {
+            Pager(
+                config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+                pagingSourceFactory = { 
+                    com.example.firstapp.media.data.paging.PostPagingSource(socialApi, following = false, authorId = authorId) 
+                }
+            ).flow
         }
     }
 
-    override suspend fun updatePostLikeLocally(postId: Int, likes: String, isLiked: Boolean) {
+    override suspend fun updatePostLikeLocally(postId: String, likes: String, isLiked: Boolean) {
         postDao.updateLikeStatus(postId, likes, isLiked)
     }
 
+    override fun getUserPosts(userId: String, page: Int): Flow<Resource<List<Post>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.getPosts(page, authorId = userId)
+            if (response.isSuccessful) {
+                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
+                emit(Resource.Success(posts))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Error: ${e.localizedMessage}"))
+        }
+    }
+
     override fun getPosts(page: Int): Flow<Resource<List<Post>>> = flow {
-        val cached = postDao.getPosts().first().map { it.toModel() }
-        emit(Resource.Loading(cached))
+        val cachedEntities = postDao.getPosts().first()
+        val cached = cachedEntities.map { it.toPost() }
+        if (cached.isNotEmpty()) {
+            emit(Resource.Loading(cached))
+        } else {
+            emit(Resource.Loading())
+        }
+        
         try {
             val response = socialApi.getPosts(page)
             if (response.isSuccessful) {
-                val apiPosts = response.body()?.posts ?: emptyList()
-                val posts = apiPosts.map { mapApiPost(it) }
-                if (page == 1) postDao.clearPosts()
-                postDao.insertPosts(posts.map { it.toEntity() })
+                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                Log.d("SocialRepo", "Fetched ${apiPosts.size} posts for page $page")
+                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
+                // Avoid wiping media feed cache when legacy /posts returns empty.
+                if (posts.isNotEmpty()) {
+                    if (page == 1) postDao.clearPosts()
+                    postDao.insertPosts(posts.map { it.toPostEntity() })
+                }
+            } else {
+                Log.e("SocialRepo", "getPosts failed: ${response.code()} ${response.errorBody()?.string()}")
             }
         } catch (e: Exception) { 
-            Log.e("SocialRepositoryImpl", "getPosts failed", e)
+            Log.e("SocialRepositoryImpl", "getPosts failed with exception", e)
         }
-        postDao.getPosts().collect { entities ->
-            emit(Resource.Success(entities.map { it.toModel() }))
-        }
+        
+        emitAll(postDao.getPosts().flowMap { entities ->
+            val models = entities.map { it.toPost() }
+            Resource.Success<List<Post>>(models)
+        })
     }
 
     override fun getFollowingPosts(page: Int): Flow<Resource<List<Post>>> = flow {
@@ -70,7 +111,8 @@ class SocialRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.getPosts(page, following = true)
             if (response.isSuccessful) {
-                val posts = response.body()?.posts?.map { mapApiPost(it) } ?: emptyList()
+                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 emit(Resource.Success(posts))
             } else {
                 emit(Resource.Error("Fail"))
@@ -80,12 +122,13 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getChannelPosts(channelId: Int, page: Int): Flow<Resource<List<Post>>> = flow {
+    override fun getChannelPosts(channelId: String, page: Int): Flow<Resource<List<Post>>> = flow {
         emit(Resource.Loading())
         try {
             val response = socialApi.getPosts(page, channelId = channelId)
             if (response.isSuccessful) {
-                val posts = response.body()?.posts?.map { mapApiPost(it) } ?: emptyList()
+                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 emit(Resource.Success(posts))
             } else {
                 emit(Resource.Error("Fail"))
@@ -95,9 +138,27 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: Int?): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.createPost(com.example.firstapp.media.data.api.CreatePostRequest(content, mediaUrls, postType ?: "text_only", null, tags, null, channelId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            val request = com.example.firstapp.media.data.api.CreatePostRequest(
+                content = content,
+                media_urls = mediaUrls,
+                post_type = postType ?: "text_only",
+                tags = tags,
+                channel_id = channelId
+            )
+            if (socialApi.createPost(request).isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Offline"))
+        }
+    }
     
-    override fun likePost(postId: Int): Flow<Resource<Boolean>> = flow {
+    override fun likePost(postId: String): Flow<Resource<Boolean>> = flow {
         try {
             val response = socialApi.likePost(postId)
             if (response.isSuccessful) emit(Resource.Success(true))
@@ -105,54 +166,91 @@ class SocialRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Offline")) }
     }
 
-    override fun repostPost(postId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPost(postId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun bookmarkPost(postId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPost(postId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun createPostReply(postId: Int, content: String, parentReplyId: Int?): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.createPostReply(postId, com.example.firstapp.media.data.api.CreatePostReplyRequest(content, parentReplyId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun likePostReply(replyId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.likePostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun repostPostReply(replyId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun bookmarkPostReply(replyId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun votePoll(postId: Int, optionId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.votePoll(postId, com.example.firstapp.media.data.api.VotePollRequest(optionId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun followUser(userId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.followUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun unfollowUser(userId: Int): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.unfollowUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun repostPost(postId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPost(postId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun bookmarkPost(postId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPost(postId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    
+    override fun getReplies(postId: String): Flow<Resource<List<PostReply>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.getReplies(postId)
+            if (response.isSuccessful && response.body() != null) {
+                val replies = mapMediaReplyItems(response.body()!!.items)
+                emit(Resource.Success(replies))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Error: ${e.localizedMessage}"))
+        }
+    }
+
+    override fun createPostReply(postId: String, content: String, parentReplyId: String?): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.createPostReply(postId, com.example.firstapp.media.data.api.CreatePostReplyRequest(content, parentReplyId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun likePostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.likePostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun repostPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun bookmarkPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun votePoll(postId: String, optionId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.votePoll(postId, com.example.firstapp.media.data.api.VotePollRequest(optionId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun followUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.followUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun unfollowUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.unfollowUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun getTrendingTopics(): Flow<Resource<List<com.example.firstapp.media.data.api.TrendingTopic>>> = flow { emit(Resource.Loading()); try { val response = socialApi.getTrendingTopics(); if (response.isSuccessful) emit(Resource.Success(response.body()?.topics ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun getSuggestedUsers(): Flow<Resource<List<Contact>>> = flow { emit(Resource.Loading()); try { val response = socialApi.getSuggestedUsers(); if (response.isSuccessful) emit(Resource.Success(response.body()?.contacts?.map { user -> Contact(user.id, user.username, user.display_name, user.avatar_url, "", false, true, user.is_verified, "") } ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun getSuggestedUsers(): Flow<Resource<List<Contact>>> = flow { 
+        emit(Resource.Loading())
+        try { 
+            val response = socialApi.getSuggestedUsers()
+            if (response.isSuccessful && response.body() != null) { 
+                val users = response.body()!!.contacts
+                val contacts = users.map { user: com.example.firstapp.common.data.api.ApiUser -> 
+                    Contact(
+                        id = user.id, 
+                        username = user.username, 
+                        displayName = user.display_name, 
+                        avatarUrl = user.avatar_url, 
+                        phoneNumber = user.phone_number ?: "", 
+                        isRegistered = true, 
+                        isAuthenticated = true, 
+                        isVerified = user.is_verified, 
+                        bio = user.bio,
+                        publicKey = user.public_key
+                    ) 
+                }
+                emit(Resource.Success(contacts)) 
+            } else { 
+                emit(Resource.Error("Fail")) 
+            } 
+        } catch (e: Exception) { 
+            emit(Resource.Error("Offline")) 
+        } 
+    }
 
     override fun getStories(): Flow<Resource<List<UserStory>>> = flow {
         val cachedEntities = storyDao.getStories().first()
-        val cached = cachedEntities.map { it.toModel() }
-        emit(Resource.Loading(cached))
+        val cached = cachedEntities.map { it.toUserStory() }
+        if (cached.isNotEmpty()) {
+            emit(Resource.Loading(cached))
+        } else {
+            emit(Resource.Loading())
+        }
+
         try {
             val response = socialApi.getStories()
             if (response.isSuccessful) {
-                val apiStories = response.body()?.stories ?: emptyList()
-                val stories = apiStories.map { mapApiStory(it) }
+                val apiStories = response.body()?.stories ?: emptyList<com.example.firstapp.media.data.api.ApiStoryResponse>()
+                Log.d("SocialRepo", "Fetched ${apiStories.size} story sets")
+                val stories = apiStories.map { apiStory: com.example.firstapp.media.data.api.ApiStoryResponse -> mapApiStory(apiStory) }
                 storyDao.clearStories()
-                storyDao.insertStories(stories.map { it.toEntity() })
-            }
-        } catch (_: Exception) {}
-        
-        storyDao.getStories().collect { entities ->
-            val now = System.currentTimeMillis()
-            val dayInMs = 24 * 60 * 60 * 1000L
-            
-            val models = entities.map { it.toModel() }.map { userStory: UserStory ->
-                val filteredItems = userStory.stories.filter { item: StoryItem ->
-                    item.createdAt == 0L || (now - item.createdAt < dayInMs)
-                }.sortedBy { it.createdAt }
-
-                userStory.copy(stories = filteredItems)
-            }.filter { it.stories.isNotEmpty() }
-            
-            val sortedModels = models.sortedByDescending { story ->
-                story.stories.maxOfOrNull { it.createdAt } ?: 0L
-            }
-            
-            if (sortedModels.isEmpty()) {
-                emit(Resource.Success(emptyList()))
+                storyDao.insertStories(stories.map { it.toStoryEntity() })
             } else {
-                emit(Resource.Success(sortedModels))
+                Log.e("SocialRepo", "getStories network failed: ${response.code()} ${response.errorBody()?.string()}")
             }
+        } catch (e: Exception) {
+            Log.e("SocialRepo", "getStories failed with exception", e)
         }
+        
+        emitAll(storyDao.getStories().flowMap { entities ->
+            val models = entities.map { it.toUserStory() }.toMutableList()
+            // Sort models: most recent story first
+            models.sortByDescending { us: UserStory -> us.stories.maxByOrNull { s: StoryItem -> s.createdAt }?.createdAt ?: 0L }
+            Resource.Success<List<UserStory>>(models)
+        })
     }
 
     override fun createStory(content: String, contentUrl: String?, type: String): Flow<Resource<Boolean>> = flow {
@@ -169,20 +267,20 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun deleteStory(storyId: Int): Flow<Resource<Boolean>> = flow {
+    override fun deleteStory(storyId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             if (socialApi.deleteStory(storyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
-    override fun markStoryAsViewed(userId: Int, storyId: Int): Flow<Resource<Boolean>> = flow {
+    override fun markStoryAsViewed(userId: String, storyId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val stories = storyDao.getStories().first()
-            val entity = stories.find { it.id == userId }
+            val storiesList = storyDao.getStories().first()
+            val entity = storiesList.find { it.id == userId }
             if (entity != null) {
-                val updatedItems = entity.stories.map { if (it.id == storyId) it.copy(isViewed = true) else it }
+                val updatedItems = entity.stories.map { item: StoryItem -> if (item.id == storyId) item.copy(isViewed = true) else item }
                 storyDao.insertStories(listOf(entity.copy(stories = updatedItems)))
             }
             socialApi.markStoryViewed(storyId)
@@ -190,11 +288,11 @@ class SocialRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
-    override fun muteStory(userId: Int, isMuted: Boolean): Flow<Resource<Boolean>> = flow {
+    override fun muteStory(userId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val stories = storyDao.getStories().first()
-            val entity = stories.find { it.id == userId }
+            val storiesList = storyDao.getStories().first()
+            val entity = storiesList.find { it.id == userId }
             if (entity != null) {
                 storyDao.insertStories(listOf(entity.copy(isMuted = isMuted)))
             }
@@ -203,8 +301,8 @@ class SocialRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
-    override fun viewPost(postId: Int): Flow<Resource<Boolean>> = flow { try { socialApi.viewPost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
-    override fun deletePost(postId: Int): Flow<Resource<Boolean>> = flow { try { socialApi.deletePost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
+    override fun viewPost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.viewPost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
+    override fun deletePost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.deletePost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
 
-    override fun getStoryViewers(storyId: Int): Flow<Resource<List<com.example.firstapp.media.data.api.ApiViewer>>> = flow { emit(Resource.Loading()); try { val res = socialApi.getStoryViewers(storyId); if (res.isSuccessful) emit(Resource.Success(res.body()?.viewers ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Error")) } }
+    override fun getStoryViewers(storyId: String): Flow<Resource<List<com.example.firstapp.media.data.api.ApiViewer>>> = flow { emit(Resource.Loading()); try { val res = socialApi.getStoryViewers(storyId); if (res.isSuccessful) emit(Resource.Success(res.body()?.viewers ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Error")) } }
 }

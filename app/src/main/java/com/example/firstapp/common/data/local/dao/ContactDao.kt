@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ContactDao {
     @Query("SELECT * FROM contacts WHERE id = :id LIMIT 1")
-    suspend fun getContactById(id: Int): ContactEntity?
+    suspend fun getContactById(id: String): ContactEntity?
 
     @Query("SELECT * FROM contacts")
     fun getContacts(): Flow<List<ContactEntity>>

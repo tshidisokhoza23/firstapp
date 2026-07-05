@@ -5,19 +5,19 @@ import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
-    fun getUserData(userId: Int): Flow<User?>
+    fun getUserData(userId: String): Flow<User?>
     fun observeCurrentUser(): Flow<User?>
     fun getCurrentUser(): Flow<Resource<User>>
-    suspend fun ensureUserExists(userId: Int)
-    suspend fun updateUserXp(userId: Int, xpDelta: Int)
-    suspend fun recordLessonResult(userId: Int, lessonId: String, score: Int, maxScore: Int)
-    suspend fun incrementAdsWatched(userId: Int)
-    suspend fun resetDailyAds(userId: Int)
-    suspend fun setPremiumStatus(userId: Int, isPremium: Boolean)
-    suspend fun setNativeLanguage(userId: Int, language: String)
-    suspend fun setTargetLanguage(userId: Int, language: String)
-    suspend fun useStreakFreeze(userId: Int)
-    suspend fun buyStreakFreeze(userId: Int)
+    suspend fun ensureUserExists(userId: String)
+    suspend fun updateUserXp(userId: String, xpDelta: Int)
+    suspend fun recordLessonResult(userId: String, lessonId: String, score: Int, maxScore: Int)
+    suspend fun incrementAdsWatched(userId: String)
+    suspend fun resetDailyAds(userId: String)
+    suspend fun setPremiumStatus(userId: String, isPremium: Boolean)
+    suspend fun setNativeLanguage(userId: String, language: String)
+    suspend fun setTargetLanguage(userId: String, language: String)
+    suspend fun useStreakFreeze(userId: String)
+    suspend fun buyStreakFreeze(userId: String)
     fun updateUser(displayName: String?, bio: String?, location: String?, avatarUrl: String?, bannerUrl: String? = null, isArtist: Boolean? = null): Flow<Resource<User>>
     fun forgotPassword(emailOrUsername: String): Flow<Resource<Boolean>>
     fun deleteAccount(): Flow<Resource<Boolean>>

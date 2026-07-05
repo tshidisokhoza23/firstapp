@@ -27,10 +27,12 @@ class JobViewModel @Inject constructor(
     private val _applications = MutableStateFlow<List<JobApplication>>(emptyList())
     val applications: StateFlow<List<JobApplication>> = _applications.asStateFlow()
 
+    private val _createJobResult = MutableStateFlow<Resource<Job>?>(null)
+    val createJobResult: StateFlow<Resource<Job>?> = _createJobResult.asStateFlow()
+
     init {
         fetchJobs()
         fetchJobApplications()
-        fetchJobProfile()
     }
 
     fun fetchJobs() {
@@ -41,20 +43,10 @@ class JobViewModel @Inject constructor(
         viewModelScope.launch { repository.getJobApplications().collect { _applications.value = it.data ?: emptyList() } }
     }
 
-    fun fetchJobProfile() {
-        viewModelScope.launch {
-            repository.getJobProfile().collect { result ->
-                if (result is Resource.Success) {
-                    _jobProfile.value = result.data
-                }
-            }
-        }
-    }
-
-    fun applyForJob(jobId: Int) {
+    fun applyForJob(jobId: String) {
         viewModelScope.launch {
             repository.applyForJob(jobId).collect { result ->
-                if (result is Resource.Success && (result.data == true)) {
+                if (result is Resource.Success) {
                     fetchJobs()
                     fetchJobApplications()
                 }
@@ -70,8 +62,16 @@ class JobViewModel @Inject constructor(
         }
     }
 
-    fun withdrawApplication(applicationId: Int) {
+    fun withdrawApplication(applicationId: String) {
         _applications.value = _applications.value.filter { it.id != applicationId }
         viewModelScope.launch { repository.withdrawApplication(applicationId).collect { } }
+    }
+
+    fun createJob(title: String, description: String, category: String, skills: List<String>, durationDays: Int) {
+        viewModelScope.launch {
+            repository.createJob(title, description, category, skills, durationDays).collect { 
+                _createJobResult.value = it 
+            }
+        }
     }
 }

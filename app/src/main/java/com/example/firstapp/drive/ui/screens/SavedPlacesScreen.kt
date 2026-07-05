@@ -86,7 +86,7 @@ fun SavedPlacesScreen(
                     name = "Home",
                     address = home?.address ?: "Set home address",
                     iconColor = Color(0xFF4CAF50),
-                    onClick = { placeToEdit = home ?: Destination(0, "Home", "", type = DestinationType.HOME) }
+                    onClick = { placeToEdit = home ?: Destination("0", "Home", "", type = DestinationType.HOME) }
                 )
             }
             item {
@@ -95,7 +95,7 @@ fun SavedPlacesScreen(
                     name = "Work",
                     address = work?.address ?: "Set work address",
                     iconColor = Color(0xFF2196F3),
-                    onClick = { placeToEdit = work ?: Destination(0, "Work", "", type = DestinationType.WORK) }
+                    onClick = { placeToEdit = work ?: Destination("0", "Work", "", type = DestinationType.WORK) }
                 )
             }
 

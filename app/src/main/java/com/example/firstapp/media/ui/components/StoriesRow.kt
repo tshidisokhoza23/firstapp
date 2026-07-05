@@ -41,7 +41,7 @@ import com.example.firstapp.common.ui.theme.AppTextPrimary
 @Composable
 fun StoriesRow(
     stories: List<UserStory>,
-    currentUserId: Int? = null,
+    currentUserId: String? = null,
     onStoryClick: (UserStory) -> Unit,
     onMediaStoryClick: () -> Unit,
     onTextStoryClick: () -> Unit,

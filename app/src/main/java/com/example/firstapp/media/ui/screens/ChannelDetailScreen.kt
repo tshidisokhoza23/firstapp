@@ -75,8 +75,8 @@ fun ChannelDetailScreen(
     channel: Channel,
     posts: List<Post>,
     onBack: () -> Unit,
-    onSubscribe: (Int) -> Unit = {},
-    onMute: (Int, Boolean) -> Unit = { _, _ -> },
+    onSubscribe: (String) -> Unit = {},
+    onMute: (String, Boolean) -> Unit = { _, _ -> },
     onCreatePost: () -> Unit = {},
     onAddAdmin: () -> Unit = {}
 ) {

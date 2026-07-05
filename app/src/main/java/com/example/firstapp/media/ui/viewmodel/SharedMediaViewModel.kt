@@ -21,7 +21,7 @@ class SharedMediaViewModel @Inject constructor(
     private val _mediaMessages = MutableStateFlow<Resource<List<Message>>>(Resource.Loading())
     val mediaMessages: StateFlow<Resource<List<Message>>> = _mediaMessages.asStateFlow()
 
-    fun loadSharedMedia(chatId: Int) {
+    fun loadSharedMedia(chatId: String) {
         viewModelScope.launch {
             repository.getSharedMedia(chatId).collect {
                 _mediaMessages.value = it

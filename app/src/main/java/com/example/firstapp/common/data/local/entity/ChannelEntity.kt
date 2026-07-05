@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "channels")
 data class ChannelEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
     val name: String,
     val description: String,
     val followers: String,
@@ -16,7 +16,7 @@ data class ChannelEntity(
     val isAdmin: Boolean = false,
     val isMuted: Boolean = false,
     val category: String,
-    val createdBy: Int? = null,
+    val createdBy: String? = null,
     val lastPostText: String,
     val lastPostImageUrl: String?,
     val lastPostImageColor: Int,

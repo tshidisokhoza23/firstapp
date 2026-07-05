@@ -5,16 +5,16 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "call_logs")
 data class CallLogEntity(
-    @PrimaryKey val id: String, // Changed from Int to String (UUID)
+    @PrimaryKey val id: String, 
     val sessionId: String,
-    val callerId: Int,
-    val calleeId: Int,
-    val contactId: Int,
+    val callerId: String,
+    val calleeId: String,
+    val contactId: String,
     val contactName: String,
     val contactAvatar: String?,
     val callType: String,
     val status: String,
     val durationSeconds: Int,
-    val timestamp: Long, // Changed from startedAt: String
+    val timestamp: Long,
     val endedAt: String?
 )

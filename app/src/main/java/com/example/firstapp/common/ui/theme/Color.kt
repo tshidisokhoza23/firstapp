@@ -21,3 +21,8 @@ val AppBackground = DarkGunmetal
 val AppTextPrimary = SoftWhite
 val AppTextSecondary = MutedSlate
 val AppAccent = NiceOrange
+
+val DividerColor = Color(0xFF2F3336)
+val SecondaryText = Color(0xFF71767B)
+val TwitterBlue = Color(0xFF1D9BF0)
+val SurfaceColor = Color(0xFF16181C)

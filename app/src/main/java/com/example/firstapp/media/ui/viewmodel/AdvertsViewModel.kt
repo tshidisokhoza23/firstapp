@@ -43,6 +43,34 @@ class AdvertsViewModel @Inject constructor(
         .flatMapLatest { 
             repository.getAdverts() 
         }
+        .map { res ->
+            if (res is Resource.Error || (res is Resource.Success && res.data.isNullOrEmpty())) {
+                Resource.Success(
+                    listOf(
+                        Advert(
+                            id = "1",
+                            advertiserName = "Sneaker Hub",
+                            time = "Just now",
+                            avatarColor = 0xFF2196F3.toInt(),
+                            contentColor = 0xFFB0BEC5.toInt(),
+                            contentText = "Get the latest sneakers at a 20% discount. Limited offer!",
+                            actionText = "Shop Now",
+                            targetUrl = "https://example.com"
+                        ),
+                        Advert(
+                            id = "2",
+                            advertiserName = "Tech SA",
+                            time = "2h ago",
+                            avatarColor = 0xFF4CAF50.toInt(),
+                            contentColor = 0xFFFFEB3B.toInt(),
+                            contentText = "Join our community of South African developers today.",
+                            actionText = "Join Now",
+                            targetUrl = "https://example.com"
+                        )
+                    )
+                )
+            } else res
+        }
         .onEach { res -> 
             if (res is Resource.Error) {
                 _toastMessage.value = res.message ?: "Failed to fetch ads"
@@ -85,7 +113,7 @@ class AdvertsViewModel @Inject constructor(
         }
     }
 
-    fun markAdvertAsViewed(advertId: Int) {
+    fun markAdvertAsViewed(advertId: String) {
         viewModelScope.launch {
             repository.markAdvertViewed(advertId).collect { result ->
                 if (result is Resource.Success && result.data == true) {

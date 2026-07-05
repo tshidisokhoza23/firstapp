@@ -1,15 +1,18 @@
 package com.example.firstapp.domain.repository
 
-import com.example.firstapp.jobs.model.*
+import com.example.firstapp.jobs.model.Job
+import com.example.firstapp.jobs.model.JobApplication
+import com.example.firstapp.jobs.model.JobProfileData
 import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.Flow
 
 interface JobRepository {
-    fun getJobs(): Flow<Resource<List<Job>>>
-    fun applyForJob(jobId: Int): Flow<Resource<Boolean>>
+    fun getJobs(page: Int = 1): Flow<Resource<List<Job>>>
+    fun applyForJob(jobId: String): Flow<Resource<String>> // Returns conversation_id
     fun getJobApplications(): Flow<Resource<List<JobApplication>>>
-    fun withdrawApplication(applicationId: Int): Flow<Resource<Boolean>>
     fun getJobProfile(): Flow<Resource<JobProfileData>>
+    fun withdrawApplication(applicationId: String): Flow<Resource<Boolean>>
     fun updateJobProfile(profile: JobProfileData): Flow<Resource<Boolean>>
-    fun searchJobs(query: String): Flow<List<Job>>
+    fun createJob(title: String, description: String, category: String, skills: List<String>, durationDays: Int): Flow<Resource<Job>>
+    fun searchJobs(query: String): Flow<Resource<List<Job>>>
 }

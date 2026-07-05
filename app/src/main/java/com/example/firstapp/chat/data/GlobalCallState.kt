@@ -20,8 +20,8 @@ object GlobalCallState {
     private val _activeSessionId = MutableStateFlow<String?>(null)
     val activeSessionId: StateFlow<String?> = _activeSessionId.asStateFlow()
 
-    private val _activeParticipantId = MutableStateFlow<Int?>(null)
-    val activeParticipantId: StateFlow<Int?> = _activeParticipantId.asStateFlow()
+    private val _activeParticipantId = MutableStateFlow<String?>(null)
+    val activeParticipantId: StateFlow<String?> = _activeParticipantId.asStateFlow()
 
     private val _activeCallType = MutableStateFlow<CallType?>(null)
     val activeCallType: StateFlow<CallType?> = _activeCallType.asStateFlow()
@@ -32,7 +32,7 @@ object GlobalCallState {
     private val _isRinging = MutableStateFlow(false)
     val isRinging: StateFlow<Boolean> = _isRinging.asStateFlow()
 
-    fun setCallActive(active: Boolean, sessionId: String? = null, participantId: Int? = null, callType: CallType? = null) {
+    fun setCallActive(active: Boolean, sessionId: String? = null, participantId: String? = null, callType: CallType? = null) {
         _isCallActive.value = active
         _activeSessionId.value = sessionId
         _activeParticipantId.value = participantId
@@ -57,21 +57,22 @@ object GlobalCallState {
     val autoAcceptSessionId: StateFlow<String?> = _autoAcceptSessionId.asStateFlow()
 
     /** Simple id→name cache updated by the ViewModel whenever chats/contacts are loaded. */
-    private val contactNames = mutableMapOf<Int, String>()
-    private val contactPhones = mutableMapOf<Int, String>()
+    private val contactNames = mutableMapOf<String, String>()
+    private val contactPhones = mutableMapOf<String, String>()
 
-    fun updateContactInfo(userId: Int, name: String, phone: String?) {
+    fun updateContactInfo(userId: String, name: String, phone: String?) {
         contactNames[userId] = name
         if (phone != null) contactPhones[userId] = phone
     }
 
-    fun getContactName(userId: Int): String? = contactNames[userId]
-    fun getContactPhone(userId: Int): String? = contactPhones[userId]
+    fun getContactName(userId: String): String? = contactNames[userId]
+    fun getContactPhone(userId: String): String? = contactPhones[userId]
 
     fun onCallInvite(event: CallEvent) {
         // Enrich with known name if not already set or if it's a generic "User " name
+        val senderIdStr = event.senderId.toString()
         val enriched = if (event.senderName.isBlank() || event.senderName.startsWith("User ")) {
-            val name = contactNames[event.senderId] ?: contactPhones[event.senderId] ?: event.senderName
+            val name = contactNames[senderIdStr] ?: contactPhones[senderIdStr] ?: event.senderName
             event.copy(senderName = name)
         } else event
         _incomingCall.value = enriched
@@ -82,7 +83,7 @@ object GlobalCallState {
     }
 
     fun acceptCall(event: CallEvent, webRtcCallManager: WebRtcCallManager) {
-        setCallActive(true, event.sessionId, event.senderId, event.callType)
+        setCallActive(true, event.sessionId, event.senderId.toString(), event.callType)
         setConnectionEstablished(true)
         clearIncomingCall()
         webRtcCallManager.start(event.callType)

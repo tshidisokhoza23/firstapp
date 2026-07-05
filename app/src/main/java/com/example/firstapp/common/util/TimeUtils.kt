@@ -84,10 +84,9 @@ fun formatMessageTime(isoTimestamp: String?): String {
 }
 
 /** Returns a relative "posted" label: "2 hours ago", "3 days ago", "2 weeks ago". */
-fun formatPostedTime(isoTimestamp: String?): String {
-    if (isoTimestamp.isNullOrBlank()) return ""
-    val date = parseIso(isoTimestamp) ?: return ""
-    val diffMs = System.currentTimeMillis() - date.time
+fun formatPostedTime(timestamp: Long): String {
+    if (timestamp <= 0L) return ""
+    val diffMs = System.currentTimeMillis() - timestamp
     val mins = diffMs / 60_000
     val hours = mins / 60
     val days = hours / 24
@@ -101,10 +100,19 @@ fun formatPostedTime(isoTimestamp: String?): String {
     }
 }
 
+fun formatPostedTime(isoTimestamp: String?): String {
+    if (isoTimestamp.isNullOrBlank()) return ""
+    val date = parseIso(isoTimestamp) ?: return ""
+    return formatPostedTime(date.time)
+}
+
 /** Returns Twitter-style relative time: 5m, 2h, 3d, or Apr 9 for older posts. */
 fun formatTwitterTime(isoTimestamp: String?): String {
     if (isoTimestamp.isNullOrBlank()) return ""
-    val date = parseIso(isoTimestamp) ?: return ""
+    
+    // Try to parse as Long first (milliseconds)
+    val date = isoTimestamp.toLongOrNull()?.let { java.util.Date(it) } ?: parseIso(isoTimestamp) ?: return ""
+    
     val diffMs = System.currentTimeMillis() - date.time
     val mins = diffMs / 60_000
     val hours = mins / 60
@@ -118,6 +126,7 @@ fun formatTwitterTime(isoTimestamp: String?): String {
         else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(date)
     }
 }
+
 
 private val ISO_FORMATS = listOf(
     "yyyy-MM-dd'T'HH:mm:ssXXX",

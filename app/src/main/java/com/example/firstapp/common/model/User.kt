@@ -3,7 +3,7 @@ package com.example.firstapp.common.model
 import com.google.gson.annotations.SerializedName
 
 data class User(
-    val id: Int,
+    val id: String,
     val username: String = "",
     val email: String? = null,
     val display_name: String = "",

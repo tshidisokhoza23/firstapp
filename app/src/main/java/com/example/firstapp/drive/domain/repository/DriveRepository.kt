@@ -11,5 +11,5 @@ interface DriveRepository {
     fun getDestinations(): Flow<Resource<List<Destination>>>
     fun getTrips(): Flow<Resource<List<Trip>>>
     fun saveDestination(name: String, address: String, latitude: Double, longitude: Double, isFavorite: Boolean, type: String): Flow<Resource<Boolean>>
-    fun deleteDestination(id: Int): Flow<Resource<Boolean>>
+    fun deleteDestination(id: String): Flow<Resource<Boolean>>
 }

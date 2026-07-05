@@ -15,6 +15,9 @@ interface StoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertStories(stories: List<StoryEntity>)
 
+    @Query("SELECT * FROM stories WHERE userId = :userId")
+    fun getStoriesByUserId(userId: String): Flow<StoryEntity?>
+
     @Query("DELETE FROM stories")
     suspend fun clearStories()
 }

@@ -8,14 +8,14 @@ sealed class Screen(val route: String) {
             "otp_verification/${android.net.Uri.encode(phoneNumber)}/${android.net.Uri.encode(username)}/${android.net.Uri.encode(email)}/${android.net.Uri.encode(displayName)}/${android.net.Uri.encode(password)}"
     }
     object Chat : Screen("chat/{chatId}?type={type}") {
-        fun createRoute(chatId: Int, type: String = "direct") = "chat/$chatId?type=$type"
+        fun createRoute(chatId: String, type: String = "direct") = "chat/$chatId?type=$type"
     }
     object Vocab : Screen("vocab")
     object Files : Screen("files")
     object Calendar : Screen("calendar")
     object Story : Screen("story?userId={userId}&showComposer={showComposer}") {
-        fun createRoute(userId: Int? = null, showComposer: Boolean = false) = 
-            "story?userId=${userId ?: -1}&showComposer=$showComposer"
+        fun createRoute(userId: String? = null, showComposer: Boolean = false) = 
+            "story?userId=${userId ?: ""}&showComposer=$showComposer"
     }
     object NewStory : Screen("new_story")
     object ShareStory : Screen("share_story?content={content}&url={url}&type={type}") {
@@ -35,7 +35,10 @@ sealed class Screen(val route: String) {
     object DevicesSettings : Screen("devices_settings")
     object EditProfile : Screen("edit_profile")
     object UserProfile : Screen("user_profile/{userId}?isGroup={isGroup}") {
-        fun createRoute(userId: Int, isGroup: Boolean = false) = "user_profile/$userId?isGroup=$isGroup"
+        fun createRoute(userId: String, isGroup: Boolean = false) = "user_profile/$userId?isGroup=$isGroup"
+    }
+    object ShortsProfile : Screen("shorts_profile/{userId}") {
+        fun createRoute(userId: String) = "shorts_profile/$userId"
     }
     object ContactPicker : Screen("contact_picker?isGroupMode={isGroupMode}") {
         fun createRoute(isGroupMode: Boolean = false) = "contact_picker?isGroupMode=$isGroupMode"
@@ -44,17 +47,21 @@ sealed class Screen(val route: String) {
     object JobProfile : Screen("job_profile")
     object Applications : Screen("applications")
     object DirectMessages : Screen("direct_messages")
+    object DirectChat : Screen("direct_chat/{chatId}") {
+        fun createRoute(chatId: String) = "direct_chat/$chatId"
+    }
     object SharedMedia : Screen("shared_media/{chatId}") {
-        fun createRoute(chatId: Int) = "shared_media/$chatId"
+        fun createRoute(chatId: String) = "shared_media/$chatId"
     }
     object JobDetail : Screen("job_detail/{jobId}") {
-        fun createRoute(jobId: Int) = "job_detail/$jobId"
+        fun createRoute(jobId: String) = "job_detail/$jobId"
     }
     object ChannelDetail : Screen("channel_detail/{channelId}") {
-        fun createRoute(channelId: Int) = "channel_detail/$channelId"
+        fun createRoute(channelId: String) = "channel_detail/$channelId"
     }
     object AdvertDetail : Screen("advert_detail/{advertId}") {
-        fun createRoute(advertId: Int) = "advert_detail/$advertId"
+        fun createRoute(advertId: String) = "advert_detail/$advertId"
     }
     object Wallet : Screen("wallet")
+    object PostJob : Screen("post_job")
 }

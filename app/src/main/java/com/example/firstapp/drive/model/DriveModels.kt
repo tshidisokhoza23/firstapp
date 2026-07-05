@@ -3,7 +3,7 @@ package com.example.firstapp.drive.model
 import androidx.compose.ui.graphics.Color
 
 data class RideOption(
-    val id: Int,
+    val id: String,
     val name: String,
     val price: String,
     val currency: String = "R",
@@ -17,7 +17,7 @@ data class RideOption(
 )
 
 data class Destination(
-    val id: Int,
+    val id: String,
     val name: String,
     val address: String,
     val latitude: Double = 0.0,
@@ -33,7 +33,7 @@ enum class DestinationType {
 }
 
 data class Trip(
-    val id: Int,
+    val id: String,
     val date: String,
     val from: String,
     val to: String,
@@ -43,7 +43,7 @@ data class Trip(
 )
 
 data class Transaction(
-    val id: Int,
+    val id: String,
     val title: String,
     val amount: Double,
     val date: String,

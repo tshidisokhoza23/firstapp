@@ -1,18 +1,14 @@
-package com.example.firstapp.media.ui.components
+package com.example.firstapp.media.ui.screens.shorts
 
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.animation.*
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -28,20 +24,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -53,8 +54,8 @@ import coil.compose.AsyncImage
 import com.example.firstapp.media.data.ShortsVideoCache
 import com.example.firstapp.media.model.ShortMedia
 import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppPrimary
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -62,23 +63,28 @@ fun ShortItem(
     short: ShortMedia,
     isVisible: Boolean,
     bottomInset: Dp,
-    onLikeClick: (Int) -> Unit,
-    onSubscribeClick: (Int) -> Unit,
-    onCommentClick: (Int) -> Unit,
-    onRepostClick: (Int) -> Unit,
-    onBookmarkClick: (Int) -> Unit,
-    onMoreClick: (Int) -> Unit,
+    onLikeClick: (String) -> Unit,
+    onSubscribeClick: (String) -> Unit,
+    onCommentClick: (String) -> Unit,
+    onRepostClick: (String) -> Unit,
+    onBookmarkClick: (String) -> Unit,
+    onShareClick: (String) -> Unit,
+    onMoreClick: (String) -> Unit,
+    onCreatorClick: (String) -> Unit = {},
     onVideoEnded: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val videoUrl = short.videoUrl.takeIf { it.isNotBlank() }
     
-    var isMuted by remember { mutableStateOf(true) }
+    var isMuted by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(true) }
     var showPlayerControls by remember { mutableStateOf(false) }
-    var controlsTimer by remember { mutableStateOf(0L) }
+    var controlsTimer by remember { mutableLongStateOf(0L) }
+    
+    var showHeartAnimation by remember { mutableStateOf(false) }
+    var heartOffset by remember { mutableStateOf(Offset.Zero) }
 
-    val exoPlayer = remember(videoUrl, isVisible) {
+    val exoPlayer: androidx.media3.exoplayer.ExoPlayer? = remember(videoUrl, isVisible) {
         if (isVisible && videoUrl != null) {
             ShortsVideoCache.acquirePlayer(context, videoUrl).apply {
                 repeatMode = Player.REPEAT_MODE_ONE
@@ -103,14 +109,15 @@ fun ShortItem(
     var isBuffering by remember(short.id, videoUrl, isVisible) {
         mutableStateOf(isVisible && videoUrl != null)
     }
-    var currentPosition by remember { mutableStateOf(0L) }
-    var duration by remember { mutableStateOf(0L) }
+    var playerErrorMessage by remember(short.id) { mutableStateOf<String?>(null) }
+    var currentPosition by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(exoPlayer, isVisible) {
         if (isVisible && exoPlayer != null) {
             while (true) {
                 currentPosition = exoPlayer.currentPosition
-                duration = exoPlayer.duration.coerceAtLeast(0L)
+                duration = if (exoPlayer.duration > 0) exoPlayer.duration else 0L
                 delay(100)
             }
         }
@@ -148,6 +155,11 @@ fun ShortItem(
                         else -> {}
                     }
                 }
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    val cause = error.cause?.message ?: error.message
+                    isBuffering = false
+                    playerErrorMessage = "Video playback failed: $cause"
+                }
                 override fun onIsPlayingChanged(isPlayingParam: Boolean) {
                     isPlaying = isPlayingParam
                 }
@@ -159,7 +171,7 @@ fun ShortItem(
             
             onDispose {
                 player.removeListener(listener)
-                ShortsVideoCache.releasePlayer(player)
+                ShortsVideoCache.releasePlayer(player, videoUrl)
             }
         }
     }
@@ -174,18 +186,22 @@ fun ShortItem(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                isMuted = !isMuted
-                showPlayerControls = true
-                controlsTimer = System.currentTimeMillis()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = { offset ->
+                        heartOffset = offset
+                        showHeartAnimation = true
+                        if (!short.isLiked) onLikeClick(short.id)
+                    },
+                    onTap = {
+                        isPlaying = !isPlaying
+                        showPlayerControls = true
+                        controlsTimer = System.currentTimeMillis()
+                    }
+                )
             }
     ) {
-        // Full screen video or poster
         Box(modifier = Modifier.fillMaxSize()) {
-            // Blurred Thumbnail Background while loading
             if (!isVideoReady) {
                 ShortPoster(
                     short = short,
@@ -196,8 +212,8 @@ fun ShortItem(
 
             if (exoPlayer != null) {
                 AndroidView(
-                    factory = {
-                        PlayerView(it).apply {
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
                             player = exoPlayer
                             useController = false
                             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -208,28 +224,57 @@ fun ShortItem(
                             setBackgroundColor(android.graphics.Color.BLACK)
                         }
                     },
+                    update = { view ->
+                        view.player = exoPlayer
+                    },
                     modifier = Modifier.fillMaxSize()
                 )
             }
             
-            // Loading Spinner
             if (isBuffering && isVisible) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color.White.copy(alpha = 0.7f), strokeWidth = 2.dp)
                 }
             }
+
+            if (playerErrorMessage != null && isVisible) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(48.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(playerErrorMessage!!, color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 32.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                playerErrorMessage = null
+                                isBuffering = true
+                                exoPlayer?.prepare()
+                                exoPlayer?.play()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f))
+                        ) {
+                            Text("Retry", color = Color.White)
+                        }
+                    }
+                }
+            }
         }
 
-        // Overlay Content
+        if (showHeartAnimation) {
+            TikTokHeartAnimation(
+                offset = heartOffset,
+                onAnimationEnd = { showHeartAnimation = false }
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = bottomInset)
         ) {
-            // Mute/Unmute Indicator
             LaunchedEffect(showPlayerControls, controlsTimer) {
                 if (showPlayerControls) {
-                    delay(1500)
+                    delay(1000)
                     showPlayerControls = false
                 }
             }
@@ -247,7 +292,7 @@ fun ShortItem(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                            imageVector = if (isPlaying) Icons.Default.PlayArrow else Icons.Default.Pause,
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(32.dp)
@@ -255,29 +300,18 @@ fun ShortItem(
                     }
                 }
             }
-
-            // Top Left "Live" tag
-            Box(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .align(Alignment.TopStart)
+            
+            IconButton(
+                onClick = { isMuted = !isMuted },
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 48.dp, end = 16.dp)
             ) {
-                Surface(
-                    color = Color.Black.copy(alpha = 0.4f),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.size(6.dp).background(Color.Red, CircleShape))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("LIVE", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                Icon(
+                    imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.6f)
+                )
             }
 
-            // Right Actions
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -285,7 +319,6 @@ fun ShortItem(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Profile Avatar with Plus
                 Box(contentAlignment = Alignment.BottomCenter) {
                     Box(
                         modifier = Modifier
@@ -294,6 +327,7 @@ fun ShortItem(
                             .padding(1.dp)
                             .clip(CircleShape)
                             .background(short.thumbnailColor)
+                            .clickable { onCreatorClick(short.creatorId) }
                     ) {
                         AsyncImage(
                             model = short.thumbnailUrl,
@@ -339,14 +373,15 @@ fun ShortItem(
                     onClick = { onRepostClick(short.id) }
                 )
                 ShortActionButton(
-                    icon = Icons.Filled.BookmarkBorder,
+                    icon = if (short.isBookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
                     text = "Save",
                     onClick = { onBookmarkClick(short.id) }
                 )
                 ShortActionButton(
                     icon = Icons.Filled.Share,
-                    text = "Share",
+                    text = short.shares,
                     onClick = {
+                        onShareClick(short.id)
                         val sendIntent = android.content.Intent().apply {
                             action = android.content.Intent.ACTION_SEND
                             putExtra(android.content.Intent.EXTRA_TEXT, short.videoUrl)
@@ -362,7 +397,6 @@ fun ShortItem(
                 )
             }
 
-            // Bottom Left Info
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -373,7 +407,8 @@ fun ShortItem(
                         text = "@${short.creatorName}",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 16.sp,
+                        modifier = Modifier.clickable { onCreatorClick(short.creatorId) }
                     )
                     if (!short.isSubscribed) {
                         Spacer(modifier = Modifier.width(12.dp))
@@ -415,7 +450,6 @@ fun ShortItem(
                 }
             }
             
-            // Bottom Progress Bar
             if (duration > 0) {
                 val progress = currentPosition.toFloat() / duration.toFloat()
                 Box(
@@ -434,6 +468,58 @@ fun ShortItem(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TikTokHeartAnimation(
+    offset: Offset,
+    onAnimationEnd: () -> Unit
+) {
+    val scale = remember { androidx.compose.animation.core.Animatable(0f) }
+    val alpha = remember { androidx.compose.animation.core.Animatable(1f) }
+    val rotation = remember { androidx.compose.animation.core.Animatable(0f) }
+    
+    LaunchedEffect(Unit) {
+        rotation.snapTo((-15..15).random().toFloat())
+        launch {
+            scale.animateTo(
+                targetValue = 1.2f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            )
+            scale.animateTo(1f)
+        }
+        launch {
+            delay(500)
+            alpha.animateTo(0f, animationSpec = tween(300))
+            onAnimationEnd()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {}
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Favorite,
+            contentDescription = null,
+            tint = Color.Red,
+            modifier = Modifier
+                .offset {
+                    IntOffset(
+                        (offset.x - 100).toInt(),
+                        (offset.y - 100).toInt()
+                    )
+                }
+                .size(100.dp)
+                .graphicsLayer(
+                    scaleX = scale.value,
+                    scaleY = scale.value,
+                    alpha = alpha.value,
+                    rotationZ = rotation.value
+                )
+        )
     }
 }
 

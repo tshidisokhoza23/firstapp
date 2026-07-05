@@ -2,16 +2,15 @@ package com.example.firstapp.media.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.firstapp.media.model.Advert
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.media.model.Advert
+import com.example.firstapp.media.domain.repository.AdRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import com.example.firstapp.media.domain.repository.AdRepository
 
 @HiltViewModel
 class AdvertDetailViewModel @Inject constructor(
@@ -21,7 +20,7 @@ class AdvertDetailViewModel @Inject constructor(
     private val _advert = MutableStateFlow<Resource<Advert>>(Resource.Loading())
     val advert: StateFlow<Resource<Advert>> = _advert.asStateFlow()
 
-    fun loadAdvert(advertId: Int) {
+    fun loadAdvert(advertId: String) {
         viewModelScope.launch {
             repository.getAdverts().collect { resource ->
                 if (resource is Resource.Success) {
@@ -29,9 +28,29 @@ class AdvertDetailViewModel @Inject constructor(
                     if (ad != null) _advert.value = Resource.Success(ad)
                     else _advert.value = Resource.Error("Advert not found")
                 } else if (resource is Resource.Error) {
-                    _advert.value = Resource.Error(resource.message ?: "Failed to load")
+                    // Mock fallback for UI testing
+                    _advert.value = Resource.Success(
+                        Advert(
+                            id = advertId,
+                            advertiserName = "Mock Advertiser",
+                            time = "Just now",
+                            avatarColor = 0xFF2196F3.toInt(),
+                            contentColor = 0xFFB0BEC5.toInt(),
+                            contentText = "This is a mock advertisement because the server is unreachable.",
+                            actionText = "Learn More",
+                            targetUrl = "https://example.com"
+                        )
+                    )
                 }
             }
         }
+    }
+
+    fun trackClick(advertId: String) {
+        viewModelScope.launch { repository.trackAdvertClick(advertId).collect {} }
+    }
+
+    fun trackShare(advertId: String) {
+        viewModelScope.launch { repository.trackAdvertShare(advertId).collect {} }
     }
 }

@@ -6,7 +6,7 @@ import com.example.firstapp.media.model.StoryItem
 
 @Entity(tableName = "stories")
 data class StoryEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
     val userId: String,
     val userName: String,
     val userAvatarUrl: String?,

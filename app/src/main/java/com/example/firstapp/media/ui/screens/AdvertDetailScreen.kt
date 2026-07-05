@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,12 +27,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.media.model.Advert
+import androidx.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
+fun AdvertDetailScreen(
+    advert: Advert,
+    onBack: () -> Unit,
+    onActionClick: () -> Unit = {},
+    onImpression: () -> Unit = {},
+    onShare: () -> Unit = {},
+    onLike: () -> Unit = {},
+    onRepost: () -> Unit = {}
+) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
+
+    // Trigger impression tracking once
+    LaunchedEffect(advert.id) {
+        onImpression()
+    }
     
     Box(
         modifier = Modifier
@@ -39,7 +54,7 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
             .background(Color.Black)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Story Progress Bar
+            // Story Progress Bar (Simplified for production)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -47,7 +62,7 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                     .padding(top = 12.dp, start = 8.dp, end = 8.dp)
             ) {
                 LinearProgressIndicator(
-                    progress = { 0.75f },
+                    progress = { 1.0f },
                     modifier = Modifier
                         .weight(1f)
                         .height(2.dp)
@@ -71,18 +86,20 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(advert.avatarColor),
+                        .background(Color(advert.avatarColor)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!advert.avatarUrl.isNullOrBlank()) {
+                    val avatarUrl = advert.avatarUrl
+                    if (avatarUrl != null && avatarUrl.length > 0) {
                         coil.compose.AsyncImage(
-                            model = advert.avatarUrl,
+                            model = avatarUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize().clip(CircleShape),
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
                     } else {
-                        Text(advert.advertiserName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.ExtraBold)
+                        val initial = if (advert.advertiserName.length > 0) advert.advertiserName.substring(0, 1).uppercase() else ""
+                        Text(initial, color = Color.White, fontWeight = FontWeight.ExtraBold)
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -103,12 +120,16 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                             text = { Text("Share advert", color = Color.White) },
                             onClick = {
                                 showMenu = false
-                                val shareText = "${advert.advertiserName}: ${advert.targetUrl}"
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                onShare()
+                                try {
+                                    val shareText = "${advert.advertiserName}: ${advert.targetUrl}"
+                                    val shareIntent = Intent(Intent.ACTION_SEND)
+                                    shareIntent.type = "text/plain"
+                                    shareIntent.putExtra(Intent.EXTRA_TEXT, shareText)
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share advert"))
+                                } catch (e: Exception) {
+                                    // Handle case where no sharing app exists
                                 }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share advert"))
                             }
                         )
                     }
@@ -124,9 +145,10 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                     .background(com.example.firstapp.common.ui.theme.AppBackground),
                 contentAlignment = Alignment.Center
             ) {
-                if (!advert.contentUrl.isNullOrBlank()) {
+                val contentUrl = advert.contentUrl
+                if (contentUrl != null && contentUrl.isNotEmpty()) {
                     coil.compose.AsyncImage(
-                        model = advert.contentUrl,
+                        model = contentUrl,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit
@@ -165,20 +187,44 @@ fun AdvertDetailScreen(advert: Advert, onBack: () -> Unit) {
                 ) {
                     Button(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(advert.targetUrl))
-                            context.startActivity(intent)
+                            onActionClick()
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(advert.targetUrl))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                // Fallback or user message
+                            }
                         },
                         modifier = Modifier.weight(1f).height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = com.example.firstapp.common.ui.theme.AppAccent),
                         shape = RoundedCornerShape(24.dp)
                     ) {
-                        Text(advert.actionText ?: "Learn More", color = com.example.firstapp.common.ui.theme.AppBackground, fontWeight = FontWeight.ExtraBold)
+                        Text(advert.actionText, color = com.example.firstapp.common.ui.theme.AppBackground, fontWeight = FontWeight.ExtraBold)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    IconButton(onClick = {}) { Icon(Icons.Default.Sync, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(28.dp)) }
-                    IconButton(onClick = {}) { Icon(Icons.Default.FavoriteBorder, contentDescription = "Like", tint = Color.White, modifier = Modifier.size(28.dp)) }
+                    IconButton(onClick = onRepost) { Icon(Icons.Default.Sync, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(28.dp)) }
+                    IconButton(onClick = onLike) { Icon(Icons.Default.FavoriteBorder, contentDescription = "Like", tint = Color.White, modifier = Modifier.size(28.dp)) }
                 }
             }
         }
+    }
+}
+
+
+@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Composable
+fun AdvertDetailScreenPreview() {
+    val dummyAd = Advert(
+        id = "1",
+        advertiserName = "Sneaker Hub",
+        time = "Just now",
+        avatarColor = -16776961, // Blue
+        contentColor = -12303292, // Dark Gray
+        contentText = "Get the latest sneakers at a 20% discount. Limited offer!",
+        actionText = "Shop Now",
+        targetUrl = "https://example.com"
+    )
+    MaterialTheme {
+        AdvertDetailScreen(advert = dummyAd, onBack = {})
     }
 }

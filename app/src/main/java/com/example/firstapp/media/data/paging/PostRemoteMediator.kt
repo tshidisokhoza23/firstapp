@@ -9,8 +9,10 @@ import com.example.firstapp.common.data.local.AppDatabase
 import com.example.firstapp.common.data.local.entity.PostEntity
 import com.example.firstapp.common.data.local.entity.PostRemoteKeys
 import com.example.firstapp.media.data.api.SocialApi
-import com.example.firstapp.media.data.repository.toEntity
+import com.example.firstapp.media.data.repository.toPostEntity
 import com.example.firstapp.media.data.repository.mapApiPost
+import com.example.firstapp.media.data.repository.mapMediaFeedItems
+import retrofit2.Response
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -18,7 +20,8 @@ import java.io.IOException
 class PostRemoteMediator(
     private val socialApi: SocialApi,
     private val appDatabase: AppDatabase,
-    private val following: Boolean = false
+    private val following: Boolean = false,
+    private val authorId: String? = null
 ) : RemoteMediator<Int, PostEntity>() {
 
     override suspend fun load(
@@ -45,15 +48,27 @@ class PostRemoteMediator(
         }
 
         try {
-            val response = socialApi.getPosts(page = page, following = following)
-            val body = response.body()
-            val apiPosts = body?.posts ?: emptyList()
+            android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId")
+            
+            val apiPosts = if (!following && authorId == null) {
+                // Use new feed injection endpoint
+                val limit = state.config.pageSize
+                val offset = (page - 1) * limit
+                val response = socialApi.getFeed(limit = limit, offset = offset)
+                ensureSuccessful(response)
+                mapMediaFeedItems(response.body()?.items ?: emptyList())
+            } else {
+                val response = socialApi.getPosts(page = page, following = following, authorId = authorId)
+                ensureSuccessful(response)
+                response.body()?.posts?.map { mapApiPost(it) } ?: emptyList()
+            }
+
             val endOfPaginationReached = apiPosts.isEmpty()
 
             appDatabase.withTransaction {
                 if (loadType == LoadType.REFRESH) {
                     appDatabase.postRemoteKeysDao().clearRemoteKeys()
-                    if (!following) appDatabase.postDao().clearPosts()
+                    if (!following && authorId == null) appDatabase.postDao().clearPosts()
                 }
                 val prevKey = if (page == 1) null else page - 1
                 val nextKey = if (endOfPaginationReached) null else page + 1
@@ -61,7 +76,7 @@ class PostRemoteMediator(
                     PostRemoteKeys(postId = it.id, prevKey = prevKey, nextKey = nextKey)
                 }
                 appDatabase.postRemoteKeysDao().insertAll(keys)
-                val entities = apiPosts.map { mapApiPost(it).toEntity() }
+                val entities = apiPosts.map { it.toPostEntity() }
                 appDatabase.postDao().insertPosts(entities)
             }
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
@@ -93,6 +108,12 @@ class PostRemoteMediator(
             state.closestItemToPosition(position)?.id?.let { postId ->
                 appDatabase.postRemoteKeysDao().remoteKeysPostId(postId)
             }
+        }
+    }
+
+    private fun ensureSuccessful(response: Response<*>) {
+        if (!response.isSuccessful) {
+            throw HttpException(response)
         }
     }
 }

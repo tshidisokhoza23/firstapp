@@ -7,7 +7,10 @@ import kotlinx.coroutines.flow.Flow
 interface AdRepository {
     fun getAdverts(): Flow<Resource<List<Advert>>>
     fun getViewedAdverts(): Flow<Resource<List<Advert>>>
-    fun markAdvertViewed(advertId: Int): Flow<Resource<Boolean>>
+    fun markAdvertViewed(advertId: String): Flow<Resource<Boolean>>
+    fun trackAdvertClick(advertId: String): Flow<Resource<Boolean>>
+    fun trackAdvertShare(advertId: String): Flow<Resource<Boolean>>
+    fun toggleLikeAdvert(advertId: String): Flow<Resource<Boolean>>
     fun resetAds(): Flow<Resource<Unit>>
     suspend fun clearLocalAdverts()
 }

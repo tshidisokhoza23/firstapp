@@ -1,7 +1,7 @@
 package com.example.firstapp.chat.model
 
 data class Contact(
-    val id: Int,
+    val id: String,
     val username: String,
     val displayName: String,
     val avatarUrl: String? = null,

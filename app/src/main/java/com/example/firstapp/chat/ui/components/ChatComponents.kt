@@ -59,9 +59,6 @@ fun MessageItem(
 ) {
     val alignment = if (message.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
     val bgColor = if (message.isFromMe) AppPrimary else AppSecondary
-    
-    // Log for debugging
-    android.util.Log.d("MessageItem", "Rendering message: ${message.id} from ${message.senderName}: ${message.content}")
 
     Box(
         modifier = Modifier
@@ -83,7 +80,7 @@ fun MessageItem(
             ),
             tonalElevation = 2.dp
         ) {
-            Column(modifier = Modifier.padding(8.dp).widthIn(max = 260.dp)) {
+            Column(modifier = Modifier.padding(8.dp).widthIn(max = 280.dp)) {
                 if (!message.isFromMe) {
                     Text(
                         text = message.senderName ?: "Unknown",
@@ -93,43 +90,51 @@ fun MessageItem(
                     )
                 }
                 
-                if (message.mediaUri != null && message.mediaUri.isNotBlank()) {
-                    when (message.type) {
-                        MessageType.IMAGE -> {
-                            AsyncImage(
-                                model = message.mediaUri,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { onImageClick(message.mediaUri) },
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        MessageType.VIDEO -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.Black.copy(alpha = 0.3f))
-                                    .clickable { onVideoClick(message.mediaUri) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.PlayCircle, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                if (message.type == MessageType.JOB_POST) {
+                    ApplicationCard(message)
+                } else {
+                    if (message.type == MessageType.JOB_POST) {
+                    ApplicationCard(message)
+                } else {
+                    if (message.mediaUri != null && message.mediaUri.isNotBlank()) {
+                        when (message.type) {
+                            MessageType.IMAGE -> {
+                                AsyncImage(
+                                    model = message.mediaUri,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { onImageClick(message.mediaUri) },
+                                    contentScale = ContentScale.Crop
+                                )
                             }
+                            MessageType.VIDEO -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.Black.copy(alpha = 0.3f))
+                                        .clickable { onVideoClick(message.mediaUri) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.PlayCircle, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                                }
+                            }
+                            else -> {}
                         }
-                        else -> {}
+                    }
+
+                    if (message.content.isNotEmpty()) {
+                        Text(
+                            text = message.content,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
-
-                if (message.content.isNotEmpty()) {
-                    Text(
-                        text = message.content,
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
                 }
                 
                 Row(
@@ -151,6 +156,65 @@ fun MessageItem(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ApplicationCard(message: Message) {
+    val profile = message.applicantProfile ?: return
+    val job = message.jobDetails
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "New Application",
+                style = MaterialTheme.typography.labelMedium,
+                color = AppAccent,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = job?.title ?: "Position Applied",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Divider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(AppPrimary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(profile.full_name.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(profile.full_name, color = Color.White, fontWeight = FontWeight.Bold)
+                    profile.bio?.let { Text(it, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp) }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = { /* Handle CV Open */ },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.PictureAsPdf, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("View CV", fontSize = 14.sp)
             }
         }
     }

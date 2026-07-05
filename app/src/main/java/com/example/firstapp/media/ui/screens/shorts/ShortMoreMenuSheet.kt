@@ -1,4 +1,4 @@
-package com.example.firstapp.media.ui.components
+package com.example.firstapp.media.ui.screens.shorts
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape

@@ -1,17 +1,15 @@
 package com.example.firstapp.media.model
 
-import androidx.compose.ui.graphics.Color
-
 data class Advert(
-    val id: Int,
+    val id: String,
     val advertiserName: String,
     val advertiserId: String = "",
     val title: String = "",
     val time: String,
     val avatarUrl: String? = null,
-    val avatarColor: Color,
+    val avatarColor: Int,
     val contentUrl: String? = null,
-    val contentColor: Color,
+    val contentColor: Int,
     val contentText: String = "",
     val actionText: String = "Learn More",
     val targetUrl: String = "",

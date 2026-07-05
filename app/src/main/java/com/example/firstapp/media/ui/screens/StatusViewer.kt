@@ -43,7 +43,7 @@ fun StatusViewer(
     isOwnStory: Boolean = false,
     initialStoryIndex: Int = 0,
     onStoryViewed: (Int) -> Unit,
-    onDeleteStory: (Int) -> Unit = {},
+    onDeleteStory: (String) -> Unit = {},
     onFinish: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -60,18 +60,25 @@ fun StatusViewer(
     
     val exoPlayer = remember(currentStory.id) {
         if (currentStory.type == StoryType.VIDEO && !currentStory.contentUrl.isNullOrBlank()) {
-            com.example.firstapp.media.data.ShortsVideoCache.acquirePlayer(context, currentStory.contentUrl).apply {
-                playWhenReady = true
+            com.example.firstapp.media.data.ShortsVideoCache.acquirePlayer(context, currentStory.contentUrl!!).apply {
                 repeatMode = Player.REPEAT_MODE_OFF
+                playWhenReady = true
             }
         } else {
             null
         }
     }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, currentStory.contentUrl) {
         onDispose {
-            exoPlayer?.let { com.example.firstapp.media.data.ShortsVideoCache.releasePlayer(it) }
+            exoPlayer?.let { 
+                val url = currentStory.contentUrl
+                if (url != null) {
+                    com.example.firstapp.media.data.ShortsVideoCache.releasePlayer(it, url)
+                } else {
+                    it.release()
+                }
+            }
         }
     }
     val progress = remember { Animatable(0f) }
@@ -106,7 +113,7 @@ fun StatusViewer(
         modifier = Modifier
             .fillMaxSize()
             .offset { IntOffset(0, offsetY.roundToInt()) }
-            .background(if (currentStory.type == StoryType.TEXT) currentStory.backgroundColor else Color.Black)
+            .background(if (currentStory.type == StoryType.TEXT) Color.DarkGray else Color.Black)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
@@ -265,7 +272,7 @@ fun StatusViewer(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(userStory.userAvatarColor),
+                        .background(Color.Gray),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!userStory.userAvatarUrl.isNullOrBlank()) {

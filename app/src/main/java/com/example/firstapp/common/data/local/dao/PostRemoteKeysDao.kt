@@ -12,7 +12,7 @@ interface PostRemoteKeysDao {
     suspend fun insertAll(remoteKey: List<PostRemoteKeys>)
 
     @Query("SELECT * FROM post_remote_keys WHERE postId = :postId")
-    suspend fun remoteKeysPostId(postId: Int): PostRemoteKeys?
+    suspend fun remoteKeysPostId(postId: String): PostRemoteKeys?
 
     @Query("DELETE FROM post_remote_keys")
     suspend fun clearRemoteKeys()

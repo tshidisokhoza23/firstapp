@@ -14,5 +14,7 @@ data class MediaUiState(
     val suggestedUsers: List<Contact> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val selectedTab: Int = 0
+    val selectedTab: Int = 0,
+    val selectedPost: Post? = null,
+    val refreshTrigger: Int = 0
 )

@@ -9,17 +9,18 @@ data class CreateShortRequest(
 )
 
 data class CreateShortResponse(
-    val id: Long
+    val id: String
 )
 
 data class CreateShortReplyRequest(
-    val content: String
+    val content: String,
+    val parent_reply_id: String? = null
 )
 
 data class ApiShortReply(
-    val id: Int,
-    val author_id: Int,
-    val short_id: Int,
+    val id: String,
+    val author_id: String,
+    val short_id: String,
     val content: String,
     val created_at: String?,
     val likes: Long,

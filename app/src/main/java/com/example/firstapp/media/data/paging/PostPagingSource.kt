@@ -10,7 +10,8 @@ import java.io.IOException
 
 class PostPagingSource(
     private val socialApi: SocialApi,
-    private val following: Boolean = false
+    private val following: Boolean = false,
+    private val authorId: String? = null
 ) : PagingSource<Int, Post>() {
 
     override fun getRefreshKey(state: PagingState<Int, Post>): Int? {
@@ -23,7 +24,7 @@ class PostPagingSource(
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Post> {
         val position = params.key ?: 1
         return try {
-            val response = socialApi.getPosts(page = position, following = following)
+            val response = socialApi.getPosts(page = position, following = following, authorId = authorId)
             val posts = response.body()?.posts?.map { mapApiPost(it) } ?: emptyList()
 
             LoadResult.Page(

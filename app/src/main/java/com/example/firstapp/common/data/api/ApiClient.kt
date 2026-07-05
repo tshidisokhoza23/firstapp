@@ -19,11 +19,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
-    private val BASE_URL = if (BuildConfig.API_BASE_URL.endsWith("/")) {
-        BuildConfig.API_BASE_URL
-    } else {
-        "${BuildConfig.API_BASE_URL}/"
-    }
+    private val BASE_URL = BuildConfig.API_BASE_URL
     private val refreshLock = Any()
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

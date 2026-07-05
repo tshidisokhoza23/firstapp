@@ -3,28 +3,29 @@ package com.example.firstapp.media.data.repository
 import androidx.compose.ui.graphics.Color
 import com.example.firstapp.common.data.local.dao.ShortDao
 import com.example.firstapp.common.util.Resource
-import com.example.firstapp.media.data.api.MediaApi
-import com.example.firstapp.media.data.api.CreateShortRequest
-import com.example.firstapp.media.data.api.CreateShortReplyRequest
-import com.example.firstapp.media.data.api.ShortLikeResponse
-import com.example.firstapp.media.data.api.ShortSubscribeResponse
-import com.example.firstapp.media.data.repository.toEntity
-import com.example.firstapp.media.data.repository.toModel
+import com.example.firstapp.media.data.api.*
+import com.example.firstapp.common.data.repository.*
+import com.example.firstapp.media.data.repository.*
 import com.example.firstapp.media.model.ShortMedia
 import com.example.firstapp.media.model.ShortReply
 import com.example.firstapp.media.domain.repository.ShortsRepository
-import kotlinx.coroutines.flow.*
-
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map as flowMap
 import javax.inject.Inject
 
 class ShortsRepositoryImpl @Inject constructor(
     private val mediaApi: MediaApi,
+    private val socialApi: SocialApi,
     private val shortDao: ShortDao
 ) : ShortsRepository {
 
     override fun getShorts(): Flow<Resource<List<ShortMedia>>> = flow {
-        val cached = shortDao.getShorts().first().map { it.toModel() }
-        emit(Resource.Loading(cached))
+        val cached = shortDao.getShorts().first()
+        val mappedCached = cached.map { it.toShortMedia() }
+        emit(Resource.Loading(mappedCached))
         try {
             val response = mediaApi.getShorts()
             if (response.isSuccessful) {
@@ -32,49 +33,98 @@ class ShortsRepositoryImpl @Inject constructor(
                 val shorts = apiShorts.map { apiShort -> 
                     ShortMedia(
                         id = apiShort.id, 
+                        creatorId = apiShort.creator_id,
                         creatorName = apiShort.creator_name, 
                         description = apiShort.description, 
                         likes = apiShort.likes.toString(), 
                         comments = apiShort.comments.toString(), 
                         shares = apiShort.shares.toString(), 
-                        videoUrl = apiShort.video_url ?: "", 
-                        thumbnailUrl = apiShort.thumbnail_url, 
+                        videoUrl = formatUrl(apiShort.video_url), 
+                        thumbnailUrl = formatUrl(apiShort.thumbnail_url), 
                         thumbnailColor = Color.Black, 
                         profilePictureColor = Color.Gray, 
                         isLiked = apiShort.is_liked, 
-                        isSubscribed = apiShort.is_subscribed
+                        isSubscribed = apiShort.is_subscribed,
+                        isBookmarked = apiShort.is_bookmarked
                     ) 
                 }
                 shortDao.clearShorts()
-                shortDao.insertShorts(shorts.map { it.toEntity() })
+                shortDao.insertShorts(shorts.map { it.toShortEntity() })
+            } else {
+                android.util.Log.e("ShortsRepo", "API error: ${response.code()}")
             }
-        } catch (_: Exception) {}
-        shortDao.getShorts().collect { entities ->
-            emit(Resource.Success(entities.map { it.toModel() }))
+        } catch (e: Exception) {
+            android.util.Log.e("ShortsRepo", "Sync failed: ${e.message}")
+            val cachedFromDb = shortDao.getShorts().first()
+            if (cachedFromDb.isEmpty()) {
+                val mockShorts = listOf(
+                    ShortMedia(
+                        id = "mock-1",
+                        creatorId = "official",
+                        creatorName = "FirstApp_Official",
+                        description = "Welcome to Shorts! Explore amazing content.",
+                        likes = "1.2K",
+                        comments = "45",
+                        shares = "12",
+                        videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4",
+                        thumbnailUrl = "https://images.pexels.com/photos/2582818/pexels-photo-2582818.jpeg",
+                        thumbnailColor = Color.DarkGray,
+                        profilePictureColor = Color.Blue,
+                        isLiked = false,
+                        isSubscribed = false
+                    ),
+                    ShortMedia(
+                        id = "mock-2",
+                        creatorId = "nature",
+                        creatorName = "Nature_Lovers",
+                        description = "Check out this beautiful scenery! #nature #view",
+                        likes = "850",
+                        comments = "12",
+                        shares = "5",
+                        videoUrl = "https://www.w3schools.com/html/movie.mp4",
+                        thumbnailUrl = "https://images.pexels.com/photos/1450360/pexels-photo-1450360.jpeg",
+                        thumbnailColor = Color.Green,
+                        profilePictureColor = Color.Green,
+                        isLiked = true,
+                        isSubscribed = true
+                    )
+                )
+                emit(Resource.Success(mockShorts))
+                return@flow
+            }
         }
+        
+        emitAll(shortDao.getShorts().flowMap { entities ->
+            val models = entities.map { it.toShortMedia() }
+            Resource.Success<List<ShortMedia>>(models)
+        })
     }
 
-    override fun searchShorts(query: String): Flow<Resource<List<ShortMedia>>> = flow {
+    override fun getUserShorts(userId: String): Flow<Resource<List<ShortMedia>>> = flow {
         emit(Resource.Loading())
         try {
-            val response = mediaApi.searchShorts(query)
+            val response = mediaApi.getShortsByUserId(userId)
             if (response.isSuccessful) {
-                emit(Resource.Success(response.body()?.shorts?.map { apiShort -> 
+                val apiShorts = response.body()?.shorts ?: emptyList()
+                val mapped = apiShorts.map { apiShort -> 
                     ShortMedia(
                         id = apiShort.id, 
+                        creatorId = apiShort.creator_id,
                         creatorName = apiShort.creator_name, 
                         description = apiShort.description, 
                         likes = apiShort.likes.toString(), 
                         comments = apiShort.comments.toString(), 
                         shares = apiShort.shares.toString(), 
-                        videoUrl = apiShort.video_url ?: "", 
-                        thumbnailUrl = apiShort.thumbnail_url, 
+                        videoUrl = formatUrl(apiShort.video_url), 
+                        thumbnailUrl = formatUrl(apiShort.thumbnail_url), 
                         thumbnailColor = Color.Black, 
                         profilePictureColor = Color.Gray, 
                         isLiked = apiShort.is_liked, 
-                        isSubscribed = apiShort.is_subscribed
-                    ) 
-                } ?: emptyList()))
+                        isSubscribed = apiShort.is_subscribed,
+                        isBookmarked = apiShort.is_bookmarked
+                    )
+                }
+                emit(Resource.Success<List<ShortMedia>>(mapped))
             } else {
                 emit(Resource.Error("Fail"))
             }
@@ -83,7 +133,40 @@ class ShortsRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createShort(description: String, videoUrl: String, thumbnailUrl: String): Flow<Resource<Long>> = flow {
+    override fun searchShorts(query: String): Flow<Resource<List<ShortMedia>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = mediaApi.searchShorts(query)
+            if (response.isSuccessful) {
+                val apiShorts = response.body()?.shorts ?: emptyList()
+                val mapped = apiShorts.map { apiShort -> 
+                    ShortMedia(
+                        id = apiShort.id, 
+                        creatorId = apiShort.creator_id,
+                        creatorName = apiShort.creator_name, 
+                        description = apiShort.description, 
+                        likes = apiShort.likes.toString(), 
+                        comments = apiShort.comments.toString(), 
+                        shares = apiShort.shares.toString(), 
+                        videoUrl = formatUrl(apiShort.video_url), 
+                        thumbnailUrl = formatUrl(apiShort.thumbnail_url),
+                        thumbnailColor = Color.Black, 
+                        profilePictureColor = Color.Gray, 
+                        isLiked = apiShort.is_liked, 
+                        isSubscribed = apiShort.is_subscribed,
+                        isBookmarked = apiShort.is_bookmarked
+                    ) 
+                }
+                emit(Resource.Success<List<ShortMedia>>(mapped))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Offline"))
+        }
+    }
+
+    override fun createShort(description: String, videoUrl: String, thumbnailUrl: String): Flow<Resource<String>> = flow {
         try {
             emit(Resource.Loading())
             val response = mediaApi.createShort(CreateShortRequest(description, videoUrl, thumbnailUrl))
@@ -97,7 +180,7 @@ class ShortsRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun repostShort(shortId: Int): Flow<Resource<Boolean>> = flow {
+    override fun repostShort(shortId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             if (mediaApi.repostShort(shortId).isSuccessful) {
@@ -110,7 +193,7 @@ class ShortsRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun bookmarkShort(shortId: Int): Flow<Resource<Boolean>> = flow {
+    override fun bookmarkShort(shortId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             if (mediaApi.bookmarkShort(shortId).isSuccessful) {
@@ -123,10 +206,10 @@ class ShortsRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun replyToShort(shortId: Int, content: String): Flow<Resource<Boolean>> = flow {
+    override fun trackShortShare(shortId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            if (mediaApi.replyToShort(shortId, CreateShortReplyRequest(content)).isSuccessful) {
+            if (mediaApi.trackShortShare(shortId).isSuccessful) {
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Fail"))
@@ -136,25 +219,11 @@ class ShortsRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getShortReplies(shortId: Int): Flow<Resource<List<ShortReply>>> = flow {
-        emit(Resource.Loading())
+    override fun replyToShort(shortId: String, content: String, parentReplyId: String?): Flow<Resource<Boolean>> = flow {
         try {
-            val response = mediaApi.getShortReplies(shortId)
-            if (response.isSuccessful) {
-                emit(Resource.Success(response.body()?.replies?.map { 
-                    ShortReply(
-                        it.id, 
-                        it.author?.display_name ?: "Unknown", 
-                        it.author?.username ?: "", 
-                        it.author?.avatar_url, 
-                        Color.Gray, 
-                        it.author?.is_verified ?: false, 
-                        it.content, 
-                        it.created_at ?: "", 
-                        it.likes.toString(), 
-                        it.is_liked
-                    ) 
-                } ?: emptyList()))
+            emit(Resource.Loading())
+            if (mediaApi.replyToShort(shortId, CreateShortReplyRequest(content, parentReplyId)).isSuccessful) {
+                emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Fail"))
             }
@@ -163,7 +232,23 @@ class ShortsRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun likeShort(shortId: Int): Flow<Resource<ShortLikeResponse>> = flow {
+    override fun getShortReplies(shortId: String): Flow<Resource<List<ShortReply>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = mediaApi.getShortReplies(shortId)
+            if (response.isSuccessful) {
+                val repliesList = response.body()?.replies ?: emptyList()
+                val mapped = repliesList.map { mapApiPostReplyToShortReply(it) }
+                emit(Resource.Success<List<ShortReply>>(mapped))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Offline"))
+        }
+    }
+
+    override fun likeShort(shortId: String): Flow<Resource<ShortLikeResponse>> = flow {
         try {
             val response = mediaApi.likeShort(shortId)
             if (response.isSuccessful && response.body() != null) {
@@ -176,7 +261,20 @@ class ShortsRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun subscribeToShortCreator(shortId: Int): Flow<Resource<ShortSubscribeResponse>> = flow {
+    override fun likeShortReply(replyId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            if (socialApi.likePostReply(replyId).isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Offline"))
+        }
+    }
+
+    override fun subscribeToShortCreator(shortId: String): Flow<Resource<ShortSubscribeResponse>> = flow {
         try {
             val response = mediaApi.subscribeToShortCreator(shortId)
             if (response.isSuccessful && response.body() != null) {

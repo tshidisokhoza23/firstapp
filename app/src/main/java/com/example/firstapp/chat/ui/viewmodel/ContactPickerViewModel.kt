@@ -14,7 +14,8 @@ import com.example.firstapp.domain.repository.ChatRepository
 
 @HiltViewModel
 class ContactPickerViewModel @Inject constructor(
-    private val repository: ChatRepository
+    private val repository: ChatRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
     private val _contacts = MutableStateFlow<Resource<List<Contact>>>(Resource.Loading())
@@ -29,9 +30,19 @@ class ContactPickerViewModel @Inject constructor(
 
     fun fetchContacts() {
         viewModelScope.launch {
-            repository.getContacts().collect {
-                _contacts.value = it
+            repository.getContacts().collect { resource ->
+                _contacts.value = resource
+                if (resource is Resource.Success && (resource.data == null || resource.data.isEmpty())) {
+                    syncContacts()
+                }
             }
+        }
+    }
+
+    private fun syncContacts() {
+        viewModelScope.launch {
+            val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(context)
+            repository.syncContacts(phoneNumbers).collect { }
         }
     }
 

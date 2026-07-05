@@ -76,6 +76,28 @@ object ContactUtils {
         return phoneNumbers.toList()
     }
 
+    fun getContactNameByNumber(context: Context, phoneNumber: String): String? {
+        val contentResolver = context.contentResolver
+        val uri = android.net.Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            android.net.Uri.encode(phoneNumber)
+        )
+        var name: String? = null
+        val cursor = contentResolver.query(
+            uri,
+            arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )
+        cursor?.use {
+            if (it.moveToFirst()) {
+                name = it.getString(it.getColumnIndexOrThrow(ContactsContract.PhoneLookup.DISPLAY_NAME))
+            }
+        }
+        return name
+    }
+
     private fun getCountryCode(context: Context): String {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
         val code = tm?.networkCountryIso?.uppercase() ?: tm?.simCountryIso?.uppercase() ?: "ZA" // Default to ZA if unknown

@@ -30,9 +30,9 @@ class StoryViewModel @Inject constructor(
 
     private val socketListener = object : PostSocketListener {
         override fun onOpen() {}
-        override fun onPostsEvent(action: String, postId: Int?) {}
-        override fun onShortsEvent(action: String, shortId: Int?) {}
-        override fun onStoriesEvent(action: String, storyId: Int?) {
+        override fun onPostsEvent(action: String, postId: String?) {}
+        override fun onShortsEvent(action: String, shortId: String?) {}
+        override fun onStoriesEvent(action: String, storyId: String?) {
             fetchStories()
         }
         override fun onError(error: String) {}
@@ -95,7 +95,7 @@ class StoryViewModel @Inject constructor(
         _postResult.value = null
     }
 
-    fun markStoryAsViewed(userId: Int, storyId: Int) {
+    fun markStoryAsViewed(userId: String, storyId: String) {
         viewModelScope.launch {
             repository.markStoryAsViewed(userId, storyId).collect {
                 // Update local state if needed
@@ -103,7 +103,7 @@ class StoryViewModel @Inject constructor(
         }
     }
 
-    fun muteStory(userId: Int, isMuted: Boolean) {
+    fun muteStory(userId: String, isMuted: Boolean) {
         viewModelScope.launch {
             repository.muteStory(userId, isMuted).collect {
                 if (it is Resource.Success) {
@@ -113,7 +113,7 @@ class StoryViewModel @Inject constructor(
         }
     }
 
-    fun deleteStory(storyId: Int) {
+    fun deleteStory(storyId: String) {
         viewModelScope.launch {
             repository.deleteStory(storyId).collect {
                 if (it is Resource.Success) {

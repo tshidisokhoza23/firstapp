@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "contacts")
 data class ContactEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
     val username: String,
     val displayName: String,
     val avatarUrl: String?,

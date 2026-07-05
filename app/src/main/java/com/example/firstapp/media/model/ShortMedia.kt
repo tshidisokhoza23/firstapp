@@ -3,7 +3,8 @@ package com.example.firstapp.media.model
 import androidx.compose.ui.graphics.Color
 
 data class ShortMedia(
-    val id: Int,
+    val id: String,
+    val creatorId: String,
     val creatorName: String,
     val description: String,
     val likes: String,
@@ -14,11 +15,12 @@ data class ShortMedia(
     val thumbnailColor: Color = Color.Black,
     val profilePictureColor: Color = Color.Gray,
     val isLiked: Boolean = false,
-    val isSubscribed: Boolean = false
+    val isSubscribed: Boolean = false,
+    val isBookmarked: Boolean = false
 )
 
 data class ShortReply(
-    val id: Int,
+    val id: String,
     val authorName: String,
     val authorHandle: String,
     val authorAvatarUrl: String? = null,
@@ -27,5 +29,6 @@ data class ShortReply(
     val content: String,
     val timestamp: String,
     val likes: String,
-    val isLiked: Boolean = false
+    val isLiked: Boolean = false,
+    val nestedReplies: List<ShortReply> = emptyList()
 )

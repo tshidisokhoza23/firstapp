@@ -3,7 +3,7 @@ package com.example.firstapp.jobs.model
 import androidx.compose.ui.graphics.Color
 
 data class Job(
-    val id: Int,
+    val id: String,
     val title: String,
     val companyName: String,
     val companyLogoUrl: String? = null,
@@ -11,10 +11,11 @@ data class Job(
     val logoColor: Color,
     val salaryRange: String = "",
     val jobType: String = "Full-time", // e.g., Full-time, Contract, Remote
-    val postedTime: String = "",
+    val postedTime: Long = 0,
     val description: String = "",
     val requirements: List<String> = emptyList(),
     val isVerified: Boolean = true,
     val isApplied: Boolean = false,
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+    val createdBy: String? = null
 )

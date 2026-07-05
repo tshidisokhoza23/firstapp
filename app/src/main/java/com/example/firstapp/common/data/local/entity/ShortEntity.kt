@@ -5,7 +5,8 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "shorts")
 data class ShortEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
+    val creatorId: String,
     val creatorName: String,
     val description: String,
     val likes: String,
@@ -16,5 +17,6 @@ data class ShortEntity(
     val thumbnailColor: Int,
     val profilePictureColor: Int,
     val isLiked: Boolean,
-    val isSubscribed: Boolean
+    val isSubscribed: Boolean,
+    val isBookmarked: Boolean = false
 )

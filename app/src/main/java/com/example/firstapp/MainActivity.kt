@@ -45,8 +45,7 @@ class MainActivity : FragmentActivity() {
         intent ?: return
         
         val sessionId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID) ?: return
-        val senderId = intent.getIntExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, -1)
-        if (senderId <= 0) return
+        val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID) ?: return
         val callType = if (intent.getStringExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE) == "video") {
             CallType.VIDEO
         } else {
@@ -58,7 +57,7 @@ class MainActivity : FragmentActivity() {
             CallEvent(
                 type = "call_invite",
                 senderId = senderId,
-                receiverId = 0,
+                receiverId = "",
                 sessionId = sessionId,
                 callType = callType,
                 senderName = callerName,
@@ -71,7 +70,7 @@ class MainActivity : FragmentActivity() {
         if (data != null && (data.scheme == "firstapp")) {
             when (data.host) {
                 "chat" -> {
-                    val id = data.lastPathSegment?.toIntOrNull()
+                    val id = data.lastPathSegment
                     id?.let { GlobalNavigation.navigateTo(Screen.Chat.createRoute(it)) }
                 }
                 "post" -> {
@@ -81,6 +80,10 @@ class MainActivity : FragmentActivity() {
                 "song" -> {
                     // Navigate to music search or player
                     GlobalNavigation.navigateTo(Screen.Main.route + "?tab=music")
+                }
+                "advert" -> {
+                    val id = data.lastPathSegment
+                    id?.let { GlobalNavigation.navigateTo(Screen.AdvertDetail.createRoute(it)) }
                 }
             }
         }
@@ -226,13 +229,13 @@ class MainActivity : FragmentActivity() {
 
                 // Handle initial chat navigation from intent
                 LaunchedEffect(Unit) {
-                    val openChatId = intent?.getIntExtra("open_chat_id", -1) ?: -1
-                    val senderId = intent?.getIntExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, -1) ?: -1
+                    val openChatId = intent?.getStringExtra("open_chat_id")
+                    val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
                     if (isLoggedIn) {
-                        if (openChatId > 0) {
-                            navController.navigate(Screen.Chat.createRoute(openChatId))
-                        } else if (senderId > 0) {
-                            navController.navigate(Screen.Chat.createRoute(senderId))
+                        openChatId?.let { 
+                            navController.navigate(Screen.Chat.createRoute(it)) 
+                        } ?: senderId?.let { 
+                            navController.navigate(Screen.Chat.createRoute(it))
                         }
                     }
                 }
@@ -259,8 +262,8 @@ class MainActivity : FragmentActivity() {
         handleDeepLink(intent)
         
         // Handle notification-specific navigation
-        val senderId = intent.getIntExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, -1)
-        if (senderId > 0 && TokenManager.isLoggedIn()) {
+        val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
+        if (senderId != null && TokenManager.isLoggedIn()) {
             GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId))
         }
     }

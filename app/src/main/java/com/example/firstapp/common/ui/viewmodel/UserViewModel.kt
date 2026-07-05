@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.collections.*
 
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.account.domain.repository.AccountRepository
@@ -26,7 +27,8 @@ class UserViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val accountRepository: AccountRepository,
     private val chatRepository: ChatRepository,
-    private val systemRepository: SystemRepository
+    private val systemRepository: SystemRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -71,6 +73,10 @@ class UserViewModel @Inject constructor(
         }
     }
 
+    fun getUserById(userId: String): kotlinx.coroutines.flow.Flow<Resource<User>> {
+        return accountRepository.getUserById(userId)
+    }
+
     fun fetchContacts() {
         viewModelScope.launch {
             chatRepository.getContacts().collect { result ->
@@ -78,6 +84,18 @@ class UserViewModel @Inject constructor(
                 _contacts.value = data
                 data.forEach { contact ->
                     com.example.firstapp.chat.data.GlobalCallState.updateContactInfo(contact.id, contact.displayName, contact.phoneNumber)
+                }
+            }
+        }
+        syncContactsWithNetwork()
+    }
+
+    private fun syncContactsWithNetwork() {
+        viewModelScope.launch {
+            val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(context)
+            chatRepository.syncContacts(phoneNumbers).collect { result ->
+                if (result is Resource.Success) {
+                    _contacts.value = result.data ?: emptyList()
                 }
             }
         }
@@ -96,7 +114,7 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    fun uploadProfilePicture(file: java.io.File, isBanner: Boolean = false) {
+    fun uploadProfilePicture(file: File, isBanner: Boolean = false) {
         viewModelScope.launch {
             val folder = if (isBanner) "banners" else "avatars"
             accountRepository.uploadFile(file, folder).collect { resource ->
@@ -156,8 +174,10 @@ class UserViewModel @Inject constructor(
             systemRepository.clearAllData()
             accountRepository.syncContacts(phoneContacts).collect { res ->
                 if (res is Resource.Success) {
-                    res.data?.forEach { 
-                        if (it.isRegistered) chatRepository.createChat(it.id) 
+                    res.data?.forEach { contact ->
+                        if (contact.isRegistered) {
+                            launch { chatRepository.initiateDM(contact.id).collect {} }
+                        }
                     }
                     _toastMessage.value = "Contacts registered as chats successfully"
                     fetchContacts() // Refresh contacts list
@@ -166,7 +186,7 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    fun blockUser(userId: Int) {
+    fun blockUser(userId: String) {
         viewModelScope.launch {
             accountRepository.blockUser(userId).collect { resource ->
                 if (resource is Resource.Success) {
@@ -178,7 +198,7 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    fun reportUser(userId: Int, reason: String) {
+    fun reportUser(userId: String, reason: String) {
         viewModelScope.launch {
             accountRepository.reportUser(userId, reason).collect { resource ->
                 if (resource is Resource.Success) {

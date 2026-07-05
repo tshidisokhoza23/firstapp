@@ -54,7 +54,7 @@ class IncomingCallActivity : ComponentActivity() {
         }
 
         val sessionId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID)
-        val senderId  = intent.getIntExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, -1)
+        val senderId  = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID) ?: ""
         val callTypeStr = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE) ?: "voice"
         val notifId   = intent.getIntExtra(CallNotificationActionReceiver.EXTRA_NOTIF_ID, 0)
         val callType  = if (callTypeStr == "video") CallType.VIDEO else CallType.VOICE
@@ -65,7 +65,7 @@ class IncomingCallActivity : ComponentActivity() {
                 val callerName = incomingCall?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("User ") }
                     ?: GlobalCallState.getContactName(senderId)
                     ?: GlobalCallState.getContactPhone(senderId)
-                    ?: (if (senderId > 0) "$senderId" else "Unknown")
+                    ?: if (senderId != "") senderId else "Unknown"
                 val callLabel = if (callType == CallType.VIDEO) "Incoming video call" else "Incoming voice call"
 
                 // If the call was cancelled while this screen was open, close ourselves
@@ -104,7 +104,7 @@ class IncomingCallActivity : ComponentActivity() {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 FloatingActionButton(
                                     onClick = {
-                                        if (sessionId != null && senderId != -1) {
+                                        if (sessionId != null && senderId != "") {
                                             CallWebSocketClient.reject(
                                                 receiverId = senderId,
                                                 sessionId = sessionId,
@@ -143,7 +143,7 @@ class IncomingCallActivity : ComponentActivity() {
                                                 CallEvent(
                                                     type = "call_invite",
                                                     senderId = senderId,
-                                                    receiverId = -1,
+                                                    receiverId = "",
                                                     sessionId = sessionId,
                                                     callType = callType
                                                 ),

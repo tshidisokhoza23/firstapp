@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.collections.*
+import kotlin.text.*
+import kotlin.*
 
 import com.example.firstapp.music.domain.repository.MusicRepository
 
@@ -54,8 +57,8 @@ class MusicViewModel @Inject constructor(
     private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
 
-    private val _likedSongs = MutableStateFlow<Set<Int>>(emptySet())
-    val likedSongs: StateFlow<Set<Int>> = _likedSongs.asStateFlow()
+    private val _likedSongs = MutableStateFlow<Set<String>>(emptySet())
+    val likedSongs: StateFlow<Set<String>> = _likedSongs.asStateFlow()
 
     private val _currentQueue = MutableStateFlow<List<Song>>(emptyList())
     val currentQueue: StateFlow<List<Song>> = _currentQueue.asStateFlow()
@@ -66,8 +69,8 @@ class MusicViewModel @Inject constructor(
     private val _playlists = MutableStateFlow<Resource<List<Playlist>>>(Resource.Loading())
     val playlists: StateFlow<Resource<List<Playlist>>> = _playlists.asStateFlow()
 
-    private val _playlistSongs = MutableStateFlow<Map<Int, Resource<List<Song>>>>(emptyMap())
-    val playlistSongs: StateFlow<Map<Int, Resource<List<Song>>>> = _playlistSongs.asStateFlow()
+    private val _playlistSongs = MutableStateFlow<Map<String, Resource<List<Song>>>>(emptyMap())
+    val playlistSongs: StateFlow<Map<String, Resource<List<Song>>>> = _playlistSongs.asStateFlow()
 
     private val _recentlyPlayed = MutableStateFlow<Resource<List<Song>>>(Resource.Loading())
     val recentlyPlayed: StateFlow<Resource<List<Song>>> = _recentlyPlayed.asStateFlow()
@@ -75,7 +78,7 @@ class MusicViewModel @Inject constructor(
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
 
-    private val _searchResults = MutableStateFlow<Resource<SearchResult>>(Resource.Success(SearchResult(emptyList<ChatMessage>(), emptyList<Contact>())))
+    private val _searchResults = MutableStateFlow<Resource<SearchResult>>(Resource.Success(SearchResult()))
     val searchResults: StateFlow<Resource<SearchResult>> = _searchResults.asStateFlow()
 
     private val _sleepTimerRemaining = MutableStateFlow<Long?>(null)
@@ -111,7 +114,7 @@ class MusicViewModel @Inject constructor(
         }
     }
 
-    fun fetchPlaylistSongs(playlistId: Int) {
+    fun fetchPlaylistSongs(playlistId: String) {
         viewModelScope.launch {
             repository.getPlaylistSongs(playlistId).collect { resource ->
                 _playlistSongs.value = _playlistSongs.value + (playlistId to resource)
@@ -127,7 +130,7 @@ class MusicViewModel @Inject constructor(
         }
     }
 
-    fun addSongToPlaylist(playlistId: Int, songId: Int) {
+    fun addSongToPlaylist(playlistId: String, songId: String) {
         viewModelScope.launch {
             repository.addSongToPlaylist(playlistId, songId).collect { result ->
                 if (result is Resource.Success) fetchPlaylistSongs(playlistId)
@@ -135,7 +138,7 @@ class MusicViewModel @Inject constructor(
         }
     }
 
-    fun removeSongFromPlaylist(playlistId: Int, songId: Int) {
+    fun removeSongFromPlaylist(playlistId: String, songId: String) {
         viewModelScope.launch {
             repository.removeSongFromPlaylist(playlistId, songId).collect { result ->
                 if (result is Resource.Success) fetchPlaylistSongs(playlistId)
@@ -143,7 +146,7 @@ class MusicViewModel @Inject constructor(
         }
     }
 
-    fun deletePlaylist(playlistId: Int) {
+    fun deletePlaylist(playlistId: String) {
         viewModelScope.launch {
             repository.deletePlaylist(playlistId).collect { result ->
                 if (result is Resource.Success) fetchPlaylists()
@@ -153,11 +156,10 @@ class MusicViewModel @Inject constructor(
 
     fun search(query: String) {
         if (query.isBlank()) {
-            _searchResults.value = Resource.Success(SearchResult(emptyList<ChatMessage>(), emptyList<Contact>()))
+            _searchResults.value = Resource.Success(SearchResult())
             return
         }
         
-        // Add to history
         val current = _searchHistory.value.toMutableList()
         current.remove(query)
         current.add(0, query)
@@ -210,7 +212,6 @@ class MusicViewModel @Inject constructor(
                     }
                 })
                 
-                // Initial state sync
                 _isPlaying.value = controller.isPlaying
                 _isShuffleEnabled.value = controller.shuffleModeEnabled
                 _repeatMode.value = controller.repeatMode
@@ -222,7 +223,7 @@ class MusicViewModel @Inject constructor(
     }
 
     private fun updateCurrentlyPlaying(mediaItem: MediaItem?) {
-        val songId = mediaItem?.mediaId?.toIntOrNull() ?: return
+        val songId = mediaItem?.mediaId ?: return
         val song = _currentQueue.value.find { it.id == songId } ?: _songs.value.data?.find { it.id == songId }
         _currentlyPlaying.value = song
         
@@ -286,7 +287,7 @@ class MusicViewModel @Inject constructor(
 
     private fun Song.toMediaItem(): MediaItem {
         return MediaItem.Builder()
-            .setMediaId(id.toString())
+            .setMediaId(id)
             .setUri(audioUrl.toUri())
             .setMediaMetadata(
                 MediaMetadata.Builder()
@@ -351,7 +352,7 @@ class MusicViewModel @Inject constructor(
         }
     }
 
-    fun toggleLike(songId: Int) {
+    fun toggleLike(songId: String) {
         viewModelScope.launch {
             repository.likeSong(songId).collect { result ->
                 if (result is Resource.Success) {

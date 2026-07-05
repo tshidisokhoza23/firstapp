@@ -36,6 +36,16 @@ class AccountRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
+    override fun getUserById(userId: String): Flow<Resource<User>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = userApi.getUserById(userId)
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.user))
+            } else emit(Resource.Error("Fail"))
+        } catch (e: Exception) { emit(Resource.Error("Error")) }
+    }
+
     override fun updateUser(displayName: String?, bio: String?, location: String?, avatarUrl: String?, bannerUrl: String?, isArtist: Boolean?): Flow<Resource<User>> = flow {
         emit(Resource.Loading())
         try {
@@ -84,7 +94,7 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun blockUser(userId: Int): Flow<Resource<Boolean>> = flow {
+    override fun blockUser(userId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             if (userApi.blockUser(userId).isSuccessful) {
@@ -97,7 +107,7 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun unblockUser(userId: Int): Flow<Resource<Boolean>> = flow {
+    override fun unblockUser(userId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             if (userApi.unblockUser(userId).isSuccessful) {
@@ -125,7 +135,7 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getPublicKey(userId: Int): String? {
+    override suspend fun getPublicKey(userId: String): String? {
         return try {
             userApi.getPublicKey(userId).body()?.public_key
         } catch (_: Exception) {
@@ -141,7 +151,7 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun reportUser(userId: Int, reason: String): Flow<Resource<Boolean>> = flow {
+    override fun reportUser(userId: String, reason: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             if (userApi.reportUser(userId, ReportRequest(reason)).isSuccessful) {

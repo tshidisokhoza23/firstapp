@@ -21,52 +21,32 @@ import com.example.firstapp.BuildConfig
 import com.example.firstapp.common.model.ConversationType
 
 fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
-    val timestamp = chat.time ?: System.currentTimeMillis()
-    val id = if (chat.type == "channel" && chat.channel_id != null) chat.channel_id 
-             else if (chat.is_group == true && chat.group_id != null) chat.group_id 
-             else chat.contact_id
+    val timestamp = chat.time
+    val id = chat.conversation_id
              
     val type = when (chat.type) {
-        "group" -> ConversationType.GROUP
-        "channel" -> ConversationType.CHANNEL
-        else -> if (chat.is_group == true) ConversationType.GROUP else ConversationType.DIRECT
+        "GROUP" -> ConversationType.GROUP
+        "CHANNEL" -> ConversationType.CHANNEL
+        else -> ConversationType.DIRECT
     }
-
-    val resolvedName = chat.contact_name?.takeIf { it.isNotBlank() && !it.startsWith("User ") } 
-        ?: GlobalCallState.getContactName(id)
-        ?: chat.phone_number?.takeIf { it.isNotBlank() }
-        ?: GlobalCallState.getContactPhone(id)
-        ?: chat.contact_name?.takeIf { it.isNotBlank() }
-        ?: (if (type == ConversationType.GROUP) "Group" else if (type == ConversationType.CHANNEL) "Channel" else "User $id")
 
     return ChatMessage(
         id = id,
         type = type,
-        senderName = resolvedName,
-        lastMessage = chat.last_message ?: "",
+        senderName = chat.title,
+        lastMessage = chat.last_message,
         timestamp = timestamp,
-        unreadCount = chat.unread_count ?: 0,
-        lastSeen = chat.last_seen ?: 0L,
+        unreadCount = chat.unread_count,
         avatarColor = BoyishPurple,
-        avatarUrl = chat.avatar_url,
-        isOnline = chat.is_online ?: false,
-        isMuted = chat.is_muted ?: false,
-        isPinned = chat.is_pinned ?: false,
-        isTyping = false,
-        isGroup = type == ConversationType.GROUP,
-        isArchived = chat.is_archived ?: false,
-        isAdmin = chat.is_admin ?: false,
-        isSubscribed = true, // If it's in ChatSummary, user is part of it
-        wallpaperUrl = chat.wallpaper_url,
-        lastMessageIsFromMe = false,
-        lastMessageRead = false,
-        publicKey = chat.public_key
+        isMuted = chat.is_muted,
+        isPinned = chat.is_pinned,
+        isGroup = type == ConversationType.GROUP
     )
 }
 
 fun mapApiMessage(apiMessage: ApiMessage): Message {
-    var body = apiMessage.body
-    val isEncrypted = apiMessage.body.startsWith("ENC:")
+    var body = apiMessage.message_text
+    val isEncrypted = body.startsWith("ENC:")
     if (isEncrypted) {
         val encryptedText = body.removePrefix("ENC:")
         val privateKeyStr = TokenManager.getPrivateKey()
@@ -87,28 +67,17 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
     }
 
     val timestamp = apiMessage.created_at
-    val senderId = apiMessage.sender_id ?: 0
-
-    val senderName = apiMessage.sender_name?.takeIf { 
-        it.isNotBlank() && 
-        !it.startsWith("User ") && 
-        it.lowercase() != "unknown" && 
-        it.lowercase() != "null" && 
-        it.lowercase() != "undefined" 
-    } ?: GlobalCallState.getContactName(senderId)
-      ?: apiMessage.contact_phone?.takeIf { it.isNotBlank() && it.lowercase() != "unknown" }
-      ?: GlobalCallState.getContactPhone(senderId)
-      ?: "Unknown"
+    val senderId = apiMessage.sender_id
 
     return Message(
         id = apiMessage.id,
-        chatId = 0, // Should be populated by caller
+        conversationId = apiMessage.conversation_id,
         content = body,
         senderId = senderId,
-        senderName = senderName,
+        senderName = apiMessage.sender_name,
         timestamp = timestamp,
         isFromMe = apiMessage.direction == "outgoing",
-        type = when (apiMessage.message_type?.lowercase()) {
+        type = when (apiMessage.media_type.lowercase()) {
             "image" -> MessageType.IMAGE
             "video" -> MessageType.VIDEO
             "audio", "audio_message" -> MessageType.AUDIO_MESSAGE
@@ -118,27 +87,13 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
             "document" -> MessageType.DOCUMENT
             else -> MessageType.TEXT
         },
-        duration = apiMessage.duration,
         mediaUri = formatUrl(apiMessage.media_url),
-        fileName = apiMessage.file_name,
-        fileSize = apiMessage.file_size,
-        contactName = apiMessage.contact_name,
-        contactPhone = apiMessage.contact_phone,
-        latitude = apiMessage.latitude,
-        longitude = apiMessage.longitude,
-        isRead = apiMessage.read_at != null,
-        isDelivered = apiMessage.delivered_at != null || apiMessage.read_at != null,
-        replyToId = apiMessage.parent_id,
-        replyToText = apiMessage.parent_body,
-        replyToSenderName = apiMessage.parent_sender_name,
-        senderAvatarUrl = null,
-        isStarred = false,
-        isViewOnce = apiMessage.is_view_once ?: false,
-        expiresAt = apiMessage.expires_at,
-        status = if (apiMessage.read_at != null) MessageStatus.READ else if (apiMessage.delivered_at != null) MessageStatus.DELIVERED else MessageStatus.SENT,
+        isRead = false, // Not provided in simple ApiMessage
+        isDelivered = true,
+        status = MessageStatus.SENT,
         reactions = apiMessage.reactions ?: emptyMap(),
         isEncrypted = isEncrypted,
-        clientId = apiMessage.client_id
+        clientId = apiMessage.client_uuid
     )
 }
 
@@ -203,8 +158,41 @@ fun ChatEntity.toModel() = ChatMessage(
     publicKey = publicKey
 )
 
-fun Message.toEntity(chatId: Int) = MessageEntity(id, chatId, content, senderId, senderName, timestamp, isFromMe, type, duration, mediaUri, fileName, fileSize, contactName, contactPhone, latitude, longitude, isRead, isDelivered, replyToId, replyToText, replyToSenderName, senderAvatarUrl, isStarred, isViewOnce, expiresAt, status, reactions, isEncrypted, clientId)
-fun MessageEntity.toModel() = Message(id = id, chatId = chatId, content = content, senderId = senderId, senderName = senderName, timestamp = timestamp, isFromMe = isFromMe, type = type, duration = duration, mediaUri = mediaUri, fileName = fileName, fileSize = fileSize, contactName = contactName, contactPhone = contactPhone, latitude = latitude, longitude = longitude, isRead = isRead, isDelivered = isDelivered, replyToId = replyToId, replyToText = replyToText, replyToSenderName = replyToSenderName, senderAvatarUrl = senderAvatarUrl, isStarred = isStarred, isViewOnce = isViewOnce, expiresAt = expiresAt, status = status, reactions = reactions, isEncrypted = isEncrypted, clientId = clientId)
+fun Message.toEntity(chatId: String) = MessageEntity(
+    id = id,
+    conversationId = chatId,
+    content = content,
+    senderId = senderId,
+    senderName = senderName,
+    timestamp = timestamp,
+    isFromMe = isFromMe,
+    type = type,
+    mediaUri = mediaUri,
+    isRead = isRead,
+    isDelivered = isDelivered,
+    replyToId = replyToId,
+    status = status,
+    reactions = reactions,
+    clientId = clientId
+)
+
+fun MessageEntity.toModel() = Message(
+    id = id,
+    conversationId = conversationId,
+    content = content,
+    senderId = senderId,
+    senderName = senderName ?: "Unknown",
+    timestamp = timestamp,
+    isFromMe = isFromMe,
+    type = type,
+    mediaUri = mediaUri,
+    isRead = isRead,
+    isDelivered = isDelivered,
+    replyToId = replyToId,
+    status = status,
+    reactions = reactions,
+    clientId = clientId
+)
 
 fun CallLog.toEntity() = CallLogEntity(
     id = id,
@@ -246,6 +234,6 @@ fun formatUrl(url: String?): String {
     if (url.startsWith("http") || url.startsWith("https") || url.startsWith("data:") || url.startsWith("local://") || url.startsWith("file://")) {
         return url
     }
-    val baseUrl = BuildConfig.API_BASE_URL.removeSuffix("/api/v1").removeSuffix("/api/v1/")
+    val baseUrl = BuildConfig.API_BASE_URL.removeSuffix("/api/v1/").removeSuffix("/")
     return if (url.startsWith("/")) "$baseUrl$url" else "$baseUrl/$url"
 }

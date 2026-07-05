@@ -6,7 +6,7 @@ import com.example.firstapp.drive.model.DestinationType
 
 @Entity(tableName = "ride_options")
 data class RideOptionEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
     val name: String,
     val price: String,
     val currency: String,
@@ -20,7 +20,7 @@ data class RideOptionEntity(
 
 @Entity(tableName = "destinations")
 data class DestinationEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
     val name: String,
     val address: String,
     val latitude: Double,

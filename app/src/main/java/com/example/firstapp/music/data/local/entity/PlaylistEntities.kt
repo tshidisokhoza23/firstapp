@@ -6,9 +6,9 @@ import androidx.room.ForeignKey
 
 @Entity(tableName = "playlists")
 data class PlaylistEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
     val name: String,
-    val ownerUserId: Int,
+    val ownerUserId: String,
     val coverArtUrl: String?,
     val isPublic: Boolean,
     val createdAt: Long
@@ -33,14 +33,14 @@ data class PlaylistEntity(
     ]
 )
 data class PlaylistSongCrossRef(
-    val playlistId: Int,
-    val songId: Int,
+    val playlistId: String,
+    val songId: String,
     val addedAt: Long
 )
 
 @Entity(tableName = "recently_played")
 data class RecentlyPlayedEntity(
     @PrimaryKey(autoGenerate = true) val historyId: Int = 0,
-    val songId: Int,
+    val songId: String,
     val playedAt: Long
 )

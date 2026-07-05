@@ -14,10 +14,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.map as flowMap
 import retrofit2.HttpException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
+import java.util.*
+import kotlin.collections.*
+import kotlin.text.*
+import kotlin.*
 import java.net.UnknownHostException
 import java.util.Calendar
 
@@ -30,94 +34,94 @@ class UserRepositoryImpl @Inject constructor(
 
     private val apiService = ApiClient.userApi
 
-    override fun getUserData(userId: Int): Flow<User?> {
+    override fun getUserData(userId: String): Flow<User?> {
         val userFlow = userDao.getUser(userId)
         val progressFlow = lessonProgressDao.getAllProgress(userId)
 
         return combine(userFlow, progressFlow) { entity, progressList ->
-            entity?.let {
+            if (entity != null) {
                 User(
-                    id = it.id,
-                    username = it.username,
-                    email = it.email,
-                    display_name = it.display_name,
-                    phone_number = it.phone_number,
-                    created_at = it.created_at,
-                    avatar_url = it.avatar_url,
-                    bio = it.bio,
-                    location = it.location,
-                    is_verified = it.is_verified,
-                    xp = it.xp,
-                    level = it.level,
-                    streak = it.streak,
-                    isPremium = it.isPremium,
-                    lastDailyUnlock = it.lastDailyUnlock,
-                    adsWatchedToday = it.adsWatchedToday,
-                    unlockedLessonCount = it.unlockedLessonCount,
-                    nativeLanguage = it.nativeLanguage,
-                    targetLanguage = it.targetLanguage,
-                    streakFreezes = it.streakFreezes,
-                    lastStreakActivity = it.lastStreakActivity,
-                    walletBalance = it.walletBalance,
-                    banner_url = it.bannerUrl,
-                    isArtist = it.isArtist,
-                    jobFullName = it.jobFullName,
-                    jobEmail = it.jobEmail,
-                    jobPhone = it.jobPhone,
-                    jobLocation = it.jobLocation,
-                    jobEducation = it.jobEducation,
-                    jobExperience = it.jobExperience,
-                    jobSkills = it.jobSkills,
-                    jobAboutMe = it.jobAboutMe,
-                    jobLinkedinUrl = it.jobLinkedinUrl,
-                    jobPortfolioUrl = it.jobPortfolioUrl,
-                    jobWorkPreference = it.jobWorkPreference,
-                    jobAvailability = it.jobAvailability,
-                    jobExpectedSalary = it.jobExpectedSalary,
+                    id = entity.id,
+                    username = entity.username,
+                    email = entity.email,
+                    display_name = entity.display_name,
+                    phone_number = entity.phone_number,
+                    created_at = entity.created_at,
+                    avatar_url = entity.avatar_url,
+                    bio = entity.bio,
+                    location = entity.location,
+                    is_verified = entity.is_verified,
+                    xp = entity.xp,
+                    level = entity.level,
+                    streak = entity.streak,
+                    isPremium = entity.isPremium,
+                    lastDailyUnlock = entity.lastDailyUnlock,
+                    adsWatchedToday = entity.adsWatchedToday,
+                    unlockedLessonCount = entity.unlockedLessonCount,
+                    nativeLanguage = entity.nativeLanguage,
+                    targetLanguage = entity.targetLanguage,
+                    streakFreezes = entity.streakFreezes,
+                    lastStreakActivity = entity.lastStreakActivity,
+                    walletBalance = entity.walletBalance,
+                    banner_url = entity.bannerUrl,
+                    isArtist = entity.isArtist,
+                    jobFullName = entity.jobFullName,
+                    jobEmail = entity.jobEmail,
+                    jobPhone = entity.jobPhone,
+                    jobLocation = entity.jobLocation,
+                    jobEducation = entity.jobEducation,
+                    jobExperience = entity.jobExperience,
+                    jobSkills = entity.jobSkills,
+                    jobAboutMe = entity.jobAboutMe,
+                    jobLinkedinUrl = entity.jobLinkedinUrl,
+                    jobPortfolioUrl = entity.jobPortfolioUrl,
+                    jobWorkPreference = entity.jobWorkPreference,
+                    jobAvailability = entity.jobAvailability,
+                    jobExpectedSalary = entity.jobExpectedSalary,
                     completedLessonIds = progressList.filter { p -> p.isCompleted }.map { p -> p.lessonId },
                     lessonMastery = progressList.associate { p -> p.lessonId to p.score }
                 )
-            }
+            } else null
         }
     }
 
     override fun observeCurrentUser(): Flow<User?> {
-        return userDao.getCurrentUser().map { entity ->
-            entity?.let {
+        return userDao.getCurrentUser().flowMap { entity ->
+            if (entity != null) {
                 User(
-                    id = it.id,
-                    username = it.username,
-                    email = it.email,
-                    display_name = it.display_name,
-                    phone_number = it.phone_number,
-                    created_at = it.created_at,
-                    avatar_url = it.avatar_url,
-                    bio = it.bio,
-                    location = it.location,
-                    is_verified = it.is_verified,
-                    xp = it.xp,
-                    level = it.level,
-                    streak = it.streak,
-                    isPremium = it.isPremium,
-                    adsWatchedToday = it.adsWatchedToday,
-                    walletBalance = it.walletBalance,
-                    banner_url = it.bannerUrl,
-                    isArtist = it.isArtist,
-                    jobFullName = it.jobFullName,
-                    jobEmail = it.jobEmail,
-                    jobPhone = it.jobPhone,
-                    jobLocation = it.jobLocation,
-                    jobEducation = it.jobEducation,
-                    jobExperience = it.jobExperience,
-                    jobSkills = it.jobSkills,
-                    jobAboutMe = it.jobAboutMe,
-                    jobLinkedinUrl = it.jobLinkedinUrl,
-                    jobPortfolioUrl = it.jobPortfolioUrl,
-                    jobWorkPreference = it.jobWorkPreference,
-                    jobAvailability = it.jobAvailability,
-                    jobExpectedSalary = it.jobExpectedSalary
+                    id = entity.id,
+                    username = entity.username,
+                    email = entity.email,
+                    display_name = entity.display_name,
+                    phone_number = entity.phone_number,
+                    created_at = entity.created_at,
+                    avatar_url = entity.avatar_url,
+                    bio = entity.bio,
+                    location = entity.location,
+                    is_verified = entity.is_verified,
+                    xp = entity.xp,
+                    level = entity.level,
+                    streak = entity.streak,
+                    isPremium = entity.isPremium,
+                    adsWatchedToday = entity.adsWatchedToday,
+                    walletBalance = entity.walletBalance,
+                    banner_url = entity.bannerUrl,
+                    isArtist = entity.isArtist,
+                    jobFullName = entity.jobFullName,
+                    jobEmail = entity.jobEmail,
+                    jobPhone = entity.jobPhone,
+                    jobLocation = entity.jobLocation,
+                    jobEducation = entity.jobEducation,
+                    jobExperience = entity.jobExperience,
+                    jobSkills = entity.jobSkills,
+                    jobAboutMe = entity.jobAboutMe,
+                    jobLinkedinUrl = entity.jobLinkedinUrl,
+                    jobPortfolioUrl = entity.jobPortfolioUrl,
+                    jobWorkPreference = entity.jobWorkPreference,
+                    jobAvailability = entity.jobAvailability,
+                    jobExpectedSalary = entity.jobExpectedSalary
                 )
-            }
+            } else null
         }
     }
 
@@ -125,7 +129,8 @@ class UserRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         
         // Try to get cached user first
-        userDao.getCurrentUser().firstOrNull()?.let { cached ->
+        val cached = userDao.getCurrentUser().firstOrNull()
+        if (cached != null) {
             val model = User(
                 id = cached.id,
                 username = cached.username,
@@ -245,7 +250,7 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun ensureUserExists(userId: Int) {
+    override suspend fun ensureUserExists(userId: String) {
         val existingUser = userDao.getUser(userId).firstOrNull()
         if (existingUser == null) {
             val newUser = UserEntity(
@@ -262,21 +267,21 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun setNativeLanguage(userId: Int, language: String) {
+    override suspend fun setNativeLanguage(userId: String, language: String) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         val updated = userEntity.copy(nativeLanguage = language)
         userDao.updateUser(updated)
         syncUserToServer(updated)
     }
 
-    override suspend fun setTargetLanguage(userId: Int, language: String) {
+    override suspend fun setTargetLanguage(userId: String, language: String) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         val updated = userEntity.copy(targetLanguage = language)
         userDao.updateUser(updated)
         syncUserToServer(updated)
     }
 
-    override suspend fun updateUserXp(userId: Int, xpDelta: Int) {
+    override suspend fun updateUserXp(userId: String, xpDelta: Int) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         val newXp = userEntity.xp + xpDelta
         val newLevel = (newXp / 100) + 1
@@ -285,7 +290,7 @@ class UserRepositoryImpl @Inject constructor(
         syncUserToServer(updated)
     }
 
-    override suspend fun recordLessonResult(userId: Int, lessonId: String, score: Int, maxScore: Int) {
+    override suspend fun recordLessonResult(userId: String, lessonId: String, score: Int, maxScore: Int) {
         val mastery = if (maxScore > 0) ((score * 100) / maxScore) else 0
         val isCompleted = mastery >= 100
         val timestamp = System.currentTimeMillis()
@@ -316,7 +321,7 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun updateStreak(userId: Int, timestamp: Long) {
+    private suspend fun updateStreak(userId: String, timestamp: Long) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         
         val lastDate = Calendar.getInstance().apply { timeInMillis = userEntity.lastDailyUnlock }
@@ -358,7 +363,7 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun incrementAdsWatched(userId: Int) {
+    override suspend fun incrementAdsWatched(userId: String) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         val newAdsWatched = userEntity.adsWatchedToday + 1
         val shouldUnlock = newAdsWatched >= 2
@@ -371,21 +376,21 @@ class UserRepositoryImpl @Inject constructor(
         syncUserToServer(updated)
     }
 
-    override suspend fun resetDailyAds(userId: Int) {
+    override suspend fun resetDailyAds(userId: String) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         val updated = userEntity.copy(adsWatchedToday = 0)
         userDao.updateUser(updated)
         syncUserToServer(updated)
     }
 
-    override suspend fun setPremiumStatus(userId: Int, isPremium: Boolean) {
+    override suspend fun setPremiumStatus(userId: String, isPremium: Boolean) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         val updated = userEntity.copy(isPremium = isPremium)
         userDao.updateUser(updated)
         syncUserToServer(updated)
     }
 
-    override suspend fun useStreakFreeze(userId: Int) {
+    override suspend fun useStreakFreeze(userId: String) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         if (userEntity.streakFreezes > 0) {
             val updated = userEntity.copy(
@@ -397,7 +402,7 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun buyStreakFreeze(userId: Int) {
+    override suspend fun buyStreakFreeze(userId: String) {
         val userEntity = userDao.getUser(userId).firstOrNull() ?: return
         val cost = 500
         if (userEntity.xp >= cost) {

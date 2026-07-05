@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "adverts")
 data class AdvertEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey val id: String,
     val advertiserName: String,
     val advertiserId: String,
     val title: String,

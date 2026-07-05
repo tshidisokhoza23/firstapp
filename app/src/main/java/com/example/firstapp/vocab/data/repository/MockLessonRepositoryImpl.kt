@@ -1512,11 +1512,11 @@ class MockLessonRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun completeLesson(userId: Int, lessonId: String, score: Int) {
+    override suspend fun completeLesson(userId: String, lessonId: String, score: Int) {
         lessonProgressDao.markCompleted(userId, lessonId, score, System.currentTimeMillis())
     }
 
-    override suspend fun getMissedItems(userId: Int): List<String> {
+    override suspend fun getMissedItems(userId: String): List<String> {
         val allProgress = lessonProgressDao.getAllProgress(userId).firstOrNull() ?: return emptyList()
         val missedItems = mutableListOf<String>()
         

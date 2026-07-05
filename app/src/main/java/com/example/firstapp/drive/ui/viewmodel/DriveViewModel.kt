@@ -108,9 +108,9 @@ class DriveViewModel @Inject constructor(
     val walletBalance: State<Double> = _walletBalance
 
     private val _transactions = mutableStateListOf<Transaction>(
-        Transaction(1, "Trip to Tech Park", -85.50, "15 Oct", true),
-        Transaction(2, "Wallet Top Up", 200.00, "14 Oct", false),
-        Transaction(3, "Trip to Mall", -120.00, "12 Oct", true)
+        Transaction("1", "Trip to Tech Park", -85.50, "15 Oct", true),
+        Transaction("2", "Wallet Top Up", 200.00, "14 Oct", false),
+        Transaction("3", "Trip to Mall", -120.00, "12 Oct", true)
     )
     val transactions: List<Transaction> = _transactions
 
@@ -160,7 +160,7 @@ class DriveViewModel @Inject constructor(
         viewModelScope.launch { repository.saveDestination(name, address, latitude, longitude, isFavorite, type).collect { } }
     }
 
-    fun deleteDestination(id: Int) {
+    fun deleteDestination(id: String) {
         viewModelScope.launch { repository.deleteDestination(id).collect { } }
     }
 
@@ -231,7 +231,7 @@ class DriveViewModel @Inject constructor(
             placesClient.findAutocompletePredictions(request)
                 .addOnSuccessListener { response ->
                     val newSuggestions = response.autocompletePredictions.map { prediction ->
-                        Destination(id = prediction.placeId.hashCode(), name = prediction.getPrimaryText(null).toString(), address = prediction.getSecondaryText(null).toString(), placeId = prediction.placeId)
+                        Destination(id = prediction.placeId, name = prediction.getPrimaryText(null).toString(), address = prediction.getSecondaryText(null).toString(), placeId = prediction.placeId)
                     }
                     _suggestions.value = newSuggestions
                     _isSearching.value = false
@@ -447,10 +447,10 @@ class DriveViewModel @Inject constructor(
         val km = meters / 1000.0
         val baseFare = 20.0
         _rideOptions.value = listOf(
-            RideOption(1, "FirstApp Go", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 7.0)), arrivalTime = "3 min", description = "Standard, compact rides", iconColor = androidx.compose.ui.graphics.Color(0xFF4CAF50)),
-            RideOption(2, "FirstApp Comfort", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 10.0)), arrivalTime = "5 min", description = "Newer cars, extra legroom", iconColor = androidx.compose.ui.graphics.Color(0xFF2196F3)),
-            RideOption(3, "FirstApp Premium", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 18.0)), arrivalTime = "4 min", description = "Luxury & top drivers", iconColor = androidx.compose.ui.graphics.Color(0xFF9C27B0)),
-            RideOption(4, "FirstApp XL", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 12.0)), arrivalTime = "7 min", description = "SUVs for groups up to 6", iconColor = androidx.compose.ui.graphics.Color(0xFFFF9800))
+            RideOption("1", "FirstApp Go", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 7.0)), arrivalTime = "3 min", description = "Standard, compact rides", iconColor = androidx.compose.ui.graphics.Color(0xFF4CAF50)),
+            RideOption("2", "FirstApp Comfort", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 10.0)), arrivalTime = "5 min", description = "Newer cars, extra legroom", iconColor = androidx.compose.ui.graphics.Color(0xFF2196F3)),
+            RideOption("3", "FirstApp Premium", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 18.0)), arrivalTime = "4 min", description = "Luxury & top drivers", iconColor = androidx.compose.ui.graphics.Color(0xFF9C27B0)),
+            RideOption("4", "FirstApp XL", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 12.0)), arrivalTime = "7 min", description = "SUVs for groups up to 6", iconColor = androidx.compose.ui.graphics.Color(0xFFFF9800))
         )
     }
 

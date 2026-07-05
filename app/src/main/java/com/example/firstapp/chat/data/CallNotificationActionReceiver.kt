@@ -16,7 +16,7 @@ class CallNotificationActionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val sessionId = intent.getStringExtra(EXTRA_SESSION_ID) ?: return
-        val senderId = intent.getIntExtra(EXTRA_SENDER_ID, -1).takeIf { it != -1 } ?: return
+        val senderId = intent.getStringExtra(EXTRA_SENDER_ID) ?: return
         val callTypeStr = intent.getStringExtra(EXTRA_CALL_TYPE) ?: "voice"
         val callType = if (callTypeStr == "video") CallType.VIDEO else CallType.VOICE
         val notifId = intent.getIntExtra(EXTRA_NOTIF_ID, 0)
@@ -40,7 +40,7 @@ class CallNotificationActionReceiver : BroadcastReceiver() {
                     CallEvent(
                         type = "call_invite",
                         senderId = senderId,
-                        receiverId = -1, // Not used in acceptCall
+                        receiverId = "",
                         sessionId = sessionId,
                         callType = callType
                     ),

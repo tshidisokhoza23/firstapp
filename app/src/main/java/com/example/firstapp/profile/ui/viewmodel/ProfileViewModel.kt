@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.collections.*
+import kotlin.*
 
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -27,25 +29,31 @@ class ProfileViewModel @Inject constructor(
     private val _userPosts = MutableStateFlow<Resource<List<Post>>>(Resource.Loading())
     val userPosts: StateFlow<Resource<List<Post>>> = _userPosts.asStateFlow()
 
-    fun loadProfile(userId: Int?) {
+    fun loadProfile(userId: String?) {
         viewModelScope.launch {
             if (userId == null) {
                 userRepository.getCurrentUser().collect { _profileUser.value = it }
             } else {
-                // Fetch other user profile logic here
+                userRepository.getUserData(userId).collect { user ->
+                    if (user != null) {
+                        _profileUser.value = Resource.Success(user)
+                    } else {
+                        _profileUser.value = Resource.Error("User not found")
+                    }
+                }
             }
         }
     }
 
-    fun loadUserPosts(userId: Int?) {
+    fun loadUserPosts(userId: String?) {
         viewModelScope.launch {
-            repository.getPosts().collect { resource ->
+            repository.getPosts(1).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val filtered = if (userId == null) {
                         val current = (profileUser.value as? Resource.Success)?.data
-                        resource.data!!.filter { it.authorId == current?.id }
+                        resource.data.filter { it.authorId == current?.id }
                     } else {
-                        resource.data!!.filter { it.authorId == userId }
+                        resource.data.filter { it.authorId == userId }
                     }
                     _userPosts.value = Resource.Success(filtered)
                 } else {

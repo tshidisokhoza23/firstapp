@@ -3,7 +3,7 @@ package com.example.firstapp.music.model
 import androidx.compose.ui.graphics.Color
 
 data class Song(
-    val id: Int,
+    val id: String,
     val title: String,
     val artist: String,
     val artistId: String = "",

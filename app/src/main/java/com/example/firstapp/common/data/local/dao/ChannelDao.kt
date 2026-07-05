@@ -22,10 +22,10 @@ interface ChannelDao {
     suspend fun clearChannels()
 
     @Query("UPDATE channels SET isSubscribed = :isSubscribed WHERE id = :channelId")
-    suspend fun updateSubscription(channelId: Int, isSubscribed: Boolean)
+    suspend fun updateSubscription(channelId: String, isSubscribed: Boolean)
 
     @Query("UPDATE channels SET isMuted = :isMuted WHERE id = :channelId")
-    suspend fun updateMuted(channelId: Int, isMuted: Boolean)
+    suspend fun updateMuted(channelId: String, isMuted: Boolean)
 
     @Query("SELECT * FROM channels WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%' OR LOWER(description) LIKE '%' || LOWER(:query) || '%' ORDER BY CAST(followers AS INTEGER) DESC")
     fun searchChannels(query: String): Flow<List<ChannelEntity>>

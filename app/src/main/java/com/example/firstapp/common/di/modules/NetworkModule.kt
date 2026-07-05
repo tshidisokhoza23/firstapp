@@ -28,13 +28,12 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val BASE_URL_CONSTANT = "http://192.168.100.7:8082/api/v1/" // Fallback
+    private const val BASE_URL_FALLBACK = "http://127.0.0.1:8082/api/v1/"
 
     @Provides
     @Singleton
     fun provideBaseUrl(): String {
-        val baseUrl = BuildConfig.API_BASE_URL
-        return if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        return BuildConfig.API_BASE_URL.takeIf { it.isNotBlank() } ?: BASE_URL_FALLBACK
     }
 
     @Provides

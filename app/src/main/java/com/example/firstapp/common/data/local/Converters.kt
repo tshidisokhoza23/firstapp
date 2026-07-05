@@ -80,6 +80,12 @@ class Converters {
     fun toPostPoll(value: String?): PostPoll? = gson.fromJson(value, PostPoll::class.java)
 
     @TypeConverter
+    fun fromAdvert(value: Advert?): String? = gson.toJson(value)
+
+    @TypeConverter
+    fun toAdvert(value: String?): Advert? = gson.fromJson(value, Advert::class.java)
+
+    @TypeConverter
     fun fromApplicationStatus(value: ApplicationStatus): String = value.name
 
     @TypeConverter

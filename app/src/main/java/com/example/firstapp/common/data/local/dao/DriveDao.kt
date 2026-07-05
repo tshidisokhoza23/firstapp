@@ -20,7 +20,7 @@ interface DriveDao {
     suspend fun insertDestinations(destinations: List<DestinationEntity>)
 
     @Query("DELETE FROM destinations WHERE id = :id")
-    suspend fun deleteDestination(id: Int)
+    suspend fun deleteDestination(id: String)
 
     @Query("DELETE FROM ride_options")
     suspend fun clearRideOptions()
