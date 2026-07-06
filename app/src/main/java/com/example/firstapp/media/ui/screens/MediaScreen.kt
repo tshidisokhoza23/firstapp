@@ -80,13 +80,13 @@ import com.example.firstapp.media.data.api.TrendingTopic
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.util.*
 import kotlin.collections.*
 import kotlin.io.*
 import com.example.firstapp.chat.ui.components.FullScreenImagePlayer
 import com.example.firstapp.chat.ui.components.FullScreenVideoPlayer
-import java.util.Locale
 
 @Composable
 fun MediaScreen(
@@ -100,7 +100,7 @@ fun MediaScreen(
     ownProfileAvatarUrl: String? = null,
     ownProfileAvatarColor: Color = Color(0xFF3A4B57),
     onPostSelect: (Post?) -> Unit,
-    onCreatePost: (content: String, mediaUrls: List<String>, tags: List<String>, postType: String?) -> Unit,
+    onCreatePost: (content: String, mediaUrls: List<String>, tags: List<String>, postType: String?, pollOptions: List<String>?, location: String?) -> Unit,
     onLikePost: (postId: String, likes: String, isLiked: Boolean) -> Unit,
     onRepostPost: (postId: String) -> Unit,
     onReplySubmit: (postId: String, parentReplyId: String?, content: String) -> Unit,
@@ -118,7 +118,8 @@ fun MediaScreen(
     onArtistClick: (String) -> Unit = {},
     onCreatePostClick: Int = 0,
     onRefresh: () -> Unit = {},
-    refreshTrigger: Int = 0
+    refreshTrigger: Int = 0,
+    onDirectMessagesClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -217,34 +218,113 @@ fun MediaScreen(
                     )
                 }
                 else -> {
-                    MainFeedSection(
-                        posts = posts,
-                        onPostClick = onPostSelect,
-                        onLike = onLikePost,
-                        onRepost = onRepostPost,
-                        onBookmark = onBookmarkPost,
-                        onReplyClick = { p, r -> 
-                            replyingToPost = p
-                            replyingToReply = r
+                    Scaffold(
+                        topBar = {
+                            TopAppBar(
+                                title = { Text("Media", fontWeight = FontWeight.Bold) },
+                                navigationIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(start = 12.dp)
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(ownProfileAvatarColor)
+                                            .clickable { 
+                                                selectedUser = User(id = ownProfileId, username = ownProfileHandle, display_name = ownProfileName, avatar_url = ownProfileAvatarUrl)
+                                                showProfile = true
+                                                onProfileViewChange(true)
+                                            }
+                                    ) {
+                                        if (ownProfileAvatarUrl != null) {
+                                            AsyncImage(
+                                                model = ownProfileAvatarUrl,
+                                                contentDescription = "Profile",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.align(Alignment.Center).size(20.dp)
+                                            )
+                                        }
+                                    }
+                                },
+                                actions = {
+                                    IconButton(onClick = { showCreatePost = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = "Create Post")
+                                    }
+                                    var showMenu by remember { mutableStateOf(false) }
+                                    Box {
+                                        IconButton(onClick = { showMenu = true }) {
+                                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                                        }
+                                        DropdownMenu(
+                                            expanded = showMenu,
+                                            onDismissRequest = { showMenu = false },
+                                            containerColor = AppSecondary
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Direct Messages", color = Color.White) },
+                                                leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
+                                                onClick = { 
+                                                    showMenu = false
+                                                    onDirectMessagesClick()
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Settings", color = Color.White) },
+                                                leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
+                                                onClick = { showMenu = false }
+                                            )
+                                        }
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = AppBackground,
+                                    titleContentColor = Color.White,
+                                    navigationIconContentColor = Color.White,
+                                    actionIconContentColor = Color.White
+                                )
+                            )
                         },
-                        onProfileClick = { user ->
-                            selectedUser = user
-                            showProfile = true
-                            onProfileViewChange(true)
-                        },
-                        onPlaySong = onPlaySong,
-                        onVotePoll = onVotePoll,
-                        onRefresh = onRefresh
-                    )
+                        containerColor = AppBackground
+                    ) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            MainFeedSection(
+                                posts = posts,
+                                onPostClick = onPostSelect,
+                                onLike = onLikePost,
+                                onRepost = onRepostPost,
+                                onBookmark = onBookmarkPost,
+                                onReplyClick = { p, r -> 
+                                    replyingToPost = p
+                                    replyingToReply = r
+                                },
+                                onProfileClick = { user ->
+                                    selectedUser = user
+                                    showProfile = true
+                                    onProfileViewChange(true)
+                                },
+                                onPlaySong = onPlaySong,
+                                onVotePoll = onVotePoll,
+                                onRefresh = onRefresh
+                            )
+                        }
+                    }
                 }
             }
         }
 
         if (showCreatePost) {
             CreatePostDialog(
+                avatarUrl = ownProfileAvatarUrl,
+                avatarColor = ownProfileAvatarColor,
                 onDismiss = { showCreatePost = false },
-                onSubmit = { content, media, tags, type ->
-                    onCreatePost(content, media, tags, type)
+                onSubmit = { content, media, tags, type, poll, loc ->
+                    onCreatePost(content, media, tags, type, poll, loc)
                     showCreatePost = false
                 }
             )
@@ -878,33 +958,371 @@ fun UserProfileSection(
 }
 
 @Composable
-fun CreatePostDialog(onDismiss: () -> Unit, onSubmit: (String, List<String>, List<String>, String?) -> Unit) {
+fun CreatePostDialog(
+    avatarUrl: String? = null,
+    avatarColor: Color = Color.Gray,
+    onDismiss: () -> Unit,
+    onSubmit: (String, List<String>, List<String>, String?, List<String>?, String?) -> Unit
+) {
     var content by remember { mutableStateOf("") }
-    AlertDialog(
+    var selectedMediaUris by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    var selectedAudioUris by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    var selectedLocation by remember { mutableStateOf<String?>(null) }
+    var showPoll by remember { mutableStateOf(false) }
+    var pollOptions by remember { mutableStateOf<List<String>>(listOf("", "")) }
+    
+    val context = LocalContext.current
+    
+    val mediaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(10)
+    ) { uris: List<android.net.Uri> ->
+        if (uris.isNotEmpty()) {
+            val current = selectedMediaUris.toMutableList()
+            uris.forEach { if (!current.contains(it)) current.add(it) }
+            selectedMediaUris = current
+        }
+    }
+
+    val audioLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<android.net.Uri> ->
+        if (uris.isNotEmpty()) {
+            val current = selectedAudioUris.toMutableList()
+            uris.forEach { if (!current.contains(it)) current.add(it) }
+            selectedAudioUris = current
+        }
+    }
+    
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create Post") },
-        text = {
-            TextField(
-                value = content,
-                onValueChange = { content = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("What's happening?") }
-            )
-        },
-        confirmButton = {
-            Button(onClick = { onSubmit(content, emptyList(), emptyList(), null) }) {
-                Text("Post")
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .fillMaxHeight(0.7f)
+                    .padding(bottom = 80.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = AppBackground,
+                border = BorderStroke(1.dp, DividerColor.copy(alpha = 0.2f))
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                        
+                        Button(
+                            onClick = { 
+                                val postType = when {
+                                    showPoll -> "poll"
+                                    selectedMediaUris.isNotEmpty() -> "media"
+                                    selectedAudioUris.isNotEmpty() -> "audio"
+                                    else -> "text_only"
+                                }
+                                val mediaList = java.util.ArrayList<String>()
+                                for (u in selectedMediaUris) mediaList.add(u.toString())
+                                for (u in selectedAudioUris) mediaList.add(u.toString())
+                                val finalPoll = if (showPoll) pollOptions.filter { it.isNotBlank() } else null
+                                onSubmit(content, mediaList, emptyList(), postType, finalPoll, selectedLocation)
+                            },
+                            enabled = content.isNotEmpty() || selectedMediaUris.isNotEmpty() || selectedAudioUris.isNotEmpty() || showPoll,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AppPrimary,
+                                contentColor = Color.White,
+                                disabledContainerColor = AppPrimary.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            modifier = Modifier.padding(end = 8.dp).height(36.dp)
+                        ) {
+                            Text("Post", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                            // Avatar
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(avatarColor)
+                            ) {
+                                if (avatarUrl != null) {
+                                    AsyncImage(
+                                        model = avatarUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.align(Alignment.Center))
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.width(12.dp))
+                            
+                            TextField(
+                                value = content,
+                                onValueChange = { content = it },
+                                placeholder = { 
+                                    Text("What's happening?", color = SecondaryText, fontSize = 18.sp) 
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    cursorColor = AppPrimary,
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                ),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp)
+                            )
+                        }
+
+                        if (selectedMediaUris.isNotEmpty() || selectedAudioUris.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(selectedMediaUris) { uri ->
+                                    val mimeType = context.contentResolver.getType(uri)
+                                    val isVideo = mimeType != null && mimeType.startsWith("video")
+                                    Box(
+                                        modifier = Modifier
+                                            .size(120.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.DarkGray)
+                                    ) {
+                                        AsyncImage(
+                                            model = uri,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        if (isVideo) {
+                                            Icon(
+                                                Icons.Default.PlayArrow,
+                                                null,
+                                                tint = Color.White,
+                                                modifier = Modifier.align(Alignment.Center).size(32.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = { selectedMediaUris = selectedMediaUris.filter { it != uri } },
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(4.dp)
+                                                .size(24.dp)
+                                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                        ) {
+                                            Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                                
+                                items(selectedAudioUris) { uri ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(120.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(SurfaceColor)
+                                            .border(1.dp, DividerColor, RoundedCornerShape(12.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(Icons.Default.Mic, null, tint = AppPrimary, modifier = Modifier.size(32.dp))
+                                            Text(
+                                                text = getFileName(context, uri) ?: "Audio",
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(horizontal = 8.dp)
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = { selectedAudioUris = selectedAudioUris.filter { it != uri } },
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(4.dp)
+                                                .size(24.dp)
+                                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                        ) {
+                                            Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (selectedLocation != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .background(AppPrimary.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.LocationOn, null, tint = AppPrimary, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(selectedLocation!!, color = AppPrimary, fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.Close, 
+                                    null, 
+                                    tint = AppPrimary, 
+                                    modifier = Modifier.size(14.dp).clickable { selectedLocation = null }
+                                )
+                            }
+                        }
+
+                        if (showPoll) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = SurfaceColor),
+                                border = BorderStroke(1.dp, DividerColor),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    pollOptions.forEachIndexed { index, option ->
+                                        OutlinedTextField(
+                                            value = option,
+                                            onValueChange = { newValue ->
+                                                val newList = pollOptions.toMutableList()
+                                                newList[index] = newValue
+                                                pollOptions = newList
+                                            },
+                                            placeholder = { Text("Choice ${index + 1}", fontSize = 14.sp) },
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedTextColor = Color.White,
+                                                unfocusedTextColor = Color.White,
+                                                focusedBorderColor = AppPrimary,
+                                                unfocusedBorderColor = DividerColor
+                                            ),
+                                            shape = RoundedCornerShape(8.dp),
+                                            trailingIcon = if (pollOptions.size > 2) {
+                                                {
+                                                    IconButton(onClick = { 
+                                                        val newList = pollOptions.toMutableList()
+                                                        newList.removeAt(index)
+                                                        pollOptions = newList
+                                                    }) {
+                                                        Icon(Icons.Default.Close, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+                                            } else null
+                                        )
+                                    }
+                                    if (pollOptions.size < 4) {
+                                        TextButton(onClick = { 
+                                            val newList = pollOptions.toMutableList()
+                                            newList.add("")
+                                            pollOptions = newList
+                                        }) {
+                                            Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Add choice")
+                                        }
+                                    }
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = DividerColor)
+                                    TextButton(onClick = { showPoll = false }, colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)) {
+                                        Text("Remove poll")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Bottom Tools
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .imePadding()
+                    ) {
+                        // Privacy indicator
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .clickable { /* logic */ },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Public, null, tint = AppPrimary, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Everyone can reply", color = AppPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        HorizontalDivider(color = DividerColor.copy(alpha = 0.5f), thickness = 0.5.dp)
+                        
+                        // Media icons
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { 
+                                mediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) 
+                            }) { Icon(Icons.Default.Image, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) }
+                            
+                            IconButton(onClick = { 
+                                mediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) 
+                            }) { Icon(Icons.Default.Videocam, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) }
+                            
+                            IconButton(onClick = { 
+                                if (!showPoll) {
+                                    showPoll = true
+                                    selectedMediaUris = emptyList()
+                                    selectedAudioUris = emptyList()
+                                }
+                            }) { Icon(Icons.Default.Poll, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) }
+                            
+                            IconButton(onClick = {
+                                mediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            }) { Icon(Icons.Default.Gif, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) }
+                            
+                            IconButton(onClick = { 
+                                selectedLocation = "Cape Town, SA" // Mock for now
+                            }) { Icon(Icons.Default.LocationOn, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) }
+                            
+                            IconButton(onClick = { 
+                                audioLauncher.launch("audio/*")
+                            }) { Icon(Icons.Default.Mic, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) }
+                        }
+                    }
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        },
-        containerColor = SurfaceColor,
-        titleContentColor = Color.White,
-        textContentColor = Color.White
-    )
+        }
+    }
 }
 
 @Composable
@@ -967,4 +1385,33 @@ fun copyUriToTempFile(context: Context, uri: Uri): File? {
     } catch (e: Exception) {
         null
     }
+}
+
+fun getFileName(context: Context, uri: Uri): String? {
+    var result: String? = null
+    if (uri.scheme == "content") {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index != -1) {
+                    result = cursor.getString(index)
+                }
+            }
+        } finally {
+            cursor?.close()
+        }
+    }
+    if (result == null) {
+        val path = uri.path
+        if (path != null) {
+            val cut = path.lastIndexOf('/')
+            if (cut != -1) {
+                result = path.substring(cut + 1)
+            } else {
+                result = path
+            }
+        }
+    }
+    return result
 }

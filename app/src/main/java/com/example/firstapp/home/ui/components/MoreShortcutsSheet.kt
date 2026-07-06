@@ -45,7 +45,6 @@ fun MoreShortcutsSheet(
         ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route),
         ShortcutItem("Files", Icons.Default.Folder, Color(0xFFFFC107), Screen.Files.route),
         ShortcutItem("Calendar", Icons.Default.CalendarToday, Color(0xFFE91E63), Screen.Calendar.route),
-        ShortcutItem("Direct Mes...", Icons.AutoMirrored.Filled.Chat, Color(0xFF00BCD4), Screen.DirectMessages.route),
         ShortcutItem("Archived", Icons.Default.Archive, Color(0xFF8BC34A), Screen.ArchivedChats.route),
         ShortcutItem("Post Job", Icons.Default.AddBusiness, Color(0xFFFF5722), Screen.PostJob.route),
         ShortcutItem("Job Profile", Icons.Default.Work, Color(0xFF795548), Screen.JobProfile.route),

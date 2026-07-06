@@ -138,15 +138,21 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?): Flow<Resource<Boolean>> = flow {
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
+            val pollRequest = if (pollOptions != null && pollOptions.size > 0) {
+                com.example.firstapp.media.data.api.CreatePollRequest(options = pollOptions)
+            } else null
+            
             val request = com.example.firstapp.media.data.api.CreatePostRequest(
                 content = content,
                 media_urls = mediaUrls,
                 post_type = postType ?: "text_only",
+                location = location,
                 tags = tags,
-                channel_id = channelId
+                channel_id = channelId,
+                poll = pollRequest
             )
             if (socialApi.createPost(request).isSuccessful) {
                 emit(Resource.Success(true))

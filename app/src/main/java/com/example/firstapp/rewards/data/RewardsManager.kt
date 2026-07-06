@@ -1,5 +1,7 @@
 package com.example.firstapp.rewards.data
 
+import com.example.firstapp.common.data.api.ApiClient
+import com.example.firstapp.rewards.data.api.AwardPointsRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -19,5 +21,45 @@ object RewardsManager {
      */
     fun addOptimisticReward(amount: Double) {
         _balance.value += amount
+    }
+
+    /**
+     * Fetches the latest balance from backend and updates local state.
+     */
+    suspend fun refreshBalance(): Boolean {
+        return try {
+            val response = ApiClient.rewardsApi.getBalance()
+            if (response.isSuccessful && response.body() != null) {
+                _balance.value = response.body()!!.balance
+                true
+            } else {
+                false
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Awards points through backend, then refreshes authoritative balance.
+     */
+    suspend fun awardPoints(amount: Double, source: String, description: String): Boolean {
+        if (amount <= 0.0) return false
+        return try {
+            val response = ApiClient.rewardsApi.awardPoints(
+                AwardPointsRequest(
+                    amount = amount,
+                    source = source,
+                    description = description
+                )
+            )
+            if (response.isSuccessful) {
+                refreshBalance()
+            } else {
+                false
+            }
+        } catch (_: Exception) {
+            false
+        }
     }
 }

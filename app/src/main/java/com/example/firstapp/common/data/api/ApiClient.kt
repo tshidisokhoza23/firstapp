@@ -15,6 +15,7 @@ import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.jobs.data.api.JobApi
 import com.example.firstapp.auth.data.api.AuthApi
+import com.example.firstapp.rewards.data.api.RewardsApi
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -133,5 +134,6 @@ object ApiClient {
     val mediaApi: MediaApi = retrofit.create(MediaApi::class.java)
     val socialApi: SocialApi = retrofit.create(SocialApi::class.java)
     val jobApi: JobApi = retrofit.create(JobApi::class.java)
+    val rewardsApi: RewardsApi = retrofit.create(RewardsApi::class.java)
     val systemApi: SystemApi = retrofit.create(SystemApi::class.java)
 }

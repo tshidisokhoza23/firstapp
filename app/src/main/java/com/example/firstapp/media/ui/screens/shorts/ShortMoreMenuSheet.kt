@@ -54,6 +54,11 @@ fun ShortMoreMenuSheet(
             HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
             MoreMenuItem(
+                icon = Icons.Default.Mail,
+                text = "Message ${short.creatorName}",
+                onClick = { onAction("message"); onDismiss() }
+            )
+            MoreMenuItem(
                 icon = Icons.Default.Block,
                 text = "Not interested",
                 onClick = { onAction("not_interested"); onDismiss() }

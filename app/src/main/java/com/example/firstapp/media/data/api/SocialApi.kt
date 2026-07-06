@@ -91,22 +91,22 @@ interface SocialApi {
     @GET("suggested-users")
     suspend fun getSuggestedUsers(): Response<ContactsResponse>
 
-    @GET("stories")
+    @GET("chats/stories")
     suspend fun getStories(): Response<StoriesResponse>
 
-    @POST("stories")
+    @POST("chats/stories")
     suspend fun createStory(@Body request: CreateStoryRequest): Response<CreateStoryResponse>
 
-    @POST("stories/{storyId}/view")
+    @POST("chats/stories/{storyId}/view")
     suspend fun markStoryViewed(@Path("storyId") storyId: String): Response<StatusResponse>
 
-    @DELETE("stories/{storyId}")
+    @DELETE("chats/stories/{storyId}")
     suspend fun deleteStory(@Path("storyId") storyId: String): Response<StatusResponse>
 
     @POST("users/{userId}/mute")
     suspend fun muteUser(@Path("userId") userId: String, @Body request: MuteRequest): Response<StatusResponse>
 
-    @GET("stories/{storyId}/viewers")
+    @GET("chats/stories/{storyId}/viewers")
     suspend fun getStoryViewers(@Path("storyId") storyId: String): Response<ViewersResponse>
 
     @GET("channels")
@@ -294,6 +294,7 @@ data class ApiStoryResponse(
     val user_name: String,
     val avatar_url: String?,
     val is_verified: Boolean,
+    val is_muted: Boolean = false,
     val stories: List<ApiStoryItem>
 )
 

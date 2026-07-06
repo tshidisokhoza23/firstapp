@@ -28,7 +28,7 @@ fun MediaTabScreen(
             posts = pagedPosts,
             selectedPost = uiState.selectedPost,
             onPostSelect = { mediaViewModel.selectPost(it) },
-            onCreatePost = { c, m, tags, t -> mediaViewModel.createPost(c, m, t, tags) },
+            onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, t, tags, pollOptions = p, location = l) },
             onLikePost = { id, l, liked -> mediaViewModel.likePost(id, l, liked) },
             onRepostPost = { mediaViewModel.repostPost(it) },
             onReplySubmit = { p1, p2, c -> mediaViewModel.createPostReply(p1, c, p2) }, 
@@ -46,7 +46,8 @@ fun MediaTabScreen(
             onCallClick = { userId, type -> chatViewModel.initiateCall(userId, type) },
             onCreatePostClick = 0,
             onRefresh = { },
-            refreshTrigger = uiState.refreshTrigger
+            refreshTrigger = uiState.refreshTrigger,
+            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) }
         )
     }
 }

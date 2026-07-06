@@ -38,7 +38,7 @@ import kotlin.math.roundToInt
 
 @androidx.media3.common.util.UnstableApi
 @Composable
-fun StatusViewer(
+fun StoryViewer(
     userStory: UserStory,
     isOwnStory: Boolean = false,
     initialStoryIndex: Int = 0,
@@ -293,7 +293,7 @@ fun StatusViewer(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (isOwnStory) "My status" else userStory.userName,
+                        if (isOwnStory) "My story" else userStory.userName,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
@@ -319,7 +319,7 @@ fun StatusViewer(
             AlertDialog(
                 onDismissRequest = { showDeleteConfirm = false; isPaused = false },
                 containerColor = Color.DarkGray,
-                title = { Text("Delete status update?", color = Color.White) },
+                title = { Text("Delete story update?", color = Color.White) },
                 confirmButton = {
                     TextButton(onClick = {
                         onDeleteStory(currentStory.id)

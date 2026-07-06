@@ -53,10 +53,10 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         androidx.compose.runtime.LaunchedEffect(postResult) {
             postResult?.let {
                 if (it is Resource.Success) {
-                    Toast.makeText(context, "Status update shared", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Story update shared", Toast.LENGTH_SHORT).show()
                     storyViewModel.clearPostResult()
                 } else if (it is Resource.Error) {
-                    Toast.makeText(context, it.message ?: "Failed to share status", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, it.message ?: "Failed to share story", Toast.LENGTH_LONG).show()
                     storyViewModel.clearPostResult()
                 }
             }
@@ -247,5 +247,25 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                 onLike = { /* handle */ }
             )
         }
+    }
+
+    composable(route = Screen.MediaMessages.route) {
+        MediaMessagesScreen(
+            onBack = { navController.popBackStack() },
+            onConversationClick = { userId -> 
+                navController.navigate(Screen.MediaChat.createRoute(userId))
+            }
+        )
+    }
+
+    composable(
+        route = Screen.MediaChat.route,
+        arguments = listOf(navArgument("userId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val userId = backStackEntry.arguments?.getString("userId") ?: ""
+        MediaChatScreen(
+            userId = userId,
+            onBack = { navController.popBackStack() }
+        )
     }
 }

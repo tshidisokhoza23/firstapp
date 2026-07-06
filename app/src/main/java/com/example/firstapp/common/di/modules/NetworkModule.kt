@@ -10,6 +10,7 @@ import com.example.firstapp.jobs.data.api.JobApi
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.music.data.api.MusicApi
+import com.example.firstapp.rewards.data.api.RewardsApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -195,6 +196,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideJobApi(retrofit: Retrofit): JobApi = retrofit.create(JobApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideRewardsApi(retrofit: Retrofit): RewardsApi = retrofit.create(RewardsApi::class.java)
 
     @Provides
     @Singleton

@@ -78,7 +78,7 @@ fun StoryScreen(
         }
     }
     
-    val myStatus = stories.find { it.id == currentUserId }
+    val myStory = stories.find { it.id == currentUserId }
     val otherStories = filteredStories.filter { it.id != currentUserId }
     val activeStories = otherStories.filter { !it.isMuted }
     val mutedStories = otherStories.filter { it.isMuted }
@@ -121,7 +121,7 @@ fun StoryScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Text Status") },
+                    title = { Text("Text Story") },
                     navigationIcon = {
                         IconButton(onClick = { showComposer = false }) {
                             Icon(Icons.Default.Close, contentDescription = "Close")
@@ -146,7 +146,7 @@ fun StoryScreen(
                         .padding(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
                 ) {
-                    Text("Share status", color = AppBackground, fontWeight = FontWeight.Bold)
+                    Text("Share story", color = AppBackground, fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = AppBackground
@@ -156,7 +156,7 @@ fun StoryScreen(
                     value = composerText,
                     onValueChange = { composerText = it },
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    placeholder = { Text("Type a status...", color = Color.Gray.copy(alpha = 0.5f), fontSize = 24.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
+                    placeholder = { Text("Type a story...", color = Color.Gray.copy(alpha = 0.5f), fontSize = 24.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
                     textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
@@ -169,7 +169,7 @@ fun StoryScreen(
             }
         }
     } else if (viewingUserStory != null) {
-        StatusViewer(
+        StoryViewer(
             userStory = viewingUserStory!!,
             isOwnStory = viewingUserStory!!.id == currentUserId,
             initialStoryIndex = viewingStoryIndex,
@@ -231,14 +231,14 @@ fun StoryScreen(
                         contentColor = Color.White,
                         modifier = Modifier.padding(bottom = 16.dp)
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = "New Text Status")
+                        Icon(Icons.Default.Edit, contentDescription = "New Text Story")
                     }
                     FloatingActionButton(
                         onClick = { onNavigateToNewStory() },
                         containerColor = AppAccent,
                         contentColor = AppBackground
                     ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = "New Camera Status")
+                        Icon(Icons.Default.CameraAlt, contentDescription = "New Camera Story")
                     }
                 }
             },
@@ -254,7 +254,7 @@ fun StoryScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            label = { Text("Search status") },
+                            label = { Text("Search story") },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -265,7 +265,7 @@ fun StoryScreen(
 
                 item {
                     Text(
-                        "Status",
+                        "Story",
                         modifier = Modifier.padding(16.dp),
                         color = AppTextPrimary,
                         fontSize = 18.sp,
@@ -274,8 +274,8 @@ fun StoryScreen(
                 }
 
                 item {
-                    myStatus?.let {
-                        StoryListItem(it, isOwnStatus = true, onClick = { 
+                    myStory?.let {
+                        StoryListItem(it, isOwnStory = true, onClick = { 
                             viewingUserStory = it
                             viewingStoryIndex = 0
                         })
@@ -303,14 +303,14 @@ fun StoryScreen(
                             }
                             Spacer(Modifier.width(16.dp))
                             Column {
-                                Text("My status", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Tap to add status update", color = AppTextSecondary, fontSize = 14.sp)
+                                Text("My story", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Tap to add story update", color = AppTextSecondary, fontSize = 14.sp)
                             }
                         }
                     }
                 }
 
-                if (myStatus != null && myStatus.stories.isNotEmpty()) {
+                if (myStory != null && myStory.stories.isNotEmpty()) {
                     item {
                         Text(
                             "Posted stories",
@@ -320,13 +320,13 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(myStatus.stories.reversed()) { story ->
+                    items(myStory.stories.reversed()) { story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },
                             onClick = { 
-                                viewingUserStory = myStatus
-                                viewingStoryIndex = myStatus.stories.indexOf(story)
+                                viewingUserStory = myStory
+                                viewingStoryIndex = myStory.stories.indexOf(story)
                             }
                         )
                     }
@@ -345,7 +345,7 @@ fun StoryScreen(
                     items(recentUpdates) { userStory ->
                         StoryListItem(
                             userStory = userStory, 
-                            isOwnStatus = false,
+                            isOwnStory = false,
                             onClick = { 
                                 viewingUserStory = userStory
                                 viewingStoryIndex = 0
@@ -368,7 +368,7 @@ fun StoryScreen(
                     items(viewedUpdates) { userStory ->
                         StoryListItem(
                             userStory = userStory, 
-                            isOwnStatus = false,
+                            isOwnStory = false,
                             onClick = { 
                                 viewingUserStory = userStory
                                 viewingStoryIndex = 0
@@ -388,7 +388,7 @@ fun StoryScreen(
             onDismissRequest = { storyToMute = null },
             containerColor = AppSecondary,
             title = { Text(if (story.isMuted) "Unmute ${story.userName}?" else "Mute ${story.userName}?", color = Color.White) },
-            text = { Text(if (story.isMuted) "New status updates from ${story.userName} will appear in recent updates." else "New status updates from ${story.userName} won't appear under recent updates anymore.", color = AppTextSecondary) },
+            text = { Text(if (story.isMuted) "New story updates from ${story.userName} will appear in recent updates." else "New story updates from ${story.userName} won't appear under recent updates anymore.", color = AppTextSecondary) },
             confirmButton = {
                 TextButton(onClick = { 
                     onMuteStory(story.id, !story.isMuted)
@@ -454,7 +454,7 @@ fun MyStoryListItem(
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = if (story.content.isNotBlank()) story.content else "Media status",
+                text = if (story.content.isNotBlank()) story.content else "Media story",
                 color = Color.White,
                 fontSize = 15.sp,
                 maxLines = 1,
@@ -499,7 +499,7 @@ fun MyStoryListItem(
 @Composable
 fun StoryListItem(
     userStory: UserStory,
-    isOwnStatus: Boolean = false,
+    isOwnStory: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {}
 ) {
@@ -573,13 +573,13 @@ fun StoryListItem(
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = if (isOwnStatus) "My status" else userStory.userName,
+                text = if (isOwnStory) "My story" else userStory.userName,
                 color = Color.White,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = if (isOwnStatus && totalStories == 0) "Tap to add status update" else userStory.lastUpdated,
+                text = if (isOwnStory && totalStories == 0) "Tap to add story update" else userStory.lastUpdated,
                 color = AppTextSecondary,
                 fontSize = 14.sp
             )

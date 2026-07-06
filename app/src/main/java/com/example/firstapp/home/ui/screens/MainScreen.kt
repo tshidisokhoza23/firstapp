@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.firstapp.home.ui.viewmodel.MainViewModel
 import com.example.firstapp.ui.navigation.BottomNavItem
+import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.common.ui.theme.AppSecondary
@@ -66,7 +67,10 @@ fun MainScreen(
                 when (tabToDisplay) {
                     BottomNavItem.Chat -> ChatTabScreen(navController, onLogout = onLogout)
                     BottomNavItem.Media -> MediaTabScreen(navController)
-                    BottomNavItem.Shorts -> ShortsTabScreen(navController)
+                    BottomNavItem.Shorts -> ShortsTabScreen(
+                        navController = navController,
+                        onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) }
+                    )
                     BottomNavItem.Music -> MusicTabScreen(navController)
                     BottomNavItem.Drive -> DriveTabScreen(navController)
                     else -> ChatTabScreen(navController, onLogout = onLogout)

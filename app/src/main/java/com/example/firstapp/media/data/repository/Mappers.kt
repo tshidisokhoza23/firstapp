@@ -242,7 +242,7 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
         userAvatarColor = Color(0xFF455A64), 
         stories = stories, 
         lastUpdated = if (lastUpdateMillis > 0) formatTimeAgo(lastUpdateMillis) else "recently",
-        isMuted = false
+        isMuted = apiStory.is_muted
     )
 }
 

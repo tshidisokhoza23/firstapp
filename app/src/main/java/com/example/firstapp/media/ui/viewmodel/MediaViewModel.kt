@@ -76,8 +76,8 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    fun createPost(content: String, mediaUris: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: String? = null) {
-        if (content.isBlank() && mediaUris.isEmpty()) return
+    fun createPost(content: String, mediaUris: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: String? = null, pollOptions: List<String>? = null, location: String? = null) {
+        if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.size == 0)) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = mutableListOf<String>()
@@ -100,7 +100,7 @@ class MediaViewModel @Inject constructor(
                     finalUrls.add(uriStr)
                 }
             }
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId).collect { res ->
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location).collect { res ->
                 if (res is Resource.Success) {
                     _toastMessage.value = "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
