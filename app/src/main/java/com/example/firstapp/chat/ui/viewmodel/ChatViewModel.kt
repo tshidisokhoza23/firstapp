@@ -8,6 +8,7 @@ import com.example.firstapp.chat.data.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.model.*
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.chat.data.repository.ChatRepositoryImpl
 import com.example.firstapp.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -129,6 +130,7 @@ class ChatViewModel @Inject constructor(
     fun fetchMessages(chatId: String) {
         activeChatId = chatId
         exhaustedCursorByChat.remove(chatId)
+        (repository as? ChatRepositoryImpl)?.clearDedupForConversation(chatId)
         messagesFetchJob?.cancel()
         messagesFetchJob = viewModelScope.launch {
             // Trigger sync from network
@@ -151,6 +153,10 @@ class ChatViewModel @Inject constructor(
         ChatWebSocketClient.connect()
         viewModelScope.launch {
             ChatWebSocketClient.messageFlow.collect { message ->
+                val shouldProcess = (repository as? ChatRepositoryImpl)?.shouldProcessIncomingMessage(message) ?: true
+                if (!shouldProcess) {
+                    return@collect
+                }
                 repository.saveMessage(message.conversationId, message)
                 if (!message.isFromMe && activeChatId == message.conversationId) {
                     markAsRead(message.conversationId)

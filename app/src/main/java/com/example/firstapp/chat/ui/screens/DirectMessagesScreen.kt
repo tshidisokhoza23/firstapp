@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,7 +31,9 @@ import coil.compose.AsyncImage
 import com.example.firstapp.chat.model.CallLog
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.ui.viewmodel.DirectMessagesViewModel
+import com.example.firstapp.common.model.User
 import com.example.firstapp.common.ui.theme.*
+import com.example.firstapp.common.util.DisplayNameResolver
 import com.example.firstapp.common.util.formatWhatsAppTime
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -145,6 +148,20 @@ fun CallList(calls: List<CallLog>, onCallSelect: (CallLog) -> Unit) {
 
 @Composable
 fun DMItem(chat: ChatMessage, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val displayNameResolver = remember(context) { DisplayNameResolver(context) }
+    val resolvedName = remember(chat.id, chat.senderName) {
+        displayNameResolver.resolve(
+            User(
+                id = chat.id,
+                username = chat.senderName,
+                display_name = chat.senderName,
+                phone_number = chat.id
+            ),
+            chat.id
+        )
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,13 +179,13 @@ fun DMItem(chat: ChatMessage, onClick: () -> Unit) {
             if (chat.avatarUrl != null) {
                 AsyncImage(model = chat.avatarUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             } else {
-                Text(chat.senderName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(resolvedName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(chat.senderName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(resolvedName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(formatWhatsAppTime(chat.timestamp), color = Color.Gray, fontSize = 12.sp)
             }
             Text(chat.lastMessage, color = Color.Gray, fontSize = 14.sp, maxLines = 1)

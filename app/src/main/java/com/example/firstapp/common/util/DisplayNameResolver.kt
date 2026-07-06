@@ -3,7 +3,7 @@ package com.example.firstapp.common.util
 import android.content.Context
 import android.provider.ContactsContract
 import androidx.annotation.WorkerThread
-import com.example.firstapp.domain.model.User
+import com.example.firstapp.common.model.User
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -35,7 +35,8 @@ class DisplayNameResolver(private val context: Context) {
             }
 
             // 2. Fall back to profile name
-            !user.fullName.isNullOrBlank() -> user.fullName!!
+            !user.display_name.isBlank() -> user.display_name
+            user.username.isNotBlank() -> user.username
 
             // 3. Fall back to phone number
             else -> phoneNumber
@@ -114,8 +115,8 @@ class DisplayNameResolver(private val context: Context) {
      */
     private fun resolveFromProfile(user: User, phoneNumber: String): String {
         return when {
-            !user.fullName.isNullOrBlank() -> user.fullName!!
-            !user.username.isNullOrBlank() -> user.username!!
+            !user.display_name.isBlank() -> user.display_name
+            user.username.isNotBlank() -> user.username
             else -> phoneNumber
         }
     }

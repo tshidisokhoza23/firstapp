@@ -28,6 +28,8 @@ import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.ui.viewmodel.ContactPickerViewModel
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.common.ui.theme.AppBackground
+import com.example.firstapp.common.model.User
+import com.example.firstapp.common.util.DisplayNameResolver
 import com.example.firstapp.common.util.Resource
 import kotlin.collections.List
 import kotlin.collections.emptyList
@@ -193,6 +195,20 @@ fun ContactActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 
 @Composable
 fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val displayNameResolver = remember(context) { DisplayNameResolver(context) }
+    val resolvedName = remember(contact.displayName, contact.phoneNumber) {
+        displayNameResolver.resolve(
+            User(
+                id = contact.id,
+                username = contact.username,
+                display_name = contact.displayName,
+                phone_number = contact.phoneNumber
+            ),
+            contact.phoneNumber
+        )
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -207,11 +223,11 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
                 .background(if (contact.isRegistered) AppAccent else Color.Gray),
             contentAlignment = Alignment.Center
         ) {
-            Text(contact.displayName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                Text(resolvedName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(contact.displayName, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(resolvedName, color = Color.White, fontWeight = FontWeight.Bold)
             Text(if (contact.isRegistered) (contact.bio ?: "Available") else contact.phoneNumber, color = Color.Gray, fontSize = 14.sp)
         }
         
@@ -222,7 +238,6 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
                 colors = CheckboxDefaults.colors(checkedColor = AppAccent, checkmarkColor = AppBackground)
             )
         } else if (!contact.isRegistered) {
-            val context = LocalContext.current
             TextButton(
                 onClick = {
                     val intent = Intent(Intent.ACTION_SENDTO)

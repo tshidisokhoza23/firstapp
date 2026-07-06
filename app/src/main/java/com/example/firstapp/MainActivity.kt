@@ -28,6 +28,7 @@ import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.chat.data.*
 import com.example.firstapp.chat.ui.components.CallOverlay
 import com.example.firstapp.common.util.GlobalNavigation
+import com.example.firstapp.rewards.data.RewardsManager
 import com.google.android.gms.ads.MobileAds
 import com.google.android.libraries.places.api.Places
 
@@ -163,6 +164,13 @@ class MainActivity : FragmentActivity() {
                             popUpTo(0) { inclusive = true }
                         }
                     }
+
+                    if (isLoggedIn) {
+                        runCatching {
+                            RewardsManager.refreshBalance()
+                        }
+                    }
+
                     val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
                     if (isLoggedIn) {
                         try {

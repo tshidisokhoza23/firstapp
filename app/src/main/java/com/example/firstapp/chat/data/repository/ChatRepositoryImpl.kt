@@ -3,6 +3,7 @@ package com.example.firstapp.chat.data.repository
 import android.content.Context
 import android.util.Log
 import com.example.firstapp.chat.data.ChatWebSocketClient
+import com.example.firstapp.chat.data.ChatWebSocketDedupManager
 import com.example.firstapp.chat.data.api.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.data.api.*
@@ -36,6 +37,12 @@ class ChatRepositoryImpl @Inject constructor(
     private val callLogDao: CallLogDao,
     @ApplicationContext private val context: Context
 ) : ChatRepository {
+
+    private val dedupManager = ChatWebSocketDedupManager()
+
+    fun shouldProcessIncomingMessage(message: Message): Boolean = dedupManager.shouldProcessIncoming(message)
+
+    fun clearDedupForConversation(conversationId: String) = dedupManager.clearConversationState(conversationId)
 
     override fun getChats(): Flow<Resource<List<ChatMessage>>> = 
         chatDao.getChats().flowMap { list -> Resource.Success(list.map { it.toModel() }) }
@@ -152,6 +159,7 @@ class ChatRepositoryImpl @Inject constructor(
         replyToId: String?
     ): Flow<Resource<Message>> = flow {
         val clientUuid = UUID.randomUUID().toString()
+        dedupManager.trackOutgoing(clientUuid, chatId)
         val pendingMsg = Message(
             id = clientUuid,
             conversationId = chatId,
@@ -178,15 +186,18 @@ class ChatRepositoryImpl @Inject constructor(
             )
             if (response.isSuccessful && response.body() != null) {
                 val serverMsg = mapApiMessage(response.body()!!.message)
+                dedupManager.confirmOutgoing(clientUuid)
                 chatDao.deleteMessage(clientUuid)
                 chatDao.insertMessages(listOf(serverMsg.toEntity(chatId)))
                 emit(Resource.Success(serverMsg))
             } else {
+                dedupManager.failOutgoing(clientUuid)
                 chatDao.deleteMessage(clientUuid)
                 val serverMessage = parseServerError(response.errorBody())
                 emit(Resource.Error(serverMessage.ifBlank { "Failed to send message" }))
             }
         } catch (e: Exception) {
+            dedupManager.failOutgoing(clientUuid)
             chatDao.deleteMessage(clientUuid)
             Log.e("ChatRepositoryImpl", "Send message failed", e)
             emit(Resource.Error(e.message ?: "Send message failed"))
