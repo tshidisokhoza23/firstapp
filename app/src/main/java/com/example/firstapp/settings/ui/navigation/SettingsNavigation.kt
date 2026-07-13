@@ -30,6 +30,15 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
         val privacyViewModel: PrivacySettingsViewModel = hiltViewModel()
         PrivacySettingsScreen(
             onBack = { navController.popBackStack() },
+            onNavigateToBlockedUsers = { navController.navigate(Screen.BlockedUsers.route) },
+            viewModel = privacyViewModel
+        )
+    }
+
+    composable(Screen.BlockedUsers.route) {
+        val privacyViewModel: PrivacySettingsViewModel = hiltViewModel()
+        BlockedUsersScreen(
+            onBack = { navController.popBackStack() },
             viewModel = privacyViewModel
         )
     }

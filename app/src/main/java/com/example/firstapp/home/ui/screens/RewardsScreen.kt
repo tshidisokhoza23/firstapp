@@ -31,9 +31,7 @@ import com.example.firstapp.media.model.Advert
 fun RewardsScreen(
     adverts: List<Advert> = emptyList(),
     viewedAdverts: List<Advert> = emptyList(),
-    adsWatched: Int = 0,
     points: Double = 0.0,
-    totalAdsToWatch: Int = 20,
     onAdvertClick: (Advert) -> Unit = { _ -> },
     onRefresh: () -> Unit = {},
     onResetAds: () -> Unit = {}
@@ -51,6 +49,8 @@ fun RewardsScreen(
         onAdvertClick(ad)
         cooldownSeconds = 15
     }
+
+    android.util.Log.d("RewardsScreen", "Adverts size: ${adverts.size}, viewed: ${viewedAdverts.size}")
 
     LazyColumn(
         modifier = Modifier
@@ -97,117 +97,46 @@ fun RewardsScreen(
             }
         }
 
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF121212),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "$adsWatched / $totalAdsToWatch",
-                        color = Color.White,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Ads Watched Today",
-                        color = Color.Gray,
-                        fontSize = 14.sp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    val progressValue = if (totalAdsToWatch > 0) adsWatched.toFloat() / totalAdsToWatch.toFloat() else 0f
-                    val clampedProgress = if (progressValue < 0f) 0f else if (progressValue > 1f) 1f else progressValue
-                    
-                    LinearProgressIndicator(
-                        progress = { clampedProgress },
-                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
-                        color = AppAccent,
-                        trackColor = Color.White.copy(alpha = 0.1f)
-                    )
-                    
-                    if (adverts.isNotEmpty()) {
-                        Button(
-                            onClick = { onAdFinished(adverts[0]) },
-                            modifier = Modifier.padding(top = 24.dp).fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (cooldownSeconds > 0) Color.Gray else AppAccent
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            enabled = cooldownSeconds <= 0
-                        ) {
-                            Text(
-                                text = if (cooldownSeconds > 0) "Next Reward Ad in ${cooldownSeconds}s" else "Open Reward Ad & Earn",
-                                color = if (cooldownSeconds > 0) Color.White else AppBackground,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
         if (adverts.isNotEmpty()) {
             item {
                 Text(
-                    text = "Next Available Tasks",
+                    text = "Available Tasks",
                     color = AppAccent,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 8.dp)
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                 )
             }
 
-            // Only the first ad in the list is actionable
-            val nextAd = adverts[0]
-            item {
+            items(adverts) { ad ->
+                val index = adverts.indexOf(ad)
+                val isNext = index == 0
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF121212),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .alpha(if (isNext) 1f else 0.8f),
+                    color = Color(0xFF1E1E1E),
                     shape = RoundedCornerShape(12.dp),
-                    onClick = { if (cooldownSeconds <= 0) onAdFinished(nextAd) }
+                    onClick = { if (isNext && cooldownSeconds <= 0) onAdFinished(ad) }
                 ) {
                     RewardItem(
                         icon = {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.VideoLibrary, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                                Text("AD", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
+                                if (isNext) {
+                                    Icon(Icons.Default.VideoLibrary, null, tint = AppAccent, modifier = Modifier.size(24.dp))
+                                } else {
+                                    Icon(Icons.Default.Lock, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                }
                             }
                         },
-                        title = "Watch Reward Ad # ${adsWatched + 1}",
+                        title = if (ad.title.isNotEmpty()) ad.title else "Reward Ad #${index + 1}",
                         coins = "0.1",
-                        actionText = if (cooldownSeconds > 0) "${cooldownSeconds}s" else "Go",
+                        actionText = if (isNext) (if (cooldownSeconds > 0) "${cooldownSeconds}s" else "Watch") else "Locked",
                         isCompleted = false,
-                        enabled = cooldownSeconds <= 0,
-                        onClick = { onAdFinished(nextAd) }
+                        enabled = isNext && cooldownSeconds <= 0,
+                        onClick = { if (isNext) onAdFinished(ad) }
                     )
-                }
-            }
-            
-            if (adverts.size > 1) {
-                val upcomingAds = adverts.subList(1, adverts.size)
-                items(upcomingAds) { ad ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().alpha(0.5f),
-                        color = Color(0xFF121212),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        RewardItem(
-                            icon = {
-                                Icon(Icons.Default.Lock, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
-                            },
-                            title = "Upcoming Ad Task",
-                            coins = "0.1",
-                            isCompleted = false,
-                            enabled = false,
-                            onClick = {}
-                        )
-                    }
                 }
             }
         } else if (viewedAdverts.isEmpty()) {

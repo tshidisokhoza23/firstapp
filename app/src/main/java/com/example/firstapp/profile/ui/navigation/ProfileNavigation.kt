@@ -1,9 +1,7 @@
 package com.example.firstapp.profile.ui.navigation
 
 import androidx.hilt.navigation.compose.hiltViewModel
-
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -18,6 +16,7 @@ import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.media.ui.screens.shorts.ShortsProfileScreen
+import kotlin.collections.listOf
 
 fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
     composable(Screen.EditProfile.route) {
@@ -25,6 +24,19 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
         EditProfileScreen(
             onBack = { navController.popBackStack() },
             userViewModel = userViewModel
+        )
+    }
+
+    composable(
+        route = Screen.EditWorkExperience.route,
+        arguments = listOf(navArgument("experienceId") { type = NavType.StringType; nullable = true; defaultValue = "" })
+    ) { backStackEntry ->
+        val experienceId = backStackEntry.arguments?.getString("experienceId")?.let { if (it.isBlank()) null else it }
+        val userViewModel: UserViewModel = hiltViewModel()
+        EditWorkExperienceScreen(
+            experienceId = experienceId,
+            onBack = { navController.popBackStack() },
+            viewModel = userViewModel
         )
     }
 
@@ -58,6 +70,12 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
                 navController.navigate(Screen.DirectChat.createRoute(id)) {
                     popUpTo(Screen.UserProfile.route) { inclusive = true }
                 }
+            },
+            onNavigateToEditExperience = { id ->
+                navController.navigate(Screen.EditWorkExperience.createRoute(id))
+            },
+            onNavigateToEditProfile = {
+                navController.navigate(Screen.EditProfile.route)
             }
         )
     }

@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val securityNotificationsEnabled by viewModel.securityNotificationsEnabled.collectAsState()
     
     var showPhoneDialog by remember { mutableStateOf(false) }
 
@@ -92,11 +93,9 @@ fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewMode
                     Text("Security notifications", color = Color.White, fontSize = 16.sp)
                     Text("Show notifications for security alerts", color = AppTextSecondary, fontSize = 14.sp)
                 }
-                var enabled by remember { mutableStateOf(true) }
                 Switch(
-                    checked = enabled,
+                    checked = securityNotificationsEnabled,
                     onCheckedChange = { 
-                        enabled = it
                         viewModel.toggleSecurityNotifications(it)
                     },
                     colors = SwitchDefaults.colors(checkedThumbColor = AppAccent)

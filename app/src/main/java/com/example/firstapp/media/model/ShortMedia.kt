@@ -2,6 +2,8 @@ package com.example.firstapp.media.model
 
 import androidx.compose.ui.graphics.Color
 
+enum class ShortType { REGULAR, AD }
+
 data class ShortMedia(
     val id: String,
     val creatorId: String,
@@ -16,7 +18,8 @@ data class ShortMedia(
     val profilePictureColor: Color = Color.Gray,
     val isLiked: Boolean = false,
     val isSubscribed: Boolean = false,
-    val isBookmarked: Boolean = false
+    val isBookmarked: Boolean = false,
+    val type: ShortType = ShortType.REGULAR
 )
 
 data class ShortReply(

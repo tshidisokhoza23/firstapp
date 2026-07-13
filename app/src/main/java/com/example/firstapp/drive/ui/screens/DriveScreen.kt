@@ -282,16 +282,16 @@ fun DriveDrawerContent(
                         .background(AppPrimary),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (user?.avatar_url != null) {
+                    if (user?.avatarUrl != null) {
                         coil.compose.AsyncImage(
-                            model = user.avatar_url,
+                            model = user.avatarUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize().clip(CircleShape),
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
                     } else {
                         Text(
-                            user?.display_name?.take(1)?.uppercase() ?: "U", 
+                            user?.displayName?.take(1)?.uppercase() ?: "U",
                             color = Color.White, 
                             fontWeight = FontWeight.ExtraBold, 
                             fontSize = 28.sp
@@ -299,7 +299,7 @@ fun DriveDrawerContent(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(user?.display_name ?: "Guest", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                Text(user?.displayName ?: "Guest", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Star, contentDescription = null, tint = NiceOrange, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -1093,7 +1093,7 @@ fun SearchFlow(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                "Good morning, ${user?.display_name?.substringBefore(" ") ?: "Guest"}",
+                "Good morning, ${user?.displayName?.substringBefore(" ") ?: "Guest"}",
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold,

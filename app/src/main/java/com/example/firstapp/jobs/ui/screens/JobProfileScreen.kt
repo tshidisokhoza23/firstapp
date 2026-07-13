@@ -1,7 +1,6 @@
 package com.example.firstapp.jobs.ui.screens
 
 import androidx.hilt.navigation.compose.hiltViewModel
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +8,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,18 +20,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.jobs.model.JobProfileData
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.jobs.ui.viewmodel.JobProfileViewModel
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.common.ui.viewmodel.UserViewModel
+import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.Locale
+import com.example.firstapp.profile.model.WorkExperience
+import kotlin.collections.List
+import kotlin.collections.emptyList
+import kotlin.collections.sortedWith
+import kotlin.comparisons.compareByDescending
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JobProfileScreen(
     onClose: () -> Unit,
+    onNavigateToEditExperience: (String?) -> Unit = {},
     viewModel: JobProfileViewModel = hiltViewModel(),
+    userViewModel: UserViewModel = hiltViewModel()
 ) {
     val profileResource by viewModel.profile.collectAsState()
     val saveResult by viewModel.saveResult.collectAsState()
+
+    val workExperiencesResource by userViewModel.workExperiences.collectAsState()
+    val workExperiences: List<WorkExperience> = if (workExperiencesResource is Resource.Success) {
+        val data = (workExperiencesResource as Resource.Success<List<WorkExperience>>).data
+        data ?: emptyList<WorkExperience>()
+    } else emptyList<WorkExperience>()
+
+    val sortedExperiences: List<WorkExperience> = remember(workExperiences) {
+        workExperiences.sortedWith(compareByDescending<WorkExperience> { it.isCurrentJob }
+            .thenByDescending { it.startDate })
+    }
 
     LaunchedEffect(saveResult) {
         if (saveResult is Resource.Success<*>) {
@@ -39,7 +61,6 @@ fun JobProfileScreen(
         }
     }
 
-    // Use a key to reset the state when profileResource changes to Success
     val initialData = (profileResource as? Resource.Success)?.data
     
     var fullName by remember(initialData) { mutableStateOf(initialData?.fullName ?: "") }
@@ -85,7 +106,6 @@ fun JobProfileScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Header Section
             Column {
                 Text(
                     "Showcase your talent",
@@ -121,13 +141,42 @@ fun JobProfileScreen(
 
             SectionHeader("EXPERIENCE & SKILLS")
             ProfileTextField(value = education, onValueChange = { education = it }, label = "Highest Education")
-            ProfileTextField(
-                value = experience, 
-                onValueChange = { experience = it }, 
-                label = "Work Experience", 
-                placeholder = "Company Name - Role (Years)\nBrief description of impact...",
-                minLines = 4
-            )
+            
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Work Experience", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                    IconButton(onClick = { onNavigateToEditExperience(null) }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Experience", tint = AppAccent)
+                    }
+                }
+
+                if (sortedExperiences.isEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            "No experience added yet. Click + to add your roles.",
+                            modifier = Modifier.padding(16.dp),
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else {
+                    for (exp in sortedExperiences) {
+                        ExperienceItem(
+                            experience = exp,
+                            onEditClick = { onNavigateToEditExperience(exp.id) }
+                        )
+                    }
+                }
+            }
+
             ProfileTextField(
                 value = skills, 
                 onValueChange = { skills = it }, 
@@ -137,11 +186,11 @@ fun JobProfileScreen(
 
             SectionHeader("JOB PREFERENCES")
             
-            // Work Preference (Segmented Buttons feel professional)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Work Preference", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Remote", "On-site", "Hybrid").forEach { pref ->
+                    val prefs = kotlin.collections.listOf("Remote", "On-site", "Hybrid")
+                    for (pref in prefs) {
                         FilterChip(
                             selected = workPreference == pref,
                             onClick = { workPreference = pref },
@@ -164,7 +213,7 @@ fun JobProfileScreen(
             val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
             ) { uri ->
-                uri?.let { 
+                if (uri != null) { 
                     android.widget.Toast.makeText(context, "Resume uploaded!", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
@@ -246,4 +295,45 @@ fun ProfileTextField(
     }
 }
 
-
+@Composable
+fun ExperienceItem(
+    experience: WorkExperience,
+    onEditClick: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("MMM yyyy", Locale.getDefault()) }
+    
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.05f),
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = experience.jobTitle,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = "${experience.companyName} • ${experience.employmentType}",
+                    color = AppAccent,
+                    fontSize = 14.sp
+                )
+                val endDateStr = experience.endDate?.let { dateFormat.format(Date(it)) } ?: ""
+                Text(
+                    text = "${dateFormat.format(Date(experience.startDate))} - ${if (experience.isCurrentJob) "Present" else endDateStr}",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+            IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AppAccent, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}

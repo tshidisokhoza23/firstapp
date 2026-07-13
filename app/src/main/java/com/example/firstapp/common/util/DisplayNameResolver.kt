@@ -19,7 +19,8 @@ import java.util.concurrent.ConcurrentHashMap
 class DisplayNameResolver(private val context: Context) {
 
     // Cache contact names to avoid repeated database queries
-    private val contactCache = ConcurrentHashMap<String, String?>()
+    // ConcurrentHashMap does not allow null values, so we use an empty string for "not found"
+    private val contactCache = ConcurrentHashMap<String, String>()
 
     /**
      * Resolve display name for a user following strict fallback order.
@@ -27,46 +28,24 @@ class DisplayNameResolver(private val context: Context) {
      */
     @WorkerThread
     fun resolve(user: User, phoneNumber: String): String {
-        return when {
-            // 1. Check local contacts first
-            hasLocalContact(phoneNumber) -> {
-                val contactName = getContactName(phoneNumber)
-                if (contactName != null) contactName else resolveFromProfile(user, phoneNumber)
-            }
+        if (phoneNumber.isEmpty()) return resolveFromProfile(user, phoneNumber)
 
-            // 2. Fall back to profile name
-            !user.display_name.isBlank() -> user.display_name
-            user.username.isNotBlank() -> user.username
-
-            // 3. Fall back to phone number
-            else -> phoneNumber
-        }
-    }
-
-    /**
-     * Quick check if phone number exists in contacts (cached).
-     */
-    private fun hasLocalContact(phoneNumber: String): Boolean {
-        if (contactCache.containsKey(phoneNumber)) {
-            return contactCache[phoneNumber] != null
-        }
-        val name = queryContactName(phoneNumber)
-        contactCache[phoneNumber] = name
-        return name != null
-    }
-
-    /**
-     * Get contact name from device contacts (with caching).
-     */
-    private fun getContactName(phoneNumber: String): String? {
         // Check cache first
-        if (contactCache.containsKey(phoneNumber)) {
-            return contactCache[phoneNumber]
+        val cached = contactCache[phoneNumber]
+        if (cached != null) {
+            return if (cached.isNotEmpty()) cached else resolveFromProfile(user, phoneNumber)
         }
 
-        val name = queryContactName(phoneNumber)
-        contactCache[phoneNumber] = name
-        return name
+        // 1. Check local contacts
+        val contactName = queryContactName(phoneNumber)
+        contactCache[phoneNumber] = contactName ?: ""
+
+        if (contactName != null && contactName.isNotEmpty()) {
+            return contactName
+        }
+
+        // 2. Fall back to profile name or phone number
+        return resolveFromProfile(user, phoneNumber)
     }
 
     /**
@@ -115,7 +94,7 @@ class DisplayNameResolver(private val context: Context) {
      */
     private fun resolveFromProfile(user: User, phoneNumber: String): String {
         return when {
-            !user.display_name.isBlank() -> user.display_name
+            !user.displayName.isBlank() -> user.displayName
             user.username.isNotBlank() -> user.username
             else -> phoneNumber
         }

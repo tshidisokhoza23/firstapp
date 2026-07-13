@@ -8,7 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.auth.ui.navigation.authNavGraph
-import com.example.firstapp.chat.ui.navigation.chatNavGraph
+import com.example.firstapp.chat.ui.navigation.chatsNav
 import com.example.firstapp.vocab.ui.navigation.vocabNavGraph
 import com.example.firstapp.media.ui.navigation.mediaNavGraph
 import com.example.firstapp.jobs.ui.navigation.jobsNavGraph
@@ -68,7 +68,7 @@ fun AppNavigation(
             )
         }
         
-        chatNavGraph(navController)
+        chatsNav(navController)
         vocabNavGraph(navController)
         mediaNavGraph(navController)
         jobsNavGraph(navController, viewModel)

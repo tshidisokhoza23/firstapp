@@ -3,34 +3,51 @@ package com.example.firstapp.settings.ui.viewmodel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import androidx.lifecycle.viewModelScope
+import com.example.firstapp.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel
-class NotificationSettingsViewModel @Inject constructor() : ViewModel() {
-    private val _privateChatsEnabled = MutableStateFlow(true)
-    val privateChatsEnabled: StateFlow<Boolean> = _privateChatsEnabled
+class NotificationSettingsViewModel @Inject constructor(
+    private val repository: SettingsRepository
+) : ViewModel() {
+    val privateChatsEnabled: StateFlow<Boolean> = repository.privateChatsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val _groupsEnabled = MutableStateFlow(true)
-    val groupsEnabled: StateFlow<Boolean> = _groupsEnabled
+    val groupsEnabled: StateFlow<Boolean> = repository.groupsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val _channelsEnabled = MutableStateFlow(true)
-    val channelsEnabled: StateFlow<Boolean> = _channelsEnabled
+    val channelsEnabled: StateFlow<Boolean> = repository.channelsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val _soundsEnabled = MutableStateFlow(true)
-    val soundsEnabled: StateFlow<Boolean> = _soundsEnabled
+    val soundsEnabled: StateFlow<Boolean> = repository.soundsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val _vibrateEnabled = MutableStateFlow(true)
-    val vibrateEnabled: StateFlow<Boolean> = _vibrateEnabled
+    val vibrateEnabled: StateFlow<Boolean> = repository.vibrateEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val _previewsEnabled = MutableStateFlow(true)
-    val previewsEnabled: StateFlow<Boolean> = _previewsEnabled
+    val previewsEnabled: StateFlow<Boolean> = repository.previewsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    fun setPrivateChatsEnabled(enabled: Boolean) { _privateChatsEnabled.value = enabled }
-    fun setGroupsEnabled(enabled: Boolean) { _groupsEnabled.value = enabled }
-    fun setChannelsEnabled(enabled: Boolean) { _channelsEnabled.value = enabled }
-    fun setSoundsEnabled(enabled: Boolean) { _soundsEnabled.value = enabled }
-    fun setVibrateEnabled(enabled: Boolean) { _vibrateEnabled.value = enabled }
-    fun setPreviewsEnabled(enabled: Boolean) { _previewsEnabled.value = enabled }
+    fun setPrivateChatsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setPrivateChatsEnabled(enabled) }
+    }
+    fun setGroupsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setGroupsEnabled(enabled) }
+    }
+    fun setChannelsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setChannelsEnabled(enabled) }
+    }
+    fun setSoundsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setSoundsEnabled(enabled) }
+    }
+    fun setVibrateEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setVibrateEnabled(enabled) }
+    }
+    fun setPreviewsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setPreviewsEnabled(enabled) }
+    }
 }

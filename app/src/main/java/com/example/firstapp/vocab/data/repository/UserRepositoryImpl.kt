@@ -7,9 +7,11 @@ import com.example.firstapp.vocab.data.local.entity.UserEntity
 import com.example.firstapp.common.model.User
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.common.data.api.ApiClient
+import com.example.firstapp.rewards.data.RewardsManager
 import com.example.firstapp.common.data.api.UpdateUserRequest
 import com.example.firstapp.common.data.api.ForgotPasswordRequest
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.profile.model.WorkExperience
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
@@ -44,13 +46,13 @@ class UserRepositoryImpl @Inject constructor(
                     id = entity.id,
                     username = entity.username,
                     email = entity.email,
-                    display_name = entity.display_name,
-                    phone_number = entity.phone_number,
-                    created_at = entity.created_at,
-                    avatar_url = entity.avatar_url,
+                    displayName = entity.display_name,
+                    phoneNumber = entity.phone_number,
+                    createdAt = entity.created_at,
+                    avatarUrl = entity.avatar_url,
                     bio = entity.bio,
                     location = entity.location,
-                    is_verified = entity.is_verified,
+                    isVerified = entity.is_verified,
                     xp = entity.xp,
                     level = entity.level,
                     streak = entity.streak,
@@ -63,7 +65,7 @@ class UserRepositoryImpl @Inject constructor(
                     streakFreezes = entity.streakFreezes,
                     lastStreakActivity = entity.lastStreakActivity,
                     walletBalance = entity.walletBalance,
-                    banner_url = entity.bannerUrl,
+                    bannerUrl = entity.bannerUrl,
                     isArtist = entity.isArtist,
                     jobFullName = entity.jobFullName,
                     jobEmail = entity.jobEmail,
@@ -92,20 +94,20 @@ class UserRepositoryImpl @Inject constructor(
                     id = entity.id,
                     username = entity.username,
                     email = entity.email,
-                    display_name = entity.display_name,
-                    phone_number = entity.phone_number,
-                    created_at = entity.created_at,
-                    avatar_url = entity.avatar_url,
+                    displayName = entity.display_name,
+                    phoneNumber = entity.phone_number,
+                    createdAt = entity.created_at,
+                    avatarUrl = entity.avatar_url,
                     bio = entity.bio,
                     location = entity.location,
-                    is_verified = entity.is_verified,
+                    isVerified = entity.is_verified,
                     xp = entity.xp,
                     level = entity.level,
                     streak = entity.streak,
                     isPremium = entity.isPremium,
                     adsWatchedToday = entity.adsWatchedToday,
                     walletBalance = entity.walletBalance,
-                    banner_url = entity.bannerUrl,
+                    bannerUrl = entity.bannerUrl,
                     isArtist = entity.isArtist,
                     jobFullName = entity.jobFullName,
                     jobEmail = entity.jobEmail,
@@ -135,20 +137,20 @@ class UserRepositoryImpl @Inject constructor(
                 id = cached.id,
                 username = cached.username,
                 email = cached.email,
-                display_name = cached.display_name,
-                phone_number = cached.phone_number,
-                created_at = cached.created_at,
-                avatar_url = cached.avatar_url,
+                displayName = cached.display_name,
+                phoneNumber = cached.phone_number,
+                createdAt = cached.created_at,
+                avatarUrl = cached.avatar_url,
                 bio = cached.bio,
                 location = cached.location,
-                is_verified = cached.is_verified,
+                isVerified = cached.is_verified,
                 xp = cached.xp,
                 level = cached.level,
                 streak = cached.streak,
                 isPremium = cached.isPremium,
                 adsWatchedToday = cached.adsWatchedToday,
                 walletBalance = cached.walletBalance,
-                banner_url = cached.bannerUrl,
+                bannerUrl = cached.bannerUrl,
                 isArtist = cached.isArtist,
                 jobFullName = cached.jobFullName,
                 jobEmail = cached.jobEmail,
@@ -186,13 +188,13 @@ class UserRepositoryImpl @Inject constructor(
             id = user.id,
             username = user.username,
             email = user.email,
-            display_name = user.display_name,
-            phone_number = user.phone_number,
-            created_at = user.created_at,
-            avatar_url = user.avatar_url,
+            display_name = user.displayName,
+            phone_number = user.phoneNumber,
+            created_at = user.createdAt,
+            avatar_url = user.avatarUrl,
             bio = user.bio,
             location = user.location,
-            is_verified = user.is_verified,
+            is_verified = user.isVerified,
             xp = user.xp,
             level = user.level,
             streak = user.streak,
@@ -205,7 +207,7 @@ class UserRepositoryImpl @Inject constructor(
             streakFreezes = user.streakFreezes,
             lastStreakActivity = user.lastStreakActivity,
             walletBalance = user.walletBalance,
-            bannerUrl = user.banner_url,
+            bannerUrl = user.bannerUrl,
             isArtist = user.isArtist,
             jobFullName = user.jobFullName,
             jobEmail = user.jobEmail,
@@ -454,7 +456,14 @@ class UserRepositoryImpl @Inject constructor(
         try {
             val response = ApiClient.authApi.login(com.example.firstapp.common.data.api.LoginRequest(username, password))
             if (response.isSuccessful && response.body() != null) {
-                emit(Resource.Success(response.body()!!))
+                val auth = response.body()!!
+                syncUserLocally(auth.user)
+                // Award R0.10 for logging in
+                try {
+                    com.example.firstapp.rewards.data.RewardsManager.awardPoints(0.10, "LOGIN", "Daily login reward")
+                } catch (_: Exception) {}
+
+                emit(Resource.Success(auth))
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Login failed"
                 emit(Resource.Error(errorMsg))
@@ -469,10 +478,90 @@ class UserRepositoryImpl @Inject constructor(
         try {
             val response = ApiClient.authApi.register(com.example.firstapp.common.data.api.RegisterRequest(username, email, displayName, phoneNumber, password))
             if (response.isSuccessful && response.body() != null) {
-                emit(Resource.Success(response.body()!!))
+                val auth = response.body()!!
+                syncUserLocally(auth.user)
+                emit(Resource.Success(auth))
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Registration failed"
                 emit(Resource.Error(errorMsg))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun requestOTP(phoneNumber: String): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = ApiClient.authApi.requestOTP(mapOf("phone_number" to phoneNumber))
+            if (response.isSuccessful) {
+                val msg = response.body()?.code?.let { "DEBUG OTP: $it" } ?: "Verification code requested"
+                emit(Resource.Success(msg))
+            } else {
+                emit(Resource.Error("Failed to request OTP"))
+            }
+        } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
+    }
+
+    override fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = ApiClient.authApi.verifyOTP(mapOf("phone_number" to phoneNumber, "code" to code))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Invalid code"))
+        } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
+    }
+
+    override fun getWorkExperiences(): Flow<Resource<List<WorkExperience>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.getWorkExperiences()
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!))
+            } else {
+                emit(Resource.Error("Failed to fetch experiences"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun addWorkExperience(experience: WorkExperience): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.addWorkExperience(experience)
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.id))
+            } else {
+                emit(Resource.Error("Failed to add experience"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun updateWorkExperience(experience: WorkExperience): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.updateWorkExperience(experience.id!!, experience)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to update experience"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun deleteWorkExperience(experienceId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.deleteWorkExperience(experienceId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to delete experience"))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.toUserMessage()))

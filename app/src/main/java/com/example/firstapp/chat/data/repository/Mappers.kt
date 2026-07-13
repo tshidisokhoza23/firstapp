@@ -85,6 +85,8 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
             "location" -> MessageType.LOCATION
             "contact" -> MessageType.CONTACT
             "document" -> MessageType.DOCUMENT
+            "application_link" -> MessageType.APPLICATION_LINK
+            "job_post" -> MessageType.JOB_POST
             else -> MessageType.TEXT
         },
         mediaUri = formatUrl(apiMessage.media_url),

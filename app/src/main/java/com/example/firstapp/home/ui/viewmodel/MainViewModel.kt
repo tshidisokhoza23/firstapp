@@ -22,11 +22,21 @@ import kotlinx.coroutines.launch
  * - [com.example.firstapp.drive.ui.screens.home.DriveViewModel]
  */
 import com.example.firstapp.domain.repository.ChatRepository
+import com.example.firstapp.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val repository: ChatRepository
+    private val repository: ChatRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    val autoNightMode = settingsRepository.autoNightMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val animationsEnabled = settingsRepository.animationsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     private val _selectedBottomItem = MutableStateFlow(0)
     val selectedBottomItem: StateFlow<Int> = _selectedBottomItem.asStateFlow()

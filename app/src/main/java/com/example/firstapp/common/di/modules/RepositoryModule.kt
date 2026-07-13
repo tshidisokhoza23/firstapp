@@ -3,6 +3,8 @@ package com.example.firstapp.common.di.modules
 import com.example.firstapp.account.data.repository.AccountRepositoryImpl
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.chat.data.repository.ChatRepositoryImpl
+import com.example.firstapp.settings.data.repository.SettingsRepositoryImpl
+import com.example.firstapp.domain.repository.SettingsRepository
 import com.example.firstapp.common.data.api.ApiClient
 import com.example.firstapp.common.data.api.SystemApi
 import com.example.firstapp.common.data.api.UserApi
@@ -92,4 +94,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSystemRepository(impl: SystemRepositoryImpl): SystemRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
 }

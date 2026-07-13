@@ -10,6 +10,9 @@ import com.example.firstapp.common.data.realtime.PostSocketListener
 import com.example.firstapp.media.model.ShortReply
 import com.example.firstapp.media.model.ShortMedia
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.account.domain.repository.AccountRepository
+import java.io.File
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,11 +22,15 @@ import com.example.firstapp.media.domain.repository.ShortsRepository
 
 @HiltViewModel
 class ShortsViewModel @Inject constructor(
-    private val repository: ShortsRepository
+    private val repository: ShortsRepository,
+    private val accountRepository: AccountRepository
 ) : ViewModel() {
 
     private val _shorts = MutableStateFlow<Resource<List<ShortMedia>>>(Resource.Loading())
     val shorts: StateFlow<Resource<List<ShortMedia>>> = _shorts.asStateFlow()
+
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
     private val _selectedShortId = MutableStateFlow<String?>(null)
     val selectedShortId: StateFlow<String?> = _selectedShortId.asStateFlow()
@@ -213,6 +220,47 @@ class ShortsViewModel @Inject constructor(
             getUserShorts(userId)
         } else {
             fetchShorts()
+        }
+    }
+
+    fun uploadShort(videoFile: File, description: String, thumbnailFile: File?) {
+        viewModelScope.launch {
+            _isUploading.value = true
+            try {
+                var videoUrl = ""
+                var thumbnailUrl = ""
+
+                // 1. Upload Video
+                val videoRes = accountRepository.uploadFile(videoFile, "shorts/videos").first()
+                if (videoRes is Resource.Success && videoRes.data != null) {
+                    videoUrl = videoRes.data.url
+                } else {
+                    _shorts.value = Resource.Error((videoRes as? Resource.Error)?.message ?: "Video upload failed")
+                    _isUploading.value = false
+                    return@launch
+                }
+
+                // 2. Upload Thumbnail if provided
+                if (thumbnailFile != null) {
+                    val thumbRes = accountRepository.uploadFile(thumbnailFile, "shorts/thumbnails").first()
+                    if (thumbRes is Resource.Success && thumbRes.data != null) {
+                        thumbnailUrl = thumbRes.data.url
+                    }
+                }
+
+                // 3. Create Short entry
+                repository.createShort(description, videoUrl, thumbnailUrl).collect { res ->
+                    if (res is Resource.Success) {
+                        fetchShorts()
+                    } else if (res is Resource.Error) {
+                        _shorts.value = Resource.Error(res.message ?: "Failed to create short")
+                    }
+                }
+            } catch (e: Exception) {
+                _shorts.value = Resource.Error(e.message ?: "Unknown upload error")
+            } finally {
+                _isUploading.value = false
+            }
         }
     }
 

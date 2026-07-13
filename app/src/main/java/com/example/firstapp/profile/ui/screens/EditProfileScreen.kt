@@ -37,7 +37,7 @@ fun EditProfileScreen(
     val user by userViewModel.currentUser.collectAsState()
     val context = LocalContext.current
     
-    var displayName by remember(user) { mutableStateOf(user?.display_name ?: "") }
+    var displayName by remember(user) { mutableStateOf(user?.displayName ?: "") }
     var bio by remember(user) { mutableStateOf(user?.bio ?: "") }
     var location by remember(user) { mutableStateOf(user?.location ?: "") }
 
@@ -102,9 +102,9 @@ fun EditProfileScreen(
                     .background(AppSecondary)
                     .clickable { bannerLauncher.launch("image/*") }
             ) {
-                if (user?.banner_url != null) {
+                if (user?.bannerUrl != null) {
                     AsyncImage(
-                        model = user?.banner_url,
+                        model = user?.bannerUrl,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -134,15 +134,15 @@ fun EditProfileScreen(
                         .clickable { imageLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (user?.avatar_url != null) {
+                    if (user?.avatarUrl != null) {
                         AsyncImage(
-                            model = user?.avatar_url,
+                            model = user?.avatarUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize().clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Text(user?.display_name?.take(1)?.uppercase() ?: "U", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                        Text(user?.displayName?.take(1)?.uppercase() ?: "U", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(
                         modifier = Modifier

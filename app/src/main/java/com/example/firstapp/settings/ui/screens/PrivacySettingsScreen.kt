@@ -28,7 +28,11 @@ import com.example.firstapp.common.model.PrivacySettings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrivacySettingsScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel = hiltViewModel()) {
+fun PrivacySettingsScreen(
+    onBack: () -> Unit, 
+    onNavigateToBlockedUsers: () -> Unit = {},
+    viewModel: PrivacySettingsViewModel = hiltViewModel()
+) {
     val settingsResource by viewModel.settings.collectAsState()
     val settings = settingsResource.data ?: PrivacySettings()
     var showLastSeenDialog by remember { mutableStateOf(false) }
@@ -86,7 +90,7 @@ fun PrivacySettingsScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewMode
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
-                    PrivacyItemUnique(title = "Blocked Users", subtitle = "None", onClick = { /* Navigate */ })
+                    PrivacyItemUnique(title = "Blocked Users", subtitle = "Manage blocked accounts", onClick = onNavigateToBlockedUsers)
                     PrivacyItemUnique(title = "Phone Number", subtitle = "Everyone", onClick = { showPhoneNumberDialog = true })
                     PrivacyItemUnique(title = "Last Seen & Online", subtitle = settings.show_last_seen.replace("_", " ").replaceFirstChar { it.uppercase() }, onClick = { showLastSeenDialog = true })
                     PrivacyItemUnique(title = "Profile Photos", subtitle = "Everyone")

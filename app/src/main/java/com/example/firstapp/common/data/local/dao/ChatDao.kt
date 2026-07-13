@@ -96,9 +96,21 @@ interface ChatDao {
 
     @Query("UPDATE chats SET wallpaperUrl = :wallpaperUrl WHERE id = :chatId")
     suspend fun updateWallpaper(chatId: String, wallpaperUrl: String?)
+
+    @Query("UPDATE chats SET customNotificationTone = :tone WHERE id = :chatId")
+    suspend fun updateCustomNotificationTone(chatId: String, tone: String?)
+
+    @Query("UPDATE chats SET mediaVisibility = :visible WHERE id = :chatId")
+    suspend fun updateMediaVisibility(chatId: String, visible: Boolean)
+
+    @Query("UPDATE chats SET disappearingMessagesDuration = :duration WHERE id = :chatId")
+    suspend fun updateDisappearingMessages(chatId: String, duration: Int)
     
     @Query("SELECT * FROM messages WHERE id IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH :query) ORDER BY timestamp DESC")
     fun searchMessagesAcrossAll(query: String): Flow<List<MessageEntity>>
+
+    @Query("DELETE FROM messages WHERE conversationId = :chatId AND id NOT IN (SELECT id FROM messages WHERE conversationId = :chatId ORDER BY timestamp DESC LIMIT :limit)")
+    suspend fun pruneMessages(chatId: String, limit: Int)
 
     @Query("SELECT * FROM chats WHERE id = :chatId")
     fun getChatById(chatId: String): Flow<ChatEntity?>

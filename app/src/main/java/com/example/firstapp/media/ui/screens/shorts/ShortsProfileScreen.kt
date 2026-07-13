@@ -103,7 +103,7 @@ fun ShortsProfileScreen(
                     shape = CircleShape,
                     color = AppSecondary
                 ) {
-                    val avatar = user?.avatar_url
+                    val avatar = user?.avatarUrl
                     if (!avatar.isNullOrEmpty()) {
                         AsyncImage(
                             model = avatar,
@@ -119,7 +119,7 @@ fun ShortsProfileScreen(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                val dName = user?.display_name ?: "Creator"
+                val dName = user?.displayName ?: "Creator"
                 Text(
                     text = "$dName 🇿🇦",
                     color = Color.White,
@@ -140,9 +140,9 @@ fun ShortsProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    val following = user?.following_count?.toString() ?: "0"
+                    val following = user?.followingCount?.toString() ?: "0"
                     StatItem(following, "Following")
-                    val followers = user?.followers_count?.toLong() ?: 0L
+                    val followers = user?.followingCount?.toLong() ?: 0L
                     StatItem(formatCount(followers), "Followers")
                     StatItem("875.5K", "Likes")
                 }

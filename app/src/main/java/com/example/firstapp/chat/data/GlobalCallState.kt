@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * App-wide state for a pending incoming call.
- * Updated by CallListenerService (and ChatScreen) so the overlay in MainScreen
+ * Updated by CallListenerService (and ChatMessagesScreen) so the overlay in MainScreen
  * can show an in-app incoming-call UI regardless of which screen is visible.
  */
 object GlobalCallState {

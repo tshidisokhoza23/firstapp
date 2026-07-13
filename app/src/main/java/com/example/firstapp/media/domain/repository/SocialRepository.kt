@@ -15,6 +15,8 @@ interface SocialRepository {
     fun getUserPosts(userId: String, page: Int = 1): Flow<Resource<List<Post>>>
     fun getPostsPaging(following: Boolean = false, authorId: String? = null): Flow<PagingData<Post>>
     suspend fun updatePostLikeLocally(postId: String, likes: String, isLiked: Boolean)
+    suspend fun updatePostRepostLocally(postId: String, shares: String, isReposted: Boolean)
+    suspend fun updatePostBookmarkLocally(postId: String, isBookmarked: Boolean)
     fun createPost(content: String, mediaUrls: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: String? = null, pollOptions: List<String>? = null, location: String? = null): Flow<Resource<Boolean>>
     fun likePost(postId: String): Flow<Resource<Boolean>>
     fun repostPost(postId: String): Flow<Resource<Boolean>>
@@ -24,6 +26,7 @@ interface SocialRepository {
     fun likePostReply(replyId: String): Flow<Resource<Boolean>>
     fun repostPostReply(replyId: String): Flow<Resource<Boolean>>
     fun bookmarkPostReply(replyId: String): Flow<Resource<Boolean>>
+    fun deletePostReply(replyId: String): Flow<Resource<Boolean>>
     fun votePoll(postId: String, optionId: String): Flow<Resource<Boolean>>
     fun followUser(userId: String): Flow<Resource<Boolean>>
     fun unfollowUser(userId: String): Flow<Resource<Boolean>>

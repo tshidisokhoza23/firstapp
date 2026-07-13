@@ -44,7 +44,8 @@ class AuthViewModel @Inject constructor(
                     val authResponse = resource.data
                     if (authResponse != null) {
                         pendingAuthResponse = authResponse
-                        val phoneNumber = authResponse.user.phone_number ?: ""
+                        val user = authResponse.user
+                        val phoneNumber = user?.phoneNumber ?: ""
                         if (phoneNumber.length > 0) {
                             requestOTP(phoneNumber)
                         } else {
@@ -63,36 +64,24 @@ class AuthViewModel @Inject constructor(
 
     fun requestOTP(phoneNumber: String) {
         viewModelScope.launch {
-            _otpState.value = Resource.Loading()
             lastRequestedPhone = phoneNumber
-            try {
-                val response = ApiClient.authApi.requestOTP(mapOf("phone_number" to phoneNumber))
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    val msg = body?.code?.let { "DEBUG OTP: $it" } ?: "Verification code requested"
-                    _otpState.value = Resource.Success(msg)
-                } else {
-                    _otpState.value = Resource.Error(response.errorBody()?.string() ?: "Failed to send code")
-                }
-            } catch (e: Exception) {
-                _otpState.value = Resource.Error("Connection error")
+            userRepository.requestOTP(phoneNumber).collect { resource ->
+                _otpState.value = resource
             }
         }
     }
 
     fun verifyOTP(phoneNumber: String, code: String, onVerified: () -> Unit) {
         viewModelScope.launch {
-            _otpState.value = Resource.Loading()
-            try {
-                val response = ApiClient.authApi.verifyOTP(mapOf("phone_number" to phoneNumber, "code" to code))
-                if (response.isSuccessful) {
+            userRepository.verifyOTP(phoneNumber, code).collect { resource ->
+                if (resource is Resource.Success && resource.data == true) {
                     _otpState.value = Resource.Success("Verified")
                     onVerified()
-                } else {
-                    _otpState.value = Resource.Error("Invalid or expired code")
+                } else if (resource is Resource.Error) {
+                    _otpState.value = Resource.Error(resource.message ?: "Verification failed")
+                } else if (resource is Resource.Loading) {
+                    _otpState.value = Resource.Loading()
                 }
-            } catch (e: Exception) {
-                _otpState.value = Resource.Error("Connection error")
             }
         }
     }

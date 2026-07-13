@@ -2,42 +2,59 @@ package com.example.firstapp.settings.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.firstapp.domain.repository.ChatRepository
+import com.example.firstapp.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
 class ChatSettingsViewModel @Inject constructor(
-    private val repository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
-    private val _fontSize = MutableStateFlow(16f)
-    val fontSize: StateFlow<Float> = _fontSize
+    val fontSize: StateFlow<Float> = settingsRepository.fontSize
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 16f)
 
-    private val _enterIsSend = MutableStateFlow(false)
-    val enterIsSend: StateFlow<Boolean> = _enterIsSend
+    val enterIsSend: StateFlow<Boolean> = settingsRepository.enterIsSend
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val _mediaVisibility = MutableStateFlow(true)
-    val mediaVisibility: StateFlow<Boolean> = _mediaVisibility
+    val mediaVisibility: StateFlow<Boolean> = settingsRepository.mediaVisibility
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val _animationsEnabled = MutableStateFlow(true)
-    val animationsEnabled: StateFlow<Boolean> = _animationsEnabled
+    val animationsEnabled: StateFlow<Boolean> = settingsRepository.animationsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val _autoNightMode = MutableStateFlow(false)
-    val autoNightMode: StateFlow<Boolean> = _autoNightMode
+    val autoNightMode: StateFlow<Boolean> = settingsRepository.autoNightMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    fun setFontSize(size: Float) { _fontSize.value = size }
-    fun setEnterIsSend(enabled: Boolean) { _enterIsSend.value = enabled }
-    fun setMediaVisibility(enabled: Boolean) { _mediaVisibility.value = enabled }
-    fun setAnimationsEnabled(enabled: Boolean) { _animationsEnabled.value = enabled }
-    fun setAutoNightMode(enabled: Boolean) { _autoNightMode.value = enabled }
+    fun setFontSize(size: Float) {
+        viewModelScope.launch { settingsRepository.setFontSize(size) }
+    }
+
+    fun setEnterIsSend(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setEnterIsSend(enabled) }
+    }
+
+    fun setMediaVisibility(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setMediaVisibility(enabled) }
+    }
+
+    fun setAnimationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setAnimationsEnabled(enabled) }
+    }
+
+    fun setAutoNightMode(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setAutoNightMode(enabled) }
+    }
 
     fun clearAllChats() {
         viewModelScope.launch {
-            repository.clearAllChats()
+            chatRepository.clearAllChats()
         }
     }
 }

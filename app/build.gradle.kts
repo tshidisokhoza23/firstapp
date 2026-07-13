@@ -13,11 +13,9 @@ android {
     val hostIp = (project.findProperty("HOST_IP") as String?)
         ?: System.getenv("HOST_IP")
     
-    val defaultHost = hostIp?.takeIf { it.isNotBlank() } ?: "127.0.0.1"
-    val apiBaseUrl = (project.findProperty("API_BASE_URL") as String?)
-        ?: "http://$defaultHost:8082/api/v1/"
-    val wsBaseUrl = (project.findProperty("WS_BASE_URL") as String?)
-        ?: "ws://$defaultHost:8082/api/v1/"
+    val defaultHost = hostIp ?: "10.234.179.54" // Your laptop's IP on the A11 network
+    val apiBaseUrl = "http://$defaultHost:8082/api/v1/"
+    val wsBaseUrl = "ws://$defaultHost:8082/api/v1/"
 
     defaultConfig {
         applicationId = "com.example.firstapp"
@@ -60,6 +58,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
@@ -124,6 +123,8 @@ dependencies {
     implementation("androidx.biometric:biometric-ktx:1.2.0-alpha05")
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
     testImplementation("org.robolectric:robolectric:4.11.1")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

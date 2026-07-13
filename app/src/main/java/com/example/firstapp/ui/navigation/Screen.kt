@@ -7,8 +7,9 @@ sealed class Screen(val route: String) {
         fun createRoute(phoneNumber: String, username: String, email: String, displayName: String, password: String) = 
             "otp_verification/${android.net.Uri.encode(phoneNumber)}/${android.net.Uri.encode(username)}/${android.net.Uri.encode(email)}/${android.net.Uri.encode(displayName)}/${android.net.Uri.encode(password)}"
     }
-    object Chat : Screen("chat/{chatId}?type={type}") {
-        fun createRoute(chatId: String, type: String = "direct") = "chat/$chatId?type=$type"
+    object Chat : Screen("chat/{chatId}?type={type}&jobId={jobId}&jobTitle={jobTitle}&companyName={companyName}") {
+        fun createRoute(chatId: String, type: String = "direct", jobId: String? = null, jobTitle: String? = null, companyName: String? = null) = 
+            "chat/$chatId?type=$type&jobId=${jobId ?: ""}&jobTitle=${android.net.Uri.encode(jobTitle ?: "")}&companyName=${android.net.Uri.encode(companyName ?: "")}"
     }
     object Vocab : Screen("vocab")
     object Files : Screen("files")
@@ -26,6 +27,7 @@ sealed class Screen(val route: String) {
     object StarredMessages : Screen("starred_messages")
     object Settings : Screen("settings")
     object PrivacySettings : Screen("privacy_settings")
+    object BlockedUsers : Screen("blocked_users")
     object AccountSettings : Screen("account_settings")
     object ChatSettings : Screen("chat_settings")
     object NotificationSettings : Screen("notification_settings")
@@ -34,6 +36,9 @@ sealed class Screen(val route: String) {
     object LanguageSettings : Screen("language_settings")
     object DevicesSettings : Screen("devices_settings")
     object EditProfile : Screen("edit_profile")
+    object EditWorkExperience : Screen("edit_work_experience?experienceId={experienceId}") {
+        fun createRoute(experienceId: String? = null) = "edit_work_experience?experienceId=${experienceId ?: ""}"
+    }
     object UserProfile : Screen("user_profile/{userId}?isGroup={isGroup}") {
         fun createRoute(userId: String, isGroup: Boolean = false) = "user_profile/$userId?isGroup=$isGroup"
     }

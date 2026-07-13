@@ -3,6 +3,7 @@ package com.example.firstapp.media.data.repository
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.data.api.*
 import com.example.firstapp.media.domain.repository.AdRepository
+import com.example.firstapp.rewards.data.RewardsManager
 import com.example.firstapp.media.model.Advert
 import com.example.firstapp.common.data.local.dao.AdvertDao
 import com.example.firstapp.media.data.repository.*
@@ -42,6 +43,8 @@ class AdRepositoryImpl @Inject constructor(
         try {
             advertDao.markAsViewed(advertId)
             mediaApi.markAdvertViewed(advertId)
+            // Award R0.10 for watching a rewarded ad
+            RewardsManager.awardPoints(0.10, "REWARDED_AD", "Watched advert $advertId")
             emit(Resource.Success(true))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }

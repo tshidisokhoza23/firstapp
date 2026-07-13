@@ -18,7 +18,7 @@ import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.home.ui.components.MoreShortcutsSheet
 
 // Isolated Feature Tab Screens
-import com.example.firstapp.chat.ui.screens.ChatTabScreen
+import com.example.firstapp.chat.ui.screens.ChatsListScreen
 import com.example.firstapp.media.ui.screens.MediaTabScreen
 import com.example.firstapp.media.ui.screens.shorts.ShortsTabScreen
 import com.example.firstapp.music.ui.screens.MusicTabScreen
@@ -65,7 +65,7 @@ fun MainScreen(
                 }
 
                 when (tabToDisplay) {
-                    BottomNavItem.Chat -> ChatTabScreen(navController, onLogout = onLogout)
+                    BottomNavItem.Chat -> ChatsListScreen(navController, onLogout = onLogout)
                     BottomNavItem.Media -> MediaTabScreen(navController)
                     BottomNavItem.Shorts -> ShortsTabScreen(
                         navController = navController,
@@ -73,7 +73,7 @@ fun MainScreen(
                     )
                     BottomNavItem.Music -> MusicTabScreen(navController)
                     BottomNavItem.Drive -> DriveTabScreen(navController)
-                    else -> ChatTabScreen(navController, onLogout = onLogout)
+                    else -> ChatsListScreen(navController, onLogout = onLogout)
                 }
 
                 // The "More" Sheet Overlay - positioned precisely ABOVE the bottom nav

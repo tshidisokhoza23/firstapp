@@ -49,11 +49,12 @@ import com.example.firstapp.media.ui.components.StoriesRow
 import com.example.firstapp.home.ui.screens.RewardsScreen
 import com.example.firstapp.jobs.ui.screens.JobList
 import com.example.firstapp.media.ui.screens.channels.ChannelList
+import com.example.firstapp.media.ui.screens.ExternalAdItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
 @Composable
-fun ChatTabScreen(
+fun ChatsListScreen(
     navController: NavController,
     onLogout: () -> Unit,
     onShowMore: () -> Unit = {}, 
@@ -123,10 +124,18 @@ fun ChatTabScreen(
                     }
                     .zIndex(1f),
                 color = AppBackground,
-                tonalElevation = 4.dp,
-                shadowElevation = 4.dp
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp
             ) {
-                Column(modifier = Modifier.statusBarsPadding()) {
+                Column(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(AppBackground, AppBackground.copy(alpha = 0.95f))
+                            )
+                        )
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -185,8 +194,9 @@ fun ChatTabScreen(
                             Text(
                                 text = "FirstApp",
                                 color = Color.White,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Black
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-0.5).sp
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             
@@ -270,26 +280,36 @@ fun ChatTabScreen(
                             .horizontalScroll(rememberScrollState())
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTabItem == index
+                            val animatedColor by animateColorAsState(
+                                targetValue = if (isSelected) AppAccent else AppSecondary,
+                                label = "tabColor"
+                            )
+                            val animatedContentColor by animateColorAsState(
+                                targetValue = if (isSelected) AppBackground else Color.White,
+                                label = "tabContentColor"
+                            )
+                            
                             Surface(
                                 onClick = { selectedTabItem = index },
-                                color = if (isSelected) AppAccent else AppSecondary,
+                                color = animatedColor,
                                 shape = RoundedCornerShape(24.dp),
-                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
                             ) {
                                 Text(
                                     text = title,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                    color = if (isSelected) AppBackground else Color.White,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    color = animatedContentColor,
                                     fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.ExtraBold
                                 )
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         },
@@ -322,57 +342,71 @@ fun ChatTabScreen(
                             onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id)) }
                         )
                     } else {
-                        ChatList(
-                            chats = sanitizedChats,
-                            archivedChatsCount = archivedChatsState.data?.size ?: 0,
-                            stories = storiesState.data ?: emptyList<UserStory>(),
-                            chatViewModel = chatViewModel,
-                            topBarHeight = topBarHeight,
-                            currentUserId = currentUser?.id,
-                            initialScrollDone = isChatInitialScrollDone,
-                            onInitialScrollDone = { isChatInitialScrollDone = it },
-                            onChatClick = { chat -> 
-                                val typeStr = when (chat.type) {
-                                    ConversationType.CHANNEL -> "channel"
-                                    ConversationType.GROUP -> "group"
-                                    else -> "direct"
-                                }
-                                navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
-                            },
-                            onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
-                            onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
-                            onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
-                            onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
-                            onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) }
-                        )
+                        if (chatsState is Resource.Loading && sanitizedChats.isEmpty()) {
+                            LazyColumn(modifier = Modifier.fillMaxSize().padding(top = topBarHeight)) {
+                                items(10) { ChatItemShimmer() }
+                            }
+                        } else {
+                            ChatList(
+                                chats = sanitizedChats,
+                                archivedChatsCount = archivedChatsState.data?.size ?: 0,
+                                stories = storiesState.data ?: emptyList<UserStory>(),
+                                chatViewModel = chatViewModel,
+                                topBarHeight = topBarHeight,
+                                currentUserId = currentUser?.id,
+                                initialScrollDone = isChatInitialScrollDone,
+                                onInitialScrollDone = { isChatInitialScrollDone = it },
+                                onChatClick = { chat -> 
+                                    val typeStr = when (chat.type) {
+                                        ConversationType.CHANNEL -> "channel"
+                                        ConversationType.GROUP -> "group"
+                                        else -> "direct"
+                                    }
+                                    navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
+                                },
+                                onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
+                                onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
+                                onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
+                                onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
+                                onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) }
+                            )
+                        }
                     }
                 }
                 1 -> {
                     val ads = advertsState.data ?: emptyList<Advert>()
                     val viewedAds = viewedAdvertsState.data ?: emptyList<Advert>()
-                    DataStateHandler(advertsState) {
-                         RewardsScreen(
-                            adverts = ads,
-                            viewedAdverts = viewedAds,
-                            adsWatched = currentUser?.adsWatchedToday ?: 0,
-                            points = points,
-                            totalAdsToWatch = 20,
-                            onAdvertClick = { ad -> 
-                                val activity = context as? android.app.Activity
-                                if (activity != null) {
-                                    advertsViewModel.adManager.showRewardedAd(
-                                        activity = activity,
-                                        onRewardEarned = {
-                                            advertsViewModel.markAdvertAsViewed(ad.id)
-                                            Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
-                                        },
-                                        onAdClosed = { advertsViewModel.adManager.loadRewardedAd() }
-                                    )
-                                }
-                            },
-                            onRefresh = { advertsViewModel.fetchAdverts() },
-                            onResetAds = { advertsViewModel.resetAds() }
-                        )
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            DataStateHandler(
+                                resource = advertsState,
+                                onLoading = { SkeletonLoader() }
+                            ) {
+                                 RewardsScreen(
+                                    adverts = ads,
+                                    viewedAdverts = viewedAds,
+                                    points = points,
+                                    onAdvertClick = { ad -> 
+                                        val activity = context as? android.app.Activity
+                                        if (activity != null) {
+                                            advertsViewModel.adManager.showRewardedAd(
+                                                activity = activity,
+                                                onRewardEarned = {
+                                                    advertsViewModel.markAdvertAsViewed(ad.id)
+                                                    Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                onAdClosed = { advertsViewModel.adManager.loadRewardedAd() }
+                                            )
+                                        }
+                                    },
+                                    onRefresh = { advertsViewModel.fetchAdverts() },
+                                    onResetAds = { advertsViewModel.resetAds() }
+                                )
+                            }
+                        }
+                        
+                        // Banner Ad fixed at the bottom, above bottom navigation
+                        ExternalAdItem()
                     }
                 }
                 2 -> {

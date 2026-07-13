@@ -31,6 +31,7 @@ fun MediaTabScreen(
             onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, t, tags, pollOptions = p, location = l) },
             onLikePost = { id, l, liked -> mediaViewModel.likePost(id, l, liked) },
             onRepostPost = { mediaViewModel.repostPost(it) },
+            onDeletePost = { mediaViewModel.deletePost(it) },
             onReplySubmit = { p1, p2, c -> mediaViewModel.createPostReply(p1, c, p2) }, 
             onReplyLike = { mediaViewModel.likePostReply(it) }, 
             onReplyRepost = { mediaViewModel.repostPostReply(it) }, 

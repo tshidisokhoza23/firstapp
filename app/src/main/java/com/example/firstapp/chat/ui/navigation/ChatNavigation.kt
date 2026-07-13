@@ -23,17 +23,24 @@ import com.example.firstapp.ui.navigation.Screen
 
 import com.example.firstapp.common.model.ConversationType
 
-fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
+fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     composable(
         route = Screen.Chat.route,
         arguments = listOf(
             navArgument("chatId") { type = NavType.StringType },
-            navArgument("type") { type = NavType.StringType; defaultValue = "direct" }
+            navArgument("type") { type = NavType.StringType; defaultValue = "direct" },
+            navArgument("jobId") { type = NavType.StringType; nullable = true; defaultValue = "" },
+            navArgument("jobTitle") { type = NavType.StringType; nullable = true; defaultValue = "" },
+            navArgument("companyName") { type = NavType.StringType; nullable = true; defaultValue = "" }
         )
     ) { backStackEntry ->
         val chatViewModel: ChatViewModel = hiltViewModel()
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         val typeStr = backStackEntry.arguments?.getString("type") ?: "direct"
+        val jobId = backStackEntry.arguments?.getString("jobId")?.takeIf { it.isNotBlank() }
+        val jobTitle = backStackEntry.arguments?.getString("jobTitle")?.takeIf { it.isNotBlank() }
+        val companyName = backStackEntry.arguments?.getString("companyName")?.takeIf { it.isNotBlank() }
+        
         val type = if (typeStr == "group") ConversationType.GROUP 
                    else if (typeStr == "channel") ConversationType.CHANNEL 
                    else ConversationType.DIRECT
@@ -72,13 +79,16 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
             chatViewModel.fetchMessages(chatId)
         }
 
-        ChatScreen(
+        ChatMessagesScreen(
             chat = chat,
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },
             onShowProfile = { userId, isGroup -> 
                 navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) 
-            }
+            },
+            jobId = jobId,
+            jobTitle = jobTitle,
+            companyName = companyName
         )
     }
 
@@ -103,7 +113,7 @@ fun NavGraphBuilder.chatNavGraph(navController: NavHostController) {
             avatarColor = BoyishPurple
         )
 
-        ChatScreen(
+        ChatMessagesScreen(
             chat = chat,
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },

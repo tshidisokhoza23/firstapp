@@ -2,6 +2,7 @@ package com.example.firstapp.vocab.domain.repository
 
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.profile.model.WorkExperience
 import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
@@ -23,4 +24,12 @@ interface UserRepository {
     fun deleteAccount(): Flow<Resource<Boolean>>
     fun login(username: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
     fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
+    fun requestOTP(phoneNumber: String): Flow<Resource<String>>
+    fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>>
+
+    // Work Experience
+    fun getWorkExperiences(): Flow<Resource<List<WorkExperience>>>
+    fun addWorkExperience(experience: WorkExperience): Flow<Resource<String>>
+    fun updateWorkExperience(experience: WorkExperience): Flow<Resource<Boolean>>
+    fun deleteWorkExperience(experienceId: String): Flow<Resource<Boolean>>
 }

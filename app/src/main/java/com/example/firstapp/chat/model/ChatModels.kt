@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.example.firstapp.common.model.ConversationType
 
 enum class MessageStatus { PENDING, SENT, DELIVERED, READ, FAILED }
-enum class MessageType { TEXT, IMAGE, VIDEO, AUDIO_MESSAGE, LOCATION, CONTACT, DOCUMENT, SHORT_SHARE, JOB_POST, VOICE_CALL }
+enum class MessageType { TEXT, IMAGE, VIDEO, AUDIO_MESSAGE, LOCATION, CONTACT, DOCUMENT, SHORT_SHARE, JOB_POST, VOICE_CALL, APPLICATION_LINK }
 
 data class ApplicantProfile(
     val full_name: String,

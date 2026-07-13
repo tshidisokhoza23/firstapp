@@ -146,6 +146,7 @@ fun ContactPickerScreen(
 
             items(contacts) { contact ->
                 val isSelected = selectedContacts.contains(contact)
+                val context = LocalContext.current
                 ContactItem(
                     contact = contact,
                     isSelected = isSelected,
@@ -157,7 +158,16 @@ fun ContactPickerScreen(
                                 else selectedContacts.add(contact)
                             }
                         } else {
-                            onContactSelected(contact)
+                            if (contact.isRegistered) {
+                                onContactSelected(contact)
+                            } else {
+                                val intent = Intent(Intent.ACTION_SENDTO)
+                                intent.data = Uri.parse("smsto:${contact.phoneNumber}")
+                                intent.putExtra("sms_body", "Join me on FirstApp! http://firstapp.com/download")
+                                try {
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            }
                         }
                     }
                 )
@@ -197,16 +207,25 @@ fun ContactActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, onClick: () -> Unit) {
     val context = LocalContext.current
     val displayNameResolver = remember(context) { DisplayNameResolver(context) }
-    val resolvedName = remember(contact.displayName, contact.phoneNumber) {
-        displayNameResolver.resolve(
-            User(
-                id = contact.id,
-                username = contact.username,
-                display_name = contact.displayName,
-                phone_number = contact.phoneNumber
-            ),
-            contact.phoneNumber
+    
+    // Resolve name with safer initialization
+    var resolvedName by remember { mutableStateOf(if (contact.displayName.isNotEmpty()) contact.displayName else contact.phoneNumber) }
+    
+    // Move heavy/background resolving to a side-effect
+    LaunchedEffect(contact.phoneNumber, contact.displayName) {
+        val user = User(
+            id = contact.id,
+            username = contact.username,
+            displayName = contact.displayName,
+            phoneNumber = contact.phoneNumber
         )
+        // Only attempt resolve if we have a phone number
+        if (contact.phoneNumber.isNotEmpty()) {
+            val resolved = displayNameResolver.resolve(user, contact.phoneNumber)
+            if (resolved.isNotEmpty()) {
+                resolvedName = resolved
+            }
+        }
     }
 
     Row(

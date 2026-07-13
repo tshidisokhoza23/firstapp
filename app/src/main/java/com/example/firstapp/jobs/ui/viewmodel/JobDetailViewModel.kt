@@ -24,6 +24,10 @@ class JobDetailViewModel @Inject constructor(
     private val _applyResult = MutableStateFlow<Resource<String>?>(null)
     val applyResult: StateFlow<Resource<String>?> = _applyResult.asStateFlow()
 
+    data class ApplyContext(val jobId: String, val jobTitle: String, val companyName: String)
+    private val _lastApplyContext = MutableStateFlow<ApplyContext?>(null)
+    val lastApplyContext: StateFlow<ApplyContext?> = _lastApplyContext.asStateFlow()
+
     fun loadJob(jobId: String) {
         viewModelScope.launch {
             repository.getJobs().collect { resource ->
@@ -38,8 +42,9 @@ class JobDetailViewModel @Inject constructor(
         }
     }
 
-    fun applyForJob(jobId: String) {
+    fun applyForJob(jobId: String, jobTitle: String, companyName: String) {
         viewModelScope.launch {
+            _lastApplyContext.value = ApplyContext(jobId, jobTitle, companyName)
             repository.applyForJob(jobId).collect { result ->
                 _applyResult.value = result
             }

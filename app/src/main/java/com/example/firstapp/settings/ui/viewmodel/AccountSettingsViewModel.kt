@@ -4,23 +4,29 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.firstapp.vocab.domain.repository.UserRepository
+import com.example.firstapp.domain.repository.SettingsRepository
 
 @HiltViewModel
 class AccountSettingsViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
     
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage
 
+    val securityNotificationsEnabled: StateFlow<Boolean> = settingsRepository.securityNotificationsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     fun changePhoneNumber(newNumber: String) {
-        // Mocking for now, could be part of updateProfile
         viewModelScope.launch {
             _toastMessage.value = "Phone number update request sent for $newNumber"
         }
@@ -43,7 +49,10 @@ class AccountSettingsViewModel @Inject constructor(
     }
 
     fun toggleSecurityNotifications(enabled: Boolean) {
-        _toastMessage.value = if (enabled) "Security alerts enabled" else "Security alerts disabled"
+        viewModelScope.launch {
+            settingsRepository.setSecurityNotificationsEnabled(enabled)
+            _toastMessage.value = if (enabled) "Security alerts enabled" else "Security alerts disabled"
+        }
     }
 
     fun clearToast() {

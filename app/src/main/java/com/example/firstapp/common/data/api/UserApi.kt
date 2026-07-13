@@ -53,9 +53,24 @@ interface UserApi {
     
     @GET("search")
     suspend fun search(@Query("query") query: String, @Query("type") type: String? = null): Response<SearchResponse>
+
+    // Work Experience
+    @GET("profile/experience")
+    suspend fun getWorkExperiences(): Response<List<com.example.firstapp.profile.model.WorkExperience>>
+
+    @POST("profile/experience")
+    suspend fun addWorkExperience(@Body experience: com.example.firstapp.profile.model.WorkExperience): Response<ExperienceIdResponse>
+
+    @PUT("profile/experience/{experienceId}")
+    suspend fun updateWorkExperience(@Path("experienceId") experienceId: String, @Body experience: com.example.firstapp.profile.model.WorkExperience): Response<StatusResponse>
+
+    @DELETE("profile/experience/{experienceId}")
+    suspend fun deleteWorkExperience(@Path("experienceId") experienceId: String): Response<StatusResponse>
 }
 
 data class UserResponse(val user: User)
+
+data class ExperienceIdResponse(val id: String)
 
 data class UpdateUserRequest(
     val display_name: String? = null,

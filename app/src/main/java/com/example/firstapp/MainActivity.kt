@@ -137,9 +137,13 @@ class MainActivity : FragmentActivity() {
         )
 
         setContent {
-            FirstAppTheme(darkTheme = true) {
+            val viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val autoNightMode by viewModel.autoNightMode.collectAsState()
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val darkTheme = if (autoNightMode) isSystemDark else true
+
+            FirstAppTheme(darkTheme = darkTheme) {
                 val navController = rememberNavController()
-                val viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 val isLoggedIn by TokenManager.authState.collectAsState()
                 var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }

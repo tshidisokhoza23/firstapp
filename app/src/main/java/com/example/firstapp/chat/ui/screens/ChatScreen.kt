@@ -73,15 +73,24 @@ import com.example.firstapp.chat.ui.components.FullScreenVideoPlayer
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ChatScreen(
+fun ChatMessagesScreen(
     chat: ChatMessage,
     chatViewModel: ChatViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onShowProfile: (String, Boolean) -> Unit
+    onShowProfile: (String, Boolean) -> Unit,
+    jobId: String? = null,
+    jobTitle: String? = null,
+    companyName: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    
+    val fontSize by chatViewModel.fontSize.collectAsState()
+    val enterIsSend by chatViewModel.enterIsSend.collectAsState()
+    val animationsEnabled by chatViewModel.animationsEnabled.collectAsState()
+    val showReadReceipts by chatViewModel.showReadReceipts.collectAsState()
+
     var messageText by remember { mutableStateOf("") }
     val messagesResource by chatViewModel.messages.collectAsState()
     val messages = messagesResource.data ?: emptyList()
@@ -121,9 +130,7 @@ fun ChatScreen(
         scope.launch {
             val file = MediaUtils.getFileFromUri(context, uri)
             if (file != null) {
-                val fileSize = (file.length() / 1024).toString() + " KB"
-                val finalType = if (type == "audio") "audio_message" else type
-                sendToServer(body = name ?: type.replaceFirstChar { it.uppercase() }, messageType = finalType, mediaUrl = "file://" + file.absolutePath, duration = duration, fileName = name ?: file.name, fileSize = fileSize)
+                chatViewModel.sendMediaMessage(chat.id, file, type, name, duration)
             }
         }
     }
@@ -184,6 +191,13 @@ fun ChatScreen(
         chatViewModel.markAsRead(chat.id)
     }
 
+    LaunchedEffect(messagesResource, jobTitle, companyName) {
+        if (messagesResource is Resource.Success && (messagesResource.data?.isEmpty() == true) && jobTitle != null && companyName != null) {
+            val systemMessage = "Hi, I would like to apply for the position of $jobTitle at $companyName. Attached is my profile summary."
+            sendToServer(body = systemMessage, messageType = "application_link")
+        }
+    }
+
     LaunchedEffect(messages.size) {
         if (messages.isEmpty()) {
             lastMessageCount = 0
@@ -194,7 +208,11 @@ fun ChatScreen(
             messagesLazyListState.firstVisibleItemIndex >= (messages.size - 4).coerceAtLeast(0)
         if (shouldAutoScroll) {
             delay(100)
-            messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
+            if (animationsEnabled) {
+                messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
+            } else {
+                messagesLazyListState.scrollToItem((messages.size - 1).coerceAtLeast(0))
+            }
         }
         lastMessageCount = messages.size
     }
@@ -483,7 +501,7 @@ fun ChatScreen(
                             ConversationType.CHANNEL -> {
                                 val isAdm = chat.isAdmin || (chat.createdBy != null && chat.createdBy == myUserId)
                                 if (!isAdm) {
-                                    android.util.Log.d("ChatScreen", "Post Denied: chat.isAdmin=${chat.isAdmin}, chat.createdBy=${chat.createdBy}, myUserId=$myUserId")
+                                    android.util.Log.d("ChatMessagesScreen", "Post Denied: chat.isAdmin=${chat.isAdmin}, chat.createdBy=${chat.createdBy}, myUserId=$myUserId")
                                 }
                                 isAdm
                             }
@@ -529,7 +547,8 @@ fun ChatScreen(
                                 onEmojiClick = { showEmojiPicker = !showEmojiPicker },
                                 onMicClick = { if (isRecording) stopRecording() else startRecording() },
                                 isRecording = isRecording,
-                                recordingDuration = recordingDurationSeconds
+                                recordingDuration = recordingDurationSeconds,
+                                enterIsSend = enterIsSend
                             )
                         } else {
                             Surface(
@@ -581,6 +600,8 @@ fun ChatScreen(
                             MessageItemUnique(
                                 message = message,
                                 isSelected = isSelected,
+                                fontSize = fontSize,
+                                showReadReceipts = showReadReceipts,
                                 onClick = {
                                     if (selectedMessages.isNotEmpty()) {
                                         if (isSelected) selectedMessages.remove(message.id)
@@ -613,21 +634,19 @@ fun ChatScreen(
 
                 // Floating Scroll to Bottom
                 val showScrollToBottom by remember { derivedStateOf { messagesLazyListState.firstVisibleItemIndex < messages.size - 5 } }
-                AnimatedVisibility(
-                    visible = showScrollToBottom,
-                    enter = scaleIn() + fadeIn(),
-                    exit = scaleOut() + fadeOut(),
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 100.dp, end = 16.dp)
-                ) {
-                    FloatingActionButton(
-                        onClick = { scope.launch { messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0)) } },
-                        modifier = Modifier.size(44.dp),
-                        containerColor = AppSecondary,
-                        contentColor = AppAccent,
-                        shape = CircleShape,
-                        elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                
+                if (animationsEnabled) {
+                    AnimatedVisibility(
+                        visible = showScrollToBottom,
+                        enter = scaleIn() + fadeIn(),
+                        exit = scaleOut() + fadeOut(),
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 100.dp, end = 16.dp)
                     ) {
-                        Icon(Icons.Default.KeyboardDoubleArrowDown, null, modifier = Modifier.size(24.dp))
+                        ScrollToBottomButton(messagesLazyListState, scope, messages.size, true)
+                    }
+                } else if (showScrollToBottom) {
+                    Box(modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 100.dp, end = 16.dp)) {
+                        ScrollToBottomButton(messagesLazyListState, scope, messages.size, false)
                     }
                 }
             }
@@ -735,6 +754,30 @@ fun ChatScreen(
 }
 
 @Composable
+fun ScrollToBottomButton(
+    state: LazyListState,
+    scope: kotlinx.coroutines.CoroutineScope,
+    messageCount: Int,
+    animated: Boolean
+) {
+    FloatingActionButton(
+        onClick = {
+            scope.launch {
+                if (animated) state.animateScrollToItem((messageCount - 1).coerceAtLeast(0))
+                else state.scrollToItem((messageCount - 1).coerceAtLeast(0))
+            }
+        },
+        modifier = Modifier.size(44.dp),
+        containerColor = AppSecondary,
+        contentColor = AppAccent,
+        shape = CircleShape,
+        elevation = FloatingActionButtonDefaults.elevation(8.dp)
+    ) {
+        Icon(Icons.Default.KeyboardDoubleArrowDown, null, modifier = Modifier.size(24.dp))
+    }
+}
+
+@Composable
 fun EncryptionInfoBubble() {
     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 24.dp), contentAlignment = Alignment.Center) {
         Surface(
@@ -794,7 +837,8 @@ fun ChatBottomBarUnique(
     onEmojiClick: () -> Unit,
     onMicClick: () -> Unit,
     isRecording: Boolean = false,
-    recordingDuration: Int = 0
+    recordingDuration: Int = 0,
+    enterIsSend: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -844,8 +888,12 @@ fun ChatBottomBarUnique(
                             unfocusedTextColor = Color.White
                         ),
                         maxLines = 4,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { if (text.isNotBlank()) onSend() })
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = if (enterIsSend) ImeAction.Send else ImeAction.Default
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSend = { if (text.isNotBlank()) onSend() }
+                        )
                     )
                     
                     IconButton(onClick = onAttachClick) {
@@ -881,6 +929,8 @@ fun ChatBottomBarUnique(
 fun MessageItemUnique(
     message: Message,
     isSelected: Boolean,
+    fontSize: Float = 15f,
+    showReadReceipts: Boolean = true,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onReply: (Message) -> Unit,
@@ -987,7 +1037,7 @@ fun MessageItemUnique(
                     }
 
                     // Attachment Handling
-                    if (message.mediaUri != null || message.type == MessageType.LOCATION) {
+                    if (message.mediaUri != null || message.type == MessageType.LOCATION || message.type == MessageType.APPLICATION_LINK) {
                         AttachmentPreview(message, onVideoClick = onVideoClick)
                     }
 
@@ -1002,8 +1052,8 @@ fun MessageItemUnique(
                             Text(
                                 text = message.content,
                                 color = Color.White,
-                                fontSize = 15.sp,
-                                lineHeight = 20.sp
+                                fontSize = fontSize.sp,
+                                lineHeight = (fontSize * 1.33f).sp
                             )
                         }
                         
@@ -1019,9 +1069,9 @@ fun MessageItemUnique(
                             if (message.isFromMe) {
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(
-                                    imageVector = if (message.isRead) Icons.Default.DoneAll else Icons.Default.Done,
+                                    imageVector = if (message.isRead && showReadReceipts) Icons.Default.DoneAll else Icons.Default.Done,
                                     contentDescription = null,
-                                    tint = if (message.isRead) Color(0xFF34B7F1) else Color.White.copy(alpha = 0.5f),
+                                    tint = if (message.isRead && showReadReceipts) Color(0xFF34B7F1) else Color.White.copy(alpha = 0.5f),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -1186,6 +1236,45 @@ fun AttachmentPreview(
                 Icon(Icons.Default.LocationOn, null, tint = AppAccent, modifier = Modifier.size(40.dp))
                 Text("View Location", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("${message.latitude}, ${message.longitude}", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+            }
+        }
+        MessageType.APPLICATION_LINK -> {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                color = AppAccent.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, AppAccent.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(AppAccent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Work, null, tint = AppBackground, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Job Application",
+                            color = AppAccent,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Profile Summary Attached",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
             }
         }
         else -> {}

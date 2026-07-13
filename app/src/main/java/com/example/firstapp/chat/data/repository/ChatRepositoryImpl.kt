@@ -272,10 +272,12 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun saveMessage(chatId: String, message: Message) {
         chatDao.insertMessages(listOf(message.toEntity(chatId)))
+        chatDao.pruneMessages(chatId, 50)
     }
 
     override suspend fun updateMessageInCache(chatId: String, message: Message) {
         chatDao.insertMessages(listOf(message.toEntity(chatId)))
+        chatDao.pruneMessages(chatId, 50)
     }
 
     override suspend fun updateMessageReactions(messageId: String, reactions: Map<String, Int>) {
@@ -339,22 +341,37 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clearMessages(chatId: String) { chatDao.clearMessages(chatId) }
-    override suspend fun clearAllChats() { chatDao.clearChats() }
+    override suspend fun clearAllChats() { 
+        chatDao.clearChats()
+        chatDao.clearAllMessages()
+    }
     override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getStarredMessages(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList<Message>())) }
     override suspend fun updateWallpaper(chatId: String, wallpaperUrl: String?) { chatDao.updateWallpaper(chatId, wallpaperUrl) }
-    override suspend fun updateCustomNotificationTone(chatId: String, tone: String?) {}
-    override suspend fun updateMediaVisibility(chatId: String, visible: Boolean) {}
-    override suspend fun updateDisappearingMessages(chatId: String, duration: Int) {}
+    override suspend fun updateCustomNotificationTone(chatId: String, tone: String?) { chatDao.updateCustomNotificationTone(chatId, tone) }
+    override suspend fun updateMediaVisibility(chatId: String, visible: Boolean) { chatDao.updateMediaVisibility(chatId, visible) }
+    override suspend fun updateDisappearingMessages(chatId: String, duration: Int) { chatDao.updateDisappearingMessages(chatId, duration) }
     override suspend fun syncPendingMessages() {}
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList<ApiReader>())) }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow { emit(Resource.Success(UUID.randomUUID().toString())) }
-    override fun searchLocalMessages(chatId: String, query: String): Flow<List<Message>> = flow { emit(emptyList()) }
-    override fun searchLocalChats(query: String): Flow<List<ChatMessage>> = flow { emit(emptyList()) }
-    override fun searchLocalContacts(query: String): Flow<List<Contact>> = flow { emit(emptyList()) }
-    override fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter): Flow<List<Message>> = flow { emit(emptyList()) }
+    override fun searchLocalMessages(chatId: String, query: String): Flow<List<Message>> = 
+        chatDao.getMessages(chatId).flowMap { list ->
+            list.filter { it.content.contains(query, ignoreCase = true) }.map { it.toModel() }
+        }
+    override fun searchLocalChats(query: String): Flow<List<ChatMessage>> = 
+        chatDao.getChats().flowMap { list ->
+            list.filter { it.senderName.contains(query, ignoreCase = true) || it.lastMessage.contains(query, ignoreCase = true) }.map { it.toModel() }
+        }
+    override fun searchLocalContacts(query: String): Flow<List<Contact>> = 
+        contactDao.searchContacts(query).flowMap { list ->
+            list.map { it.toModel() }
+        }
+    override fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter): Flow<List<Message>> = 
+        chatDao.searchMessagesAcrossAll(query).flowMap { list ->
+            list.map { it.toModel() }
+        }
     override fun getAllFiles(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList<Message>())) }
     
     override fun getContacts(): Flow<Resource<List<Contact>>> = 
@@ -365,34 +382,62 @@ class ChatRepositoryImpl @Inject constructor(
     override fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>> = flow {
         emit(Resource.Loading())
         try {
-            val response = if (phoneNumbers.isEmpty()) {
+            // Get device contacts with names
+            val deviceContacts = com.example.firstapp.common.util.ContactUtils.getPhoneContactsWithNames(context)
+            val numbersToSync = deviceContacts.map { it.phoneNumber }
+
+            val response = if (numbersToSync.isEmpty()) {
                 socialApi.getSuggestedUsers()
             } else {
-                com.example.firstapp.common.data.api.ApiClient.userApi.syncContacts(SyncContactsRequest(phoneNumbers))
+                com.example.firstapp.common.data.api.ApiClient.userApi.syncContacts(SyncContactsRequest(numbersToSync))
             }
 
             if (response.isSuccessful && response.body() != null) {
                 val apiUsers = response.body()!!.contacts
-                val contacts = apiUsers.map { user: com.example.firstapp.common.data.api.ApiUser ->
-                    Contact(
-                        id = user.id,
-                        username = user.username,
-                        displayName = user.display_name,
-                        avatarUrl = user.avatar_url,
-                        phoneNumber = user.phone_number ?: "",
-                        isRegistered = true,
-                        isAuthenticated = true,
-                        isVerified = user.is_verified,
-                        bio = user.bio,
-                        publicKey = user.public_key
-                    )
+                // Normalize numbers for matching
+                val registeredMap = apiUsers.associateBy { it.phone_number?.filter { it.isDigit() } }
+                
+                val allContacts = deviceContacts.map { deviceContact: com.example.firstapp.common.util.ContactUtils.ContactInfo ->
+                    val cleanPhone = deviceContact.phoneNumber.filter { it.isDigit() }
+                    val registeredUser = registeredMap[cleanPhone]
+                    
+                    if (registeredUser != null) {
+                        Contact(
+                            id = registeredUser.id,
+                            username = registeredUser.username,
+                            displayName = if (registeredUser.display_name.isNotBlank()) registeredUser.display_name else deviceContact.displayName,
+                            avatarUrl = registeredUser.avatar_url,
+                            phoneNumber = registeredUser.phone_number ?: deviceContact.phoneNumber,
+                            isRegistered = true,
+                            isAuthenticated = true,
+                            isVerified = registeredUser.is_verified,
+                            bio = registeredUser.bio,
+                            publicKey = registeredUser.public_key
+                        )
+                    } else {
+                        Contact(
+                            id = "unregistered_${deviceContact.phoneNumber}",
+                            username = "",
+                            displayName = deviceContact.displayName,
+                            avatarUrl = null,
+                            phoneNumber = deviceContact.phoneNumber,
+                            isRegistered = false,
+                            isAuthenticated = false,
+                            isVerified = false,
+                            bio = null,
+                            publicKey = null
+                        )
+                    }
                 }
-                contactDao.insertContacts(contacts.map { c: Contact -> c.toEntity() })
-                emit(Resource.Success(contacts))
+                
+                contactDao.clearContacts()
+                contactDao.insertContacts(allContacts.map { c: Contact -> c.toEntity() })
+                emit(Resource.Success(allContacts))
             } else {
                 emit(Resource.Error("Failed to sync contacts"))
             }
         } catch (e: Exception) {
+            Log.e("ChatRepositoryImpl", "Sync failed", e)
             emit(Resource.Error("Sync error: ${e.message}"))
         }
     }

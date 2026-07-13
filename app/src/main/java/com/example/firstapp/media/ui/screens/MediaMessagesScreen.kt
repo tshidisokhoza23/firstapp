@@ -29,17 +29,42 @@ import com.example.firstapp.common.ui.theme.DividerColor
 import com.example.firstapp.common.ui.theme.SecondaryText
 import com.example.firstapp.media.model.MediaConversation
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
+import com.example.firstapp.common.util.Resource
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaMessagesScreen(
     onBack: () -> Unit,
-    onConversationClick: (String) -> Unit
+    onConversationClick: (String) -> Unit,
+    viewModel: ChatViewModel = hiltViewModel()
 ) {
-    val conversations = remember {
-        listOf(
-            MediaConversation("1", "John Doe", null, "Hey, how are you?", System.currentTimeMillis() - 3600000, 2),
-            MediaConversation("2", "Jane Smith", null, "See you later!", System.currentTimeMillis() - 86400000, 0)
-        )
+    val chatsState by viewModel.chats.collectAsState()
+    val conversations: List<MediaConversation> = remember(chatsState) {
+        val success = chatsState as? Resource.Success<List<com.example.firstapp.chat.model.ChatMessage>>
+        val mapped = success?.data?.map { chat ->
+            MediaConversation(
+                otherUserId = chat.id,
+                otherUserName = chat.senderName,
+                otherUserAvatar = chat.avatarUrl,
+                lastMessage = chat.lastMessage,
+                lastMessageTimestamp = chat.timestamp,
+                unreadCount = chat.unreadCount
+            )
+        }
+        mapped ?: emptyList<MediaConversation>()
+    }
+
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val filteredConversations = if (searchQuery == "") {
+        conversations
+    } else {
+        conversations.filter { 
+            it.otherUserName.contains(searchQuery, ignoreCase = true) || 
+            it.lastMessage.contains(searchQuery, ignoreCase = true)
+        }
     }
 
     Scaffold(
@@ -58,8 +83,8 @@ fun MediaMessagesScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             OutlinedTextField(
-                value = "",
-                onValueChange = {},
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
@@ -77,7 +102,7 @@ fun MediaMessagesScreen(
             )
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(conversations) { conversation ->
+                items(filteredConversations) { conversation ->
                     ConversationItem(conversation = conversation) {
                         onConversationClick(conversation.otherUserId)
                     }

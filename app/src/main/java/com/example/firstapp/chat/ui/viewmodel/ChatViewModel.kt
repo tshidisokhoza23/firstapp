@@ -15,6 +15,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
+import com.example.firstapp.account.domain.repository.AccountRepository
+import com.example.firstapp.domain.repository.SettingsRepository
+import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map as flowMap
 import kotlinx.coroutines.launch
@@ -23,12 +27,23 @@ import kotlinx.coroutines.launch
 class ChatViewModel @Inject constructor(
     private val repository: ChatRepository,
     private val userRepository: com.example.firstapp.vocab.domain.repository.UserRepository,
+    private val accountRepository: AccountRepository,
+    private val settingsRepository: SettingsRepository,
     private val webRtcCallManager: WebRtcCallManager,
     private val callTonePlayer: CallTonePlayer
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    val settings = settingsRepository // So we can access individual flows
+    val fontSize = settingsRepository.fontSize.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 16f)
+    val enterIsSend = settingsRepository.enterIsSend.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val animationsEnabled = settingsRepository.animationsEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val showReadReceipts = accountRepository.getPrivacySettings()
+        .flowMap { it.data?.show_read_receipts ?: true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     // Compatibility properties for current UI code
     val chats = uiState.flowMap { it.chats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
@@ -185,6 +200,38 @@ class ChatViewModel @Inject constructor(
                             error = msg.ifBlank { state.error }
                         )
                     }
+                }
+            }
+        }
+    }
+
+    fun sendMediaMessage(chatId: String, file: File, type: String, name: String? = null, duration: String? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val fileSize = (file.length() / 1024).toString() + " KB"
+            val finalType = if (type == "audio") "audio_message" else type
+            val folder = when(type) {
+                "image" -> "chat/images"
+                "video" -> "chat/videos"
+                "audio" -> "chat/voice"
+                else -> "chat/files"
+            }
+            
+            accountRepository.uploadFile(file, folder).collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    sendMessage(
+                        chatId = chatId,
+                        body = name ?: type.replaceFirstChar { it.uppercase() },
+                        messageType = finalType,
+                        mediaUrl = res.data.url,
+                        duration = duration,
+                        fileName = name ?: file.name,
+                        fileSize = fileSize
+                    )
+                    file.delete()
+                    _uiState.update { it.copy(isLoading = false) }
+                } else if (res is Resource.Error) {
+                    _uiState.update { it.copy(isLoading = false, error = "Upload failed: ${res.message}") }
                 }
             }
         }

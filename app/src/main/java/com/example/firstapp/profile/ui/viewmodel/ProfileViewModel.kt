@@ -16,6 +16,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.media.domain.repository.SocialRepository
+import com.example.firstapp.profile.model.WorkExperience
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
@@ -28,6 +29,12 @@ class ProfileViewModel @Inject constructor(
 
     private val _userPosts = MutableStateFlow<Resource<List<Post>>>(Resource.Loading())
     val userPosts: StateFlow<Resource<List<Post>>> = _userPosts.asStateFlow()
+
+    private val _workExperiences = MutableStateFlow<Resource<List<WorkExperience>>>(Resource.Loading())
+    val workExperiences: StateFlow<Resource<List<WorkExperience>>> = _workExperiences.asStateFlow()
+
+    private val _updateState = MutableStateFlow<Resource<Any>?>(null)
+    val updateState: StateFlow<Resource<Any>?> = _updateState.asStateFlow()
 
     fun loadProfile(userId: String?) {
         viewModelScope.launch {
@@ -43,6 +50,48 @@ class ProfileViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun loadWorkExperiences() {
+        viewModelScope.launch {
+            userRepository.getWorkExperiences().collect { _workExperiences.value = it }
+        }
+    }
+
+    fun addWorkExperience(experience: WorkExperience) {
+        viewModelScope.launch {
+            userRepository.addWorkExperience(experience).collect { resource ->
+                _updateState.value = resource
+                if (resource is Resource.Success) {
+                    loadWorkExperiences()
+                }
+            }
+        }
+    }
+
+    fun updateWorkExperience(experience: WorkExperience) {
+        viewModelScope.launch {
+            userRepository.updateWorkExperience(experience).collect { resource ->
+                _updateState.value = resource
+                if (resource is Resource.Success) {
+                    loadWorkExperiences()
+                }
+            }
+        }
+    }
+
+    fun deleteWorkExperience(experienceId: String) {
+        viewModelScope.launch {
+            userRepository.deleteWorkExperience(experienceId).collect { resource ->
+                if (resource is Resource.Success) {
+                    loadWorkExperiences()
+                }
+            }
+        }
+    }
+
+    fun clearUpdateState() {
+        _updateState.value = null
     }
 
     fun loadUserPosts(userId: String?) {

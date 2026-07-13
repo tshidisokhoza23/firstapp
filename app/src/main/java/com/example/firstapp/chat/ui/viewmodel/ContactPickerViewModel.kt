@@ -30,11 +30,9 @@ class ContactPickerViewModel @Inject constructor(
 
     fun fetchContacts() {
         viewModelScope.launch {
+            syncContacts()
             repository.getContacts().collect { resource ->
                 _contacts.value = resource
-                if (resource is Resource.Success && (resource.data == null || resource.data.isEmpty())) {
-                    syncContacts()
-                }
             }
         }
     }

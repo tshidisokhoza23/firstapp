@@ -10,12 +10,14 @@ import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.CryptoUtils
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.profile.model.WorkExperience
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.collections.*
+import kotlin.*
 
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.account.domain.repository.AccountRepository
@@ -34,8 +36,14 @@ class UserViewModel @Inject constructor(
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
+    private val _contacts = MutableStateFlow<List<Contact>>(emptyList<Contact>())
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
+
+    private val _workExperiences = MutableStateFlow<Resource<List<WorkExperience>>>(Resource.Loading())
+    val workExperiences: StateFlow<Resource<List<WorkExperience>>> = _workExperiences.asStateFlow()
+
+    private val _updateWorkState = MutableStateFlow<Resource<Any>?>(null)
+    val updateWorkState: StateFlow<Resource<Any>?> = _updateWorkState.asStateFlow()
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
@@ -44,6 +52,7 @@ class UserViewModel @Inject constructor(
         fetchCurrentUser()
         fetchContacts()
         ensureE2EEKeys()
+        loadWorkExperiences()
     }
 
     private fun ensureE2EEKeys() {
@@ -59,7 +68,6 @@ class UserViewModel @Inject constructor(
                 TokenManager.setPublicKey(pub)
                 accountRepository.setPublicKey(pub)
             } else {
-                // Periodically sync public key to server just in case
                 accountRepository.setPublicKey(existingPub)
             }
         }
@@ -80,7 +88,7 @@ class UserViewModel @Inject constructor(
     fun fetchContacts() {
         viewModelScope.launch {
             chatRepository.getContacts().collect { result ->
-                val data = result.data ?: emptyList()
+                val data = result.data ?: emptyList<Contact>()
                 _contacts.value = data
                 data.forEach { contact ->
                     com.example.firstapp.chat.data.GlobalCallState.updateContactInfo(contact.id, contact.displayName, contact.phoneNumber)
@@ -95,7 +103,7 @@ class UserViewModel @Inject constructor(
             val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(context)
             chatRepository.syncContacts(phoneNumbers).collect { result ->
                 if (result is Resource.Success) {
-                    _contacts.value = result.data ?: emptyList()
+                    _contacts.value = result.data ?: emptyList<Contact>()
                 }
             }
         }
@@ -157,7 +165,7 @@ class UserViewModel @Inject constructor(
         viewModelScope.launch {
             accountRepository.syncContacts(phoneNumbers).collect { result ->
                 if (result is Resource.Success) {
-                    val synced = result.data ?: emptyList()
+                    val synced = result.data ?: emptyList<Contact>()
                     val current = _contacts.value.associateBy { it.id }.toMutableMap()
                     synced.forEach { current[it.id] = it }
                     _contacts.value = current.values.toList()
@@ -180,7 +188,7 @@ class UserViewModel @Inject constructor(
                         }
                     }
                     _toastMessage.value = "Contacts registered as chats successfully"
-                    fetchContacts() // Refresh contacts list
+                    fetchContacts() 
                 }
             }
         }
@@ -211,4 +219,55 @@ class UserViewModel @Inject constructor(
     }
 
     fun clearToast() { _toastMessage.value = null }
+
+    fun loadWorkExperiences() {
+        viewModelScope.launch {
+            userRepository.getWorkExperiences().collect { _workExperiences.value = it }
+        }
+    }
+
+    fun addWorkExperience(experience: WorkExperience) {
+        viewModelScope.launch {
+            userRepository.addWorkExperience(experience).collect { resource ->
+                _updateWorkState.value = resource
+                if (resource is Resource.Success) {
+                    loadWorkExperiences()
+                    _toastMessage.value = "Experience added"
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to add experience"
+                }
+            }
+        }
+    }
+
+    fun updateWorkExperience(experience: WorkExperience) {
+        viewModelScope.launch {
+            userRepository.updateWorkExperience(experience).collect { resource ->
+                _updateWorkState.value = resource
+                if (resource is Resource.Success) {
+                    loadWorkExperiences()
+                    _toastMessage.value = "Experience updated"
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to update experience"
+                }
+            }
+        }
+    }
+
+    fun deleteWorkExperience(experienceId: String) {
+        viewModelScope.launch {
+            userRepository.deleteWorkExperience(experienceId).collect { resource ->
+                if (resource is Resource.Success) {
+                    loadWorkExperiences()
+                    _toastMessage.value = "Experience deleted"
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to delete experience"
+                }
+            }
+        }
+    }
+
+    fun clearUpdateWorkState() {
+        _updateWorkState.value = null
+    }
 }

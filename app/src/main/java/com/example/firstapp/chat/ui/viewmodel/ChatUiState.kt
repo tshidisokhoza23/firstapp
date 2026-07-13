@@ -16,6 +16,7 @@ data class ChatUiState(
     val chatSearchResults: List<Message> = emptyList(),
     val selectedContactsForGroup: List<Contact> = emptyList(),
     val closedConversationIds: Set<String> = emptySet(),
+    val isLoading: Boolean = false,
     val error: String? = null
 )
 

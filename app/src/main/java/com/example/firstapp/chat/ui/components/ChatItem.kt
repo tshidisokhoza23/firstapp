@@ -18,10 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -93,7 +95,7 @@ fun ChatItem(
             if (chat.isOnline) {
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
+                        .size(16.dp)
                         .align(Alignment.BottomEnd)
                         .background(AppBackground, CircleShape)
                         .padding(2.dp)
@@ -102,6 +104,7 @@ fun ChatItem(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color(0xFF4CAF50), CircleShape)
+                            .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = Color(0xFF4CAF50), spotColor = Color(0xFF4CAF50))
                     )
                 }
             }
@@ -120,12 +123,15 @@ fun ChatItem(
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 Text(
                     text = formatWhatsAppTime(chat.timestamp),
-                    color = if (chat.unreadCount > 0) AppAccent else Color.Gray,
-                    fontSize = 12.sp
+                    color = if (chat.unreadCount > 0) AppAccent else Color.Gray.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    fontWeight = if (chat.unreadCount > 0) FontWeight.Bold else FontWeight.Normal
                 )
             }
 

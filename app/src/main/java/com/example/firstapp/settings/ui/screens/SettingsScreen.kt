@@ -120,16 +120,16 @@ fun SettingsScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (user?.avatar_url != null) {
+                        if (user?.avatarUrl != null) {
                             AsyncImage(
-                                model = user?.avatar_url,
+                                model = user?.avatarUrl,
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize().clip(CircleShape),
                                 contentScale = ContentScale.Crop
                             )
                         } else {
                             Text(
-                                text = user?.display_name?.take(1)?.uppercase() ?: "U",
+                                text = user?.displayName?.take(1)?.uppercase() ?: "U",
                                 color = Color.White,
                                 fontSize = 40.sp,
                                 fontWeight = FontWeight.Bold
@@ -138,7 +138,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = user?.display_name ?: "User",
+                        text = user?.displayName ?: "User",
                         color = Color.White,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
@@ -165,7 +165,7 @@ fun SettingsScreen(
                     .padding(bottom = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                QuickInfoBadge(user?.phone_number ?: "No Phone", "Mobile") { onNavigateToAccount() }
+                QuickInfoBadge(user?.phoneNumber ?: "No Phone", "Mobile") { onNavigateToAccount() }
                 QuickInfoBadge("Pretoria, SA", "Location") {}
                 QuickInfoBadge("Free Tier", "Account") {}
             }

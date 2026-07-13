@@ -24,4 +24,10 @@ interface PostDao {
 
     @Query("UPDATE posts SET likes = :likes, isLiked = :isLiked WHERE id = :postId")
     suspend fun updateLikeStatus(postId: String, likes: String, isLiked: Boolean)
+
+    @Query("UPDATE posts SET isReposted = :isReposted, shares = :shares WHERE id = :postId")
+    suspend fun updateRepostStatus(postId: String, shares: String, isReposted: Boolean)
+
+    @Query("UPDATE posts SET isBookmarked = :isBookmarked WHERE id = :postId")
+    suspend fun updateBookmarkStatus(postId: String, isBookmarked: Boolean)
 }

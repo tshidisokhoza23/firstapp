@@ -1,5 +1,7 @@
 package com.example.firstapp.media.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,19 +27,24 @@ import com.example.firstapp.common.ui.theme.AppPrimary
 import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.media.model.MediaMessage
 
+import androidx.compose.material.icons.filled.Image
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.firstapp.media.ui.viewmodel.MediaChatViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaChatScreen(
     userId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: MediaChatViewModel = hiltViewModel()
 ) {
     var messageText by remember { mutableStateOf("") }
+    val messagesState = viewModel.messages.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val receiverUser by viewModel.receiverUser.collectAsState()
     
-    val messages = remember {
-        mutableStateListOf<MediaMessage>(
-            MediaMessage("1", "system", userId, "Hello! How can I help you with Media today?", System.currentTimeMillis() - 5000),
-            MediaMessage("2", userId, "system", "I have a question about my latest post.", System.currentTimeMillis() - 2000)
-        )
+    LaunchedEffect(userId) {
+        viewModel.loadMessages(userId)
     }
 
     Scaffold(
@@ -50,9 +57,23 @@ fun MediaChatScreen(
                                 .size(32.dp)
                                 .clip(CircleShape)
                                 .background(Color.Gray)
-                        )
+                        ) {
+                            val avatar = receiverUser?.avatarUrl
+                            if (avatar != null) {
+                                AsyncImage(
+                                    model = avatar,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
                         Spacer(Modifier.width(8.dp))
-                        Text("User $userId", color = Color.White, fontSize = 18.sp)
+                        Text(
+                            text = receiverUser?.displayName ?: "User $userId",
+                            color = Color.White,
+                            fontSize = 18.sp
+                        )
                     }
                 },
                 navigationIcon = {
@@ -75,6 +96,18 @@ fun MediaChatScreen(
                         .imePadding(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val mediaLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: android.net.Uri? ->
+                        if (uri != null) {
+                            val context = com.example.firstapp.common.util.ContextProvider.context
+                            val file = com.example.firstapp.common.util.MediaUtils.getFileFromUri(context, uri)
+                            if (file != null) {
+                                viewModel.sendMediaMessage(userId, file, "image")
+                            }
+                        }
+                    }
+                    IconButton(onClick = { mediaLauncher.launch("image/*") }) {
+                        Icon(Icons.Default.Image, "Attach Image", tint = Color.White)
+                    }
                     TextField(
                         value = messageText,
                         onValueChange = { messageText = it },
@@ -92,15 +125,7 @@ fun MediaChatScreen(
                     IconButton(
                         onClick = {
                             if (messageText != "") {
-                                messages.add(
-                                    MediaMessage(
-                                        id = System.currentTimeMillis().toString(),
-                                        senderId = "system",
-                                        receiverId = userId,
-                                        content = messageText,
-                                        timestamp = System.currentTimeMillis()
-                                    )
-                                )
+                                viewModel.sendMessage(userId, messageText)
                                 messageText = ""
                             }
                         },
@@ -113,7 +138,8 @@ fun MediaChatScreen(
         },
         containerColor = AppBackground
     ) { padding ->
-        val reversedMessages = messages.toList().reversed()
+        val msgList = messagesState.value
+        val reversedMessages = remember<List<MediaMessage>>(msgList) { msgList.reversed() }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -144,12 +170,28 @@ fun MessageBubble(message: MediaMessage, isOwnMessage: Boolean) {
                 bottomEnd = if (isOwnMessage) 0.dp else 16.dp
             )
         ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                color = Color.White,
-                fontSize = 15.sp
-            )
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                if (message.mediaUrl != null && message.type == "image") {
+                    AsyncImage(
+                        model = message.mediaUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .heightIn(max = 200.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    if (message.content != "") Spacer(Modifier.height(4.dp))
+                }
+                
+                if (message.content != "") {
+                    Text(
+                        text = message.content,
+                        color = Color.White,
+                        fontSize = 15.sp
+                    )
+                }
+            }
         }
     }
 }

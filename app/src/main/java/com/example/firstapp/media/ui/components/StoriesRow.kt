@@ -3,6 +3,7 @@ package com.example.firstapp.media.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -23,9 +24,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -99,7 +102,7 @@ private fun MyStoryThumbnail(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier.size(64.dp),
+            modifier = Modifier.size(68.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
@@ -109,8 +112,8 @@ private fun MyStoryThumbnail(
                     .clickable(onClick = { showMenu = true })
                     .border(
                         width = 2.dp,
-                        brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray, Color.Gray))
-                                else Brush.linearGradient(listOf(AppAccent, Color(0xFF7C4DFF))),
+                        brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
+                                else Brush.linearGradient(listOf(AppAccent, Color(0xFF7C4DFF), AppAccent)),
                         shape = CircleShape
                     )
                     .padding(3.dp),
@@ -135,7 +138,7 @@ private fun MyStoryThumbnail(
                             text = story.userName.take(1).uppercase(),
                             color = Color.White,
                             fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold
                         )
                     }
                 }
@@ -144,9 +147,9 @@ private fun MyStoryThumbnail(
             // Small Add button overlay
             Box(
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(22.dp)
                     .align(Alignment.BottomEnd)
-                    .offset(x = (-2).dp, y = (-2).dp)
+                    .offset(x = 2.dp, y = 2.dp)
                     .background(AppBackground, CircleShape)
                     .padding(2.dp)
             ) {
@@ -157,7 +160,7 @@ private fun MyStoryThumbnail(
                         .clickable(onClick = { showMenu = true }),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Add, null, tint = AppBackground, modifier = Modifier.size(12.dp))
+                    Icon(Icons.Default.Add, null, tint = AppBackground, modifier = Modifier.size(14.dp))
                 }
             }
             
@@ -173,8 +176,8 @@ private fun MyStoryThumbnail(
         Text(
             text = "My Story",
             color = AppTextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
     }
@@ -190,38 +193,48 @@ private fun AddStoryItem(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = { showMenu = true })
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = { showMenu = true }
+        )
     ) {
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.05f))
-                .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape),
+                .size(68.dp),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "Add Story",
-                tint = AppAccent,
-                modifier = Modifier.size(28.dp)
-            )
-            
-            StoryContextMenu(
-                expanded = showMenu,
-                onDismiss = { showMenu = false },
-                onMediaStory = { showMenu = false; onMediaClick() },
-                onTextStory = { showMenu = false; onTextClick() },
-                onPostedStories = { showMenu = false; onPostedClick() }
-            )
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Story",
+                    tint = AppAccent,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "My Story",
-            color = AppTextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
+            color = AppTextPrimary.copy(alpha = 0.9f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
+        )
+        
+        StoryContextMenu(
+            expanded = showMenu,
+            onDismiss = { showMenu = false },
+            onMediaStory = { showMenu = false; onMediaClick() },
+            onTextStory = { showMenu = false; onTextClick() },
+            onPostedStories = { showMenu = false; onPostedClick() }
         )
     }
 }
@@ -260,55 +273,82 @@ private fun StoryContextMenu(
 @Composable
 private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
     val allViewed = story.stories.all { it.isViewed }
-    val borderColor = if (allViewed) Color.Gray.copy(alpha = 0.5f) else AppAccent
+    val haptic = LocalHapticFeedback.current
     
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = { 
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                onClick() 
+            }
+        )
     ) {
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 2.dp,
-                    brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray, Color.Gray))
-                            else Brush.linearGradient(listOf(AppAccent, Color(0xFF7C4DFF))),
-                    shape = CircleShape
-                )
-                .padding(3.dp),
+                .size(68.dp),
             contentAlignment = Alignment.Center
         ) {
+            // Glow effect for unviewed stories
+            if (!allViewed) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = CircleShape,
+                            ambientColor = AppAccent.copy(alpha = 0.5f),
+                            spotColor = AppAccent
+                        )
+                )
+            }
+
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .size(64.dp)
                     .clip(CircleShape)
-                    .background(story.userAvatarColor),
+                    .border(
+                        width = 2.dp,
+                        brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f)))
+                                else Brush.linearGradient(listOf(AppAccent, Color(0xFF7C4DFF), AppAccent)),
+                        shape = CircleShape
+                    )
+                    .padding(3.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (story.userAvatarUrl != null) {
-                    AsyncImage(
-                        model = story.userAvatarUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(
-                        text = story.userName.take(1).uppercase(),
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(story.userAvatarColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (story.userAvatarUrl != null) {
+                        AsyncImage(
+                            model = story.userAvatarUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            text = story.userName.take(1).uppercase(),
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = story.userName.split(" ").first(),
-            color = AppTextPrimary,
-            fontSize = 12.sp,
-            fontWeight = if (allViewed) FontWeight.Normal else FontWeight.Medium,
+            color = if (allViewed) AppTextPrimary.copy(alpha = 0.6f) else AppTextPrimary,
+            fontSize = 11.sp,
+            fontWeight = if (allViewed) FontWeight.Normal else FontWeight.Bold,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

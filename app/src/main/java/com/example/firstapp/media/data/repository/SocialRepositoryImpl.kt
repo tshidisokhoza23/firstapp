@@ -16,6 +16,7 @@ import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.paging.PostRemoteMediator
 import com.example.firstapp.media.domain.repository.SocialRepository
 import com.example.firstapp.media.model.*
+import com.example.firstapp.rewards.data.RewardsManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.emitAll
@@ -55,6 +56,14 @@ class SocialRepositoryImpl @Inject constructor(
 
     override suspend fun updatePostLikeLocally(postId: String, likes: String, isLiked: Boolean) {
         postDao.updateLikeStatus(postId, likes, isLiked)
+    }
+
+    override suspend fun updatePostRepostLocally(postId: String, shares: String, isReposted: Boolean) {
+        postDao.updateRepostStatus(postId, shares, isReposted)
+    }
+
+    override suspend fun updatePostBookmarkLocally(postId: String, isBookmarked: Boolean) {
+        postDao.updateBookmarkStatus(postId, isBookmarked)
     }
 
     override fun getUserPosts(userId: String, page: Int): Flow<Resource<List<Post>>> = flow {
@@ -194,6 +203,7 @@ class SocialRepositoryImpl @Inject constructor(
     override fun likePostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.likePostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun repostPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun bookmarkPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun deletePostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.deletePost(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun votePoll(postId: String, optionId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.votePoll(postId, com.example.firstapp.media.data.api.VotePollRequest(optionId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun followUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.followUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun unfollowUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.unfollowUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
@@ -286,7 +296,18 @@ class SocialRepositoryImpl @Inject constructor(
             val storiesList = storyDao.getStories().first()
             val entity = storiesList.find { it.id == userId }
             if (entity != null) {
-                val updatedItems = entity.stories.map { item: StoryItem -> if (item.id == storyId) item.copy(isViewed = true) else item }
+                val updatedItems = entity.stories.map { item: StoryItem -> 
+                    if (item.id == storyId) {
+                        // Check if it's an ad and award points
+                        val sid = item.id
+                        if (sid.length >= 3 && sid[0] == 'a' && sid[1] == 'd' && sid[2] == '_') {
+                            try {
+                                RewardsManager.awardPoints(0.10, "STORY_AD", "Viewed ad story $storyId")
+                            } catch (_: Exception) {}
+                        }
+                        item.copy(isViewed = true) 
+                    } else item 
+                }
                 storyDao.insertStories(listOf(entity.copy(stories = updatedItems)))
             }
             socialApi.markStoryViewed(storyId)
