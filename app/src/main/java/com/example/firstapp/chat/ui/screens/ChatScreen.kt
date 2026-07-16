@@ -1037,7 +1037,7 @@ fun MessageItemUnique(
                     }
 
                     // Attachment Handling
-                    if (message.mediaUri != null || message.type == MessageType.LOCATION || message.type == MessageType.APPLICATION_LINK) {
+                    if (message.mediaUri?.isNotBlank() == true || message.type == MessageType.LOCATION || message.type == MessageType.APPLICATION_LINK) {
                         AttachmentPreview(message, onVideoClick = onVideoClick)
                     }
 

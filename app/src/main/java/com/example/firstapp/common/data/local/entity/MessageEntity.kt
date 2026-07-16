@@ -21,5 +21,14 @@ data class MessageEntity(
     val replyToId: String?,
     val status: MessageStatus = MessageStatus.SENT,
     val reactions: Map<String, Int> = emptyMap(),
-    val clientId: String? = null
+    val clientId: String? = null,
+    val fileName: String? = null,
+    val fileSize: String? = null,
+    val duration: String? = null,
+    val contactName: String? = null,
+    val contactPhone: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val replyToText: String? = null,
+    val replyToSenderName: String? = null
 )

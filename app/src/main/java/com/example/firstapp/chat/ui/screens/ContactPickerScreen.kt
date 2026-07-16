@@ -31,8 +31,7 @@ import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.DisplayNameResolver
 import com.example.firstapp.common.util.Resource
-import kotlin.collections.List
-import kotlin.collections.emptyList
+import kotlin.collections.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +103,24 @@ fun ContactPickerScreen(
                         }
                     },
                     actions = {
+                        if (isGroupMode) {
+                            TextButton(onClick = {
+                                val registeredContacts = contacts.filter { it.isRegistered }
+                                if (selectedContacts.size == registeredContacts.size) {
+                                    selectedContacts.clear()
+                                } else {
+                                    selectedContacts.clear()
+                                    selectedContacts.addAll(registeredContacts)
+                                }
+                            }) {
+                                val registeredContacts = contacts.filter { it.isRegistered }
+                                Text(
+                                    if (selectedContacts.size == registeredContacts.size && registeredContacts.isNotEmpty()) "None" else "All",
+                                    color = AppAccent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                         IconButton(onClick = { isSearchActive = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }

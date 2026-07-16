@@ -90,7 +90,7 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
             else -> MessageType.TEXT
         },
         mediaUri = formatUrl(apiMessage.media_url),
-        isRead = false, // Not provided in simple ApiMessage
+        isRead = false,
         isDelivered = true,
         status = MessageStatus.SENT,
         reactions = apiMessage.reactions ?: emptyMap(),
@@ -175,7 +175,16 @@ fun Message.toEntity(chatId: String) = MessageEntity(
     replyToId = replyToId,
     status = status,
     reactions = reactions,
-    clientId = clientId
+    clientId = clientId,
+    fileName = fileName,
+    fileSize = fileSize,
+    duration = duration,
+    contactName = contactName,
+    contactPhone = contactPhone,
+    latitude = latitude,
+    longitude = longitude,
+    replyToText = replyToText,
+    replyToSenderName = replyToSenderName
 )
 
 fun MessageEntity.toModel() = Message(
@@ -193,7 +202,16 @@ fun MessageEntity.toModel() = Message(
     replyToId = replyToId,
     status = status,
     reactions = reactions,
-    clientId = clientId
+    clientId = clientId,
+    fileName = fileName,
+    fileSize = fileSize,
+    duration = duration,
+    contactName = contactName,
+    contactPhone = contactPhone,
+    latitude = latitude,
+    longitude = longitude,
+    replyToText = replyToText,
+    replyToSenderName = replyToSenderName
 )
 
 fun CallLog.toEntity() = CallLogEntity(

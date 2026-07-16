@@ -96,34 +96,38 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getMessages(chatId: String, page: Int): Flow<Resource<List<Message>>> = flow {
+        // First, emit what we have locally
         val cachedEntities = chatDao.getMessages(chatId).first()
         val cached = cachedEntities.map { it.toModel() }
+        
         if (cached.isNotEmpty()) {
             emit(Resource.Success(cached))
         } else {
             emit(Resource.Loading())
         }
 
+        // Then, try to sync from network
         try {
-            val oldestTs = cached.minOfOrNull { it.timestamp }
+            val oldestTs = if (cached.isNotEmpty()) cached.minOfOrNull { it.timestamp } else null
             val response = if (page > 1 && oldestTs != null) {
                 chatApi.getMessages(chatId, page = 1, beforeTs = oldestTs, limit = 50)
             } else {
                 chatApi.getMessages(chatId, page = page)
             }
+            
             if (response.isSuccessful && response.body() != null) {
                 val apiMessages = response.body()!!.messages
                 val messages = apiMessages.map { am: ApiMessage -> mapApiMessage(am) }
-                if (page == 1) chatDao.clearMessages(chatId)
+                // Insert new messages into the database
                 chatDao.insertMessages(messages.map { m: Message -> m.toEntity(chatId) })
             }
         } catch (e: Exception) {
-            Log.e("ChatRepositoryImpl", "getMessages failed", e)
+            Log.e("ChatRepositoryImpl", "getMessages network sync failed", e)
         }
 
+        // Finally, emit the latest combined local state
         emitAll(chatDao.getMessages(chatId).flowMap { entities ->
-            val models = entities.map { it.toModel() }
-            Resource.Success<List<Message>>(models)
+            Resource.Success(entities.map { it.toModel() })
         })
     }
 
@@ -160,6 +164,17 @@ class ChatRepositoryImpl @Inject constructor(
     ): Flow<Resource<Message>> = flow {
         val clientUuid = UUID.randomUUID().toString()
         dedupManager.trackOutgoing(clientUuid, chatId)
+
+        val type = try {
+            MessageType.valueOf(messageType.uppercase())
+        } catch (e: Exception) {
+            when (messageType.lowercase()) {
+                "audio_message" -> MessageType.AUDIO_MESSAGE
+                "application_link" -> MessageType.APPLICATION_LINK
+                else -> MessageType.TEXT
+            }
+        }
+
         val pendingMsg = Message(
             id = clientUuid,
             conversationId = chatId,
@@ -169,9 +184,20 @@ class ChatRepositoryImpl @Inject constructor(
             timestamp = System.currentTimeMillis(),
             isFromMe = true,
             status = MessageStatus.PENDING,
-            clientId = clientUuid
+            clientId = clientUuid,
+            type = type,
+            mediaUri = formatUrl(mediaUrl),
+            duration = duration,
+            fileName = fileName,
+            fileSize = fileSize,
+            contactName = contactName,
+            contactPhone = contactPhone,
+            latitude = latitude,
+            longitude = longitude,
+            replyToId = replyToId
         )
         chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
+        chatDao.updateLastMessage(chatId, body, pendingMsg.timestamp, true, false)
         emit(Resource.Success(pendingMsg))
 
         try {
@@ -185,20 +211,31 @@ class ChatRepositoryImpl @Inject constructor(
                 )
             )
             if (response.isSuccessful && response.body() != null) {
-                val serverMsg = mapApiMessage(response.body()!!.message)
+                val serverMsg = mapApiMessage(response.body()!!.message).copy(
+                    duration = pendingMsg.duration,
+                    fileName = pendingMsg.fileName,
+                    fileSize = pendingMsg.fileSize,
+                    latitude = pendingMsg.latitude,
+                    longitude = pendingMsg.longitude,
+                    contactName = pendingMsg.contactName,
+                    contactPhone = pendingMsg.contactPhone
+                )
                 dedupManager.confirmOutgoing(clientUuid)
                 chatDao.deleteMessage(clientUuid)
                 chatDao.insertMessages(listOf(serverMsg.toEntity(chatId)))
+                chatDao.updateLastMessage(chatId, serverMsg.content, serverMsg.timestamp, true, true)
                 emit(Resource.Success(serverMsg))
             } else {
                 dedupManager.failOutgoing(clientUuid)
-                chatDao.deleteMessage(clientUuid)
+                val failedMsg = pendingMsg.copy(status = MessageStatus.FAILED)
+                chatDao.insertMessages(listOf(failedMsg.toEntity(chatId)))
                 val serverMessage = parseServerError(response.errorBody())
                 emit(Resource.Error(serverMessage.ifBlank { "Failed to send message" }))
             }
         } catch (e: Exception) {
             dedupManager.failOutgoing(clientUuid)
-            chatDao.deleteMessage(clientUuid)
+            val failedMsg = pendingMsg.copy(status = MessageStatus.FAILED)
+            chatDao.insertMessages(listOf(failedMsg.toEntity(chatId)))
             Log.e("ChatRepositoryImpl", "Send message failed", e)
             emit(Resource.Error(e.message ?: "Send message failed"))
         }
@@ -314,7 +351,29 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) {
-        chatDao.updateLastMessage(chatId, lastMessage, time, isFromMe, isRead)
+        val existing = chatDao.getChatById(chatId).first()
+        if (existing == null) {
+            // If the chat doesn't exist locally, try to create it from contact info
+            val contact = contactDao.getContactById(chatId)
+            val newChat = ChatEntity(
+                id = chatId,
+                type = com.example.firstapp.common.model.ConversationType.DIRECT,
+                senderName = contact?.displayName ?: "User $chatId",
+                lastMessage = lastMessage,
+                timestamp = time,
+                unreadCount = if (!isFromMe && !isRead) 1 else 0,
+                avatarUrl = contact?.avatarUrl,
+                isOnline = false,
+                isMuted = false,
+                isPinned = false,
+                isTyping = false,
+                lastMessageIsFromMe = isFromMe,
+                lastMessageRead = isRead
+            )
+            chatDao.insertChats(listOf(newChat))
+        } else {
+            chatDao.updateLastMessage(chatId, lastMessage, time, isFromMe, isRead)
+        }
     }
 
     override suspend fun createGroup(name: String, contactIds: List<String>): Flow<Resource<ChatMessage>> = flow {
@@ -394,11 +453,11 @@ class ChatRepositoryImpl @Inject constructor(
 
             if (response.isSuccessful && response.body() != null) {
                 val apiUsers = response.body()!!.contacts
-                // Normalize numbers for matching
-                val registeredMap = apiUsers.associateBy { it.phone_number?.filter { it.isDigit() } }
+                // Normalize numbers for matching (take last 9 digits to be robust against leading 0 or country codes)
+                val registeredMap = apiUsers.associateBy { it.phone_number?.filter { it.isDigit() }?.takeLast(9) }
                 
                 val allContacts = deviceContacts.map { deviceContact: com.example.firstapp.common.util.ContactUtils.ContactInfo ->
-                    val cleanPhone = deviceContact.phoneNumber.filter { it.isDigit() }
+                    val cleanPhone = deviceContact.phoneNumber.filter { it.isDigit() }.takeLast(9)
                     val registeredUser = registeredMap[cleanPhone]
                     
                     if (registeredUser != null) {

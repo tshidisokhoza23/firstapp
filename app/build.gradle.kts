@@ -12,10 +12,11 @@ android {
     
     val hostIp = (project.findProperty("HOST_IP") as String?)
         ?: System.getenv("HOST_IP")
-    
-    val defaultHost = hostIp ?: "10.234.179.54" // Your laptop's IP on the A11 network
-    val apiBaseUrl = "http://$defaultHost:8082/api/v1/"
-    val wsBaseUrl = "ws://$defaultHost:8082/api/v1/"
+
+    val apiBaseUrl = (project.findProperty("API_BASE_URL") as String?)
+        ?: if (hostIp != null) "http://$hostIp:8082/api/v1/" else "https://firstapp-backend.fly.dev/api/v1/"
+    val wsBaseUrl = (project.findProperty("WS_BASE_URL") as String?)
+        ?: if (hostIp != null) "ws://$hostIp:8082/api/v1/" else "wss://firstapp-backend.fly.dev/api/v1/"
 
     defaultConfig {
         applicationId = "com.example.firstapp"
