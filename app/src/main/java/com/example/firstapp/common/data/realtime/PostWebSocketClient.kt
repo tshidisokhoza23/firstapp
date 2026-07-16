@@ -21,7 +21,8 @@ object PostWebSocketClient {
             .build()
 
         val token = TokenManager.getToken() ?: return
-        val url = BuildConfig.API_BASE_URL.replace("http", "ws") + "/posts/ws?token=$token"
+        val baseWs = BuildConfig.API_BASE_URL.replace("http", "ws").trimEnd('/')
+        val url = "$baseWs/posts/ws?token=$token"
         val request = Request.Builder().url(url).build()
 
         webSocket = client?.newWebSocket(request, object : WebSocketListener() {
