@@ -50,11 +50,11 @@ class UserProfileTests {
 
     @Test
     fun `profile editing saves and reflects instantly`() = runTest {
-        val updatedUser = User(id = "1", display_name = "New Name", username = "newuser")
+        val updatedUser = User(id = "1", displayName = "New Name", username = "newuser")
         coEvery { userRepository.updateUser(any(), any(), any(), any(), any(), any()) } returns flowOf(Resource.Success(updatedUser))
 
         viewModel.updateProfile("New Name", "Bio", "Location", null, null)
 
-        assertEquals("New Name", viewModel.currentUser.value?.display_name)
+        assertEquals("New Name", viewModel.currentUser.value?.displayName)
     }
 }

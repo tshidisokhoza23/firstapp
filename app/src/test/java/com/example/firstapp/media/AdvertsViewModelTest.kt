@@ -43,20 +43,25 @@ class AdvertsViewModelTest {
     @Test
     fun `watching a rewarded ad awards R0 10`() = runTest {
         val advertId = "ad1"
+        coEvery { userRepository.getCurrentUser() } returns flowOf(Resource.Success(mockk(relaxed = true)))
         coEvery { adRepository.markAdvertViewed(advertId) } returns flowOf(Resource.Success(true))
         
         viewModel.markAdvertAsViewed(advertId)
         
         coVerify { adRepository.markAdvertViewed(advertId) }
-        // We verify the call is made. The server handles the balance increment of R0.10.
+        coVerify(atLeast = 1) { userRepository.getCurrentUser() }
+        // Server awards +0.1; VM must refresh user to reflect new wallet balance.
     }
 
     @Test
     fun `ad list resets precisely at 00 00`() = runTest {
         coEvery { adRepository.resetAds() } returns flowOf(Resource.Success(Unit))
+        coEvery { userRepository.getCurrentUser() } returns flowOf(Resource.Success(mockk(relaxed = true)))
         
         viewModel.resetAds()
         
         coVerify { adRepository.resetAds() }
+        // fetchAdverts emits refresh trigger and refreshes user.
+        coVerify(atLeast = 1) { userRepository.getCurrentUser() }
     }
 }

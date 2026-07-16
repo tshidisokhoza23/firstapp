@@ -45,12 +45,16 @@ class StoryViewModelTest {
         viewModel.markStoryAsViewed(userId, storyId)
         
         coVerify { socialRepository.markStoryAsViewed(userId, storyId) }
-        // The repository handles the R0.10 award logic.
+        // Repository handles the +0.1 reward logic.
     }
 
     @Test
-    fun `story boost creates a transaction of R20 per day`() = runTest {
-        // Boost logic is likely in SocialRepository
-        // We'll verify the call if we add it to the ViewModel
+    fun `posting story success updates post result`() = runTest {
+        coEvery { socialRepository.createStory("hello", null, "text") } returns flowOf(Resource.Success(true))
+
+        viewModel.postStory("hello", null, "text")
+
+        assertTrue(viewModel.postResult.value is Resource.Success)
+        coVerify { socialRepository.createStory("hello", null, "text") }
     }
 }

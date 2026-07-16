@@ -38,7 +38,7 @@ class AuthViewModelTest {
 
     @Test
     fun `login with correct credentials navigates to OTP screen`() = runTest {
-        val user = User(id = "1", username = "test", display_name = "Test", phone_number = "1234567890")
+        val user = User(id = "1", username = "test", displayName = "Test", phoneNumber = "1234567890")
         val authResponse = AuthResponse(token = "token", user = user)
         
         coEvery { userRepository.login("test", "password") } returns flowOf(Resource.Success(authResponse))
@@ -81,5 +81,29 @@ class AuthViewModelTest {
 
         assertTrue(callbackCalled)
         assertEquals("Verified", (viewModel.otpState.value as Resource.Success).data)
+    }
+
+    @Test
+    fun `otp verification failure sets error state`() = runTest {
+        coEvery { userRepository.verifyOTP("1234567890", "000000") } returns flowOf(Resource.Error("Invalid code"))
+
+        viewModel.verifyOTP("1234567890", "000000") {}
+
+        val state = viewModel.otpState.value
+        assertTrue(state is Resource.Error)
+        assertEquals("Invalid code", state?.message)
+    }
+
+    @Test
+    fun `register success updates auth state`() = runTest {
+        val authResponse = AuthResponse(token = "token", user = User(id = "2", username = "newuser"))
+        coEvery {
+            userRepository.register("newuser", "new@example.com", "New User", "+27710000003", "password")
+        } returns flowOf(Resource.Success(authResponse))
+
+        viewModel.register("newuser", "new@example.com", "New User", "+27710000003", "password")
+
+        val state = viewModel.authState.value
+        assertTrue(state is Resource.Success)
     }
 }

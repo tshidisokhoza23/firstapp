@@ -56,4 +56,14 @@ class MediaNavAndToolbarTests {
         
         coVerify(exactly = 1) { socialRepository.getPosts(1) }
     }
+
+    @Test
+    fun `blank search clears results without network call`() = runTest {
+        viewModel.search("   ")
+
+        assertTrue(viewModel.searchResults.value is Resource.Success)
+        val data = (viewModel.searchResults.value as Resource.Success).data
+        assertTrue(data.isNullOrEmpty())
+        coVerify(exactly = 0) { socialRepository.getPosts(any()) }
+    }
 }

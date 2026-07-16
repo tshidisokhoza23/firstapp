@@ -45,4 +45,25 @@ class ChannelsViewModelTest {
         
         coVerify { repository.addAdmin(channelId, userId) }
     }
+
+    @Test
+    fun `create channel success shows toast`() = runTest {
+        coEvery { repository.createChannel("General", "Main room") } returns flowOf(Resource.Success(true))
+
+        viewModel.createChannel("General", "Main room")
+
+        assertEquals("Channel created successfully", viewModel.toastMessage.value)
+        coVerify { repository.createChannel("General", "Main room") }
+    }
+
+    @Test
+    fun `add admin error surfaces toast message`() = runTest {
+        val channelId = "chan1"
+        val userId = "user404"
+        coEvery { repository.addAdmin(channelId, userId) } returns flowOf(Resource.Error("User not found"))
+
+        viewModel.addAdmin(channelId, userId)
+
+        assertEquals("User not found", viewModel.toastMessage.value)
+    }
 }

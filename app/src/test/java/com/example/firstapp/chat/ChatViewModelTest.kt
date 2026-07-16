@@ -2,6 +2,7 @@ package com.example.firstapp.chat
 
 import com.example.firstapp.chat.data.CallTonePlayer
 import com.example.firstapp.chat.data.WebRtcCallManager
+import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.domain.repository.ChatRepository
@@ -18,6 +19,7 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import com.example.firstapp.account.domain.repository.AccountRepository
+import com.example.firstapp.domain.repository.SettingsRepository
 import java.io.File
 import kotlin.collections.*
 
@@ -28,6 +30,7 @@ class ChatViewModelTest {
     private val chatRepository: ChatRepository = mockk(relaxed = true)
     private val userRepository: UserRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
+    private val settingsRepository: SettingsRepository = mockk(relaxed = true)
     private val webRtcCallManager: WebRtcCallManager = mockk(relaxed = true)
     private val callTonePlayer: CallTonePlayer = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -36,7 +39,7 @@ class ChatViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<Contact>()))
-        viewModel = ChatViewModel(chatRepository, userRepository, accountRepository, webRtcCallManager, callTonePlayer)
+        viewModel = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer)
     }
 
     @After
@@ -64,7 +67,7 @@ class ChatViewModelTest {
         coEvery { chatRepository.getContacts() } returns flowOf(Resource.Success(listOf(contact1, contact2)))
         
         // In ChatViewModel, contacts is a val stateIn with WhileSubscribed.
-        val vm = ChatViewModel(chatRepository, userRepository, webRtcCallManager, callTonePlayer)
+        val vm = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer)
         
         // Start a collector to trigger the flow
         val collectJob = launch(testDispatcher) {
@@ -82,15 +85,24 @@ class ChatViewModelTest {
     @Test
     fun `group chat creation only succeeds with registered contacts`() = runTest {
         val regContact = Contact(id = "1", username = "reg", displayName = "Reg", phoneNumber = "111", isRegistered = true)
-        
-        coEvery { chatRepository.createGroup("New Group", listOf("1")) } returns flowOf(Resource.Success(mockk(relaxed = true)))
+        val createdGroup = mockk<ChatMessage>(relaxed = true)
+
+        coEvery { chatRepository.createGroup("New Group", listOf("1")) } returns flowOf(Resource.Success(createdGroup))
+
+        viewModel.updateSelectedContacts(listOf(regContact))
         
         var success = false
+        var returnedGroup: ChatMessage? = null
         viewModel.createGroup("New Group", listOf("1")) {
             success = true
+            returnedGroup = it
         }
         
+        advanceUntilIdle()
+
         assertTrue(success)
+        assertSame(createdGroup, returnedGroup)
+        assertTrue(viewModel.uiState.value.selectedContactsForGroup.isEmpty())
         coVerify { chatRepository.createGroup("New Group", listOf("1")) }
     }
 
@@ -104,5 +116,19 @@ class ChatViewModelTest {
         
         coVerify { accountRepository.uploadFile(file, "chat/images") }
         coVerify { chatRepository.sendMessage("chat1", "Image", "image", "https://example.com/test.jpg", any(), any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `sendMediaMessage upload failure sets error and skips send`() = runTest {
+        val file = File("broken.jpg")
+        coEvery { accountRepository.uploadFile(file, "chat/images") } returns flowOf(Resource.Error("offline"))
+
+        viewModel.sendMediaMessage("chat1", file, "image")
+        advanceUntilIdle()
+
+        assertEquals("Upload failed: offline", viewModel.uiState.value.error)
+        coVerify(exactly = 0) {
+            chatRepository.sendMessage(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
     }
 }

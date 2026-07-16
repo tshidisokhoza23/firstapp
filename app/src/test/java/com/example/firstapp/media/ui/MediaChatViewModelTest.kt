@@ -44,7 +44,7 @@ class MediaChatViewModelTest {
     fun `loadMessages initiates DM and fetches messages`() = runTest {
         val userId = "user1"
         val chatId = "chat123"
-        val user = User(id = userId, username = "test", display_name = "Test User")
+        val user = User(id = userId, username = "test", displayName = "Test User")
         val message = Message(id = "m1", content = "Hello", type = MessageType.TEXT)
 
         coEvery { userRepository.getUserData(userId) } returns flowOf(user)

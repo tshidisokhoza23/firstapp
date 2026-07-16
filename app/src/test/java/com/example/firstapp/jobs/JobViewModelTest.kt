@@ -59,18 +59,22 @@ class JobViewModelTest {
         viewModel.createJob(title, desc, category, skills, duration)
         
         coVerify { repository.createJob(title, desc, category, skills, duration) }
-        // The charge of R20/day is handled server-side, but we verify the parameters sent.
+        assertTrue(viewModel.createJobResult.value is Resource.Success)
+        // The charge of R20/day is enforced server-side; this test verifies correct duration payload usage.
     }
 
     @Test
     fun `applying for a job creates a chat instance`() = runTest {
         val jobId = "job123"
         val conversationId = "conv456"
+        coEvery { repository.getJobApplications() } returns flowOf(Resource.Success(emptyList()))
+        coEvery { repository.getJobs() } returns flowOf(Resource.Success(emptyList()))
         coEvery { repository.applyForJob(jobId) } returns flowOf(Resource.Success(conversationId))
         
         viewModel.applyForJob(jobId)
         
         coVerify { repository.applyForJob(jobId) }
-        // Success state would typically trigger navigation in UI.
+        coVerify(atLeast = 1) { repository.getJobs() }
+        coVerify(atLeast = 1) { repository.getJobApplications() }
     }
 }
