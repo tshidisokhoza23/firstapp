@@ -69,13 +69,15 @@ fun ProfileView(
     val currentUser by userViewModel.currentUser.collectAsState()
     val isMyProfile = userId.isNullOrBlank() || userId == currentUser?.id
     var remoteUser by remember(userId, isMyProfile) { mutableStateOf<User?>(null) }
+    var profileRefreshNonce by remember(userId, isMyProfile) { mutableIntStateOf(0) }
+    var isFollowUpdating by remember(userId) { mutableStateOf(false) }
     
     val contacts by userViewModel.contacts.collectAsState()
     val chatsResource by chatViewModel.chats.collectAsState()
     val chatList = (chatsResource.data ?: emptyList<com.example.firstapp.chat.model.ChatMessage>()) as List<com.example.firstapp.chat.model.ChatMessage>
     val chat = chatList.find { it.id == userId }
     
-    LaunchedEffect(userId, isMyProfile) {
+    LaunchedEffect(userId, isMyProfile, profileRefreshNonce) {
         if (!isMyProfile && !userId.isNullOrBlank()) {
             userViewModel.getUserById(userId).collect { resource ->
                 if (resource is Resource.Success) {
@@ -129,9 +131,10 @@ fun ProfileView(
     val userShortsState by shortsViewModel.shorts.collectAsState()
     val shorts = userShortsState.data ?: emptyList<ShortMedia>()
 
-    LaunchedEffect(userId) {
-        if (userId != null) {
-            shortsViewModel.getUserShorts(userId)
+    LaunchedEffect(userId, currentUser?.id) {
+        val targetId = userId ?: currentUser?.id
+        if (targetId != null) {
+            shortsViewModel.getUserShorts(targetId)
         }
     }
 
@@ -217,19 +220,71 @@ fun ProfileView(
                         
                         if (!isMyProfile && user != null) {
                             Row(modifier = Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { onNavigateToChat(user.id) }, colors = ButtonDefaults.buttonColors(containerColor = AppAccent), modifier = Modifier.weight(1f)) {
+                                val isFollowing = user.isFollowing
+                                Button(
+                                    onClick = { 
+                                        if (isFollowUpdating) return@Button
+                                        isFollowUpdating = true
+                                        if (isFollowing) {
+                                            userViewModel.unfollowUser(user.id) { success ->
+                                                isFollowUpdating = false
+                                                if (success) {
+                                                    profileRefreshNonce += 1
+                                                }
+                                            }
+                                        } else {
+                                            userViewModel.followUser(user.id) { success ->
+                                                isFollowUpdating = false
+                                                if (success) {
+                                                    profileRefreshNonce += 1
+                                                }
+                                            }
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isFollowing) AppSecondary else AppAccent
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !isFollowUpdating
+                                ) {
+                                    Text(if (isFollowUpdating) "Updating..." else if (isFollowing) "Following" else "Follow")
+                                }
+
+                                Button(onClick = { onNavigateToChat(user.id) }, colors = ButtonDefaults.buttonColors(containerColor = AppSecondary), modifier = Modifier.weight(1f)) {
                                     Icon(Icons.AutoMirrored.Filled.Chat, null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Message")
                                 }
-                                OutlinedButton(onClick = { /* Call */ }, modifier = Modifier.weight(1f)) {
-                                    Icon(Icons.Default.Call, null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Call")
+                            }
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(24.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(user.followingCount.toString(), color = Color.White, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Following", color = AppTextSecondary, fontSize = 14.sp)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(user.followersCount.toString(), color = Color.White, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Followers", color = AppTextSecondary, fontSize = 14.sp)
                                 }
                             }
                         }
 
+                        if (user?.bio?.isNotBlank() == true) {
+                            Text(user.bio, color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))
+                        }
+                        
+                        if (user?.location?.isNotBlank() == true) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
+                                Icon(Icons.Default.LocationOn, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(user.location, color = AppTextSecondary, fontSize = 14.sp)
+                            }
+                        }
                     }
                 }
 

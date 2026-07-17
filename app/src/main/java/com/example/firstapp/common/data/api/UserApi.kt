@@ -30,6 +30,12 @@ interface UserApi {
     @POST("users/{userId}/unblock")
     suspend fun unblockUser(@Path("userId") userId: String): Response<StatusResponse>
 
+    @POST("users/{userId}/follow")
+    suspend fun followUser(@Path("userId") userId: String): Response<StatusResponse>
+
+    @POST("users/{userId}/unfollow")
+    suspend fun unfollowUser(@Path("userId") userId: String): Response<StatusResponse>
+
     @GET("users/blocked")
     suspend fun getBlockedUsers(): Response<ContactsResponse>
 

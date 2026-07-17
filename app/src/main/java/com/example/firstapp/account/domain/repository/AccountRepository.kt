@@ -19,6 +19,8 @@ interface AccountRepository {
     fun updatePrivacySettings(settings: PrivacySettings): Flow<Resource<Boolean>>
     fun blockUser(userId: String): Flow<Resource<Boolean>>
     fun unblockUser(userId: String): Flow<Resource<Boolean>>
+    fun followUser(userId: String): Flow<Resource<Boolean>>
+    fun unfollowUser(userId: String): Flow<Resource<Boolean>>
     fun getBlockedUsers(): Flow<Resource<List<Contact>>>
     suspend fun getPublicKey(userId: String): String?
     suspend fun setPublicKey(publicKey: String): Boolean

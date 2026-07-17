@@ -206,6 +206,34 @@ class UserViewModel @Inject constructor(
         }
     }
 
+    fun followUser(userId: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            accountRepository.followUser(userId).collect { resource ->
+                if (resource is Resource.Success) {
+                    _toastMessage.value = "Followed"
+                    onComplete(true)
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to follow user"
+                    onComplete(false)
+                }
+            }
+        }
+    }
+
+    fun unfollowUser(userId: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            accountRepository.unfollowUser(userId).collect { resource ->
+                if (resource is Resource.Success) {
+                    _toastMessage.value = "Unfollowed"
+                    onComplete(true)
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to unfollow user"
+                    onComplete(false)
+                }
+            }
+        }
+    }
+
     fun reportUser(userId: String, reason: String) {
         viewModelScope.launch {
             accountRepository.reportUser(userId, reason).collect { resource ->

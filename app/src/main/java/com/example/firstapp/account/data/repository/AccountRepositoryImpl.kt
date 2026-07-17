@@ -16,6 +16,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.net.URLConnection
 
 import javax.inject.Inject
 
@@ -120,6 +121,32 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun followUser(userId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            if (userApi.followUser(userId).isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Error"))
+        }
+    }
+
+    override fun unfollowUser(userId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            if (userApi.unfollowUser(userId).isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Fail"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("Error"))
+        }
+    }
+
     override fun getBlockedUsers(): Flow<Resource<List<Contact>>> = flow {
         emit(Resource.Loading())
         try {
@@ -179,7 +206,10 @@ class AccountRepositoryImpl @Inject constructor(
     override fun uploadFile(file: File, folder: String?): Flow<Resource<UploadResponse>> = flow {
         emit(Resource.Loading())
         try {
-            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+            val mediaType = URLConnection.guessContentTypeFromName(file.name)
+                ?.toMediaTypeOrNull()
+                ?: "application/octet-stream".toMediaTypeOrNull()
+            val requestFile = file.asRequestBody(mediaType)
             val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
             val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
             

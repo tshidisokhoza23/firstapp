@@ -40,10 +40,10 @@ sealed class Screen(val route: String) {
         fun createRoute(experienceId: String? = null) = "edit_work_experience?experienceId=${experienceId ?: ""}"
     }
     object UserProfile : Screen("user_profile/{userId}?isGroup={isGroup}") {
-        fun createRoute(userId: String, isGroup: Boolean = false) = "user_profile/$userId?isGroup=$isGroup"
+        fun createRoute(userId: String, isGroup: Boolean = false) = "user_profile/${android.net.Uri.encode(userId)}?isGroup=$isGroup"
     }
     object ShortsProfile : Screen("shorts_profile/{userId}") {
-        fun createRoute(userId: String) = "shorts_profile/$userId"
+        fun createRoute(userId: String) = "shorts_profile/${android.net.Uri.encode(userId)}"
     }
     object ContactPicker : Screen("contact_picker?isGroupMode={isGroupMode}") {
         fun createRoute(isGroupMode: Boolean = false) = "contact_picker?isGroupMode=$isGroupMode"

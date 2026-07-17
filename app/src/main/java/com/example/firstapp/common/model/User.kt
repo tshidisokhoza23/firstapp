@@ -17,6 +17,7 @@ data class User(
     @SerializedName("is_artist") val isArtist: Boolean = false,
     @SerializedName("followers_count") val followersCount: Int = 0,
     @SerializedName("following_count") val followingCount: Int = 0,
+    @SerializedName("is_following") val isFollowing: Boolean = false,
     
     // Vocab specific fields
     @SerializedName("xp") val xp: Int = 0,
