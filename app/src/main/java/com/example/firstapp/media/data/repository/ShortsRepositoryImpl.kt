@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.example.firstapp.common.data.local.dao.ShortDao
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.data.api.*
+import com.example.firstapp.common.data.api.*
 import com.example.firstapp.common.data.repository.*
 import com.example.firstapp.media.data.repository.*
 import com.example.firstapp.media.model.ShortMedia
@@ -27,27 +28,10 @@ class ShortsRepositoryImpl @Inject constructor(
         val mappedCached = cached.map { it.toShortMedia() }
         emit(Resource.Loading(mappedCached))
         try {
-            val response = mediaApi.getShorts()
+            val response = mediaApi.getShortsFeed(page = 1)
             if (response.isSuccessful) {
-                val apiShorts = response.body()?.shorts ?: emptyList()
-                val shorts = apiShorts.map { apiShort -> 
-                    ShortMedia(
-                        id = apiShort.id, 
-                        creatorId = apiShort.creator_id,
-                        creatorName = apiShort.creator_name, 
-                        description = apiShort.description, 
-                        likes = apiShort.likes.toString(), 
-                        comments = apiShort.comments.toString(), 
-                        shares = apiShort.shares.toString(), 
-                        videoUrl = formatUrl(apiShort.video_url), 
-                        thumbnailUrl = formatUrl(apiShort.thumbnail_url), 
-                        thumbnailColor = Color.Black, 
-                        profilePictureColor = Color.Gray, 
-                        isLiked = apiShort.is_liked, 
-                        isSubscribed = apiShort.is_subscribed,
-                        isBookmarked = apiShort.is_bookmarked
-                    ) 
-                }
+                val feedItems = response.body()?.items ?: emptyList()
+                val shorts = mapShortsFeedItems(feedItems)
                 shortDao.clearShorts()
                 shortDao.insertShorts(shorts.map { it.toShortEntity() })
             } else {
@@ -72,28 +56,13 @@ class ShortsRepositoryImpl @Inject constructor(
                         profilePictureColor = Color.Blue,
                         isLiked = false,
                         isSubscribed = false
-                    ),
-                    ShortMedia(
-                        id = "mock-2",
-                        creatorId = "nature",
-                        creatorName = "Nature_Lovers",
-                        description = "Check out this beautiful scenery! #nature #view",
-                        likes = "850",
-                        comments = "12",
-                        shares = "5",
-                        videoUrl = "https://www.w3schools.com/html/movie.mp4",
-                        thumbnailUrl = "https://images.pexels.com/photos/1450360/pexels-photo-1450360.jpeg",
-                        thumbnailColor = Color.Green,
-                        profilePictureColor = Color.Green,
-                        isLiked = true,
-                        isSubscribed = true
                     )
                 )
                 emit(Resource.Success(mockShorts))
                 return@flow
             }
         }
-        
+
         emitAll(shortDao.getShorts().flowMap { entities ->
             val models = entities.map { it.toShortMedia() }
             Resource.Success<List<ShortMedia>>(models)

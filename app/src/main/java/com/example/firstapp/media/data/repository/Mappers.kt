@@ -12,9 +12,36 @@ import androidx.compose.ui.graphics.toArgb
 import com.example.firstapp.common.data.repository.formatUrl
 import com.example.firstapp.BuildConfig
 
+fun mapShortsFeedItems(items: List<ApiShortFeedItem>): List<ShortMedia> = items.mapNotNull { item ->
+    when (item.type) {
+        "ORGANIC_SHORT", "INTERNAL_VIDEO_AD" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.REGULAR) }
+        "NATIVE_SHORT_AD" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.NATIVE_AD) }
+        else -> null
+    }
+}
+
+private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortMedia = ShortMedia(
+    id = apiShort.id,
+    creatorId = apiShort.creator_id,
+    creatorName = apiShort.creator_name,
+    description = apiShort.description,
+    likes = apiShort.likes.toString(),
+    comments = apiShort.comments.toString(),
+    shares = apiShort.shares.toString(),
+    videoUrl = formatUrl(apiShort.video_url),
+    thumbnailUrl = formatUrl(apiShort.thumbnail_url),
+    thumbnailColor = androidx.compose.ui.graphics.Color.Black,
+    profilePictureColor = androidx.compose.ui.graphics.Color.Gray,
+    isLiked = apiShort.is_liked,
+    isSubscribed = apiShort.is_subscribed,
+    isBookmarked = apiShort.is_bookmarked,
+    type = type
+)
+
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     when (item.type) {
         "POST", "INTERNAL_AD" -> item.post?.let { mapApiMediaPost(it, item.type) }
+        "NATIVE_AD" -> item.post?.let { mapApiMediaPost(it, "NATIVE_AD") }
         "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdPlaceholder(item.placeholder)
         else -> null
     }
@@ -43,7 +70,11 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
     repliesCount = "0",
     shares = "0",
     views = "0",
-    type = if (itemType == "INTERNAL_AD" || apiPost.is_boosted) PostType.INTERNAL_AD else PostType.POST,
+    type = when (itemType) {
+        "NATIVE_AD" -> PostType.NATIVE_AD
+        "INTERNAL_AD" -> PostType.INTERNAL_AD
+        else -> if (apiPost.is_boosted) PostType.INTERNAL_AD else PostType.POST
+    },
     mediaPlaceholderColor = AppPrimary.copy(0.2f),
     repliesLocked = apiPost.replies_locked
 )

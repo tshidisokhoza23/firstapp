@@ -5,7 +5,8 @@ import androidx.compose.ui.graphics.Color
 enum class PostType {
     POST,
     INTERNAL_AD,
-    EXTERNAL_AD_PLACEHOLDER
+    EXTERNAL_AD_PLACEHOLDER,
+    NATIVE_AD
 }
 
 data class Post(

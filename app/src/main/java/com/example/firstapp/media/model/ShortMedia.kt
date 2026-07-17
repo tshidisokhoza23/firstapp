@@ -2,7 +2,7 @@ package com.example.firstapp.media.model
 
 import androidx.compose.ui.graphics.Color
 
-enum class ShortType { REGULAR, AD }
+enum class ShortType { REGULAR, AD, NATIVE_AD }
 
 data class ShortMedia(
     val id: String,

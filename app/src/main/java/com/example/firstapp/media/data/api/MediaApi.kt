@@ -38,6 +38,9 @@ interface MediaApi {
     @GET("shorts")
     suspend fun getShorts(): Response<ShortsResponse>
 
+    @GET("shorts/feed")
+    suspend fun getShortsFeed(@Query("page") page: Int = 1): Response<ShortsFeedResponse>
+
     @GET("users/{userId}/shorts")
     suspend fun getShortsByUserId(@Path("userId") userId: String): Response<ShortsResponse>
 
@@ -68,10 +71,6 @@ interface MediaApi {
     @GET("shorts/{shortId}/replies")
     suspend fun getShortReplies(@Path("shortId") shortId: String): Response<ShortRepliesResponse>
 }
-
-data class CreateShortRequest(val description: String, val video_url: String, val thumbnail_url: String)
-data class CreateShortReplyRequest(val content: String, val parent_reply_id: String? = null)
-data class CreateShortResponse(val id: String)
 
 data class ApiAdvert(
     val id: String,
@@ -110,6 +109,14 @@ data class ApiShort(
 )
 
 data class ShortsResponse(val shorts: List<ApiShort>)
+
+data class ApiShortFeedItem(
+    val type: String,
+    val short: ApiShort?,
+    val placeholder: ApiExternalAdPlaceholder?
+)
+
+data class ShortsFeedResponse(val items: List<ApiShortFeedItem>, val page: Int = 1)
 
 data class ShortLikeResponse(
     val status: String,
