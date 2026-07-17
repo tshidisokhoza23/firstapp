@@ -68,7 +68,6 @@ fun ShortItem(
     onLikeClick: (String) -> Unit,
     onSubscribeClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
-    onRepostClick: (String) -> Unit,
     onBookmarkClick: (String) -> Unit,
     onShareClick: (String) -> Unit,
     onMoreClick: (String) -> Unit,
@@ -332,7 +331,7 @@ fun ShortItem(
                             .clickable { onCreatorClick(short.creatorId) }
                     ) {
                         AsyncImage(
-                            model = short.thumbnailUrl,
+                                model = short.creatorAvatarUrl ?: short.thumbnailUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -370,11 +369,6 @@ fun ShortItem(
                     onClick = { onCommentClick(short.id) }
                 )
                 ShortActionButton(
-                    icon = Icons.Filled.Repeat,
-                    text = "Repost",
-                    onClick = { onRepostClick(short.id) }
-                )
-                ShortActionButton(
                     icon = if (short.isBookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
                     text = "Save",
                     onClick = { onBookmarkClick(short.id) }
@@ -406,7 +400,7 @@ fun ShortItem(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "@${short.creatorName}",
+                        text = if (short.creatorUsername.isNotBlank()) "@${short.creatorUsername}" else "@${short.creatorName}",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,

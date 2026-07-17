@@ -24,6 +24,8 @@ private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortM
     id = apiShort.id,
     creatorId = apiShort.creator_id,
     creatorName = apiShort.creator_name,
+    creatorUsername = apiShort.creator_username ?: "",
+    creatorAvatarUrl = formatUrl(apiShort.creator_avatar_url),
     description = apiShort.description,
     likes = apiShort.likes.toString(),
     comments = apiShort.comments.toString(),
@@ -227,6 +229,18 @@ fun mapApiPostReplyToShortReply(apiReply: ApiPostReply): ShortReply = ShortReply
     isLiked = apiReply.is_liked
 )
 
+fun mapApiShortReplyToShortReply(apiReply: ApiShortReply): ShortReply = ShortReply(
+    id = apiReply.id,
+    authorName = apiReply.author?.display_name ?: "Unknown",
+    authorHandle = apiReply.author?.username ?: "",
+    authorAvatarUrl = formatUrl(apiReply.author?.avatar_url),
+    authorAvatarColor = Color(0xFF90CAF9),
+    content = apiReply.content,
+    timestamp = apiReply.created_at?.toString() ?: "",
+    likes = apiReply.likes.toString(),
+    isLiked = apiReply.is_liked
+)
+
 fun mapApiChannel(api: ApiChannel): Channel = Channel(
     id = api.id,
     name = api.name,
@@ -313,7 +327,21 @@ fun UserStory.toStoryEntity() = StoryEntity(id, userId, userName, userAvatarUrl,
 fun StoryEntity.toUserStory() = UserStory(id, userId, userName, userAvatarUrl, Color(userAvatarColor), stories, lastUpdated, isMuted)
 
 fun ShortMedia.toShortEntity() = ShortEntity(id, creatorId, creatorName, description, likes, comments, shares, videoUrl, thumbnailUrl, thumbnailColor.toArgb(), profilePictureColor.toArgb(), isLiked, isSubscribed)
-fun ShortEntity.toShortMedia() = ShortMedia(id, creatorId, creatorName, description, likes, comments, shares, videoUrl, thumbnailUrl, Color(thumbnailColor), Color(profilePictureColor), isLiked, isSubscribed)
+fun ShortEntity.toShortMedia() = ShortMedia(
+    id = id,
+    creatorId = creatorId,
+    creatorName = creatorName,
+    description = description,
+    likes = likes,
+    comments = comments,
+    shares = shares,
+    videoUrl = videoUrl,
+    thumbnailUrl = thumbnailUrl,
+    thumbnailColor = Color(thumbnailColor),
+    profilePictureColor = Color(profilePictureColor),
+    isLiked = isLiked,
+    isSubscribed = isSubscribed
+)
 
 fun Channel.toEntity() = ChannelEntity(id, name, description, followers, avatarUrl, avatarColor.toArgb(), isVerified, isSubscribed, isAdmin, isMuted, category, createdBy, lastPostText, lastPostImageUrl, lastPostImageColor.toArgb(), lastPostTime)
 fun ChannelEntity.toModel() = Channel(id, name, description, followers, avatarUrl, Color(avatarColor), isVerified, isSubscribed, isMuted, isAdmin, category, createdBy, lastPostText, lastPostImageUrl, Color(lastPostImageColor), lastPostTime)

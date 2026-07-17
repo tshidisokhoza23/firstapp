@@ -283,7 +283,21 @@ class MediaViewModel @Inject constructor(
     fun createPostReply(postId: String, content: String, parentReplyId: String? = null) {
         if (content.isBlank()) return
         viewModelScope.launch {
-            socialRepository.createPostReply(postId, content.trim(), parentReplyId).collect { }
+            socialRepository.createPostReply(postId, content.trim(), parentReplyId).collect { resource ->
+                if (resource is Resource.Success && resource.data == true) {
+                    val selected = _uiState.value.selectedPost
+                    if (selected != null && selected.id == postId) {
+                        val currentCount = selected.repliesCount.toLongOrNull() ?: 0L
+                        _uiState.update {
+                            it.copy(selectedPost = selected.copy(repliesCount = (currentCount + 1).toString()))
+                        }
+                        fetchReplies(postId)
+                    }
+                    _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = "Failed to add reply: ${resource.message}"
+                }
+            }
         }
     }
 

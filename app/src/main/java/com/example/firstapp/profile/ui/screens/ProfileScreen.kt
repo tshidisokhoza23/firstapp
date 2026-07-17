@@ -68,13 +68,29 @@ fun ProfileView(
     val context = LocalContext.current
     val currentUser by userViewModel.currentUser.collectAsState()
     val isMyProfile = userId.isNullOrBlank() || userId == currentUser?.id
+    var remoteUser by remember(userId, isMyProfile) { mutableStateOf<User?>(null) }
     
     val contacts by userViewModel.contacts.collectAsState()
     val chatsResource by chatViewModel.chats.collectAsState()
     val chatList = (chatsResource.data ?: emptyList<com.example.firstapp.chat.model.ChatMessage>()) as List<com.example.firstapp.chat.model.ChatMessage>
     val chat = chatList.find { it.id == userId }
     
+    LaunchedEffect(userId, isMyProfile) {
+        if (!isMyProfile && !userId.isNullOrBlank()) {
+            userViewModel.getUserById(userId).collect { resource ->
+                if (resource is Resource.Success) {
+                    remoteUser = resource.data
+                }
+            }
+        } else {
+            remoteUser = null
+        }
+    }
+
     val user = if (isMyProfile) currentUser else {
+        if (remoteUser != null) {
+            remoteUser
+        } else {
         val contact = contacts.find { it.id == userId }
         if (contact != null) {
             User(
@@ -94,6 +110,7 @@ fun ProfileView(
                 username = ""
             )
         } else null
+        }
     }
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -178,7 +195,7 @@ fun ProfileView(
                 }
 
                 item {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-50).dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-36).dp)) {
                         AsyncImage(
                             model = user?.avatarUrl,
                             contentDescription = null,
@@ -213,21 +230,6 @@ fun ProfileView(
                             }
                         }
 
-                        if (userId != null && !isMyProfile) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                colors = CardDefaults.cardColors(containerColor = AppSecondary.copy(alpha = 0.5f))
-                            ) {
-                                Column {
-                                    ProfileOptionItem(Icons.Default.Image, "Media, Links, and Docs") { onNavigateToSharedMedia(userId) }
-                                    ProfileOptionItem(Icons.Default.Star, "Starred Messages") { }
-                                    ProfileOptionItem(
-                                        if (chat?.isMuted == true) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                                        if (chat?.isMuted == true) "Unmute Notifications" else "Mute Notifications"
-                                    ) { chatViewModel.muteChat(userId, chat?.isMuted != true) }
-                                }
-                            }
-                        }
                     }
                 }
 

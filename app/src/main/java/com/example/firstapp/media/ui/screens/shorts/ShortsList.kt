@@ -65,18 +65,18 @@ fun ShortsList(
 
     VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
         val currentShort = shortsWithAds[page]
+        val isInteractiveShort = currentShort.type == ShortType.REGULAR
         ShortItem(
             short = currentShort, 
             isVisible = pagerState.currentPage == page, 
             bottomInset = bottomPadding, 
-            onLikeClick = { if (currentShort.type != ShortType.AD) shortsViewModel.likeShort(it) }, 
-            onSubscribeClick = { if (currentShort.type != ShortType.AD) shortsViewModel.subscribeToShortCreator(it) }, 
-            onCommentClick = { if (currentShort.type != ShortType.AD) onShowComments(it) }, 
-            onRepostClick = { if (currentShort.type != ShortType.AD) shortsViewModel.repostShort(it) }, 
-            onBookmarkClick = { if (currentShort.type != ShortType.AD) shortsViewModel.bookmarkShort(it) }, 
+            onLikeClick = { if (isInteractiveShort) shortsViewModel.likeShort(it) }, 
+            onSubscribeClick = { if (isInteractiveShort) shortsViewModel.subscribeToShortCreator(it) }, 
+            onCommentClick = { if (isInteractiveShort) onShowComments(it) }, 
+            onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkShort(it) }, 
             onShareClick = { shortsViewModel.trackShortShare(it) },
             onMoreClick = { onShowMoreMenu(currentShort) }, 
-            onCreatorClick = { if (currentShort.type != ShortType.AD) onCreatorClick(it) }
+            onCreatorClick = { if (isInteractiveShort) onCreatorClick(it) }
         )
     }
 }

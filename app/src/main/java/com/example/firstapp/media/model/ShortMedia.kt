@@ -8,6 +8,8 @@ data class ShortMedia(
     val id: String,
     val creatorId: String,
     val creatorName: String,
+    val creatorUsername: String = "",
+    val creatorAvatarUrl: String? = null,
     val description: String,
     val likes: String,
     val comments: String,

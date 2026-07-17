@@ -3,11 +3,16 @@ package com.example.firstapp.media.ui.screens.shorts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.ui.theme.AppSecondary
@@ -90,7 +96,7 @@ fun ShortsTabScreen(
                     showShortMoreMenu = true
                 },
                 onCreatorClick = { creatorId ->
-                    navController.navigate(com.example.firstapp.ui.navigation.Screen.ShortsProfile.createRoute(creatorId))
+                    navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(creatorId))
                 }
             )
         }
@@ -103,6 +109,32 @@ fun ShortsTabScreen(
 
         TopAppBar(
             title = { Text("Shorts", color = Color.White, fontWeight = FontWeight.Bold) },
+            navigationIcon = {
+                val avatarUrl = currentUser?.avatarUrl
+                Box(
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF3A4B57))
+                        .clickable(enabled = !currentUser?.id.isNullOrBlank()) {
+                            val myId = currentUser?.id ?: return@clickable
+                            navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(myId))
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = "Profile",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                }
+            },
             actions = {
                 IconButton(onClick = { showUploadDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "Upload", tint = Color.White)

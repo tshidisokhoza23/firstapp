@@ -15,7 +15,6 @@ import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.ui.navigation.Screen
-import com.example.firstapp.media.ui.screens.shorts.ShortsProfileScreen
 import kotlin.collections.listOf
 
 fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
@@ -87,27 +86,38 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
         )
     ) { backStackEntry ->
         val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
-        val shortsViewModel: ShortsViewModel = hiltViewModel()
         val userViewModel: UserViewModel = hiltViewModel()
         val mediaViewModel: MediaViewModel = hiltViewModel()
+        val chatViewModel: ChatViewModel = hiltViewModel()
+        val sharedMediaViewModel: SharedMediaViewModel = hiltViewModel()
+        val shortsViewModel: ShortsViewModel = hiltViewModel()
         val mainViewModel: com.example.firstapp.home.ui.viewmodel.MainViewModel = hiltViewModel(
             navController.getBackStackEntry(Screen.Main.route)
         )
-        
-        ShortsProfileScreen(
+        val pagedPosts = mediaViewModel.getUserPosts(userId).collectAsLazyPagingItems()
+
+        ProfileView(
             userId = userId,
-            shortsViewModel = shortsViewModel,
+            isGroup = false,
+            onBack = { navController.popBackStack() },
+            posts = pagedPosts,
             userViewModel = userViewModel,
             mediaViewModel = mediaViewModel,
-            onBack = { navController.popBackStack() },
-            onShortClick = { short -> 
+            chatViewModel = chatViewModel,
+            sharedMediaViewModel = sharedMediaViewModel,
+            onNavigateToSharedMedia = { id -> navController.navigate(Screen.SharedMedia.createRoute(id)) },
+            onNavigateToChat = { id -> navController.navigate(Screen.DirectChat.createRoute(id)) },
+            onNavigateToEditExperience = { id ->
+                navController.navigate(Screen.EditWorkExperience.createRoute(id))
+            },
+            onNavigateToEditProfile = {
+                navController.navigate(Screen.EditProfile.route)
+            },
+            onShortClick = { short ->
                 shortsViewModel.setSelectedShortsUserId(userId)
                 mainViewModel.setSelectedBottomItem(2)
                 shortsViewModel.setSelectedShortId(short.id)
                 navController.navigate("main?tab=shorts")
-            },
-            onMessageClick = { id ->
-                navController.navigate(Screen.DirectChat.createRoute(id))
             }
         )
     }

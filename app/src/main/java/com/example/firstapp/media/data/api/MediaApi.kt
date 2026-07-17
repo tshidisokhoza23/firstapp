@@ -70,6 +70,9 @@ interface MediaApi {
 
     @GET("shorts/{shortId}/replies")
     suspend fun getShortReplies(@Path("shortId") shortId: String): Response<ShortRepliesResponse>
+
+    @POST("shorts/replies/{replyId}/like")
+    suspend fun likeShortReply(@Path("replyId") replyId: String): Response<StatusResponse>
 }
 
 data class ApiAdvert(
@@ -97,6 +100,8 @@ data class ApiShort(
     val id: String,
     val creator_id: String,
     val creator_name: String,
+    val creator_username: String? = null,
+    val creator_avatar_url: String? = null,
     val description: String,
     val likes: Long,
     val comments: Long,
@@ -128,5 +133,3 @@ data class ShortSubscribeResponse(
     val status: String,
     val is_subscribed: Boolean
 )
-
-data class ShortRepliesResponse(val replies: List<ApiPostReply>)

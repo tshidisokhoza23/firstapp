@@ -79,7 +79,9 @@ class ShortsRepositoryImpl @Inject constructor(
                     ShortMedia(
                         id = apiShort.id, 
                         creatorId = apiShort.creator_id,
-                        creatorName = apiShort.creator_name, 
+                        creatorName = apiShort.creator_name,
+                        creatorUsername = apiShort.creator_username ?: "",
+                        creatorAvatarUrl = formatUrl(apiShort.creator_avatar_url),
                         description = apiShort.description, 
                         likes = apiShort.likes.toString(), 
                         comments = apiShort.comments.toString(), 
@@ -112,7 +114,9 @@ class ShortsRepositoryImpl @Inject constructor(
                     ShortMedia(
                         id = apiShort.id, 
                         creatorId = apiShort.creator_id,
-                        creatorName = apiShort.creator_name, 
+                        creatorName = apiShort.creator_name,
+                        creatorUsername = apiShort.creator_username ?: "",
+                        creatorAvatarUrl = formatUrl(apiShort.creator_avatar_url),
                         description = apiShort.description, 
                         likes = apiShort.likes.toString(), 
                         comments = apiShort.comments.toString(), 
@@ -142,10 +146,10 @@ class ShortsRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!.id))
             } else {
-                emit(Resource.Error("Fail"))
+                emit(Resource.Error("Create short failed: ${response.code()}"))
             }
         } catch (e: Exception) {
-            emit(Resource.Error("Error"))
+            emit(Resource.Error(e.localizedMessage ?: "Error creating short"))
         }
     }
 
@@ -207,7 +211,7 @@ class ShortsRepositoryImpl @Inject constructor(
             val response = mediaApi.getShortReplies(shortId)
             if (response.isSuccessful) {
                 val repliesList = response.body()?.replies ?: emptyList()
-                val mapped = repliesList.map { mapApiPostReplyToShortReply(it) }
+                val mapped = repliesList.map { mapApiShortReplyToShortReply(it) }
                 emit(Resource.Success<List<ShortReply>>(mapped))
             } else {
                 emit(Resource.Error("Fail"))
@@ -233,7 +237,7 @@ class ShortsRepositoryImpl @Inject constructor(
     override fun likeShortReply(replyId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            if (socialApi.likePostReply(replyId).isSuccessful) {
+            if (mediaApi.likeShortReply(replyId).isSuccessful) {
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Fail"))
