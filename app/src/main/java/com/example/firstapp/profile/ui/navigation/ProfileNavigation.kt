@@ -104,7 +104,7 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
                 shortsViewModel.setSelectedShortsUserId(userId)
                 mainViewModel.setSelectedBottomItem(2)
                 shortsViewModel.setSelectedShortId(short.id)
-                navController.popBackStack(Screen.Main.route, false)
+                navController.navigate("main?tab=shorts")
             },
             onMessageClick = { id ->
                 navController.navigate(Screen.DirectChat.createRoute(id))
