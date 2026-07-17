@@ -351,7 +351,7 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) {
-        val existing = chatDao.getChatById(chatId).first()
+         val existing = chatDao.getChatById(chatId).first()
         if (existing == null) {
             // If the chat doesn't exist locally, try to create it from contact info
             val contact = contactDao.getContactById(chatId)
