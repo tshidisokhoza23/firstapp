@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,19 +32,18 @@ import com.example.firstapp.common.model.*
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
+import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.common.util.MediaUtils
 import com.example.firstapp.media.ui.screens.PostItem
 import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
 import com.example.firstapp.media.model.ShortMedia
-import com.example.firstapp.media.ui.screens.shorts.ShortGridItem
 import com.example.firstapp.common.util.Resource
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.paging.LoadState
-import java.util.*
-import java.text.SimpleDateFormat
+import com.example.firstapp.music.model.Song
+import com.example.firstapp.profile.model.WorkExperience
 import kotlin.collections.*
 import kotlin.text.*
 
@@ -52,34 +52,45 @@ import kotlin.text.*
 fun ProfileView(
     userId: String? = null,
     isGroup: Boolean = false,
+    showExperienceTab: Boolean = true,
     onBack: () -> Unit,
     posts: LazyPagingItems<Post>,
     userViewModel: UserViewModel,
     mediaViewModel: MediaViewModel,
-    chatViewModel: ChatViewModel = hiltViewModel(),
     sharedMediaViewModel: SharedMediaViewModel = hiltViewModel(),
     shortsViewModel: ShortsViewModel = hiltViewModel(),
     onNavigateToSharedMedia: (String) -> Unit = {},
-    onNavigateToChat: (String) -> Unit = {},
+    onRequireLogin: () -> Unit = {},
     onNavigateToEditExperience: (String?) -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
     onShortClick: (ShortMedia) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val isLoggedIn by TokenManager.authState.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
-    val isMyProfile = userId.isNullOrBlank() || userId == currentUser?.id
-    var remoteUser by remember(userId, isMyProfile) { mutableStateOf<User?>(null) }
-    var profileRefreshNonce by remember(userId, isMyProfile) { mutableIntStateOf(0) }
+    val normalizedUserId = if (userId != null && userId.length > 0) userId else null
+    val isMyProfile = normalizedUserId == null || normalizedUserId == currentUser?.id
+    var remoteUser by remember(normalizedUserId, isMyProfile) { mutableStateOf<User?>(null) }
+    var profileRefreshNonce by remember(normalizedUserId, isMyProfile) { mutableIntStateOf(0) }
     var isFollowUpdating by remember(userId) { mutableStateOf(false) }
+
+    LaunchedEffect(isLoggedIn, currentUser?.id) {
+        if (isLoggedIn && currentUser == null) {
+            userViewModel.fetchCurrentUser()
+        }
+    }
+
+    LaunchedEffect(isLoggedIn) {
+        if (!isLoggedIn) {
+            onRequireLogin()
+        }
+    }
     
-    val contacts by userViewModel.contacts.collectAsState()
-    val chatsResource by chatViewModel.chats.collectAsState()
-    val chatList = (chatsResource.data ?: emptyList<com.example.firstapp.chat.model.ChatMessage>()) as List<com.example.firstapp.chat.model.ChatMessage>
-    val chat = chatList.find { it.id == userId }
-    
-    LaunchedEffect(userId, isMyProfile, profileRefreshNonce) {
-        if (!isMyProfile && !userId.isNullOrBlank()) {
-            userViewModel.getUserById(userId).collect { resource ->
+    LaunchedEffect(isLoggedIn, normalizedUserId, isMyProfile, profileRefreshNonce) {
+        if (!isLoggedIn) {
+            remoteUser = null
+        } else if (!isMyProfile && normalizedUserId != null) {
+            userViewModel.getUserById(normalizedUserId).collect { resource ->
                 if (resource is Resource.Success) {
                     remoteUser = resource.data
                 }
@@ -89,65 +100,75 @@ fun ProfileView(
         }
     }
 
-    val user = if (isMyProfile) currentUser else {
-        if (remoteUser != null) {
-            remoteUser
-        } else {
-        val contact = contacts.find { it.id == userId }
-        if (contact != null) {
-            User(
-                id = contact.id, 
-                username = contact.username, 
-                displayName = chat?.senderName ?: contact.displayName, 
-                avatarUrl = contact.avatarUrl, 
-                bio = contact.bio, 
-                location = "",
-                phoneNumber = contact.phoneNumber
-            )
-        } else if (chat != null) {
-            User(
-                id = chat.id,
-                displayName = chat.senderName,
-                avatarUrl = chat.avatarUrl,
-                username = ""
-            )
-        } else null
-        }
+    val user = if (isMyProfile) currentUser else remoteUser
+
+    if (!isLoggedIn) {
+        return
     }
 
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = arrayOf("Posts", "Experience", "Media", "Replies", "Shorts")
+    var selectedTabIndex by remember(normalizedUserId, showExperienceTab) { mutableIntStateOf(0) }
+    val tabs = remember(showExperienceTab) {
+        val l = java.util.ArrayList<String>()
+        l.add("Posts")
+        if (showExperienceTab) l.add("Experience")
+        l.add("Media")
+        l.add("Replies")
+        l.add("Shorts")
+        l
+    }
+    
+    val safeSelectedTabIndex = if (selectedTabIndex < tabs.size) selectedTabIndex else 0
+    val selectedTab = if (safeSelectedTabIndex < tabs.size) tabs[safeSelectedTabIndex] else if (tabs.size > 0) tabs[tabs.size - 1] else ""
+    val profileOwnerId = normalizedUserId ?: currentUser?.id
 
     val workExperiencesResource by userViewModel.workExperiences.collectAsState()
     val workExperiences = if (workExperiencesResource is Resource.Success) {
-        (workExperiencesResource as Resource.Success<List<com.example.firstapp.profile.model.WorkExperience>>).data ?: emptyList()
-    } else emptyList()
-
-    val sortedExperiences = remember(workExperiences) {
-        workExperiences.sortedWith(compareByDescending<com.example.firstapp.profile.model.WorkExperience> { it.isCurrentJob }
-            .thenByDescending { it.startDate })
+        val data = (workExperiencesResource as Resource.Success<List<WorkExperience>>).data
+        if (data != null) data else java.util.Collections.emptyList<WorkExperience>()
+    } else {
+        java.util.Collections.emptyList<WorkExperience>()
     }
 
-    val userShortsState by shortsViewModel.shorts.collectAsState()
-    val shorts = userShortsState.data ?: emptyList<ShortMedia>()
+    val userShortsState by shortsViewModel.userShorts.collectAsState()
+    val shortsData = userShortsState.data ?: emptyList()
+    val shorts = remember(shortsData, profileOwnerId) {
+        val filtered = java.util.ArrayList<ShortMedia>()
+        for (short in shortsData) {
+            if (profileOwnerId == null || short.creatorId == profileOwnerId) {
+                filtered.add(short)
+            }
+        }
+        filtered
+    }
+    
+    val chunkedShorts = remember(shorts) {
+        val result = java.util.ArrayList<List<ShortMedia>>()
+        var i = 0
+        while (i < shorts.size) {
+            val end = if (i + 3 > shorts.size) shorts.size else i + 3
+            result.add(shorts.subList(i, end))
+            i += 3
+        }
+        result
+    }
 
-    LaunchedEffect(userId, currentUser?.id) {
-        val targetId = userId ?: currentUser?.id
-        if (targetId != null) {
-            shortsViewModel.getUserShorts(targetId)
+    LaunchedEffect(isLoggedIn, normalizedUserId, currentUser?.id) {
+        val targetId = normalizedUserId ?: currentUser?.id
+        if (isLoggedIn && targetId != null) {
+            shortsViewModel.setSelectedShortsUserId(targetId)
         }
     }
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            val file = MediaUtils.getFileFromUri(context, it)
+        if (uri != null) {
+            val file = MediaUtils.getFileFromUri(context, uri)
             if (file != null) userViewModel.uploadProfilePicture(file, isBanner = false)
         }
     }
 
     val bannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            val file = MediaUtils.getFileFromUri(context, it)
+        if (uri != null) {
+            val file = MediaUtils.getFileFromUri(context, uri)
             if (file != null) userViewModel.uploadProfilePicture(file, isBanner = true)
         }
     }
@@ -193,7 +214,7 @@ fun ProfileView(
                             modifier = Modifier.fillMaxSize().background(AppSecondary).clickable(enabled = isMyProfile) { bannerLauncher.launch("image/*") },
                             contentScale = ContentScale.Crop
                         )
-                        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(kotlin.collections.listOf(Color.Transparent, AppBackground))))
+                        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(java.util.Arrays.asList(Color.Transparent, AppBackground))))
                     }
                 }
 
@@ -208,7 +229,7 @@ fun ProfileView(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         if (user != null) {
-                            val nameToShow = if (user.displayName.isNotBlank()) user.displayName else "No Name"
+                            val nameToShow = if (user.displayName != null && user.displayName.length > 0) user.displayName else "No Name"
                             Text(nameToShow, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             Text("@${user.username}", color = AppTextSecondary, fontSize = 16.sp)
                         } else {
@@ -244,16 +265,10 @@ fun ProfileView(
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = if (isFollowing) AppSecondary else AppAccent
                                     ),
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth(),
                                     enabled = !isFollowUpdating
                                 ) {
                                     Text(if (isFollowUpdating) "Updating..." else if (isFollowing) "Following" else "Follow")
-                                }
-
-                                Button(onClick = { onNavigateToChat(user.id) }, colors = ButtonDefaults.buttonColors(containerColor = AppSecondary), modifier = Modifier.weight(1f)) {
-                                    Icon(Icons.AutoMirrored.Filled.Chat, null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Message")
                                 }
                             }
                             
@@ -290,35 +305,32 @@ fun ProfileView(
 
                 item {
                     TabRow(
-                        selectedTabIndex = selectedTabIndex,
+                        selectedTabIndex = safeSelectedTabIndex,
                         containerColor = AppBackground,
                         contentColor = AppAccent,
                         divider = {},
                         indicator = { tabPositions ->
-                            if (selectedTabIndex < tabPositions.size) {
+                            if (safeSelectedTabIndex < tabPositions.size) {
                                 TabRowDefaults.SecondaryIndicator(
-                                    Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                    Modifier.tabIndicatorOffset(tabPositions[safeSelectedTabIndex]),
                                     color = AppAccent
                                 )
                             }
                         }
                     ) {
-                        var k = 0
-                        while (k < tabs.size) {
-                            val title = tabs[k]
-                            val idx = k
+                        for (idx in 0..(tabs.size - 1)) {
+                            val title = tabs.get(idx)
                             Tab(
-                                selected = selectedTabIndex == idx,
+                                selected = safeSelectedTabIndex == idx,
                                 onClick = { selectedTabIndex = idx },
-                                text = { Text(title, fontSize = 14.sp, fontWeight = if (selectedTabIndex == idx) FontWeight.Bold else FontWeight.Normal) }
+                                text = { Text(title, fontSize = 14.sp, fontWeight = if (safeSelectedTabIndex == idx) FontWeight.Bold else FontWeight.Normal) }
                             )
-                            k++
                         }
                     }
                 }
 
-                when (selectedTabIndex) {
-                    0 -> { // Posts
+                when (selectedTab) {
+                    "Posts" -> {
                         items(
                             count = posts.itemCount,
                             key = posts.itemKey { it.id }
@@ -341,83 +353,52 @@ fun ProfileView(
                             }
                         }
                     }
-                    1 -> { // Experience
-                        item {
-                            if (isMyProfile) {
-                                Button(
-                                    onClick = { onNavigateToEditExperience(null) },
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
-                                ) {
-                                    Icon(Icons.Default.Add, null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Add Experience")
-                                }
-                            }
-                        }
-                        items(sortedExperiences.size) { index ->
-                            val exp = sortedExperiences[index]
-                            WorkExperienceItem(
-                                experience = exp,
-                                isMyProfile = isMyProfile,
-                                onEditClick = { onNavigateToEditExperience(exp.id) }
-                            )
-                            HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
-                        }
-                        if (sortedExperiences.isEmpty()) {
+                    "Experience" -> {
+                        if (workExperiences.isEmpty()) {
                             item {
                                 Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                                     Text("No work experience added", color = AppTextSecondary)
                                 }
                             }
+                        } else {
+                            items(workExperiences) { experience ->
+                                WorkExperienceItem(
+                                    experience = experience,
+                                    isMyProfile = isMyProfile,
+                                    onEdit = { onNavigateToEditExperience(experience.id) }
+                                )
+                                HorizontalDivider(color = AppSecondary.copy(alpha = 0.5f))
+                            }
                         }
                     }
-                    2 -> { // Media
+                    "Media" -> {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                                 Text("Media Grid coming soon", color = AppTextSecondary)
                             }
                         }
                     }
-                    3 -> { // Replies
+                    "Replies" -> {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                                 Text("User Replies coming soon", color = AppTextSecondary)
                             }
                         }
                     }
-                    4 -> { // Shorts
-                        val chunkedShorts = ArrayList<List<ShortMedia>>()
-                        var i = 0
-                        while (i < shorts.size) {
-                            val chunk = ArrayList<ShortMedia>()
-                            var j = 0
-                            while (j < 3 && (i + j) < shorts.size) {
-                                chunk.add(shorts[i + j])
-                                j++
-                            }
-                            chunkedShorts.add(chunk)
-                            i += 3
-                        }
-                        
+                    "Shorts" -> {
                         items(chunkedShorts.size) { rowIndex ->
                             val row = chunkedShorts[rowIndex]
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                var m = 0
-                                while (m < row.size) {
-                                    val short = row[m]
+                                for (short in row) {
                                     Box(modifier = Modifier.weight(1f).padding(1.dp)) {
                                         ShortGridItem(short, onShortClick)
                                     }
-                                    m++
                                 }
                                 val remaining = 3 - row.size
-                                if (remaining > 0) {
-                                    var n = 0
-                                    while (n < remaining) {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                        n++
-                                    }
+                                var i = 0
+                                while (i < remaining) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    i++
                                 }
                             }
                         }
@@ -437,54 +418,75 @@ fun ProfileView(
 }
 
 @Composable
-fun ProfileOptionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color = Color.White, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(label, color = color) },
-        leadingContent = { Icon(icon, null, tint = if (color == Color.Red) color else AppAccent) },
-        modifier = Modifier.clickable { onClick() },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+private fun WorkExperienceItem(
+    experience: WorkExperience,
+    isMyProfile: Boolean,
+    onEdit: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(experience.jobTitle, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(experience.companyName, color = AppAccent, fontSize = 16.sp)
+            }
+            if (isMyProfile) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AppTextSecondary, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+        
+        if (experience.location != null) {
+            Text(experience.location, color = AppTextSecondary, fontSize = 14.sp)
+        }
+        
+        Text(
+            "${experience.employmentType} • ${if (experience.isCurrentJob) "Present" else "Past"}",
+            color = AppTextSecondary,
+            fontSize = 12.sp
+        )
+        
+        if (experience.description != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(experience.description, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+        }
+    }
 }
 
 @Composable
-fun WorkExperienceItem(
-    experience: com.example.firstapp.profile.model.WorkExperience,
-    isMyProfile: Boolean,
-    onEditClick: () -> Unit
-) {
-    val dateFormat = remember { SimpleDateFormat("MMM yyyy", Locale.getDefault()) }
-    
-    ListItem(
-        overlineContent = {
-            Text(
-                text = "${dateFormat.format(Date(experience.startDate))} - ${if (experience.isCurrentJob) "Present" else experience.endDate?.let { dateFormat.format(Date(it)) } ?: ""}",
-                color = AppTextSecondary,
-                fontSize = 12.sp
-            )
-        },
-        headlineContent = {
-            Text(experience.jobTitle, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        },
-        supportingContent = {
-            Column {
-                Text("${experience.companyName} • ${experience.employmentType}", color = AppAccent, fontWeight = FontWeight.Medium)
-                if (!experience.location.isNullOrBlank()) {
-                    Text(experience.location ?: "", color = AppTextSecondary, fontSize = 14.sp)
-                }
-                if (!experience.description.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(experience.description ?: "", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
-                }
-            }
-        },
-        trailingContent = {
-            if (isMyProfile) {
-                IconButton(onClick = onEditClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AppAccent, modifier = Modifier.size(20.dp))
-                }
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
+private fun ShortGridItem(short: ShortMedia, onShortClick: (ShortMedia) -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(9f / 16f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(short.thumbnailColor)
+            .clickable { onShortClick(short) }
+    ) {
+        AsyncImage(
+            model = short.thumbnailUrl,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
+                    )
+                )
+        )
+
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = "Play short",
+            tint = Color.White,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(24.dp)
+        )
+    }
 }

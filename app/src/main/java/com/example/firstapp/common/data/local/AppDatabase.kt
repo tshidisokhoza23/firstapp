@@ -72,27 +72,44 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: android.content.Context): AppDatabase {
             return instance ?: synchronized(this) {
-                // Initialize SQLCipher
-                System.loadLibrary("sqlcipher")
-                
-                // Ensure TokenManager is initialized to get the passphrase
-                com.example.firstapp.common.data.TokenManager.initialize(context)
-                val passphrase = com.example.firstapp.common.data.TokenManager.getDbPassphrase().toByteArray()
-                val factory = SupportOpenHelperFactory(passphrase)
-
-                val db = androidx.room.Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    DATABASE_NAME
-                )
-                .openHelperFactory(factory)
-                .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
-                .fallbackToDestructiveMigration()
-                .build()
-                
+                val db = try {
+                    val d = buildDatabase(context)
+                    // Trigger a database open to catch encryption/corruption errors early
+                    d.openHelper.writableDatabase
+                    d
+                } catch (e: Exception) {
+                    android.util.Log.e("AppDatabase", "Database open failed, deleting and recreating...", e)
+                    // If it's a SQLCipher key mismatch or corruption, delete the file and try again
+                    try {
+                        context.deleteDatabase(DATABASE_NAME)
+                    } catch (_: Exception) {}
+                    val d = buildDatabase(context)
+                    d.openHelper.writableDatabase
+                    d
+                }
                 instance = db
                 db
             }
+        }
+
+        private fun buildDatabase(context: android.content.Context): AppDatabase {
+            // Initialize SQLCipher
+            System.loadLibrary("sqlcipher")
+            
+            // Ensure TokenManager is initialized to get the passphrase
+            com.example.firstapp.common.data.TokenManager.initialize(context)
+            val passphrase = com.example.firstapp.common.data.TokenManager.getDbPassphrase().toByteArray()
+            val factory = SupportOpenHelperFactory(passphrase)
+
+            return androidx.room.Room.databaseBuilder(
+                context.applicationContext,
+                AppDatabase::class.java,
+                DATABASE_NAME
+            )
+            .openHelperFactory(factory)
+            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+            .fallbackToDestructiveMigration()
+            .build()
         }
     }
 }

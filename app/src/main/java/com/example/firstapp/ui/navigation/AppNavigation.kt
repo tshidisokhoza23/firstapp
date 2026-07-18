@@ -11,7 +11,7 @@ import com.example.firstapp.auth.ui.navigation.authNavGraph
 import com.example.firstapp.chat.ui.navigation.chatsNav
 import com.example.firstapp.vocab.ui.navigation.vocabNavGraph
 import com.example.firstapp.media.ui.navigation.mediaNavGraph
-import com.example.firstapp.jobs.ui.navigation.jobsNavGraph
+import com.example.firstapp.chat.jobs.ui.navigation.jobsNavGraph
 import com.example.firstapp.settings.ui.navigation.settingsNavGraph
 import com.example.firstapp.profile.ui.navigation.profileNavGraph
 import com.example.firstapp.home.ui.screens.MainScreen
@@ -24,7 +24,7 @@ import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
 import com.example.firstapp.media.ui.viewmodel.AdvertsViewModel
 import com.example.firstapp.media.ui.viewmodel.ChannelsViewModel
 import com.example.firstapp.media.ui.viewmodel.StoryViewModel
-import com.example.firstapp.jobs.ui.viewmodel.JobViewModel
+import com.example.firstapp.chat.jobs.ui.viewmodel.JobViewModel
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.common.ui.viewmodel.FilesViewModel
 import com.example.firstapp.common.ui.viewmodel.CalendarViewModel
@@ -44,10 +44,14 @@ fun AppNavigation(
         authNavGraph(navController)
         
         composable(
-            route = "main?tab={tab}",
-            arguments = listOf(navArgument("tab") { defaultValue = "home" })
+            route = "main?tab={tab}&shortId={shortId}",
+            arguments = listOf(
+                navArgument("tab") { defaultValue = "home" },
+                navArgument("shortId") { defaultValue = "" }
+            )
         ) { backStackEntry ->
             val initialTab = backStackEntry.arguments?.getString("tab") ?: "home"
+            val shortId = backStackEntry.arguments?.getString("shortId")
             
             LaunchedEffect(initialTab) {
                 val tabIndex = when(initialTab) {
@@ -64,7 +68,8 @@ fun AppNavigation(
                 viewModel = viewModel,
                 musicViewModel = musicViewModel,
                 navController = navController,
-                onLogout = onLogout
+                onLogout = onLogout,
+                initialShortId = if (shortId != null && shortId.length > 0) shortId else null
             )
         }
         

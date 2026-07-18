@@ -6,11 +6,11 @@ import com.example.firstapp.chat.data.api.ChatApi
 import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.common.data.api.*
 import com.example.firstapp.drive.data.api.DriveApi
-import com.example.firstapp.jobs.data.api.JobApi
+import com.example.firstapp.chat.jobs.data.api.JobApi
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.music.data.api.MusicApi
-import com.example.firstapp.rewards.data.api.RewardsApi
+import com.example.firstapp.chat.rewards.data.api.RewardsApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

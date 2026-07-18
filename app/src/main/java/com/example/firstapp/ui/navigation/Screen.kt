@@ -2,7 +2,10 @@ package com.example.firstapp.ui.navigation
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
-    object Main : Screen("main?tab={tab}")
+    object Main : Screen("main?tab={tab}&shortId={shortId}") {
+        fun createRoute(tab: String = "home", shortId: String? = null) = 
+            "main?tab=$tab&shortId=${shortId ?: ""}"
+    }
     object OtpVerification : Screen("otp_verification/{phoneNumber}/{username}/{email}/{displayName}/{password}") {
         fun createRoute(phoneNumber: String, username: String, email: String, displayName: String, password: String) = 
             "otp_verification/${android.net.Uri.encode(phoneNumber)}/${android.net.Uri.encode(username)}/${android.net.Uri.encode(email)}/${android.net.Uri.encode(displayName)}/${android.net.Uri.encode(password)}"
@@ -41,9 +44,6 @@ sealed class Screen(val route: String) {
     }
     object UserProfile : Screen("user_profile/{userId}?isGroup={isGroup}") {
         fun createRoute(userId: String, isGroup: Boolean = false) = "user_profile/${android.net.Uri.encode(userId)}?isGroup=$isGroup"
-    }
-    object ShortsProfile : Screen("shorts_profile/{userId}") {
-        fun createRoute(userId: String) = "shorts_profile/${android.net.Uri.encode(userId)}"
     }
     object ContactPicker : Screen("contact_picker?isGroupMode={isGroupMode}") {
         fun createRoute(isGroupMode: Boolean = false) = "contact_picker?isGroupMode=$isGroupMode"

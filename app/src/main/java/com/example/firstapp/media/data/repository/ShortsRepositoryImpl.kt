@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map as flowMap
 import javax.inject.Inject
+import kotlin.collections.*
 
 class ShortsRepositoryImpl @Inject constructor(
     private val mediaApi: MediaApi,
@@ -70,7 +71,8 @@ class ShortsRepositoryImpl @Inject constructor(
     }
 
     override fun getUserShorts(userId: String): Flow<Resource<List<ShortMedia>>> = flow {
-        emit(Resource.Loading())
+        val cached = shortDao.getShorts().first().filter { it.creatorId == userId }.map { it.toShortMedia() }
+        emit(Resource.Loading(cached))
         try {
             val response = mediaApi.getShortsByUserId(userId)
             if (response.isSuccessful) {
@@ -95,13 +97,14 @@ class ShortsRepositoryImpl @Inject constructor(
                         isBookmarked = apiShort.is_bookmarked
                     )
                 }
-                emit(Resource.Success<List<ShortMedia>>(mapped))
-            } else {
-                emit(Resource.Error("Fail"))
+                shortDao.insertShorts(mapped.map { it.toShortEntity() })
             }
-        } catch (e: Exception) {
-            emit(Resource.Error("Offline"))
-        }
+        } catch (_: Exception) {}
+
+        emitAll(shortDao.getShorts().flowMap { entities ->
+            val models = entities.filter { it.creatorId == userId }.map { it.toShortMedia() }
+            Resource.Success<List<ShortMedia>>(models)
+        })
     }
 
     override fun searchShorts(query: String): Flow<Resource<List<ShortMedia>>> = flow {

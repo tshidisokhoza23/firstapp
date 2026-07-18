@@ -2,7 +2,7 @@ package com.example.firstapp.common.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.example.firstapp.jobs.model.ApplicationStatus
+import com.example.firstapp.chat.jobs.model.ApplicationStatus
 
 @Entity(tableName = "job_applications")
 data class JobApplicationEntity(

@@ -126,7 +126,8 @@ fun ChatMessage.toEntity() = ChatEntity(
     disappearingMessagesDuration = disappearingMessagesDuration,
     lastMessageIsFromMe = lastMessageIsFromMe,
     lastMessageRead = lastMessageRead,
-    publicKey = publicKey
+    publicKey = publicKey,
+    phoneNumber = phoneNumber
 )
 
 fun ChatEntity.toModel() = ChatMessage(
@@ -157,7 +158,8 @@ fun ChatEntity.toModel() = ChatMessage(
     disappearingMessagesDuration = disappearingMessagesDuration,
     lastMessageIsFromMe = lastMessageIsFromMe,
     lastMessageRead = lastMessageRead,
-    publicKey = publicKey
+    publicKey = publicKey,
+    phoneNumber = phoneNumber
 )
 
 fun Message.toEntity(chatId: String) = MessageEntity(

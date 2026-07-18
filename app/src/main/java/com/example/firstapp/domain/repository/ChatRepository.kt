@@ -74,4 +74,5 @@ interface ChatRepository {
     fun searchLocalContacts(query: String): Flow<List<Contact>>
     fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter = com.example.firstapp.search.model.SearchFilter.ALL): Flow<List<Message>>
     fun getAllFiles(): Flow<Resource<List<Message>>>
+    suspend fun refreshLocalChatNames()
 }

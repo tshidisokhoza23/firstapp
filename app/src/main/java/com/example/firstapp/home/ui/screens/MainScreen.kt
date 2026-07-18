@@ -29,7 +29,8 @@ fun MainScreen(
     viewModel: MainViewModel,
     musicViewModel: MusicViewModel,
     navController: NavController,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    initialShortId: String? = null
 ) {
     val selectedIndex by viewModel.selectedBottomItem.collectAsState()
     val currentTab = BottomNavItem.fromIndex(selectedIndex)
@@ -69,7 +70,8 @@ fun MainScreen(
                     BottomNavItem.Media -> MediaTabScreen(navController)
                     BottomNavItem.Shorts -> ShortsTabScreen(
                         navController = navController,
-                        onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) }
+                        onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
+                        initialShortId = initialShortId
                     )
                     BottomNavItem.Music -> MusicTabScreen(navController)
                     BottomNavItem.Drive -> DriveTabScreen(navController)

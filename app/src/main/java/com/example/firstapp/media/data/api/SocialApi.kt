@@ -41,7 +41,7 @@ interface SocialApi {
         @Query("following") following: Boolean = false,
         @Query("channel_id") channelId: String? = null,
         @Query("user_id") authorId: String? = null
-    ): Response<PostsResponse>
+    ): Response<List<ApiPost>>
 
     @POST("posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
@@ -273,10 +273,8 @@ data class ApiPollOption(
     val vote_count: Long
 )
 
-data class PostsResponse(val posts: List<ApiPost>, val page: Int)
-
 data class TrendingTopic(val tag: String, val post_count: Long)
-data class TrendingTopicsResponse(val topics: List<TrendingTopic>)
+data class TrendingTopicsResponse(val trending: List<TrendingTopic>)
 data class PostReplyResponse(val reply: ApiPostReply)
 
 data class ApiStoryItem(

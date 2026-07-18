@@ -77,5 +77,6 @@ data class ChatMessage(
     val customNotificationTone: String? = null,
     val mediaVisibility: Boolean = true,
     val disappearingMessagesDuration: Int = 0,
-    val publicKey: String? = null
+    val publicKey: String? = null,
+    val phoneNumber: String? = null
 )

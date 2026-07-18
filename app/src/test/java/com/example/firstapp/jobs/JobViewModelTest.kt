@@ -1,8 +1,8 @@
-package com.example.firstapp.jobs
+package com.example.firstapp.chat.jobs
 
-import com.example.firstapp.jobs.ui.viewmodel.JobViewModel
+import com.example.firstapp.chat.jobs.ui.viewmodel.JobViewModel
 import com.example.firstapp.domain.repository.JobRepository
-import com.example.firstapp.jobs.model.Job
+import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers

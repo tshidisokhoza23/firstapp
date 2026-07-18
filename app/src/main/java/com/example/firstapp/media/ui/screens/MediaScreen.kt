@@ -55,6 +55,7 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.paging.compose.itemContentType
 import androidx.paging.LoadState
@@ -68,6 +69,7 @@ import java.util.*
 import kotlin.collections.*
 import com.example.firstapp.profile.ui.screens.ProfileView
 import com.example.firstapp.common.ui.components.PostItemShimmer
+import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun MediaScreen(
@@ -102,7 +104,8 @@ fun MediaScreen(
     onCreatePostClick: Int = 0,
     onRefresh: () -> Unit = {},
     refreshTrigger: Int = 0,
-    onDirectMessagesClick: () -> Unit = {}
+    onDirectMessagesClick: () -> Unit = {},
+    onRequireLogin: () -> Unit = {}
 ) {
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) {
@@ -118,6 +121,14 @@ fun MediaScreen(
     var showProfile by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
+    val selectedUserId = selectedUser?.id
+    val profilePosts = remember(selectedUserId, onGetUserPosts) {
+        if (selectedUserId.isNullOrBlank()) {
+            flowOf(PagingData.empty())
+        } else {
+            onGetUserPosts(selectedUserId)
+        }
+    }.collectAsLazyPagingItems()
 
     LaunchedEffect(openOwnProfileRequest) {
         if (openOwnProfileRequest > 0) {
@@ -186,14 +197,16 @@ fun MediaScreen(
                 }
                 showProfile && selectedUser != null -> {
                     ProfileView(
-                        userId = selectedUser!!.id,
+                        userId = selectedUserId,
+                        showExperienceTab = false,
                         onBack = { 
                             showProfile = false
                             onProfileViewChange(false)
                         },
-                        posts = posts,
+                        posts = profilePosts,
                         userViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-                        mediaViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                        mediaViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+                        onRequireLogin = onRequireLogin
                     )
                 }
                 else -> {

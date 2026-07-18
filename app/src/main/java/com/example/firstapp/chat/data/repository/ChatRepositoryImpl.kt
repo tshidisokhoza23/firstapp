@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.firstapp.chat.data.ChatWebSocketClient
 import com.example.firstapp.chat.data.ChatWebSocketDedupManager
+import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.chat.data.api.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.data.api.*
@@ -35,6 +36,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val chatDao: ChatDao,
     private val contactDao: ContactDao,
     private val callLogDao: CallLogDao,
+    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver,
     @ApplicationContext private val context: Context
 ) : ChatRepository {
 
@@ -53,22 +55,41 @@ class ChatRepositoryImpl @Inject constructor(
             val response = chatApi.getChats()
             if (response.isSuccessful && response.body() != null) {
                 val apiChats = response.body()!!.chats
-                val chats = apiChats.map { cs: ChatSummary -> mapApiChatSummary(cs) }
                 
-                val newEntities = chats.map { c: ChatMessage -> c.toEntity() }
-                
-                // Optimized: get all local chats first to avoid N queries
+                // Optimized: get all local chats and contacts first to avoid N queries
                 val localChats = chatDao.getChats().first().associateBy { it.id }
+                val localContacts = contactDao.getContacts().first().associateBy { it.id }
                 
-                val finalEntities = newEntities.map { entity ->
-                    localChats[entity.id]?.let { local ->
-                        entity.copy(
-                            wallpaperUrl = local.wallpaperUrl,
-                            customNotificationTone = local.customNotificationTone,
-                            mediaVisibility = local.mediaVisibility,
-                            disappearingMessagesDuration = local.disappearingMessagesDuration
+                val finalEntities = apiChats.map { cs: ChatSummary -> 
+                    val chatModel = mapApiChatSummary(cs)
+                    val entity = chatModel.toEntity()
+                    
+                    // Improve: Resolve name from device contacts or profile
+                    val resolvedName = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+                        val contact = localContacts[entity.id]
+                        displayNameResolver.resolve(
+                            com.example.firstapp.common.model.User(
+                                id = entity.id, 
+                                displayName = entity.senderName,
+                                username = contact?.username ?: ""
+                            ),
+                            contact?.phoneNumber ?: ""
                         )
-                    } ?: entity
+                    } else {
+                        entity.senderName
+                    }
+                    
+                    val existing = localChats[entity.id]
+                    val contact = localContacts[entity.id]
+                    entity.copy(
+                        senderName = resolvedName,
+                        avatarUrl = contact?.avatarUrl ?: entity.avatarUrl,
+                        phoneNumber = contact?.phoneNumber ?: entity.phoneNumber,
+                        wallpaperUrl = existing?.wallpaperUrl,
+                        customNotificationTone = existing?.customNotificationTone,
+                        mediaVisibility = existing?.mediaVisibility ?: true,
+                        disappearingMessagesDuration = existing?.disappearingMessagesDuration ?: 0
+                    )
                 }
                 
                 chatDao.insertChats(finalEntities)
@@ -86,7 +107,38 @@ class ChatRepositoryImpl @Inject constructor(
         try {
             val response = chatApi.initiateDM(InitiateDMRequest(contactId))
             if (response.isSuccessful && response.body() != null) {
-                emit(Resource.Success(response.body()!!.conversation_id))
+                val conversationId = response.body()!!.conversation_id
+                
+                // Improve: Save the chat locally immediately with proper contact info resolved
+                val contact = contactDao.getContactById(contactId)
+                val resolvedName = displayNameResolver.resolve(
+                    com.example.firstapp.common.model.User(
+                        id = contactId,
+                        displayName = contact?.displayName ?: "",
+                        username = contact?.username ?: ""
+                    ),
+                    contact?.phoneNumber ?: ""
+                )
+
+                val newChat = ChatEntity(
+                    id = conversationId,
+                    type = com.example.firstapp.common.model.ConversationType.DIRECT,
+                    senderName = resolvedName,
+                    lastMessage = "",
+                    timestamp = System.currentTimeMillis(),
+                    unreadCount = 0,
+                    avatarUrl = contact?.avatarUrl,
+                    isOnline = false,
+                    isMuted = false,
+                    isPinned = false,
+                    isTyping = false,
+                    lastMessageIsFromMe = false,
+                    lastMessageRead = true,
+                    phoneNumber = contact?.phoneNumber
+                )
+                chatDao.insertChats(listOf(newChat))
+                
+                emit(Resource.Success(conversationId))
             } else {
                 emit(Resource.Error("Failed to initiate DM"))
             }
@@ -355,10 +407,19 @@ class ChatRepositoryImpl @Inject constructor(
         if (existing == null) {
             // If the chat doesn't exist locally, try to create it from contact info
             val contact = contactDao.getContactById(chatId)
+            val name = displayNameResolver.resolve(
+                com.example.firstapp.common.model.User(
+                    id = chatId,
+                    displayName = contact?.displayName ?: "",
+                    username = contact?.username ?: ""
+                ),
+                contact?.phoneNumber ?: ""
+            )
+
             val newChat = ChatEntity(
                 id = chatId,
                 type = com.example.firstapp.common.model.ConversationType.DIRECT,
-                senderName = contact?.displayName ?: "User $chatId",
+                senderName = name,
                 lastMessage = lastMessage,
                 timestamp = time,
                 unreadCount = if (!isFromMe && !isRead) 1 else 0,
@@ -368,19 +429,53 @@ class ChatRepositoryImpl @Inject constructor(
                 isPinned = false,
                 isTyping = false,
                 lastMessageIsFromMe = isFromMe,
-                lastMessageRead = isRead
+                lastMessageRead = isRead,
+                phoneNumber = contact?.phoneNumber
             )
             chatDao.insertChats(listOf(newChat))
         } else {
+            // Resolve name if currently generic
+            if (existing.senderName.startsWith("User ") || existing.senderName.isBlank()) {
+                 val contact = contactDao.getContactById(chatId)
+                 val name = displayNameResolver.resolve(
+                    com.example.firstapp.common.model.User(
+                        id = chatId,
+                        displayName = contact?.displayName ?: "",
+                        username = contact?.username ?: ""
+                    ),
+                    contact?.phoneNumber ?: ""
+                )
+                 if (name != chatId) {
+                     chatDao.insertChats(listOf(existing.copy(senderName = name, avatarUrl = contact?.avatarUrl ?: existing.avatarUrl)))
+                 }
+            }
             chatDao.updateLastMessage(chatId, lastMessage, time, isFromMe, isRead)
         }
     }
 
     override suspend fun createGroup(name: String, contactIds: List<String>): Flow<Resource<ChatMessage>> = flow {
         emit(Resource.Loading())
-        val response = chatApi.createGroup(CreateGroupRequest(name, contactIds))
-        if (response.isSuccessful && response.body() != null) {
-            // Mapping needed
+        try {
+            val response = chatApi.createGroup(CreateGroupRequest(name, contactIds))
+            if (response.isSuccessful && response.body() != null) {
+                val conversationId = response.body()!!.conversation_id
+                val newChat = ChatMessage(
+                    id = conversationId,
+                    type = com.example.firstapp.common.model.ConversationType.GROUP,
+                    senderName = name,
+                    lastMessage = "Group created",
+                    timestamp = System.currentTimeMillis(),
+                    unreadCount = 0,
+                    isGroup = true,
+                    isAdmin = true // Assuming creator is admin
+                )
+                chatDao.insertChats(listOf(newChat.toEntity()))
+                emit(Resource.Success(newChat))
+            } else {
+                emit(Resource.Error("Failed to create group"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
         }
     }
 
@@ -433,6 +528,29 @@ class ChatRepositoryImpl @Inject constructor(
         }
     override fun getAllFiles(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList<Message>())) }
     
+    override suspend fun refreshLocalChatNames() {
+        val allChats = chatDao.getChats().first()
+        val localContacts = contactDao.getContacts().first().associateBy { it.id }
+        
+        val updated = java.util.ArrayList<ChatEntity>()
+        for (entity in allChats) {
+            if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+                val contact = localContacts[entity.id]
+                val name = displayNameResolver.resolve(
+                    com.example.firstapp.common.model.User(id = entity.id, displayName = ""),
+                    contact?.phoneNumber ?: ""
+                )
+                if (name != entity.senderName && name != entity.id) {
+                    updated.add(entity.copy(senderName = name, avatarUrl = contact?.avatarUrl ?: entity.avatarUrl))
+                }
+            }
+        }
+        
+        if (updated.isNotEmpty()) {
+            chatDao.insertChats(updated)
+        }
+    }
+    
     override fun getContacts(): Flow<Resource<List<Contact>>> = 
         contactDao.getContacts().flowMap { list -> 
             Resource.Success(list.map { ce: com.example.firstapp.common.data.local.entity.ContactEntity -> ce.toModel() })
@@ -443,6 +561,7 @@ class ChatRepositoryImpl @Inject constructor(
         try {
             // Get device contacts with names
             val deviceContacts = com.example.firstapp.common.util.ContactUtils.getPhoneContactsWithNames(context)
+            Log.d("ChatRepositoryImpl", "syncContacts: Found ${deviceContacts.size} device contacts")
             val numbersToSync = deviceContacts.map { it.phoneNumber }
 
             val response = if (numbersToSync.isEmpty()) {
@@ -453,6 +572,7 @@ class ChatRepositoryImpl @Inject constructor(
 
             if (response.isSuccessful && response.body() != null) {
                 val apiUsers = response.body()!!.contacts
+                Log.d("ChatRepositoryImpl", "syncContacts: API returned ${apiUsers.size} registered contacts")
                 // Normalize numbers for matching (take last 9 digits to be robust against leading 0 or country codes)
                 val registeredMap = apiUsers.associateBy { it.phone_number?.filter { it.isDigit() }?.takeLast(9) }
                 
@@ -461,10 +581,19 @@ class ChatRepositoryImpl @Inject constructor(
                     val registeredUser = registeredMap[cleanPhone]
                     
                     if (registeredUser != null) {
+                        Log.d("ChatRepositoryImpl", "syncContacts: Matched registered user for $cleanPhone")
+                        val userModel = com.example.firstapp.common.model.User(
+                            id = registeredUser.id,
+                            username = registeredUser.username,
+                            displayName = registeredUser.display_name,
+                            phoneNumber = registeredUser.phone_number ?: deviceContact.phoneNumber
+                        )
+                        val resolvedName = displayNameResolver.resolve(userModel, userModel.phoneNumber ?: "")
+                        
                         Contact(
                             id = registeredUser.id,
                             username = registeredUser.username,
-                            displayName = if (registeredUser.display_name.isNotBlank()) registeredUser.display_name else deviceContact.displayName,
+                            displayName = resolvedName,
                             avatarUrl = registeredUser.avatar_url,
                             phoneNumber = registeredUser.phone_number ?: deviceContact.phoneNumber,
                             isRegistered = true,

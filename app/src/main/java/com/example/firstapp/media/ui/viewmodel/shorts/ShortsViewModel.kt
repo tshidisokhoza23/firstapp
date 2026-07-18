@@ -29,6 +29,9 @@ class ShortsViewModel @Inject constructor(
     private val _shorts = MutableStateFlow<Resource<List<ShortMedia>>>(Resource.Loading())
     val shorts: StateFlow<Resource<List<ShortMedia>>> = _shorts.asStateFlow()
 
+    private val _userShorts = MutableStateFlow<Resource<List<ShortMedia>>>(Resource.Loading())
+    val userShorts: StateFlow<Resource<List<ShortMedia>>> = _userShorts.asStateFlow()
+
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
@@ -63,6 +66,7 @@ class ShortsViewModel @Inject constructor(
             override fun onShortsEvent(action: String, shortId: String?) {
                 if (action == "new_short" || action == "reply") {
                     fetchShorts()
+                    _selectedShortsUserId.value?.let { getUserShorts(it) }
                     if (action == "reply" && shortId != null && shortId == activeShortIdForReplies) {
                         fetchShortReplies(shortId)
                     }
@@ -83,7 +87,8 @@ class ShortsViewModel @Inject constructor(
 
     fun getUserShorts(userId: String) {
         viewModelScope.launch {
-            repository.getUserShorts(userId).collect { _shorts.value = it }
+            _userShorts.value = Resource.Loading()
+            repository.getUserShorts(userId).collect { _userShorts.value = it }
         }
     }
 

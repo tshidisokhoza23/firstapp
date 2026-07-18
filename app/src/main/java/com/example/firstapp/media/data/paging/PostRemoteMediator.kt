@@ -60,7 +60,7 @@ class PostRemoteMediator(
             } else {
                 val response = socialApi.getPosts(page = page, following = following, authorId = authorId)
                 ensureSuccessful(response)
-                response.body()?.posts?.map { mapApiPost(it) } ?: emptyList()
+                response.body()?.map { mapApiPost(it) } ?: emptyList()
             }
 
             val endOfPaginationReached = apiPosts.isEmpty()

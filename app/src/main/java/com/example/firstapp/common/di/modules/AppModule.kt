@@ -31,4 +31,10 @@ object AppModule {
     fun provideCallTonePlayer(): CallTonePlayer {
         return CallTonePlayer()
     }
+
+    @Provides
+    @Singleton
+    fun provideDisplayNameResolver(@ApplicationContext context: android.content.Context): com.example.firstapp.common.util.DisplayNameResolver {
+        return com.example.firstapp.common.util.DisplayNameResolver(context)
+    }
 }

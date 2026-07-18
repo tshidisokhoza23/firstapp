@@ -16,7 +16,7 @@ import com.example.firstapp.music.domain.repository.MusicRepository
 import com.example.firstapp.common.data.repository.*
 import com.example.firstapp.media.data.repository.*
 import com.example.firstapp.music.model.Song
-import com.example.firstapp.jobs.model.Job
+import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.common.ui.theme.AppPrimary
 import kotlinx.coroutines.flow.*
 import kotlin.collections.*
@@ -168,7 +168,7 @@ class SearchRepositoryImpl @Inject constructor(
         )
     }
 
-    private fun mapApiJob(apiJob: com.example.firstapp.jobs.data.api.ApiJob): Job {
+    private fun mapApiJob(apiJob: com.example.firstapp.chat.jobs.data.api.ApiJob): Job {
         return Job(
             id = apiJob.id,
             title = apiJob.title,

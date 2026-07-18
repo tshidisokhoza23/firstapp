@@ -28,7 +28,7 @@ import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.chat.data.*
 import com.example.firstapp.chat.ui.components.CallOverlay
 import com.example.firstapp.common.util.GlobalNavigation
-import com.example.firstapp.rewards.data.RewardsManager
+import com.example.firstapp.chat.rewards.data.RewardsManager
 import com.google.android.gms.ads.MobileAds
 import com.google.android.libraries.places.api.Places
 
@@ -38,9 +38,18 @@ import androidx.fragment.app.FragmentActivity
 import com.example.firstapp.common.util.BiometricHelper
 import com.example.firstapp.common.util.RootUtils
 import android.widget.Toast
+import com.example.firstapp.common.util.ContactsObserver
+import com.example.firstapp.common.util.DisplayNameResolver
+import javax.inject.Inject
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
  @dagger.hilt.android.AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+
+    @Inject lateinit var displayNameResolver: DisplayNameResolver
+    @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
+    private var contactsObserver: ContactsObserver? = null
 
     private fun consumeIncomingCallIntent(intent: Intent?) {
         intent ?: return
@@ -124,6 +133,8 @@ class MainActivity : FragmentActivity() {
         if (permissionsToRequest.isNotEmpty()) {
             requestPermissions(permissionsToRequest.toTypedArray(), 2002)
         }
+
+        setupContactsObserver()
 
         MobileAds.initialize(this) {}
         
@@ -278,5 +289,26 @@ class MainActivity : FragmentActivity() {
         if (senderId != null && TokenManager.isLoggedIn()) {
             GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId))
         }
+    }
+
+    private fun setupContactsObserver() {
+        contactsObserver = ContactsObserver(this) {
+            displayNameResolver.clearCache()
+            if (TokenManager.isLoggedIn()) {
+                lifecycleScope.launch {
+                    try {
+                        chatRepository.refreshLocalChatNames()
+                        val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
+                        chatRepository.syncContacts(phoneNumbers).collect {}
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+        contactsObserver?.register()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        contactsObserver?.unregister()
     }
 }

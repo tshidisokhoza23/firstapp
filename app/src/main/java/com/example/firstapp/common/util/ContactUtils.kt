@@ -117,15 +117,27 @@ object ContactUtils {
 
     fun formatPhoneNumber(number: String, defaultPrefix: String): String {
         var clean = number.replace(Regex("[^0-9+]"), "")
+        
+        // Handle "00" prefix (common international access code)
         if (clean.startsWith("00")) {
             clean = "+" + clean.substring(2)
         }
+        
+        // Handle local "0" prefix by replacing with default country code
         if (clean.startsWith("0") && !clean.startsWith("00")) {
             clean = "+$defaultPrefix" + clean.substring(1)
         }
+        
+        // Ensure it starts with "+"
         if (!clean.startsWith("+")) {
-            clean = "+$clean"
+            // If it's a long number without + or 0, assume it might already have country code but missing +
+            if (clean.length >= 10) {
+                clean = "+$clean"
+            } else {
+                clean = "+$defaultPrefix$clean"
+            }
         }
+
         return clean
     }
 

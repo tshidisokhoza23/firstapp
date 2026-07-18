@@ -33,5 +33,6 @@ data class ChatEntity(
     val disappearingMessagesDuration: Int = 0,
     val lastMessageIsFromMe: Boolean = false,
     val lastMessageRead: Boolean = false,
-    val publicKey: String? = null
+    val publicKey: String? = null,
+    val phoneNumber: String? = null
 )

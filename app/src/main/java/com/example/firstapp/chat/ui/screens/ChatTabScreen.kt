@@ -32,9 +32,9 @@ import com.example.firstapp.common.ui.viewmodel.*
 import com.example.firstapp.common.util.*
 import com.example.firstapp.home.ui.components.AppLogo
 import com.example.firstapp.home.ui.viewmodel.*
-import com.example.firstapp.jobs.model.Job
-import com.example.firstapp.jobs.ui.components.JobItem
-import com.example.firstapp.jobs.ui.viewmodel.JobViewModel
+import com.example.firstapp.chat.jobs.model.Job
+import com.example.firstapp.chat.jobs.ui.components.JobItem
+import com.example.firstapp.chat.jobs.ui.viewmodel.JobViewModel
 import com.example.firstapp.media.model.*
 import com.example.firstapp.media.ui.viewmodel.*
 import com.example.firstapp.music.model.Song
@@ -47,8 +47,8 @@ import kotlin.collections.*
 import kotlin.text.*
 import com.example.firstapp.media.ui.components.StoriesRow
 import com.example.firstapp.home.ui.screens.RewardsScreen
-import com.example.firstapp.jobs.ui.screens.JobList
-import com.example.firstapp.media.ui.screens.channels.ChannelList
+import com.example.firstapp.chat.jobs.ui.screens.JobList
+import com.example.firstapp.chat.channels.ChannelList
 import com.example.firstapp.media.ui.screens.ExternalAdItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -85,14 +85,17 @@ fun ChatsListScreen(
         val data = if (chatsState.data != null) chatsState.data!! else emptyList<ChatMessage>()
         val result = java.util.ArrayList<ChatMessage>()
         for (chat in data) {
-            val cachedName = com.example.firstapp.chat.data.GlobalCallState.getContactName(chat.id)
             val sName = chat.senderName
-            val sanitized = if (sName != "" &&
-                !sName.startsWith("User ") && 
-                sName.lowercase() != "unknown" && 
-                sName.lowercase() != "null" && 
-                sName.lowercase() != "undefined" 
-            ) sName else if (cachedName != null) cachedName else chat.id
+            val isGeneric = sName == "" || 
+                           sName.startsWith("User ") || 
+                           sName.lowercase() == "unknown" || 
+                           sName.lowercase() == "null" || 
+                           sName.lowercase() == "undefined"
+            
+            val sanitized = if (!isGeneric) sName else {
+                val cachedName = com.example.firstapp.chat.data.GlobalCallState.getContactName(chat.id)
+                cachedName ?: chat.phoneNumber ?: chat.id
+            }
             result.add(chat.copy(senderName = sanitized))
         }
         result

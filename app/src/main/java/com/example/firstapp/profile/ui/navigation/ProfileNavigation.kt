@@ -12,8 +12,6 @@ import com.example.firstapp.profile.ui.screens.*
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
-import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
-import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.ui.navigation.Screen
 import kotlin.collections.listOf
 
@@ -50,7 +48,6 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
         val isGroup = backStackEntry.arguments?.getBoolean("isGroup") ?: false
         val userViewModel: UserViewModel = hiltViewModel()
         val mediaViewModel: MediaViewModel = hiltViewModel()
-        val chatViewModel: ChatViewModel = hiltViewModel()
         val sharedMediaViewModel: SharedMediaViewModel = hiltViewModel()
         
         val pagedPosts = mediaViewModel.getUserPosts(userId).collectAsLazyPagingItems()
@@ -62,12 +59,11 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
             posts = pagedPosts,
             userViewModel = userViewModel,
             mediaViewModel = mediaViewModel,
-            chatViewModel = chatViewModel,
             sharedMediaViewModel = sharedMediaViewModel,
             onNavigateToSharedMedia = { id -> navController.navigate(Screen.SharedMedia.createRoute(id)) },
-            onNavigateToChat = { id -> 
-                navController.navigate(Screen.DirectChat.createRoute(id)) {
-                    popUpTo(Screen.UserProfile.route) { inclusive = true }
+            onRequireLogin = {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(0) { inclusive = true }
                 }
             },
             onNavigateToEditExperience = { id ->
@@ -75,50 +71,11 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
             },
             onNavigateToEditProfile = {
                 navController.navigate(Screen.EditProfile.route)
-            }
-        )
-    }
-
-    composable(
-        route = Screen.ShortsProfile.route,
-        arguments = listOf(
-            navArgument("userId") { type = NavType.StringType }
-        )
-    ) { backStackEntry ->
-        val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
-        val userViewModel: UserViewModel = hiltViewModel()
-        val mediaViewModel: MediaViewModel = hiltViewModel()
-        val chatViewModel: ChatViewModel = hiltViewModel()
-        val sharedMediaViewModel: SharedMediaViewModel = hiltViewModel()
-        val shortsViewModel: ShortsViewModel = hiltViewModel()
-        val mainViewModel: com.example.firstapp.home.ui.viewmodel.MainViewModel = hiltViewModel(
-            navController.getBackStackEntry(Screen.Main.route)
-        )
-        val pagedPosts = mediaViewModel.getUserPosts(userId).collectAsLazyPagingItems()
-
-        ProfileView(
-            userId = userId,
-            isGroup = false,
-            onBack = { navController.popBackStack() },
-            posts = pagedPosts,
-            userViewModel = userViewModel,
-            mediaViewModel = mediaViewModel,
-            chatViewModel = chatViewModel,
-            sharedMediaViewModel = sharedMediaViewModel,
-            onNavigateToSharedMedia = { id -> navController.navigate(Screen.SharedMedia.createRoute(id)) },
-            onNavigateToChat = { id -> navController.navigate(Screen.DirectChat.createRoute(id)) },
-            onNavigateToEditExperience = { id ->
-                navController.navigate(Screen.EditWorkExperience.createRoute(id))
-            },
-            onNavigateToEditProfile = {
-                navController.navigate(Screen.EditProfile.route)
             },
             onShortClick = { short ->
-                shortsViewModel.setSelectedShortsUserId(userId)
-                mainViewModel.setSelectedBottomItem(2)
-                shortsViewModel.setSelectedShortId(short.id)
-                navController.navigate("main?tab=shorts")
+                navController.navigate(Screen.Main.createRoute(tab = "shorts", shortId = short.id))
             }
         )
     }
+
 }

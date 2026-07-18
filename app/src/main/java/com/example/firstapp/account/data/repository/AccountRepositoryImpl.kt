@@ -19,6 +19,7 @@ import java.io.File
 import java.net.URLConnection
 
 import javax.inject.Inject
+import kotlin.collections.*
 
 class AccountRepositoryImpl @Inject constructor(
     private val userApi: UserApi,
@@ -152,7 +153,7 @@ class AccountRepositoryImpl @Inject constructor(
         try {
             val res = userApi.getBlockedUsers()
             if (res.isSuccessful) {
-                val contacts = res.body()?.contacts?.map { mapApiContact(it) } ?: emptyList()
+                val contacts = res.body()?.users?.map { mapApiContact(it) } ?: emptyList()
                 emit(Resource.Success(contacts))
             } else {
                 emit(Resource.Error("Fail"))

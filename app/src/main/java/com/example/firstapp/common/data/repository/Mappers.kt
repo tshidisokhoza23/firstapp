@@ -6,7 +6,7 @@ import com.example.firstapp.common.data.api.*
 import com.example.firstapp.common.data.local.entity.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.model.ConversationType
-import com.example.firstapp.jobs.model.*
+import com.example.firstapp.chat.jobs.model.*
 import androidx.compose.ui.graphics.Color
 
 fun mapApiChatSummary(apiChat: ChatSummary): ChatMessage {

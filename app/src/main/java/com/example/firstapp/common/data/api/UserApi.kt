@@ -37,7 +37,7 @@ interface UserApi {
     suspend fun unfollowUser(@Path("userId") userId: String): Response<StatusResponse>
 
     @GET("users/blocked")
-    suspend fun getBlockedUsers(): Response<ContactsResponse>
+    suspend fun getBlockedUsers(): Response<BlockedUsersResponse>
 
     @GET("users/privacy")
     suspend fun getPrivacySettings(): Response<PrivacySettings>
@@ -76,6 +76,10 @@ interface UserApi {
 
 data class UserResponse(val user: User)
 
+data class BlockedUsersResponse(val users: List<ApiUser>)
+
+data class ContactsResponse(val contacts: List<ApiUser>)
+
 data class ExperienceIdResponse(val id: String)
 
 data class UpdateUserRequest(
@@ -109,7 +113,6 @@ data class ApiUser(
     val public_key: String? = null
 )
 
-data class ContactsResponse(val contacts: List<ApiUser>)
 data class SyncContactsRequest(val phone_numbers: List<String>)
 
 data class SearchResponse(
@@ -119,7 +122,7 @@ data class SearchResponse(
     val songs: List<ApiSong> = emptyList(),
     val artists: List<ApiUser> = emptyList(),
     val channels: List<com.example.firstapp.media.data.api.ApiChannel> = emptyList(),
-    val jobs: List<com.example.firstapp.jobs.data.api.ApiJob> = emptyList()
+    val jobs: List<com.example.firstapp.chat.jobs.data.api.ApiJob> = emptyList()
 )
 
 data class PublicKeyResponse(val public_key: String)

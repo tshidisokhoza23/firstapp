@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
@@ -17,16 +18,28 @@ import androidx.paging.compose.collectAsLazyPagingItems
 fun MediaTabScreen(
     navController: NavController,
     mediaViewModel: MediaViewModel = hiltViewModel(),
+    userViewModel: UserViewModel = hiltViewModel(),
     chatViewModel: ChatViewModel = hiltViewModel(),
     musicViewModel: MusicViewModel = hiltViewModel()
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
+    val currentUser by userViewModel.currentUser.collectAsState()
     val pagedPosts = uiState.posts.collectAsLazyPagingItems()
+
+    LaunchedEffect(currentUser?.id) {
+        if (currentUser == null) {
+            userViewModel.fetchCurrentUser()
+        }
+    }
     
     Box(modifier = Modifier.fillMaxSize()) {
         MediaScreen(
             posts = pagedPosts,
             selectedPost = uiState.selectedPost,
+            ownProfileId = currentUser?.id.orEmpty(),
+            ownProfileName = currentUser?.displayName.orEmpty().ifBlank { "You" },
+            ownProfileHandle = currentUser?.username.orEmpty().ifBlank { "you" },
+            ownProfileAvatarUrl = currentUser?.avatarUrl,
             onPostSelect = { mediaViewModel.selectPost(it) },
             onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, t, tags, pollOptions = p, location = l) },
             onLikePost = { id, l, liked -> mediaViewModel.likePost(id, l, liked) },
@@ -48,7 +61,12 @@ fun MediaTabScreen(
             onCreatePostClick = 0,
             onRefresh = { },
             refreshTrigger = uiState.refreshTrigger,
-            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) }
+            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
+            onRequireLogin = {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
         )
     }
 }

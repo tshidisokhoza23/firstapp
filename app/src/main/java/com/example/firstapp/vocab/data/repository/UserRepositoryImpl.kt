@@ -7,7 +7,7 @@ import com.example.firstapp.vocab.data.local.entity.UserEntity
 import com.example.firstapp.common.model.User
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.common.data.api.ApiClient
-import com.example.firstapp.rewards.data.RewardsManager
+import com.example.firstapp.chat.rewards.data.RewardsManager
 import com.example.firstapp.common.data.api.UpdateUserRequest
 import com.example.firstapp.common.data.api.ForgotPasswordRequest
 import com.example.firstapp.common.util.Resource
@@ -460,7 +460,7 @@ class UserRepositoryImpl @Inject constructor(
                 syncUserLocally(auth.user)
                 // Award R0.10 for logging in
                 try {
-                    com.example.firstapp.rewards.data.RewardsManager.awardPoints(0.10, "LOGIN", "Daily login reward")
+                    com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(0.10, "LOGIN", "Daily login reward")
                 } catch (_: Exception) {}
 
                 emit(Resource.Success(auth))

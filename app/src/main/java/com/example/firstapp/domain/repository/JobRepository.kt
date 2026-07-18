@@ -1,8 +1,8 @@
 package com.example.firstapp.domain.repository
 
-import com.example.firstapp.jobs.model.Job
-import com.example.firstapp.jobs.model.JobApplication
-import com.example.firstapp.jobs.model.JobProfileData
+import com.example.firstapp.chat.jobs.model.Job
+import com.example.firstapp.chat.jobs.model.JobApplication
+import com.example.firstapp.chat.jobs.model.JobProfileData
 import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.Flow
 

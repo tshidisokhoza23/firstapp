@@ -4,7 +4,7 @@ import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.music.model.Song
-import com.example.firstapp.jobs.model.Job
+import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.media.model.Channel
 
 data class SearchResult(

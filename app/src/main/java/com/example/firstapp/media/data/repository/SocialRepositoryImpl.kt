@@ -16,7 +16,7 @@ import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.paging.PostRemoteMediator
 import com.example.firstapp.media.domain.repository.SocialRepository
 import com.example.firstapp.media.model.*
-import com.example.firstapp.rewards.data.RewardsManager
+import com.example.firstapp.chat.rewards.data.RewardsManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.emitAll
@@ -29,7 +29,8 @@ class SocialRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
     private val postDao: PostDao,
     private val storyDao: StoryDao,
-    private val appDatabase: AppDatabase
+    private val appDatabase: AppDatabase,
+    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver
 ) : SocialRepository {
 
     @OptIn(ExperimentalPagingApi::class)
@@ -71,7 +72,7 @@ class SocialRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.getPosts(page, authorId = userId)
             if (response.isSuccessful) {
-                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 emit(Resource.Success(posts))
             } else {
@@ -94,7 +95,7 @@ class SocialRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.getPosts(page)
             if (response.isSuccessful) {
-                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 Log.d("SocialRepo", "Fetched ${apiPosts.size} posts for page $page")
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 // Avoid wiping media feed cache when legacy /posts returns empty.
@@ -120,7 +121,7 @@ class SocialRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.getPosts(page, following = true)
             if (response.isSuccessful) {
-                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 emit(Resource.Success(posts))
             } else {
@@ -136,7 +137,7 @@ class SocialRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.getPosts(page, channelId = channelId)
             if (response.isSuccessful) {
-                val apiPosts = response.body()?.posts ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
+                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 emit(Resource.Success(posts))
             } else {
@@ -207,7 +208,14 @@ class SocialRepositoryImpl @Inject constructor(
     override fun votePoll(postId: String, optionId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.votePoll(postId, com.example.firstapp.media.data.api.VotePollRequest(optionId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun followUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.followUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
     override fun unfollowUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.unfollowUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
-    override fun getTrendingTopics(): Flow<Resource<List<com.example.firstapp.media.data.api.TrendingTopic>>> = flow { emit(Resource.Loading()); try { val response = socialApi.getTrendingTopics(); if (response.isSuccessful) emit(Resource.Success(response.body()?.topics ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { emit(Resource.Error("Offline")) } }
+    override fun getTrendingTopics(): Flow<Resource<List<com.example.firstapp.media.data.api.TrendingTopic>>> = flow { 
+        emit(Resource.Loading())
+        try { 
+            val response = socialApi.getTrendingTopics()
+            if (response.isSuccessful) emit(Resource.Success(response.body()?.trending ?: emptyList()))
+            else emit(Resource.Error("Fail")) 
+        } catch (e: Exception) { emit(Resource.Error("Offline")) } 
+    }
     override fun getSuggestedUsers(): Flow<Resource<List<Contact>>> = flow { 
         emit(Resource.Loading())
         try { 
@@ -215,10 +223,18 @@ class SocialRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) { 
                 val users = response.body()!!.contacts
                 val contacts = users.map { user: com.example.firstapp.common.data.api.ApiUser -> 
+                    val userModel = com.example.firstapp.common.model.User(
+                        id = user.id,
+                        username = user.username,
+                        displayName = user.display_name,
+                        phoneNumber = user.phone_number ?: ""
+                    )
+                    val resolvedName = displayNameResolver.resolve(userModel, user.phone_number ?: "")
+                    
                     Contact(
                         id = user.id, 
                         username = user.username, 
-                        displayName = user.display_name, 
+                        displayName = resolvedName,
                         avatarUrl = user.avatar_url, 
                         phoneNumber = user.phone_number ?: "", 
                         isRegistered = true, 
@@ -296,17 +312,20 @@ class SocialRepositoryImpl @Inject constructor(
             val storiesList = storyDao.getStories().first()
             val entity = storiesList.find { it.id == userId }
             if (entity != null) {
+                var awardPoints = false
                 val updatedItems = entity.stories.map { item: StoryItem -> 
                     if (item.id == storyId) {
-                        // Check if it's an ad and award points
                         val sid = item.id
                         if (sid.length >= 3 && sid[0] == 'a' && sid[1] == 'd' && sid[2] == '_') {
-                            try {
-                                RewardsManager.awardPoints(0.10, "STORY_AD", "Viewed ad story $storyId")
-                            } catch (_: Exception) {}
+                            awardPoints = true
                         }
                         item.copy(isViewed = true) 
                     } else item 
+                }
+                if (awardPoints) {
+                    try {
+                        RewardsManager.awardPoints(0.10, "STORY_AD", "Viewed ad story $storyId")
+                    } catch (_: Exception) {}
                 }
                 storyDao.insertStories(listOf(entity.copy(stories = updatedItems)))
             }

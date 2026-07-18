@@ -16,7 +16,7 @@ import com.example.firstapp.domain.repository.ChatRepository
 import com.example.firstapp.domain.repository.JobRepository
 import com.example.firstapp.drive.data.repository.DriveRepositoryImpl
 import com.example.firstapp.drive.domain.repository.DriveRepository
-import com.example.firstapp.jobs.data.repository.JobRepositoryImpl
+import com.example.firstapp.chat.jobs.data.repository.JobRepositoryImpl
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.repository.*

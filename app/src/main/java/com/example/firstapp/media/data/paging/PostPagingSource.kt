@@ -25,7 +25,7 @@ class PostPagingSource(
         val position = params.key ?: 1
         return try {
             val response = socialApi.getPosts(page = position, following = following, authorId = authorId)
-            val posts = response.body()?.posts?.map { mapApiPost(it) } ?: emptyList()
+            val posts = response.body()?.map { mapApiPost(it) } ?: emptyList()
 
             LoadResult.Page(
                 data = posts,
