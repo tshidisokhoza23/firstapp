@@ -29,7 +29,7 @@ object ChatWebSocketClient {
     }
 
     private fun connectWithToken(token: String) {
-        val wsUrl = BuildConfig.WS_BASE_URL.trimEnd('/') + "/ws/chat"
+        val wsUrl = BuildConfig.WS_BASE_URL.trimEnd('/') + "/ws/chat?token=$token"
         
         val request = Request.Builder()
             .url(wsUrl)
