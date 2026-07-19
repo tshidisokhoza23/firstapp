@@ -116,6 +116,7 @@ class AuthViewModel @Inject constructor(
 
     fun resetState() {
         _authState.value = null
+        _otpState.value = null
     }
 
     fun resetOtpState() {

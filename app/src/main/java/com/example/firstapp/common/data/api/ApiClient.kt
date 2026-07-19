@@ -114,9 +114,9 @@ object ApiClient {
         .authenticator(tokenAuthenticator)
         .addInterceptor(authInterceptor)
         .addInterceptor(loggingInterceptor)
-        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .pingInterval(30, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 

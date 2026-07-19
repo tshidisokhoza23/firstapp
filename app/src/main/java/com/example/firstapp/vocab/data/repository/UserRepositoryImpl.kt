@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map as flowMap
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import retrofit2.HttpException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -454,7 +456,9 @@ class UserRepositoryImpl @Inject constructor(
     override fun login(username: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>> = flow {
         emit(Resource.Loading())
         try {
-            val response = ApiClient.authApi.login(com.example.firstapp.common.data.api.LoginRequest(username, password))
+            val response = withTimeout(15000) {
+                ApiClient.authApi.login(com.example.firstapp.common.data.api.LoginRequest(username, password))
+            }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
                 syncUserLocally(auth.user)
@@ -476,7 +480,9 @@ class UserRepositoryImpl @Inject constructor(
     override fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>> = flow {
         emit(Resource.Loading())
         try {
-            val response = ApiClient.authApi.register(com.example.firstapp.common.data.api.RegisterRequest(username, email, displayName, phoneNumber, password))
+            val response = withTimeout(15000) {
+                ApiClient.authApi.register(com.example.firstapp.common.data.api.RegisterRequest(username, email, displayName, phoneNumber, password))
+            }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
                 syncUserLocally(auth.user)
@@ -493,7 +499,9 @@ class UserRepositoryImpl @Inject constructor(
     override fun requestOTP(phoneNumber: String): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         try {
-            val response = ApiClient.authApi.requestOTP(mapOf("phone_number" to phoneNumber))
+            val response = withTimeout(15000) {
+                ApiClient.authApi.requestOTP(mapOf("phone_number" to phoneNumber))
+            }
             if (response.isSuccessful) {
                 val msg = response.body()?.code?.let { "DEBUG OTP: $it" } ?: "Verification code requested"
                 emit(Resource.Success(msg))
@@ -506,7 +514,9 @@ class UserRepositoryImpl @Inject constructor(
     override fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            val response = ApiClient.authApi.verifyOTP(mapOf("phone_number" to phoneNumber, "code" to code))
+            val response = withTimeout(15000) {
+                ApiClient.authApi.verifyOTP(mapOf("phone_number" to phoneNumber, "code" to code))
+            }
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Invalid code"))
         } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
@@ -572,7 +582,8 @@ class UserRepositoryImpl @Inject constructor(
         return when (this) {
             is ConnectException,
             is UnknownHostException,
-            is SocketTimeoutException -> "Can't reach the server. Check your connection."
+            is SocketTimeoutException,
+            is TimeoutCancellationException -> "Can't reach the server. Check your connection."
             is HttpException -> "Server error (${code()}). Please try again."
             else -> localizedMessage?.takeIf { it.isNotBlank() }
                 ?: "Something went wrong. Please try again."

@@ -87,6 +87,13 @@ fun LoginScreen(
     val errorMessage = (authState as? Resource.Error)?.message ?: (otpState as? Resource.Error)?.message
     val isLoading = authState is Resource.Loading || otpState is Resource.Loading
 
+    // Show toast on error
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+        }
+    }
+
     LaunchedEffect(otpState) {
         if (otpState is Resource.Success) {
             val phone = viewModel.lastRequestedPhone
@@ -225,7 +232,11 @@ fun LoginScreen(
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = username,
-                onValueChange = { username = it; viewModel.setFieldError("username", null) },
+                onValueChange = { 
+                    username = it
+                    viewModel.setFieldError("username", null)
+                    viewModel.resetState()
+                },
                 label = { Text("Username") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -340,7 +351,11 @@ fun LoginScreen(
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it; viewModel.setFieldError("password", null) },
+                onValueChange = { 
+                    password = it
+                    viewModel.setFieldError("password", null)
+                    viewModel.resetState()
+                },
                 label = { Text("Password") },
                 isError = fieldErrors.containsKey("password"),
                 visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
