@@ -21,6 +21,9 @@ object ChatWebSocketClient {
     private val _messageFlow = MutableSharedFlow<Message>(extraBufferCapacity = 64)
     val messageFlow = _messageFlow
 
+    private val _eventFlow = MutableSharedFlow<WsResponse>(extraBufferCapacity = 64)
+    val eventFlow = _eventFlow
+
     fun connect() {
         if (webSocket != null) return
         val token = TokenManager.getToken() ?: return
@@ -45,6 +48,8 @@ object ChatWebSocketClient {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val response = gson.fromJson(text, WsResponse::class.java)
+                    _eventFlow.tryEmit(response)
+
                     if (response.type == "message") {
                         val apiMsgJson = gson.toJson(response.message)
                         val apiMsg = gson.fromJson(apiMsgJson, ApiMessage::class.java)
@@ -91,5 +96,8 @@ data class WsResponse(
     val type: String,
     val message: Any? = null,
     val conversation_id: String? = null,
-    val is_typing: Boolean = false
+    val user_id: String? = null,
+    val message_id: String? = null,
+    val is_typing: Boolean = false,
+    val is_online: Boolean = false
 )

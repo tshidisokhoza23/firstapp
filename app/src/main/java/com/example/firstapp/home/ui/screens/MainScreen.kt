@@ -1,5 +1,6 @@
 package com.example.firstapp.home.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,18 @@ fun MainScreen(
     LaunchedEffect(selectedIndex) {
         if (selectedIndex != 5) {
             lastActiveTab.intValue = selectedIndex
+        }
+    }
+
+    val hasHistory = viewModel.hasTabHistory()
+    // Improve Back Behavior: Navigate through tab history or dismiss More sheet
+    BackHandler(enabled = selectedIndex != 0 || selectedIndex == 5 || hasHistory) {
+        if (selectedIndex == 5) {
+            viewModel.setSelectedBottomItem(lastActiveTab.intValue)
+        } else {
+            if (!viewModel.popTabHistory()) {
+                viewModel.setSelectedBottomItem(0)
+            }
         }
     }
 
@@ -84,9 +97,11 @@ fun MainScreen(
                     MoreShortcutsSheet(
                         isVisible = true,
                         onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
-                        onNavigate = { route -> 
+                        onNavigate = { r: String -> 
                             viewModel.setSelectedBottomItem(lastActiveTab.intValue)
-                            navController.navigate(route) 
+                            navController.navigate(r) {
+                                launchSingleTop = true
+                            }
                         }
                     )
                 }

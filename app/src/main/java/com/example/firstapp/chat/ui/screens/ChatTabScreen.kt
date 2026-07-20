@@ -1,6 +1,7 @@
 package com.example.firstapp.chat.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -105,6 +106,11 @@ fun ChatsListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var topBarHeight by remember { mutableStateOf(0.dp) }
     var isChatInitialScrollDone by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        searchQuery = ""
+    }
 
     val storiesState by storyViewModel.stories.collectAsState()
     val archivedChatsState by chatViewModel.archivedChats.collectAsState()

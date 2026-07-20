@@ -32,6 +32,10 @@ fun GlobalOverlayContainer(
     val incomingCall by GlobalCallState.incomingCall.collectAsState()
     val activeSessionId by GlobalCallState.activeSessionId.collectAsState()
 
+    androidx.activity.compose.BackHandler(enabled = isNowPlayingVisible) {
+        isNowPlayingVisible = false
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         content()
         

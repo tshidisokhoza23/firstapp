@@ -161,6 +161,17 @@ fun MusicScreen(
     
     var songForPlaylist by remember { mutableStateOf<Song?>(null) }
 
+    androidx.activity.compose.BackHandler(enabled = selectedArtistName != null || currentScreen != "Recommendations") {
+        if (selectedArtistName != null) {
+            selectedArtistName = null
+            selectedArtistId = null
+            selectedArtistAvatar = null
+            selectedArtistBio = null
+        } else {
+            currentScreen = "Recommendations"
+        }
+    }
+
     LaunchedEffect(requestedArtist) {
         if (requestedArtist != null) {
             selectedArtistName = requestedArtist

@@ -54,6 +54,9 @@ data class ApiMessage(
     val message_text: String,
     val media_type: String,
     val media_url: String?,
+    val duration: String? = null,
+    val file_name: String? = null,
+    val file_size: String? = null,
     val created_at: Long,
     val direction: String,
     val reactions: Map<String, Int>?,
@@ -72,6 +75,9 @@ data class SendMessageRequest(
     val message_text: String,
     val media_type: String = "TEXT",
     val media_url: String? = null,
+    val duration: String? = null,
+    val file_name: String? = null,
+    val file_size: String? = null,
     val mention_user_ids: List<String>? = null
 )
 

@@ -41,6 +41,28 @@ class MainViewModel @Inject constructor(
     private val _selectedBottomItem = MutableStateFlow(0)
     val selectedBottomItem: StateFlow<Int> = _selectedBottomItem.asStateFlow()
 
+    private val tabHistory = mutableListOf<Int>()
+
+    fun setSelectedBottomItem(index: Int) {
+        if (_selectedBottomItem.value != index) {
+            if (_selectedBottomItem.value != 5) {
+                tabHistory.remove(index)
+                tabHistory.add(_selectedBottomItem.value)
+            }
+            _selectedBottomItem.value = index
+        }
+    }
+
+    fun popTabHistory(): Boolean {
+        if (tabHistory.isNotEmpty()) {
+            _selectedBottomItem.value = tabHistory.removeAt(tabHistory.size - 1)
+            return true
+        }
+        return false
+    }
+
+    fun hasTabHistory(): Boolean = tabHistory.isNotEmpty()
+
     private val _selectedTabItem = MutableStateFlow(0)
     val selectedTabItem: StateFlow<Int> = _selectedTabItem.asStateFlow()
 
@@ -49,10 +71,6 @@ class MainViewModel @Inject constructor(
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
-
-    fun setSelectedBottomItem(index: Int) {
-        _selectedBottomItem.value = index
-    }
 
     fun setSelectedTabItem(index: Int) {
         _selectedTabItem.value = index

@@ -155,9 +155,13 @@ fun MediaScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         androidx.activity.compose.BackHandler(
-            enabled = selectedPost != null || showProfile || showCreatePost || replyingToPost != null
+            enabled = selectedPost != null || showProfile || showCreatePost || replyingToPost != null || isSearchActive
         ) {
             when {
+                isSearchActive -> {
+                    isSearchActive = false
+                    searchQuery = ""
+                }
                 showCreatePost -> showCreatePost = false
                 replyingToPost != null -> {
                     replyingToPost = null

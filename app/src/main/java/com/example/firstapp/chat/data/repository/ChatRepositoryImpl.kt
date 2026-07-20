@@ -265,7 +265,10 @@ class ChatRepositoryImpl @Inject constructor(
                     client_uuid = clientUuid,
                     message_text = body,
                     media_type = messageType.uppercase(java.util.Locale.getDefault()),
-                    media_url = mediaUrl
+                    media_url = mediaUrl,
+                    duration = duration,
+                    file_name = fileName,
+                    file_size = fileSize
                 )
             )
             if (response.isSuccessful && response.body() != null) {

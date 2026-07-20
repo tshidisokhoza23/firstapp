@@ -95,7 +95,10 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
         status = MessageStatus.SENT,
         reactions = apiMessage.reactions ?: emptyMap(),
         isEncrypted = isEncrypted,
-        clientId = apiMessage.client_uuid
+        clientId = apiMessage.client_uuid,
+        duration = apiMessage.duration,
+        fileName = apiMessage.file_name,
+        fileSize = apiMessage.file_size
     )
 }
 

@@ -182,6 +182,51 @@ class ChatViewModel @Inject constructor(
                 fetchChats()
             }
         }
+
+        viewModelScope.launch {
+            ChatWebSocketClient.eventFlow.collect { event ->
+                val type = event.type
+                val uid = event.user_id
+                val cid = event.conversation_id
+                
+                when (type) {
+                    "presence" -> {
+                        if (uid != null) {
+                            updateChatPresence(uid, event.is_online, System.currentTimeMillis())
+                            // Also refresh chats to update list status
+                            fetchChats()
+                        }
+                    }
+                    "typing" -> {
+                        if (cid != null) {
+                            updateChatTyping(cid, event.is_typing)
+                        }
+                    }
+                    "delivered" -> {
+                        val mid = event.message_id
+                        if (mid != null) {
+                            viewModelScope.launch {
+                                repository.updateMessageStatus(mid, MessageStatus.DELIVERED)
+                            }
+                        } else {
+                            val aid = activeChatId
+                            if (aid != null) fetchMessages(aid)
+                        }
+                    }
+                    "read" -> {
+                        val mid = event.message_id
+                        if (mid != null) {
+                            viewModelScope.launch {
+                                repository.updateMessageStatus(mid, MessageStatus.READ)
+                            }
+                        } else {
+                            val aid = activeChatId
+                            if (aid != null) fetchMessages(aid)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun sendMessage(chatId: String, body: String, messageType: String = "text", mediaUrl: String? = null, duration: String? = null, fileName: String? = null, fileSize: String? = null, contactName: String? = null, contactPhone: String? = null, latitude: Double? = null, longitude: Double? = null, replyToId: String? = null) {

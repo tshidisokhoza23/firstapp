@@ -98,6 +98,23 @@ fun StoryScreen(
         recentUpdates + viewedUpdates
     }
 
+    androidx.activity.compose.BackHandler(enabled = viewingUserStory != null || showComposer || showSearch) {
+        when {
+            viewingUserStory != null -> {
+                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                    onBack()
+                } else {
+                    viewingUserStory = null 
+                }
+            }
+            showComposer -> showComposer = false
+            showSearch -> {
+                showSearch = false
+                searchQuery = ""
+            }
+        }
+    }
+
     // Sync viewing user story with latest data to handle deletions/updates
     LaunchedEffect(stories) {
         viewingUserStory?.let { current ->
