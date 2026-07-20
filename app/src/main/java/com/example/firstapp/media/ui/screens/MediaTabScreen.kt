@@ -66,6 +66,9 @@ fun MediaTabScreen(
                 navController.navigate(Screen.Login.route) {
                     popUpTo(0) { inclusive = true }
                 }
+            },
+            onMediaClick = { url, type ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type))
             }
         )
     }

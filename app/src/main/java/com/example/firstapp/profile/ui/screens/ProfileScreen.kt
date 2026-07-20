@@ -63,7 +63,8 @@ fun ProfileView(
     onRequireLogin: () -> Unit = {},
     onNavigateToEditExperience: (String?) -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
-    onShortClick: (ShortMedia) -> Unit = {}
+    onShortClick: (ShortMedia) -> Unit = {},
+    onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val isLoggedIn by TokenManager.authState.collectAsState()
@@ -211,10 +212,24 @@ fun ProfileView(
                         AsyncImage(
                             model = user?.bannerUrl,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize().background(AppSecondary).clickable(enabled = isMyProfile) { bannerLauncher.launch("image/*") },
+                            modifier = Modifier.fillMaxSize().background(AppSecondary).clickable { 
+                                val url = user?.bannerUrl
+                                if (url != null) {
+                                    onNavigateToMediaViewer(url, "image")
+                                }
+                            },
                             contentScale = ContentScale.Crop
                         )
                         Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(java.util.Arrays.asList(Color.Transparent, AppBackground))))
+                        
+                        if (isMyProfile) {
+                            IconButton(
+                                onClick = { bannerLauncher.launch("image/*") },
+                                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit Banner", tint = Color.White)
+                            }
+                        }
                     }
                 }
 
@@ -223,7 +238,17 @@ fun ProfileView(
                         AsyncImage(
                             model = user?.avatarUrl,
                             contentDescription = null,
-                            modifier = Modifier.size(100.dp).clip(CircleShape).border(4.dp, AppBackground, CircleShape).background(AppSecondary).clickable(enabled = isMyProfile) { imageLauncher.launch("image/*") },
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape)
+                                .border(4.dp, AppBackground, CircleShape)
+                                .background(AppSecondary)
+                                .clickable { 
+                                    val url = user?.avatarUrl
+                                    if (url != null) {
+                                        onNavigateToMediaViewer(url, "image")
+                                    }
+                                },
                             contentScale = ContentScale.Crop
                         )
                         Spacer(modifier = Modifier.height(8.dp))

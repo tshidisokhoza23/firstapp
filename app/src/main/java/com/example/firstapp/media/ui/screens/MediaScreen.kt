@@ -105,7 +105,8 @@ fun MediaScreen(
     onRefresh: () -> Unit = {},
     refreshTrigger: Int = 0,
     onDirectMessagesClick: () -> Unit = {},
-    onRequireLogin: () -> Unit = {}
+    onRequireLogin: () -> Unit = {},
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) {
@@ -192,7 +193,8 @@ fun MediaScreen(
                         onProfileClick = { user ->
                             selectedUser = user
                             showProfile = true
-                        }
+                        },
+                        onMediaClick = onMediaClick
                     )
                 }
                 showProfile && selectedUser != null -> {
@@ -324,7 +326,8 @@ fun MediaScreen(
                                 },
                                 onPlaySong = onPlaySong,
                                 onVotePoll = onVotePoll,
-                                onRefresh = onRefresh
+                                onRefresh = onRefresh,
+                                onMediaClick = onMediaClick
                             )
                         }
                     }
@@ -375,7 +378,8 @@ fun MainFeedSection(
     onProfileClick: (User) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
     onVotePoll: (String, String) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     when {
         posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
@@ -435,7 +439,8 @@ fun MainFeedSection(
                         onReplyClick = { onReplyClick(post, null) },
                         onProfileClick = { onProfileClick(post.authorToUser()) },
                         onPlaySong = onPlaySong,
-                        onVotePoll = { onVotePoll(post.id, it) }
+                        onVotePoll = { onVotePoll(post.id, it) },
+                        onMediaClick = onMediaClick
                     )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
                 }
@@ -456,7 +461,8 @@ fun PostItem(
     onReplyClick: () -> Unit,
     onProfileClick: () -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
-    onVotePoll: (String) -> Unit
+    onVotePoll: (String) -> Unit,
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER) {
         ExternalAdItem()
@@ -477,7 +483,14 @@ fun PostItem(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(post.authorAvatarColor).clickable(onClick = onProfileClick)) {
                         if (post.authorAvatarUrl != null) {
-                            AsyncImage(model = post.authorAvatarUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            AsyncImage(
+                                model = post.authorAvatarUrl, 
+                                contentDescription = null, 
+                                modifier = Modifier.fillMaxSize().clickable { 
+                                    onMediaClick(post.authorAvatarUrl, "image")
+                                }, 
+                                contentScale = ContentScale.Crop
+                            )
                         }
                     }
 
@@ -521,7 +534,10 @@ fun PostItem(
 
                         if (post.mediaUrls.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            MediaGrid(post.mediaUrls)
+                            MediaGrid(post.mediaUrls) { url ->
+                                val type = if (url.lowercase(java.util.Locale.ROOT).endsWith(".mp4") || url.lowercase(java.util.Locale.ROOT).endsWith(".mov")) "video" else "image"
+                                onMediaClick(url, type)
+                            }
                         }
 
                         if (post.poll != null) {
@@ -600,20 +616,40 @@ fun InteractionIcon(icon: ImageVector, count: String, color: Color, onClick: () 
 }
 
 @Composable
-fun MediaGrid(urls: List<String>) {
+fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
     val shape = RoundedCornerShape(16.dp)
     Box(modifier = Modifier.fillMaxWidth().aspectRatio(1.77f).clip(shape).border(0.5.dp, Color.White.copy(alpha = 0.1f), shape).background(Color.Black.copy(alpha = 0.2f))) {
         if (urls.size == 1) {
-            AsyncImage(model = urls[0], contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            AsyncImage(
+                model = urls[0], 
+                contentDescription = null, 
+                modifier = Modifier.fillMaxSize().clickable { onMediaClick(urls[0]) }, 
+                contentScale = ContentScale.Crop
+            )
         } else {
             Row(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(model = urls[0], contentDescription = null, modifier = Modifier.weight(1f).fillMaxHeight(), contentScale = ContentScale.Crop)
+                AsyncImage(
+                    model = urls[0], 
+                    contentDescription = null, 
+                    modifier = Modifier.weight(1f).fillMaxHeight().clickable { onMediaClick(urls[0]) }, 
+                    contentScale = ContentScale.Crop
+                )
                 Spacer(modifier = Modifier.width(2.dp))
                 Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                    AsyncImage(model = urls[1], contentDescription = null, modifier = Modifier.weight(1f).fillMaxWidth(), contentScale = ContentScale.Crop)
+                    AsyncImage(
+                        model = urls[1], 
+                        contentDescription = null, 
+                        modifier = Modifier.weight(1f).fillMaxWidth().clickable { onMediaClick(urls[1]) }, 
+                        contentScale = ContentScale.Crop
+                    )
                     if (urls.size > 2) {
                         Spacer(modifier = Modifier.height(2.dp))
-                        AsyncImage(model = urls[2], contentDescription = null, modifier = Modifier.weight(1f).fillMaxWidth(), contentScale = ContentScale.Crop)
+                        AsyncImage(
+                            model = urls[2], 
+                            contentDescription = null, 
+                            modifier = Modifier.weight(1f).fillMaxWidth().clickable { onMediaClick(urls[2]) }, 
+                            contentScale = ContentScale.Crop
+                        )
                     }
                 }
             }
@@ -653,7 +689,8 @@ fun PostDetailSection(
     onReplyDelete: (String) -> Unit,
     onReplyBookmark: (String) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
-    onProfileClick: (User) -> Unit
+    onProfileClick: (User) -> Unit,
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Post", color = Color.White) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)) },
@@ -665,7 +702,14 @@ fun PostDetailSection(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(post.authorAvatarColor).clickable { onProfileClick(post.authorToUser()) }) {
                             if (post.authorAvatarUrl != null) {
-                                AsyncImage(model = post.authorAvatarUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                AsyncImage(
+                                    model = post.authorAvatarUrl, 
+                                    contentDescription = null, 
+                                    modifier = Modifier.fillMaxSize().clickable { 
+                                        onMediaClick(post.authorAvatarUrl, "image")
+                                    }, 
+                                    contentScale = ContentScale.Crop
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
@@ -675,7 +719,14 @@ fun PostDetailSection(
                         }
                     }
                     Text(post.content, color = Color.White, fontSize = 18.sp, modifier = Modifier.padding(top = 16.dp))
-                    if (post.mediaUrls.isNotEmpty()) { Spacer(modifier = Modifier.height(16.dp)); MediaGrid(post.mediaUrls) }
+                    if (post.mediaUrls.isNotEmpty()) { 
+                        Spacer(modifier = Modifier.height(16.dp))
+                        MediaGrid(post.mediaUrls) { url ->
+                            val urlLower = url.lowercase(java.util.Locale.ROOT)
+                            val type = if (urlLower.endsWith(".mp4") || urlLower.endsWith(".mov")) "video" else "image"
+                            onMediaClick(url, type)
+                        }
+                    }
                     Text("${post.timestamp} · ${post.views} Views", color = SecondaryText, fontSize = 15.sp, modifier = Modifier.padding(top = 16.dp))
                     HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 16.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
@@ -718,7 +769,8 @@ fun PostDetailSection(
                             onBookmark = { onReplyBookmark(reply.id) },
                             onDelete = { onReplyDelete(reply.id) },
                             onReplyClick = { onReplyClick(post, reply) },
-                            onProfileClick = { onProfileClick(reply.authorToUser()) }
+                            onProfileClick = { onProfileClick(reply.authorToUser()) },
+                            onMediaClick = onMediaClick
                         )
                     }
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
@@ -742,11 +794,21 @@ fun ReplyItem(
     onBookmark: (String) -> Unit,
     onDelete: () -> Unit,
     onReplyClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
         Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(reply.authorAvatarColor).clickable(onClick = onProfileClick)) {
-            if (reply.authorAvatarUrl != null) { AsyncImage(model = reply.authorAvatarUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            if (reply.authorAvatarUrl != null) {
+                AsyncImage(
+                    model = reply.authorAvatarUrl, 
+                    contentDescription = null, 
+                    modifier = Modifier.fillMaxSize().clickable { 
+                        onMediaClick(reply.authorAvatarUrl, "image")
+                    }, 
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {

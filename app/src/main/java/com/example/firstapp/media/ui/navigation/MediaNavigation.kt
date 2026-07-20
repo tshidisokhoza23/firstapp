@@ -268,4 +268,20 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onBack = { navController.popBackStack() }
         )
     }
+
+    composable(
+        route = Screen.MediaViewer.route,
+        arguments = listOf(
+            navArgument("url") { type = NavType.StringType },
+            navArgument("type") { type = NavType.StringType; defaultValue = "image" }
+        )
+    ) { backStackEntry ->
+        val url = backStackEntry.arguments?.getString("url") ?: ""
+        val type = backStackEntry.arguments?.getString("type") ?: "image"
+        MediaViewerScreen(
+            url = url,
+            type = type,
+            onBack = { navController.popBackStack() }
+        )
+    }
 }

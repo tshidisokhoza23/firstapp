@@ -608,15 +608,13 @@ fun ChatMessagesScreen(
                                         else selectedMessages.add(message.id)
                                     } else {
                                         when (message.type) {
-                                            MessageType.IMAGE -> fullScreenImageUri = message.mediaUri
-                                            MessageType.VIDEO -> fullScreenVideoUri = message.mediaUri
                                             MessageType.LOCATION -> {
                                                 val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}")
                                                 val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                                                 mapIntent.setPackage("com.google.android.apps.maps")
                                                 context.startActivity(mapIntent)
                                             }
-                                            else -> { /* Handle other types */ }
+                                            else -> { /* Other clicks like links handled in text */ }
                                         }
                                     }
                                 },
@@ -624,7 +622,11 @@ fun ChatMessagesScreen(
                                     if (selectedMessages.isEmpty()) selectedMessages.add(message.id)
                                 },
                                 onReply = { replyingToMessage = it },
-                                onVideoClick = { fullScreenVideoUri = it }
+                                onMediaClick = { url, type ->
+                                    com.example.firstapp.common.util.GlobalNavigation.navigateTo(
+                                        com.example.firstapp.ui.navigation.Screen.MediaViewer.createRoute(url, type)
+                                    )
+                                }
                             )
                         }
                     }
@@ -934,7 +936,7 @@ fun MessageItemUnique(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onReply: (Message) -> Unit,
-    onVideoClick: (String) -> Unit = {}
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     val alignment = if (message.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
     val bubbleColor = if (message.isFromMe) AppPrimary.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.08f)
@@ -1038,7 +1040,7 @@ fun MessageItemUnique(
 
                     // Attachment Handling
                     if (message.mediaUri?.isNotBlank() == true || message.type == MessageType.LOCATION || message.type == MessageType.APPLICATION_LINK) {
-                        AttachmentPreview(message, onVideoClick = onVideoClick)
+                        AttachmentPreview(message, onMediaClick = onMediaClick)
                     }
 
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -1118,7 +1120,7 @@ fun MessageItemUnique(
 @Composable
 fun AttachmentPreview(
     message: Message,
-    onVideoClick: (String) -> Unit = {}
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val mediaUri = message.mediaUri?.replace("local://", "file://") ?: ""
@@ -1131,7 +1133,8 @@ fun AttachmentPreview(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 300.dp)
-                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .clickable { onMediaClick(mediaUri, "image") },
                 contentScale = ContentScale.Crop
             )
         }
@@ -1141,7 +1144,7 @@ fun AttachmentPreview(
                     .fillMaxWidth()
                     .height(280.dp)
                     .background(Color.Black.copy(alpha = 0.3f))
-                    .clickable { onVideoClick(mediaUri) },
+                    .clickable { onMediaClick(mediaUri, "video") },
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(

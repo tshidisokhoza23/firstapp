@@ -74,6 +74,9 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
             },
             onShortClick = { short ->
                 navController.navigate(Screen.Main.createRoute(tab = "shorts", shortId = short.id))
+            },
+            onNavigateToMediaViewer = { url, type ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type))
             }
         )
     }
