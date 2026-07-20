@@ -204,10 +204,11 @@ fun ChatMessagesScreen(
             return@LaunchedEffect
         }
 
-        val shouldAutoScroll = lastMessageCount == 0 ||
-            messagesLazyListState.firstVisibleItemIndex >= (messages.size - 4).coerceAtLeast(0)
-        if (shouldAutoScroll) {
-            delay(100)
+        val lastMessageIsFromMe = if (messages.isNotEmpty()) messages[messages.size - 1].isFromMe else false
+        val isAtBottom = messagesLazyListState.firstVisibleItemIndex >= (messages.size - 6).coerceAtLeast(0)
+        
+        if (lastMessageCount == 0 || lastMessageIsFromMe || isAtBottom) {
+            delay(150)
             if (animationsEnabled) {
                 messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
             } else {

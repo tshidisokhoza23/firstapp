@@ -200,15 +200,13 @@ fun ProfileView(
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = { posts.refresh() },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier = Modifier.fillMaxSize()
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize()
             ) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth().height(if (user?.bannerUrl == null) 140.dp else 200.dp)) {
                         AsyncImage(
                             model = user?.bannerUrl,
                             contentDescription = null,
@@ -225,7 +223,7 @@ fun ProfileView(
                         if (isMyProfile) {
                             IconButton(
                                 onClick = { bannerLauncher.launch("image/*") },
-                                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 16.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
                             ) {
                                 Icon(Icons.Default.Edit, contentDescription = "Edit Banner", tint = Color.White)
                             }
@@ -234,83 +232,113 @@ fun ProfileView(
                 }
 
                 item {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-36).dp)) {
-                        AsyncImage(
-                            model = user?.avatarUrl,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(100.dp)
-                                .clip(CircleShape)
-                                .border(4.dp, AppBackground, CircleShape)
-                                .background(AppSecondary)
-                                .clickable { 
-                                    val url = user?.avatarUrl
-                                    if (url != null) {
-                                        onNavigateToMediaViewer(url, "image")
+                    Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-40).dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            AsyncImage(
+                                model = user?.avatarUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .clip(CircleShape)
+                                    .border(4.dp, AppBackground, CircleShape)
+                                    .background(AppSecondary)
+                                    .clickable { 
+                                        val url = user?.avatarUrl
+                                        if (url != null) {
+                                            onNavigateToMediaViewer(url, "image")
+                                        }
+                                    },
+                                contentScale = ContentScale.Crop
+                            )
+                            
+                            Row(
+                                modifier = Modifier.padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (isMyProfile) {
+                                    OutlinedButton(
+                                        onClick = onNavigateToEditProfile,
+                                        shape = RoundedCornerShape(20.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                        border = BorderStroke(1.dp, Color.Gray)
+                                    ) {
+                                        Text("Edit Profile", fontSize = 14.sp)
                                     }
-                                },
-                            contentScale = ContentScale.Crop
-                        )
+                                } else {
+                                    val isFollowing = user?.isFollowing == true
+                                    Button(
+                                        onClick = {
+                                            if (isFollowUpdating || user == null) return@Button
+                                            isFollowUpdating = true
+                                            if (isFollowing) {
+                                                userViewModel.unfollowUser(user.id) { success ->
+                                                    isFollowUpdating = false
+                                                    if (success) profileRefreshNonce += 1
+                                                }
+                                            } else {
+                                                userViewModel.followUser(user.id) { success ->
+                                                    isFollowUpdating = false
+                                                    if (success) profileRefreshNonce += 1
+                                                }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(20.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isFollowing) Color.Transparent else Color.White,
+                                            contentColor = if (isFollowing) Color.White else Color.Black
+                                        ),
+                                        border = if (isFollowing) BorderStroke(1.dp, Color.Gray) else null
+                                    ) {
+                                        Text(if (isFollowing) "Following" else "Follow", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                
+                                FilledIconButton(
+                                    onClick = { 
+                                        if (isMyProfile) {
+                                            onNavigateToSharedMedia("inbox")
+                                        } else if (user != null) {
+                                            onNavigateToMediaViewer(user.id, "chat")
+                                        }
+                                    },
+                                    modifier = Modifier.size(40.dp),
+                                    shape = CircleShape,
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = AppSecondary.copy(alpha = 0.6f)
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Mail, contentDescription = "Inbox", tint = Color.White)
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         if (user != null) {
                             val nameToShow = if (user.displayName != null && user.displayName.length > 0) user.displayName else "No Name"
-                            Text(nameToShow, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            Text("@${user.username}", color = AppTextSecondary, fontSize = 16.sp)
+                            Text(nameToShow, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("@${user.username}", color = AppTextSecondary, fontSize = 15.sp)
                         } else {
-                            // Skeleton/Loading state
                             Box(modifier = Modifier.width(150.dp).height(24.dp).background(Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(4.dp)))
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Box(modifier = Modifier.width(100.dp).height(16.dp).background(Color.Gray.copy(alpha = 0.2f), RoundedCornerShape(4.dp)))
                         }
-                        
-                        if (!isMyProfile && user != null) {
-                            Row(modifier = Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val isFollowing = user.isFollowing
-                                Button(
-                                    onClick = { 
-                                        if (isFollowUpdating) return@Button
-                                        isFollowUpdating = true
-                                        if (isFollowing) {
-                                            userViewModel.unfollowUser(user.id) { success ->
-                                                isFollowUpdating = false
-                                                if (success) {
-                                                    profileRefreshNonce += 1
-                                                }
-                                            }
-                                        } else {
-                                            userViewModel.followUser(user.id) { success ->
-                                                isFollowUpdating = false
-                                                if (success) {
-                                                    profileRefreshNonce += 1
-                                                }
-                                            }
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isFollowing) AppSecondary else AppAccent
-                                    ),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !isFollowUpdating
-                                ) {
-                                    Text(if (isFollowUpdating) "Updating..." else if (isFollowing) "Following" else "Follow")
-                                }
+
+                        Row(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(user?.followingCount?.toString() ?: "0", color = Color.White, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Following", color = AppTextSecondary, fontSize = 14.sp)
                             }
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(24.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(user.followingCount.toString(), color = Color.White, fontWeight = FontWeight.Bold)
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Following", color = AppTextSecondary, fontSize = 14.sp)
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(user.followersCount.toString(), color = Color.White, fontWeight = FontWeight.Bold)
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Followers", color = AppTextSecondary, fontSize = 14.sp)
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(user?.followersCount?.toString() ?: "0", color = Color.White, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Followers", color = AppTextSecondary, fontSize = 14.sp)
                             }
                         }
 
@@ -319,7 +347,7 @@ fun ProfileView(
                         }
                         
                         if (user?.location?.isNotBlank() == true) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                                 Icon(Icons.Default.LocationOn, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text(user.location, color = AppTextSecondary, fontSize = 14.sp)

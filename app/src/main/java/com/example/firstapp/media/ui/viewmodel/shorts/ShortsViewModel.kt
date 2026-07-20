@@ -257,6 +257,7 @@ class ShortsViewModel @Inject constructor(
                 repository.createShort(description, videoUrl, thumbnailUrl).collect { res ->
                     if (res is Resource.Success) {
                         fetchShorts()
+                        _selectedShortsUserId.value?.let { getUserShorts(it) }
                     } else if (res is Resource.Error) {
                         _shorts.value = Resource.Error(res.message ?: "Failed to create short")
                     }

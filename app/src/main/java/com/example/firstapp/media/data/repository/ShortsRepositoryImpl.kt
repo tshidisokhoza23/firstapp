@@ -40,28 +40,6 @@ class ShortsRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             android.util.Log.e("ShortsRepo", "Sync failed: ${e.message}")
-            val cachedFromDb = shortDao.getShorts().first()
-            if (cachedFromDb.isEmpty()) {
-                val mockShorts = listOf(
-                    ShortMedia(
-                        id = "mock-1",
-                        creatorId = "official",
-                        creatorName = "FirstApp_Official",
-                        description = "Welcome to Shorts! Explore amazing content.",
-                        likes = "1.2K",
-                        comments = "45",
-                        shares = "12",
-                        videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4",
-                        thumbnailUrl = "https://images.pexels.com/photos/2582818/pexels-photo-2582818.jpeg",
-                        thumbnailColor = Color.DarkGray,
-                        profilePictureColor = Color.Blue,
-                        isLiked = false,
-                        isSubscribed = false
-                    )
-                )
-                emit(Resource.Success(mockShorts))
-                return@flow
-            }
         }
 
         emitAll(shortDao.getShorts().flowMap { entities ->
