@@ -123,7 +123,7 @@ data class ApiShortFeedItem(
 )
 
 data class ShortsFeedResponse(
-    @SerializedName("feed") val items: List<ApiShortFeedItem>,
+    @field:SerializedName("feed") val items: List<ApiShortFeedItem>,
     val page: Int = 1
 )
 
