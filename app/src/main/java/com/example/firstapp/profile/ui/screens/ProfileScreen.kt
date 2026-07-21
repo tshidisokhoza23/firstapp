@@ -206,7 +206,7 @@ fun ProfileView(
                 modifier = Modifier.fillMaxSize()
             ) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().height(if (user?.bannerUrl == null) 140.dp else 200.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth().height(if (user?.bannerUrl == null) 120.dp else 180.dp)) {
                         AsyncImage(
                             model = user?.bannerUrl,
                             contentDescription = null,
@@ -218,14 +218,14 @@ fun ProfileView(
                             },
                             contentScale = ContentScale.Crop
                         )
-                        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(java.util.Arrays.asList(Color.Transparent, AppBackground))))
+                        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, AppBackground.copy(alpha = 0.8f)))))
                         
                         if (isMyProfile) {
                             IconButton(
                                 onClick = { bannerLauncher.launch("image/*") },
-                                modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 16.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 16.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
                             ) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit Banner", tint = Color.White)
+                                Icon(Icons.Default.Edit, contentDescription = "Edit Banner", tint = Color.White, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -238,41 +238,58 @@ fun ProfileView(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Bottom
                         ) {
-                            AsyncImage(
-                                model = user?.avatarUrl,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(CircleShape)
-                                    .border(4.dp, AppBackground, CircleShape)
-                                    .background(AppSecondary)
-                                    .clickable { 
-                                        val url = user?.avatarUrl
-                                        if (url != null) {
-                                            onNavigateToMediaViewer(url, "image")
-                                        }
-                                    },
-                                contentScale = ContentScale.Crop
-                            )
+                            Box {
+                                AsyncImage(
+                                    model = user?.avatarUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(90.dp)
+                                        .clip(CircleShape)
+                                        .border(3.dp, AppBackground, CircleShape)
+                                        .background(AppSecondary)
+                                        .clickable { 
+                                            val url = user?.avatarUrl
+                                            if (url != null) {
+                                                onNavigateToMediaViewer(url, "image")
+                                            }
+                                        },
+                                    contentScale = ContentScale.Crop
+                                )
+                                if (isMyProfile) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .align(Alignment.BottomEnd)
+                                            .clip(CircleShape)
+                                            .background(AppAccent)
+                                            .clickable { imageLauncher.launch("image/*") },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            }
                             
                             Row(
-                                modifier = Modifier.padding(bottom = 8.dp),
+                                modifier = Modifier.padding(bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 if (isMyProfile) {
-                                    OutlinedButton(
+                                    Button(
                                         onClick = onNavigateToEditProfile,
                                         shape = RoundedCornerShape(20.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                                        border = BorderStroke(1.dp, Color.Gray)
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                                        modifier = Modifier.height(36.dp)
                                     ) {
-                                        Text("Edit Profile", fontSize = 14.sp)
+                                        Text("Edit Profile", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                     }
-                                } else {
-                                    val isFollowing = user?.isFollowing == true
+                                } else if (user != null) {
+                                    val isFollowing = user.isFollowing
                                     Button(
                                         onClick = {
-                                            if (isFollowUpdating || user == null) return@Button
+                                            if (isFollowUpdating) return@Button
                                             isFollowUpdating = true
                                             if (isFollowing) {
                                                 userViewModel.unfollowUser(user.id) { success ->
@@ -291,9 +308,10 @@ fun ProfileView(
                                             containerColor = if (isFollowing) Color.Transparent else Color.White,
                                             contentColor = if (isFollowing) Color.White else Color.Black
                                         ),
-                                        border = if (isFollowing) BorderStroke(1.dp, Color.Gray) else null
+                                        border = if (isFollowing) BorderStroke(1.dp, Color.Gray) else null,
+                                        modifier = Modifier.height(36.dp)
                                     ) {
-                                        Text(if (isFollowing) "Following" else "Follow", fontWeight = FontWeight.Bold)
+                                        Text(if (isFollowing) "Following" else "Follow", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                     }
                                 }
                                 
@@ -305,13 +323,13 @@ fun ProfileView(
                                             onNavigateToMediaViewer(user.id, "chat")
                                         }
                                     },
-                                    modifier = Modifier.size(40.dp),
+                                    modifier = Modifier.size(36.dp),
                                     shape = CircleShape,
                                     colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = AppSecondary.copy(alpha = 0.6f)
+                                        containerColor = AppSecondary.copy(alpha = 0.9f)
                                     )
                                 ) {
-                                    Icon(Icons.Default.Mail, contentDescription = "Inbox", tint = Color.White)
+                                    Icon(Icons.Default.Mail, contentDescription = "Inbox", tint = Color.White, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }

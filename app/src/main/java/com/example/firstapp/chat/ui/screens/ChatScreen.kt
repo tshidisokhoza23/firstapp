@@ -199,20 +199,18 @@ fun ChatMessagesScreen(
     }
 
     LaunchedEffect(messages.size) {
-        if (messages.isEmpty()) {
-            lastMessageCount = 0
-            return@LaunchedEffect
-        }
-
-        val lastMessageIsFromMe = if (messages.isNotEmpty()) messages[messages.size - 1].isFromMe else false
-        val isAtBottom = messagesLazyListState.firstVisibleItemIndex >= (messages.size - 6).coerceAtLeast(0)
-        
-        if (lastMessageCount == 0 || lastMessageIsFromMe || isAtBottom) {
-            delay(150)
-            if (animationsEnabled) {
-                messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
-            } else {
-                messagesLazyListState.scrollToItem((messages.size - 1).coerceAtLeast(0))
+        if (messages.isNotEmpty()) {
+            val lastMsg = messages[messages.size - 1]
+            val isAtBottom = messagesLazyListState.firstVisibleItemIndex >= (messages.size - 8).coerceAtLeast(0)
+            
+            // Force scroll to bottom if it's our own message or we are already at the bottom
+            if (lastMessageCount == 0 || lastMsg.isFromMe || isAtBottom) {
+                delay(200)
+                if (animationsEnabled) {
+                    messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
+                } else {
+                    messagesLazyListState.scrollToItem((messages.size - 1).coerceAtLeast(0))
+                }
             }
         }
         lastMessageCount = messages.size

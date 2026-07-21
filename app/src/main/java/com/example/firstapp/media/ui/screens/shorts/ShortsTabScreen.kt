@@ -102,6 +102,18 @@ fun ShortsTabScreen(
                 posts = profilePosts,
                 userViewModel = userViewModel,
                 mediaViewModel = mediaViewModel,
+                onNavigateToSharedMedia = { target ->
+                    if (target == "inbox") {
+                        navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaMessages.route)
+                    }
+                },
+                onNavigateToMediaViewer = { id, type ->
+                    if (type == "chat") {
+                        navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaChat.createRoute(id))
+                    } else {
+                        navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaViewer.createRoute(id, type))
+                    }
+                },
                 onRequireLogin = {
                     navController.navigate(com.example.firstapp.ui.navigation.Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -235,6 +247,15 @@ fun ShortsTabScreen(
                         showUploadDialog = false
                     }
                 )
+            }
+
+            // Upload error feedback
+            val state by shortsViewModel.shorts.collectAsState()
+            val context = LocalContext.current
+            if (state is Resource.Error) {
+                LaunchedEffect(state) {
+                    android.widget.Toast.makeText(context, state.message ?: "Upload failed", android.widget.Toast.LENGTH_LONG).show()
+                }
             }
 
             if (showShortComments && activeShortIdForComments != null) {
