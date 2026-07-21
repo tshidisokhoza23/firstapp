@@ -57,8 +57,6 @@ class StoryViewModel @Inject constructor(
     fun postStory(content: String, contentUrl: String?, type: String = "text") {
         viewModelScope.launch {
             _postResult.value = Resource.Loading()
-            var finalUrl = contentUrl
-            var finalType = type
             
             if (contentUrl?.startsWith("content://") == true) {
                 try {
@@ -66,23 +64,31 @@ class StoryViewModel @Inject constructor(
                     val context = ContextProvider.context
                     val file = copyUriToTempFile(context, uri)
                     if (file != null) {
-                        val res = accountRepository.uploadFile(file, "stories").first()
-                        if (res is Resource.Success && res.data != null) {
-                            finalUrl = res.data.url
-                            if (finalType == "text") finalType = "image"
-                            file.delete()
-                        } else if (res is Resource.Error) {
-                            _postResult.value = Resource.Error(res.message ?: "Upload failed")
-                            return@launch
+                        accountRepository.uploadFile(file, "stories").collect { res ->
+                            if (res is Resource.Success && res.data != null) {
+                                val finalUrl = res.data.url
+                                val finalType = if (type == "text") "image" else type
+                                file.delete()
+                                createStoryEntry(content, finalUrl, finalType)
+                            } else if (res is Resource.Error) {
+                                _postResult.value = Resource.Error(res.message ?: "Upload failed")
+                            }
                         }
+                    } else {
+                        _postResult.value = Resource.Error("Could not process file")
                     }
                 } catch (e: Exception) {
                     _postResult.value = Resource.Error("File error: ${e.message}")
-                    return@launch
                 }
+            } else {
+                createStoryEntry(content, contentUrl, type)
             }
-            
-            repository.createStory(content, finalUrl, finalType).collect {
+        }
+    }
+
+    private fun createStoryEntry(content: String, contentUrl: String?, type: String) {
+        viewModelScope.launch {
+            repository.createStory(content, contentUrl, type).collect {
                 _postResult.value = it
                 if (it is Resource.Success) {
                     fetchStories()

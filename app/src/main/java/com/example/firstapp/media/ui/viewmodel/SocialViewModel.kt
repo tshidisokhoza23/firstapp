@@ -94,17 +94,18 @@ class SocialViewModel @Inject constructor(
         if (content.isBlank() && mediaUris.isEmpty()) return
         viewModelScope.launch {
             val finalUrls = mutableListOf<String>()
-            mediaUris.forEach { uriStr ->
+            for (uriStr in mediaUris) {
                 if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
                     try {
                         val uri = android.net.Uri.parse(uriStr)
                         val context = com.example.firstapp.common.util.ContextProvider.context
                         val file = com.example.firstapp.media.ui.screens.copyUriToTempFile(context, uri)
                         if (file != null) {
-                            val res = accountRepository.uploadFile(file, "posts").first()
-                            if (res is Resource.Success && res.data != null) {
-                                finalUrls.add(res.data.url)
-                                file.delete()
+                            accountRepository.uploadFile(file, "posts").collect { res ->
+                                if (res is Resource.Success && res.data != null) {
+                                    finalUrls.add(res.data.url)
+                                    file.delete()
+                                }
                             }
                         }
                     } catch (e: Exception) { }

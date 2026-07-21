@@ -115,7 +115,7 @@
             android:name=".chat.data.CallListenerService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="phoneCall|microphone|camera" />
+            android:foregroundServiceType="dataSync|phoneCall|microphone|camera" />
 
         <service
             android:name=".chat.data.FirstAppFirebaseMessagingService"

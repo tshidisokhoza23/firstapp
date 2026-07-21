@@ -123,11 +123,16 @@ class CallListenerService : Service() {
         
         createChannels()
         val ongoingNotification = buildOngoingNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
-            startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification, type)
-        } else {
-            startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Use dataSync instead of phoneCall when idle to allow starting from BOOT_COMPLETED on some versions
+                val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification, type)
+            } else {
+                startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("CallListenerService", "Failed to start foreground service in onCreate", e)
         }
 
         TokenManager.initialize(applicationContext)
@@ -239,10 +244,14 @@ class CallListenerService : Service() {
                 .build()
         } else {
             val n = buildOngoingNotification()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
-            } else {
-                startForeground(ONGOING_NOTIFICATION_ID, n)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                } else {
+                    startForeground(ONGOING_NOTIFICATION_ID, n)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CallListenerService", "Failed to start foreground service (idle)", e)
             }
             return
         }

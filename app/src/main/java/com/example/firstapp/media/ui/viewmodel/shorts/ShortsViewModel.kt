@@ -12,10 +12,11 @@ import com.example.firstapp.media.model.ShortMedia
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.account.domain.repository.AccountRepository
 import java.io.File
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 import com.example.firstapp.media.domain.repository.ShortsRepository
@@ -231,38 +232,55 @@ class ShortsViewModel @Inject constructor(
     fun uploadShort(videoFile: File, description: String, thumbnailFile: File?) {
         viewModelScope.launch {
             _isUploading.value = true
+            android.util.Log.d("ShortsVM", "Starting upload: ${videoFile.name}, size=${videoFile.length()}")
             try {
                 var videoUrl = ""
                 var thumbnailUrl = ""
 
                 // 1. Upload Video
-                val videoRes = accountRepository.uploadFile(videoFile, "shorts/videos").first()
+                val videoRes = accountRepository.uploadFile(videoFile, "shorts/videos")
+                    .filter { it !is Resource.Loading }
+                    .first()
+                    
                 if (videoRes is Resource.Success && videoRes.data != null) {
                     videoUrl = videoRes.data.url
-                } else {
-                    _shorts.value = Resource.Error((videoRes as? Resource.Error)?.message ?: "Video upload failed")
-                    _isUploading.value = false
-                    return@launch
-                }
-
-                // 2. Upload Thumbnail if provided
-                if (thumbnailFile != null) {
-                    val thumbRes = accountRepository.uploadFile(thumbnailFile, "shorts/thumbnails").first()
-                    if (thumbRes is Resource.Success && thumbRes.data != null) {
-                        thumbnailUrl = thumbRes.data.url
+                    android.util.Log.d("ShortsVM", "Video uploaded: $videoUrl")
+                    
+                    // 2. Upload Thumbnail if provided
+                    if (thumbnailFile != null) {
+                        android.util.Log.d("ShortsVM", "Uploading thumbnail: ${thumbnailFile.name}")
+                        val thumbRes = accountRepository.uploadFile(thumbnailFile, "shorts/thumbnails")
+                            .filter { it !is Resource.Loading }
+                            .first()
+                            
+                        if (thumbRes is Resource.Success && thumbRes.data != null) {
+                            thumbnailUrl = thumbRes.data.url
+                            android.util.Log.d("ShortsVM", "Thumbnail uploaded: $thumbnailUrl")
+                        }
                     }
-                }
 
-                // 3. Create Short entry
-                repository.createShort(description, videoUrl, thumbnailUrl).collect { res ->
-                    if (res is Resource.Success) {
+                    // 3. Create Short entry
+                    android.util.Log.d("ShortsVM", "Creating short entry on server...")
+                    val createRes = repository.createShort(description, videoUrl, thumbnailUrl)
+                        .filter { it !is Resource.Loading }
+                        .first()
+                        
+                    if (createRes is Resource.Success) {
+                        android.util.Log.d("ShortsVM", "Short created successfully!")
                         fetchShorts()
                         _selectedShortsUserId.value?.let { getUserShorts(it) }
-                    } else if (res is Resource.Error) {
-                        _shorts.value = Resource.Error(res.message ?: "Failed to create short")
+                    } else if (createRes is Resource.Error) {
+                        val msg = createRes.message ?: "Failed to create short"
+                        android.util.Log.e("ShortsVM", "Server error creating short: $msg")
+                        _shorts.value = Resource.Error(msg)
                     }
+                } else if (videoRes is Resource.Error) {
+                    val msg = videoRes.message ?: "Video upload failed"
+                    android.util.Log.e("ShortsVM", "Video upload error: $msg")
+                    _shorts.value = Resource.Error(msg)
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ShortsVM", "Upload exception", e)
                 _shorts.value = Resource.Error(e.message ?: "Unknown upload error")
             } finally {
                 _isUploading.value = false

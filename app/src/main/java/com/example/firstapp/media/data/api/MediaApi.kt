@@ -1,5 +1,6 @@
 package com.example.firstapp.media.data.api
 
+import com.google.gson.annotations.SerializedName
 import com.example.firstapp.common.data.api.*
 import com.example.firstapp.media.data.api.ApiPostReply
 import okhttp3.MultipartBody
@@ -121,7 +122,10 @@ data class ApiShortFeedItem(
     val placeholder: ApiExternalAdPlaceholder?
 )
 
-data class ShortsFeedResponse(val items: List<ApiShortFeedItem>, val page: Int = 1)
+data class ShortsFeedResponse(
+    @SerializedName("feed") val items: List<ApiShortFeedItem>,
+    val page: Int = 1
+)
 
 data class ShortLikeResponse(
     val status: String,
