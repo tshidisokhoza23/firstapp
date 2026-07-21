@@ -33,7 +33,7 @@ class ShortsRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 val feedItems = response.body()?.items ?: emptyList()
                 val shorts = mapShortsFeedItems(feedItems)
-                shortDao.clearShorts()
+                // UPSERT instead of clear to preserve user state like 'isLiked' if the API is slightly stale
                 shortDao.insertShorts(shorts.map { it.toShortEntity() })
             } else {
                 android.util.Log.e("ShortsRepo", "API error: ${response.code()}")
@@ -216,7 +216,29 @@ class ShortsRepositoryImpl @Inject constructor(
         try {
             val response = mediaApi.likeShort(shortId)
             if (response.isSuccessful && response.body() != null) {
-                emit(Resource.Success(response.body()!!))
+                val body = response.body()!!
+                
+                // Update local cache immediately so it persists across screen switches
+                val cachedList = shortDao.getShorts().first()
+                var entity: com.example.firstapp.common.data.local.entity.ShortEntity? = null
+                for (item in cachedList) {
+                    if (item.id == shortId) {
+                        entity = item
+                        break
+                    }
+                }
+
+                if (entity != null) {
+                    val updated = entity.copy(
+                        isLiked = body.is_liked,
+                        likes = body.likes.toString()
+                    )
+                    val listToInsert = java.util.ArrayList<com.example.firstapp.common.data.local.entity.ShortEntity>()
+                    listToInsert.add(updated)
+                    shortDao.insertShorts(listToInsert)
+                }
+                
+                emit(Resource.Success(body))
             } else {
                 emit(Resource.Error("Fail"))
             }
@@ -244,7 +266,26 @@ class ShortsRepositoryImpl @Inject constructor(
         try {
             val response = mediaApi.subscribeToShortCreator(shortId)
             if (response.isSuccessful && response.body() != null) {
-                emit(Resource.Success(response.body()!!))
+                val body = response.body()!!
+                
+                // Update local cache
+                val cachedList = shortDao.getShorts().first()
+                var entity: com.example.firstapp.common.data.local.entity.ShortEntity? = null
+                for (item in cachedList) {
+                    if (item.id == shortId) {
+                        entity = item
+                        break
+                    }
+                }
+
+                if (entity != null) {
+                    val updated = entity.copy(isSubscribed = body.is_subscribed)
+                    val listToInsert = java.util.ArrayList<com.example.firstapp.common.data.local.entity.ShortEntity>()
+                    listToInsert.add(updated)
+                    shortDao.insertShorts(listToInsert)
+                }
+                
+                emit(Resource.Success(body))
             } else {
                 emit(Resource.Error("Fail"))
             }

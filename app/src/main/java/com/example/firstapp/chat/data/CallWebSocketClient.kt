@@ -123,26 +123,44 @@ object CallWebSocketClient {
                 } catch (e: Exception) { android.util.Log.e("CallWebSocket", "Error: ${e.message}") }
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                android.util.Log.e("CallWebSocket", "WebSocket failure: ${t.message}", t)
                 this@CallWebSocketClient.webSocket = null
                 scheduleReconnect()
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                android.util.Log.d("CallWebSocket", "WebSocket closed: $code / $reason")
                 this@CallWebSocketClient.webSocket = null
                 if (!manualClose) scheduleReconnect()
             }
         })
     }
 
-    private fun notifyOpen() { listeners.forEach { it.onOpen() } }
-    private fun notifyEvent(event: CallEvent) { listeners.forEach { it.onEvent(event) } }
-    private fun notifyError(error: String) { listeners.forEach { it.onError(error) } }
+    private fun notifyOpen() { 
+        android.util.Log.d("CallWebSocket", "WebSocket connection opened")
+        listeners.forEach { it.onOpen() } 
+    }
+    private fun notifyEvent(event: CallEvent) { 
+        android.util.Log.d("CallWebSocket", "WebSocket event received: ${event.type}")
+        listeners.forEach { it.onEvent(event) } 
+    }
+    private fun notifyError(error: String) { 
+        android.util.Log.e("CallWebSocket", "WebSocket error: $error")
+        listeners.forEach { it.onError(error) } 
+    }
 
     private fun scheduleReconnect(immediate: Boolean = false) {
-        if (manualClose || listeners.isEmpty()) return
+        if (manualClose || listeners.isEmpty()) {
+            android.util.Log.d("CallWebSocket", "Reconnect skipped: manualClose=$manualClose, listenersEmpty=${listeners.isEmpty()}")
+            return
+        }
         if (reconnectJob?.isActive == true) return
+        android.util.Log.d("CallWebSocket", "Scheduling reconnect, immediate=$immediate")
         reconnectJob = reconnectScope.launch {
-            if (!immediate) delay(2000)
-            if (!manualClose && listeners.isNotEmpty() && webSocket == null) ensureConnected()
+            if (!immediate) delay(5000)
+            if (!manualClose && listeners.isNotEmpty() && webSocket == null) {
+                android.util.Log.d("CallWebSocket", "Attempting reconnect now...")
+                ensureConnected()
+            }
         }
     }
 

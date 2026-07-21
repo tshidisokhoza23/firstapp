@@ -103,11 +103,12 @@ class ShortsViewModel @Inject constructor(
     }
 
     fun likeShort(shortId: String) {
+        if (shortLikeInFlight.contains(shortId)) return
+
         val now = System.currentTimeMillis()
         val lastTap = shortLikeLastTapMs[shortId] ?: 0L
         if (now - lastTap < shortsTapDebounceMs) return
         shortLikeLastTapMs[shortId] = now
-        if (shortLikeInFlight.contains(shortId)) return
 
         val current = _shorts.value.data ?: return
         val previous = current
@@ -122,14 +123,17 @@ class ShortsViewModel @Inject constructor(
         shortLikeInFlight.add(shortId)
 
         viewModelScope.launch {
+            android.util.Log.d("ShortsVM", "Liking short: $shortId, currentLiked=${optimistic.find { it.id == shortId }?.isLiked}")
             repository.likeShort(shortId).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val body = resource.data
+                    android.util.Log.d("ShortsVM", "Server like response: liked=${body.is_liked}, likes=${body.likes}")
                     val synced = ( _shorts.value.data ?: optimistic ).map { s ->
                         if (s.id == shortId) s.copy(isLiked = body.is_liked, likes = body.likes.toString()) else s
                     }
                     _shorts.value = Resource.Success(synced)
                 } else if (resource is Resource.Error) {
+                    android.util.Log.e("ShortsVM", "Like failed: ${resource.message}")
                     _shorts.value = Resource.Success(previous)
                 }
             }

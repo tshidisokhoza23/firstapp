@@ -14,8 +14,7 @@ import com.example.firstapp.BuildConfig
 
 fun mapShortsFeedItems(items: List<ApiShortFeedItem>): List<ShortMedia> = items.mapNotNull { item ->
     when (item.type) {
-        "ORGANIC_SHORT", "INTERNAL_VIDEO_AD" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.REGULAR) }
-        "NATIVE_SHORT_AD" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.NATIVE_AD) }
+        "ORGANIC_SHORT" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.REGULAR) }
         else -> null
     }
 }
@@ -42,17 +41,14 @@ private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortM
 
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     when (item.type) {
-        "POST", "INTERNAL_AD" -> item.post?.let { mapApiMediaPost(it, item.type) }
-        "NATIVE_AD" -> item.post?.let { mapApiMediaPost(it, "NATIVE_AD") }
-        "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdPlaceholder(item.placeholder)
+        "POST" -> item.post?.let { mapApiMediaPost(it, item.type) }
         else -> null
     }
 }
 
 fun mapMediaReplyItems(items: List<ApiReplyItem>): List<PostReply> = items.mapNotNull { item ->
     when (item.type) {
-        "REPLY", "INTERNAL_AD" -> item.reply?.let { mapApiMediaReply(it, item.type) }
-        "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdReplyPlaceholder(item.placeholder)
+        "REPLY" -> item.reply?.let { mapApiMediaReply(it, item.type) }
         else -> null
     }
 }

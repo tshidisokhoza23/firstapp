@@ -60,12 +60,7 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= TRIM_MEMORY_UI_HIDDEN) {
-            com.example.firstapp.media.data.ShortsVideoCache.onLowMemory()
-        }
-        if (level >= TRIM_MEMORY_MODERATE) {
-            com.example.firstapp.media.data.ShortsVideoCache.forceRelease()
-        }
+        com.example.firstapp.media.data.ShortsVideoCache.onTrimMemory(level)
     }
 
     private fun scheduleSync() {

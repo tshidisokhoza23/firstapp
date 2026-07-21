@@ -84,8 +84,12 @@ class MainActivity : FragmentActivity() {
                     id?.let { GlobalNavigation.navigateTo(Screen.Chat.createRoute(it)) }
                 }
                 "post" -> {
-                    // Navigate to single post view if available, or media feed
-                    GlobalNavigation.navigateTo(Screen.Main.route + "?tab=media")
+                    val shortId = data.lastPathSegment
+                    if (data.toString().contains("short")) {
+                        GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "media", shortId = shortId))
+                    } else {
+                        GlobalNavigation.navigateTo(Screen.Main.route + "?tab=media")
+                    }
                 }
                 "song" -> {
                     // Navigate to music search or player

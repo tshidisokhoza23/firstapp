@@ -30,16 +30,14 @@ fun ShortsList(
 ) {
     if (shorts.isEmpty()) return
 
-    val shortsWithAds = shorts
-
     val context = LocalContext.current
-    val pagerState = rememberPagerState(pageCount = { shortsWithAds.size })
+    val pagerState = rememberPagerState(pageCount = { shorts.size })
     
-    LaunchedEffect(initialShortId, shortsWithAds, pagerState.pageCount) {
-        if (initialShortId != null && shortsWithAds.size > 0) {
+    LaunchedEffect(initialShortId, shorts, pagerState.pageCount) {
+        if (initialShortId != null && shorts.size > 0) {
             var foundIndex = -1
-            for (i in 0..(shortsWithAds.size - 1)) {
-                if (shortsWithAds[i].id == initialShortId) {
+            for (i in 0..(shorts.size - 1)) {
+                if (shorts[i].id == initialShortId) {
                     foundIndex = i
                     break
                 }
@@ -51,20 +49,20 @@ fun ShortsList(
         }
     }
     
-    LaunchedEffect(pagerState.currentPage, shortsWithAds) {
+    LaunchedEffect(pagerState.currentPage, shorts) {
         val urls = ArrayList<String>()
         val start = pagerState.currentPage + 1
         val end = pagerState.currentPage + 3
         for (i in start..end) {
-            if (i >= 0 && i < shortsWithAds.size) {
-                urls.add(shortsWithAds[i].videoUrl)
+            if (i >= 0 && i < shorts.size) {
+                urls.add(shorts[i].videoUrl)
             }
         }
         ShortsVideoCache.preload(context, urls)
     }
 
     VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-        val currentShort = shortsWithAds[page]
+        val currentShort = shorts[page]
         val isInteractiveShort = currentShort.type == ShortType.REGULAR
         ShortItem(
             short = currentShort, 

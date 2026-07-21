@@ -124,8 +124,11 @@ class CallListenerService : Service() {
         createChannels()
         val ongoingNotification = buildOngoingNotification()
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Use dataSync instead of phoneCall when idle to allow starting from BOOT_COMPLETED on some versions
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // Use remoteMessaging for idle state on Android 14+
+                val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+                startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification, type)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification, type)
             } else {
@@ -136,6 +139,7 @@ class CallListenerService : Service() {
         }
 
         TokenManager.initialize(applicationContext)
+        android.util.Log.d("CallListenerService", "Service created and foreground started")
         
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
         connectivityManager.registerDefaultNetworkCallback(networkCallback)
@@ -205,6 +209,7 @@ class CallListenerService : Service() {
                 val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 val hasCam = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 
+                // Only request mic/camera if we actually have permissions, otherwise the system kills the FGS
                 if (hasMic) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 if (hasCam) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
                 
@@ -222,10 +227,11 @@ class CallListenerService : Service() {
                 try {
                     startForeground(ONGOING_NOTIFICATION_ID, n, type)
                 } catch (e: Exception) {
-                    android.util.Log.e("CallListenerService", "Denied FGS types, falling back", e)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    android.util.Log.e("CallListenerService", "Denied FGS types (likely background restriction), falling back", e)
+                    // Fallback to phoneCall only, or just service if even that is denied
+                    try {
                         startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
-                    } else {
+                    } catch (_: Exception) {
                         startForeground(ONGOING_NOTIFICATION_ID, n)
                     }
                 }
@@ -245,7 +251,9 @@ class CallListenerService : Service() {
         } else {
             val n = buildOngoingNotification()
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
                 } else {
                     startForeground(ONGOING_NOTIFICATION_ID, n)

@@ -183,6 +183,8 @@ fun ShortItem(
         label = "LikeAnimation"
     )
 
+    val likeIcon = if (short.isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -355,7 +357,7 @@ fun ShortItem(
 
                 val haptic = LocalHapticFeedback.current
                 ShortActionButton(
-                    icon = if (short.isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    icon = likeIcon,
                     text = short.likes,
                     iconColor = likeIconColor,
                     onClick = { 

@@ -132,23 +132,29 @@ object ShortsVideoCache {
     }
 
     @Synchronized
-    fun onLowMemory() {
+    fun onTrimMemory(level: Int) {
         // Cancel all preloads to free up network and I/O
         preloadJobs.values.forEach { it.cancel() }
         preloadJobs.clear()
         
-        // Stop current player but don't release it unless absolutely necessary
-        currentPlayer?.stop()
+        if (level >= 80) { // ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+             forceRelease()
+        } else if (level >= 20) { // ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+             currentPlayer?.stop()
+        }
     }
 
     @Synchronized
     fun releasePlayer(player: ExoPlayer, url: String) {
-        if (player === currentPlayer && url == currentUrl) {
-            player.stop()
-            player.clearMediaItems()
-            currentUrl = null
-            // We keep the instance alive for reuse to avoid GC pressure/allocation overhead on 2GB RAM
-        } else if (player !== currentPlayer) {
+        if (player === currentPlayer) {
+            if (url == currentUrl) {
+                // Only stop if this specific URL is being released and no one else claimed it
+                player.stop()
+                player.clearMediaItems()
+                currentUrl = null
+            }
+            // Otherwise, keep it alive for the next caller who already updated currentUrl
+        } else {
             player.release()
         }
     }

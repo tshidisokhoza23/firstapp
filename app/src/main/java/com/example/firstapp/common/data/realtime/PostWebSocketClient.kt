@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 object PostWebSocketClient {
     private var client: OkHttpClient? = null
     private var webSocket: WebSocket? = null
-    private val listeners = mutableSetOf<PostSocketListener>()
+    private val listeners = java.util.concurrent.CopyOnWriteArraySet<PostSocketListener>()
 
     fun connect(listener: PostSocketListener) {
         listeners.add(listener)
@@ -21,9 +21,15 @@ object PostWebSocketClient {
             .build()
 
         val token = TokenManager.getToken() ?: return
-        val baseWs = BuildConfig.API_BASE_URL.replace("http", "ws").trimEnd('/')
-        val url = "$baseWs/posts/ws?token=$token"
-        val request = Request.Builder().url(url).build()
+        val wsUrl = BuildConfig.WS_BASE_URL
+        var baseUrl = wsUrl
+        if (baseUrl.length > 0 && baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length - 1)
+        }
+        val url = baseUrl + "/ws/posts?token=" + token
+        val request = Request.Builder()
+            .url(url)
+            .build()
 
         webSocket = client?.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {

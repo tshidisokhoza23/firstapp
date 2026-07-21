@@ -118,6 +118,11 @@ fun ShortsTabScreen(
                     navController.navigate(com.example.firstapp.ui.navigation.Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onShortClick = { short ->
+                    showProfile = false
+                    selectedProfileUser = null
+                    shortsViewModel.setSelectedShortId(short.id)
                 }
             )
         } else {
