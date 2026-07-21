@@ -205,7 +205,7 @@ fun ChatMessagesScreen(
             
             // Force scroll to bottom if it's our own message or we are already at the bottom
             if (lastMessageCount == 0 || lastMsg.isFromMe || isAtBottom) {
-                delay(200)
+                delay(100)
                 if (animationsEnabled) {
                     messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
                 } else {
