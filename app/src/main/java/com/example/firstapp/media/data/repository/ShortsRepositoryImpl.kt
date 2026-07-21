@@ -39,6 +39,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 android.util.Log.e("ShortsRepo", "API error: ${response.code()}")
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             android.util.Log.e("ShortsRepo", "Sync failed: ${e.message}")
         }
 
@@ -77,7 +78,9 @@ class ShortsRepositoryImpl @Inject constructor(
                 }
                 shortDao.insertShorts(mapped.map { it.toShortEntity() })
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+        }
 
         emitAll(shortDao.getShorts().flowMap { entities ->
             val models = entities.filter { it.creatorId == userId }.map { it.toShortMedia() }
@@ -116,6 +119,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Offline"))
         }
     }
@@ -130,6 +134,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Create short failed: ${response.code()}"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.localizedMessage ?: "Error creating short"))
         }
     }
@@ -143,6 +148,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Offline"))
         }
     }
@@ -156,6 +162,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Offline"))
         }
     }
@@ -169,6 +176,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Offline"))
         }
     }
@@ -182,6 +190,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Offline"))
         }
     }
@@ -198,6 +207,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Offline"))
         }
     }
@@ -211,6 +221,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -224,6 +235,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Offline"))
         }
     }
@@ -237,6 +249,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }

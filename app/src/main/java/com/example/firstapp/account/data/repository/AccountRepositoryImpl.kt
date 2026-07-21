@@ -35,7 +35,10 @@ class AccountRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!.user))
             } else emit(Resource.Error("Fail"))
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Error"))
+        }
     }
 
     override fun getUserById(userId: String): Flow<Resource<User>> = flow {
@@ -45,7 +48,10 @@ class AccountRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!.user))
             } else emit(Resource.Error("Fail"))
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Error"))
+        }
     }
 
     override fun updateUser(displayName: String?, bio: String?, location: String?, avatarUrl: String?, bannerUrl: String?, isArtist: Boolean?): Flow<Resource<User>> = flow {
@@ -55,14 +61,20 @@ class AccountRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!.user))
             } else emit(Resource.Error("Fail"))
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Error"))
+        }
     }
 
     override fun deleteAccount(): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
             if (userApi.deleteAccount().isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Error"))
+        }
     }
 
     override fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>> {
@@ -79,6 +91,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -92,6 +105,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -105,6 +119,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -118,6 +133,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -131,6 +147,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -144,6 +161,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -159,6 +177,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -188,6 +207,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -200,6 +220,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Error"))
         }
     }
@@ -221,6 +242,7 @@ class AccountRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Upload failed: ${response.code()}"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Upload error: ${e.localizedMessage}"))
         }
     }
