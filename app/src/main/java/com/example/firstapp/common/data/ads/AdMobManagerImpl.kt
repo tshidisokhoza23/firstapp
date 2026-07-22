@@ -38,6 +38,37 @@ class AdMobManagerImpl : AdManager {
         adLoader.loadAd(AdRequest.Builder().build())
     }
 
+    override fun loadShortsNativeAd(
+        context: Context,
+        adUnitId: String,
+        onAdLoaded: (Any) -> Unit,
+        onAdFailed: (String) -> Unit
+    ) {
+        val videoOptions = VideoOptions.Builder()
+            .setStartMuted(true)
+            .setCustomControlsRequested(false)
+            .build()
+
+        val adOptions = NativeAdOptions.Builder()
+            .setVideoOptions(videoOptions)
+            .setMediaAspectRatio(NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_PORTRAIT)
+            .build()
+
+        val adLoader = AdLoader.Builder(context, adUnitId)
+            .forNativeAd { nativeAd ->
+                onAdLoaded(nativeAd)
+            }
+            .withAdListener(object : AdListener() {
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    onAdFailed(error.message)
+                }
+            })
+            .withNativeAdOptions(adOptions)
+            .build()
+
+        adLoader.loadAd(AdRequest.Builder().build())
+    }
+
     override fun loadBannerAd(
         context: Context,
         adUnitId: String,

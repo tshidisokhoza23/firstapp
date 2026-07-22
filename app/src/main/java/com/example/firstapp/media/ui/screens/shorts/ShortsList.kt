@@ -78,7 +78,8 @@ fun ShortsList(
             com.example.firstapp.common.ui.components.DynamicAdCard(
                 adManager = adManager,
                 adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                isShortsAd = true
             )
         } else {
             val isInteractiveShort = currentShort.type == ShortType.REGULAR

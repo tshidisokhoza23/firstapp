@@ -21,7 +21,8 @@ fun DynamicAdCard(
     adManager: AdManager,
     adUnitId: String,
     modifier: Modifier = Modifier,
-    isBanner: Boolean = false
+    isBanner: Boolean = false,
+    isShortsAd: Boolean = false
 ) {
     val context = LocalContext.current
     var adObject by remember { mutableStateOf<Any?>(null) }
@@ -30,6 +31,13 @@ fun DynamicAdCard(
     DisposableEffect(adUnitId) {
         if (isBanner) {
             adManager.loadBannerAd(
+                context = context,
+                adUnitId = adUnitId,
+                onAdLoaded = { adObject = it },
+                onAdFailed = { loadFailed = true }
+            )
+        } else if (isShortsAd) {
+            adManager.loadShortsNativeAd(
                 context = context,
                 adUnitId = adUnitId,
                 onAdLoaded = { adObject = it },
@@ -49,40 +57,62 @@ fun DynamicAdCard(
     }
 
     if (loadFailed || adObject == null) {
-        // REQUIREMENT: Collapse cleanly on failure
+        if (isShortsAd) {
+            ShortsAdShimmer()
+        }
         return
     }
 
     if (adObject is NativeAd) {
+        val ad = adObject as NativeAd
         AndroidView(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(8.dp)
-                .heightIn(min = 0.dp),
+                .then(if (isShortsAd) Modifier.fillMaxHeight() else Modifier.heightIn(min = 0.dp)),
             factory = { ctx ->
-                val view = LayoutInflater.from(ctx).inflate(R.layout.native_ad_layout, null) as NativeAdView
-                val ad = adObject as NativeAd
+                val layoutRes = if (isShortsAd) R.layout.shorts_native_ad_layout else R.layout.native_ad_layout
+                val view = LayoutInflater.from(ctx).inflate(layoutRes, null) as NativeAdView
                 
+                view.headlineView = view.findViewById(R.id.ad_headline)
+                view.bodyView = view.findViewById(R.id.ad_body)
+                view.callToActionView = view.findViewById(R.id.ad_call_to_action)
+                view.iconView = view.findViewById(R.id.ad_app_icon)
+                view.advertiserView = view.findViewById(R.id.ad_advertiser)
+                view.mediaView = view.findViewById(R.id.ad_media)
+
                 // Map SDK payload to UI programmatically
                 ad.headline?.let { headline ->
-                    view.headlineView = view.findViewById<TextView>(R.id.ad_title_text)?.apply { text = headline }
+                    (view.headlineView as? TextView)?.text = headline
                 }
                 ad.body?.let { body ->
-                    view.bodyView = view.findViewById<TextView>(R.id.ad_body_text)?.apply { text = body }
+                    (view.bodyView as? TextView)?.text = body
                 }
                 ad.callToAction?.let { cta ->
-                    view.callToActionView = view.findViewById<Button>(R.id.ad_cta_button)?.apply { text = cta }
+                    (view.callToActionView as? Button)?.text = cta
                 }
                 ad.icon?.let { icon ->
-                    view.iconView = view.findViewById<android.widget.ImageView>(R.id.ad_icon_image)?.apply { setImageDrawable(icon.drawable) }
+                    (view.iconView as? android.widget.ImageView)?.setImageDrawable(icon.drawable)
+                } ?: run {
+                    view.iconView?.visibility = android.view.View.GONE
                 }
                 ad.advertiser?.let { advertiser ->
-                    view.advertiserView = view.findViewById<TextView>(R.id.ad_advertiser_text)?.apply { text = advertiser }
+                    (view.advertiserView as? TextView)?.text = advertiser
+                } ?: run {
+                    view.advertiserView?.visibility = android.view.View.GONE
+                }
+                
+                ad.body?.let { body ->
+                    (view.bodyView as? TextView)?.text = body
+                } ?: run {
+                    view.bodyView?.visibility = android.view.View.GONE
                 }
                 
                 // Bind the native ad object to the view
                 view.setNativeAd(ad)
                 view
+            },
+            update = { view ->
+                // Refresh if needed
             }
         )
     } else if (adObject is AdView) {

@@ -116,3 +116,31 @@ fun PostItemShimmer() {
         }
     }
 }
+
+@Composable
+fun ShortsAdShimmer() {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Column(
+            modifier = Modifier
+                .align(androidx.compose.ui.Alignment.BottomStart)
+                .padding(20.dp)
+                .fillMaxWidth()
+        ) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                ShimmerEffect(modifier = Modifier.size(40.dp).clip(CircleShape))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    ShimmerEffect(modifier = Modifier.width(150.dp).height(14.dp).clip(RoundedCornerShape(4.dp)))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    ShimmerEffect(modifier = Modifier.width(100.dp).height(12.dp).clip(RoundedCornerShape(4.dp)))
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            ShimmerEffect(modifier = Modifier.fillMaxWidth(0.8f).height(14.dp).clip(RoundedCornerShape(4.dp)))
+            Spacer(modifier = Modifier.height(4.dp))
+            ShimmerEffect(modifier = Modifier.fillMaxWidth(0.6f).height(14.dp).clip(RoundedCornerShape(4.dp)))
+            Spacer(modifier = Modifier.height(20.dp))
+            ShimmerEffect(modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)))
+        }
+    }
+}

@@ -16,6 +16,13 @@ interface AdManager {
         onAdFailed: (String) -> Unit
     )
 
+    fun loadShortsNativeAd(
+        context: Context,
+        adUnitId: String,
+        onAdLoaded: (Any) -> Unit,
+        onAdFailed: (String) -> Unit
+    )
+
     fun loadBannerAd(
         context: Context,
         adUnitId: String,
