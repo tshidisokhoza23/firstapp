@@ -59,7 +59,7 @@ data class PostReply(
     val authorName: String,
     val authorHandle: String,
     val authorAvatarUrl: String? = null,
-    val authorAvatarColor: Color,
+    val authorAvatarColor: Int,
     val isVerifiedAuthor: Boolean = false,
     val content: String,
     val timestamp: String,

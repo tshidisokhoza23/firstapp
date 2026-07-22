@@ -30,6 +30,7 @@ fun MainScreen(
     viewModel: MainViewModel,
     musicViewModel: MusicViewModel,
     navController: NavController,
+    adManager: com.example.firstapp.common.data.ads.AdManager,
     onLogout: () -> Unit,
     initialShortId: String? = null
 ) {
@@ -79,16 +80,17 @@ fun MainScreen(
                 }
 
                 when (tabToDisplay) {
-                    BottomNavItem.Chat -> ChatsListScreen(navController, onLogout = onLogout)
-                    BottomNavItem.Media -> MediaTabScreen(navController)
+                    BottomNavItem.Chat -> ChatsListScreen(navController, adManager = adManager, onLogout = onLogout)
+                    BottomNavItem.Media -> MediaTabScreen(navController, adManager = adManager)
                     BottomNavItem.Shorts -> ShortsTabScreen(
                         navController = navController,
+                        adManager = adManager,
                         onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
                         initialShortId = initialShortId
                     )
                     BottomNavItem.Music -> MusicTabScreen(navController)
                     BottomNavItem.Drive -> DriveTabScreen(navController)
-                    else -> ChatsListScreen(navController, onLogout = onLogout)
+                    else -> ChatsListScreen(navController, adManager = adManager, onLogout = onLogout)
                 }
 
                 // The "More" Sheet Overlay - positioned precisely ABOVE the bottom nav

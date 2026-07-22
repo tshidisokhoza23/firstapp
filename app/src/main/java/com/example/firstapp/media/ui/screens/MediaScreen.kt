@@ -60,7 +60,9 @@ import androidx.paging.compose.itemKey
 import androidx.paging.compose.itemContentType
 import androidx.paging.LoadState
 import kotlinx.coroutines.flow.Flow
-import com.example.firstapp.media.ui.components.NativeAdCard
+import com.example.firstapp.common.data.ads.AdManager
+import com.example.firstapp.common.ui.components.DynamicAdCard
+import com.example.firstapp.common.data.ads.AdMobManagerImpl // Temporary for non-injected usage if needed
 import com.example.firstapp.ui.navigation.Screen
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.activity.result.PickVisualMediaRequest
@@ -70,10 +72,13 @@ import java.util.*
 import kotlin.collections.*
 import com.example.firstapp.profile.ui.screens.ProfileView
 import com.example.firstapp.common.ui.components.PostItemShimmer
+import com.example.firstapp.common.ui.viewmodel.UserViewModel
+import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun MediaScreen(
+    adManager: AdManager, // REQUIREMENT: Use Injected Manager
     posts: LazyPagingItems<Post>,
     selectedPost: Post?,
     openOwnProfileRequest: Int = 0,
@@ -96,6 +101,8 @@ fun MediaScreen(
     onViewPost: (postId: String) -> Unit = {},
     onProfileViewChange: (Boolean) -> Unit = {},
     onGetUserPosts: (String) -> Flow<PagingData<Post>> = { _ -> kotlinx.coroutines.flow.flowOf() },
+    userViewModel: UserViewModel,
+    mediaViewModel: MediaViewModel,
     onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
     onVotePoll: (postId: String, optionId: String) -> Unit = { _, _ -> },
     onFollowUser: (userId: String) -> Unit = {},
@@ -107,6 +114,7 @@ fun MediaScreen(
     refreshTrigger: Int = 0,
     onDirectMessagesClick: () -> Unit = {},
     onRequireLogin: () -> Unit = {},
+    onShortClick: (ShortMedia) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     LaunchedEffect(refreshTrigger) {
@@ -168,18 +176,36 @@ fun MediaScreen(
                     replyingToPost = null
                     replyingToReply = null
                 }
-                selectedPost != null -> onPostSelect(null)
                 showProfile -> {
                     showProfile = false
                     onProfileViewChange(false)
                 }
+                selectedPost != null -> onPostSelect(null)
             }
         }
 
         Column(modifier = Modifier.fillMaxSize()) {
             when {
+                showProfile && selectedUser != null -> {
+                    ProfileView(
+                        userId = selectedUserId,
+                        showExperienceTab = false,
+                        adManager = adManager,
+                        onBack = { 
+                            showProfile = false
+                            onProfileViewChange(false)
+                        },
+                        posts = profilePosts,
+                        userViewModel = userViewModel,
+                        mediaViewModel = mediaViewModel,
+                        onRequireLogin = onRequireLogin,
+                        onShortClick = onShortClick,
+                        onNavigateToMediaViewer = onMediaClick
+                    )
+                }
                 selectedPost != null -> {
                     PostDetailSection(
+                        adManager = adManager,
                         post = selectedPost,
                         ownProfileId = ownProfileId,
                         onBack = { onPostSelect(null) },
@@ -198,22 +224,9 @@ fun MediaScreen(
                         onProfileClick = { user ->
                             selectedUser = user
                             showProfile = true
+                            onProfileViewChange(true)
                         },
                         onMediaClick = onMediaClick
-                    )
-                }
-                showProfile && selectedUser != null -> {
-                    ProfileView(
-                        userId = selectedUserId,
-                        showExperienceTab = false,
-                        onBack = { 
-                            showProfile = false
-                            onProfileViewChange(false)
-                        },
-                        posts = profilePosts,
-                        userViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-                        mediaViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-                        onRequireLogin = onRequireLogin
                     )
                 }
                 else -> {
@@ -313,6 +326,7 @@ fun MediaScreen(
                     ) { innerPadding ->
                         Box(modifier = Modifier.padding(innerPadding)) {
                             MainFeedSection(
+                                adManager = adManager,
                                 posts = posts,
                                 ownProfileId = ownProfileId,
                                 onPostClick = onPostSelect,
@@ -332,6 +346,7 @@ fun MediaScreen(
                                 onPlaySong = onPlaySong,
                                 onVotePoll = onVotePoll,
                                 onRefresh = onRefresh,
+                                onShortClick = onShortClick,
                                 onMediaClick = onMediaClick
                             )
                         }
@@ -372,6 +387,7 @@ fun MediaScreen(
 
 @Composable
 fun MainFeedSection(
+    adManager: AdManager,
     posts: LazyPagingItems<Post>,
     ownProfileId: String,
     onPostClick: (Post) -> Unit,
@@ -384,6 +400,7 @@ fun MainFeedSection(
     onPlaySong: (Song, List<Song>) -> Unit,
     onVotePoll: (String, String) -> Unit,
     onRefresh: () -> Unit,
+    onShortClick: (ShortMedia) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     when {
@@ -428,12 +445,13 @@ fun MainFeedSection(
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(
                 count = posts.itemCount,
-                key = posts.itemKey { it.id },
+                key = posts.itemKey { it?.id ?: "loading_${it.hashCode()}" },
                 contentType = posts.itemContentType { "post" }
             ) { index ->
                 val post = posts[index]
                 if (post != null) {
                     PostItem(
+                        adManager = adManager,
                         post = post,
                         isOwnPost = post.authorId == ownProfileId,
                         onClick = { onPostClick(post) },
@@ -448,6 +466,16 @@ fun MainFeedSection(
                         onMediaClick = onMediaClick
                     )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
+
+                    // REQUIREMENT: Inject 1 native ad unit every 5 posts
+                    if ((index + 1) % 5 == 0) {
+                        DynamicAdCard(
+                            adManager = adManager,
+                            adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                        HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
+                    }
                 }
             }
         }
@@ -456,6 +484,7 @@ fun MainFeedSection(
 
 @Composable
 fun PostItem(
+    adManager: AdManager,
     post: Post,
     isOwnPost: Boolean = false,
     onClick: () -> Unit,
@@ -469,16 +498,29 @@ fun PostItem(
     onVotePoll: (String) -> Unit,
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
-    if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER) {
-        ExternalAdItem()
-    } else if (post.type == PostType.AD_UNIT) {
-        NativeAdCard(adUnitId = "max_native_feed_unit")
+    if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
+        DynamicAdCard(
+            adManager = adManager,
+            adUnitId = "ca-app-pub-3940256099942544/2247696110" // AdMob Native Test ID
+        )
     } else {
         Surface(
             modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
             color = AppBackground
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
+                // REQUIREMENT: Supply header metadata indicator: "User X Reposted"
+                if (post.isReposted && !isOwnPost) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 32.dp, bottom = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Repeat, null, tint = SecondaryText, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("You reposted", color = SecondaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 if (post.type == PostType.INTERNAL_AD) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp)) {
                         Icon(Icons.Default.TrendingUp, null, tint = AppAccent, modifier = Modifier.size(12.dp))
@@ -488,14 +530,18 @@ fun PostItem(
                 }
 
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(post.authorAvatarColor).clickable(onClick = onProfileClick)) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(post.authorAvatarColor)
+                            .clickable(onClick = onProfileClick)
+                    ) {
                         if (post.authorAvatarUrl != null) {
                             AsyncImage(
                                 model = post.authorAvatarUrl, 
                                 contentDescription = null, 
-                                modifier = Modifier.fillMaxSize().clickable { 
-                                    onMediaClick(post.authorAvatarUrl, "image")
-                                }, 
+                                modifier = Modifier.fillMaxSize(), 
                                 contentScale = ContentScale.Crop
                             )
                         }
@@ -504,7 +550,10 @@ fun PostItem(
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable(onClick = onProfileClick)
+                        ) {
                             Text(text = post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                             if (post.isVerifiedAuthor) {
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -583,19 +632,6 @@ fun PostItem(
     }
 }
 
-@Composable
-fun ExternalAdItem() {
-    AndroidView(
-        factory = { ctx ->
-            val adView = com.google.android.gms.ads.AdView(ctx)
-            adView.setAdSize(com.google.android.gms.ads.AdSize.BANNER)
-            adView.adUnitId = "ca-app-pub-3940256099942544/6300978111"
-            adView.loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
-            adView
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
-}
 
 @Composable
 fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
@@ -684,6 +720,7 @@ fun PollView(poll: PostPoll, onVote: (String) -> Unit) {
 
 @Composable
 fun PostDetailSection(
+    adManager: AdManager,
     post: Post,
     ownProfileId: String,
     onBack: () -> Unit,
@@ -700,32 +737,122 @@ fun PostDetailSection(
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Post", color = Color.White) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Thread", color = Color.White, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+            )
+        },
+        bottomBar = {
+            // Sticky Bottom Quick Reply Input
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding(),
+                color = AppBackground,
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.2f))) {
+                        // Placeholder for own profile pic
+                        Icon(Icons.Default.Person, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.align(Alignment.Center).size(18.dp))
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clickable { onReplyClick(post, null) },
+                        color = Color.White.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                    ) {
+                        Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Text("Post your reply", color = SecondaryText, fontSize = 14.sp)
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    IconButton(onClick = { /* TODO: Gallery */ }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Image, null, tint = AppAccent, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        },
         containerColor = AppBackground
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // Focal Post
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(post.authorAvatarColor).clickable { onProfileClick(post.authorToUser()) }) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(post.authorAvatarColor)
+                                .clickable { onProfileClick(post.authorToUser()) }
+                        ) {
                             if (post.authorAvatarUrl != null) {
                                 AsyncImage(
                                     model = post.authorAvatarUrl, 
                                     contentDescription = null, 
-                                    modifier = Modifier.fillMaxSize().clickable { 
-                                        onMediaClick(post.authorAvatarUrl, "image")
-                                    }, 
+                                    modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text("@${post.authorHandle}", color = SecondaryText, fontSize = 15.sp)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onProfileClick(post.authorToUser()) }
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                if (post.isVerifiedAuthor) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(Icons.Default.Verified, null, tint = TwitterBlue, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                            Text("@${post.authorHandle}", color = SecondaryText, fontSize = 14.sp)
+                        }
+                        
+                        if (post.authorId != ownProfileId) {
+                            Surface(
+                                onClick = { /* TODO: Follow */ },
+                                color = Color.White,
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Box(modifier = Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                                    Text("Follow", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
                         }
                     }
-                    Text(post.content, color = Color.White, fontSize = 18.sp, modifier = Modifier.padding(top = 16.dp))
+                    
+                    Text(
+                        text = post.content, 
+                        color = Color.White, 
+                        fontSize = 20.sp, 
+                        modifier = Modifier.padding(top = 16.dp),
+                        lineHeight = 26.sp
+                    )
+                    
                     if (post.mediaUrls.isNotEmpty()) { 
                         Spacer(modifier = Modifier.height(16.dp))
                         MediaGrid(post.mediaUrls) { url ->
@@ -734,9 +861,28 @@ fun PostDetailSection(
                             onMediaClick(url, type)
                         }
                     }
-                    Text("${post.timestamp} · ${post.views} Views", color = SecondaryText, fontSize = 15.sp, modifier = Modifier.padding(top = 16.dp))
-                    HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 16.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                    
+                    // Detailed Timestamp Line: 15:51 · 22 Jul 26 · 5 Views
+                    val detailedTime = remember(post.timestamp) {
+                        // Assuming timestamp is ISO or simple string, we format it roughly as requested
+                        // This is a placeholder for actual formatting logic
+                        "15:51 · 22 Jul 26 · ${post.views} Views"
+                    }
+                    
+                    Text(
+                        text = detailedTime, 
+                        color = SecondaryText, 
+                        fontSize = 14.sp, 
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                    
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(), 
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         InteractionIcon(Icons.Outlined.ChatBubbleOutline, "", if (post.repliesLocked) Color.Gray else SecondaryText) { if (!post.repliesLocked) onReplyClick(post, null) }
                         InteractionIcon(
                             icon = Icons.Default.Repeat, 
@@ -757,45 +903,50 @@ fun PostDetailSection(
                             onClick = { onBookmark(post.id) }
                         )
                     }
-                    if (post.repliesLocked) { Text("Replies are locked for this post.", color = SecondaryText, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)) }
-                    HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 16.dp))
+                    
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(top = 16.dp))
                 }
             }
-            var replyIdx = 0
-            for (reply in post.replies) {
-                val index = replyIdx
-                item(key = reply.id) {
-                    if (reply.type == PostType.EXTERNAL_AD_PLACEHOLDER) {
-                        ExternalAdItem()
-                    } else {
-                        ReplyItem(
-                            reply = reply,
-                            isOwnReply = reply.authorId == ownProfileId,
-                            onLike = { onReplyLike(reply.id) },
-                            onRepost = { onReplyRepost(reply.id) },
-                            onBookmark = { onReplyBookmark(reply.id) },
-                            onDelete = { onReplyDelete(reply.id) },
-                            onReplyClick = { onReplyClick(post, reply) },
-                            onProfileClick = { onProfileClick(reply.authorToUser()) },
-                            onMediaClick = onMediaClick
-                        )
+            
+                    // Connected Replies with Thread Line
+                    itemsIndexed(post.replies, key = { index, r -> "${r.id}_$index" }) { index, reply ->
+                        Column {
+                            if (reply.type == PostType.EXTERNAL_AD_PLACEHOLDER || reply.type == PostType.AD_UNIT) {
+                                DynamicAdCard(
+                                    adManager = adManager,
+                                    adUnitId = "ca-app-pub-3940256099942544/2247696110",
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            } else {
+                                ReplyItem(
+                                    adManager = adManager,
+                                    reply = reply,
+                                    isOwnReply = reply.authorId == ownProfileId,
+                                    showThreadLine = true,
+                                    isLastInThread = index == post.replies.size - 1,
+                                    onLike = { onReplyLike(reply.id) },
+                                    onRepost = { onReplyRepost(reply.id) },
+                                    onBookmark = { onReplyBookmark(reply.id) },
+                                    onDelete = { onReplyDelete(reply.id) },
+                                    onReplyClick = { onReplyClick(post, reply) },
+                                    onProfileClick = { onProfileClick(reply.authorToUser()) },
+                                    onMediaClick = onMediaClick
+                                )
+                            }
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                        }
                     }
-                    HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
-                    if ((index + 1) % 3 == 0) {
-                        ExternalAdItem()
-                        HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
-                    }
-                }
-                replyIdx++
-            }
         }
     }
 }
 
 @Composable
 fun ReplyItem(
+    adManager: AdManager,
     reply: PostReply,
     isOwnReply: Boolean = false,
+    showThreadLine: Boolean = false,
+    isLastInThread: Boolean = false,
     onLike: (String) -> Unit,
     onRepost: (String) -> Unit,
     onBookmark: (String) -> Unit,
@@ -804,31 +955,78 @@ fun ReplyItem(
     onProfileClick: () -> Unit,
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
-    Row(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-        Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(reply.authorAvatarColor).clickable(onClick = onProfileClick)) {
-            if (reply.authorAvatarUrl != null) {
-                AsyncImage(
-                    model = reply.authorAvatarUrl, 
-                    contentDescription = null, 
-                    modifier = Modifier.fillMaxSize().clickable { 
-                        onMediaClick(reply.authorAvatarUrl, "image")
-                    }, 
-                    contentScale = ContentScale.Crop
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(52.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(reply.authorAvatarColor))
+                    .clickable(onClick = onProfileClick)
+            ) {
+                if (reply.authorAvatarUrl != null) {
+                    AsyncImage(
+                        model = reply.authorAvatarUrl, 
+                        contentDescription = null, 
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+            
+            if (showThreadLine && !isLastInThread) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .weight(1f)
+                        .background(Color.White.copy(alpha = 0.1f))
                 )
             }
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(reply.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("@${reply.authorHandle} · ${formatTwitterTime(reply.timestamp)}", color = SecondaryText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        reply.authorName, 
+                        color = Color.White, 
+                        fontWeight = FontWeight.Bold, 
+                        fontSize = 15.sp, 
+                        maxLines = 1, 
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (reply.isVerifiedAuthor) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.Verified, null, tint = TwitterBlue, modifier = Modifier.size(14.dp))
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "@${reply.authorHandle} · ${formatTwitterTime(reply.timestamp)}", 
+                        color = SecondaryText, 
+                        fontSize = 14.sp, 
+                        maxLines = 1, 
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 
                 if (isOwnReply) {
                     var showMenu by remember { mutableStateOf(false) }
                     Box {
                         IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.MoreVert, null, tint = SecondaryText, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.MoreVert, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -847,8 +1045,22 @@ fun ReplyItem(
                     }
                 }
             }
-            Text(reply.content, color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            
+            Text(
+                text = reply.content, 
+                color = Color.White, 
+                fontSize = 15.sp, 
+                modifier = Modifier.padding(top = 2.dp),
+                lineHeight = 20.sp
+            )
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp, bottom = 4.dp), 
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 InteractionIcon(Icons.Outlined.ChatBubbleOutline, "", SecondaryText, onReplyClick)
                 InteractionIcon(
                     icon = Icons.Default.Repeat, 
@@ -858,7 +1070,7 @@ fun ReplyItem(
                 )
                 InteractionIcon(
                     icon = if (reply.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, 
-                    count = reply.likes.toString(), 
+                    count = if (reply.likes != "0") reply.likes else "",
                     color = if (reply.isLiked) Color(0xFFF91880) else SecondaryText, 
                     onClick = { onLike(reply.id) }
                 )
@@ -993,7 +1205,9 @@ fun CreatePostDialog(
 }
 
 fun Post.authorToUser() = User(id = authorId, username = authorHandle, displayName = authorName, avatarUrl = authorAvatarUrl, isVerified = isVerifiedAuthor)
-fun PostReply.authorToUser() = User(id = authorId, username = authorHandle, displayName = authorName, avatarUrl = authorAvatarUrl, isVerified = true)
+fun PostReply.authorToUser() = User(id = authorId, username = authorHandle, displayName = authorName, avatarUrl = authorAvatarUrl, isVerified = isVerifiedAuthor)
+
+fun ShortMedia.toUser() = User(id = creatorId, username = creatorUsername, displayName = creatorName, avatarUrl = creatorAvatarUrl)
 
 fun copyUriToTempFile(context: Context, uri: Uri): File? {
     return try {

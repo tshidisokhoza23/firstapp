@@ -8,13 +8,12 @@ import com.example.firstapp.common.model.User
 import com.example.firstapp.vocab.domain.repository.LessonRepository
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.vocab.utils.Constants
-import com.example.firstapp.media.ads.AdManager
+import com.example.firstapp.common.data.ads.AdManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -24,6 +23,8 @@ class HomeViewModel @Inject constructor(
     private val lessonRepository: LessonRepository,
     private val adManager: AdManager
 ) : ViewModel() {
+
+    private var isLoadingAd = false
 
     init {
         viewModelScope.launch {
@@ -100,13 +101,28 @@ class HomeViewModel @Inject constructor(
     }
 
     fun showAd(activity: Activity) {
-        adManager.showRewardedAd(
-            activity = activity,
-            onRewardEarned = {
-                onAdWatched()
+        if (isLoadingAd) return
+        isLoadingAd = true
+        
+        adManager.loadRewardedAd(
+            context = activity,
+            adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
+            onAdLoaded = { adObject ->
+                isLoadingAd = false
+                adManager.showRewardedAd(
+                    activity = activity,
+                    adObject = adObject,
+                    onRewardEarned = {
+                        onAdWatched()
+                    },
+                    onAdClosed = {
+                        // Ad closed
+                    }
+                )
             },
-            onAdClosed = {
-                // Ad closed
+            onAdFailed = {
+                isLoadingAd = false
+                // Handle failure
             }
         )
     }

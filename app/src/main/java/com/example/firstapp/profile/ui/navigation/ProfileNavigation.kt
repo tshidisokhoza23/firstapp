@@ -15,7 +15,10 @@ import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.ui.navigation.Screen
 import kotlin.collections.listOf
 
-fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
+fun NavGraphBuilder.profileNavGraph(
+    navController: NavHostController,
+    adManager: com.example.firstapp.common.data.ads.AdManager
+) {
     composable(Screen.EditProfile.route) {
         val userViewModel: UserViewModel = hiltViewModel()
         EditProfileScreen(
@@ -55,6 +58,7 @@ fun NavGraphBuilder.profileNavGraph(navController: NavHostController) {
         ProfileView(
             userId = userId,
             isGroup = isGroup,
+            adManager = adManager,
             onBack = { navController.popBackStack() },
             posts = pagedPosts,
             userViewModel = userViewModel,

@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.flowOf
 @Composable
 fun ShortsTabScreen(
     navController: NavController,
+    adManager: com.example.firstapp.common.data.ads.AdManager,
     shortsViewModel: ShortsViewModel = hiltViewModel(),
     mediaViewModel: MediaViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
@@ -95,6 +96,7 @@ fun ShortsTabScreen(
             ProfileView(
                 userId = selectedProfileUserId,
                 showExperienceTab = false,
+                adManager = adManager,
                 onBack = {
                     showProfile = false
                     selectedProfileUser = null
@@ -146,6 +148,7 @@ fun ShortsTabScreen(
                 }
             ) { shorts ->
                 ShortsList(
+                    adManager = adManager,
                     shorts = shorts,
                     shortsViewModel = shortsViewModel,
                     bottomPadding = 0.dp,

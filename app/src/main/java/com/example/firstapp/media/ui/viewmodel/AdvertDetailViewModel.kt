@@ -28,19 +28,7 @@ class AdvertDetailViewModel @Inject constructor(
                     if (ad != null) _advert.value = Resource.Success(ad)
                     else _advert.value = Resource.Error("Advert not found")
                 } else if (resource is Resource.Error) {
-                    // Mock fallback for UI testing
-                    _advert.value = Resource.Success(
-                        Advert(
-                            id = advertId,
-                            advertiserName = "Mock Advertiser",
-                            time = "Just now",
-                            avatarColor = 0xFF2196F3.toInt(),
-                            contentColor = 0xFFB0BEC5.toInt(),
-                            contentText = "This is a mock advertisement because the server is unreachable.",
-                            actionText = "Learn More",
-                            targetUrl = "https://example.com"
-                        )
-                    )
+                    _advert.value = Resource.Error(resource.message ?: "Failed to load advert")
                 }
             }
         }

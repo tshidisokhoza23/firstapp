@@ -9,6 +9,7 @@ import com.example.firstapp.chat.jobs.model.ApplicationStatus
 import com.example.firstapp.media.model.*
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlin.collections.*
 
 class Converters {
     private val gson = Gson()
@@ -51,8 +52,12 @@ class Converters {
 
     @TypeConverter
     fun toPostReplyList(value: String): List<PostReply>? {
-        val type = object : TypeToken<List<PostReply>>() {}.type
-        return gson.fromJson(value, type)
+        return try {
+            val type = object : TypeToken<List<PostReply>>() {}.type
+            gson.fromJson(value, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     @TypeConverter
@@ -60,8 +65,12 @@ class Converters {
 
     @TypeConverter
     fun toStoryItemList(value: String): List<StoryItem>? {
-        val type = object : TypeToken<List<StoryItem>>() {}.type
-        return gson.fromJson(value, type)
+        return try {
+            val type = object : TypeToken<List<StoryItem>>() {}.type
+            gson.fromJson(value, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     @TypeConverter
@@ -69,21 +78,37 @@ class Converters {
 
     @TypeConverter
     fun toReactionsMap(value: String): Map<String, Int>? {
-        val type = object : TypeToken<Map<String, Int>>() {}.type
-        return gson.fromJson(value, type)
+        return try {
+            val type = object : TypeToken<Map<String, Int>>() {}.type
+            gson.fromJson(value, type)
+        } catch (e: Exception) {
+            emptyMap()
+        }
     }
 
     @TypeConverter
     fun fromPostPoll(value: PostPoll?): String? = gson.toJson(value)
 
     @TypeConverter
-    fun toPostPoll(value: String?): PostPoll? = gson.fromJson(value, PostPoll::class.java)
+    fun toPostPoll(value: String?): PostPoll? {
+        return try {
+            gson.fromJson(value, PostPoll::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     @TypeConverter
     fun fromAdvert(value: Advert?): String? = gson.toJson(value)
 
     @TypeConverter
-    fun toAdvert(value: String?): Advert? = gson.fromJson(value, Advert::class.java)
+    fun toAdvert(value: String?): Advert? {
+        return try {
+            gson.fromJson(value, Advert::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     @TypeConverter
     fun fromApplicationStatus(value: ApplicationStatus): String = value.name

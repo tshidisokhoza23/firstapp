@@ -25,10 +25,12 @@ import com.example.firstapp.common.ui.theme.NiceOrange
 import com.example.firstapp.common.ui.theme.FirstAppTheme
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.media.model.Advert
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RewardsScreen(
+    adManager: com.example.firstapp.common.data.ads.AdManager,
     adverts: List<Advert> = emptyList(),
     viewedAdverts: List<Advert> = emptyList(),
     points: Double = 0.0,
@@ -36,7 +38,9 @@ fun RewardsScreen(
     onRefresh: () -> Unit = {},
     onResetAds: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     var cooldownSeconds by remember { mutableIntStateOf(0) }
+    var isLoadingAd by remember { mutableStateOf(false) }
     
     LaunchedEffect(cooldownSeconds) {
         if (cooldownSeconds > 0) {
@@ -46,8 +50,32 @@ fun RewardsScreen(
     }
 
     val onAdFinished = { ad: Advert ->
-        onAdvertClick(ad)
-        cooldownSeconds = 15
+        if (!isLoadingAd) {
+            isLoadingAd = true
+            val activity = context as? android.app.Activity
+            if (activity != null) {
+                adManager.loadRewardedAd(
+                    context = context,
+                    adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
+                    onAdLoaded = { adObject ->
+                        isLoadingAd = false
+                        adManager.showRewardedAd(
+                            activity = activity,
+                            adObject = adObject,
+                            onRewardEarned = {
+                                onAdvertClick(ad)
+                                cooldownSeconds = 15
+                            },
+                            onAdClosed = { }
+                        )
+                    },
+                    onAdFailed = { 
+                        isLoadingAd = false
+                        android.widget.Toast.makeText(context, "Ad failed to load: $it", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        }
     }
 
     android.util.Log.d("RewardsScreen", "Adverts size: ${adverts.size}, viewed: ${viewedAdverts.size}")
@@ -94,6 +122,14 @@ fun RewardsScreen(
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Text("Reset Progress (Dev)", color = Color.Red.copy(alpha = 0.5f), fontSize = 12.sp)
+            }
+        }
+
+        if (isLoadingAd) {
+            item {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = AppAccent)
+                }
             }
         }
 
@@ -274,13 +310,5 @@ fun RewardItem(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun RewardsScreenPreview() {
-    FirstAppTheme {
-        RewardsScreen()
     }
 }

@@ -19,6 +19,7 @@ import java.util.ArrayList
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun ShortsList(
+    adManager: com.example.firstapp.common.data.ads.AdManager,
     shorts: List<ShortMedia>,
     shortsViewModel: ShortsViewModel,
     bottomPadding: Dp,
@@ -33,14 +34,16 @@ fun ShortsList(
     val context = LocalContext.current
     val pagerState = rememberPagerState(pageCount = { shorts.size })
     
-    LaunchedEffect(initialShortId, shorts, pagerState.pageCount) {
+    LaunchedEffect(initialShortId) {
         if (initialShortId != null && shorts.size > 0) {
             var foundIndex = -1
-            for (i in 0..(shorts.size - 1)) {
-                if (shorts[i].id == initialShortId) {
+            var i = 0
+            while (i < shorts.size) {
+                if (shorts.get(i).id == initialShortId) {
                     foundIndex = i
                     break
                 }
+                i++
             }
             if (foundIndex != -1 && foundIndex < pagerState.pageCount) {
                 pagerState.scrollToPage(foundIndex)
@@ -61,20 +64,36 @@ fun ShortsList(
         ShortsVideoCache.preload(context, urls)
     }
 
-    VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+    VerticalPager(
+        state = pagerState, 
+        modifier = Modifier.fillMaxSize(),
+        key = { index -> 
+            if (index < shorts.size) shorts[index].id else index.toString() 
+        }
+    ) { page ->
         val currentShort = shorts[page]
-        val isInteractiveShort = currentShort.type == ShortType.REGULAR
-        ShortItem(
-            short = currentShort, 
-            isVisible = pagerState.currentPage == page, 
-            bottomInset = bottomPadding, 
-            onLikeClick = { if (isInteractiveShort) shortsViewModel.likeShort(it) }, 
-            onSubscribeClick = { if (isInteractiveShort) shortsViewModel.subscribeToShortCreator(it) }, 
-            onCommentClick = { if (isInteractiveShort) onShowComments(it) }, 
-            onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkShort(it) }, 
-            onShareClick = { shortsViewModel.trackShortShare(it) },
-            onMoreClick = { onShowMoreMenu(currentShort) }, 
-            onCreatorClick = { if (isInteractiveShort) onCreatorClick(it) }
-        )
+        
+        // Show an ad every 5 shorts
+        if ((page + 1) % 5 == 0) {
+            com.example.firstapp.common.ui.components.DynamicAdCard(
+                adManager = adManager,
+                adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            val isInteractiveShort = currentShort.type == ShortType.REGULAR
+            ShortItem(
+                short = currentShort, 
+                isVisible = pagerState.currentPage == page, 
+                bottomInset = bottomPadding, 
+                onLikeClick = { if (isInteractiveShort) shortsViewModel.likeShort(it) }, 
+                onSubscribeClick = { if (isInteractiveShort) shortsViewModel.subscribeToShortCreator(it) }, 
+                onCommentClick = { if (isInteractiveShort) onShowComments(it) }, 
+                onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkShort(it) }, 
+                onShareClick = { shortsViewModel.trackShortShare(it) },
+                onMoreClick = { onShowMoreMenu(currentShort) }, 
+                onCreatorClick = { if (isInteractiveShort) onCreatorClick(it) }
+            )
+        }
     }
 }

@@ -17,6 +17,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 @Composable
 fun MediaTabScreen(
     navController: NavController,
+    adManager: com.example.firstapp.common.data.ads.AdManager,
     mediaViewModel: MediaViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
     chatViewModel: ChatViewModel = hiltViewModel(),
@@ -34,6 +35,7 @@ fun MediaTabScreen(
     
     Box(modifier = Modifier.fillMaxSize()) {
         MediaScreen(
+            adManager = adManager,
             posts = pagedPosts,
             selectedPost = uiState.selectedPost,
             ownProfileId = currentUser?.id.orEmpty(),
@@ -53,6 +55,8 @@ fun MediaTabScreen(
             onViewPost = { mediaViewModel.viewPost(it) }, 
             onProfileViewChange = { /* Handle internal profile view if needed */ }, 
             onGetUserPosts = { userId -> mediaViewModel.getUserPosts(userId) },
+            userViewModel = userViewModel,
+            mediaViewModel = mediaViewModel,
             onPlaySong = { s, q -> musicViewModel.playSong(s, q) }, 
             onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
             onFollowUser = { mediaViewModel.followUser(it) },
@@ -66,6 +70,10 @@ fun MediaTabScreen(
                 navController.navigate(Screen.Login.route) {
                     popUpTo(0) { inclusive = true }
                 }
+            },
+            onShortClick = { short ->
+                // REQUIREMENT: Universal Entry Point for shorts
+                navController.navigate(Screen.Main.createRoute(tab = "shorts", shortId = short.id))
             },
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))

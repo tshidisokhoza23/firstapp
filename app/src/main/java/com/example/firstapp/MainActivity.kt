@@ -49,6 +49,7 @@ class MainActivity : FragmentActivity() {
 
     @Inject lateinit var displayNameResolver: DisplayNameResolver
     @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
+    @Inject lateinit var adManager: com.example.firstapp.common.data.ads.AdManager
     private var contactsObserver: ContactsObserver? = null
 
     private fun consumeIncomingCallIntent(intent: Intent?) {
@@ -140,8 +141,6 @@ class MainActivity : FragmentActivity() {
 
         setupContactsObserver()
 
-        MobileAds.initialize(this) {}
-        
         if (!Places.isInitialized()) {
             Places.initialize(applicationContext, "AIzaSyAcwjsoRCNMFsX5ayuuYC1CoNqj8NVP3Kw")
         }
@@ -212,6 +211,7 @@ class MainActivity : FragmentActivity() {
                             startDestination = startDestination,
                             viewModel = viewModel,
                             musicViewModel = musicViewModel,
+                            adManager = adManager,
                             onLogout = {
                                 TokenManager.clear()
                                 navController.navigate(Screen.Login.route) {

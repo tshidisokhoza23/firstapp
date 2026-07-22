@@ -15,21 +15,10 @@ import com.example.firstapp.BuildConfig
 fun mapShortsFeedItems(items: List<ApiShortFeedItem>): List<ShortMedia> = items.mapNotNull { item ->
     when (item.type) {
         "ORGANIC_SHORT" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.REGULAR) }
-        "ad_unit" -> mapShortAdUnitPlaceholder(item)
         else -> null
     }
 }
 
-private fun mapShortAdUnitPlaceholder(item: ApiShortFeedItem): ShortMedia = ShortMedia(
-    id = "ad_unit_${item.ad_placement_id ?: System.currentTimeMillis()}",
-    creatorId = "ad",
-    creatorName = "Sponsored",
-    description = "",
-    likes = "0",
-    comments = "0",
-    videoUrl = "",
-    type = ShortType.AD_UNIT
-)
 
 private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortMedia = ShortMedia(
     id = apiShort.id,
@@ -53,9 +42,13 @@ private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortM
 
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     when (item.type) {
-        "POST" -> item.post?.let { mapApiMediaPost(it, item.type) }
+        "POST" -> item.post?.let { apiPost: ApiMediaPost ->
+            // Filter out boosted posts and internal ads if we only want SDK ads
+            if (apiPost.is_boosted) null 
+            else mapApiMediaPost(apiPost, "POST") // Force type to POST
+        }
         "ad_unit" -> mapAdUnitPlaceholder(item)
-        else -> null
+        else -> null // Ignore NATIVE_AD and INTERNAL_AD from backend
     }
 }
 
@@ -73,9 +66,11 @@ private fun mapAdUnitPlaceholder(item: ApiFeedItem): Post = Post(
     type = PostType.AD_UNIT
 )
 
-fun mapMediaReplyItems(items: List<ApiReplyItem>): List<PostReply> = items.mapNotNull { item ->
+
+fun mapMediaReplyItems(items: List<ApiReplyItem>): List<PostReply> = items.mapNotNull { item: ApiReplyItem ->
     when (item.type) {
         "REPLY" -> item.reply?.let { mapApiMediaReply(it, item.type) }
+        "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdReplyPlaceholder(item.placeholder)
         else -> null
     }
 }
@@ -110,7 +105,7 @@ private fun mapApiMediaReply(apiReply: ApiMediaReply, itemType: String): PostRep
     authorName = apiReply.author_name,
     authorHandle = apiReply.handle,
     authorAvatarUrl = null,
-    authorAvatarColor = Color(0xFF90CAF9),
+    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
     isVerifiedAuthor = false,
     content = apiReply.reply_text,
     timestamp = apiReply.created_at ?: "",
@@ -143,7 +138,7 @@ private fun mapExternalAdReplyPlaceholder(placeholder: ApiExternalAdPlaceholder?
     authorName = "Sponsored",
     authorHandle = "ad",
     authorAvatarUrl = null,
-    authorAvatarColor = Color(0xFF90CAF9),
+    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
     isVerifiedAuthor = false,
     content = "",
     timestamp = "",
@@ -223,7 +218,7 @@ fun mapApiPostReply(apiReply: ApiPostReply): PostReply = PostReply(
     authorName = apiReply.author?.display_name ?: apiReply.author_id,
     authorHandle = apiReply.author?.username ?: "", 
     authorAvatarUrl = formatUrl(apiReply.author?.avatar_url),
-    authorAvatarColor = Color(0xFF90CAF9), 
+    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
     isVerifiedAuthor = apiReply.author?.is_verified ?: false, 
     content = apiReply.content, 
     timestamp = apiReply.created_at?.toString() ?: "",

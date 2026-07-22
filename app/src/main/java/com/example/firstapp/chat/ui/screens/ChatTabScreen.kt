@@ -50,7 +50,8 @@ import com.example.firstapp.media.ui.components.StoriesRow
 import com.example.firstapp.home.ui.screens.RewardsScreen
 import com.example.firstapp.chat.jobs.ui.screens.JobList
 import com.example.firstapp.chat.channels.ChannelList
-import com.example.firstapp.media.ui.screens.ExternalAdItem
+import com.example.firstapp.common.data.ads.AdManager
+import com.example.firstapp.common.ui.components.DynamicAdCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -58,6 +59,7 @@ import kotlinx.coroutines.flow.first
 fun ChatsListScreen(
     navController: NavController,
     onLogout: () -> Unit,
+    adManager: AdManager,
     onShowMore: () -> Unit = {}, 
     chatViewModel: ChatViewModel = hiltViewModel(),
     advertsViewModel: AdvertsViewModel = hiltViewModel(),
@@ -392,19 +394,30 @@ fun ChatsListScreen(
                                 onLoading = { SkeletonLoader() }
                             ) {
                                  RewardsScreen(
+                                    adManager = adManager,
                                     adverts = ads,
                                     viewedAdverts = viewedAds,
                                     points = points,
                                     onAdvertClick = { ad -> 
                                         val activity = context as? android.app.Activity
                                         if (activity != null) {
-                                            advertsViewModel.adManager.showRewardedAd(
-                                                activity = activity,
-                                                onRewardEarned = {
-                                                    advertsViewModel.markAdvertAsViewed(ad.id)
-                                                    Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
+                                            advertsViewModel.adManager.loadRewardedAd(
+                                                context = context,
+                                                adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
+                                                onAdLoaded = { adObject ->
+                                                    advertsViewModel.adManager.showRewardedAd(
+                                                        activity = activity,
+                                                        adObject = adObject,
+                                                        onRewardEarned = {
+                                                            advertsViewModel.markAdvertAsViewed(ad.id)
+                                                            Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        onAdClosed = { }
+                                                    )
                                                 },
-                                                onAdClosed = { advertsViewModel.adManager.loadRewardedAd() }
+                                                onAdFailed = { error ->
+                                                    Toast.makeText(context, "Ad Failed: $error", Toast.LENGTH_SHORT).show()
+                                                }
                                             )
                                         }
                                     },
@@ -415,7 +428,11 @@ fun ChatsListScreen(
                         }
                         
                         // Banner Ad fixed at the bottom, above bottom navigation
-                        ExternalAdItem()
+                        DynamicAdCard(
+                            adManager = adManager,
+                            adUnitId = "ca-app-pub-3940256099942544/6300978111", // AdMob Banner Test ID
+                            isBanner = true
+                        )
                     }
                 }
                 2 -> {

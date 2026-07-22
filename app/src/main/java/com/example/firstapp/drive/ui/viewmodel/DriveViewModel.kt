@@ -18,6 +18,7 @@ import com.example.firstapp.common.util.Resource
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
+import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.maps.DirectionsApi
@@ -455,15 +456,27 @@ class DriveViewModel @Inject constructor(
     }
 
     fun getPlaceDetails(context: Context, destination: Destination, onComplete: (Destination) -> Unit) {
-        if (destination.placeId == null) { onComplete(destination); return }
+        val placeId = destination.placeId
+        if (placeId == null) { onComplete(destination); return }
+        
         val placesClient = Places.createClient(context)
-        val placeFields = listOf(com.google.android.libraries.places.api.model.Place.Field.LAT_LNG, com.google.android.libraries.places.api.model.Place.Field.ADDRESS)
-        val request = FetchPlaceRequest.newInstance(destination.placeId, placeFields)
+        val placeFields = listOf(Place.Field.LOCATION, Place.Field.FORMATTED_ADDRESS)
+        val request = FetchPlaceRequest.newInstance(placeId, placeFields)
+        
         placesClient.fetchPlace(request).addOnSuccessListener { response ->
             val place = response.place
-            val latLng = place.latLng
-            if (latLng != null) onComplete(destination.copy(latitude = latLng.latitude, longitude = latLng.longitude, address = place.address ?: destination.address))
-            else onComplete(destination)
-        }.addOnFailureListener { onComplete(destination) }
+            val latLng = place.location
+            if (latLng != null) {
+                onComplete(destination.copy(
+                    latitude = latLng.latitude, 
+                    longitude = latLng.longitude, 
+                    address = place.formattedAddress ?: destination.address
+                ))
+            } else {
+                onComplete(destination)
+            }
+        }.addOnFailureListener { 
+            onComplete(destination) 
+        }
     }
 }

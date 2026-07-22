@@ -38,6 +38,7 @@ fun AppNavigation(
     startDestination: String,
     viewModel: MainViewModel,
     musicViewModel: MusicViewModel,
+    adManager: com.example.firstapp.common.data.ads.AdManager,
     onLogout: () -> Unit
 ) {
     NavHost(navController = navController, startDestination = startDestination) {
@@ -68,6 +69,7 @@ fun AppNavigation(
                 viewModel = viewModel,
                 musicViewModel = musicViewModel,
                 navController = navController,
+                adManager = adManager,
                 onLogout = onLogout,
                 initialShortId = if (shortId != null && shortId.length > 0) shortId else null
             )
@@ -78,7 +80,7 @@ fun AppNavigation(
         mediaNavGraph(navController)
         jobsNavGraph(navController, viewModel)
         settingsNavGraph(navController, onLogout)
-        profileNavGraph(navController)
+        profileNavGraph(navController, adManager)
         
         composable(Screen.Files.route) {
             val filesViewModel: FilesViewModel = androidx.hilt.navigation.compose.hiltViewModel()
