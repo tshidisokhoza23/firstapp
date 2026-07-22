@@ -64,6 +64,7 @@ import kotlinx.coroutines.launch
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun ShortItem(
+    adManager: com.example.firstapp.common.data.ads.AdManager,
     short: ShortMedia,
     isVisible: Boolean,
     bottomInset: Dp,
@@ -471,7 +472,8 @@ fun ShortItem(
             var showAdOverlay by remember { mutableStateOf(true) }
             if (short.type == ShortType.AD_UNIT) {
                 FloatingVideoAdOverlay(
-                    adUnitId = "max_floating_video_ad_unit",
+                    adManager = adManager,
+                    adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
                     isVisible = isVisible && showAdOverlay,
                     onClose = { showAdOverlay = false },
                     modifier = Modifier.align(Alignment.Center)

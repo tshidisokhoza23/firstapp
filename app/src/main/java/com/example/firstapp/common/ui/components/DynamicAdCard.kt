@@ -81,30 +81,27 @@ fun DynamicAdCard(
                 view.mediaView = view.findViewById(R.id.ad_media)
 
                 // Map SDK payload to UI programmatically
-                ad.headline?.let { headline ->
-                    (view.headlineView as? TextView)?.text = headline
-                }
-                ad.body?.let { body ->
-                    (view.bodyView as? TextView)?.text = body
-                }
-                ad.callToAction?.let { cta ->
-                    (view.callToActionView as? Button)?.text = cta
-                }
-                ad.icon?.let { icon ->
+                val headline = ad.headline
+                if (headline != null) (view.headlineView as? TextView)?.text = headline
+                
+                val body = ad.body
+                if (body != null) (view.bodyView as? TextView)?.text = body
+                
+                val cta = ad.callToAction
+                if (cta != null) (view.callToActionView as? Button)?.text = cta
+                
+                val icon = ad.icon
+                if (icon != null) {
                     (view.iconView as? android.widget.ImageView)?.setImageDrawable(icon.drawable)
-                } ?: run {
+                } else {
                     view.iconView?.visibility = android.view.View.GONE
                 }
-                ad.advertiser?.let { advertiser ->
-                    (view.advertiserView as? TextView)?.text = advertiser
-                } ?: run {
-                    view.advertiserView?.visibility = android.view.View.GONE
-                }
                 
-                ad.body?.let { body ->
-                    (view.bodyView as? TextView)?.text = body
-                } ?: run {
-                    view.bodyView?.visibility = android.view.View.GONE
+                val advertiser = ad.advertiser
+                if (advertiser != null) {
+                    (view.advertiserView as? TextView)?.text = advertiser
+                } else {
+                    view.advertiserView?.visibility = android.view.View.GONE
                 }
                 
                 // Bind the native ad object to the view

@@ -79,13 +79,13 @@ fun NativeAdCard(
                     // Note: You need a layout file for this to work perfectly with the binder
                     // Or you can create it programmatically.
                     val binder = MaxNativeAdViewBinder.Builder(R.layout.native_ad_layout)
-                        .setTitleTextViewId(R.id.ad_title_text)
-                        .setBodyTextViewId(R.id.ad_body_text)
-                        .setAdvertiserTextViewId(R.id.ad_advertiser_text)
-                        .setIconImageViewId(R.id.ad_icon_image)
-                        .setMediaContentViewGroupId(R.id.ad_media_view_container)
+                        .setTitleTextViewId(R.id.ad_headline)
+                        .setBodyTextViewId(R.id.ad_body)
+                        .setAdvertiserTextViewId(R.id.ad_advertiser)
+                        .setIconImageViewId(R.id.ad_app_icon)
+                        .setMediaContentViewGroupId(R.id.ad_media)
                         .setOptionsContentViewGroupId(R.id.ad_options_view_container)
-                        .setCallToActionButtonId(R.id.ad_cta_button)
+                        .setCallToActionButtonId(R.id.ad_call_to_action)
                         .build()
                     
                     MaxNativeAdView(binder, ctx)

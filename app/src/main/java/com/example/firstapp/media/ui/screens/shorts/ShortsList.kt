@@ -84,6 +84,7 @@ fun ShortsList(
         } else {
             val isInteractiveShort = currentShort.type == ShortType.REGULAR
             ShortItem(
+                adManager = adManager,
                 short = currentShort, 
                 isVisible = pagerState.currentPage == page, 
                 bottomInset = bottomPadding, 
