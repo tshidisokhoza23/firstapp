@@ -18,6 +18,9 @@ import coil.memory.MemoryCache
 
 import androidx.work.Configuration
 import androidx.hilt.work.HiltWorkerFactory
+import com.applovin.sdk.AppLovinMediationProvider
+import com.applovin.sdk.AppLovinSdk
+import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -37,7 +40,30 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
         } catch (e: Exception) {
             android.util.Log.e("FirstApp", "TokenManager init failed", e)
         }
+        
+        initializeAdSdk()
         scheduleSync()
+    }
+
+    private fun initializeAdSdk() {
+        val isDebug = BuildConfig.DEBUG
+        // Replace with actual SDK Key in production
+        val sdkKey = "YOUR_MAX_SDK_KEY" 
+        
+        val initConfigBuilder = AppLovinSdkInitializationConfiguration.builder(sdkKey, this)
+            .setMediationProvider(AppLovinMediationProvider.MAX)
+
+        if (isDebug) {
+            // Optional: Pass your test device GAID to force test ads
+            // initConfigBuilder.setTestDeviceAdvertisingIds(listOf("YOUR_ANDROID_GAID"))
+        }
+
+        AppLovinSdk.getInstance(this).initialize(initConfigBuilder.build()) { sdkConfig ->
+            android.util.Log.d("FirstApp", "AppLovin SDK Initialized")
+            if (isDebug) {
+                AppLovinSdk.getInstance(this).showMediationDebugger()
+            }
+        }
     }
 
     override fun newImageLoader(): ImageLoader {

@@ -108,6 +108,10 @@ dependencies {
     implementation("nl.dionsegijn:konfetti-compose:2.0.5")
     implementation(libs.androidx.work.runtime.ktx)
 
+    // Ad Mediation - AppLovin MAX
+    implementation(libs.applovin.sdk)
+    implementation(libs.applovin.google.adapter)
+
     // Paging 3
     implementation(libs.paging.runtime)
     implementation(libs.paging.compose)

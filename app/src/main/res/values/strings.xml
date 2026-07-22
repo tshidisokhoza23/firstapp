@@ -2,4 +2,5 @@
     <string name="app_name">FirstApp</string>
     <string name="default_web_client_id">303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com</string>
     <string name="typing">typing...</string>
+    <string name="ad_icon">Ad Icon</string>
 </resources>

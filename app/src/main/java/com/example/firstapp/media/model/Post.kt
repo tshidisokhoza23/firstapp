@@ -6,7 +6,8 @@ enum class PostType {
     POST,
     INTERNAL_AD,
     EXTERNAL_AD_PLACEHOLDER,
-    NATIVE_AD
+    NATIVE_AD,
+    AD_UNIT
 }
 
 data class Post(

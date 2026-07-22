@@ -28,6 +28,8 @@ hilt = "2.60"
 hiltWork = "1.2.0"
 coroutinesTest = "1.7.3"
 mockk = "1.13.8"
+applovin = "13.6.3"
+applovin-google-adapter = "25.4.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -80,6 +82,8 @@ hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWo
 hilt-work-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+applovin-sdk = { group = "com.applovin", name = "applovin-sdk", version.ref = "applovin" }
+applovin-google-adapter = { group = "com.applovin.mediation", name = "google-adapter", version.ref = "applovin-google-adapter" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

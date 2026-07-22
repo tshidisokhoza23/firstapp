@@ -55,6 +55,8 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.example.firstapp.media.data.ShortsVideoCache
 import com.example.firstapp.media.model.ShortMedia
+import com.example.firstapp.media.model.ShortType
+import com.example.firstapp.media.ui.components.FloatingVideoAdOverlay
 import com.example.firstapp.common.ui.theme.AppAccent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -464,6 +466,16 @@ fun ShortItem(
                             .background(AppAccent)
                     )
                 }
+            }
+
+            var showAdOverlay by remember { mutableStateOf(true) }
+            if (short.type == ShortType.AD_UNIT) {
+                FloatingVideoAdOverlay(
+                    adUnitId = "max_floating_video_ad_unit",
+                    isVisible = isVisible && showAdOverlay,
+                    onClose = { showAdOverlay = false },
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }

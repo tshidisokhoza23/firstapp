@@ -119,7 +119,9 @@ data class ShortsResponse(val shorts: List<ApiShort>)
 data class ApiShortFeedItem(
     val type: String,
     val short: ApiShort?,
-    val placeholder: ApiExternalAdPlaceholder?
+    val placeholder: ApiExternalAdPlaceholder?,
+    val ad_placement_id: String? = null,
+    val format: String? = null
 )
 
 data class ShortsFeedResponse(

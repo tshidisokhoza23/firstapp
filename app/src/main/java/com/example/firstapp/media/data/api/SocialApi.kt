@@ -143,7 +143,9 @@ data class ApiExternalAdPlaceholder(
 data class ApiFeedItem(
     val type: String,
     val post: ApiMediaPost?,
-    val placeholder: ApiExternalAdPlaceholder?
+    val placeholder: ApiExternalAdPlaceholder?,
+    val ad_placement_id: String? = null,
+    val format: String? = null
 )
 
 data class ApiReplyItem(

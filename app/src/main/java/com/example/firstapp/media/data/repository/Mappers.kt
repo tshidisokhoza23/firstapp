@@ -15,9 +15,21 @@ import com.example.firstapp.BuildConfig
 fun mapShortsFeedItems(items: List<ApiShortFeedItem>): List<ShortMedia> = items.mapNotNull { item ->
     when (item.type) {
         "ORGANIC_SHORT" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.REGULAR) }
+        "ad_unit" -> mapShortAdUnitPlaceholder(item)
         else -> null
     }
 }
+
+private fun mapShortAdUnitPlaceholder(item: ApiShortFeedItem): ShortMedia = ShortMedia(
+    id = "ad_unit_${item.ad_placement_id ?: System.currentTimeMillis()}",
+    creatorId = "ad",
+    creatorName = "Sponsored",
+    description = "",
+    likes = "0",
+    comments = "0",
+    videoUrl = "",
+    type = ShortType.AD_UNIT
+)
 
 private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortMedia = ShortMedia(
     id = apiShort.id,
@@ -42,9 +54,24 @@ private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortM
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     when (item.type) {
         "POST" -> item.post?.let { mapApiMediaPost(it, item.type) }
+        "ad_unit" -> mapAdUnitPlaceholder(item)
         else -> null
     }
 }
+
+private fun mapAdUnitPlaceholder(item: ApiFeedItem): Post = Post(
+    id = "ad_unit_${item.ad_placement_id ?: System.currentTimeMillis()}",
+    authorName = "Sponsored",
+    authorHandle = "ad",
+    authorAvatarColor = AppPrimary,
+    content = "",
+    timestamp = "",
+    likes = "0",
+    repliesCount = "0",
+    shares = "0",
+    views = "0",
+    type = PostType.AD_UNIT
+)
 
 fun mapMediaReplyItems(items: List<ApiReplyItem>): List<PostReply> = items.mapNotNull { item ->
     when (item.type) {

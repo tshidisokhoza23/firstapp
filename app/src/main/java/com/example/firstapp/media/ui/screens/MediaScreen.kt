@@ -60,6 +60,7 @@ import androidx.paging.compose.itemKey
 import androidx.paging.compose.itemContentType
 import androidx.paging.LoadState
 import kotlinx.coroutines.flow.Flow
+import com.example.firstapp.media.ui.components.NativeAdCard
 import com.example.firstapp.ui.navigation.Screen
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.activity.result.PickVisualMediaRequest
@@ -470,6 +471,8 @@ fun PostItem(
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER) {
         ExternalAdItem()
+    } else if (post.type == PostType.AD_UNIT) {
+        NativeAdCard(adUnitId = "max_native_feed_unit")
     } else {
         Surface(
             modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
