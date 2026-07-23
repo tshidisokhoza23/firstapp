@@ -1224,10 +1224,19 @@ fun CreatePostDialog(
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = Color.White) }
                         Button(onClick = {
-                            val postType = when { showPoll -> "poll"; selectedMediaUris.isNotEmpty() -> "media"; selectedAudioUris.isNotEmpty() -> "audio"; else -> "text_only" }
                             val mediaList = ArrayList<String>()
                             for (u in selectedMediaUris) mediaList.add(u.toString())
                             for (u in selectedAudioUris) mediaList.add(u.toString())
+                            
+                            val isSingleVideo = selectedMediaUris.size == 1 && context.contentResolver.getType(selectedMediaUris[0])?.startsWith("video") == true
+                            val postType = when { 
+                                showPoll -> "poll"
+                                isSingleVideo -> "short"
+                                selectedMediaUris.isNotEmpty() -> "standard"
+                                selectedAudioUris.isNotEmpty() -> "standard"
+                                else -> "standard"
+                            }
+
                             val finalPoll = if (showPoll) pollOptions.filter { it.isNotBlank() } else null
                             onSubmit(content, mediaList, emptyList<String>(), postType, finalPoll, selectedLocation)
                         }, enabled = content.isNotEmpty() || selectedMediaUris.isNotEmpty() || selectedAudioUris.isNotEmpty() || showPoll, colors = ButtonDefaults.buttonColors(containerColor = AppPrimary, contentColor = Color.White), shape = RoundedCornerShape(20.dp), modifier = Modifier.padding(end = 8.dp).height(36.dp)) { Text("Post", fontWeight = FontWeight.Bold) }
@@ -1297,8 +1306,6 @@ fun CreatePostDialog(
 
 fun Post.authorToUser() = User(id = authorId, username = authorHandle, displayName = authorName, avatarUrl = authorAvatarUrl, isVerified = isVerifiedAuthor)
 fun PostReply.authorToUser() = User(id = authorId, username = authorHandle, displayName = authorName, avatarUrl = authorAvatarUrl, isVerified = isVerifiedAuthor)
-
-fun ShortMedia.toUser() = User(id = creatorId, username = creatorUsername, displayName = creatorName, avatarUrl = creatorAvatarUrl)
 
 fun copyUriToTempFile(context: Context, uri: Uri): File? {
     return try {

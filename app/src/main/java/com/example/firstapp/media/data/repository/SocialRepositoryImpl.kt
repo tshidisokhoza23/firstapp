@@ -49,7 +49,7 @@ class SocialRepositoryImpl @Inject constructor(
             Pager(
                 config = PagingConfig(pageSize = 20, enablePlaceholders = false),
                 pagingSourceFactory = { 
-                    com.example.firstapp.media.data.paging.PostPagingSource(socialApi, following = false, authorId = authorId) 
+                    com.example.firstapp.media.data.paging.PostPagingSource(socialApi, following = false, authorId = authorId, feedType = feedType)
                 }
             ).flow
         }
@@ -163,13 +163,12 @@ class SocialRepositoryImpl @Inject constructor(
                 content = content,
                 media_urls = mediaUrls,
                 post_type = postType ?: "text_only",
+                media_type = mediaType,
                 location = location,
                 tags = tags,
                 channel_id = channelId,
                 poll = pollRequest
             )
-            // Note: ApiModel for CreatePostRequest should be updated if we want to send mediaType to backend explicitly
-            // For now, we assume post_type and media_urls handle it.
             if (socialApi.createPost(request).isSuccessful) {
                 emit(Resource.Success(true))
             } else {

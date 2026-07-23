@@ -20,7 +20,6 @@ import com.example.firstapp.home.ui.viewmodel.SearchViewModel
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
 import com.example.firstapp.media.ui.viewmodel.AdvertsViewModel
 import com.example.firstapp.media.ui.viewmodel.ChannelsViewModel
 import com.example.firstapp.media.ui.viewmodel.StoryViewModel

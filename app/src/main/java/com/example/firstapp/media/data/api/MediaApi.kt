@@ -35,45 +35,6 @@ interface MediaApi {
 
     @POST("adverts/{advertId}/like")
     suspend fun likeAdvert(@Path("advertId") advertId: String): Response<StatusResponse>
-
-    @GET("shorts")
-    suspend fun getShorts(): Response<ShortsResponse>
-
-    @GET("shorts/feed")
-    suspend fun getShortsFeed(@Query("page") page: Int = 1): Response<ShortsFeedResponse>
-
-    @GET("users/{userId}/shorts")
-    suspend fun getShortsByUserId(@Path("userId") userId: String): Response<ShortsResponse>
-
-    @GET("shorts/search")
-    suspend fun searchShorts(@Query("query") query: String, @Query("page") page: Int = 1): Response<ShortsResponse>
-
-    @POST("shorts/{shortId}/like")
-    suspend fun likeShort(@Path("shortId") shortId: String): Response<ShortLikeResponse>
-
-    @POST("shorts/{shortId}/subscribe")
-    suspend fun subscribeToShortCreator(@Path("shortId") shortId: String): Response<ShortSubscribeResponse>
-
-    @POST("shorts")
-    suspend fun createShort(@Body request: CreateShortRequest): Response<CreateShortResponse>
-
-    @POST("shorts/{shortId}/repost")
-    suspend fun repostShort(@Path("shortId") shortId: String): Response<StatusResponse>
-
-    @POST("shorts/{shortId}/bookmark")
-    suspend fun bookmarkShort(@Path("shortId") shortId: String): Response<StatusResponse>
-
-    @POST("shorts/{shortId}/share")
-    suspend fun trackShortShare(@Path("shortId") shortId: String): Response<StatusResponse>
-
-    @POST("shorts/{shortId}/replies")
-    suspend fun replyToShort(@Path("shortId") shortId: String, @Body request: CreateShortReplyRequest): Response<StatusResponse>
-
-    @GET("shorts/{shortId}/replies")
-    suspend fun getShortReplies(@Path("shortId") shortId: String): Response<ShortRepliesResponse>
-
-    @POST("shorts/replies/{replyId}/like")
-    suspend fun likeShortReply(@Path("replyId") replyId: String): Response<StatusResponse>
 }
 
 data class ApiAdvert(
@@ -96,46 +57,3 @@ data class ApiAdvert(
 )
 
 data class AdvertsResponse(val adverts: List<ApiAdvert>)
-
-data class ApiShort(
-    val id: String?,
-    val creator_id: String?,
-    val creator_name: String?,
-    val creator_username: String? = null,
-    val creator_avatar_url: String? = null,
-    val description: String?,
-    val likes: Long = 0,
-    val comments: Long = 0,
-    val shares: Long = 0,
-    val video_url: String?,
-    val thumbnail_url: String?,
-    val is_liked: Boolean = false,
-    val is_subscribed: Boolean = false,
-    val is_bookmarked: Boolean = false
-)
-
-data class ShortsResponse(val shorts: List<ApiShort>)
-
-data class ApiShortFeedItem(
-    val type: String,
-    val short: ApiShort?,
-    val placeholder: ApiExternalAdPlaceholder?,
-    val ad_placement_id: String? = null,
-    val format: String? = null
-)
-
-data class ShortsFeedResponse(
-    @field:SerializedName("feed") val items: List<ApiShortFeedItem>,
-    val page: Int = 1
-)
-
-data class ShortLikeResponse(
-    val status: String,
-    val is_liked: Boolean,
-    val likes: Long
-)
-
-data class ShortSubscribeResponse(
-    val status: String,
-    val is_subscribed: Boolean
-)

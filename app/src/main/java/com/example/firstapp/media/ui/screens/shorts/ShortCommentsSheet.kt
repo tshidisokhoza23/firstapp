@@ -21,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.firstapp.media.model.ShortReply
+import com.example.firstapp.media.model.PostReply
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.home.ui.screens.DataStateHandler
 
@@ -29,14 +29,14 @@ import com.example.firstapp.home.ui.screens.DataStateHandler
 @Composable
 fun ShortCommentsSheet(
     shortId: String,
-    repliesState: Resource<List<ShortReply>>,
+    repliesState: Resource<List<PostReply>>,
     currentUserAvatarUrl: String? = null,
     onDismiss: () -> Unit,
     onSendReply: (String, String?) -> Unit,
     onLikeReply: (String) -> Unit = {}
 ) {
     var replyText by remember { mutableStateOf("") }
-    var replyingTo by remember { mutableStateOf<ShortReply?>(null) }
+    var replyingTo by remember { mutableStateOf<PostReply?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -173,7 +173,7 @@ fun ShortCommentsSheet(
 
 @Composable
 fun ShortReplyItem(
-    reply: ShortReply,
+    reply: PostReply,
     onLike: () -> Unit,
     onReplyTo: () -> Unit
 ) {
@@ -182,7 +182,7 @@ fun ShortReplyItem(
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(reply.authorAvatarColor)) {
+        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(reply.authorAvatarColor))) {
             if (reply.authorAvatarUrl != null) {
                 AsyncImage(model = reply.authorAvatarUrl, contentDescription = null, contentScale = ContentScale.Crop)
             }

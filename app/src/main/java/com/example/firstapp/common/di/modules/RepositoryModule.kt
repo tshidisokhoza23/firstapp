@@ -85,10 +85,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindShortsRepository(impl: ShortsRepositoryImpl): ShortsRepository
-
-    @Binds
-    @Singleton
     abstract fun bindAccountRepository(impl: AccountRepositoryImpl): AccountRepository
 
     @Binds

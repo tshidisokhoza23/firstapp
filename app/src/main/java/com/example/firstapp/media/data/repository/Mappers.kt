@@ -1,76 +1,23 @@
 package com.example.firstapp.media.data.repository
 
-import com.example.firstapp.common.data.api.*
-import com.example.firstapp.media.data.api.*
-import com.example.firstapp.common.data.local.entity.*
-import com.example.firstapp.media.model.*
-import com.example.firstapp.chat.model.Contact
-import com.example.firstapp.common.ui.theme.AppPrimary
-import com.example.firstapp.common.ui.theme.AppAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.example.firstapp.common.data.repository.formatUrl
-import com.example.firstapp.BuildConfig
-
-fun mapShortsFeedItems(items: List<ApiShortFeedItem>): List<ShortMedia> = items.mapNotNull { item ->
-    when (item.type) {
-        "ORGANIC_SHORT" -> item.short?.let { mapApiShortToShortMedia(it, ShortType.REGULAR) }
-        else -> null
-    }
-}
-
-
-private fun mapApiShortToShortMedia(apiShort: ApiShort, type: ShortType): ShortMedia = ShortMedia(
-    id = apiShort.id ?: "",
-    creatorId = apiShort.creator_id ?: "",
-    creatorName = apiShort.creator_name ?: "User",
-    creatorUsername = apiShort.creator_username ?: "",
-    creatorAvatarUrl = formatUrl(apiShort.creator_avatar_url),
-    description = apiShort.description ?: "",
-    likes = apiShort.likes,
-    comments = apiShort.comments,
-    shares = apiShort.shares,
-    videoUrl = formatUrl(apiShort.video_url),
-    thumbnailUrl = formatUrl(apiShort.thumbnail_url),
-    thumbnailColor = androidx.compose.ui.graphics.Color.Black,
-    profilePictureColor = androidx.compose.ui.graphics.Color.Gray,
-    isLiked = apiShort.is_liked,
-    isSubscribed = apiShort.is_subscribed,
-    isBookmarked = apiShort.is_bookmarked,
-    type = type
-)
+import com.example.firstapp.common.data.local.entity.AdvertEntity
+import com.example.firstapp.common.data.local.entity.ChannelEntity
+import com.example.firstapp.common.data.local.entity.PostEntity
+import com.example.firstapp.common.data.local.entity.StoryEntity
+import com.example.firstapp.common.util.MediaUtils
+import com.example.firstapp.media.data.api.*
+import com.example.firstapp.media.model.*
+import com.example.firstapp.common.ui.theme.AppPrimary
+import java.util.ArrayList
 
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     when (item.type) {
-        "POST" -> item.post?.let { apiPost: ApiMediaPost ->
-            // Filter out boosted posts and internal ads if we only want SDK ads
-            if (apiPost.is_boosted) null 
-            else mapApiMediaPost(apiPost, "POST") // Force type to POST
-        }
-        "ad_unit" -> mapAdUnitPlaceholder(item)
-        else -> null // Ignore NATIVE_AD and INTERNAL_AD from backend
-    }
-}
-
-private fun mapAdUnitPlaceholder(item: ApiFeedItem): Post = Post(
-    id = "ad_unit_${item.ad_placement_id ?: System.currentTimeMillis()}",
-    authorName = "Sponsored",
-    authorHandle = "ad",
-    authorAvatarColor = AppPrimary,
-    content = "",
-    timestamp = "",
-    likes = 0,
-    repliesCount = 0,
-    shares = 0,
-    views = 0,
-    type = PostType.AD_UNIT
-)
-
-
-fun mapMediaReplyItems(items: List<ApiReplyItem>): List<PostReply> = items.mapNotNull { item: ApiReplyItem ->
-    when (item.type) {
-        "REPLY" -> item.reply?.let { mapApiMediaReply(it, item.type) }
-        "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdReplyPlaceholder(item.placeholder)
+        "POST" -> item.post?.let { mapApiMediaPost(it, "POST") }
+        "INTERNAL_AD" -> item.post?.let { mapApiMediaPost(it, "INTERNAL_AD") }
+        "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdPlaceholder(item.placeholder)
+        "AD_UNIT" -> mapAdUnitPlaceholder(item)
         else -> null
     }
 }
@@ -80,11 +27,11 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
     authorId = apiPost.user_id ?: "",
     authorName = apiPost.author_name ?: "User",
     authorHandle = apiPost.author_handle ?: "user",
-    authorAvatarUrl = formatUrl(apiPost.author_avatar_url),
+    authorAvatarUrl = MediaUtils.formatUrl(apiPost.author_avatar_url),
     authorAvatarColor = AppPrimary,
     isVerifiedAuthor = apiPost.is_verified_author,
     content = apiPost.content_text ?: "",
-    mediaUrls = apiPost.media_urls?.map { formatUrl(it) } ?: emptyList(),
+    mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
     mediaType = apiPost.media_type,
     altText = apiPost.alt_text,
     timestamp = apiPost.created_at ?: "",
@@ -98,7 +45,7 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
         "INTERNAL_AD" -> PostType.INTERNAL_AD
         else -> PostType.POST
     },
-    thumbnailUrl = formatUrl(apiPost.thumbnail_url),
+    thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url),
     aspectRatio = apiPost.aspect_ratio,
     durationSec = apiPost.duration_sec,
     blurhash = apiPost.blurhash,
@@ -112,69 +59,17 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
     updatedAt = apiPost.updated_at
 )
 
-private fun mapApiMediaReply(apiReply: ApiMediaReply, itemType: String): PostReply = PostReply(
-    id = apiReply.id ?: "",
-    authorId = apiReply.user_id ?: "",
-    authorName = apiReply.author_name ?: "User",
-    authorHandle = apiReply.handle ?: "user",
-    authorAvatarUrl = null,
-    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
-    isVerifiedAuthor = false,
-    content = apiReply.reply_text ?: "",
-    timestamp = apiReply.created_at ?: "",
-    likes = 0,
-    isLiked = false,
-    isReposted = false,
-    isBookmarked = false,
-    type = if (itemType == "INTERNAL_AD") PostType.INTERNAL_AD else PostType.POST,
-    nestedReplies = emptyList(),
-    ad = null
-)
-
-private fun mapExternalAdPlaceholder(placeholder: ApiExternalAdPlaceholder?): Post = Post(
-    id = "external_ad_${placeholder?.placement ?: System.currentTimeMillis()}",
-    authorName = "Sponsored",
-    authorHandle = "ad",
-    authorAvatarColor = AppPrimary,
-    content = "",
-    timestamp = "",
-    likes = 0,
-    repliesCount = 0,
-    shares = 0,
-    views = 0,
-    type = PostType.EXTERNAL_AD_PLACEHOLDER
-)
-
-private fun mapExternalAdReplyPlaceholder(placeholder: ApiExternalAdPlaceholder?): PostReply = PostReply(
-    id = "external_ad_reply_${placeholder?.placement ?: System.currentTimeMillis()}",
-    authorId = "",
-    authorName = "Sponsored",
-    authorHandle = "ad",
-    authorAvatarUrl = null,
-    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
-    isVerifiedAuthor = false,
-    content = "",
-    timestamp = "",
-    likes = 0,
-    isLiked = false,
-    isReposted = false,
-    isBookmarked = false,
-    type = PostType.EXTERNAL_AD_PLACEHOLDER,
-    nestedReplies = emptyList(),
-    ad = null
-)
-
 fun mapApiPost(apiPost: ApiPost): Post = Post(
     id = apiPost.id ?: "",
     authorId = apiPost.author_id ?: "",
     authorName = apiPost.author?.display_name ?: "Unknown",
     authorHandle = apiPost.author?.username ?: "",
-    authorAvatarUrl = formatUrl(apiPost.author?.avatar_url),
+    authorAvatarUrl = MediaUtils.formatUrl(apiPost.author?.avatar_url),
     authorAvatarColor = AppPrimary,
     isVerifiedAuthor = apiPost.author?.is_verified ?: false,
     content = apiPost.content ?: "",
-    mediaUrls = apiPost.media_urls?.map { formatUrl(it) } ?: emptyList(),
-    mediaType = apiPost.post_type, // Map post_type as fallback for mediaType
+    mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
+    mediaType = apiPost.post_type,
     timestamp = apiPost.created_at?.toString() ?: "",
     likes = apiPost.likes,
     repliesCount = apiPost.replies_count,
@@ -182,7 +77,6 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
     views = apiPost.views,
     quoteCount = 0,
     type = when (apiPost.post_type) {
-        "short" -> PostType.POST // We'll use filters for shorts
         "INTERNAL_AD" -> PostType.INTERNAL_AD
         else -> PostType.POST
     },
@@ -204,16 +98,65 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
     ad = apiPost.ad?.let { mapApiAdvert(it) }
 )
 
+fun mapApiPostReply(apiReply: ApiPostReply): PostReply = PostReply(
+    id = apiReply.id ?: "", 
+    authorId = apiReply.author_id ?: "",
+    authorName = apiReply.author?.display_name ?: apiReply.author_id ?: "Unknown",
+    authorHandle = apiReply.author?.username ?: "", 
+    authorAvatarUrl = MediaUtils.formatUrl(apiReply.author?.avatar_url),
+    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
+    isVerifiedAuthor = apiReply.author?.is_verified ?: false, 
+    content = apiReply.content ?: "",
+    timestamp = apiReply.created_at?.toString() ?: "",
+    likes = apiReply.likes, 
+    isLiked = apiReply.is_liked, 
+    isReposted = apiReply.is_reposted, 
+    isBookmarked = false, 
+    type = when (apiReply.post_type) {
+        "INTERNAL_AD" -> PostType.INTERNAL_AD
+        else -> PostType.POST
+    },
+    nestedReplies = apiReply.nested_replies?.map { mapApiPostReply(it) } ?: emptyList(),
+    ad = apiReply.ad?.let { mapApiAdvert(it) }
+)
+
+private fun mapExternalAdPlaceholder(placeholder: ApiExternalAdPlaceholder?): Post = Post(
+    id = "external_ad_${placeholder?.placement ?: System.currentTimeMillis()}",
+    authorName = "Sponsored",
+    authorHandle = "ad",
+    authorAvatarColor = AppPrimary,
+    content = "",
+    timestamp = "",
+    likes = 0,
+    repliesCount = 0,
+    shares = 0,
+    views = 0,
+    type = PostType.EXTERNAL_AD_PLACEHOLDER
+)
+
+private fun mapAdUnitPlaceholder(item: ApiFeedItem): Post = Post(
+    id = "ad_unit_${item.ad_placement_id ?: System.currentTimeMillis()}",
+    authorName = "Sponsored",
+    authorHandle = "ad",
+    authorAvatarColor = AppPrimary,
+    content = "",
+    timestamp = "",
+    likes = 0,
+    repliesCount = 0,
+    shares = 0,
+    views = 0,
+    type = PostType.AD_UNIT
+)
+
 fun mapApiAdvert(apiAd: ApiAdvert): Advert = Advert(
     id = apiAd.id ?: "",
     advertiserName = apiAd.advertiser_name ?: "Sponsored",
     advertiserId = apiAd.advertiser_id ?: "",
     title = apiAd.title ?: "",
-    time = apiAd.time ?: (apiAd.created_at?.let { formatTimeAgo(it) } ?: "now"),
-    avatarUrl = formatUrl(apiAd.avatar_url),
-    avatarColor = Color(0xFF607D8B).toArgb(),
-    contentUrl = formatUrl(apiAd.content_url),
-    contentColor = Color(0xFFECEFF1).toArgb(),
+    time = apiAd.time ?: "",
+    avatarUrl = MediaUtils.formatUrl(apiAd.avatar_url),
+    avatarColor = AppPrimary.toArgb(),
+    contentUrl = MediaUtils.formatUrl(apiAd.content_url),
     contentText = apiAd.content_text ?: "",
     actionText = apiAd.action_text ?: "Learn More",
     targetUrl = apiAd.target_url ?: "",
@@ -221,56 +164,8 @@ fun mapApiAdvert(apiAd: ApiAdvert): Advert = Advert(
     impressions = apiAd.impressions.toString(),
     clicks = apiAd.clicks.toString(),
     isNativeAd = apiAd.is_native_ad,
-    isViewed = apiAd.is_viewed
-)
-
-fun mapApiPostReply(apiReply: ApiPostReply): PostReply = PostReply(
-    id = apiReply.id ?: "", 
-    authorId = apiReply.author_id ?: "",
-    authorName = apiReply.author?.display_name ?: apiReply.author_id ?: "Unknown",
-    authorHandle = apiReply.author?.username ?: "", 
-    authorAvatarUrl = formatUrl(apiReply.author?.avatar_url),
-    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
-    isVerifiedAuthor = apiReply.author?.is_verified ?: false, 
-    content = apiReply.content ?: "",
-    timestamp = apiReply.created_at?.toString() ?: "",
-    likes = apiReply.likes,
-    isLiked = apiReply.is_liked, 
-    isReposted = apiReply.is_reposted, 
-    isBookmarked = false, 
-    type = when (apiReply.post_type) {
-        "INTERNAL_AD" -> PostType.INTERNAL_AD
-        "EXTERNAL_AD_PLACEHOLDER" -> PostType.EXTERNAL_AD_PLACEHOLDER
-        else -> PostType.POST
-    },
-    nestedReplies = apiReply.nested_replies?.map { mapApiPostReply(it) } ?: emptyList(),
-    ad = apiReply.ad?.let { mapApiAdvert(it) }
-)
-
-fun mapApiPostReplyToShortReply(apiReply: ApiPostReply): ShortReply = ShortReply(
-    id = apiReply.id ?: "",
-    authorName = apiReply.author?.display_name ?: "Unknown",
-    authorHandle = apiReply.author?.username ?: "",
-    authorAvatarUrl = formatUrl(apiReply.author?.avatar_url),
-    authorAvatarColor = Color(0xFF90CAF9),
-    isVerifiedAuthor = apiReply.author?.is_verified ?: false,
-    content = apiReply.content ?: "",
-    timestamp = apiReply.created_at?.toString() ?: "",
-    likes = apiReply.likes,
-    isLiked = apiReply.is_liked
-)
-
-fun mapApiShortReplyToShortReply(apiReply: ApiShortReply): ShortReply = ShortReply(
-    id = apiReply.id ?: "",
-    authorName = apiReply.author?.display_name ?: "Unknown",
-    authorHandle = apiReply.author?.username ?: "",
-    authorAvatarUrl = formatUrl(apiReply.author?.avatar_url),
-    authorAvatarColor = Color(0xFF90CAF9),
-    isVerifiedAuthor = apiReply.author?.is_verified ?: false,
-    content = apiReply.content ?: "",
-    timestamp = apiReply.created_at?.toString() ?: "",
-    likes = apiReply.likes,
-    isLiked = apiReply.is_liked
+    isViewed = apiAd.is_viewed,
+    contentColor = 0
 )
 
 fun mapApiChannel(api: ApiChannel): Channel = Channel(
@@ -278,13 +173,13 @@ fun mapApiChannel(api: ApiChannel): Channel = Channel(
     name = api.name,
     description = api.description ?: "",
     followers = api.followers.toString(),
-    avatarUrl = formatUrl(api.avatar_url),
+    avatarUrl = MediaUtils.formatUrl(api.avatar_url),
     isVerified = api.is_verified,
     isSubscribed = api.is_subscribed,
     isAdmin = api.is_admin,
     category = api.category ?: "Community",
     lastPostText = api.last_post_text ?: "",
-    lastPostImageUrl = formatUrl(api.last_post_image_url),
+    lastPostImageUrl = MediaUtils.formatUrl(api.last_post_image_url),
     lastPostTime = api.last_post_time?.toString() ?: "",
     avatarColor = Color.Gray
 )
@@ -294,7 +189,7 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
         StoryItem(
             id = it.id, 
             content = it.content ?: "", 
-            contentUrl = formatUrl(it.content_url), 
+            contentUrl = MediaUtils.formatUrl(it.content_url), 
             type = when (it.story_type) { 
                 "video" -> StoryType.VIDEO 
                 "image" -> StoryType.IMAGE 
@@ -308,14 +203,14 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
             isViewed = it.is_viewed ?: false, 
             durationMs = it.duration_ms ?: 5000
         ) 
-    }.sortedBy { it.createdAt } // Individual story items: Oldest to Newest (left to right)
+    }.sortedBy { it.createdAt }
 
     val lastUpdateMillis = stories.lastOrNull()?.createdAt ?: 0L
     
     return UserStory(
         id = apiStory.user_id, 
         userName = apiStory.user_name, 
-        userAvatarUrl = formatUrl(apiStory.avatar_url), 
+        userAvatarUrl = MediaUtils.formatUrl(apiStory.avatar_url), 
         userAvatarColor = Color(0xFF455A64), 
         stories = stories, 
         lastUpdated = if (lastUpdateMillis > 0) formatTimeAgo(lastUpdateMillis) else "recently",
@@ -351,6 +246,29 @@ private fun formatTimeAgo(timestamp: Long): String {
         }
     }
 }
+
+fun mapMediaReplyItems(items: List<ApiReplyItem>): List<PostReply> = items.mapNotNull { item ->
+    item.reply?.let { mapApiMediaReply(it, "POST") }
+}
+
+private fun mapApiMediaReply(apiReply: ApiMediaReply, itemType: String): PostReply = PostReply(
+    id = apiReply.id ?: "",
+    authorId = apiReply.user_id ?: "",
+    authorName = apiReply.author_name ?: "User",
+    authorHandle = apiReply.handle ?: "user",
+    authorAvatarUrl = null,
+    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
+    isVerifiedAuthor = false,
+    content = apiReply.reply_text ?: "",
+    timestamp = apiReply.created_at ?: "",
+    likes = 0,
+    isLiked = false,
+    isReposted = false,
+    isBookmarked = false,
+    type = if (itemType == "INTERNAL_AD") PostType.INTERNAL_AD else PostType.POST,
+    nestedReplies = emptyList(),
+    ad = null
+)
 
 fun Post.toPostEntity() = PostEntity(
     id = id,
@@ -395,7 +313,6 @@ fun Post.toPostEntity() = PostEntity(
     location = location,
     tags = tags,
     ad = ad,
-    originalPost = originalPost,
     updatedAt = updatedAt
 )
 
@@ -442,29 +359,12 @@ fun PostEntity.toPost() = Post(
     location = location,
     tags = tags,
     ad = ad,
-    originalPost = originalPost,
+    originalPost = null,
     updatedAt = updatedAt
 )
 
 fun UserStory.toStoryEntity() = StoryEntity(id, userId, userName, userAvatarUrl, userAvatarColor.toArgb(), stories, lastUpdated, isMuted)
 fun StoryEntity.toUserStory() = UserStory(id, userId, userName, userAvatarUrl, Color(userAvatarColor), stories, lastUpdated, isMuted)
-
-fun ShortMedia.toShortEntity() = ShortEntity(id, creatorId, creatorName, description, likes, comments, shares, videoUrl, thumbnailUrl, thumbnailColor.toArgb(), profilePictureColor.toArgb(), isLiked, isSubscribed)
-fun ShortEntity.toShortMedia() = ShortMedia(
-    id = id,
-    creatorId = creatorId,
-    creatorName = creatorName,
-    description = description,
-    likes = likes,
-    comments = comments,
-    shares = shares,
-    videoUrl = videoUrl,
-    thumbnailUrl = thumbnailUrl,
-    thumbnailColor = Color(thumbnailColor),
-    profilePictureColor = Color(profilePictureColor),
-    isLiked = isLiked,
-    isSubscribed = isSubscribed
-)
 
 fun Channel.toEntity() = ChannelEntity(id, name, description, followers, avatarUrl, avatarColor.toArgb(), isVerified, isSubscribed, isAdmin, isMuted, category, createdBy, lastPostText, lastPostImageUrl, lastPostImageColor.toArgb(), lastPostTime)
 fun ChannelEntity.toModel() = Channel(id, name, description, followers, avatarUrl, Color(avatarColor), isVerified, isSubscribed, isMuted, isAdmin, category, createdBy, lastPostText, lastPostImageUrl, Color(lastPostImageColor), lastPostTime)

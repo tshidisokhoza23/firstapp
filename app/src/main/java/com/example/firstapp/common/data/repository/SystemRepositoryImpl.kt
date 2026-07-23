@@ -22,7 +22,6 @@ class SystemRepositoryImpl @Inject constructor(
     private val channelDao: ChannelDao,
     private val postDao: PostDao,
     private val storyDao: StoryDao,
-    private val shortDao: ShortDao,
     private val callLogDao: CallLogDao,
     private val contactDao: ContactDao,
     private val jobApplicationDao: JobApplicationDao,
@@ -38,7 +37,6 @@ class SystemRepositoryImpl @Inject constructor(
         songDao.clearSongs()
         postDao.clearPosts()
         storyDao.clearStories()
-        shortDao.clearShorts()
         advertDao.clearAdverts()
         channelDao.clearChannels()
         playlistDao.clearPlaylists()

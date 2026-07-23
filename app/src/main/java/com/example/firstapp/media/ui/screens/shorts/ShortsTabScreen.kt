@@ -39,6 +39,8 @@ import com.example.firstapp.media.model.Post
 import com.example.firstapp.profile.ui.screens.ProfileView
 import java.io.File
 import kotlinx.coroutines.flow.flowOf
+import kotlin.collections.mutableListOf
+import kotlin.collections.listOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,10 +56,14 @@ fun ShortsTabScreen(
     val uiState by mediaViewModel.uiState.collectAsState()
     val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
     
-    val shorts = remember(shortsPagingItems.itemCount) {
+    val shorts: List<Post> = remember(shortsPagingItems.itemCount) {
         val list = mutableListOf<Post>()
-        for (i in 0 until shortsPagingItems.itemCount) {
-            shortsPagingItems[i]?.let { list.add(it) }
+        val count = shortsPagingItems.itemCount
+        for (i in 0 until count) {
+            val item = shortsPagingItems[i]
+            if (item != null) {
+                list.add(item)
+            }
         }
         list
     }
@@ -81,8 +87,8 @@ fun ShortsTabScreen(
 
     val selectedProfileUserId = selectedProfileUser?.id
     val profilePosts = remember(selectedProfileUserId) {
-        if (selectedProfileUserId.isNullOrBlank()) {
-            flowOf(PagingData.empty())
+        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
+            flowOf(PagingData.empty<Post>())
         } else {
             mediaViewModel.getUserPosts(selectedProfileUserId)
         }
@@ -152,7 +158,13 @@ fun ShortsTabScreen(
                         showShortMoreMenu = true
                     },
                     onCreatorClick = { creatorId ->
-                        val short = shorts.firstOrNull { it.authorId == creatorId }
+                        var short: Post? = null
+                        for (s in shorts) {
+                            if (s.authorId == creatorId) {
+                                short = s
+                                break
+                            }
+                        }
                         selectedProfileUser = User(
                             id = creatorId,
                             username = short?.authorHandle ?: "",
@@ -180,13 +192,13 @@ fun ShortsTabScreen(
                             .size(34.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF3A4B57))
-                            .clickable(enabled = !currentUser?.id.isNullOrBlank()) {
+                            .clickable(enabled = currentUser?.id != null) {
                                 selectedProfileUser = currentUser
                                 showProfile = true
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!avatarUrl.isNullOrBlank()) {
+                        if (avatarUrl != null && avatarUrl.length > 0) {
                             AsyncImage(
                                 model = avatarUrl,
                                 contentDescription = "Profile",

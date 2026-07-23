@@ -24,7 +24,6 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ChannelEntity::class,
         PostEntity::class,
         StoryEntity::class,
-        ShortEntity::class,
         CallLogEntity::class,
         ContactEntity::class,
         JobApplicationEntity::class,
@@ -50,7 +49,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun channelDao(): ChannelDao
     abstract fun postDao(): PostDao
     abstract fun storyDao(): StoryDao
-    abstract fun shortDao(): ShortDao
     abstract fun callLogDao(): CallLogDao
     abstract fun contactDao(): ContactDao
     abstract fun jobApplicationDao(): JobApplicationDao

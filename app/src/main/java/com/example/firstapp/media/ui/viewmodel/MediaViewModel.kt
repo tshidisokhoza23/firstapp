@@ -23,15 +23,14 @@ import java.util.Locale
 @HiltViewModel
 class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
-    private val accountRepository: AccountRepository,
-    private val shortsRepository: com.example.firstapp.media.domain.repository.ShortsRepository
+    private val accountRepository: AccountRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
     val uiState: StateFlow<MediaUiState> = _uiState.asStateFlow()
 
-    private val _shortReplies = MutableStateFlow<Resource<List<ShortReply>>>(Resource.Loading())
-    val shortReplies: StateFlow<Resource<List<ShortReply>>> = _shortReplies.asStateFlow()
+    private val _shortReplies = MutableStateFlow<Resource<List<PostReply>>>(Resource.Success(emptyList()))
+    val shortReplies: StateFlow<Resource<List<PostReply>>> = _shortReplies.asStateFlow()
 
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()

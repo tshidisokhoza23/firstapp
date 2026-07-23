@@ -41,9 +41,6 @@ object DatabaseModule {
     fun provideStoryDao(database: AppDatabase) = database.storyDao()
 
     @Provides
-    fun provideShortDao(database: AppDatabase) = database.shortDao()
-
-    @Provides
     fun provideCallLogDao(database: AppDatabase) = database.callLogDao()
 
     @Provides

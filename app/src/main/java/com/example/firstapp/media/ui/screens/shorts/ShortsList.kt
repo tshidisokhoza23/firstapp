@@ -61,7 +61,10 @@ fun ShortsList(
         val end = pagerState.currentPage + 3
         for (i in start..end) {
             if (i >= 0 && i < shorts.size) {
-                shorts[i].mediaUrls.firstOrNull()?.let { urls.add(it) }
+                val post = shorts[i]
+                if (post.mediaUrls.size > 0) {
+                    urls.add(post.mediaUrls[0])
+                }
             }
         }
         ShortsVideoCache.preload(context, urls)

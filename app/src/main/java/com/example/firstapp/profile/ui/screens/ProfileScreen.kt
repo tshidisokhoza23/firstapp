@@ -38,14 +38,14 @@ import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.common.util.MediaUtils
 import com.example.firstapp.media.ui.screens.PostItem
-import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
-import com.example.firstapp.media.model.ShortMedia
 import com.example.firstapp.common.util.Resource
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.paging.LoadState
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.profile.model.WorkExperience
 import java.util.ArrayList
+import kotlin.collections.emptyList
+import kotlin.collections.forEachIndexed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +60,6 @@ fun ProfileView(
     mediaViewModel: MediaViewModel,
     adManager: com.example.firstapp.common.data.ads.AdManager,
     sharedMediaViewModel: SharedMediaViewModel = hiltViewModel(),
-    shortsViewModel: ShortsViewModel = hiltViewModel(),
     onNavigateToSharedMedia: (String) -> Unit = {},
     onRequireLogin: () -> Unit = {},
     onNavigateToEditExperience: (String?) -> Unit = {},
@@ -130,13 +129,6 @@ fun ProfileView(
         if (data != null) data else emptyList<WorkExperience>()
     } else {
         emptyList<WorkExperience>()
-    }
-
-    LaunchedEffect(isLoggedIn, normalizedUserId, currentUser?.id) {
-        val targetId = normalizedUserId ?: currentUser?.id
-        if (isLoggedIn && targetId != null) {
-            shortsViewModel.setSelectedShortsUserId(targetId)
-        }
     }
 
     val isRefreshing = posts.loadState.refresh is LoadState.Loading
@@ -218,9 +210,9 @@ fun ProfileView(
                             )
                         }
 
-                        if (user?.bio?.isNotBlank() == true) {
+                        if (user?.bio != null && user.bio!!.isNotEmpty()) {
                             Text(
-                                text = user.bio,
+                                text = user.bio!!,
                                 color = Color.White,
                                 fontSize = 15.sp,
                                 modifier = Modifier.padding(top = 16.dp),
@@ -248,7 +240,7 @@ fun ProfileView(
                             Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
 
                             Text(
-                                text = "0", // Placeholder for Views
+                                text = "0",
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
@@ -259,12 +251,12 @@ fun ProfileView(
                                 fontSize = 14.sp
                             )
 
-                            if (user?.location?.isNotBlank() == true) {
+                            if (user?.location != null && user.location!!.isNotEmpty()) {
                                 Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.LocationOn, null, tint = AppTextSecondary, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text(user.location, color = AppTextSecondary, fontSize = 14.sp)
+                                    Text(user.location!!, color = AppTextSecondary, fontSize = 14.sp)
                                 }
                             }
                         }
@@ -382,9 +374,9 @@ fun ProfileView(
                                     adManager = adManager,
                                     post = post,
                                     isOwnPost = post.authorId == currentUser?.id,
-                                    onClick = { onNavigateToMediaViewer(post.id, "post") }, // Correct Universal entry
+                                    onClick = { onNavigateToMediaViewer(post.id, "post") },
                                     onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
-                                    onRepostClick = { /* showRepostOptions = it */ },
+                                    onRepostClick = { /* mediaViewModel.repostPost(post.id) */ },
                                     onBookmark = { mediaViewModel.bookmarkPost(post.id) },
                                     onDelete = { mediaViewModel.deletePost(post.id) },
                                     onReplyClick = { onNavigateToMediaViewer(post.id, "post") },
@@ -484,7 +476,7 @@ private fun WorkExperienceItem(
         }
         
         if (experience.location != null) {
-            Text(experience.location, color = AppTextSecondary, fontSize = 14.sp)
+            Text(experience.location!!, color = AppTextSecondary, fontSize = 14.sp)
         }
         
         Text(
@@ -495,7 +487,7 @@ private fun WorkExperienceItem(
         
         if (experience.description != null) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(experience.description, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+            Text(experience.description!!, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
         }
     }
 }
@@ -510,7 +502,7 @@ private fun ShortGridItem(post: Post, onShortClick: (Post) -> Unit) {
             .background(post.mediaPlaceholderColor ?: Color.Black)
             .clickable { onShortClick(post) }
     ) {
-        val model = if (!post.thumbnailUrl.isNullOrBlank()) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
+        val model = if (post.thumbnailUrl != null && post.thumbnailUrl.isNotEmpty()) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
         AsyncImage(
             model = model,
             contentDescription = null,

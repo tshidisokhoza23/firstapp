@@ -1,7 +1,6 @@
 package com.example.firstapp.media.data.api
 
 import com.example.firstapp.common.data.api.*
-import com.example.firstapp.media.model.Post
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -47,7 +46,7 @@ interface SocialApi {
     suspend fun getShorts(@Query("page") page: Int): Response<List<ApiPost>>
 
     @POST("posts")
-    suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
+    suspend fun createPost(@Body request: CreatePostRequest): Response<ApiPost>
 
     @DELETE("posts/{postId}")
     suspend fun deletePost(@Path("postId") postId: String): Response<StatusResponse>
@@ -153,8 +152,8 @@ data class ApiFeedItem(
 
 data class ApiReplyItem(
     val type: String,
-    val reply: ApiMediaReply?,
-    val placeholder: ApiExternalAdPlaceholder?
+    val reply: ApiMediaReply? = null,
+    val placeholder: ApiExternalAdPlaceholder? = null
 )
 
 data class ApiMediaPost(
@@ -212,6 +211,7 @@ data class CreatePostRequest(
     val content: String,
     val media_urls: List<String> = emptyList(),
     val post_type: String = "text_only",
+    val media_type: String? = null,
     val location: String? = null,
     val tags: List<String> = emptyList(),
     val poll: CreatePollRequest? = null,

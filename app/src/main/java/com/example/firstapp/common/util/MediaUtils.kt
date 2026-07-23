@@ -58,4 +58,13 @@ object MediaUtils {
             file
         )
     }
+
+    fun formatUrl(url: String?): String? {
+        if (url == null) return null
+        if (url.startsWith("http") || url.startsWith("data:")) return url
+        
+        // This is a placeholder for actual backend domain resolution logic
+        // Ideally we use BuildConfig.API_BASE_URL
+        return url
+    }
 }
