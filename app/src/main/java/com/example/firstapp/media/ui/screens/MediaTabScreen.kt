@@ -43,7 +43,7 @@ fun MediaTabScreen(
             ownProfileHandle = currentUser?.username.orEmpty().ifBlank { "you" },
             ownProfileAvatarUrl = currentUser?.avatarUrl,
             onPostSelect = { mediaViewModel.selectPost(it) },
-            onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, t, tags, pollOptions = p, location = l) },
+            onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, postType = t ?: "standard", tags = tags, pollOptions = p, location = l) },
             onLikePost = { id, l, liked -> mediaViewModel.likePost(id, l, liked) },
             onRepostPost = { mediaViewModel.repostPost(it) },
             onDeletePost = { mediaViewModel.deletePost(it) },

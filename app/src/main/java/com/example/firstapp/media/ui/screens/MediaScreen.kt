@@ -114,7 +114,7 @@ fun MediaScreen(
     refreshTrigger: Int = 0,
     onDirectMessagesClick: () -> Unit = {},
     onRequireLogin: () -> Unit = {},
-    onShortClick: (ShortMedia) -> Unit = {},
+    onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     LaunchedEffect(refreshTrigger) {
@@ -199,10 +199,13 @@ fun MediaScreen(
                             onProfileViewChange(false)
                         },
                         posts = profilePosts,
+                        shorts = profilePosts, // Filtered in ProfileView
                         userViewModel = userViewModel,
                         mediaViewModel = mediaViewModel,
                         onRequireLogin = onRequireLogin,
-                        onShortClick = onShortClick,
+                        onShortClick = { short ->
+                    onShortClick(short)
+                },
                         onNavigateToMediaViewer = onMediaClick
                     )
                 }
@@ -349,7 +352,9 @@ fun MediaScreen(
                                 onPlaySong = onPlaySong,
                                 onVotePoll = onVotePoll,
                                 onRefresh = onRefresh,
-                                onShortClick = onShortClick,
+                                onShortClick = { short ->
+                    onShortClick(short)
+                },
                                 onMediaClick = onMediaClick
                             )
                         }
@@ -379,6 +384,8 @@ fun MediaScreen(
                         leadingContent = { Icon(Icons.Default.Edit, null, tint = Color.White) },
                         modifier = Modifier.clickable {
                             // TODO: Open composer with quote
+                            // mediaViewModel.setQuotedPost(targetPost)
+                            // showCreatePost = true
                             showRepostOptions = null
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -432,7 +439,7 @@ fun MainFeedSection(
     onPlaySong: (Song, List<Song>) -> Unit,
     onVotePoll: (String, String) -> Unit,
     onRefresh: () -> Unit,
-    onShortClick: (ShortMedia) -> Unit = {},
+    onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     when {
@@ -486,6 +493,8 @@ fun MainFeedSection(
                         adManager = adManager,
                         post = post,
                         isOwnPost = post.authorId == ownProfileId,
+                        showThreadLine = post.hasThread,
+                        isLastInThread = true,
                         onClick = { onPostClick(post) },
                         onLike = { onLike(post.id, post.likes, post.isLiked) },
                         onRepostClick = { onRepostClick(post) },
@@ -499,8 +508,8 @@ fun MainFeedSection(
                     )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
 
-                    // REQUIREMENT: Inject 1 native ad unit every 5 posts
-                    if ((index + 1) % 5 == 0) {
+                    // REQUIREMENT: Inject 1 native ad unit every 4 content posts
+                    if ((index + 1) % 4 == 0) {
                         DynamicAdCard(
                             adManager = adManager,
                             adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
@@ -519,6 +528,8 @@ fun PostItem(
     adManager: AdManager,
     post: Post,
     isOwnPost: Boolean = false,
+    showThreadLine: Boolean = false,
+    isLastInThread: Boolean = false,
     onClick: () -> Unit,
     onLike: (String) -> Unit,
     onRepostClick: () -> Unit,
@@ -540,33 +551,12 @@ fun PostItem(
             modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
             color = AppBackground
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                // REQUIREMENT: Supply header metadata indicator: "User X Reposted"
-                if (post.type == PostType.POST && post.repostOfId != null && post.originalPost != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = 32.dp, bottom = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Repeat, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isOwnPost) "You reposted" else "${post.authorName} reposted",
-                            color = SecondaryText, 
-                            fontSize = 13.sp, 
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                if (post.type == PostType.INTERNAL_AD) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp)) {
-                        Icon(Icons.Default.TrendingUp, null, tint = AppAccent, modifier = Modifier.size(12.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Promoted", color = AppAccent, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-
-                Row(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(12.dp)) {
+                // Vertical Thread Line Column
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(52.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -583,85 +573,122 @@ fun PostItem(
                             )
                         }
                     }
+                    
+                    if (showThreadLine && !isLastInThread) {
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .weight(1f)
+                                .padding(top = 4.dp)
+                                .background(Color.White.copy(alpha = 0.15f))
+                        )
+                    }
+                }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    // Repost Header
+                    if (post.type == PostType.POST && post.repostOfId != null && post.originalPost != null) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable(onClick = onProfileClick)
+                            modifier = Modifier.padding(bottom = 4.dp)
                         ) {
-                            Text(text = post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            if (post.isVerifiedAuthor) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(Icons.Default.Verified, null, tint = TwitterBlue, modifier = Modifier.size(14.dp))
-                            }
+                            Icon(Icons.Default.Repeat, null, tint = SecondaryText, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isOwnPost) "You reposted" else "${post.authorName} reposted",
+                                color = SecondaryText, 
+                                fontSize = 13.sp, 
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (post.type == PostType.INTERNAL_AD) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+                            Icon(Icons.Default.TrendingUp, null, tint = AppAccent, modifier = Modifier.size(12.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "@${post.authorHandle} · ${formatTwitterTime(post.timestamp)}", color = SecondaryText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            
-                            if (isOwnPost) {
-                                var showMenu by remember { mutableStateOf(false) }
-                                Box {
-                                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.MoreVert, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
-                                    }
-                                    DropdownMenu(
-                                        expanded = showMenu,
-                                        onDismissRequest = { showMenu = false },
-                                        containerColor = AppSecondary
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Delete Post", color = Color.Red) },
-                                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
-                                            onClick = {
-                                                showMenu = false
-                                                onDelete()
-                                            }
-                                        )
-                                    }
+                            Text("Promoted", color = AppAccent, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+
+                    val displayPost = if (post.repostOfId != null && post.originalPost != null) post.originalPost else post
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = displayPost.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (displayPost.isVerifiedAuthor) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Default.Verified, null, tint = TwitterBlue, modifier = Modifier.size(14.dp))
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "@${displayPost.authorHandle} · ${formatTwitterTime(displayPost.timestamp)}", color = SecondaryText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        
+                        if (isOwnPost) {
+                            var showMenu by remember { mutableStateOf(false) }
+                            Box {
+                                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.MoreVert, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
+                                }
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false },
+                                    containerColor = AppSecondary
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Delete Post", color = Color.Red) },
+                                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
+                                        onClick = {
+                                            showMenu = false
+                                            onDelete()
+                                        }
+                                    )
                                 }
                             }
                         }
+                    }
 
-                        Text(text = post.content, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp), lineHeight = 20.sp)
+                    Text(text = displayPost.content, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp), lineHeight = 20.sp)
 
-                        if (post.mediaUrls.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            MediaGrid(post.mediaUrls) { url ->
-                                val type = if (url.lowercase(java.util.Locale.ROOT).endsWith(".mp4") || url.lowercase(java.util.Locale.ROOT).endsWith(".mov")) "video" else "image"
-                                onMediaClick(url, type)
-                            }
+                    if (displayPost.mediaUrls.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        MediaGrid(displayPost.mediaUrls) { url ->
+                            val type = if (url.lowercase(java.util.Locale.ROOT).endsWith(".mp4") || url.lowercase(java.util.Locale.ROOT).endsWith(".mov")) "video" else "image"
+                            onMediaClick(url, type)
                         }
+                    }
 
-                        if (post.poll != null) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            PollView(post.poll, onVote = onVotePoll)
-                        }
+                    if (displayPost.poll != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        PollView(displayPost.poll, onVote = onVotePoll)
+                    }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            InteractionIcon(Icons.Outlined.ChatBubbleOutline, post.repliesCount, SecondaryText, onReplyClick)
-                            InteractionIcon(
-                                icon = Icons.Default.Repeat, 
-                                count = post.shares, 
-                                color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
-                                onClick = onRepostClick
-                            )
-                            InteractionIcon(
-                                icon = if (post.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, 
-                                count = post.likes, 
-                                color = if (post.isLiked) Color(0xFFF91880) else SecondaryText, 
-                                onClick = { onLike(post.id) }
-                            )
-                            InteractionIcon(Icons.Outlined.BarChart, post.views, SecondaryText) {}
-                            InteractionIcon(
-                                icon = if (post.isBookmarked) Icons.Default.Bookmark else Icons.Outlined.IosShare, 
-                                count = 0L, 
-                                color = if (post.isBookmarked) AppAccent else SecondaryText, 
-                                onClick = { onBookmark(post.id) }
-                            )
-                        }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        InteractionIcon(Icons.Outlined.ChatBubbleOutline, displayPost.repliesCount, SecondaryText, onReplyClick)
+                        InteractionIcon(
+                            icon = Icons.Default.Repeat, 
+                            count = displayPost.shares, 
+                            color = if (displayPost.isReposted) Color(0xFF00BA7C) else SecondaryText, 
+                            onClick = onRepostClick
+                        )
+                        InteractionIcon(
+                            icon = if (displayPost.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, 
+                            count = displayPost.likes, 
+                            color = if (displayPost.isLiked) Color(0xFFF91880) else SecondaryText, 
+                            onClick = { onLike(displayPost.id) }
+                        )
+                        InteractionIcon(Icons.Outlined.BarChart, displayPost.views, SecondaryText) {}
+                        InteractionIcon(
+                            icon = if (displayPost.isBookmarked) Icons.Default.Bookmark else Icons.Outlined.IosShare, 
+                            count = 0L, 
+                            color = if (displayPost.isBookmarked) AppAccent else SecondaryText, 
+                            onClick = { onBookmark(displayPost.id) }
+                        )
                     }
                 }
             }
@@ -836,19 +863,29 @@ fun PostDetailSection(
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(post.authorAvatarColor)
-                                .clickable { onProfileClick(post.authorToUser()) }
-                        ) {
-                            if (post.authorAvatarUrl != null) {
-                                AsyncImage(
-                                    model = post.authorAvatarUrl, 
-                                    contentDescription = null, 
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(52.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(post.authorAvatarColor)
+                                    .clickable { onProfileClick(post.authorToUser()) }
+                            ) {
+                                if (post.authorAvatarUrl != null) {
+                                    AsyncImage(
+                                        model = post.authorAvatarUrl, 
+                                        contentDescription = null, 
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                            }
+                            if (post.replies.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(2.dp)
+                                        .height(24.dp)
+                                        .background(Color.White.copy(alpha = 0.15f))
                                 )
                             }
                         }
@@ -955,18 +992,35 @@ fun PostDetailSection(
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             } else {
-                                ReplyItem(
+                                PostItem(
                                     adManager = adManager,
-                                    reply = reply,
-                                    isOwnReply = reply.authorId == ownProfileId,
+                                    post = Post( // Simple wrapper for reply to reuse PostItem with thread line
+                                        id = reply.id,
+                                        authorId = reply.authorId,
+                                        authorName = reply.authorName,
+                                        authorHandle = reply.authorHandle,
+                                        authorAvatarUrl = reply.authorAvatarUrl,
+                                        authorAvatarColor = Color(reply.authorAvatarColor),
+                                        isVerifiedAuthor = reply.isVerifiedAuthor,
+                                        content = reply.content,
+                                        timestamp = reply.timestamp,
+                                        likes = reply.likes,
+                                        isLiked = reply.isLiked,
+                                        isReposted = reply.isReposted,
+                                        type = reply.type
+                                    ),
+                                    isOwnPost = reply.authorId == ownProfileId,
                                     showThreadLine = true,
                                     isLastInThread = index == post.replies.size - 1,
+                                    onClick = { onReplyClick(post, reply) },
                                     onLike = { onReplyLike(reply.id) },
-                                    onRepost = { onReplyRepost(reply.id) },
+                                    onRepostClick = { onReplyRepost(reply.id) },
                                     onBookmark = { onReplyBookmark(reply.id) },
                                     onDelete = { onReplyDelete(reply.id) },
                                     onReplyClick = { onReplyClick(post, reply) },
                                     onProfileClick = { onProfileClick(reply.authorToUser()) },
+                                    onPlaySong = onPlaySong,
+                                    onVotePoll = {},
                                     onMediaClick = onMediaClick
                                 )
                             }

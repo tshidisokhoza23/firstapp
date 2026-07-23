@@ -35,9 +35,8 @@ import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.home.ui.screens.DataStateHandler
-import com.example.firstapp.media.model.ShortMedia
+import com.example.firstapp.media.model.Post
 import com.example.firstapp.profile.ui.screens.ProfileView
-import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
 import java.io.File
 import kotlinx.coroutines.flow.flowOf
 
@@ -46,33 +45,40 @@ import kotlinx.coroutines.flow.flowOf
 fun ShortsTabScreen(
     navController: NavController,
     adManager: com.example.firstapp.common.data.ads.AdManager,
-    shortsViewModel: ShortsViewModel = hiltViewModel(),
     mediaViewModel: MediaViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
     onDirectMessagesClick: () -> Unit = {},
     initialShortId: String? = null
 ) {
     val currentUser by userViewModel.currentUser.collectAsState()
-    val shortsState by shortsViewModel.shorts.collectAsState()
+    val uiState by mediaViewModel.uiState.collectAsState()
+    val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
     
-    LaunchedEffect(initialShortId) {
-        if (initialShortId != null && initialShortId.length > 0) {
-            shortsViewModel.setSelectedShortId(initialShortId)
+    val shorts = remember(shortsPagingItems.itemCount) {
+        val list = mutableListOf<Post>()
+        for (i in 0 until shortsPagingItems.itemCount) {
+            shortsPagingItems[i]?.let { list.add(it) }
         }
+        list
     }
 
-    val selectedShortId by shortsViewModel.selectedShortId.collectAsState()
-    val isUploading by shortsViewModel.isUploading.collectAsState()
+    var selectedShortId by remember { mutableStateOf(initialShortId) }
+    val isUploading by mediaViewModel.isUploading.collectAsState()
     
     var showShortComments by remember { mutableStateOf(false) }
     var showShortMoreMenu by remember { mutableStateOf(false) }
     var showTopMenu by remember { mutableStateOf(false) }
     var showUploadDialog by remember { mutableStateOf(false) }
     var activeShortIdForComments by remember { mutableStateOf<String?>(null) }
-    var activeShortForMoreMenu by remember { mutableStateOf<ShortMedia?>(null) }
+    var activeShortForMoreMenu by remember { mutableStateOf<Post?>(null) }
     var selectedProfileUser by remember { mutableStateOf<User?>(null) }
     var showProfile by remember { mutableStateOf(false) }
-    val shortRepliesState by shortsViewModel.shortReplies.collectAsState()
+    val shortRepliesState by mediaViewModel.shortReplies.collectAsState()
+
+    LaunchedEffect(Unit) {
+        mediaViewModel.loadFeed("short")
+    }
+
     val selectedProfileUserId = selectedProfileUser?.id
     val profilePosts = remember(selectedProfileUserId) {
         if (selectedProfileUserId.isNullOrBlank()) {
@@ -87,10 +93,6 @@ fun ShortsTabScreen(
         selectedProfileUser = null
     }
 
-    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { /* show upload dialog with this video */ }
-    }
-
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         if (showProfile && selectedProfileUser != null) {
             ProfileView(
@@ -102,6 +104,7 @@ fun ShortsTabScreen(
                     selectedProfileUser = null
                 },
                 posts = profilePosts,
+                shorts = profilePosts, // Filtered in ProfileView
                 userViewModel = userViewModel,
                 mediaViewModel = mediaViewModel,
                 onNavigateToSharedMedia = { target ->
@@ -124,39 +127,24 @@ fun ShortsTabScreen(
                 onShortClick = { short ->
                     showProfile = false
                     selectedProfileUser = null
-                    shortsViewModel.setSelectedShortId(short.id)
+                    selectedShortId = short.id
                 }
             )
         } else {
-            DataStateHandler(
-                resource = shortsState,
-                onEmpty = {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No videos found", color = Color.White, fontSize = 18.sp)
-                    }
-                },
-                onError = { error ->
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Error loading shorts", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text(error ?: "Unknown error occurred", color = Color.Gray, fontSize = 14.sp)
-                            Button(onClick = { shortsViewModel.fetchShorts() }, modifier = Modifier.padding(top = 16.dp)) {
-                                Text("Retry")
-                            }
-                        }
-                    }
+            if (shorts.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No videos found", color = Color.White, fontSize = 18.sp)
                 }
-            ) { shorts ->
+            } else {
                 ShortsList(
                     adManager = adManager,
                     shorts = shorts,
-                    shortsViewModel = shortsViewModel,
+                    shortsViewModel = mediaViewModel,
                     bottomPadding = 0.dp,
                     initialShortId = selectedShortId,
-                    onShortDisplayed = { shortsViewModel.setSelectedShortId(null) },
+                    onShortDisplayed = { selectedShortId = null },
                     onShowComments = { id ->
                         activeShortIdForComments = id
-                        shortsViewModel.fetchShortReplies(id)
                         showShortComments = true
                     },
                     onShowMoreMenu = { short ->
@@ -164,12 +152,12 @@ fun ShortsTabScreen(
                         showShortMoreMenu = true
                     },
                     onCreatorClick = { creatorId ->
-                        val short = shorts.firstOrNull { it.creatorId == creatorId }
+                        val short = shorts.firstOrNull { it.authorId == creatorId }
                         selectedProfileUser = User(
                             id = creatorId,
-                            username = short?.creatorUsername ?: "",
-                            displayName = short?.creatorName ?: "",
-                            avatarUrl = short?.creatorAvatarUrl
+                            username = short?.authorHandle ?: "",
+                            displayName = short?.authorName ?: "",
+                            avatarUrl = short?.authorAvatarUrl
                         )
                         showProfile = true
                     }
@@ -234,10 +222,6 @@ fun ShortsTabScreen(
                             text = { Text("Settings", color = Color.White) },
                             onClick = { showTopMenu = false }
                         )
-                        DropdownMenuItem(
-                            text = { Text("Help & Feedback", color = Color.White) },
-                            onClick = { showTopMenu = false }
-                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -251,19 +235,10 @@ fun ShortsTabScreen(
                 UploadShortDialog(
                     onDismiss = { showUploadDialog = false },
                     onUpload = { file, desc ->
-                        shortsViewModel.uploadShort(file, desc, null)
+                        mediaViewModel.createPost(desc, listOf(file.absolutePath), postType = "short", mediaType = "video")
                         showUploadDialog = false
                     }
                 )
-            }
-
-            // Upload error feedback
-            val state by shortsViewModel.shorts.collectAsState()
-            val context = LocalContext.current
-            if (state is Resource.Error) {
-                LaunchedEffect(state) {
-                    android.widget.Toast.makeText(context, state.message ?: "Upload failed", android.widget.Toast.LENGTH_LONG).show()
-                }
             }
 
             if (showShortComments && activeShortIdForComments != null) {
@@ -274,13 +249,12 @@ fun ShortsTabScreen(
                     onDismiss = {
                         showShortComments = false
                         activeShortIdForComments = null
-                        shortsViewModel.clearActiveShortReplies()
                     },
                     onSendReply = { content, parentId ->
-                        shortsViewModel.replyToShort(activeShortIdForComments!!, content, parentId)
+                        mediaViewModel.createPostReply(activeShortIdForComments!!, content, parentId)
                     },
                     onLikeReply = { replyId ->
-                        shortsViewModel.likeShortReply(replyId)
+                        mediaViewModel.likePostReply(replyId)
                     }
                 )
             }
@@ -294,7 +268,7 @@ fun ShortsTabScreen(
                     },
                     onAction = { action ->
                         if (action == "message") {
-                            navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaChat.createRoute(activeShortForMoreMenu!!.creatorId))
+                            navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaChat.createRoute(activeShortForMoreMenu!!.authorId))
                         }
                     }
                 )

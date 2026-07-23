@@ -18,7 +18,7 @@ import com.example.firstapp.media.model.ShortMedia
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShortMoreMenuSheet(
-    short: ShortMedia,
+    short: com.example.firstapp.media.model.Post,
     onDismiss: () -> Unit,
     onAction: (String) -> Unit
 ) {
@@ -55,7 +55,7 @@ fun ShortMoreMenuSheet(
 
             MoreMenuItem(
                 icon = Icons.Default.Mail,
-                text = "Message ${short.creatorName}",
+                text = "Message ${short.authorName}",
                 onClick = { onAction("message"); onDismiss() }
             )
             MoreMenuItem(

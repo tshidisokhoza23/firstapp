@@ -43,6 +43,9 @@ interface SocialApi {
         @Query("user_id") authorId: String? = null
     ): Response<List<ApiPost>>
 
+    @GET("shorts")
+    suspend fun getShorts(@Query("page") page: Int): Response<List<ApiPost>>
+
     @POST("posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
 

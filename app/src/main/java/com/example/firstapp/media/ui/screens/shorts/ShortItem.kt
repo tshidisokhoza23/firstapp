@@ -54,8 +54,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.example.firstapp.media.data.ShortsVideoCache
-import com.example.firstapp.media.model.ShortMedia
-import com.example.firstapp.media.model.ShortType
+import com.example.firstapp.media.model.Post
+import com.example.firstapp.media.model.PostType
 import com.example.firstapp.media.ui.components.FloatingVideoAdOverlay
 import com.example.firstapp.common.ui.theme.AppAccent
 import kotlinx.coroutines.delay
@@ -65,7 +65,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ShortItem(
     adManager: com.example.firstapp.common.data.ads.AdManager,
-    short: ShortMedia,
+    short: com.example.firstapp.media.model.Post,
     isVisible: Boolean,
     bottomInset: Dp,
     onLikeClick: (String) -> Unit,
@@ -78,7 +78,7 @@ fun ShortItem(
     onVideoEnded: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val videoUrl = short.videoUrl.takeIf { it.isNotBlank() }
+    val videoUrl = short.mediaUrls.firstOrNull()?.takeIf { it.isNotBlank() }
     
     var isMuted by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(true) }
@@ -332,17 +332,17 @@ fun ShortItem(
                             .border(1.dp, Color.White, CircleShape)
                             .padding(1.dp)
                             .clip(CircleShape)
-                            .background(short.thumbnailColor)
-                            .clickable { onCreatorClick(short.creatorId) }
+                            .background(short.authorAvatarColor)
+                            .clickable { onCreatorClick(short.authorId) }
                     ) {
                         AsyncImage(
-                                model = short.creatorAvatarUrl ?: short.thumbnailUrl,
+                                model = short.authorAvatarUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    if (!short.isSubscribed) {
+                    if (!short.isAuthorFollowed) {
                         Icon(
                             Icons.Filled.AddCircle,
                             contentDescription = null,
@@ -370,7 +370,7 @@ fun ShortItem(
                 )
                 ShortActionButton(
                     icon = Icons.AutoMirrored.Filled.Comment,
-                    text = short.comments.toString(),
+                    text = short.repliesCount.toString(),
                     onClick = { onCommentClick(short.id) }
                 )
                 ShortActionButton(
@@ -385,7 +385,7 @@ fun ShortItem(
                         onShareClick(short.id)
                         val sendIntent = android.content.Intent().apply {
                             action = android.content.Intent.ACTION_SEND
-                            putExtra(android.content.Intent.EXTRA_TEXT, short.videoUrl)
+                            putExtra(android.content.Intent.EXTRA_TEXT, videoUrl ?: "")
                             type = "text/plain"
                         }
                         context.startActivity(android.content.Intent.createChooser(sendIntent, null))
@@ -405,13 +405,13 @@ fun ShortItem(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (short.creatorUsername.isNotBlank()) "@${short.creatorUsername}" else "@${short.creatorName}",
+                        text = "@${short.authorHandle}",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        modifier = Modifier.clickable { onCreatorClick(short.creatorId) }
+                        modifier = Modifier.clickable { onCreatorClick(short.authorId) }
                     )
-                    if (!short.isSubscribed) {
+                    if (!short.isAuthorFollowed) {
                         Spacer(modifier = Modifier.width(12.dp))
                         Surface(
                             onClick = { onSubscribeClick(short.id) },
@@ -430,7 +430,7 @@ fun ShortItem(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = short.description,
+                    text = short.content,
                     color = Color.White,
                     fontSize = 14.sp,
                     maxLines = 2,
@@ -443,7 +443,7 @@ fun ShortItem(
                     Icon(Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "Original Audio - ${short.creatorName}",
+                        "Original Audio - ${short.authorName}",
                         color = Color.White,
                         fontSize = 13.sp,
                         maxLines = 1
@@ -470,7 +470,7 @@ fun ShortItem(
             }
 
             var showAdOverlay by remember { mutableStateOf(true) }
-            if (short.type == ShortType.AD_UNIT) {
+            if (short.type == com.example.firstapp.media.model.PostType.INTERNAL_AD) {
                 FloatingVideoAdOverlay(
                     adManager = adManager,
                     adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
@@ -537,7 +537,7 @@ fun TikTokHeartAnimation(
 
 @Composable
 private fun ShortPoster(
-    short: ShortMedia, 
+    short: com.example.firstapp.media.model.Post, 
     modifier: Modifier = Modifier,
     showOverlay: Boolean = true
 ) {
@@ -546,8 +546,8 @@ private fun ShortPoster(
     ) {
         val model = if (!short.thumbnailUrl.isNullOrBlank()) {
             short.thumbnailUrl
-        } else if (short.videoUrl.isNotBlank()) {
-            short.videoUrl
+        } else if (short.mediaUrls.isNotEmpty()) {
+            short.mediaUrls[0]
         } else {
             null
         }
@@ -561,7 +561,7 @@ private fun ShortPoster(
             )
         } else {
             Box(
-                modifier = Modifier.fillMaxSize().background(short.thumbnailColor.copy(alpha = 0.3f))
+                modifier = Modifier.fillMaxSize().background((short.mediaPlaceholderColor ?: Color.Gray).copy(alpha = 0.3f))
             )
         }
 

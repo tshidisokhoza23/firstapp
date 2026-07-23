@@ -53,7 +53,8 @@ fun NavGraphBuilder.profileNavGraph(
         val mediaViewModel: MediaViewModel = hiltViewModel()
         val sharedMediaViewModel: SharedMediaViewModel = hiltViewModel()
         
-        val pagedPosts = mediaViewModel.getUserPosts(userId).collectAsLazyPagingItems()
+        val pagedPosts = mediaViewModel.getUserPosts(userId, "standard").collectAsLazyPagingItems()
+        val pagedShorts = mediaViewModel.getUserPosts(userId, "short").collectAsLazyPagingItems()
 
         ProfileView(
             userId = userId,
@@ -61,6 +62,7 @@ fun NavGraphBuilder.profileNavGraph(
             adManager = adManager,
             onBack = { navController.popBackStack() },
             posts = pagedPosts,
+            shorts = pagedShorts,
             userViewModel = userViewModel,
             mediaViewModel = mediaViewModel,
             sharedMediaViewModel = sharedMediaViewModel,

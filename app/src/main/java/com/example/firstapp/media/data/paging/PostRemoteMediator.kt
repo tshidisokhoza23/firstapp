@@ -21,7 +21,8 @@ class PostRemoteMediator(
     private val socialApi: SocialApi,
     private val appDatabase: AppDatabase,
     private val following: Boolean = false,
-    private val authorId: String? = null
+    private val authorId: String? = null,
+    private val feedType: String = "standard"
 ) : RemoteMediator<Int, PostEntity>() {
 
     override suspend fun load(
@@ -51,12 +52,18 @@ class PostRemoteMediator(
             android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId")
             
             val apiPosts = if (!following && authorId == null) {
-                // Use new feed injection endpoint
-                val limit = state.config.pageSize
-                val offset = (page - 1) * limit
-                val response = socialApi.getFeed(limit = limit, offset = offset)
-                ensureSuccessful(response)
-                mapMediaFeedItems(response.body()?.items ?: emptyList())
+                if (feedType == "short") {
+                    val response = socialApi.getShorts(page = page)
+                    ensureSuccessful(response)
+                    response.body()?.map { mapApiPost(it) } ?: emptyList()
+                } else {
+                    // Use new feed injection endpoint
+                    val limit = state.config.pageSize
+                    val offset = (page - 1) * limit
+                    val response = socialApi.getFeed(limit = limit, offset = offset)
+                    ensureSuccessful(response)
+                    mapMediaFeedItems(response.body()?.items ?: emptyList())
+                }
             } else {
                 val response = socialApi.getPosts(page = page, following = following, authorId = authorId)
                 ensureSuccessful(response)

@@ -34,13 +34,13 @@ class SocialRepositoryImpl @Inject constructor(
 ) : SocialRepository {
 
     @OptIn(ExperimentalPagingApi::class)
-    override fun getPostsPaging(following: Boolean, authorId: String?): Flow<PagingData<Post>> {
+    override fun getPostsPaging(following: Boolean, authorId: String?, feedType: String): Flow<PagingData<Post>> {
         val pagingSourceFactory = { postDao.getPostsPaging() }
         
         return if (authorId == null) {
             Pager(
                 config = PagingConfig(pageSize = 20, enablePlaceholders = false),
-                remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, null),
+                remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, null, feedType),
                 pagingSourceFactory = pagingSourceFactory
             ).flow.flowMap { pagingData ->
                 pagingData.pagingMap { entity -> entity.toPost() }
@@ -152,7 +152,7 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?): Flow<Resource<Boolean>> = flow {
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             val pollRequest = if (pollOptions != null && pollOptions.size > 0) {
@@ -168,6 +168,8 @@ class SocialRepositoryImpl @Inject constructor(
                 channel_id = channelId,
                 poll = pollRequest
             )
+            // Note: ApiModel for CreatePostRequest should be updated if we want to send mediaType to backend explicitly
+            // For now, we assume post_type and media_urls handle it.
             if (socialApi.createPost(request).isSuccessful) {
                 emit(Resource.Success(true))
             } else {

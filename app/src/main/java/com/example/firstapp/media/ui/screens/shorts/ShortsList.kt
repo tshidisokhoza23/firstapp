@@ -13,9 +13,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.media3.common.util.UnstableApi
 import com.example.firstapp.media.data.ShortsVideoCache
-import com.example.firstapp.media.model.ShortMedia
-import com.example.firstapp.media.model.ShortType
-import com.example.firstapp.media.ui.viewmodel.shorts.ShortsViewModel
+import com.example.firstapp.media.model.Post
+import com.example.firstapp.media.model.PostType
+import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import java.util.ArrayList
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -23,13 +23,13 @@ import java.util.ArrayList
 @Composable
 fun ShortsList(
     adManager: com.example.firstapp.common.data.ads.AdManager,
-    shorts: List<ShortMedia>,
-    shortsViewModel: ShortsViewModel,
+    shorts: List<com.example.firstapp.media.model.Post>,
+    shortsViewModel: com.example.firstapp.media.ui.viewmodel.MediaViewModel,
     bottomPadding: Dp,
     initialShortId: String? = null,
     onShortDisplayed: () -> Unit = {},
     onShowComments: (String) -> Unit,
-    onShowMoreMenu: (ShortMedia) -> Unit,
+    onShowMoreMenu: (com.example.firstapp.media.model.Post) -> Unit,
     onCreatorClick: (String) -> Unit = {}
 ) {
     if (shorts.isEmpty()) return
@@ -61,7 +61,7 @@ fun ShortsList(
         val end = pagerState.currentPage + 3
         for (i in start..end) {
             if (i >= 0 && i < shorts.size) {
-                urls.add(shorts[i].videoUrl)
+                shorts[i].mediaUrls.firstOrNull()?.let { urls.add(it) }
             }
         }
         ShortsVideoCache.preload(context, urls)
@@ -76,8 +76,8 @@ fun ShortsList(
     ) { page ->
         val currentShort = shorts[page]
         
-        // Show an ad every 5 shorts
-        if ((page + 1) % 5 == 0) {
+        // Show an ad every 4 content posts
+        if ((page + 1) % 4 == 0) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.Black)
             ) {
@@ -89,19 +89,19 @@ fun ShortsList(
                 )
             }
         } else {
-            val isInteractiveShort = currentShort.type == ShortType.REGULAR
+            val isInteractiveShort = currentShort.type == com.example.firstapp.media.model.PostType.POST || currentShort.type == com.example.firstapp.media.model.PostType.INTERNAL_AD
             ShortItem(
                 adManager = adManager,
                 short = currentShort, 
                 isVisible = pagerState.currentPage == page, 
                 bottomInset = bottomPadding, 
-                onLikeClick = { if (isInteractiveShort) shortsViewModel.likeShort(it) }, 
-                onSubscribeClick = { if (isInteractiveShort) shortsViewModel.subscribeToShortCreator(it) }, 
+                onLikeClick = { if (isInteractiveShort) shortsViewModel.likePost(it, currentShort.likes, currentShort.isLiked) }, 
+                onSubscribeClick = { /* id -> shortsViewModel.subscribeToShortCreator(id) */ }, 
                 onCommentClick = { if (isInteractiveShort) onShowComments(it) }, 
-                onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkShort(it) }, 
-                onShareClick = { shortsViewModel.trackShortShare(it) },
+                onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkPost(it) }, 
+                onShareClick = { /* shortsViewModel.trackShortShare(it) */ },
                 onMoreClick = { onShowMoreMenu(currentShort) }, 
-                onCreatorClick = { if (isInteractiveShort) onCreatorClick(it) }
+                onCreatorClick = onCreatorClick
             )
         }
     }

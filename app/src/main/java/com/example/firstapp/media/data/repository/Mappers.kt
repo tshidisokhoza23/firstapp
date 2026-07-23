@@ -96,33 +96,19 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
     type = when (itemType) {
         "NATIVE_AD" -> PostType.NATIVE_AD
         "INTERNAL_AD" -> PostType.INTERNAL_AD
-        else -> if (apiPost.is_boosted) PostType.INTERNAL_AD else PostType.POST
+        else -> PostType.POST
     },
-    visibility = "public",
-    mediaPlaceholderColor = AppPrimary.copy(0.2f),
     thumbnailUrl = formatUrl(apiPost.thumbnail_url),
     aspectRatio = apiPost.aspect_ratio,
     durationSec = apiPost.duration_sec,
     blurhash = apiPost.blurhash,
-    hasThread = false,
-    threadCount = 0,
     parentPostId = apiPost.parent_post_id,
     rootPostId = apiPost.root_post_id,
     repostOfId = apiPost.repost_of_id,
-    isLiked = false,
-    isReposted = false,
-    isBookmarked = false,
-    isAuthorFollowed = false,
     repliesLocked = apiPost.replies_locked,
     status = apiPost.status ?: "published",
     isPinned = apiPost.is_pinned,
     replySettings = apiPost.reply_settings ?: "everyone",
-    replies = emptyList(),
-    poll = null,
-    location = null,
-    tags = emptyList(),
-    ad = null,
-    originalPost = null,
     updatedAt = apiPost.updated_at
 )
 
@@ -188,8 +174,7 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
     isVerifiedAuthor = apiPost.author?.is_verified ?: false,
     content = apiPost.content ?: "",
     mediaUrls = apiPost.media_urls?.map { formatUrl(it) } ?: emptyList(),
-    mediaType = null,
-    altText = null,
+    mediaType = apiPost.post_type, // Map post_type as fallback for mediaType
     timestamp = apiPost.created_at?.toString() ?: "",
     likes = apiPost.likes,
     repliesCount = apiPost.replies_count,
@@ -197,29 +182,15 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
     views = apiPost.views,
     quoteCount = 0,
     type = when (apiPost.post_type) {
+        "short" -> PostType.POST // We'll use filters for shorts
         "INTERNAL_AD" -> PostType.INTERNAL_AD
-        "EXTERNAL_AD_PLACEHOLDER" -> PostType.EXTERNAL_AD_PLACEHOLDER
         else -> PostType.POST
     },
-    visibility = "public",
-    mediaPlaceholderColor = AppPrimary.copy(0.2f),
-    thumbnailUrl = null,
-    aspectRatio = null,
-    durationSec = null,
-    blurhash = null,
-    hasThread = apiPost.has_thread,
-    threadCount = apiPost.thread_count,
-    parentPostId = null,
-    rootPostId = null,
-    repostOfId = null,
+    repliesLocked = apiPost.replies_locked,
     isLiked = apiPost.is_liked,
     isReposted = apiPost.is_reposted,
     isBookmarked = apiPost.is_bookmarked,
     isAuthorFollowed = apiPost.is_followed,
-    repliesLocked = apiPost.replies_locked,
-    status = "published",
-    isPinned = false,
-    replySettings = "everyone",
     replies = apiPost.replies?.map { mapApiPostReply(it) } ?: emptyList(),
     poll = apiPost.poll?.let { apiPoll ->
         PostPoll(
@@ -230,9 +201,7 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
     },
     location = apiPost.location,
     tags = apiPost.tags ?: emptyList(),
-    ad = apiPost.ad?.let { mapApiAdvert(it) },
-    originalPost = null,
-    updatedAt = null
+    ad = apiPost.ad?.let { mapApiAdvert(it) }
 )
 
 fun mapApiAdvert(apiAd: ApiAdvert): Advert = Advert(

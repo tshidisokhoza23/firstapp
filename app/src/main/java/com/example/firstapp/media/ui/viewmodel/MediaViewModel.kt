@@ -23,11 +23,18 @@ import java.util.Locale
 @HiltViewModel
 class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val shortsRepository: com.example.firstapp.media.domain.repository.ShortsRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
     val uiState: StateFlow<MediaUiState> = _uiState.asStateFlow()
+
+    private val _shortReplies = MutableStateFlow<Resource<List<ShortReply>>>(Resource.Loading())
+    val shortReplies: StateFlow<Resource<List<ShortReply>>> = _shortReplies.asStateFlow()
+
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
@@ -40,12 +47,16 @@ class MediaViewModel @Inject constructor(
     private val searchTtlMs = 120_000L
 
     init {
+        loadFeed("standard")
+        connectPostRealtime()
+    }
+
+    fun loadFeed(type: String) {
         _uiState.update { 
             it.copy(
-                posts = socialRepository.getPostsPaging(following = false).cachedIn(viewModelScope)
+                posts = socialRepository.getPostsPaging(following = (type == "following")).cachedIn(viewModelScope)
             )
         }
-        connectPostRealtime()
     }
 
     private fun connectPostRealtime() {
@@ -68,8 +79,8 @@ class MediaViewModel @Inject constructor(
         _uiState.update { it.copy(selectedTab = index) }
     }
 
-    fun getUserPosts(userId: String): Flow<PagingData<Post>> {
-        return socialRepository.getPostsPaging(authorId = userId).cachedIn(viewModelScope)
+    fun getUserPosts(userId: String, type: String = "standard"): Flow<PagingData<Post>> {
+        return socialRepository.getPostsPaging(authorId = userId, feedType = type).cachedIn(viewModelScope)
     }
 
     fun fetchTrendingTopics() {
@@ -132,12 +143,22 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    fun createPost(content: String, mediaUris: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: String? = null, pollOptions: List<String>? = null, location: String? = null) {
-        if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.size == 0)) return
+    fun createPost(
+        content: String, 
+        mediaUris: List<String> = emptyList(), 
+        postType: String = "standard", 
+        mediaType: String? = null,
+        tags: List<String> = emptyList(), 
+        channelId: String? = null, 
+        pollOptions: List<String>? = null, 
+        location: String? = null
+    ) {
+        if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty())) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = ArrayList<String>()
             for (uriStr in mediaUris) {
+                // ... logic to upload remains same ...
                 if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
                     try {
                         val uri = android.net.Uri.parse(uriStr)
@@ -156,7 +177,7 @@ class MediaViewModel @Inject constructor(
                     finalUrls.add(uriStr)
                 }
             }
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location).collect { res ->
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, mediaType).collect { res ->
                 if (res is Resource.Success) {
                     _toastMessage.value = "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }

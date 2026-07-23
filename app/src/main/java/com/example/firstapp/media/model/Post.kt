@@ -20,7 +20,7 @@ data class Post(
     val isVerifiedAuthor: Boolean = false,
     val content: String,
     val mediaUrls: List<String> = emptyList(),
-    val mediaType: String? = null,
+    val mediaType: String? = null,   // "image", "video", "gif"
     val altText: String? = null,
     val timestamp: String,
     val likes: Long = 0,
@@ -28,8 +28,8 @@ data class Post(
     val shares: Long = 0,
     val views: Long = 0,
     val quoteCount: Long = 0,
-    val type: PostType = PostType.POST,
-    val visibility: String = "public",
+    val type: PostType = PostType.POST, // "standard", "short", "repost"
+    val visibility: String = "public", // "public", "followers"
     val mediaPlaceholderColor: Color? = null,
     val thumbnailUrl: String? = null,
     val aspectRatio: Double? = null,
@@ -45,9 +45,9 @@ data class Post(
     val isBookmarked: Boolean = false,
     val isAuthorFollowed: Boolean = false,
     val repliesLocked: Boolean = false,
-    val status: String = "published",
+    val status: String = "published", // "active", "deleted", "flagged"
     val isPinned: Boolean = false,
-    val replySettings: String = "everyone",
+    val replySettings: String = "everyone", // "everyone", "following"
     val replies: List<PostReply> = emptyList(),
     val poll: PostPoll? = null,
     val location: String? = null,

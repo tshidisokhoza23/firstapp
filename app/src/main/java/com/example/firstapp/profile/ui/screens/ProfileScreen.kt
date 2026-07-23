@@ -55,6 +55,7 @@ fun ProfileView(
     showExperienceTab: Boolean = true,
     onBack: () -> Unit,
     posts: LazyPagingItems<Post>,
+    shorts: LazyPagingItems<Post>,
     userViewModel: UserViewModel,
     mediaViewModel: MediaViewModel,
     adManager: com.example.firstapp.common.data.ads.AdManager,
@@ -64,7 +65,7 @@ fun ProfileView(
     onRequireLogin: () -> Unit = {},
     onNavigateToEditExperience: (String?) -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
-    onShortClick: (ShortMedia) -> Unit = {},
+    onShortClick: (Post) -> Unit = {},
     onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
@@ -129,29 +130,6 @@ fun ProfileView(
         if (data != null) data else emptyList<WorkExperience>()
     } else {
         emptyList<WorkExperience>()
-    }
-
-    val userShortsState by shortsViewModel.userShorts.collectAsState()
-    val shortsData = userShortsState.data ?: emptyList()
-    val shorts = remember(shortsData, profileOwnerId) {
-        val filtered = ArrayList<ShortMedia>()
-        for (short in shortsData) {
-            if (profileOwnerId == null || short.creatorId == profileOwnerId) {
-                filtered.add(short)
-            }
-        }
-        filtered
-    }
-    
-    val chunkedShorts = remember(shorts) {
-        val result = ArrayList<List<ShortMedia>>()
-        var i = 0
-        while (i < shorts.size) {
-            val end = if (i + 3 > shorts.size) shorts.size else i + 3
-            result.add(shorts.subList(i, end))
-            i += 3
-        }
-        result
     }
 
     LaunchedEffect(isLoggedIn, normalizedUserId, currentUser?.id) {
@@ -270,7 +248,7 @@ fun ProfileView(
                             Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
 
                             Text(
-                                text = "0", // Placeholder for Views/Activity
+                                text = "0", // Placeholder for Views
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
@@ -406,7 +384,7 @@ fun ProfileView(
                                     isOwnPost = post.authorId == currentUser?.id,
                                     onClick = { onNavigateToMediaViewer(post.id, "post") }, // Correct Universal entry
                                     onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
-                                    onRepostClick = { mediaViewModel.repostPost(post.id) },
+                                    onRepostClick = { /* showRepostOptions = it */ },
                                     onBookmark = { mediaViewModel.bookmarkPost(post.id) },
                                     onDelete = { mediaViewModel.deletePost(post.id) },
                                     onReplyClick = { onNavigateToMediaViewer(post.id, "post") },
@@ -451,19 +429,23 @@ fun ProfileView(
                         }
                     }
                     "Shorts" -> {
-                        items(chunkedShorts.size) { rowIndex ->
-                            val row = chunkedShorts.get(rowIndex)
+                        val rowCount = (shorts.itemCount + 2) / 3
+                        items(rowCount) { rowIndex ->
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                for (short in row) {
-                                    Box(modifier = Modifier.weight(1f).padding(1.dp)) {
-                                        ShortGridItem(short, { onShortClick(it) })
+                                for (colIndex in 0 until 3) {
+                                    val index = rowIndex * 3 + colIndex
+                                    if (index < shorts.itemCount) {
+                                        val short = shorts[index]
+                                        if (short != null) {
+                                            Box(modifier = Modifier.weight(1f).padding(1.dp)) {
+                                                ShortGridItem(short, { onShortClick(it) })
+                                            }
+                                        } else {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    } else {
+                                        Spacer(modifier = Modifier.weight(1f))
                                     }
-                                }
-                                val remaining = 3 - row.size
-                                var i = 0
-                                while (i < remaining) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    i++
                                 }
                             }
                         }
@@ -519,17 +501,18 @@ private fun WorkExperienceItem(
 }
 
 @Composable
-private fun ShortGridItem(short: ShortMedia, onShortClick: (ShortMedia) -> Unit) {
+private fun ShortGridItem(post: Post, onShortClick: (Post) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(9f / 16f)
             .clip(RoundedCornerShape(4.dp))
-            .background(short.thumbnailColor)
-            .clickable { onShortClick(short) }
+            .background(post.mediaPlaceholderColor ?: Color.Black)
+            .clickable { onShortClick(post) }
     ) {
+        val model = if (!post.thumbnailUrl.isNullOrBlank()) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
         AsyncImage(
-            model = short.thumbnailUrl,
+            model = model,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
@@ -552,6 +535,14 @@ private fun ShortGridItem(short: ShortMedia, onShortClick: (ShortMedia) -> Unit)
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(24.dp)
+        )
+        
+        Text(
+            text = "${post.views}",
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
         )
     }
 }
