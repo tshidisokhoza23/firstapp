@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.places)
     implementation(libs.google.maps.services)
     implementation(libs.coil.compose)
+    implementation("io.coil-kt:coil-video:2.5.0")
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.datasource)
     implementation(libs.media3.database)

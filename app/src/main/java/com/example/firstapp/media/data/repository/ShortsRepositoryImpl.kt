@@ -58,15 +58,15 @@ class ShortsRepositoryImpl @Inject constructor(
                 val apiShorts = response.body()?.shorts ?: emptyList()
                 val mapped = apiShorts.map { apiShort -> 
                     ShortMedia(
-                        id = apiShort.id, 
-                        creatorId = apiShort.creator_id,
-                        creatorName = apiShort.creator_name,
+                        id = apiShort.id ?: "", 
+                        creatorId = apiShort.creator_id ?: "",
+                        creatorName = apiShort.creator_name ?: "User",
                         creatorUsername = apiShort.creator_username ?: "",
                         creatorAvatarUrl = formatUrl(apiShort.creator_avatar_url),
-                        description = apiShort.description, 
-                        likes = apiShort.likes.toString(), 
-                        comments = apiShort.comments.toString(), 
-                        shares = apiShort.shares.toString(), 
+                        description = apiShort.description ?: "", 
+                        likes = apiShort.likes, 
+                        comments = apiShort.comments, 
+                        shares = apiShort.shares,
                         videoUrl = formatUrl(apiShort.video_url), 
                         thumbnailUrl = formatUrl(apiShort.thumbnail_url), 
                         thumbnailColor = Color.Black, 
@@ -96,15 +96,15 @@ class ShortsRepositoryImpl @Inject constructor(
                 val apiShorts = response.body()?.shorts ?: emptyList()
                 val mapped = apiShorts.map { apiShort -> 
                     ShortMedia(
-                        id = apiShort.id, 
-                        creatorId = apiShort.creator_id,
-                        creatorName = apiShort.creator_name,
+                        id = apiShort.id ?: "", 
+                        creatorId = apiShort.creator_id ?: "",
+                        creatorName = apiShort.creator_name ?: "User",
                         creatorUsername = apiShort.creator_username ?: "",
                         creatorAvatarUrl = formatUrl(apiShort.creator_avatar_url),
-                        description = apiShort.description, 
-                        likes = apiShort.likes.toString(), 
-                        comments = apiShort.comments.toString(), 
-                        shares = apiShort.shares.toString(), 
+                        description = apiShort.description ?: "", 
+                        likes = apiShort.likes, 
+                        comments = apiShort.comments, 
+                        shares = apiShort.shares,
                         videoUrl = formatUrl(apiShort.video_url), 
                         thumbnailUrl = formatUrl(apiShort.thumbnail_url),
                         thumbnailColor = Color.Black, 
@@ -231,7 +231,7 @@ class ShortsRepositoryImpl @Inject constructor(
                 if (entity != null) {
                     val updated = entity.copy(
                         isLiked = body.is_liked,
-                        likes = body.likes.toString()
+                        likes = body.likes
                     )
                     val listToInsert = java.util.ArrayList<com.example.firstapp.common.data.local.entity.ShortEntity>()
                     listToInsert.add(updated)

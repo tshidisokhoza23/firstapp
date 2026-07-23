@@ -170,17 +170,16 @@ class MediaViewModel @Inject constructor(
 
     fun clearToast() { _toastMessage.value = null }
 
-    fun likePost(postId: String, currentLikes: String, isLiked: Boolean) {
+    fun likePost(postId: String, currentLikes: Long, isLiked: Boolean) {
         viewModelScope.launch {
             val nextLiked = !isLiked
-            val currentLikesLong = try { currentLikes.toLong() } catch (_: Exception) { 0L }
-            val nextLikesCount = if (nextLiked) currentLikesLong + 1 else if (currentLikesLong > 0) currentLikesLong - 1 else 0L
+            val nextLikesCount = if (nextLiked) currentLikes + 1 else if (currentLikes > 0) currentLikes - 1 else 0L
             
-            socialRepository.updatePostLikeLocally(postId, nextLikesCount.toString(), nextLiked)
+            socialRepository.updatePostLikeLocally(postId, nextLikesCount, nextLiked)
             
             val selected = _uiState.value.selectedPost
             if (selected != null && selected.id == postId) {
-                _uiState.update { it.copy(selectedPost = selected.copy(isLiked = nextLiked, likes = nextLikesCount.toString())) }
+                _uiState.update { it.copy(selectedPost = selected.copy(isLiked = nextLiked, likes = nextLikesCount)) }
             }
 
             socialRepository.likePost(postId).collect { resource ->
@@ -201,11 +200,11 @@ class MediaViewModel @Inject constructor(
             val selected = _uiState.value.selectedPost
             if (selected != null && selected.id == postId) {
                 val nextReposted = !selected.isReposted
-                val currentShares = try { selected.shares.toLong() } catch (_: Exception) { 0L }
+                val currentShares = selected.shares
                 val nextSharesCount = if (nextReposted) currentShares + 1 else if (currentShares > 0) currentShares - 1 else 0L
                 
-                socialRepository.updatePostRepostLocally(postId, nextSharesCount.toString(), nextReposted)
-                _uiState.update { it.copy(selectedPost = selected.copy(isReposted = nextReposted, shares = nextSharesCount.toString())) }
+                socialRepository.updatePostRepostLocally(postId, nextSharesCount, nextReposted)
+                _uiState.update { it.copy(selectedPost = selected.copy(isReposted = nextReposted, shares = nextSharesCount)) }
                 
                 socialRepository.repostPost(postId).collect { resource ->
                     if (resource is Resource.Error) {
@@ -287,9 +286,9 @@ class MediaViewModel @Inject constructor(
                 if (resource is Resource.Success && resource.data == true) {
                     val selected = _uiState.value.selectedPost
                     if (selected != null && selected.id == postId) {
-                        val currentCount = selected.repliesCount.toLongOrNull() ?: 0L
+                        val currentCount = selected.repliesCount
                         _uiState.update {
-                            it.copy(selectedPost = selected.copy(repliesCount = (currentCount + 1).toString()))
+                            it.copy(selectedPost = selected.copy(repliesCount = currentCount + 1))
                         }
                         fetchReplies(postId)
                     }

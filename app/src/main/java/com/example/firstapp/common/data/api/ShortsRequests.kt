@@ -18,13 +18,13 @@ data class CreateShortReplyRequest(
 )
 
 data class ApiShortReply(
-    val id: String,
-    val user_id: String,
-    val short_id: String,
-    val content: String,
+    val id: String?,
+    val user_id: String?,
+    val short_id: String?,
+    val content: String?,
     val created_at: Long?,
-    val likes: Long,
-    val is_liked: Boolean,
+    val likes: Long = 0,
+    val is_liked: Boolean = false,
     val author: ApiPostAuthor?
 )
 

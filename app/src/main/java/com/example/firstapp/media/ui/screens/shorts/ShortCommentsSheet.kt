@@ -219,7 +219,7 @@ fun ShortReplyItem(
                     modifier = Modifier.size(16.dp)
                 )
             }
-            Text(reply.likes, color = Color.Gray, fontSize = 11.sp)
+            Text(reply.likes.toString(), color = Color.Gray, fontSize = 11.sp)
         }
     }
 }

@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit
 
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.VideoFrameDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 
@@ -46,6 +47,9 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
+            .components {
+                add(VideoFrameDecoder.Factory())
+            }
             .memoryCache {
                 MemoryCache.Builder(this)
                     .maxSizePercent(0.15)

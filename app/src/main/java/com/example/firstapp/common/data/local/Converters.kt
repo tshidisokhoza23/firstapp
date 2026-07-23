@@ -111,6 +111,18 @@ class Converters {
     }
 
     @TypeConverter
+    fun fromPost(value: Post?): String? = gson.toJson(value)
+
+    @TypeConverter
+    fun toPost(value: String?): Post? {
+        return try {
+            gson.fromJson(value, Post::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    @TypeConverter
     fun fromApplicationStatus(value: ApplicationStatus): String = value.name
 
     @TypeConverter

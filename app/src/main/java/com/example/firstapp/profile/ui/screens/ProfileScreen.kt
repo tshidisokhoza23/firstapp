@@ -253,14 +253,36 @@ fun ProfileView(
                         Row(
                             modifier = Modifier.padding(top = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "${user?.followersCount ?: 0} Followers",
+                                text = "${user?.followersCount ?: 0}",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Followers",
                                 color = AppTextSecondary,
                                 fontSize = 14.sp
                             )
+                            
+                            Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
+
+                            Text(
+                                text = "0", // Placeholder for Views/Activity
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Views",
+                                color = AppTextSecondary,
+                                fontSize = 14.sp
+                            )
+
                             if (user?.location?.isNotBlank() == true) {
+                                Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.LocationOn, null, tint = AppTextSecondary, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(4.dp))
@@ -277,7 +299,7 @@ fun ProfileView(
                                 Button(
                                     onClick = onNavigateToEditProfile,
                                     modifier = Modifier.weight(1f).height(44.dp),
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = CircleShape,
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
@@ -302,7 +324,7 @@ fun ProfileView(
                                         }
                                     },
                                     modifier = Modifier.weight(1f).height(44.dp),
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = CircleShape,
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = if (isFollowing) Color.Transparent else Color.White,
                                         contentColor = if (isFollowing) Color.White else Color.Black
@@ -323,7 +345,7 @@ fun ProfileView(
                                     }
                                 },
                                 modifier = Modifier.weight(1f).height(44.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = CircleShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color.Transparent,
                                     contentColor = Color.White
@@ -384,7 +406,7 @@ fun ProfileView(
                                     isOwnPost = post.authorId == currentUser?.id,
                                     onClick = { onNavigateToMediaViewer(post.id, "post") }, // Correct Universal entry
                                     onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
-                                    onRepost = { mediaViewModel.repostPost(post.id) },
+                                    onRepostClick = { mediaViewModel.repostPost(post.id) },
                                     onBookmark = { mediaViewModel.bookmarkPost(post.id) },
                                     onDelete = { mediaViewModel.deletePost(post.id) },
                                     onReplyClick = { onNavigateToMediaViewer(post.id, "post") },

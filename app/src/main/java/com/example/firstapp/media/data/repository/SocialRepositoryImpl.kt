@@ -55,11 +55,11 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updatePostLikeLocally(postId: String, likes: String, isLiked: Boolean) {
+    override suspend fun updatePostLikeLocally(postId: String, likes: Long, isLiked: Boolean) {
         postDao.updateLikeStatus(postId, likes, isLiked)
     }
 
-    override suspend fun updatePostRepostLocally(postId: String, shares: String, isReposted: Boolean) {
+    override suspend fun updatePostRepostLocally(postId: String, shares: Long, isReposted: Boolean) {
         postDao.updateRepostStatus(postId, shares, isReposted)
     }
 

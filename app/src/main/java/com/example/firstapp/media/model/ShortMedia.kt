@@ -11,9 +11,9 @@ data class ShortMedia(
     val creatorUsername: String = "",
     val creatorAvatarUrl: String? = null,
     val description: String,
-    val likes: String,
-    val comments: String,
-    val shares: String = "0",
+    val likes: Long = 0,
+    val comments: Long = 0,
+    val shares: Long = 0,
     val videoUrl: String = "",
     val thumbnailUrl: String? = null,
     val thumbnailColor: Color = Color.Black,
@@ -33,7 +33,7 @@ data class ShortReply(
     val isVerifiedAuthor: Boolean = false,
     val content: String,
     val timestamp: String,
-    val likes: String,
+    val likes: Long = 0,
     val isLiked: Boolean = false,
     val nestedReplies: List<ShortReply> = emptyList()
 )

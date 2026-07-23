@@ -77,40 +77,40 @@ interface MediaApi {
 }
 
 data class ApiAdvert(
-    val id: String,
-    val advertiser_name: String,
+    val id: String?,
+    val advertiser_name: String?,
     val advertiser_id: String?,
     val title: String?,
     val time: String?,
     val avatar_url: String?,
     val content_url: String?,
-    val content_text: String,
+    val content_text: String?,
     val action_text: String?,
     val target_url: String?,
-    val is_sponsored: Boolean,
-    val impressions: Long,
-    val clicks: Long,
-    val is_native_ad: Boolean,
-    val is_viewed: Boolean,
+    val is_sponsored: Boolean = false,
+    val impressions: Long = 0,
+    val clicks: Long = 0,
+    val is_native_ad: Boolean = false,
+    val is_viewed: Boolean = false,
     val created_at: Long? = null
 )
 
 data class AdvertsResponse(val adverts: List<ApiAdvert>)
 
 data class ApiShort(
-    val id: String,
-    val creator_id: String,
-    val creator_name: String,
+    val id: String?,
+    val creator_id: String?,
+    val creator_name: String?,
     val creator_username: String? = null,
     val creator_avatar_url: String? = null,
-    val description: String,
-    val likes: Long,
-    val comments: Long,
-    val shares: Long,
+    val description: String?,
+    val likes: Long = 0,
+    val comments: Long = 0,
+    val shares: Long = 0,
     val video_url: String?,
     val thumbnail_url: String?,
-    val is_liked: Boolean,
-    val is_subscribed: Boolean,
+    val is_liked: Boolean = false,
+    val is_subscribed: Boolean = false,
     val is_bookmarked: Boolean = false
 )
 

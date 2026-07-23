@@ -114,9 +114,9 @@ class ShortsViewModel @Inject constructor(
         val previous = current
         val optimistic = current.map { s ->
             if (s.id != shortId) s else {
-                val likes = s.likes.toLongOrNull() ?: 0L
+                val likes = s.likes
                 val nextLiked = !s.isLiked
-                s.copy(isLiked = nextLiked, likes = (if (nextLiked) likes + 1 else (likes - 1).coerceAtLeast(0)).toString())
+                s.copy(isLiked = nextLiked, likes = if (nextLiked) likes + 1 else (likes - 1).coerceAtLeast(0))
             }
         }
         _shorts.value = Resource.Success(optimistic)
@@ -129,7 +129,7 @@ class ShortsViewModel @Inject constructor(
                     val body = resource.data
                     android.util.Log.d("ShortsVM", "Server like response: liked=${body.is_liked}, likes=${body.likes}")
                     val synced = ( _shorts.value.data ?: optimistic ).map { s ->
-                        if (s.id == shortId) s.copy(isLiked = body.is_liked, likes = body.likes.toString()) else s
+                        if (s.id == shortId) s.copy(isLiked = body.is_liked, likes = body.likes) else s
                     }
                     _shorts.value = Resource.Success(synced)
                 } else if (resource is Resource.Error) {
@@ -185,8 +185,8 @@ class ShortsViewModel @Inject constructor(
         val current = _shorts.value.data ?: return
         val optimistic = current.map { 
             if (it.id == shortId) {
-                val sCount = it.shares.toLongOrNull() ?: 0L
-                it.copy(shares = (sCount + 1).toString())
+                val sCount = it.shares
+                it.copy(shares = sCount + 1)
             } else it
         }
         _shorts.value = Resource.Success(optimistic)

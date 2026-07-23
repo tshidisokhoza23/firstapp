@@ -41,7 +41,7 @@ class PostAndReplyEngagementTests {
         
         viewModel.likePost(postId, "10", false)
         
-        coVerify { socialRepository.updatePostLikeLocally(postId, "11", true) }
+        coVerify { socialRepository.updatePostLikeLocally(postId, 11L, true) }
     }
 
     @Test

@@ -361,7 +361,7 @@ fun ShortItem(
                 val haptic = LocalHapticFeedback.current
                 ShortActionButton(
                     icon = likeIcon,
-                    text = short.likes,
+                    text = short.likes.toString(),
                     iconColor = likeIconColor,
                     onClick = { 
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -370,7 +370,7 @@ fun ShortItem(
                 )
                 ShortActionButton(
                     icon = Icons.AutoMirrored.Filled.Comment,
-                    text = short.comments,
+                    text = short.comments.toString(),
                     onClick = { onCommentClick(short.id) }
                 )
                 ShortActionButton(
@@ -380,7 +380,7 @@ fun ShortItem(
                 )
                 ShortActionButton(
                     icon = Icons.Filled.Share,
-                    text = short.shares,
+                    text = short.shares.toString(),
                     onClick = {
                         onShareClick(short.id)
                         val sendIntent = android.content.Intent().apply {
@@ -544,9 +544,17 @@ private fun ShortPoster(
     Box(
         modifier = modifier.background(Color.Black)
     ) {
-        if (!short.thumbnailUrl.isNullOrBlank()) {
+        val model = if (!short.thumbnailUrl.isNullOrBlank()) {
+            short.thumbnailUrl
+        } else if (short.videoUrl.isNotBlank()) {
+            short.videoUrl
+        } else {
+            null
+        }
+
+        if (model != null) {
             AsyncImage(
-                model = short.thumbnailUrl,
+                model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()

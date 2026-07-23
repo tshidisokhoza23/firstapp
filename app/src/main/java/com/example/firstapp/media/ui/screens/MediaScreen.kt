@@ -90,7 +90,7 @@ fun MediaScreen(
     ownProfileAvatarColor: Color = Color(0xFF3A4B57),
     onPostSelect: (Post?) -> Unit,
     onCreatePost: (content: String, mediaUrls: List<String>, tags: List<String>, postType: String?, pollOptions: List<String>?, location: String?) -> Unit,
-    onLikePost: (postId: String, likes: String, isLiked: Boolean) -> Unit,
+    onLikePost: (postId: String, likes: Long, isLiked: Boolean) -> Unit,
     onRepostPost: (postId: String) -> Unit,
     onReplySubmit: (postId: String, parentReplyId: String?, content: String) -> Unit,
     onReplyLike: (replyId: String) -> Unit,
@@ -131,6 +131,9 @@ fun MediaScreen(
     var showProfile by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
+
+    var showRepostOptions by remember { mutableStateOf<Post?>(null) }
+
     val selectedUserId = selectedUser?.id
     val profilePosts = remember(selectedUserId, onGetUserPosts) {
         if (selectedUserId.isNullOrBlank()) {
@@ -210,7 +213,7 @@ fun MediaScreen(
                         ownProfileId = ownProfileId,
                         onBack = { onPostSelect(null) },
                         onLike = { onLikePost(it, selectedPost.likes, selectedPost.isLiked) },
-                        onRepost = onRepostPost,
+                        onRepostClick = { showRepostOptions = it },
                         onBookmark = onBookmarkPost,
                         onReplyClick = { p, r -> 
                             replyingToPost = p
@@ -331,7 +334,7 @@ fun MediaScreen(
                                 ownProfileId = ownProfileId,
                                 onPostClick = onPostSelect,
                                 onLike = onLikePost,
-                                onRepost = onRepostPost,
+                                onRepostClick = { showRepostOptions = it },
                                 onBookmark = onBookmarkPost,
                                 onDeletePost = onDeletePost,
                                 onReplyClick = { p, r -> 
@@ -351,6 +354,35 @@ fun MediaScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+
+        if (showRepostOptions != null) {
+            val targetPost = showRepostOptions!!
+            ModalBottomSheet(
+                onDismissRequest = { showRepostOptions = null },
+                containerColor = AppSecondary
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                    ListItem(
+                        headlineContent = { Text(if (targetPost.isReposted) "Undo Repost" else "Repost", color = Color.White) },
+                        leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (targetPost.isReposted) Color(0xFF00BA7C) else Color.White) },
+                        modifier = Modifier.clickable {
+                            onRepostPost(targetPost.id)
+                            showRepostOptions = null
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Quote Post", color = Color.White) },
+                        leadingContent = { Icon(Icons.Default.Edit, null, tint = Color.White) },
+                        modifier = Modifier.clickable {
+                            // TODO: Open composer with quote
+                            showRepostOptions = null
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
                 }
             }
         }
@@ -391,8 +423,8 @@ fun MainFeedSection(
     posts: LazyPagingItems<Post>,
     ownProfileId: String,
     onPostClick: (Post) -> Unit,
-    onLike: (String, String, Boolean) -> Unit,
-    onRepost: (String) -> Unit,
+    onLike: (String, Long, Boolean) -> Unit,
+    onRepostClick: (Post) -> Unit,
     onBookmark: (String) -> Unit,
     onDeletePost: (String) -> Unit,
     onReplyClick: (Post, PostReply?) -> Unit,
@@ -456,7 +488,7 @@ fun MainFeedSection(
                         isOwnPost = post.authorId == ownProfileId,
                         onClick = { onPostClick(post) },
                         onLike = { onLike(post.id, post.likes, post.isLiked) },
-                        onRepost = { onRepost(post.id) },
+                        onRepostClick = { onRepostClick(post) },
                         onBookmark = { onBookmark(post.id) },
                         onDelete = { onDeletePost(post.id) },
                         onReplyClick = { onReplyClick(post, null) },
@@ -489,7 +521,7 @@ fun PostItem(
     isOwnPost: Boolean = false,
     onClick: () -> Unit,
     onLike: (String) -> Unit,
-    onRepost: (String) -> Unit,
+    onRepostClick: () -> Unit,
     onBookmark: (String) -> Unit,
     onDelete: () -> Unit,
     onReplyClick: () -> Unit,
@@ -510,14 +542,19 @@ fun PostItem(
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 // REQUIREMENT: Supply header metadata indicator: "User X Reposted"
-                if (post.isReposted && !isOwnPost) {
+                if (post.type == PostType.POST && post.repostOfId != null && post.originalPost != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = 32.dp, bottom = 4.dp)
+                        modifier = Modifier.padding(start = 32.dp, bottom = 8.dp)
                     ) {
-                        Icon(Icons.Default.Repeat, null, tint = SecondaryText, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Repeat, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("You reposted", color = SecondaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isOwnPost) "You reposted" else "${post.authorName} reposted",
+                            color = SecondaryText, 
+                            fontSize = 13.sp, 
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
 
@@ -609,7 +646,7 @@ fun PostItem(
                                 icon = Icons.Default.Repeat, 
                                 count = post.shares, 
                                 color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
-                                onClick = { onRepost(post.id) }
+                                onClick = onRepostClick
                             )
                             InteractionIcon(
                                 icon = if (post.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, 
@@ -620,7 +657,7 @@ fun PostItem(
                             InteractionIcon(Icons.Outlined.BarChart, post.views, SecondaryText) {}
                             InteractionIcon(
                                 icon = if (post.isBookmarked) Icons.Default.Bookmark else Icons.Outlined.IosShare, 
-                                count = "", 
+                                count = 0L, 
                                 color = if (post.isBookmarked) AppAccent else SecondaryText, 
                                 onClick = { onBookmark(post.id) }
                             )
@@ -648,12 +685,12 @@ fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> 
 }
 
 @Composable
-fun InteractionIcon(icon: ImageVector, count: String, color: Color, onClick: () -> Unit) {
+fun InteractionIcon(icon: ImageVector, count: Long, color: Color, onClick: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(onClick = onClick)) {
         Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
-        if (count.isNotEmpty() && count != "0") {
+        if (count > 0) {
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text = count, color = color, fontSize = 12.sp)
+            Text(text = count.toString(), color = color, fontSize = 12.sp)
         }
     }
 }
@@ -725,7 +762,7 @@ fun PostDetailSection(
     ownProfileId: String,
     onBack: () -> Unit,
     onLike: (String) -> Unit,
-    onRepost: (String) -> Unit,
+    onRepostClick: (Post) -> Unit,
     onBookmark: (String) -> Unit,
     onReplyClick: (Post, PostReply?) -> Unit,
     onReplyLike: (String) -> Unit,
@@ -863,7 +900,7 @@ fun PostDetailSection(
                     }
                     
                     // Detailed Timestamp Line: 15:51 · 22 Jul 26 · 5 Views
-                    val detailedTime = remember(post.timestamp) {
+                    val detailedTime = remember(post.timestamp, post.views) {
                         // Assuming timestamp is ISO or simple string, we format it roughly as requested
                         // This is a placeholder for actual formatting logic
                         "15:51 · 22 Jul 26 · ${post.views} Views"
@@ -883,12 +920,12 @@ fun PostDetailSection(
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        InteractionIcon(Icons.Outlined.ChatBubbleOutline, "", if (post.repliesLocked) Color.Gray else SecondaryText) { if (!post.repliesLocked) onReplyClick(post, null) }
+                        InteractionIcon(Icons.Outlined.ChatBubbleOutline, 0L, if (post.repliesLocked) Color.Gray else SecondaryText) { if (!post.repliesLocked) onReplyClick(post, null) }
                         InteractionIcon(
                             icon = Icons.Default.Repeat, 
                             count = post.shares, 
                             color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
-                            onClick = { onRepost(post.id) }
+                            onClick = { onRepostClick(post) }
                         )
                         InteractionIcon(
                             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, 
@@ -898,7 +935,7 @@ fun PostDetailSection(
                         )
                         InteractionIcon(
                             icon = if (post.isBookmarked) Icons.Default.Bookmark else Icons.Outlined.IosShare, 
-                            count = "", 
+                            count = 0L,
                             color = if (post.isBookmarked) AppAccent else SecondaryText, 
                             onClick = { onBookmark(post.id) }
                         )
@@ -948,7 +985,7 @@ fun ReplyItem(
     showThreadLine: Boolean = false,
     isLastInThread: Boolean = false,
     onLike: (String) -> Unit,
-    onRepost: (String) -> Unit,
+    onRepost: () -> Unit,
     onBookmark: (String) -> Unit,
     onDelete: () -> Unit,
     onReplyClick: () -> Unit,
@@ -1061,22 +1098,22 @@ fun ReplyItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                InteractionIcon(Icons.Outlined.ChatBubbleOutline, "", SecondaryText, onReplyClick)
+                InteractionIcon(Icons.Outlined.ChatBubbleOutline, 0L, SecondaryText, onReplyClick)
                 InteractionIcon(
                     icon = Icons.Default.Repeat, 
-                    count = "", 
+                    count = 0L, 
                     color = if (reply.isReposted) Color(0xFF00BA7C) else SecondaryText, 
-                    onClick = { onRepost(reply.id) }
+                    onClick = onRepost
                 )
                 InteractionIcon(
                     icon = if (reply.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder, 
-                    count = if (reply.likes != "0") reply.likes else "",
+                    count = reply.likes,
                     color = if (reply.isLiked) Color(0xFFF91880) else SecondaryText, 
                     onClick = { onLike(reply.id) }
                 )
                 InteractionIcon(
                     icon = Icons.Outlined.IosShare, 
-                    count = "", 
+                    count = 0L,
                     color = SecondaryText, 
                     onClick = { onBookmark(reply.id) }
                 )
