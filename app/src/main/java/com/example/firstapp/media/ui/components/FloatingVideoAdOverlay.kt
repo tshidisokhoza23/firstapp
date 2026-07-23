@@ -83,7 +83,7 @@ fun FloatingVideoAdOverlay(
                     .fillMaxWidth()
                     .padding(8.dp),
                 factory = { ctx ->
-                    val view = LayoutInflater.from(ctx).inflate(R.layout.shorts_native_ad_layout, null) as NativeAdView
+                    val view = LayoutInflater.from(ctx).inflate(R.layout.item_short_native_ad, null) as NativeAdView
                     
                     view.headlineView = view.findViewById(R.id.ad_headline)
                     view.bodyView = view.findViewById(R.id.ad_body)

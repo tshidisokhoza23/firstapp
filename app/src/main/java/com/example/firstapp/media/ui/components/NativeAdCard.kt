@@ -78,7 +78,7 @@ fun NativeAdCard(
                     // Create the native ad view from layout
                     // Note: You need a layout file for this to work perfectly with the binder
                     // Or you can create it programmatically.
-                    val binder = MaxNativeAdViewBinder.Builder(R.layout.native_ad_layout)
+                    val binder = MaxNativeAdViewBinder.Builder(R.layout.item_media_native_ad)
                         .setTitleTextViewId(R.id.ad_headline)
                         .setBodyTextViewId(R.id.ad_body)
                         .setAdvertiserTextViewId(R.id.ad_advertiser)

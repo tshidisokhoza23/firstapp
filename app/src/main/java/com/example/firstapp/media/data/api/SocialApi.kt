@@ -161,7 +161,7 @@ data class ApiMediaPost(
     val author_handle: String,
     val author_avatar_url: String?,
     val is_verified_author: Boolean = false,
-    val content_text: String,
+    val content_text: String?,
     val media_urls: List<String>?,
     val is_boosted: Boolean,
     val total_budget_cents: Int,

@@ -10,6 +10,7 @@ import com.example.firstapp.common.data.ads.AdManager
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdView
 import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Button
 import com.example.firstapp.R
@@ -68,18 +69,28 @@ fun DynamicAdCard(
         AndroidView(
             modifier = modifier
                 .fillMaxWidth()
-                .then(if (isShortsAd) Modifier.fillMaxHeight() else Modifier.heightIn(min = 0.dp)),
+                .then(if (isShortsAd) Modifier.fillMaxHeight() else Modifier.wrapContentHeight()),
             factory = { ctx ->
-                val layoutRes = if (isShortsAd) R.layout.shorts_native_ad_layout else R.layout.native_ad_layout
+                val layoutRes = if (isShortsAd) R.layout.item_short_native_ad else R.layout.item_media_native_ad
                 val view = LayoutInflater.from(ctx).inflate(layoutRes, null) as NativeAdView
                 
+                if (isShortsAd) {
+                    view.layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+
                 view.headlineView = view.findViewById(R.id.ad_headline)
                 view.bodyView = view.findViewById(R.id.ad_body)
                 view.callToActionView = view.findViewById(R.id.ad_call_to_action)
                 view.iconView = view.findViewById(R.id.ad_app_icon)
                 view.advertiserView = view.findViewById(R.id.ad_advertiser)
                 view.mediaView = view.findViewById(R.id.ad_media)
-
+                
+                view
+            },
+            update = { view ->
                 // Map SDK payload to UI programmatically
                 val headline = ad.headline
                 if (headline != null) (view.headlineView as? TextView)?.text = headline
@@ -92,32 +103,33 @@ fun DynamicAdCard(
                 
                 val icon = ad.icon
                 if (icon != null) {
-                    (view.iconView as? android.widget.ImageView)?.setImageDrawable(icon.drawable)
+                    val iconView = view.iconView as? android.widget.ImageView
+                    iconView?.visibility = android.view.View.VISIBLE
+                    iconView?.setImageDrawable(icon.drawable)
                 } else {
                     view.iconView?.visibility = android.view.View.GONE
                 }
                 
                 val advertiser = ad.advertiser
                 if (advertiser != null) {
-                    (view.advertiserView as? TextView)?.text = advertiser
+                    val advView = view.advertiserView as? TextView
+                    advView?.visibility = android.view.View.VISIBLE
+                    advView?.text = advertiser
                 } else {
                     view.advertiserView?.visibility = android.view.View.GONE
                 }
                 
                 // Bind the native ad object to the view
                 view.setNativeAd(ad)
-                view
-            },
-            update = { view ->
-                // Refresh if needed
             }
         )
-    } else if (adObject is AdView) {
+    }
+else if (adObject is AdView) {
         AndroidView(
             modifier = modifier.fillMaxWidth(),
             factory = { _ ->
                 val adView = adObject as AdView
-                (adView.parent as? android.view.ViewGroup)?.removeView(adView)
+                (adView.parent as? ViewGroup)?.removeView(adView)
                 adView
             }
         )

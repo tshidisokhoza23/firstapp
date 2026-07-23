@@ -3,8 +3,11 @@ package com.example.firstapp.media.ui.screens.shorts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
@@ -75,12 +78,16 @@ fun ShortsList(
         
         // Show an ad every 5 shorts
         if ((page + 1) % 5 == 0) {
-            com.example.firstapp.common.ui.components.DynamicAdCard(
-                adManager = adManager,
-                adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
-                modifier = Modifier.fillMaxSize(),
-                isShortsAd = true
-            )
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black)
+            ) {
+                com.example.firstapp.common.ui.components.DynamicAdCard(
+                    adManager = adManager,
+                    adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
+                    modifier = Modifier.fillMaxSize(),
+                    isShortsAd = true
+                )
+            }
         } else {
             val isInteractiveShort = currentShort.type == ShortType.REGULAR
             ShortItem(
