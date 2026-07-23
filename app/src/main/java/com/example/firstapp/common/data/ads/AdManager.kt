@@ -13,14 +13,16 @@ interface AdManager {
         context: Context, 
         adUnitId: String, 
         onAdLoaded: (Any) -> Unit, 
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        onAdRevenuePaid: ((Double) -> Unit)? = null
     )
 
     fun loadShortsNativeAd(
         context: Context,
         adUnitId: String,
         onAdLoaded: (Any) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        onAdRevenuePaid: ((Double) -> Unit)? = null
     )
 
     fun loadBannerAd(

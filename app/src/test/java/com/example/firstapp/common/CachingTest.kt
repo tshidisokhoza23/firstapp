@@ -20,11 +20,12 @@ class CachingTest {
     private val socialApi: com.example.firstapp.media.data.api.SocialApi = mockk(relaxed = true)
     private val contactDao: com.example.firstapp.common.data.local.dao.ContactDao = mockk(relaxed = true)
     private val callLogDao: com.example.firstapp.common.data.local.dao.CallLogDao = mockk(relaxed = true)
+    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver = mockk(relaxed = true)
     private val context: android.content.Context = mockk(relaxed = true)
 
     @Test
     fun `chat cache prunes older messages to maintain LRU state`() = runTest {
-        val repository = ChatRepositoryImpl(chatApi, socialApi, chatDao, contactDao, callLogDao, context)
+        val repository = ChatRepositoryImpl(chatApi, socialApi, chatDao, contactDao, callLogDao, displayNameResolver, context)
         val chatId = "chat1"
         val message = Message(id = "msg1", conversationId = chatId, content = "Hello", senderId = "1", senderName = "User", timestamp = 123L)
         

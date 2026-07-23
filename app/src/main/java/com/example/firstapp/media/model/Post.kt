@@ -28,6 +28,7 @@ data class Post(
     val shares: Long = 0,
     val views: Long = 0,
     val quoteCount: Long = 0,
+    val estimatedAdRevenue: Double = 0.0,
     val type: PostType = PostType.POST, // "standard", "short", "repost"
     val visibility: String = "public", // "public", "followers"
     val mediaPlaceholderColor: Color? = null,

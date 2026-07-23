@@ -53,7 +53,10 @@ class MediaViewModel @Inject constructor(
     fun loadFeed(type: String) {
         _uiState.update { 
             it.copy(
-                posts = socialRepository.getPostsPaging(following = (type == "following")).cachedIn(viewModelScope)
+                posts = socialRepository.getPostsPaging(
+                    following = (type == "following"),
+                    feedType = type
+                ).cachedIn(viewModelScope)
             )
         }
     }
@@ -339,6 +342,12 @@ class MediaViewModel @Inject constructor(
     
     fun viewPost(postId: String) { 
         viewModelScope.launch { socialRepository.viewPost(postId).collect { } } 
+    }
+
+    fun onAdRevenueLogged(postId: String, revenue: Double, adUnitId: String) {
+        viewModelScope.launch {
+            socialRepository.trackAdRevenue(postId, revenue, adUnitId).collect { }
+        }
     }
 
     fun selectPost(post: Post?) {

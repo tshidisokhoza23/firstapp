@@ -39,11 +39,18 @@ interface SocialApi {
         @Query("page") page: Int = 1, 
         @Query("following") following: Boolean = false,
         @Query("channel_id") channelId: String? = null,
-        @Query("user_id") authorId: String? = null
+        @Query("user_id") authorId: String? = null,
+        @Query("type") feedType: String? = null
     ): Response<List<ApiPost>>
 
-    @GET("shorts")
+    @GET("media/feed/shorts")
     suspend fun getShorts(@Query("page") page: Int): Response<List<ApiPost>>
+
+    @GET("media/feed/media")
+    suspend fun getMediaFeed(@Query("page") page: Int): Response<List<ApiPost>>
+
+    @POST("media/ads/impression-revenue")
+    suspend fun trackAdRevenue(@Body request: AdRevenueRequest): Response<StatusResponse>
 
     @POST("posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<ApiPost>
@@ -131,6 +138,7 @@ interface SocialApi {
 }
 
 data class FeedResponse(val items: List<ApiFeedItem>)
+data class AdRevenueRequest(val post_id: String, val revenue: Double, val ad_unit_id: String)
 data class RepliesResponse(val items: List<ApiReplyItem>)
 data class BoostRequest(val total_budget_cents: Int, val duration_days: Int)
 data class CreateMediaReplyRequest(val reply_text: String)

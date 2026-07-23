@@ -247,7 +247,7 @@ private fun formatTimeAgo(timestamp: Long): String {
     }
 }
 
-fun mapMediaReplyItems(items: List<ApiReplyItem>): List<PostReply> = items.mapNotNull { item ->
+fun mapMediaReplyItems(items: List<com.example.firstapp.media.data.api.ApiReplyItem>): List<PostReply> = items.mapNotNull { item ->
     item.reply?.let { mapApiMediaReply(it, "POST") }
 }
 

@@ -100,7 +100,7 @@ fun MediaScreen(
     onBookmarkReply: (replyId: String) -> Unit,
     onViewPost: (postId: String) -> Unit = {},
     onProfileViewChange: (Boolean) -> Unit = {},
-    onGetUserPosts: (String) -> Flow<PagingData<Post>> = { _ -> kotlinx.coroutines.flow.flowOf() },
+    onGetUserPosts: (String, String) -> Flow<PagingData<Post>> = { _, _ -> kotlinx.coroutines.flow.flowOf() },
     userViewModel: UserViewModel,
     mediaViewModel: MediaViewModel,
     onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
@@ -114,6 +114,7 @@ fun MediaScreen(
     refreshTrigger: Int = 0,
     onDirectMessagesClick: () -> Unit = {},
     onRequireLogin: () -> Unit = {},
+    onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
@@ -139,7 +140,31 @@ fun MediaScreen(
         if (selectedUserId.isNullOrBlank()) {
             flowOf(PagingData.empty())
         } else {
-            onGetUserPosts(selectedUserId)
+            onGetUserPosts(selectedUserId, "standard")
+        }
+    }.collectAsLazyPagingItems()
+
+    val profileShorts = remember(selectedUserId, onGetUserPosts) {
+        if (selectedUserId.isNullOrBlank()) {
+            flowOf(PagingData.empty())
+        } else {
+            onGetUserPosts(selectedUserId, "short")
+        }
+    }.collectAsLazyPagingItems()
+
+    val profileMedia = remember(selectedUserId, onGetUserPosts) {
+        if (selectedUserId.isNullOrBlank()) {
+            flowOf(PagingData.empty())
+        } else {
+            onGetUserPosts(selectedUserId, "media")
+        }
+    }.collectAsLazyPagingItems()
+
+    val profileReplies = remember(selectedUserId, onGetUserPosts) {
+        if (selectedUserId.isNullOrBlank()) {
+            flowOf(PagingData.empty())
+        } else {
+            onGetUserPosts(selectedUserId, "reply")
         }
     }.collectAsLazyPagingItems()
 
@@ -199,13 +224,15 @@ fun MediaScreen(
                             onProfileViewChange(false)
                         },
                         posts = profilePosts,
-                        shorts = profilePosts, // Filtered in ProfileView
+                        shorts = profileShorts,
+                        mediaItems = profileMedia,
+                        replies = profileReplies,
                         userViewModel = userViewModel,
                         mediaViewModel = mediaViewModel,
                         onRequireLogin = onRequireLogin,
                         onShortClick = { short ->
-                    onShortClick(short)
-                },
+                            onShortClick(short)
+                        },
                         onNavigateToMediaViewer = onMediaClick
                     )
                 }
@@ -232,6 +259,7 @@ fun MediaScreen(
                             showProfile = true
                             onProfileViewChange(true)
                         },
+                        onAdRevenueLogged = onAdRevenueLogged,
                         onMediaClick = onMediaClick
                     )
                 }
@@ -439,6 +467,7 @@ fun MainFeedSection(
     onPlaySong: (Song, List<Song>) -> Unit,
     onVotePoll: (String, String) -> Unit,
     onRefresh: () -> Unit,
+    onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
@@ -513,7 +542,11 @@ fun MainFeedSection(
                         DynamicAdCard(
                             adManager = adManager,
                             adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            onAdRevenuePaid = { rev ->
+                                // Attribute to adjacent post (the one at 'index')
+                                onAdRevenueLogged(post.id, rev, "main_feed")
+                            }
                         )
                         HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
                     }
@@ -798,6 +831,7 @@ fun PostDetailSection(
     onReplyBookmark: (String) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
     onProfileClick: (User) -> Unit,
+    onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     Scaffold(
@@ -986,11 +1020,22 @@ fun PostDetailSection(
                     itemsIndexed(post.replies, key = { index, r -> "${r.id}_$index" }) { index, reply ->
                         Column {
                             if (reply.type == PostType.EXTERNAL_AD_PLACEHOLDER || reply.type == PostType.AD_UNIT) {
-                                DynamicAdCard(
-                                    adManager = adManager,
-                                    adUnitId = "ca-app-pub-3940256099942544/2247696110",
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                    if (reply.content.isNotEmpty()) {
+                                        Text(
+                                            reply.content, 
+                                            color = Color.White.copy(alpha = 0.6f), 
+                                            fontSize = 13.sp,
+                                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                                        )
+                                    }
+                                    DynamicAdCard(
+                                        adManager = adManager,
+                                        adUnitId = "ca-app-pub-3940256099942544/2247696110",
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        onAdRevenuePaid = { rev -> onAdRevenueLogged(post.id, rev, "reply_ad") }
+                                    )
+                                }
                             } else {
                                 PostItem(
                                     adManager = adManager,
@@ -1025,8 +1070,8 @@ fun PostDetailSection(
                                 )
                             }
                             HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                        }
-                    }
+                }
+            }
         }
     }
 }

@@ -27,6 +27,7 @@ data class PostEntity(
     val shares: Long,
     val views: Long,
     val quoteCount: Long = 0,
+    val estimatedAdRevenue: Double = 0.0,
     val type: PostType,
     val visibility: String = "public",
     val mediaPlaceholderColor: Int?,

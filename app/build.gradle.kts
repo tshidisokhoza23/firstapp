@@ -9,14 +9,6 @@ plugins {
 android {
     namespace = "com.example.firstapp"
     compileSdk = 35
-    
-    val hostIp = (project.findProperty("HOST_IP") as String?)
-        ?: System.getenv("HOST_IP")
-
-    val apiBaseUrl = (project.findProperty("API_BASE_URL") as String?)
-        ?: if (hostIp != null) "http://$hostIp:8082/api/v1/" else "https://firstapp-backend.fly.dev/api/v1/"
-    val wsBaseUrl = (project.findProperty("WS_BASE_URL") as String?)
-        ?: if (hostIp != null) "ws://$hostIp:8082/api/v1/" else "wss://firstapp-backend.fly.dev/api/v1/"
 
     defaultConfig {
         applicationId = "com.example.firstapp"
@@ -27,8 +19,46 @@ android {
         multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
-        buildConfigField("String", "WS_BASE_URL", "\"$wsBaseUrl\"")
+    }
+
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("sit") {
+            dimension = "environment"
+            applicationIdSuffix = ".sit"
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://sit-active-api.yourapp.com\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://sit-passive-api.yourapp.com\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://sit-active-api.yourapp.com\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://sit-active-api.yourapp.com\"")
+            buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
+        }
+        create("uat") {
+            dimension = "environment"
+            applicationIdSuffix = ".uat"
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://uat-active-api.yourapp.com\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://uat-passive-api.yourapp.com\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://uat-active-api.yourapp.com\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://uat-active-api.yourapp.com\"")
+            buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
+        }
+        create("beta") {
+            dimension = "environment"
+            applicationIdSuffix = ".beta"
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://api-blue.yourapp.com\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://api-green.yourapp.com\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://api-blue.yourapp.com\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://api-blue.yourapp.com\"")
+            buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
+        }
+        create("prod") {
+            dimension = "environment"
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://api-blue.yourapp.com\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://api-green.yourapp.com\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://api-blue.yourapp.com\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://api-blue.yourapp.com\"")
+            buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "false")
+        }
     }
 
     buildTypes {
@@ -62,6 +92,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation(libs.androidx.activity.compose)
     implementation("androidx.fragment:fragment-ktx:1.8.5")
     implementation("androidx.navigation:navigation-compose:2.7.7")

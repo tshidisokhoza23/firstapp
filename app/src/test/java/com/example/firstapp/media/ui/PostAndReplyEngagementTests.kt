@@ -39,7 +39,7 @@ class PostAndReplyEngagementTests {
         val postId = "123"
         coEvery { socialRepository.likePost(postId) } returns flowOf(Resource.Success(true))
         
-        viewModel.likePost(postId, "10", false)
+        viewModel.likePost(postId, 10L, false)
         
         coVerify { socialRepository.updatePostLikeLocally(postId, 11L, true) }
     }

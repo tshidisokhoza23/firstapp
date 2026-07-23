@@ -11,6 +11,7 @@ import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.music.data.api.MusicApi
 import com.example.firstapp.chat.rewards.data.api.RewardsApi
+import com.example.firstapp.common.data.network.ActivePassiveInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -34,7 +35,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideBaseUrl(): String {
-        return BuildConfig.API_BASE_URL.takeIf { it.isNotBlank() } ?: BASE_URL_FALLBACK
+        return BuildConfig.ACTIVE_API_URL
     }
 
     @Provides
@@ -142,10 +143,12 @@ object NetworkModule {
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
         authInterceptor: Interceptor,
+        activePassiveInterceptor: ActivePassiveInterceptor,
         authenticator: Authenticator
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .authenticator(authenticator)
+            .addInterceptor(activePassiveInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(10, TimeUnit.SECONDS)

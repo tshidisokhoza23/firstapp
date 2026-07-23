@@ -38,6 +38,7 @@ interface SocialRepository {
     fun deleteStory(storyId: String): Flow<Resource<Boolean>>
     fun muteStory(userId: String, isMuted: Boolean): Flow<Resource<Boolean>>
     fun viewPost(postId: String): Flow<Resource<Boolean>>
+    fun trackAdRevenue(postId: String, revenue: Double, adUnitId: String): Flow<Resource<Boolean>>
     fun deletePost(postId: String): Flow<Resource<Boolean>>
     fun getStoryViewers(storyId: String): Flow<Resource<List<ApiViewer>>>
 }

@@ -23,7 +23,8 @@ fun DynamicAdCard(
     adUnitId: String,
     modifier: Modifier = Modifier,
     isBanner: Boolean = false,
-    isShortsAd: Boolean = false
+    isShortsAd: Boolean = false,
+    onAdRevenuePaid: ((Double) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var adObject by remember { mutableStateOf<Any?>(null) }
@@ -42,14 +43,16 @@ fun DynamicAdCard(
                 context = context,
                 adUnitId = adUnitId,
                 onAdLoaded = { adObject = it },
-                onAdFailed = { loadFailed = true }
+                onAdFailed = { loadFailed = true },
+                onAdRevenuePaid = onAdRevenuePaid
             )
         } else {
             adManager.loadNativeAd(
                 context = context,
                 adUnitId = adUnitId,
                 onAdLoaded = { adObject = it },
-                onAdFailed = { loadFailed = true }
+                onAdFailed = { loadFailed = true },
+                onAdRevenuePaid = onAdRevenuePaid
             )
         }
         onDispose {

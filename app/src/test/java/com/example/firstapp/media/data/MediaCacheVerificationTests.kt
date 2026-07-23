@@ -22,10 +22,11 @@ class MediaCacheVerificationTests {
     private val postDao: PostDao = mockk(relaxed = true)
     private val storyDao: StoryDao = mockk(relaxed = true)
     private val appDatabase: AppDatabase = mockk(relaxed = true)
+    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver = mockk(relaxed = true)
 
     @Before
     fun setup() {
-        repository = SocialRepositoryImpl(socialApi, postDao, storyDao, appDatabase)
+        repository = SocialRepositoryImpl(socialApi, postDao, storyDao, appDatabase, displayNameResolver)
     }
 
     @Test

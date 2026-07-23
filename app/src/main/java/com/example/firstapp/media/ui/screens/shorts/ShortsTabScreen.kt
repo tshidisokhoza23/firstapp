@@ -111,6 +111,8 @@ fun ShortsTabScreen(
                 },
                 posts = profilePosts,
                 shorts = profilePosts, // Filtered in ProfileView
+                mediaItems = profilePosts,
+                replies = profilePosts,
                 userViewModel = userViewModel,
                 mediaViewModel = mediaViewModel,
                 onNavigateToSharedMedia = { target ->

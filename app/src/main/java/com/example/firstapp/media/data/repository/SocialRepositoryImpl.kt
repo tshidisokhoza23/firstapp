@@ -370,6 +370,14 @@ class SocialRepositoryImpl @Inject constructor(
     }
 
     override fun viewPost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.viewPost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
+
+    override fun trackAdRevenue(postId: String, revenue: Double, adUnitId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            socialApi.trackAdRevenue(com.example.firstapp.media.data.api.AdRevenueRequest(postId, revenue, adUnitId))
+            emit(Resource.Success(true))
+        } catch (_: Exception) {}
+    }
+
     override fun deletePost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.deletePost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
 
     override fun getStoryViewers(storyId: String): Flow<Resource<List<com.example.firstapp.media.data.api.ApiViewer>>> = flow { emit(Resource.Loading()); try { val res = socialApi.getStoryViewers(storyId); if (res.isSuccessful) emit(Resource.Success(res.body()?.viewers ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Error")) } }

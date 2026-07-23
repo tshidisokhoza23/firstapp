@@ -1,0 +1,121 @@
+name: Unified CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+      - 'release/*'
+      - main
+    tags:
+      - 'v*-beta*'
+  workflow_dispatch:
+
+jobs:
+  sit-pipeline:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: sit-active-passive
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          
+      - name: Build Go Backend
+        run: |
+          cd ../firstappServer
+          GOOS=linux GOARCH=amd64 go build -o server ./cmd/api
+          
+      - name: Deploy to Passive SIT & Health Check
+        run: |
+          echo "Deploying to Passive SIT node..."
+          # Mock deployment and health check
+          # curl -f https://sit-passive-api.yourapp.com/healthz
+          
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Build SIT APK
+        run: ./gradlew assembleSitRelease --no-daemon
+
+  uat-pipeline:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    environment: uat-active-passive
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          
+      - name: Build Go Backend
+        run: |
+          cd ../firstappServer
+          GOOS=linux GOARCH=amd64 go build -o server ./cmd/api
+          
+      - name: Deploy to Passive UAT & Health Check
+        run: |
+          echo "Deploying to Passive UAT node..."
+          
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Build UAT APK
+        run: ./gradlew assembleUatRelease --no-daemon
+
+  beta-pipeline:
+    if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-beta')
+    runs-on: ubuntu-latest
+    environment: beta
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Build Beta APK/AAB
+        run: ./gradlew assembleBetaRelease --no-daemon
+
+  production-pipeline:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production-blue-green
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          
+      - name: Build Production Backend
+        run: |
+          cd ../firstappServer
+          go build -ldflags="-s -w" -o server ./cmd/api
+          
+      - name: Deploy to Green & Swap
+        run: |
+          echo "Deploying to Green target..."
+          # Health check then swap
+          
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Build Production AAB
+        run: ./gradlew bundleProdRelease --no-daemon

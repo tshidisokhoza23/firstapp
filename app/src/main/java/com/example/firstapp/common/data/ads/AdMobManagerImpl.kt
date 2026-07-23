@@ -21,10 +21,14 @@ class AdMobManagerImpl : AdManager {
         context: Context,
         adUnitId: String,
         onAdLoaded: (Any) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        onAdRevenuePaid: ((Double) -> Unit)?
     ) {
         val adLoader = AdLoader.Builder(context, adUnitId)
             .forNativeAd { nativeAd ->
+                nativeAd.setOnPaidEventListener { value ->
+                    onAdRevenuePaid?.invoke(value.valueMicros / 1000000.0)
+                }
                 onAdLoaded(nativeAd)
             }
             .withAdListener(object : AdListener() {
@@ -42,7 +46,8 @@ class AdMobManagerImpl : AdManager {
         context: Context,
         adUnitId: String,
         onAdLoaded: (Any) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        onAdRevenuePaid: ((Double) -> Unit)?
     ) {
         val videoOptions = VideoOptions.Builder()
             .setStartMuted(true)
@@ -56,6 +61,9 @@ class AdMobManagerImpl : AdManager {
 
         val adLoader = AdLoader.Builder(context, adUnitId)
             .forNativeAd { nativeAd ->
+                nativeAd.setOnPaidEventListener { value ->
+                    onAdRevenuePaid?.invoke(value.valueMicros / 1000000.0)
+                }
                 onAdLoaded(nativeAd)
             }
             .withAdListener(object : AdListener() {

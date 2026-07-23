@@ -27,6 +27,10 @@ fun MediaTabScreen(
     val currentUser by userViewModel.currentUser.collectAsState()
     val pagedPosts = uiState.posts.collectAsLazyPagingItems()
 
+    LaunchedEffect(Unit) {
+        mediaViewModel.loadFeed("media")
+    }
+
     LaunchedEffect(currentUser?.id) {
         if (currentUser == null) {
             userViewModel.fetchCurrentUser()
@@ -54,7 +58,7 @@ fun MediaTabScreen(
             onBookmarkReply = { mediaViewModel.bookmarkPostReply(it) }, 
             onViewPost = { mediaViewModel.viewPost(it) }, 
             onProfileViewChange = { /* Handle internal profile view if needed */ }, 
-            onGetUserPosts = { userId -> mediaViewModel.getUserPosts(userId) },
+            onGetUserPosts = { userId, type -> mediaViewModel.getUserPosts(userId, type) },
             userViewModel = userViewModel,
             mediaViewModel = mediaViewModel,
             onPlaySong = { s, q -> musicViewModel.playSong(s, q) }, 
@@ -71,6 +75,7 @@ fun MediaTabScreen(
                     popUpTo(0) { inclusive = true }
                 }
             },
+            onAdRevenueLogged = { pid, rev, uid -> mediaViewModel.onAdRevenueLogged(pid, rev, uid) },
             onShortClick = { short ->
                 // REQUIREMENT: Universal Entry Point for shorts
                 navController.navigate(Screen.Main.createRoute(tab = "shorts", shortId = short.id))

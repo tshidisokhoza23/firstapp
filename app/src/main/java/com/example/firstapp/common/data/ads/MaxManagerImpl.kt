@@ -31,7 +31,8 @@ class MaxManagerImpl : AdManager {
         context: Context,
         adUnitId: String,
         onAdLoaded: (Any) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        onAdRevenuePaid: ((Double) -> Unit)?
     ) {
         val nativeAdLoader = MaxNativeAdLoader(adUnitId, context)
         nativeAdLoader.setNativeAdListener(object : MaxNativeAdListener() {
@@ -43,6 +44,9 @@ class MaxManagerImpl : AdManager {
                 onAdFailed(error.message)
             }
         })
+        nativeAdLoader.setRevenueListener { ad ->
+            onAdRevenuePaid?.invoke(ad.revenue)
+        }
         nativeAdLoader.loadAd()
     }
 
@@ -50,9 +54,10 @@ class MaxManagerImpl : AdManager {
         context: Context,
         adUnitId: String,
         onAdLoaded: (Any) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        onAdRevenuePaid: ((Double) -> Unit)?
     ) {
-        loadNativeAd(context, adUnitId, onAdLoaded, onAdFailed)
+        loadNativeAd(context, adUnitId, onAdLoaded, onAdFailed, onAdRevenuePaid)
     }
 
     override fun loadBannerAd(

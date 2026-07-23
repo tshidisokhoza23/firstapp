@@ -56,6 +56,8 @@ fun ProfileView(
     onBack: () -> Unit,
     posts: LazyPagingItems<Post>,
     shorts: LazyPagingItems<Post>,
+    mediaItems: LazyPagingItems<Post>,
+    replies: LazyPagingItems<Post>,
     userViewModel: UserViewModel,
     mediaViewModel: MediaViewModel,
     adManager: com.example.firstapp.common.data.ads.AdManager,
@@ -407,16 +409,52 @@ fun ProfileView(
                         }
                     }
                     "Media" -> {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                                Text("No media items yet", color = AppTextSecondary)
+                        items(
+                            count = mediaItems.itemCount,
+                            key = mediaItems.itemKey { it.id }
+                        ) { index ->
+                            val post = mediaItems[index]
+                            if (post != null) {
+                                PostItem(
+                                    adManager = adManager,
+                                    post = post,
+                                    isOwnPost = post.authorId == currentUser?.id,
+                                    onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                    onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
+                                    onRepostClick = { /* showRepostOptions = it */ },
+                                    onBookmark = { mediaViewModel.bookmarkPost(post.id) },
+                                    onDelete = { mediaViewModel.deletePost(post.id) },
+                                    onReplyClick = { onNavigateToMediaViewer(post.id, "post") },
+                                    onProfileClick = {},
+                                    onPlaySong = { _, _ -> },
+                                    onVotePoll = { _ -> }
+                                )
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                             }
                         }
                     }
                     "Replies" -> {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                                Text("No replies yet", color = AppTextSecondary)
+                        items(
+                            count = replies.itemCount,
+                            key = replies.itemKey { it.id }
+                        ) { index ->
+                            val post = replies[index]
+                            if (post != null) {
+                                PostItem(
+                                    adManager = adManager,
+                                    post = post,
+                                    isOwnPost = post.authorId == currentUser?.id,
+                                    onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                    onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
+                                    onRepostClick = { /* showRepostOptions = it */ },
+                                    onBookmark = { mediaViewModel.bookmarkPost(post.id) },
+                                    onDelete = { mediaViewModel.deletePost(post.id) },
+                                    onReplyClick = { onNavigateToMediaViewer(post.id, "post") },
+                                    onProfileClick = {},
+                                    onPlaySong = { _, _ -> },
+                                    onVotePoll = { _ -> }
+                                )
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                             }
                         }
                     }

@@ -44,6 +44,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -88,6 +91,27 @@ fun ShortItem(
     var showHeartAnimation by remember { mutableStateOf(false) }
     var heartOffset by remember { mutableStateOf(Offset.Zero) }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isAppInBackground by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    isAppInBackground = true
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    isAppInBackground = false
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val exoPlayer: androidx.media3.exoplayer.ExoPlayer? = remember(videoUrl, isVisible) {
         if (isVisible && videoUrl != null) {
             ShortsVideoCache.acquirePlayer(context, videoUrl).apply {
@@ -131,8 +155,8 @@ fun ShortItem(
         exoPlayer?.volume = if (isMuted) 0f else 1f
     }
 
-    LaunchedEffect(isPlaying) {
-        exoPlayer?.playWhenReady = isPlaying
+    LaunchedEffect(isPlaying, isAppInBackground) {
+        exoPlayer?.playWhenReady = isPlaying && !isAppInBackground
     }
 
     DisposableEffect(exoPlayer, videoUrl) {
@@ -323,12 +347,12 @@ fun ShortItem(
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 32.dp, end = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(contentAlignment = Alignment.BottomCenter) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(38.dp)
                             .border(1.dp, Color.White, CircleShape)
                             .padding(1.dp)
                             .clip(CircleShape)
@@ -348,15 +372,15 @@ fun ShortItem(
                             contentDescription = null,
                             tint = AppAccent,
                             modifier = Modifier
-                                .size(20.dp)
-                                .offset(y = 10.dp)
+                                .size(14.dp)
+                                .offset(y = 6.dp)
                                 .background(Color.White, CircleShape)
                                 .clickable { onSubscribeClick(short.id) }
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 val haptic = LocalHapticFeedback.current
                 ShortActionButton(
@@ -609,7 +633,7 @@ fun ShortActionButton(
             imageVector = icon,
             contentDescription = null,
             tint = iconColor,
-            modifier = Modifier.size(34.dp)
+            modifier = Modifier.size(28.dp)
                 .shadow(elevation = if (isPressed) 0.dp else 2.dp, shape = CircleShape)
         )
         if (text.isNotEmpty()) {

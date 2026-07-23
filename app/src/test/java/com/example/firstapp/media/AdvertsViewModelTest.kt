@@ -1,6 +1,6 @@
 package com.example.firstapp.media
 
-import com.example.firstapp.media.ads.AdManager
+import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.media.domain.repository.AdRepository
 import com.example.firstapp.media.ui.viewmodel.AdvertsViewModel
 import com.example.firstapp.vocab.domain.repository.UserRepository

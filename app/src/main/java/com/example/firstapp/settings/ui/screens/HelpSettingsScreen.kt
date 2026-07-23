@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.firstapp.common.ui.components.DeveloperDiagnosticsSheet
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.settings.ui.viewmodel.HelpSettingsViewModel
 
@@ -32,6 +33,33 @@ fun HelpSettingsScreen(
     viewModel: HelpSettingsViewModel = hiltViewModel()
 ) {
     val appVersion by viewModel.appVersion.collectAsState()
+    
+    var tapCount by remember { mutableStateOf(0) }
+    var lastTapTime by remember { mutableStateOf(0L) }
+    var showDeveloperDiagnostics by remember { mutableStateOf(false) }
+
+    val onAppInfoClick = {
+        if (com.example.firstapp.BuildConfig.ENABLE_DEV_SWITCH) {
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastTapTime < 3000) {
+                tapCount++
+                if (tapCount >= 5) {
+                    showDeveloperDiagnostics = true
+                    tapCount = 0
+                }
+            } else {
+                tapCount = 1
+            }
+            lastTapTime = currentTime
+        }
+    }
+
+    if (showDeveloperDiagnostics) {
+        DeveloperDiagnosticsSheet(
+            envManager = viewModel.envManager,
+            onDismiss = { showDeveloperDiagnostics = false }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -58,17 +86,17 @@ fun HelpSettingsScreen(
             HelpItem(Icons.AutoMirrored.Filled.Help, "Help Center", "Get answers, contact us")
             HelpItem(Icons.Default.Group, "Contact us", "Questions? Need help?")
             HelpItem(Icons.Default.Description, "Terms and Privacy Policy", "")
-            HelpItem(Icons.Default.Info, "App info", "Version $appVersion")
+            HelpItem(Icons.Default.Info, "App info", "Version $appVersion", onClick = onAppInfoClick)
         }
     }
 }
 
 @Composable
-fun HelpItem(icon: ImageVector, title: String, subtitle: String) {
+fun HelpItem(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* Action */ }
+            .clickable { onClick() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

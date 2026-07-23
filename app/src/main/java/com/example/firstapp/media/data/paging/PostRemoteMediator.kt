@@ -52,20 +52,28 @@ class PostRemoteMediator(
             android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId")
             
             val apiPosts = if (!following && authorId == null) {
-                if (feedType == "short") {
-                    val response = socialApi.getShorts(page = page)
-                    ensureSuccessful(response)
-                    response.body()?.map { mapApiPost(it) } ?: emptyList()
-                } else {
-                    // Use new feed injection endpoint
-                    val limit = state.config.pageSize
-                    val offset = (page - 1) * limit
-                    val response = socialApi.getFeed(limit = limit, offset = offset)
-                    ensureSuccessful(response)
-                    mapMediaFeedItems(response.body()?.items ?: emptyList())
+                // ... logic for general feeds ...
+                when (feedType) {
+                    "short" -> {
+                        val response = socialApi.getShorts(page = page)
+                        ensureSuccessful(response)
+                        response.body()?.map { mapApiPost(it) } ?: emptyList()
+                    }
+                    "media" -> {
+                        val response = socialApi.getMediaFeed(page = page)
+                        ensureSuccessful(response)
+                        response.body()?.map { mapApiPost(it) } ?: emptyList()
+                    }
+                    else -> {
+                        val limit = state.config.pageSize
+                        val offset = (page - 1) * limit
+                        val response = socialApi.getFeed(limit = limit, offset = offset)
+                        ensureSuccessful(response)
+                        mapMediaFeedItems(response.body()?.items ?: emptyList())
+                    }
                 }
             } else {
-                val response = socialApi.getPosts(page = page, following = following, authorId = authorId)
+                val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = feedType)
                 ensureSuccessful(response)
                 response.body()?.map { mapApiPost(it) } ?: emptyList()
             }
