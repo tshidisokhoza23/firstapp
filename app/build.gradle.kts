@@ -26,7 +26,6 @@ android {
     productFlavors {
         create("sit") {
             dimension = "environment"
-            applicationIdSuffix = ".sit"
             buildConfigField("String", "ACTIVE_API_URL", "\"https://sit-active-api.yourapp.com\"")
             buildConfigField("String", "PASSIVE_API_URL", "\"https://sit-passive-api.yourapp.com\"")
             buildConfigField("String", "API_BASE_URL", "\"https://sit-active-api.yourapp.com\"")
@@ -35,7 +34,6 @@ android {
         }
         create("uat") {
             dimension = "environment"
-            applicationIdSuffix = ".uat"
             buildConfigField("String", "ACTIVE_API_URL", "\"https://uat-active-api.yourapp.com\"")
             buildConfigField("String", "PASSIVE_API_URL", "\"https://uat-passive-api.yourapp.com\"")
             buildConfigField("String", "API_BASE_URL", "\"https://uat-active-api.yourapp.com\"")
@@ -44,7 +42,6 @@ android {
         }
         create("beta") {
             dimension = "environment"
-            applicationIdSuffix = ".beta"
             buildConfigField("String", "ACTIVE_API_URL", "\"https://api-blue.yourapp.com\"")
             buildConfigField("String", "PASSIVE_API_URL", "\"https://api-green.yourapp.com\"")
             buildConfigField("String", "API_BASE_URL", "\"https://api-blue.yourapp.com\"")
