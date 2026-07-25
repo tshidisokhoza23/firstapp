@@ -118,13 +118,6 @@ fun OtpVerificationScreen(
             modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
         )
 
-        Text(
-            text = "Test users: use OTP 123456",
-            fontSize = 13.sp,
-            color = AppAccent,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
         if (errorMessage != null) {
             Text(text = errorMessage, color = Color.Red, modifier = Modifier.padding(bottom = 16.dp))
         }

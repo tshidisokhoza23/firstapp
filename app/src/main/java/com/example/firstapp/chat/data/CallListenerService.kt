@@ -65,7 +65,8 @@ class CallListenerService : Service() {
                 return
             }
 
-            when (event.type) {
+            val type = event.type ?: return
+            when (type) {
                 "call_invite" -> {
                     if (event.receiverId == currentUserId) {
                         if (GlobalCallState.isCallActive.value) {

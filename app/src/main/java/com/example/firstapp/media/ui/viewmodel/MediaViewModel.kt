@@ -23,7 +23,8 @@ import java.util.Locale
 @HiltViewModel
 class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val adManager: com.example.firstapp.common.data.ads.AdManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
@@ -48,6 +49,36 @@ class MediaViewModel @Inject constructor(
     init {
         loadFeed("standard")
         connectPostRealtime()
+    }
+
+    private val _preloadedAds = MutableStateFlow<List<Any>>(emptyList())
+    val preloadedAds: StateFlow<List<Any>> = _preloadedAds.asStateFlow()
+
+    private val _adsLoaded = MutableStateFlow(false)
+    val adsLoaded: StateFlow<Boolean> = _adsLoaded.asStateFlow()
+
+    init {
+        preloadAds()
+        loadFeed("standard")
+        connectPostRealtime()
+    }
+
+    private fun preloadAds() {
+        viewModelScope.launch {
+            val context = com.example.firstapp.common.util.ContextProvider.context
+            adManager.loadNativeAds(
+                context = context,
+                adUnitId = "ca-app-pub-3940256099942544/2247696110",
+                count = 8, // 30 posts / 4 = 7.5 -> 8 ads
+                onAdsLoaded = { ads ->
+                    _preloadedAds.value = ads
+                    _adsLoaded.value = true
+                },
+                onAdFailed = {
+                    _adsLoaded.value = true // Continue anyway
+                }
+            )
+        }
     }
 
     private var currentFeedType: String? = null

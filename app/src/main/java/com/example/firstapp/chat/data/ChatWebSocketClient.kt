@@ -93,7 +93,7 @@ object ChatWebSocketClient {
 }
 
 data class WsResponse(
-    val type: String,
+    val type: String?,
     val message: Any? = null,
     val conversation_id: String? = null,
     val user_id: String? = null,

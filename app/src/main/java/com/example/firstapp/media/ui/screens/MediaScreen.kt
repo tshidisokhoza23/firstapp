@@ -195,6 +195,9 @@ fun MediaScreen(
         }
     }
 
+    val preloadedAds by mediaViewModel.preloadedAds.collectAsState()
+    val adsLoaded by mediaViewModel.adsLoaded.collectAsState()
+
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         androidx.activity.compose.BackHandler(
             enabled = selectedPost != null || showProfile || showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null
@@ -362,6 +365,8 @@ fun MediaScreen(
                             MainFeedSection(
                                 adManager = adManager,
                                 posts = posts,
+                                preloadedAds = preloadedAds,
+                                adsLoaded = adsLoaded,
                                 ownProfileId = ownProfileId,
                                 onPostClick = onPostSelect,
                                 onLike = onLikePost,
@@ -456,6 +461,8 @@ fun MediaScreen(
 fun MainFeedSection(
     adManager: AdManager,
     posts: LazyPagingItems<Post>,
+    preloadedAds: List<Any>,
+    adsLoaded: Boolean,
     ownProfileId: String,
     onPostClick: (Post) -> Unit,
     onLike: (String, Long, Boolean) -> Unit,
@@ -518,39 +525,55 @@ fun MainFeedSection(
             ) { index ->
                 val post = posts[index]
                 if (post != null) {
-                        PostItem(
-                            adManager = adManager,
-                            post = post,
-                            isOwnPost = post.authorId == ownProfileId,
-                            showThreadLine = post.hasThread,
-                            isLastInThread = true,
-                            onClick = { onPostClick(post) },
-                            onLike = { id, likes, liked -> onLike(id, likes, liked) },
-                            onRepostClick = { p -> onRepostClick(p) },
-                            onBookmark = { id -> onBookmark(id) },
-                            onDelete = { id -> onDeletePost(id) },
-                            onReplyClick = { p, r -> onReplyClick(p, r) },
-                            onProfileClick = { u -> onProfileClick(u) },
-                            onPlaySong = onPlaySong,
-                            onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
-                            onMediaClick = onMediaClick
-                        )
+                    PostItem(
+                        adManager = adManager,
+                        post = post,
+                        isOwnPost = post.authorId == ownProfileId,
+                        showThreadLine = post.hasThread,
+                        isLastInThread = true,
+                        onClick = { onPostClick(post) },
+                        onLike = { id, likes, liked -> onLike(id, likes, liked) },
+                        onRepostClick = { p -> onRepostClick(p) },
+                        onBookmark = { id -> onBookmark(id) },
+                        onDelete = { id -> onDeletePost(id) },
+                        onReplyClick = { p, r -> onReplyClick(p, r) },
+                        onProfileClick = { u -> onProfileClick(u) },
+                        onPlaySong = onPlaySong,
+                        onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
+                        onMediaClick = onMediaClick
+                    )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
 
                     // REQUIREMENT: Inject 1 native ad unit every 4 content posts
                     if ((index + 1) % 4 == 0) {
-                        DynamicAdCard(
-                            adManager = adManager,
-                            adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            onAdRevenuePaid = { rev ->
-                                // Attribute to adjacent post (the one at 'index')
-                                onAdRevenueLogged(post.id, rev, "main_feed")
-                            }
-                        )
+                        val adIndex = (index + 1) / 4 - 1
+                        if (adIndex < preloadedAds.size) {
+                            com.example.firstapp.common.ui.components.StaticAdCard(
+                                nativeAd = preloadedAds[adIndex],
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        } else {
+                            DynamicAdCard(
+                                adManager = adManager,
+                                adUnitId = "ca-app-pub-3940256099942544/2247696110",
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                onAdRevenuePaid = { rev ->
+                                    onAdRevenueLogged(post.id, rev, "main_feed")
+                                }
+                            )
+                        }
                         HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
                     }
                 }
+            }
+            
+            // Block fetching more until first 30 posts and ads are loaded
+            if (posts.itemCount >= 30 && !adsLoaded) {
+                 item {
+                     Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                         CircularProgressIndicator(color = AppPrimary)
+                     }
+                 }
             }
         }
     }

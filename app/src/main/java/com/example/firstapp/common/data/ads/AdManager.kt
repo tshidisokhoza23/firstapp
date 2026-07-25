@@ -59,5 +59,13 @@ interface AdManager {
         onAdClosed: () -> Unit
     )
 
+    fun loadNativeAds(
+        context: Context,
+        adUnitId: String,
+        count: Int,
+        onAdsLoaded: (List<Any>) -> Unit,
+        onAdFailed: (String) -> Unit
+    )
+
     fun destroyAd(adObject: Any?)
 }

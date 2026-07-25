@@ -24,6 +24,10 @@ class PostPagingSource(
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Post> {
         val position = params.key ?: 1
+        
+        // Custom logic to wait if needed can't be easily done here without a reference to the ad status.
+        // But we can ensure the first load is large enough or subsequent loads are triggered carefully.
+
         return try {
             val response = if (feedType == "short" && authorId == null) {
                 socialApi.getShorts(page = position)

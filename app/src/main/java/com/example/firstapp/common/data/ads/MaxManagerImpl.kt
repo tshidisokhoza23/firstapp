@@ -144,6 +144,17 @@ class MaxManagerImpl : AdManager {
         }
     }
 
+    override fun loadNativeAds(
+        context: Context,
+        adUnitId: String,
+        count: Int,
+        onAdsLoaded: (List<Any>) -> Unit,
+        onAdFailed: (String) -> Unit
+    ) {
+        // Implementation for MAX preloading
+        onAdsLoaded(emptyList())
+    }
+
     override fun destroyAd(adObject: Any?) {
         // Destroy logic
     }

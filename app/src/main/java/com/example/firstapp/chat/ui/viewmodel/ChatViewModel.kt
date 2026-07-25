@@ -185,7 +185,7 @@ class ChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             ChatWebSocketClient.eventFlow.collect { event ->
-                val type = event.type
+                val type = event.type ?: return@collect
                 val uid = event.user_id
                 val cid = event.conversation_id
                 

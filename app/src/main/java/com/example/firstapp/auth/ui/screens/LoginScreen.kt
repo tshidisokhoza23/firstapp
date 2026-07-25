@@ -126,15 +126,21 @@ fun LoginScreen(
         }
 
         if (isSignUp) {
-            if (cleanUsername.isNotBlank() && cleanUsername.length < 3) {
+            if (cleanUsername.isBlank()) {
+                viewModel.setFieldError("username", "Username is required")
+                hasError = true
+            } else if (cleanUsername.length < 3) {
                 viewModel.setFieldError("username", "Username must be at least 3 characters")
                 hasError = true
-            } else if (cleanUsername.isNotBlank() && !cleanUsername.matches(Regex("^[a-z0-9._]*$"))) {
+            } else if (!cleanUsername.matches(Regex("^[a-z0-9._]*$"))) {
                 viewModel.setFieldError("username", "Username can only contain lowercase letters, numbers, dots and underscores")
                 hasError = true
             }
 
-            if (cleanPassword.isNotBlank() && cleanPassword.length < 8) {
+            if (cleanPassword.isBlank()) {
+                viewModel.setFieldError("password", "Password is required")
+                hasError = true
+            } else if (cleanPassword.length < 8) {
                 viewModel.setFieldError("password", "Password must be at least 8 characters")
                 hasError = true
             }

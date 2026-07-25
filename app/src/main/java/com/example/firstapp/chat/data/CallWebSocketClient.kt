@@ -30,7 +30,7 @@ enum class CallType {
 }
 
 data class CallEvent(
-    val type: String,
+    val type: String?,
     val senderId: String,
     val receiverId: String,
     val sessionId: String,

@@ -174,6 +174,38 @@ class AdMobManagerImpl : AdManager {
         }
     }
 
+    override fun loadNativeAds(
+        context: Context,
+        adUnitId: String,
+        count: Int,
+        onAdsLoaded: (List<Any>) -> Unit,
+        onAdFailed: (String) -> Unit
+    ) {
+        val loadedAds = mutableListOf<NativeAd>()
+        var failedCount = 0
+        
+        val adLoader = AdLoader.Builder(context, adUnitId)
+            .forNativeAd { nativeAd ->
+                loadedAds.add(nativeAd)
+                if (loadedAds.size + failedCount == count) {
+                    onAdsLoaded(loadedAds)
+                }
+            }
+            .withAdListener(object : AdListener() {
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    failedCount++
+                    if (loadedAds.size + failedCount == count) {
+                        onAdsLoaded(loadedAds)
+                    }
+                }
+            })
+            .build()
+
+        repeat(count) {
+            adLoader.loadAd(AdRequest.Builder().build())
+        }
+    }
+
     override fun destroyAd(adObject: Any?) {
         when (adObject) {
             is NativeAd -> adObject.destroy()
