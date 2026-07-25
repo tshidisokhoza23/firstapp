@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -58,7 +59,7 @@ fun ChatItemShimmer() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         ShimmerEffect(
             modifier = Modifier
@@ -118,15 +119,80 @@ fun PostItemShimmer() {
 }
 
 @Composable
+fun MediaAdShimmer() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            ShimmerEffect(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.3f)
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .width(30.dp)
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    ShimmerEffect(modifier = Modifier.width(80.dp).height(32.dp).clip(RoundedCornerShape(16.dp)))
+                    Row {
+                        for (i in 0..3) {
+                            ShimmerEffect(modifier = Modifier.size(18.dp).clip(CircleShape))
+                            if (i < 3) Spacer(modifier = Modifier.width(20.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ShortsAdShimmer() {
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         Column(
             modifier = Modifier
-                .align(androidx.compose.ui.Alignment.BottomStart)
+                .align(Alignment.BottomStart)
                 .padding(20.dp)
                 .fillMaxWidth()
         ) {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 ShimmerEffect(modifier = Modifier.size(40.dp).clip(CircleShape))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {

@@ -46,22 +46,24 @@ fun AppNavigation(
         composable(
             route = "main?tab={tab}&shortId={shortId}",
             arguments = listOf(
-                navArgument("tab") { defaultValue = "home" },
+                navArgument("tab") { defaultValue = "" },
                 navArgument("shortId") { defaultValue = "" }
             )
         ) { backStackEntry ->
-            val initialTab = backStackEntry.arguments?.getString("tab") ?: "home"
+            val tabArg = backStackEntry.arguments?.getString("tab")
             val shortId = backStackEntry.arguments?.getString("shortId")
             
-            LaunchedEffect(initialTab) {
-                val tabIndex = when(initialTab) {
-                    "media" -> 1
-                    "shorts" -> 2
-                    "music" -> 3
-                    "drive" -> 4
-                    else -> 0
+            LaunchedEffect(tabArg) {
+                if (tabArg != null && tabArg.length > 0) {
+                    val tabIndex = when(tabArg) {
+                        "media" -> 1
+                        "shorts" -> 2
+                        "music" -> 3
+                        "drive" -> 4
+                        else -> 0
+                    }
+                    viewModel.setSelectedBottomItem(tabIndex)
                 }
-                viewModel.setSelectedBottomItem(tabIndex)
             }
 
             MainScreen(

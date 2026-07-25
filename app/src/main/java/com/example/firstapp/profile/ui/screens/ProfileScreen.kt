@@ -37,15 +37,15 @@ import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.common.util.MediaUtils
-import com.example.firstapp.media.ui.screens.PostItem
+import com.example.firstapp.media.ui.components.PostItem
 import com.example.firstapp.common.util.Resource
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.paging.LoadState
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.profile.model.WorkExperience
 import java.util.ArrayList
-import kotlin.collections.emptyList
-import kotlin.collections.forEachIndexed
+import kotlin.collections.*
+import kotlin.ranges.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,13 +72,16 @@ fun ProfileView(
     val context = LocalContext.current
     val isLoggedIn by TokenManager.authState.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
-    val normalizedUserId = if (userId != null && userId.isNotEmpty()) userId else null
-    val isMyProfile = normalizedUserId == null || normalizedUserId == currentUser?.id
-    var remoteUser by remember(normalizedUserId, isMyProfile) { mutableStateOf<User?>(null) }
-    var profileRefreshNonce by remember(normalizedUserId, isMyProfile) { mutableIntStateOf(0) }
+    val normalizedUserId = remember(userId) { if (userId != null && userId.length > 0) userId else null }
+    val isMyProfile = remember(normalizedUserId, currentUser?.id) { 
+        normalizedUserId == null || normalizedUserId == currentUser?.id 
+    }
+    
+    var remoteUser by remember(normalizedUserId) { mutableStateOf<User?>(null) }
+    var profileRefreshNonce by remember(normalizedUserId) { mutableIntStateOf(0) }
     var isFollowUpdating by remember(userId) { mutableStateOf(false) }
 
-    LaunchedEffect(isLoggedIn, currentUser?.id) {
+    LaunchedEffect(isLoggedIn) {
         if (isLoggedIn && currentUser == null) {
             userViewModel.fetchCurrentUser()
         }
@@ -90,21 +93,28 @@ fun ProfileView(
         }
     }
     
-    LaunchedEffect(isLoggedIn, normalizedUserId, isMyProfile, profileRefreshNonce) {
+    LaunchedEffect(isLoggedIn, normalizedUserId, profileRefreshNonce) {
         if (!isLoggedIn) {
             remoteUser = null
-        } else if (!isMyProfile && normalizedUserId != null) {
+        } else if (normalizedUserId != null) {
+            // Fetch remote user even if we think it's us, to get fresh data
+            // but we only display it if isMyProfile is false or currentUser is null
             userViewModel.getUserById(normalizedUserId).collect { resource ->
                 if (resource is Resource.Success) {
                     remoteUser = resource.data
                 }
             }
-        } else {
-            remoteUser = null
         }
     }
 
-    val user = if (isMyProfile) currentUser else remoteUser
+    // Stabilize user object to prevent flickers between remote and local
+    val user = remember(isMyProfile, currentUser, remoteUser) {
+        if (isMyProfile) {
+            currentUser ?: remoteUser
+        } else {
+            remoteUser
+        }
+    }
 
     if (!isLoggedIn) {
         return
@@ -175,7 +185,7 @@ fun ProfileView(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 if (user != null) {
-                                    val nameToShow = if (user.displayName != null && user.displayName.isNotEmpty()) user.displayName else "No Name"
+                                    val nameToShow = if (user.displayName != null && user.displayName.length > 0) user.displayName else "No Name"
                                     Text(
                                         text = nameToShow,
                                         color = Color.White,
@@ -196,7 +206,7 @@ fun ProfileView(
                             }
 
                             AsyncImage(
-                                model = user?.avatarUrl,
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(user?.avatarUrl),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(72.dp)
@@ -208,11 +218,13 @@ fun ProfileView(
                                             onNavigateToMediaViewer(url, "image")
                                         }
                                     },
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Crop,
+                                error = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary),
+                                fallback = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary)
                             )
                         }
 
-                        if (user?.bio != null && user.bio!!.isNotEmpty()) {
+                        if (user?.bio != null && user.bio!!.length > 0) {
                             Text(
                                 text = user.bio!!,
                                 color = Color.White,
@@ -253,7 +265,7 @@ fun ProfileView(
                                 fontSize = 14.sp
                             )
 
-                            if (user?.location != null && user.location!!.isNotEmpty()) {
+                            if (user?.location != null && user.location!!.length > 0) {
                                 Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.LocationOn, null, tint = AppTextSecondary, modifier = Modifier.size(14.dp))
@@ -347,7 +359,8 @@ fun ProfileView(
                             }
                         }
                     ) {
-                        tabs.forEachIndexed { idx, title ->
+                        for (idx in 0..tabs.size - 1) {
+                            val title = tabs[idx]
                             Tab(
                                 selected = safeSelectedTabIndex == idx,
                                 onClick = { selectedTabIndex = idx },
@@ -377,14 +390,14 @@ fun ProfileView(
                                     post = post,
                                     isOwnPost = post.authorId == currentUser?.id,
                                     onClick = { onNavigateToMediaViewer(post.id, "post") },
-                                    onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
-                                    onRepostClick = { /* mediaViewModel.repostPost(post.id) */ },
-                                    onBookmark = { mediaViewModel.bookmarkPost(post.id) },
+                                    onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                                    onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                    onBookmark = { mediaViewModel.bookmarkPost(it) },
                                     onDelete = { mediaViewModel.deletePost(post.id) },
-                                    onReplyClick = { onNavigateToMediaViewer(post.id, "post") },
+                                    onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
                                     onProfileClick = {},
                                     onPlaySong = { _, _ -> },
-                                    onVotePoll = { _ -> }
+                                    onVotePoll = { pid, oid -> }
                                 )
                                 HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                             }
@@ -398,7 +411,7 @@ fun ProfileView(
                                 }
                             }
                         } else {
-                            items(workExperiences) { experience ->
+                            items(workExperiences, key = { it.id ?: it.hashCode() }) { experience ->
                                 WorkExperienceItem(
                                     experience = experience,
                                     isMyProfile = isMyProfile,
@@ -420,14 +433,14 @@ fun ProfileView(
                                     post = post,
                                     isOwnPost = post.authorId == currentUser?.id,
                                     onClick = { onNavigateToMediaViewer(post.id, "post") },
-                                    onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
-                                    onRepostClick = { /* showRepostOptions = it */ },
-                                    onBookmark = { mediaViewModel.bookmarkPost(post.id) },
+                                    onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                                    onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                    onBookmark = { mediaViewModel.bookmarkPost(it) },
                                     onDelete = { mediaViewModel.deletePost(post.id) },
-                                    onReplyClick = { onNavigateToMediaViewer(post.id, "post") },
+                                    onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
                                     onProfileClick = {},
                                     onPlaySong = { _, _ -> },
-                                    onVotePoll = { _ -> }
+                                    onVotePoll = { pid, oid -> }
                                 )
                                 HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                             }
@@ -445,14 +458,14 @@ fun ProfileView(
                                     post = post,
                                     isOwnPost = post.authorId == currentUser?.id,
                                     onClick = { onNavigateToMediaViewer(post.id, "post") },
-                                    onLike = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) },
-                                    onRepostClick = { /* showRepostOptions = it */ },
-                                    onBookmark = { mediaViewModel.bookmarkPost(post.id) },
+                                    onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                                    onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                    onBookmark = { mediaViewModel.bookmarkPost(it) },
                                     onDelete = { mediaViewModel.deletePost(post.id) },
-                                    onReplyClick = { onNavigateToMediaViewer(post.id, "post") },
+                                    onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
                                     onProfileClick = {},
                                     onPlaySong = { _, _ -> },
-                                    onVotePoll = { _ -> }
+                                    onVotePoll = { pid, oid -> }
                                 )
                                 HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                             }
@@ -462,7 +475,7 @@ fun ProfileView(
                         val rowCount = (shorts.itemCount + 2) / 3
                         items(rowCount) { rowIndex ->
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                for (colIndex in 0 until 3) {
+                                for (colIndex in 0..2) {
                                     val index = rowIndex * 3 + colIndex
                                     if (index < shorts.itemCount) {
                                         val short = shorts[index]
@@ -540,7 +553,7 @@ private fun ShortGridItem(post: Post, onShortClick: (Post) -> Unit) {
             .background(post.mediaPlaceholderColor ?: Color.Black)
             .clickable { onShortClick(post) }
     ) {
-        val model = if (post.thumbnailUrl != null && post.thumbnailUrl.isNotEmpty()) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
+        val model = if (post.thumbnailUrl != null && post.thumbnailUrl!!.length > 0) post.thumbnailUrl else if (post.mediaUrls.size > 0) post.mediaUrls[0] else null
         AsyncImage(
             model = model,
             contentDescription = null,

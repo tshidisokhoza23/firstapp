@@ -78,6 +78,8 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
     quoteCount = 0,
     type = when (apiPost.post_type) {
         "INTERNAL_AD" -> PostType.INTERNAL_AD
+        "NATIVE_AD" -> PostType.NATIVE_AD
+        "AD_UNIT" -> PostType.AD_UNIT
         else -> PostType.POST
     },
     repliesLocked = apiPost.replies_locked,
@@ -98,17 +100,18 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
     ad = apiPost.ad?.let { mapApiAdvert(it) }
 )
 
-fun mapApiPostReply(apiReply: ApiPostReply): PostReply = PostReply(
+fun mapApiPostReply(apiReply: ApiPostReply): Post = Post(
     id = apiReply.id ?: "", 
     authorId = apiReply.author_id ?: "",
     authorName = apiReply.author?.display_name ?: apiReply.author_id ?: "Unknown",
     authorHandle = apiReply.author?.username ?: "", 
     authorAvatarUrl = MediaUtils.formatUrl(apiReply.author?.avatar_url),
-    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
+    authorAvatarColor = AppPrimary,
     isVerifiedAuthor = apiReply.author?.is_verified ?: false, 
     content = apiReply.content ?: "",
     timestamp = apiReply.created_at?.toString() ?: "",
     likes = apiReply.likes, 
+    repliesCount = apiReply.nested_replies?.size?.toLong() ?: 0L,
     isLiked = apiReply.is_liked, 
     isReposted = apiReply.is_reposted, 
     isBookmarked = false, 
@@ -116,7 +119,7 @@ fun mapApiPostReply(apiReply: ApiPostReply): PostReply = PostReply(
         "INTERNAL_AD" -> PostType.INTERNAL_AD
         else -> PostType.POST
     },
-    nestedReplies = apiReply.nested_replies?.map { mapApiPostReply(it) } ?: emptyList(),
+    replies = apiReply.nested_replies?.map { mapApiPostReply(it) } ?: emptyList(),
     ad = apiReply.ad?.let { mapApiAdvert(it) }
 )
 
@@ -247,27 +250,27 @@ private fun formatTimeAgo(timestamp: Long): String {
     }
 }
 
-fun mapMediaReplyItems(items: List<com.example.firstapp.media.data.api.ApiReplyItem>): List<PostReply> = items.mapNotNull { item ->
-    item.reply?.let { mapApiMediaReply(it, "POST") }
+fun mapMediaReplyItems(items: List<com.example.firstapp.media.data.api.ApiReplyItem>): List<Post> = items.mapNotNull { item ->
+    item.reply?.let { mapApiMediaReplyToPost(it) }
 }
 
-private fun mapApiMediaReply(apiReply: ApiMediaReply, itemType: String): PostReply = PostReply(
+private fun mapApiMediaReplyToPost(apiReply: ApiMediaReply): Post = Post(
     id = apiReply.id ?: "",
     authorId = apiReply.user_id ?: "",
     authorName = apiReply.author_name ?: "User",
     authorHandle = apiReply.handle ?: "user",
     authorAvatarUrl = null,
-    authorAvatarColor = Color(0xFF90CAF9).toArgb(),
+    authorAvatarColor = AppPrimary,
     isVerifiedAuthor = false,
     content = apiReply.reply_text ?: "",
     timestamp = apiReply.created_at ?: "",
     likes = 0,
-    isLiked = false,
-    isReposted = false,
-    isBookmarked = false,
-    type = if (itemType == "INTERNAL_AD") PostType.INTERNAL_AD else PostType.POST,
-    nestedReplies = emptyList(),
-    ad = null
+    repliesCount = 0,
+    shares = 0,
+    views = 0,
+    quoteCount = 0,
+    type = PostType.POST,
+    updatedAt = apiReply.created_at
 )
 
 fun Post.toPostEntity() = PostEntity(

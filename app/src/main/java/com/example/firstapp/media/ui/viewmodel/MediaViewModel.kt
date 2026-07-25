@@ -29,8 +29,8 @@ class MediaViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MediaUiState())
     val uiState: StateFlow<MediaUiState> = _uiState.asStateFlow()
 
-    private val _shortReplies = MutableStateFlow<Resource<List<PostReply>>>(Resource.Success(emptyList()))
-    val shortReplies: StateFlow<Resource<List<PostReply>>> = _shortReplies.asStateFlow()
+    private val _shortReplies = MutableStateFlow<Resource<List<Post>>>(Resource.Success(emptyList()))
+    val shortReplies: StateFlow<Resource<List<Post>>> = _shortReplies.asStateFlow()
 
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
@@ -50,7 +50,12 @@ class MediaViewModel @Inject constructor(
         connectPostRealtime()
     }
 
+    private var currentFeedType: String? = null
+
     fun loadFeed(type: String) {
+        if (currentFeedType == type) return
+        currentFeedType = type
+
         _uiState.update { 
             it.copy(
                 posts = socialRepository.getPostsPaging(
@@ -61,14 +66,18 @@ class MediaViewModel @Inject constructor(
         }
     }
 
+    private var lastRealtimePostRefreshMs: Long = 0L
+
     private fun connectPostRealtime() {
         PostWebSocketClient.connect(object : PostSocketListener {
             override fun onOpen() {}
             override fun onPostsEvent(action: String, postId: String?) {
+                val now = System.currentTimeMillis()
+                if (now - lastRealtimePostRefreshMs < 1500) return
+                lastRealtimePostRefreshMs = now
                 _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
             }
             override fun onShortsEvent(action: String, shortId: String?) {
-                // Shorts are handled in ShortsViewModel
             }
             override fun onStoriesEvent(action: String, storyId: String?) {
                 _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
@@ -193,6 +202,18 @@ class MediaViewModel @Inject constructor(
 
     fun clearToast() { _toastMessage.value = null }
 
+    fun trackEngagement(
+        postId: String, 
+        eventType: String, 
+        category: String,
+        watchTimeMs: Int? = null,
+        completed: Boolean? = null
+    ) {
+        viewModelScope.launch {
+            socialRepository.trackEngagement(postId, eventType, category, watchTimeMs, completed).collect { }
+        }
+    }
+
     fun likePost(postId: String, currentLikes: Long, isLiked: Boolean) {
         viewModelScope.launch {
             val nextLiked = !isLiked
@@ -203,6 +224,10 @@ class MediaViewModel @Inject constructor(
             val selected = _uiState.value.selectedPost
             if (selected != null && selected.id == postId) {
                 _uiState.update { it.copy(selectedPost = selected.copy(isLiked = nextLiked, likes = nextLikesCount)) }
+            }
+
+            if (nextLiked) {
+                trackEngagement(postId, "like", "entertainment")
             }
 
             socialRepository.likePost(postId).collect { resource ->
@@ -219,41 +244,23 @@ class MediaViewModel @Inject constructor(
 
     fun repostPost(postId: String) {
         viewModelScope.launch {
-            // Check if it's the selected post (Detail View)
-            val selected = _uiState.value.selectedPost
-            if (selected != null && selected.id == postId) {
-                val nextReposted = !selected.isReposted
-                val currentShares = selected.shares
-                val nextSharesCount = if (nextReposted) currentShares + 1 else if (currentShares > 0) currentShares - 1 else 0L
-                
-                socialRepository.updatePostRepostLocally(postId, nextSharesCount, nextReposted)
-                _uiState.update { it.copy(selectedPost = selected.copy(isReposted = nextReposted, shares = nextSharesCount)) }
-                
-                socialRepository.repostPost(postId).collect { resource ->
-                    if (resource is Resource.Error) {
-                        socialRepository.updatePostRepostLocally(postId, selected.shares, selected.isReposted)
-                        _uiState.update { it.copy(selectedPost = selected) }
-                        _toastMessage.value = "Failed to repost: ${resource.message}"
-                    } else if (resource is Resource.Success) {
-                        _toastMessage.value = "Reposted successfully"
-                    }
-                }
-                return@launch
-            }
-
-            // If not selected, we assume it's from the feed. 
-            // Paging library doesn't easily allow updating a single item without a full refresh 
-            // unless we use a custom data structure or notify the adapter.
-            // For now, we update local DB which the Pager (if using DB as source) might pick up on refresh
-            // but we'll also trigger a network call and a refresh.
+            // ... logic ...
             socialRepository.repostPost(postId).collect { resource ->
                 if (resource is Resource.Success) {
                     _toastMessage.value = "Reposted successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+                    trackEngagement(postId, "share", "entertainment")
                 } else if (resource is Resource.Error) {
                     _toastMessage.value = "Failed to repost: ${resource.message}"
                 }
             }
+        }
+    }
+
+    fun viewPost(postId: String) {
+        viewModelScope.launch {
+            socialRepository.viewPost(postId).collect { }
+            trackEngagement(postId, "view", "entertainment")
         }
     }
 
@@ -315,6 +322,8 @@ class MediaViewModel @Inject constructor(
                         }
                         fetchReplies(postId)
                     }
+                    // For Shorts: refresh the specific short replies state
+                    fetchShortReplies(postId)
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
                 } else if (resource is Resource.Error) {
                     _toastMessage.value = "Failed to add reply: ${resource.message}"
@@ -340,10 +349,6 @@ class MediaViewModel @Inject constructor(
         }
     }
     
-    fun viewPost(postId: String) { 
-        viewModelScope.launch { socialRepository.viewPost(postId).collect { } } 
-    }
-
     fun onAdRevenueLogged(postId: String, revenue: Double, adUnitId: String) {
         viewModelScope.launch {
             socialRepository.trackAdRevenue(postId, revenue, adUnitId).collect { }
@@ -355,6 +360,15 @@ class MediaViewModel @Inject constructor(
         if (post != null) {
             viewPost(post.id)
             fetchReplies(post.id)
+        }
+    }
+
+    fun fetchShortReplies(postId: String) {
+        viewModelScope.launch {
+            _shortReplies.value = Resource.Loading()
+            socialRepository.getReplies(postId).collect { resource ->
+                _shortReplies.value = resource
+            }
         }
     }
 

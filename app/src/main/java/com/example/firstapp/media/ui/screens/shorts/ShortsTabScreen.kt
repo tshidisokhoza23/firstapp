@@ -34,13 +34,13 @@ import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.example.firstapp.home.ui.screens.DataStateHandler
+import com.example.firstapp.common.ui.components.DataStateHandler
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.profile.ui.screens.ProfileView
 import java.io.File
 import kotlinx.coroutines.flow.flowOf
-import kotlin.collections.mutableListOf
-import kotlin.collections.listOf
+import kotlin.collections.*
+import kotlin.ranges.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,18 +55,6 @@ fun ShortsTabScreen(
     val currentUser by userViewModel.currentUser.collectAsState()
     val uiState by mediaViewModel.uiState.collectAsState()
     val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
-    
-    val shorts: List<Post> = remember(shortsPagingItems.itemCount) {
-        val list = mutableListOf<Post>()
-        val count = shortsPagingItems.itemCount
-        for (i in 0 until count) {
-            val item = shortsPagingItems[i]
-            if (item != null) {
-                list.add(item)
-            }
-        }
-        list
-    }
 
     var selectedShortId by remember { mutableStateOf(initialShortId) }
     val isUploading by mediaViewModel.isUploading.collectAsState()
@@ -83,6 +71,9 @@ fun ShortsTabScreen(
 
     LaunchedEffect(Unit) {
         mediaViewModel.loadFeed("short")
+        if (currentUser == null) {
+            userViewModel.fetchCurrentUser()
+        }
     }
 
     val selectedProfileUserId = selectedProfileUser?.id
@@ -94,9 +85,23 @@ fun ShortsTabScreen(
         }
     }.collectAsLazyPagingItems()
 
-    BackHandler(enabled = showProfile) {
-        showProfile = false
-        selectedProfileUser = null
+    BackHandler(enabled = showProfile || showShortComments || showShortMoreMenu || showUploadDialog || showTopMenu) {
+        when {
+            showProfile -> {
+                showProfile = false
+                selectedProfileUser = null
+            }
+            showShortComments -> {
+                showShortComments = false
+                activeShortIdForComments = null
+            }
+            showShortMoreMenu -> {
+                showShortMoreMenu = false
+                activeShortForMoreMenu = null
+            }
+            showUploadDialog -> showUploadDialog = false
+            showTopMenu -> showTopMenu = false
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
@@ -139,42 +144,48 @@ fun ShortsTabScreen(
                 }
             )
         } else {
-            if (shorts.isEmpty()) {
+            if (shortsPagingItems.itemCount == 0) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No videos found", color = Color.White, fontSize = 18.sp)
                 }
             } else {
                 ShortsList(
                     adManager = adManager,
-                    shorts = shorts,
+                    shorts = shortsPagingItems,
                     shortsViewModel = mediaViewModel,
+                    currentUserAvatarUrl = currentUser?.avatarUrl,
                     bottomPadding = 0.dp,
                     initialShortId = selectedShortId,
                     onShortDisplayed = { selectedShortId = null },
                     onShowComments = { id ->
                         activeShortIdForComments = id
+                        mediaViewModel.fetchShortReplies(id)
                         showShortComments = true
                     },
                     onShowMoreMenu = { short ->
                         activeShortForMoreMenu = short
                         showShortMoreMenu = true
                     },
-                    onCreatorClick = { creatorId ->
-                        var short: Post? = null
-                        for (s in shorts) {
-                            if (s.authorId == creatorId) {
-                                short = s
-                                break
+                        onCreatorClick = { creatorId ->
+                            var short: Post? = null
+                            val count = shortsPagingItems.itemCount
+                            var i = 0
+                            while (i < count) {
+                                val s = shortsPagingItems[i]
+                                if (s?.authorId == creatorId) {
+                                    short = s
+                                    break
+                                }
+                                i++
                             }
+                            selectedProfileUser = User(
+                                id = creatorId,
+                                username = short?.authorHandle ?: "",
+                                displayName = short?.authorName ?: "",
+                                avatarUrl = short?.authorAvatarUrl
+                            )
+                            showProfile = true
                         }
-                        selectedProfileUser = User(
-                            id = creatorId,
-                            username = short?.authorHandle ?: "",
-                            displayName = short?.authorName ?: "",
-                            avatarUrl = short?.authorAvatarUrl
-                        )
-                        showProfile = true
-                    }
                 )
             }
 
@@ -185,33 +196,8 @@ fun ShortsTabScreen(
             }
 
             TopAppBar(
-                title = { Text("Shorts", color = Color.White, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    val avatarUrl = currentUser?.avatarUrl
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 12.dp)
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF3A4B57))
-                            .clickable(enabled = currentUser?.id != null) {
-                                selectedProfileUser = currentUser
-                                showProfile = true
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (avatarUrl != null && avatarUrl.length > 0) {
-                            AsyncImage(
-                                model = avatarUrl,
-                                contentDescription = "Profile",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                },
+                title = { },
+                navigationIcon = { },
                 actions = {
                     IconButton(onClick = { showUploadDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Upload", tint = Color.White)
@@ -249,7 +235,7 @@ fun ShortsTabScreen(
                 UploadShortDialog(
                     onDismiss = { showUploadDialog = false },
                     onUpload = { file, desc ->
-                        mediaViewModel.createPost(desc, listOf(file.absolutePath), postType = "short", mediaType = "video")
+                        mediaViewModel.createPost(desc, java.util.Arrays.asList(file.absolutePath), postType = "short", mediaType = "video")
                         showUploadDialog = false
                     }
                 )
@@ -267,8 +253,8 @@ fun ShortsTabScreen(
                     onSendReply = { content, parentId ->
                         mediaViewModel.createPostReply(activeShortIdForComments!!, content, parentId)
                     },
-                    onLikeReply = { replyId ->
-                        mediaViewModel.likePostReply(replyId)
+                    onLikeReply = { reply ->
+                        mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)
                     }
                 )
             }

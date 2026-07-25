@@ -37,6 +37,10 @@ fun MediaTabScreen(
         }
     }
     
+    val onGetUserPosts = remember(mediaViewModel) {
+        { userId: String, type: String -> mediaViewModel.getUserPosts(userId, type) }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         MediaScreen(
             adManager = adManager,
@@ -58,7 +62,7 @@ fun MediaTabScreen(
             onBookmarkReply = { mediaViewModel.bookmarkPostReply(it) }, 
             onViewPost = { mediaViewModel.viewPost(it) }, 
             onProfileViewChange = { /* Handle internal profile view if needed */ }, 
-            onGetUserPosts = { userId, type -> mediaViewModel.getUserPosts(userId, type) },
+            onGetUserPosts = onGetUserPosts,
             userViewModel = userViewModel,
             mediaViewModel = mediaViewModel,
             onPlaySong = { s, q -> musicViewModel.playSong(s, q) }, 

@@ -3,7 +3,6 @@ package com.example.firstapp.common.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.firstapp.media.model.PostPoll
-import com.example.firstapp.media.model.PostReply
 import com.example.firstapp.media.model.PostType
 import com.example.firstapp.media.model.Advert
 import com.example.firstapp.media.model.Post
@@ -48,7 +47,7 @@ data class PostEntity(
     val status: String = "published",
     val isPinned: Boolean = false,
     val replySettings: String = "everyone",
-    val replies: List<PostReply>,
+    val replies: List<Post>,
     val poll: PostPoll? = null,
     val location: String?,
     val tags: List<String>,

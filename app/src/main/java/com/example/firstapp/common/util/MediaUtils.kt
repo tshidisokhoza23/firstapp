@@ -60,11 +60,20 @@ object MediaUtils {
     }
 
     fun formatUrl(url: String?): String? {
-        if (url == null) return null
-        if (url.startsWith("http") || url.startsWith("data:")) return url
+        if (url == null || url.length == 0) return null
+        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url
         
-        // This is a placeholder for actual backend domain resolution logic
-        // Ideally we use BuildConfig.API_BASE_URL
-        return url
+        var baseUrl = com.example.firstapp.BuildConfig.API_BASE_URL
+        if (baseUrl.endsWith("/api/v1")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length - 7)
+        } else if (baseUrl.endsWith("/api/v1/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length - 8)
+        } else if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length - 1)
+        }
+        
+        val cleanUrl = if (url.startsWith("/")) url.substring(1) else url
+        val result = "$baseUrl/$cleanUrl"
+        return result
     }
 }

@@ -48,12 +48,12 @@ class Converters {
     }
 
     @TypeConverter
-    fun fromPostReplyList(value: List<PostReply>?): String = gson.toJson(value)
+    fun fromPostList(value: List<Post>?): String = gson.toJson(value)
 
     @TypeConverter
-    fun toPostReplyList(value: String): List<PostReply>? {
+    fun toPostList(value: String): List<Post>? {
         return try {
-            val type = object : TypeToken<List<PostReply>>() {}.type
+            val type = object : TypeToken<List<Post>>() {}.type
             gson.fromJson(value, type)
         } catch (e: Exception) {
             emptyList()

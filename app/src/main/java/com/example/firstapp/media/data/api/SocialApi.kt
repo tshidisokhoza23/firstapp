@@ -52,6 +52,9 @@ interface SocialApi {
     @POST("media/ads/impression-revenue")
     suspend fun trackAdRevenue(@Body request: AdRevenueRequest): Response<StatusResponse>
 
+    @POST("engagement")
+    suspend fun trackEngagement(@Body request: EngagementRequest): Response<StatusResponse>
+
     @POST("posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<ApiPost>
 
@@ -351,3 +354,11 @@ data class ApiChannel(
 )
 
 data class ChannelsResponse(val channels: List<ApiChannel>)
+
+data class EngagementRequest(
+    val post_id: String,
+    val event_type: String,
+    val category: String,
+    val watch_time_ms: Int? = null,
+    val completed: Boolean? = null
+)

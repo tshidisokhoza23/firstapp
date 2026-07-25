@@ -12,19 +12,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.media3.common.util.UnstableApi
+import androidx.paging.compose.LazyPagingItems
 import com.example.firstapp.media.data.ShortsVideoCache
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.media.model.PostType
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import java.util.ArrayList
+import kotlin.collections.*
+import kotlin.ranges.*
 
 @OptIn(ExperimentalFoundationApi::class)
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun ShortsList(
     adManager: com.example.firstapp.common.data.ads.AdManager,
-    shorts: List<com.example.firstapp.media.model.Post>,
+    shorts: LazyPagingItems<com.example.firstapp.media.model.Post>,
     shortsViewModel: com.example.firstapp.media.ui.viewmodel.MediaViewModel,
+    currentUserAvatarUrl: String? = null,
     bottomPadding: Dp,
     initialShortId: String? = null,
     onShortDisplayed: () -> Unit = {},
@@ -32,21 +36,20 @@ fun ShortsList(
     onShowMoreMenu: (com.example.firstapp.media.model.Post) -> Unit,
     onCreatorClick: (String) -> Unit = {}
 ) {
-    if (shorts.isEmpty()) return
+    if (shorts.itemCount == 0) return
 
     val context = LocalContext.current
-    val pagerState = rememberPagerState(pageCount = { shorts.size })
+    val pagerState = rememberPagerState(pageCount = { shorts.itemCount })
     
     LaunchedEffect(initialShortId) {
-        if (initialShortId != null && shorts.size > 0) {
+        if (initialShortId != null && shorts.itemCount > 0) {
             var foundIndex = -1
-            var i = 0
-            while (i < shorts.size) {
-                if (shorts.get(i).id == initialShortId) {
+            val count = shorts.itemCount
+            for (i in 0..count - 1) {
+                if (shorts[i]?.id == initialShortId) {
                     foundIndex = i
                     break
                 }
-                i++
             }
             if (foundIndex != -1 && foundIndex < pagerState.pageCount) {
                 pagerState.scrollToPage(foundIndex)
@@ -55,14 +58,15 @@ fun ShortsList(
         }
     }
     
-    LaunchedEffect(pagerState.currentPage, shorts) {
+    LaunchedEffect(pagerState.currentPage, shorts.itemCount) {
         val urls = ArrayList<String>()
         val start = pagerState.currentPage + 1
         val end = pagerState.currentPage + 3
+        val count = shorts.itemCount
         for (i in start..end) {
-            if (i >= 0 && i < shorts.size) {
+            if (i >= 0 && i < count) {
                 val post = shorts[i]
-                if (post.mediaUrls.size > 0) {
+                if (post != null && post.mediaUrls.size > 0) {
                     urls.add(post.mediaUrls[0])
                 }
             }
@@ -74,10 +78,10 @@ fun ShortsList(
         state = pagerState, 
         modifier = Modifier.fillMaxSize(),
         key = { index -> 
-            if (index < shorts.size) shorts[index].id else index.toString() 
+            if (index < shorts.itemCount) shorts[index]?.id ?: index.toString() else index.toString() 
         }
     ) { page ->
-        val currentShort = shorts[page]
+        val currentShort = shorts[page] ?: return@VerticalPager
         
         // Show an ad every 4 content posts
         if ((page + 1) % 4 == 0) {
@@ -92,19 +96,25 @@ fun ShortsList(
                 )
             }
         } else {
-            val isInteractiveShort = currentShort.type == com.example.firstapp.media.model.PostType.POST || currentShort.type == com.example.firstapp.media.model.PostType.INTERNAL_AD
+            // Allow interaction for all types that are rendered as ShortItem
+            val isInteractiveShort = currentShort.type != com.example.firstapp.media.model.PostType.AD_UNIT && currentShort.type != com.example.firstapp.media.model.PostType.EXTERNAL_AD_PLACEHOLDER
+            
             ShortItem(
                 adManager = adManager,
-                short = currentShort, 
+                short = currentShort,
+                currentUserAvatarUrl = currentUserAvatarUrl,
                 isVisible = pagerState.currentPage == page, 
                 bottomInset = bottomPadding, 
                 onLikeClick = { if (isInteractiveShort) shortsViewModel.likePost(it, currentShort.likes, currentShort.isLiked) }, 
                 onSubscribeClick = { /* id -> shortsViewModel.subscribeToShortCreator(id) */ }, 
                 onCommentClick = { if (isInteractiveShort) onShowComments(it) }, 
                 onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkPost(it) }, 
-                onShareClick = { /* shortsViewModel.trackShortShare(it) */ },
+                onShareClick = { shortsViewModel.repostPost(it) },
                 onMoreClick = { onShowMoreMenu(currentShort) }, 
-                onCreatorClick = onCreatorClick
+                onCreatorClick = onCreatorClick,
+                onEngagement = { pid, type, time, comp -> 
+                    shortsViewModel.trackEngagement(pid, type, currentShort.category, time, comp)
+                }
             )
         }
     }

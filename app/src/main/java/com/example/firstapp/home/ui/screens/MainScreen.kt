@@ -1,6 +1,7 @@
 package com.example.firstapp.home.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,13 +32,21 @@ fun MainScreen(
     musicViewModel: MusicViewModel,
     navController: NavController,
     adManager: com.example.firstapp.common.data.ads.AdManager,
+    userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onLogout: () -> Unit,
     initialShortId: String? = null
 ) {
     val selectedIndex by viewModel.selectedBottomItem.collectAsState()
     val currentTab = BottomNavItem.fromIndex(selectedIndex)
-    
-    // Remember the last active tab before switching to "More" overlay
+    val currentUser by userViewModel.currentUser.collectAsState()
+
+    LaunchedEffect(Unit) {
+        if (currentUser == null) {
+            userViewModel.fetchCurrentUser()
+        }
+    }
+
+    // Remember the last active tab before switching to "More" overlay (index 5)
     val lastActiveTab = remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedIndex) {
         if (selectedIndex != 5) {
@@ -45,14 +54,39 @@ fun MainScreen(
         }
     }
 
+    // Helper function to sync NavController with selected tab without circular duplicates
+    val navigateToTab = remember(navController) {
+        { item: BottomNavItem ->
+            val tabRouteName = when(item) {
+                BottomNavItem.Media -> "media"
+                BottomNavItem.Shorts -> "shorts"
+                BottomNavItem.Music -> "music"
+                BottomNavItem.Drive -> "drive"
+                else -> "home"
+            }
+            navController.navigate(Screen.Main.createRoute(tab = tabRouteName)) {
+                popUpTo(navController.graph.startDestinationId) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
     val hasHistory = viewModel.hasTabHistory()
-    // Improve Back Behavior: Navigate through tab history or dismiss More sheet
-    BackHandler(enabled = selectedIndex != 0 || selectedIndex == 5 || hasHistory) {
+    BackHandler(enabled = (selectedIndex != 0 && selectedIndex != 5) || (selectedIndex == 5) || hasHistory) {
         if (selectedIndex == 5) {
+            // Dismiss "More" sheet overlay and return to prior tab
             viewModel.setSelectedBottomItem(lastActiveTab.intValue)
         } else {
-            if (!viewModel.popTabHistory()) {
+            if (viewModel.popTabHistory()) {
+                val newIndex = viewModel.selectedBottomItem.value
+                val newItem = BottomNavItem.fromIndex(newIndex)
+                navigateToTab(newItem)
+            } else if (selectedIndex != 0) {
                 viewModel.setSelectedBottomItem(0)
+                navigateToTab(BottomNavItem.Chat)
             }
         }
     }
@@ -64,44 +98,66 @@ fun MainScreen(
             bottomBar = {
                 MainBottomNavigation(
                     selectedRoute = currentTab.route,
-                    onTabSelected = { viewModel.setSelectedBottomItem(it.index) }
+                    onTabSelected = { item: BottomNavItem ->
+                        viewModel.setSelectedBottomItem(item.index)
+                        if (item != BottomNavItem.More) {
+                            navigateToTab(item)
+                        }
+                    }
                 )
             }
         ) { innerPadding ->
-            Box(modifier = Modifier
-                .padding(bottom = innerPadding.calculateBottomPadding())
-                .fillMaxSize()
+            Box(
+                modifier = Modifier
+                    .padding(bottom = innerPadding.calculateBottomPadding())
+                    .fillMaxSize()
             ) {
-                // Background Content (Last active tab)
                 val tabToDisplay = if (selectedIndex == 5) {
                     BottomNavItem.fromIndex(lastActiveTab.intValue)
                 } else {
                     currentTab
                 }
 
-                when (tabToDisplay) {
-                    BottomNavItem.Chat -> ChatsListScreen(navController, adManager = adManager, onLogout = onLogout)
-                    BottomNavItem.Media -> MediaTabScreen(navController, adManager = adManager)
-                    BottomNavItem.Shorts -> ShortsTabScreen(
-                        navController = navController,
-                        adManager = adManager,
-                        onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
-                        initialShortId = initialShortId
-                    )
-                    BottomNavItem.Music -> MusicTabScreen(navController)
-                    BottomNavItem.Drive -> DriveTabScreen(navController)
-                    else -> ChatsListScreen(navController, adManager = adManager, onLogout = onLogout)
+                // Crossfade provides clean UI transitions between active screens
+                Crossfade(targetState = tabToDisplay, label = "TabSwitch") { targetTab ->
+                    when (targetTab) {
+                        BottomNavItem.Chat -> ChatsListScreen(
+                            navController = navController,
+                            adManager = adManager,
+                            onLogout = onLogout
+                        )
+                        BottomNavItem.Media -> MediaTabScreen(
+                            navController = navController,
+                            adManager = adManager
+                        )
+                        BottomNavItem.Shorts -> ShortsTabScreen(
+                            navController = navController,
+                            adManager = adManager,
+                            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
+                            initialShortId = initialShortId
+                        )
+                        BottomNavItem.Music -> MusicTabScreen(
+                            navController = navController
+                        )
+                        BottomNavItem.Drive -> DriveTabScreen(
+                            navController = navController
+                        )
+                        else -> ChatsListScreen(
+                            navController = navController,
+                            adManager = adManager,
+                            onLogout = onLogout
+                        )
+                    }
                 }
 
-                // The "More" Sheet Overlay - positioned precisely ABOVE the bottom nav
-                // Using a custom scrim that only covers this Box (the content area)
+                // "More" Shortcuts Sheet Overlay
                 if (selectedIndex == 5) {
                     MoreShortcutsSheet(
                         isVisible = true,
                         onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
-                        onNavigate = { r: String -> 
+                        onNavigate = { route: String ->
                             viewModel.setSelectedBottomItem(lastActiveTab.intValue)
-                            navController.navigate(r) {
+                            navController.navigate(route) {
                                 launchSingleTop = true
                             }
                         }
@@ -121,10 +177,7 @@ fun MainBottomNavigation(
         containerColor = AppSecondary,
         tonalElevation = 0.dp
     ) {
-        val items = BottomNavItem.items
-        var i = 0
-        while (i < items.size) {
-            val item = items.get(i)
+        for (item in BottomNavItem.items) {
             val isSelected = selectedRoute == item.route
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = item.title) },
@@ -139,24 +192,6 @@ fun MainBottomNavigation(
                     indicatorColor = AppAccent.copy(alpha = 0.1f)
                 )
             )
-            i++
         }
     }
-}
-
-@Composable
-fun <T> DataStateHandler(
-    resource: com.example.firstapp.common.util.Resource<T>,
-    onLoading: @Composable (() -> Unit) = { },
-    onEmpty: @Composable (() -> Unit) = { },
-    onError: @Composable (String?) -> Unit = { _ -> },
-    onSuccess: @Composable ((T) -> Unit)
-) {
-    com.example.firstapp.common.ui.components.DataStateHandler(
-        resource = resource,
-        onLoading = onLoading,
-        onEmpty = onEmpty,
-        onError = onError,
-        onSuccess = onSuccess
-    )
 }

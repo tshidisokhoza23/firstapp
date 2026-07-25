@@ -63,6 +63,8 @@ fun DynamicAdCard(
     if (loadFailed || adObject == null) {
         if (isShortsAd) {
             ShortsAdShimmer()
+        } else if (!isBanner) {
+            MediaAdShimmer()
         }
         return
     }

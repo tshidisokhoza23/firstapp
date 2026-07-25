@@ -33,7 +33,7 @@ import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.common.ui.theme.AppTextSecondary
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.common.util.Resource
-import com.example.firstapp.home.ui.screens.DataStateHandler
+import com.example.firstapp.common.ui.components.DataStateHandler
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +49,7 @@ fun LibraryScreen(
     onArtistClick: (String) -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf("Songs") }
-    val tabs = listOf("Songs", "Playlists", "Artists", "Albums")
+    val tabs = java.util.Arrays.asList("Songs", "Playlists", "Artists", "Albums")
     var sortBy by remember { mutableStateOf("Recently Played") }
     
     val playlistsRes by viewModel.playlists.collectAsState()
@@ -59,8 +59,9 @@ fun LibraryScreen(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedPlaylist) {
-        selectedPlaylist?.let {
-            viewModel.fetchPlaylistSongs(it.id)
+        val p = selectedPlaylist
+        if (p != null) {
+            viewModel.fetchPlaylistSongs(p.id)
         }
     }
 
@@ -92,7 +93,7 @@ fun LibraryScreen(
                     edgePadding = 16.dp,
                     divider = {}
                 ) {
-                    tabs.forEach { tab ->
+                    for (tab in tabs) {
                         Tab(
                             selected = selectedTab == tab,
                             onClick = { selectedTab = tab },
@@ -117,7 +118,7 @@ fun LibraryScreen(
                         }
                     }
                     "Playlists" -> {
-                        val playlists = playlistsRes.data ?: emptyList()
+                        val playlists = playlistsRes.data ?: java.util.Collections.emptyList()
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(playlists) { playlist ->
                                 PlaylistListItem(
@@ -128,15 +129,27 @@ fun LibraryScreen(
                         }
                     }
                     "Artists" -> {
-                        val artists = songs.map { it.artist }.distinct()
+                        val artistsList = java.util.ArrayList<String>()
+                        for (song in songs) {
+                            if (!artistsList.contains(song.artist)) {
+                                artistsList.add(song.artist)
+                            }
+                        }
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(artists) { artist ->
+                            items(artistsList) { artist ->
                                 ArtistListItem(name = artist)
                             }
                         }
                     }
                     "Albums" -> {
-                        val albums = songs.distinctBy { it.albumName }.filter { it.albumName.isNotBlank() }
+                        val albumsList = java.util.ArrayList<Song>()
+                        val seenAlbums = java.util.HashSet<String>()
+                        for (song in songs) {
+                            if (song.albumName.length > 0 && !seenAlbums.contains(song.albumName)) {
+                                albumsList.add(song)
+                                seenAlbums.add(song.albumName)
+                            }
+                        }
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             modifier = Modifier.fillMaxSize(),
@@ -144,7 +157,7 @@ fun LibraryScreen(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            items(albums) { album ->
+                            items(albumsList) { album ->
                                 AlbumCard(name = album.albumName, artist = album.artist, color = album.albumArtColor)
                             }
                         }
@@ -163,9 +176,10 @@ fun LibraryScreen(
                             .background(AppSecondary),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!playlist.coverArtUrl.isNullOrBlank()) {
+                        val coverUrl = playlist.coverArtUrl
+                        if (coverUrl != null && coverUrl.length > 0) {
                             androidx.compose.foundation.Image(
-                                painter = coil.compose.rememberAsyncImagePainter(playlist.coverArtUrl),
+                                painter = coil.compose.rememberAsyncImagePainter(coverUrl),
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
@@ -184,7 +198,7 @@ fun LibraryScreen(
 
                     DataStateHandler(
                         resource = songsRes
-                    ) { songsList ->
+                    ) { songsList: List<Song> ->
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(songsList) { song ->
                                 SongListItem(

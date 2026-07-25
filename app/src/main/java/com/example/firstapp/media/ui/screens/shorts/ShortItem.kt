@@ -69,6 +69,7 @@ import kotlinx.coroutines.launch
 fun ShortItem(
     adManager: com.example.firstapp.common.data.ads.AdManager,
     short: com.example.firstapp.media.model.Post,
+    currentUserAvatarUrl: String? = null,
     isVisible: Boolean,
     bottomInset: Dp,
     onLikeClick: (String) -> Unit,
@@ -78,10 +79,23 @@ fun ShortItem(
     onShareClick: (String) -> Unit,
     onMoreClick: (String) -> Unit,
     onCreatorClick: (String) -> Unit = {},
+    onEngagement: (String, String, Int, Boolean) -> Unit = { _, _, _, _ -> },
     onVideoEnded: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val videoUrl = short.mediaUrls.firstOrNull()?.takeIf { it.isNotBlank() }
+    
+    var startTime by remember { mutableLongStateOf(0L) }
+    
+    LaunchedEffect(isVisible) {
+        if (isVisible) {
+            startTime = System.currentTimeMillis()
+        } else if (startTime > 0) {
+            val watchTime = (System.currentTimeMillis() - startTime).toInt()
+            onEngagement(short.id, "dwell", watchTime, false)
+            startTime = 0
+        }
+    }
     
     var isMuted by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(true) }
@@ -178,6 +192,8 @@ fun ShortItem(
                             isBuffering = true
                         }
                         Player.STATE_ENDED -> {
+                            val watchTime = (System.currentTimeMillis() - startTime).toInt()
+                            onEngagement(short.id, "dwell", watchTime, true)
                             onVideoEnded?.invoke()
                         }
                         else -> {}
@@ -216,6 +232,9 @@ fun ShortItem(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+    ) {
+        Box(modifier = Modifier
+            .fillMaxSize()
             .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = { offset ->
@@ -230,8 +249,7 @@ fun ShortItem(
                     }
                 )
             }
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        ) {
             if (!isVideoReady) {
                 ShortPoster(
                     short = short,
@@ -349,33 +367,37 @@ fun ShortItem(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(contentAlignment = Alignment.BottomCenter) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .border(1.dp, Color.White, CircleShape)
-                            .padding(1.dp)
-                            .clip(CircleShape)
-                            .background(short.authorAvatarColor)
-                            .clickable { onCreatorClick(short.authorId) }
-                    ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF3A4B57))
+                        .border(2.dp, Color.White, CircleShape)
+                        .clickable { 
+                            // Go to my own profile
+                            short.authorId.takeIf { it == short.authorId }?.let { 
+                                // Actually we want the current user's profile
+                                // but we need the current user's ID
+                                // For now, if we don't have it explicitly passed as a param,
+                                // we can use a callback.
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(currentUserAvatarUrl)
+                    if (formattedUrl != null) {
                         AsyncImage(
-                                model = short.authorAvatarUrl,
-                            contentDescription = null,
+                            model = formattedUrl,
+                            contentDescription = "Me",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
-                    }
-                    if (!short.isAuthorFollowed) {
+                    } else {
                         Icon(
-                            Icons.Filled.AddCircle,
+                            Icons.Default.Person,
                             contentDescription = null,
-                            tint = AppAccent,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .offset(y = 6.dp)
-                                .background(Color.White, CircleShape)
-                                .clickable { onSubscribeClick(short.id) }
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
@@ -428,26 +450,50 @@ fun ShortItem(
                     .padding(start = 12.dp, bottom = 24.dp, end = 80.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "@${short.authorHandle}",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.clickable { onCreatorClick(short.authorId) }
-                    )
-                    if (!short.isAuthorFollowed) {
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Surface(
-                            onClick = { onSubscribeClick(short.id) },
-                            color = Color.Transparent,
-                            border = BorderStroke(1.dp, AppAccent),
-                            shape = RoundedCornerShape(4.dp),
-                            modifier = Modifier.height(28.dp)
-                        ) {
-                            Box(modifier = Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-                                Text("Subscribe", color = AppAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(short.authorAvatarColor)
+                            .border(1.5.dp, Color.White.copy(alpha = 0.6f), CircleShape)
+                            .clickable { onCreatorClick(short.authorId) }
+                    ) {
+                        val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(short.authorAvatarUrl)
+                        AsyncImage(
+                            model = formattedUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.clickable { onCreatorClick(short.authorId) }) {
+                        Text(
+                            text = short.authorName,
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            style = androidx.compose.ui.text.TextStyle(
+                                shadow = androidx.compose.ui.graphics.Shadow(
+                                    color = Color.Black.copy(alpha = 0.5f),
+                                    offset = Offset(2f, 2f),
+                                    blurRadius = 4f
+                                )
+                            )
+                        )
+                        Text(
+                            text = "@${short.authorHandle}",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            style = androidx.compose.ui.text.TextStyle(
+                                shadow = androidx.compose.ui.graphics.Shadow(
+                                    color = Color.Black.copy(alpha = 0.5f),
+                                    offset = Offset(2f, 2f),
+                                    blurRadius = 4f
+                                )
+                            )
+                        )
                     }
                 }
 

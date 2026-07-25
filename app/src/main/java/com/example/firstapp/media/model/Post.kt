@@ -49,9 +49,10 @@ data class Post(
     val status: String = "published", // "active", "deleted", "flagged"
     val isPinned: Boolean = false,
     val replySettings: String = "everyone", // "everyone", "following"
-    val replies: List<PostReply> = emptyList(),
+    val replies: List<Post> = emptyList(),
     val poll: PostPoll? = null,
     val location: String? = null,
+    val category: String = "general",
     val tags: List<String> = emptyList(),
     val ad: Advert? = null,
     val originalPost: Post? = null,
@@ -68,23 +69,4 @@ data class PollOption(
     val id: String,
     val text: String,
     val voteCount: Long
-)
-
-data class PostReply(
-    val id: String,
-    val authorId: String,
-    val authorName: String,
-    val authorHandle: String,
-    val authorAvatarUrl: String? = null,
-    val authorAvatarColor: Int,
-    val isVerifiedAuthor: Boolean = false,
-    val content: String,
-    val timestamp: String,
-    val likes: Long = 0,
-    val isLiked: Boolean = false,
-    val isReposted: Boolean = false,
-    val isBookmarked: Boolean = false,
-    val type: PostType = PostType.POST,
-    val nestedReplies: List<PostReply> = emptyList(),
-    val ad: Advert? = null
 )

@@ -3,4 +3,11 @@
     <string name="default_web_client_id">303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com</string>
     <string name="typing">typing...</string>
     <string name="ad_icon">Ad Icon</string>
+    <string name="ad_label">Ad</string>
+    <string name="options">Options</string>
+    <string name="replies">Replies</string>
+    <string name="reposts">Reposts</string>
+    <string name="likes">Likes</string>
+    <string name="views">Views</string>
+    <string name="share">Share</string>
 </resources>

@@ -2,7 +2,6 @@ package com.example.firstapp.media.ui.viewmodel
 
 import androidx.paging.PagingData
 import com.example.firstapp.media.model.Post
-import com.example.firstapp.media.model.PostReply
 import com.example.firstapp.media.data.api.TrendingTopic
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.common.util.Resource
@@ -19,6 +18,6 @@ data class MediaUiState(
     val selectedTab: Int = 0,
     val selectedPost: Post? = null,
     val refreshTrigger: Int = 0,
-    val shortReplies: Resource<List<PostReply>> = Resource.Success(emptyList()),
+    val shortReplies: Resource<List<Post>> = Resource.Success(emptyList()),
     val isUploading: Boolean = false
 )

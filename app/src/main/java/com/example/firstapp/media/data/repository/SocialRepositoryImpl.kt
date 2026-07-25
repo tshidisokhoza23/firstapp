@@ -194,7 +194,7 @@ class SocialRepositoryImpl @Inject constructor(
     override fun repostPost(postId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPost(postId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun bookmarkPost(postId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPost(postId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     
-    override fun getReplies(postId: String): Flow<Resource<List<PostReply>>> = flow {
+    override fun getReplies(postId: String): Flow<Resource<List<Post>>> = flow {
         emit(Resource.Loading())
         try {
             val response = socialApi.getReplies(postId)
@@ -370,6 +370,27 @@ class SocialRepositoryImpl @Inject constructor(
     }
 
     override fun viewPost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.viewPost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
+
+    override fun trackEngagement(
+        postId: String, 
+        eventType: String, 
+        category: String,
+        watchTimeMs: Int?,
+        completed: Boolean?
+    ): Flow<Resource<Boolean>> = flow {
+        try {
+            socialApi.trackEngagement(
+                com.example.firstapp.media.data.api.EngagementRequest(
+                    postId, 
+                    eventType, 
+                    category,
+                    watchTimeMs,
+                    completed
+                )
+            )
+            emit(Resource.Success(true))
+        } catch (_: Exception) {}
+    }
 
     override fun trackAdRevenue(postId: String, revenue: Double, adUnitId: String): Flow<Resource<Boolean>> = flow {
         try {

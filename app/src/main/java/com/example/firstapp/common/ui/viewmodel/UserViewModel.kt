@@ -76,7 +76,12 @@ class UserViewModel @Inject constructor(
     fun fetchCurrentUser() {
         viewModelScope.launch {
             userRepository.getCurrentUser().collect { resource ->
-                _currentUser.value = resource.data
+                if (resource is Resource.Success && resource.data != null) {
+                    _currentUser.value = resource.data
+                } else if (resource is Resource.Error && _currentUser.value == null) {
+                    // Only clear if we don't have a user and an error occurred
+                    _currentUser.value = null
+                }
             }
         }
     }

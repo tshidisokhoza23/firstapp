@@ -42,18 +42,18 @@ android {
         }
         create("beta") {
             dimension = "environment"
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://api-blue.yourapp.com\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://api-green.yourapp.com\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://api-blue.yourapp.com\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://api-blue.yourapp.com\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://firstapp-backend.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
         }
         create("prod") {
             dimension = "environment"
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://api-blue.yourapp.com\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://api-green.yourapp.com\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://api-blue.yourapp.com\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://api-blue.yourapp.com\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://firstapp-backend.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "false")
         }
     }
