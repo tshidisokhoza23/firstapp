@@ -46,11 +46,6 @@ class MediaViewModel @Inject constructor(
     private val searchCache = HashMap<String, Pair<List<Post>, Long>>()
     private val searchTtlMs = 120_000L
 
-    init {
-        loadFeed("standard")
-        connectPostRealtime()
-    }
-
     private val _preloadedAds = MutableStateFlow<List<Any>>(emptyList())
     val preloadedAds: StateFlow<List<Any>> = _preloadedAds.asStateFlow()
 
@@ -65,7 +60,15 @@ class MediaViewModel @Inject constructor(
 
     private fun preloadAds() {
         viewModelScope.launch {
-            val context = com.example.firstapp.common.util.ContextProvider.context
+            val context = try {
+                com.example.firstapp.common.util.ContextProvider.context
+            } catch (e: Exception) {
+                null
+            }
+            if (context == null) {
+                _adsLoaded.value = true
+                return@launch
+            }
             adManager.loadNativeAds(
                 context = context,
                 adUnitId = "ca-app-pub-3940256099942544/2247696110",

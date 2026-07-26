@@ -5,6 +5,7 @@ import com.example.firstapp.media.domain.repository.SocialRepository
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.model.Post
+import com.example.firstapp.common.data.ads.AdManager
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,12 +23,13 @@ class MediaNavAndToolbarTests {
     private lateinit var viewModel: MediaViewModel
     private val socialRepository: SocialRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
+    private val adManager: AdManager = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = MediaViewModel(socialRepository, accountRepository)
+        viewModel = MediaViewModel(socialRepository, accountRepository, adManager)
     }
 
     @After
