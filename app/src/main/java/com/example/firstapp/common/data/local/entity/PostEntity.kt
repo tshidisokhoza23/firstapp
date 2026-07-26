@@ -7,9 +7,10 @@ import com.example.firstapp.media.model.PostType
 import com.example.firstapp.media.model.Advert
 import com.example.firstapp.media.model.Post
 
-@Entity(tableName = "posts")
+@Entity(tableName = "posts", primaryKeys = ["id", "feedType"])
 data class PostEntity(
-    @PrimaryKey val id: String,
+    val id: String,
+    val feedType: String = "standard",
     val authorId: String,
     val authorName: String,
     val authorHandle: String,

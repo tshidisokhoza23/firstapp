@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.Color
 
 enum class PostType {
     POST,
+    SHORT,
+    REPOST,
     INTERNAL_AD,
     EXTERNAL_AD_PLACEHOLDER,
     NATIVE_AD,

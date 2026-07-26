@@ -25,7 +25,7 @@ fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull {
 private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Post(
     id = apiPost.id ?: "",
     authorId = apiPost.user_id ?: "",
-    authorName = apiPost.author_name ?: (apiPost.author_handle?.let { "@$it" } ?: "User"),
+    authorName = apiPost.author_name?.takeIf { it.isNotBlank() } ?: (apiPost.author_handle?.let { "@$it" } ?: "User"),
     authorHandle = apiPost.author_handle ?: "user",
     authorAvatarUrl = MediaUtils.formatUrl(apiPost.author_avatar_url),
     authorAvatarColor = AppPrimary,
@@ -43,7 +43,11 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
     type = when (itemType) {
         "NATIVE_AD" -> PostType.NATIVE_AD
         "INTERNAL_AD" -> PostType.INTERNAL_AD
-        else -> PostType.POST
+        else -> when (apiPost.post_type) {
+            "short" -> PostType.SHORT
+            "repost" -> PostType.REPOST
+            else -> PostType.POST
+        }
     },
     thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url),
     aspectRatio = apiPost.aspect_ratio,
@@ -62,7 +66,7 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
 fun mapApiPost(apiPost: ApiPost): Post = Post(
     id = apiPost.id ?: "",
     authorId = apiPost.author_id ?: "",
-    authorName = apiPost.author?.display_name ?: (apiPost.author?.username?.let { "@$it" } ?: "Unknown"),
+    authorName = apiPost.author?.display_name?.takeIf { it.isNotBlank() } ?: (apiPost.author?.username?.let { "@$it" } ?: "Unknown"),
     authorHandle = apiPost.author?.username ?: "",
     authorAvatarUrl = MediaUtils.formatUrl(apiPost.author?.avatar_url),
     authorAvatarColor = AppPrimary,
@@ -80,6 +84,8 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
         "INTERNAL_AD" -> PostType.INTERNAL_AD
         "NATIVE_AD" -> PostType.NATIVE_AD
         "AD_UNIT" -> PostType.AD_UNIT
+        "short" -> PostType.SHORT
+        "repost" -> PostType.REPOST
         else -> PostType.POST
     },
     repliesLocked = apiPost.replies_locked,
@@ -103,7 +109,7 @@ fun mapApiPost(apiPost: ApiPost): Post = Post(
 fun mapApiPostReply(apiReply: ApiPostReply): Post = Post(
     id = apiReply.id ?: "", 
     authorId = apiReply.author_id ?: "",
-    authorName = apiReply.author?.display_name ?: (apiReply.author?.username?.let { "@$it" } ?: apiReply.author_id ?: "Unknown"),
+    authorName = apiReply.author?.display_name?.takeIf { it.isNotBlank() } ?: (apiReply.author?.username?.let { "@$it" } ?: apiReply.author_id ?: "Unknown"),
     authorHandle = apiReply.author?.username ?: "", 
     authorAvatarUrl = MediaUtils.formatUrl(apiReply.author?.avatar_url),
     authorAvatarColor = AppPrimary,
@@ -257,7 +263,7 @@ fun mapMediaReplyItems(items: List<com.example.firstapp.media.data.api.ApiReplyI
 private fun mapApiMediaReplyToPost(apiReply: ApiMediaReply): Post = Post(
     id = apiReply.id ?: "",
     authorId = apiReply.user_id ?: "",
-    authorName = apiReply.author_name ?: (apiReply.handle?.let { "@$it" } ?: "User"),
+    authorName = apiReply.author_name?.takeIf { it.isNotBlank() } ?: (apiReply.handle?.let { "@$it" } ?: "User"),
     authorHandle = apiReply.handle ?: "user",
     authorAvatarUrl = null,
     authorAvatarColor = AppPrimary,
@@ -273,8 +279,9 @@ private fun mapApiMediaReplyToPost(apiReply: ApiMediaReply): Post = Post(
     updatedAt = apiReply.created_at
 )
 
-fun Post.toPostEntity() = PostEntity(
+fun Post.toPostEntity(feedType: String = "standard") = PostEntity(
     id = id,
+    feedType = feedType,
     authorId = authorId,
     authorName = authorName,
     authorHandle = authorHandle,

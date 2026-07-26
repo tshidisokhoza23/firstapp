@@ -83,7 +83,7 @@ class PostRemoteMediator(
             appDatabase.withTransaction {
                 if (loadType == LoadType.REFRESH) {
                     appDatabase.postRemoteKeysDao().clearRemoteKeys()
-                    if (!following && authorId == null) appDatabase.postDao().clearPosts()
+                    if (!following && authorId == null) appDatabase.postDao().clearPosts(feedType)
                 }
                 val prevKey = if (page == 1) null else page - 1
                 val nextKey = if (endOfPaginationReached) null else page + 1
@@ -91,7 +91,7 @@ class PostRemoteMediator(
                     PostRemoteKeys(postId = it.id, prevKey = prevKey, nextKey = nextKey)
                 }
                 appDatabase.postRemoteKeysDao().insertAll(keys)
-                val entities = apiPosts.map { it.toPostEntity() }
+                val entities = apiPosts.map { it.toPostEntity(feedType) }
                 appDatabase.postDao().insertPosts(entities)
             }
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)

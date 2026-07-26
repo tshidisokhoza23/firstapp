@@ -35,7 +35,7 @@ class SocialRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalPagingApi::class)
     override fun getPostsPaging(following: Boolean, authorId: String?, feedType: String): Flow<PagingData<Post>> {
-        val pagingSourceFactory = { postDao.getPostsPaging() }
+        val pagingSourceFactory = { postDao.getPostsPaging(feedType) }
         
         return if (authorId == null) {
             Pager(
@@ -85,7 +85,7 @@ class SocialRepositoryImpl @Inject constructor(
     }
 
     override fun getPosts(page: Int): Flow<Resource<List<Post>>> = flow {
-        val cachedEntities = postDao.getPosts().first()
+        val cachedEntities = postDao.getPosts("standard").first()
         val cached = cachedEntities.map { it.toPost() }
         if (cached.isNotEmpty()) {
             emit(Resource.Loading(cached))
@@ -101,8 +101,8 @@ class SocialRepositoryImpl @Inject constructor(
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 // Avoid wiping media feed cache when legacy /posts returns empty.
                 if (posts.isNotEmpty()) {
-                    if (page == 1) postDao.clearPosts()
-                    postDao.insertPosts(posts.map { it.toPostEntity() })
+                    if (page == 1) postDao.clearPosts("standard")
+                    postDao.insertPosts(posts.map { it.toPostEntity("standard") })
                 }
             } else {
                 Log.e("SocialRepo", "getPosts failed: ${response.code()} ${response.errorBody()?.string()}")
@@ -112,7 +112,7 @@ class SocialRepositoryImpl @Inject constructor(
             Log.e("SocialRepositoryImpl", "getPosts failed with exception", e)
         }
         
-        emitAll(postDao.getPosts().flowMap { entities ->
+        emitAll(postDao.getPosts("standard").flowMap { entities ->
             val models = entities.map { it.toPost() }
             Resource.Success<List<Post>>(models)
         })
