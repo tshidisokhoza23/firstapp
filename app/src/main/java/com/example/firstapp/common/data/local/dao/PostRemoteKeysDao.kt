@@ -11,9 +11,9 @@ interface PostRemoteKeysDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(remoteKey: List<PostRemoteKeys>)
 
-    @Query("SELECT * FROM post_remote_keys WHERE postId = :postId")
-    suspend fun remoteKeysPostId(postId: String): PostRemoteKeys?
+    @Query("SELECT * FROM post_remote_keys WHERE postId = :postId AND feedType = :feedType")
+    suspend fun remoteKeysPostId(postId: String, feedType: String): PostRemoteKeys?
 
-    @Query("DELETE FROM post_remote_keys")
-    suspend fun clearRemoteKeys()
+    @Query("DELETE FROM post_remote_keys WHERE feedType = :feedType")
+    suspend fun clearRemoteKeys(feedType: String)
 }

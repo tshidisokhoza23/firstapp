@@ -49,7 +49,7 @@ class PostRemoteMediator(
         }
 
         try {
-            android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId")
+            android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId, feedType=$feedType")
             
             val apiPosts = if (!following && authorId == null) {
                 // ... logic for general feeds ...
@@ -82,13 +82,13 @@ class PostRemoteMediator(
 
             appDatabase.withTransaction {
                 if (loadType == LoadType.REFRESH) {
-                    appDatabase.postRemoteKeysDao().clearRemoteKeys()
+                    appDatabase.postRemoteKeysDao().clearRemoteKeys(feedType)
                     if (!following && authorId == null) appDatabase.postDao().clearPosts(feedType)
                 }
                 val prevKey = if (page == 1) null else page - 1
                 val nextKey = if (endOfPaginationReached) null else page + 1
                 val keys = apiPosts.map {
-                    PostRemoteKeys(postId = it.id, prevKey = prevKey, nextKey = nextKey)
+                    PostRemoteKeys(postId = it.id, feedType = feedType, prevKey = prevKey, nextKey = nextKey)
                 }
                 appDatabase.postRemoteKeysDao().insertAll(keys)
                 val entities = apiPosts.map { it.toPostEntity(feedType) }
@@ -105,14 +105,14 @@ class PostRemoteMediator(
     private suspend fun getRemoteKeyForLastItem(state: PagingState<Int, PostEntity>): PostRemoteKeys? {
         return state.pages.lastOrNull { it.data.isNotEmpty() }?.data?.lastOrNull()
             ?.let { post ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id)
+                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, feedType)
             }
     }
 
     private suspend fun getRemoteKeyForFirstItem(state: PagingState<Int, PostEntity>): PostRemoteKeys? {
         return state.pages.firstOrNull { it.data.isNotEmpty() }?.data?.firstOrNull()
             ?.let { post ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id)
+                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, feedType)
             }
     }
 
@@ -121,7 +121,7 @@ class PostRemoteMediator(
     ): PostRemoteKeys? {
         return state.anchorPosition?.let { position ->
             state.closestItemToPosition(position)?.id?.let { postId ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(postId)
+                appDatabase.postRemoteKeysDao().remoteKeysPostId(postId, feedType)
             }
         }
     }
