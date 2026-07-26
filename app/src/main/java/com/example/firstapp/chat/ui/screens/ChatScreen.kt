@@ -234,17 +234,17 @@ fun ChatMessagesScreen(
     LaunchedEffect(messageText) {
         if (messageText.isNotEmpty()) {
             if (!isTypingSent) {
-                ChatWebSocketClient.sendTyping(chat.id.toString(), true)
+                chatViewModel.sendTyping(true)
                 isTypingSent = true
             }
             delay(3000)
             if (isTypingSent) {
-                ChatWebSocketClient.sendTyping(chat.id.toString(), false)
+                chatViewModel.sendTyping(false)
                 isTypingSent = false
             }
         } else {
             if (isTypingSent) {
-                ChatWebSocketClient.sendTyping(chat.id.toString(), false)
+                chatViewModel.sendTyping(false)
                 isTypingSent = false
             }
         }
@@ -253,7 +253,7 @@ fun ChatMessagesScreen(
     DisposableEffect(chat.id) {
         onDispose {
             if (isTypingSent) {
-                ChatWebSocketClient.sendTyping(chat.id, false)
+                chatViewModel.sendTyping(false)
             }
         }
     }

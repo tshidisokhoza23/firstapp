@@ -15,8 +15,11 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getInstance(context)
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        sessionManager: com.example.firstapp.common.domain.auth.SessionManager
+    ): AppDatabase {
+        return AppDatabase.getInstance(context, sessionManager)
     }
 
     @Provides

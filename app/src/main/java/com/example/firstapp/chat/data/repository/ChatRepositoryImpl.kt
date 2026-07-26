@@ -37,6 +37,8 @@ class ChatRepositoryImpl @Inject constructor(
     private val contactDao: ContactDao,
     private val callLogDao: CallLogDao,
     private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver,
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager,
+    private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient,
     @ApplicationContext private val context: Context
 ) : ChatRepository {
 
@@ -233,7 +235,7 @@ class ChatRepositoryImpl @Inject constructor(
             }
         }
 
-        val myUserId = com.example.firstapp.common.data.AuthSessionManager.currentUserIdOrNull() ?: "0"
+        val myUserId = sessionManager.getUserId() ?: "0"
         val chatEntity = chatDao.searchChatsById(chatId)
         val receiverId = if (chatEntity?.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
             chatEntity.otherUserId

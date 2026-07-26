@@ -5,7 +5,7 @@ import com.example.firstapp.auth.data.api.AuthApi
 import com.example.firstapp.chat.data.api.ChatApi
 import com.example.firstapp.chat.jobs.data.api.JobApi
 import com.example.firstapp.chat.rewards.data.api.RewardsApi
-import com.example.firstapp.common.data.AuthSessionManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.common.data.api.SystemApi
 import com.example.firstapp.common.data.api.UserApi
 import com.example.firstapp.common.data.network.ActivePassiveInterceptor
@@ -25,6 +25,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
+import kotlinx.coroutines.runBlocking
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -32,7 +33,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideBaseUrl(): String = BuildConfig.ACTIVE_API_URL
+    fun provideBaseUrl(): String = BuildConfig.API_BASE_URL
 
     @Provides
     @Singleton
@@ -44,7 +45,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthInterceptor(): Interceptor {
+    fun provideAuthInterceptor(sessionManager: SessionManager): Interceptor {
         return Interceptor { chain ->
             val request = chain.request()
             val requestBuilder = request.newBuilder()
@@ -55,7 +56,7 @@ object NetworkModule {
                 path.endsWith("/auth/logout")
 
             if (!isAuthEndpoint) {
-                AuthSessionManager.currentAccessTokenOrNull()?.let { token ->
+                sessionManager.getToken()?.let { token ->
                     requestBuilder.addHeader("Authorization", "Bearer $token")
                 }
             }
@@ -65,7 +66,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthenticator(baseUrl: String): Authenticator {
+    fun provideAuthenticator(baseUrl: String, sessionManager: SessionManager): Authenticator {
         val refreshLock = Any()
         return Authenticator { _, response ->
             val path = response.request.url.encodedPath
@@ -83,20 +84,40 @@ object NetworkModule {
                 ?.removePrefix("Bearer ")
 
             synchronized(refreshLock) {
-                val latestToken = AuthSessionManager.currentAccessTokenOrNull()
+                val latestToken = sessionManager.getToken()
                 if (!latestToken.isNullOrBlank() && latestToken != previousToken) {
                     return@Authenticator response.request.newBuilder()
                         .header("Authorization", "Bearer $latestToken")
                         .build()
                 }
 
-                val refreshedToken = AuthSessionManager.refreshTokensBlocking(baseUrl)
-                if (!refreshedToken.isNullOrBlank()) {
-                    return@Authenticator response.request.newBuilder()
-                        .header("Authorization", "Bearer $refreshedToken")
+                val refreshToken = sessionManager.getRefreshToken()
+                if (refreshToken.isNullOrBlank()) return@Authenticator null
+
+                return@Authenticator try {
+                    val authApi = Retrofit.Builder()
+                        .baseUrl(baseUrl)
+                        .addConverterFactory(GsonConverterFactory.create())
                         .build()
+                        .create(AuthApi::class.java)
+
+                    val refreshResponse = runBlocking {
+                        authApi.refresh(com.example.firstapp.common.data.api.TokenRefreshRequest(refreshToken))
+                    }
+
+                    if (refreshResponse.isSuccessful && refreshResponse.body() != null) {
+                        val body = refreshResponse.body()!!
+                        sessionManager.saveSession(body.token, body.refreshToken, sessionManager.currentUser.value)
+                        response.request.newBuilder()
+                            .header("Authorization", "Bearer ${body.token}")
+                            .build()
+                    } else {
+                        sessionManager.clearSession()
+                        null
+                    }
+                } catch (e: Exception) {
+                    null
                 }
-                null
             }
         }
     }

@@ -36,11 +36,6 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
         super.onCreate()
         adManager.initialize(this)
         com.example.firstapp.common.util.ContextProvider.context = applicationContext
-        try {
-            TokenManager.initialize(this)
-        } catch (e: Exception) {
-            android.util.Log.e("FirstApp", "TokenManager init failed", e)
-        }
         
         scheduleSync()
     }

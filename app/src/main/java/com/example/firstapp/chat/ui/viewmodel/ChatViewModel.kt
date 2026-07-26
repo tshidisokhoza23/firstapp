@@ -31,7 +31,8 @@ class ChatViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val settingsRepository: SettingsRepository,
     private val webRtcCallManager: WebRtcCallManager,
-    private val callTonePlayer: CallTonePlayer
+    private val callTonePlayer: CallTonePlayer,
+    private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -166,9 +167,9 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun connectChatRealtime() {
-        ChatWebSocketClient.connect()
+        chatWebSocketClient.connect()
         viewModelScope.launch {
-            ChatWebSocketClient.messageFlow.collect { message ->
+            chatWebSocketClient.messageFlow.collect { message ->
                 val shouldProcess = (repository as? ChatRepositoryImpl)?.shouldProcessIncomingMessage(message) ?: true
                 if (!shouldProcess) {
                     return@collect
@@ -185,7 +186,7 @@ class ChatViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            ChatWebSocketClient.eventFlow.collect { frame ->
+            chatWebSocketClient.eventFlow.collect { frame ->
                 val op = frame.op
                 val payload = frame.payload?.asJsonObject ?: return@collect
                 
@@ -337,6 +338,11 @@ class ChatViewModel @Inject constructor(
             }
         } 
     }
+
+    fun sendTyping(isTyping: Boolean) {
+        activeChatId?.let { chatWebSocketClient.sendTyping(it, isTyping) }
+    }
+
     fun updateChatLastMessage(contactId: String, message: Message) { 
         viewModelScope.launch { 
             repository.updateLastMessage(contactId, message.content, message.timestamp, message.isFromMe, message.isRead) 
@@ -463,7 +469,7 @@ class ChatViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        ChatWebSocketClient.disconnect()
+        chatWebSocketClient.disconnect()
         super.onCleared()
     }
 }

@@ -40,6 +40,8 @@ class CallListenerService : Service() {
 
     @Inject lateinit var webRtcCallManager: WebRtcCallManager
     @Inject lateinit var callTonePlayer: CallTonePlayer
+    @Inject lateinit var sessionManager: com.example.firstapp.common.domain.auth.SessionManager
+    @Inject lateinit var callWebSocketClient: com.example.firstapp.chat.data.CallWebSocketClient
 
     private val activeIncomingNotifications = ConcurrentHashMap<String, Int>()
     private val serviceJob = SupervisorJob()
@@ -47,8 +49,8 @@ class CallListenerService : Service() {
     
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            if (TokenManager.isLoggedIn()) {
-                CallWebSocketClient.connect(listener)
+            if (sessionManager.isLoggedIn()) {
+                callWebSocketClient.connect(listener)
             }
         }
     }
@@ -59,7 +61,7 @@ class CallListenerService : Service() {
         }
 
         override fun onEvent(event: CallEvent) {
-            val currentUserId = getCurrentUserIdFromToken() ?: return
+            val currentUserId = sessionManager.getUserId() ?: return
             
             if (event.senderId == currentUserId) {
                 return
@@ -70,7 +72,7 @@ class CallListenerService : Service() {
                 "call_invite" -> {
                     if (event.receiverId == currentUserId) {
                         if (GlobalCallState.isCallActive.value) {
-                            CallWebSocketClient.reject(
+                            callWebSocketClient.reject(
                                 receiverId = event.senderId,
                                 sessionId = event.sessionId,
                                 callType = event.callType,
@@ -80,7 +82,7 @@ class CallListenerService : Service() {
                         }
                         GlobalCallState.onCallInvite(event)
                         showIncomingCallNotification(event)
-                        CallWebSocketClient.ringing(event.senderId, event.sessionId, event.callType)
+                        callWebSocketClient.ringing(event.senderId, event.sessionId, event.callType)
                     }
                 }
                 "call_ringing" -> {
@@ -150,7 +152,7 @@ class CallListenerService : Service() {
             val sessionId = GlobalCallState.activeSessionId.value
             val callType = GlobalCallState.activeCallType.value
             if (participantId != null && sessionId != null && callType != null) {
-                CallWebSocketClient.signal(
+                callWebSocketClient.signal(
                     receiverId = participantId,
                     sessionId = sessionId,
                     callType = callType,
@@ -268,8 +270,8 @@ class CallListenerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (TokenManager.isLoggedIn()) {
-            CallWebSocketClient.connect(listener)
+        if (sessionManager.isLoggedIn()) {
+            callWebSocketClient.connect(listener)
         } else {
             stopSelf()
         }
@@ -280,7 +282,7 @@ class CallListenerService : Service() {
         serviceScope.cancel()
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
         connectivityManager.unregisterNetworkCallback(networkCallback)
-        CallWebSocketClient.disconnect(listener)
+        callWebSocketClient.disconnect(listener)
         super.onDestroy()
     }
 

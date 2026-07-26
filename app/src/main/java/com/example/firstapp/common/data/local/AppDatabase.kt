@@ -68,10 +68,10 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var instance: AppDatabase? = null
 
-        fun getInstance(context: android.content.Context): AppDatabase {
+        fun getInstance(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager): AppDatabase {
             return instance ?: synchronized(this) {
                 val db = try {
-                    val d = buildDatabase(context)
+                    val d = buildDatabase(context, sessionManager)
                     // Trigger a database open to catch encryption/corruption errors early
                     d.openHelper.writableDatabase
                     d
@@ -81,7 +81,7 @@ abstract class AppDatabase : RoomDatabase() {
                     try {
                         context.deleteDatabase(DATABASE_NAME)
                     } catch (_: Exception) {}
-                    val d = buildDatabase(context)
+                    val d = buildDatabase(context, sessionManager)
                     d.openHelper.writableDatabase
                     d
                 }
@@ -90,13 +90,11 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private fun buildDatabase(context: android.content.Context): AppDatabase {
+        private fun buildDatabase(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager): AppDatabase {
             // Initialize SQLCipher
             System.loadLibrary("sqlcipher")
             
-            // Ensure TokenManager is initialized to get the passphrase
-            com.example.firstapp.common.data.TokenManager.initialize(context)
-            val passphrase = com.example.firstapp.common.data.TokenManager.getDbPassphrase().toByteArray()
+            val passphrase = sessionManager.getDbPassphrase().toByteArray()
             val factory = SupportOpenHelperFactory(passphrase)
 
             return androidx.room.Room.databaseBuilder(

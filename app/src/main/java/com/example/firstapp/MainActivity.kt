@@ -52,6 +52,7 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var displayNameResolver: DisplayNameResolver
     @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
     @Inject lateinit var adManager: com.example.firstapp.common.data.ads.AdManager
+    @Inject lateinit var sessionManager: com.example.firstapp.common.domain.auth.SessionManager
     private var contactsObserver: ContactsObserver? = null
 
     private fun consumeIncomingCallIntent(intent: Intent?) {
@@ -163,7 +164,7 @@ class MainActivity : FragmentActivity() {
             FirstAppTheme(darkTheme = darkTheme) {
                 val navController = rememberNavController()
                 val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-                val isLoggedIn by TokenManager.authState.collectAsState()
+                val isLoggedIn by sessionManager.authState.collectAsState()
                 var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }
 
                 LaunchedEffect(isLoggedIn) {
@@ -227,7 +228,7 @@ class MainActivity : FragmentActivity() {
                             musicViewModel = musicViewModel,
                             adManager = adManager,
                             onLogout = {
-                                TokenManager.clear()
+                                sessionManager.clearSession()
                                 navController.navigate(Screen.Login.route) {
                                     popUpTo(0) { inclusive = true }
                                 }
@@ -286,7 +287,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (TokenManager.isLoggedIn()) {
+        if (sessionManager.isLoggedIn()) {
             val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
             try {
                 ContextCompat.startForegroundService(applicationContext, serviceIntent)
@@ -312,7 +313,7 @@ class MainActivity : FragmentActivity() {
         
         // Handle notification-specific navigation
         val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
-        if (senderId != null && TokenManager.isLoggedIn()) {
+        if (senderId != null && sessionManager.isLoggedIn()) {
             GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId))
         }
     }
@@ -320,7 +321,7 @@ class MainActivity : FragmentActivity() {
     private fun setupContactsObserver() {
         contactsObserver = ContactsObserver(this) {
             displayNameResolver.clearCache()
-            if (TokenManager.isLoggedIn()) {
+            if (sessionManager.isLoggedIn()) {
                 lifecycleScope.launch {
                     try {
                         chatRepository.refreshLocalChatNames()

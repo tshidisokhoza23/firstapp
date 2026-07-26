@@ -2,6 +2,7 @@ package com.example.firstapp.chat.data
 
 import android.util.Log
 import com.example.firstapp.BuildConfig
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.common.data.AuthSessionManager
 import com.example.firstapp.common.data.api.ApiClient
 import com.google.gson.Gson
@@ -12,10 +13,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.text.*
 import kotlin.jvm.Volatile
 
@@ -74,10 +78,13 @@ private data class OutgoingCallEvent(
     @SerializedName("end_reason") val endReason: String? = null
 )
 
-object CallWebSocketClient {
-    private val gson = Gson()
+@Singleton
+class CallWebSocketClient @Inject constructor(
+    private val sessionManager: SessionManager,
+    private val httpClient: OkHttpClient,
+    private val gson: Gson
+) {
     private var webSocket: WebSocket? = null
-    private val httpClient = ApiClient.client
     private val listeners = CopyOnWriteArraySet<CallSocketListener>()
     private val connectMutex = Mutex()
     private val isReconnecting = AtomicBoolean(false)
@@ -87,11 +94,10 @@ object CallWebSocketClient {
 
     fun connect(listener: CallSocketListener) {
         listeners.add(listener)
-        Thread {
-            runBlocking {
-                ensureConnected()
-            }
-        }.start()
+        // Use a background scope instead of manual Thread
+        CoroutineScope(Dispatchers.IO).launch {
+            ensureConnected()
+        }
     }
 
     fun disconnect(listener: CallSocketListener) {
@@ -106,7 +112,7 @@ object CallWebSocketClient {
         connectMutex.withLock {
             if (webSocket != null) return@withLock
 
-            val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL)
+            val token = sessionManager.getToken()
             if (token.isNullOrBlank()) {
                 notifyError("Missing auth token")
                 return@withLock
@@ -150,9 +156,7 @@ object CallWebSocketClient {
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     Log.e("CallWebSocket", "WebSocket failure: ${t.message}", t)
                     this@CallWebSocketClient.webSocket = null
-                    if (response?.code == 401) {
-                        AuthSessionManager.refreshTokensBlocking(BuildConfig.API_BASE_URL)
-                    }
+                    // Reconnect handled via scheduleReconnect
                     scheduleReconnect()
                 }
 
@@ -188,16 +192,16 @@ object CallWebSocketClient {
         if (!isReconnecting.compareAndSet(false, true)) return
         
         Log.d("CallWebSocket", "Scheduling reconnect, immediate=$immediate")
-        Thread {
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                if (!immediate) Thread.sleep(5000)
+                if (!immediate) delay(5000)
                 if (!manualClose && listeners.isNotEmpty() && webSocket == null) {
-                    runBlocking { ensureConnected() }
+                    ensureConnected()
                 }
             } finally {
                 isReconnecting.set(false)
             }
-        }.start()
+        }
     }
 
     fun invite(receiverId: String, sessionId: String, callType: CallType) {
@@ -228,7 +232,6 @@ object CallWebSocketClient {
         webSocket?.send(gson.toJson(event))
     }
 
-    @Synchronized
     fun close() {
         manualClose = true
         webSocket?.close(1000, "Goodbye")

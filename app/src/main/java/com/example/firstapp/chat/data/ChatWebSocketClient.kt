@@ -4,23 +4,33 @@ import android.util.Log
 import com.example.firstapp.BuildConfig
 import com.example.firstapp.chat.data.api.ApiMessage
 import com.example.firstapp.chat.model.Message
-import com.example.firstapp.common.data.AuthSessionManager
-import com.example.firstapp.common.data.api.ApiClient
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.common.data.repository.mapApiMessage
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.util.HashMap
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.coroutines.CoroutineContext
 
-object ChatWebSocketClient {
-    private val gson = Gson()
+@Singleton
+class ChatWebSocketClient @Inject constructor(
+    private val sessionManager: SessionManager,
+    private val httpClient: OkHttpClient,
+    private val gson: Gson
+) : CoroutineScope {
+    
+    override val coroutineContext: CoroutineContext = Dispatchers.IO + SupervisorJob()
+    
     private var webSocket: WebSocket? = null
-    private val httpClient = ApiClient.client
     private var reconnectAttempts = 0
 
     private val _messageFlow = MutableSharedFlow<Message>(extraBufferCapacity = 64)
@@ -31,14 +41,13 @@ object ChatWebSocketClient {
 
     fun connect() {
         if (webSocket != null) return
-        // Use background thread to avoid blocking main thread during token refresh
-        Thread {
-            val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL)
+        launch {
+            val token = sessionManager.getToken()
             if (token != null) {
                 reconnectAttempts = 0
                 connectWithToken(token)
             }
-        }.start()
+        }
     }
 
     private fun connectWithToken(token: String) {
@@ -85,11 +94,6 @@ object ChatWebSocketClient {
                 this@ChatWebSocketClient.webSocket = null
                 if (response?.code == 401 && reconnectAttempts < 1) {
                     reconnectAttempts++
-                    // Background thread for refresh already handled by OkHttp dispatcher
-                    val fresh = AuthSessionManager.refreshTokensBlocking(BuildConfig.API_BASE_URL)
-                    if (!fresh.isNullOrBlank()) {
-                        connectWithToken(fresh)
-                    }
                 }
             }
 
