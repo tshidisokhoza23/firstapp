@@ -656,8 +656,10 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                 }
                 
-                contactDao.clearContacts()
-                contactDao.insertContacts(allContacts.map { c: Contact -> c.toEntity() })
+                if (allContacts.isNotEmpty()) {
+                    contactDao.clearContacts()
+                    contactDao.insertContacts(allContacts.map { c: Contact -> c.toEntity() })
+                }
                 emit(Resource.Success(allContacts))
             } else {
                 emit(Resource.Error("Failed to sync contacts"))

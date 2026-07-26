@@ -10,6 +10,7 @@ import com.example.firstapp.common.model.*
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.chat.data.repository.ChatRepositoryImpl
 import com.example.firstapp.domain.repository.ChatRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -357,6 +358,11 @@ class ChatViewModel @Inject constructor(
     }
 
     fun deleteChat(chatId: String) { viewModelScope.launch { repository.deleteChat(chatId).collect { result -> if (result is Resource.Success) fetchChats() } } }
+    
+    suspend fun initiateDM(contactId: String): Flow<Resource<String>> {
+        return repository.initiateDM(contactId)
+    }
+
     fun clearChat(chatId: String) {
         viewModelScope.launch {
             repository.clearMessages(chatId)

@@ -1,32 +1,39 @@
 package com.example.firstapp.chat.ui.navigation
 
+import kotlin.collections.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.firstapp.chat.model.*
-import com.example.firstapp.chat.ui.screens.*
-import com.example.firstapp.chat.ui.viewmodel.*
+import com.example.firstapp.chat.model.ChatMessage
+import com.example.firstapp.chat.ui.screens.ArchivedChatsScreen
+import com.example.firstapp.chat.ui.screens.ChatMessagesScreen
+import com.example.firstapp.chat.ui.screens.ContactPickerScreen
+import com.example.firstapp.chat.ui.screens.CreateGroupScreen
+import com.example.firstapp.chat.ui.screens.StarredMessagesScreen
+import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
+import com.example.firstapp.chat.ui.viewmodel.ContactPickerViewModel
+import com.example.firstapp.chat.ui.viewmodel.CreateGroupViewModel
 import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.media.ui.screens.SharedMediaScreen
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.common.ui.theme.BoyishPurple
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.ui.navigation.Screen
-
 import com.example.firstapp.common.model.ConversationType
 
 fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     composable(
         route = Screen.Chat.route,
-        arguments = listOf(
+        arguments = kotlin.collections.listOf(
             navArgument("chatId") { type = NavType.StringType },
             navArgument("type") { type = NavType.StringType; defaultValue = "direct" },
             navArgument("jobId") { type = NavType.StringType; nullable = true; defaultValue = "" },
@@ -45,38 +52,57 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                    else if (typeStr == "channel") ConversationType.CHANNEL 
                    else ConversationType.DIRECT
         
-        val chatsState by chatViewModel.chats.collectAsState()
-        val chats = chatsState.data ?: emptyList()
-        val existingChat = chats.find { it.id == chatId && it.type == type }
-        val chat = (existingChat ?: run {
-            val baseName = if (type == ConversationType.GROUP) (chatViewModel.getCachedGroupName(chatId) ?: "Group") 
-                else if (type == ConversationType.CHANNEL) "Channel"
-                else GlobalCallState.getContactName(chatId)
-                    ?: GlobalCallState.getContactPhone(chatId) 
-                    ?: "User $chatId"
-            
-            val sanitized = baseName.takeIf { 
-                it.isNotBlank() && 
-                !it.startsWith("User ") && 
-                it.lowercase() != "unknown" && 
-                it.lowercase() != "null" && 
-                it.lowercase() != "undefined" 
-            } ?: "User $chatId"
-
-            ChatMessage(
-                id = chatId,
-                type = type,
-                senderName = sanitized,
-                lastMessage = "",
-                timestamp = 0L,
-                avatarColor = BoyishPurple,
-                isGroup = type == ConversationType.GROUP,
-                isAdmin = false
-            )
-        }).copy(type = type)
+        var resolvedChatId by remember { mutableStateOf<String?>(if (typeStr == "initiate") null else chatId) }
         
-        LaunchedEffect(chatId) {
-            chatViewModel.fetchMessages(chatId)
+        LaunchedEffect(chatId, typeStr) {
+            if (typeStr == "initiate") {
+                chatViewModel.initiateDM(chatId).collect { resource ->
+                    if (resource is Resource.Success && resource.data != null) {
+                        resolvedChatId = resource.data
+                    }
+                }
+            } else {
+                resolvedChatId = chatId
+            }
+        }
+
+        if (resolvedChatId == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = com.example.firstapp.common.ui.theme.AppAccent)
+            }
+            return@composable
+        }
+
+        val chatsState by chatViewModel.chats.collectAsState()
+        val chats = chatsState.data ?: emptyList<ChatMessage>()
+        val existingChat = chats.firstOrNull { it.id == resolvedChatId && it.type == type }
+        
+        val baseName = if (type == ConversationType.GROUP) (chatViewModel.getCachedGroupName(resolvedChatId!!) ?: "Group") 
+            else if (type == ConversationType.CHANNEL) "Channel"
+            else GlobalCallState.getContactName(resolvedChatId!!)
+                ?: GlobalCallState.getContactPhone(resolvedChatId!!) 
+                ?: "User ${resolvedChatId!!.take(8)}"
+        
+        val sanitizedName = if (baseName == "" || baseName.startsWith("User ") || baseName.lowercase() == "unknown" || baseName.lowercase() == "null") {
+            "User ${resolvedChatId!!.take(8)}"
+        } else {
+            baseName
+        }
+
+        val chat = (existingChat ?: ChatMessage(
+            id = resolvedChatId!!,
+            type = type,
+            senderName = sanitizedName,
+            lastMessage = "",
+            timestamp = 0L,
+            avatarUrl = null,
+            avatarColor = BoyishPurple,
+            isGroup = type == ConversationType.GROUP,
+            isAdmin = false
+        )).copy(type = type)
+        
+        LaunchedEffect(resolvedChatId) {
+            chatViewModel.fetchMessages(resolvedChatId!!)
         }
 
         ChatMessagesScreen(
@@ -94,18 +120,18 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
 
     composable(
         route = Screen.DirectChat.route,
-        arguments = listOf(navArgument("chatId") { type = NavType.StringType })
+        arguments = kotlin.collections.listOf(navArgument("chatId") { type = NavType.StringType })
     ) { backStackEntry ->
         val chatViewModel: ChatViewModel = hiltViewModel()
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         
         val chatsState by chatViewModel.chats.collectAsState()
         val chats = chatsState.data ?: emptyList()
-        val existingChat = chats.find { it.id == chatId && it.type == ConversationType.DIRECT }
+        val existingChat = chats.firstOrNull { it.id == chatId && it.type == ConversationType.DIRECT }
         val chat = existingChat ?: ChatMessage(
             id = chatId,
             type = ConversationType.DIRECT,
-            senderName = GlobalCallState.getContactName(chatId) ?: "User $chatId",
+            senderName = GlobalCallState.getContactName(chatId) ?: "User ${chatId.take(8)}",
             lastMessage = "",
             timestamp = 0L,
             unreadCount = 0,
@@ -128,30 +154,33 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         ArchivedChatsScreen(
             onBack = { navController.popBackStack() },
             onChatClick = { chat -> 
-                val typeStr = if (chat.type == ConversationType.CHANNEL) "channel" 
-                             else if (chat.type == ConversationType.GROUP) "group" 
-                             else "direct"
+                val typeStr = when (chat.type) {
+                    ConversationType.CHANNEL -> "channel"
+                    ConversationType.GROUP -> "group"
+                    else -> "direct"
+                }
                 navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
             },
             viewModel = chatViewModel
         )
     }
-    
+
     composable(Screen.StarredMessages.route) {
-        val starredMessagesViewModel: StarredMessagesViewModel = hiltViewModel()
-        LaunchedEffect(Unit) {
-            starredMessagesViewModel.fetchStarredMessages()
-        }
+        val chatViewModel: ChatViewModel = hiltViewModel()
+        val starredMessages by chatViewModel.starredMessages.collectAsState()
         StarredMessagesScreen(
-            messagesState = starredMessagesViewModel.starredMessages.collectAsState().value,
+            messagesState = starredMessages,
             onBack = { navController.popBackStack() },
-            onMessageClick = { /* maybe navigate to original chat? */ }
+            onMessageClick = { msg ->
+                navController.navigate(Screen.Chat.createRoute(msg.conversationId))
+            },
+            viewModel = androidx.hilt.navigation.compose.hiltViewModel()
         )
     }
 
     composable(
         route = Screen.ContactPicker.route,
-        arguments = listOf(navArgument("isGroupMode") { type = NavType.BoolType; defaultValue = false })
+        arguments = kotlin.collections.listOf(navArgument("isGroupMode") { type = NavType.BoolType; defaultValue = false })
     ) { backStackEntry ->
         val isGroupMode = backStackEntry.arguments?.getBoolean("isGroupMode") ?: false
         val chatViewModel: ChatViewModel = hiltViewModel()
@@ -162,7 +191,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onBack = { navController.popBackStack() },
             onContactSelected = { contact ->
                 GlobalCallState.updateContactInfo(contact.id, contact.displayName, contact.phoneNumber)
-                navController.navigate(Screen.Chat.createRoute(contact.id)) {
+                navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) {
                     popUpTo(Screen.ContactPicker.route) { inclusive = true }
                 }
             },
@@ -178,73 +207,46 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chatViewModel: ChatViewModel = hiltViewModel()
         val createGroupViewModel: CreateGroupViewModel = hiltViewModel()
         val selectedContacts = chatViewModel.selectedContactsForGroup.collectAsState().value
+        
         CreateGroupScreen(
             selectedContacts = selectedContacts,
             onBack = { navController.popBackStack() },
+            onCreated = { newChat ->
+                navController.navigate(Screen.Chat.createRoute(newChat.id, type = "group")) {
+                    popUpTo(Screen.Main.route)
+                }
+            },
+            viewModel = createGroupViewModel,
             onRemoveContact = { contact ->
                 val updated = selectedContacts.filter { it.id != contact.id }
                 chatViewModel.updateSelectedContacts(updated)
-            },
-            onCreated = { chat ->
-                navController.navigate(Screen.Chat.createRoute(chat.id, type = "group")) {
-                    popUpTo(Screen.CreateGroup.route) { inclusive = true }
-                }
-            },
-            viewModel = createGroupViewModel
-        )
-    }
-
-    composable(Screen.DirectMessages.route) {
-        val directMessagesViewModel: DirectMessagesViewModel = hiltViewModel()
-        DirectMessagesScreen(
-            onBack = { navController.popBackStack() },
-            onChatSelect = { chat -> 
-                val typeStr = if (chat.type == ConversationType.CHANNEL) "channel" 
-                             else if (chat.type == ConversationType.GROUP) "group" 
-                             else "direct"
-                navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
-            },
-            onCallSelect = { call -> 
-                navController.navigate(Screen.Chat.createRoute(call.contactId))
-            },
-            onNewDM = { navController.navigate(Screen.ContactPicker.route) },
-            viewModel = directMessagesViewModel
+            }
         )
     }
 
     composable(
         route = Screen.SharedMedia.route,
-        arguments = listOf(navArgument("chatId") { type = NavType.StringType })
+        arguments = kotlin.collections.listOf(navArgument("chatId") { type = NavType.StringType })
     ) { backStackEntry ->
-        val sharedMediaViewModel: SharedMediaViewModel = hiltViewModel()
-        val chatViewModel: ChatViewModel = hiltViewModel()
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
+        val chatViewModel: ChatViewModel = hiltViewModel()
+        val viewModel: SharedMediaViewModel = hiltViewModel()
         
         val chatsState by chatViewModel.chats.collectAsState()
-        val existingChat = (chatsState.data ?: emptyList()).find { it.id == chatId }
-        val chat = (existingChat ?: ChatMessage(
-            id = chatId, 
-            senderName = GlobalCallState.getContactName(chatId)
-                ?: GlobalCallState.getContactPhone(chatId)
-                ?: "$chatId", 
-            lastMessage = "", 
-            timestamp = 0L, 
-            avatarColor = Color.Gray
-        )).let { c ->
-            val sanitized = c.senderName.takeIf { 
-                it.isNotBlank() && 
-                !it.startsWith("User ") && 
-                it.lowercase() != "unknown" && 
-                it.lowercase() != "null" && 
-                it.lowercase() != "undefined" 
-            } ?: c.id
-            c.copy(senderName = sanitized)
-        }
-        
+        val chats = chatsState.data ?: emptyList()
+        val chat = chats.firstOrNull { it.id == chatId } ?: ChatMessage(
+            id = chatId,
+            type = ConversationType.DIRECT,
+            senderName = "Chat",
+            lastMessage = "",
+            timestamp = 0L,
+            avatarColor = BoyishPurple
+        )
+
         SharedMediaScreen(
             chat = chat,
-            onBack = { navController.popBackStack() },
-            viewModel = sharedMediaViewModel
+            viewModel = viewModel,
+            onBack = { navController.popBackStack() }
         )
     }
 }
