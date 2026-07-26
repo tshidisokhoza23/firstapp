@@ -77,6 +77,7 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
         content = body,
         senderId = senderId,
         senderName = apiMessage.sender_name,
+        receiverId = apiMessage.receiver_id,
         timestamp = timestamp,
         isFromMe = apiMessage.direction == "outgoing",
         type = when (apiMessage.media_type.lowercase()) {
@@ -175,6 +176,7 @@ fun Message.toEntity(chatId: String) = MessageEntity(
     content = content,
     senderId = senderId,
     senderName = senderName,
+    receiverId = receiverId,
     timestamp = timestamp,
     isFromMe = isFromMe,
     type = type,
@@ -202,6 +204,7 @@ fun MessageEntity.toModel() = Message(
     content = content,
     senderId = senderId,
     senderName = senderName ?: "Unknown",
+    receiverId = receiverId,
     timestamp = timestamp,
     isFromMe = isFromMe,
     type = type,

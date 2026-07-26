@@ -12,6 +12,7 @@ data class MessageEntity(
     val content: String,
     val senderId: String,
     val senderName: String?,
+    val receiverId: String? = null,
     val timestamp: Long,
     val isFromMe: Boolean,
     val type: MessageType,

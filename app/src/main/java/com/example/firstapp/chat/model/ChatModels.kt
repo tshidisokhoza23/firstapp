@@ -22,6 +22,7 @@ data class Message(
     val content: String = "",
     val senderId: String = "",
     val senderName: String = "",
+    val receiverId: String? = null,
     val timestamp: Long = 0,
     val isFromMe: Boolean = false,
     val status: MessageStatus = MessageStatus.SENT,

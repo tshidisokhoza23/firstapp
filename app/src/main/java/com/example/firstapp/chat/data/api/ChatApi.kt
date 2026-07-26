@@ -53,6 +53,7 @@ data class ApiMessage(
     val conversation_id: String,
     val sender_id: String,
     val sender_name: String,
+    val receiver_id: String? = null,
     val message_text: String,
     val media_type: String,
     val media_url: String?,
@@ -80,7 +81,8 @@ data class SendMessageRequest(
     val duration: String? = null,
     val file_name: String? = null,
     val file_size: String? = null,
-    val mention_user_ids: List<String>? = null
+    val mention_user_ids: List<String>? = null,
+    val receiver_id: String? = null
 )
 
 data class GroupInfoResponse(

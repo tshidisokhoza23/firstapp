@@ -233,12 +233,19 @@ class ChatRepositoryImpl @Inject constructor(
             }
         }
 
+        val myUserId = com.example.firstapp.common.data.AuthSessionManager.currentUserIdOrNull() ?: "0"
+        val chatEntity = chatDao.searchChatsById(chatId)
+        val receiverId = if (chatEntity?.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+            chatEntity.otherUserId
+        } else null
+
         val pendingMsg = Message(
             id = clientUuid,
             conversationId = chatId,
             content = body,
-            senderId = "0",
+            senderId = myUserId,
             senderName = "Me",
+            receiverId = receiverId,
             timestamp = System.currentTimeMillis(),
             isFromMe = true,
             status = MessageStatus.PENDING,
@@ -269,7 +276,8 @@ class ChatRepositoryImpl @Inject constructor(
                     media_url = mediaUrl,
                     duration = duration,
                     file_name = fileName,
-                    file_size = fileSize
+                    file_size = fileSize,
+                    receiver_id = receiverId
                 )
             )
             if (response.isSuccessful && response.body() != null) {

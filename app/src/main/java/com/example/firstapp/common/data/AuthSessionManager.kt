@@ -103,6 +103,11 @@ object AuthSessionManager {
         }
     }
 
+    fun currentUserIdOrNull(): String? {
+        val token = currentAccessTokenOrNull() ?: return null
+        return tokenSubject(token)
+    }
+
     private fun isExpired(token: String): Boolean {
         val payload = decodePayload(token) ?: return true
         val expiry = payload.optLong("exp", 0L)
