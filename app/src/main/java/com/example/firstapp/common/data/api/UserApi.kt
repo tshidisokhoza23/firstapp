@@ -5,6 +5,7 @@ import com.example.firstapp.common.model.PrivacySettings
 import com.example.firstapp.chat.data.api.ChatSummary
 import com.example.firstapp.chat.data.api.ApiMessage
 import com.example.firstapp.music.data.api.ApiSong
+import com.google.gson.annotations.SerializedName
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -103,15 +104,15 @@ data class UpdateUserRequest(
 )
 
 data class ApiUser(
-    val id: String,
-    val username: String,
-    val display_name: String,
-    val email: String,
-    val phone_number: String? = null,
-    val avatar_url: String? = null,
-    val is_verified: Boolean = false,
-    val bio: String? = null,
-    val public_key: String? = null
+    @SerializedName("id") val id: String,
+    @SerializedName("username") val username: String,
+    @SerializedName("display_name") val display_name: String,
+    @SerializedName("email") val email: String,
+    @SerializedName("phone_number") val phone_number: String? = null,
+    @SerializedName("avatar_url") val avatar_url: String? = null,
+    @SerializedName("is_verified") val is_verified: Boolean = false,
+    @SerializedName("bio") val bio: String? = null,
+    @SerializedName("public_key") val public_key: String? = null
 )
 
 data class SyncContactsRequest(val phone_numbers: List<String>)

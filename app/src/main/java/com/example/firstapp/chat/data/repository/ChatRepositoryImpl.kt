@@ -598,15 +598,28 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val apiUsers = response.body()!!.contacts
                 Log.d("ChatRepositoryImpl", "syncContacts: API returned ${apiUsers.size} registered contacts")
-                // Normalize numbers for matching (take last 9 digits to be robust against leading 0 or country codes)
-                val registeredMap = apiUsers.associateBy { it.phone_number?.filter { it.isDigit() }?.takeLast(9) }
+                
+                // Helper to get normalized suffix
+                fun normalize(phone: String?, length: Int): String? {
+                    if (phone == null) return null
+                    val digits = phone.filter { it.isDigit() }
+                    return if (digits.length >= length) digits.takeLast(length) else digits
+                }
+
+                // Build maps for different suffix lengths for maximum matching robustness
+                val regMap9 = apiUsers.associateBy { normalize(it.phone_number, 9) }
+                val regMap8 = apiUsers.associateBy { normalize(it.phone_number, 8) }
+                val regMap7 = apiUsers.associateBy { normalize(it.phone_number, 7) }
                 
                 val allContacts = deviceContacts.map { deviceContact: com.example.firstapp.common.util.ContactUtils.ContactInfo ->
-                    val cleanPhone = deviceContact.phoneNumber.filter { it.isDigit() }.takeLast(9)
-                    val registeredUser = registeredMap[cleanPhone]
+                    val clean9 = normalize(deviceContact.phoneNumber, 9)
+                    val clean8 = normalize(deviceContact.phoneNumber, 8)
+                    val clean7 = normalize(deviceContact.phoneNumber, 7)
+                    
+                    val registeredUser = regMap9[clean9] ?: regMap8[clean8] ?: regMap7[clean7]
                     
                     if (registeredUser != null) {
-                        Log.d("ChatRepositoryImpl", "syncContacts: Matched registered user for $cleanPhone")
+                        Log.d("ChatRepositoryImpl", "syncContacts: Matched registered user ${registeredUser.username} for ${deviceContact.phoneNumber}")
                         val userModel = com.example.firstapp.common.model.User(
                             id = registeredUser.id,
                             username = registeredUser.username,
