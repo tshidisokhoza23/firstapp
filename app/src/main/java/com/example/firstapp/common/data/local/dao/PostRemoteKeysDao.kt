@@ -16,4 +16,7 @@ interface PostRemoteKeysDao {
 
     @Query("DELETE FROM post_remote_keys WHERE feedType = :feedType")
     suspend fun clearRemoteKeys(feedType: String)
+
+    @Query("DELETE FROM post_remote_keys")
+    suspend fun clearAllRemoteKeys()
 }

@@ -43,7 +43,7 @@ private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Pos
     type = when (itemType) {
         "NATIVE_AD" -> PostType.NATIVE_AD
         "INTERNAL_AD" -> PostType.INTERNAL_AD
-        else -> when (apiPost.post_type) {
+        else -> when (apiPost.media_type) {
             "short" -> PostType.SHORT
             "repost" -> PostType.REPOST
             else -> PostType.POST

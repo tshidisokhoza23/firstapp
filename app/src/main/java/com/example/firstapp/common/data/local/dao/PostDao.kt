@@ -22,6 +22,9 @@ interface PostDao {
     @Query("DELETE FROM posts WHERE feedType = :feedType")
     suspend fun clearPosts(feedType: String)
 
+    @Query("DELETE FROM posts")
+    suspend fun clearAllPosts()
+
     @Query("UPDATE posts SET likes = :likes, isLiked = :isLiked WHERE id = :postId")
     suspend fun updateLikeStatus(postId: String, likes: Long, isLiked: Boolean)
 

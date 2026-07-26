@@ -35,7 +35,7 @@ class SystemRepositoryImpl @Inject constructor(
         callLogDao.clearCallLogs()
         jobDao.clearJobs()
         songDao.clearSongs()
-        postDao.clearPosts()
+        postDao.clearAllPosts()
         storyDao.clearStories()
         advertDao.clearAdverts()
         channelDao.clearChannels()

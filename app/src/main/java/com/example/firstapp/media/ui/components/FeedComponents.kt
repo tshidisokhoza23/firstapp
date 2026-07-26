@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -51,37 +52,143 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
             .border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
             .background(Color.Black.copy(alpha = 0.2f))
     ) {
-        if (urls.size == 1) {
-            AsyncImage(
-                model = urls[0],
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { onMediaClick(urls[0]) },
-                contentScale = ContentScale.Crop
-            )
-        } else if (urls.size >= 2) {
-            Row(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.weight(1f)) {
-                    AsyncImage(
-                        model = urls[0],
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable { onMediaClick(urls[0]) },
-                        contentScale = ContentScale.Crop
-                    )
+        when {
+            urls.isEmpty() -> {}
+            urls.size == 1 -> {
+                AsyncImage(
+                    model = urls[0],
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable { onMediaClick(urls[0]) },
+                    contentScale = ContentScale.Crop
+                )
+            }
+            urls.size == 2 -> {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        AsyncImage(
+                            model = urls[0],
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { onMediaClick(urls[0]) },
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(1.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        AsyncImage(
+                            model = urls[1],
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { onMediaClick(urls[1]) },
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(1.dp))
-                Box(modifier = Modifier.weight(1f)) {
-                    AsyncImage(
-                        model = urls[1],
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable { onMediaClick(urls[1]) },
-                        contentScale = ContentScale.Crop
-                    )
+            }
+            urls.size == 3 -> {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        AsyncImage(
+                            model = urls[0],
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { onMediaClick(urls[0]) },
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(1.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = urls[1],
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onMediaClick(urls[1]) },
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(1.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = urls[2],
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onMediaClick(urls[2]) },
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+                }
+            }
+            else -> { // 4 or more
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = urls[0],
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onMediaClick(urls[0]) },
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(1.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = urls[1],
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onMediaClick(urls[1]) },
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(1.dp))
+                    Row(modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = urls[2],
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onMediaClick(urls[2]) },
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(1.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = urls[3],
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onMediaClick(urls[3]) },
+                                contentScale = ContentScale.Crop
+                            )
+                            if (urls.size > 4) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "+${urls.size - 4}",
+                                        color = Color.White,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
