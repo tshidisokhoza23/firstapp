@@ -43,6 +43,13 @@ object NetworkModule {
         }
     }
 
+    private fun isAuthPath(path: String): Boolean {
+        return path.contains("/auth/login") || 
+               path.contains("/auth/register") || 
+               path.contains("/auth/refresh") || 
+               path.contains("/auth/logout")
+    }
+
     @Provides
     @Singleton
     fun provideAuthInterceptor(sessionManager: SessionManager): Interceptor {
@@ -50,14 +57,11 @@ object NetworkModule {
             val request = chain.request()
             val requestBuilder = request.newBuilder()
             val path = request.url.encodedPath
-            val isAuthEndpoint = path.endsWith("/auth/login") ||
-                path.endsWith("/auth/register") ||
-                path.endsWith("/auth/refresh") ||
-                path.endsWith("/auth/logout")
-
-            if (!isAuthEndpoint) {
-                sessionManager.getToken()?.let { token ->
-                    requestBuilder.addHeader("Authorization", "Bearer $token")
+            
+            if (!isAuthPath(path)) {
+                val token = sessionManager.getToken()
+                if (token != null && token.length > 0) {
+                    requestBuilder.addHeader("Authorization", "Bearer " + token)
                 }
             }
             chain.proceed(requestBuilder.build())
@@ -70,29 +74,26 @@ object NetworkModule {
         val refreshLock = Any()
         return Authenticator { _, response ->
             val path = response.request.url.encodedPath
-            val isAuthEndpoint = path.endsWith("/auth/login") ||
-                path.endsWith("/auth/register") ||
-                path.endsWith("/auth/refresh") ||
-                path.endsWith("/auth/logout")
-            if (isAuthEndpoint) return@Authenticator null
+            if (isAuthPath(path)) return@Authenticator null
 
             if (responseCount(response) >= 2) return@Authenticator null
 
             val previousAuthHeader = response.request.header("Authorization")
-            val previousToken = previousAuthHeader
-                ?.takeIf { it.startsWith("Bearer ") }
-                ?.removePrefix("Bearer ")
+            var previousToken: String? = null
+            if (previousAuthHeader != null && previousAuthHeader.startsWith("Bearer ")) {
+                previousToken = previousAuthHeader.substring(7)
+            }
 
             synchronized(refreshLock) {
                 val latestToken = sessionManager.getToken()
-                if (!latestToken.isNullOrBlank() && latestToken != previousToken) {
+                if (latestToken != null && latestToken.length > 0 && latestToken != previousToken) {
                     return@Authenticator response.request.newBuilder()
-                        .header("Authorization", "Bearer $latestToken")
+                        .header("Authorization", "Bearer " + latestToken)
                         .build()
                 }
 
                 val refreshToken = sessionManager.getRefreshToken()
-                if (refreshToken.isNullOrBlank()) return@Authenticator null
+                if (refreshToken == null || refreshToken.length == 0) return@Authenticator null
 
                 return@Authenticator try {
                     val authApi = Retrofit.Builder()
@@ -104,12 +105,12 @@ object NetworkModule {
                     val refreshResponse = runBlocking {
                         authApi.refresh(com.example.firstapp.common.data.api.TokenRefreshRequest(refreshToken))
                     }
-
+                    
                     if (refreshResponse.isSuccessful && refreshResponse.body() != null) {
                         val body = refreshResponse.body()!!
                         sessionManager.saveSession(body.token, body.refreshToken, sessionManager.currentUser.value)
                         response.request.newBuilder()
-                            .header("Authorization", "Bearer ${body.token}")
+                            .header("Authorization", "Bearer " + body.token)
                             .build()
                     } else {
                         sessionManager.clearSession()
@@ -145,9 +146,9 @@ object NetworkModule {
             .addInterceptor(activePassiveInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
             .pingInterval(30, TimeUnit.SECONDS)
             .build()
     }

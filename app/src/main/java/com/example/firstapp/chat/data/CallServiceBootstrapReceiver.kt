@@ -4,9 +4,20 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import com.example.firstapp.common.data.TokenManager
+import com.example.firstapp.common.domain.auth.SessionManager
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 
 class CallServiceBootstrapReceiver : BroadcastReceiver() {
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface SessionManagerEntryPoint {
+        fun sessionManager(): SessionManager
+    }
+
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
         if (
@@ -17,8 +28,13 @@ class CallServiceBootstrapReceiver : BroadcastReceiver() {
             return
         }
 
-        TokenManager.initialize(context.applicationContext)
-        if (!TokenManager.isLoggedIn()) {
+        val entryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            SessionManagerEntryPoint::class.java
+        )
+        val sessionManager = entryPoint.sessionManager()
+
+        if (!sessionManager.isLoggedIn()) {
             return
         }
 
@@ -26,7 +42,7 @@ class CallServiceBootstrapReceiver : BroadcastReceiver() {
         try {
             ContextCompat.startForegroundService(context, serviceIntent)
         } catch (e: Exception) {
-            // Background start not allowed or other service error
+            // Background start not allowed
         }
     }
 }

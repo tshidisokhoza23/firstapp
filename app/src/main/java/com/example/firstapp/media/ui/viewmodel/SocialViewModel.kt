@@ -23,7 +23,8 @@ import com.example.firstapp.account.domain.repository.AccountRepository
 @HiltViewModel
 class SocialViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<Resource<List<Post>>>(Resource.Loading())
@@ -49,7 +50,7 @@ class SocialViewModel @Inject constructor(
     }
 
     private fun connectPostRealtime() {
-        PostWebSocketClient.connect(object : PostSocketListener {
+        postWebSocketClient.connect(object : com.example.firstapp.common.data.realtime.PostSocketListener {
             override fun onOpen() {}
             override fun onPostsEvent(action: String, postId: String?) {
                 val now = System.currentTimeMillis()

@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.ui.navigation.AppNavigation
 import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.common.ui.theme.AppBackground
@@ -208,7 +207,7 @@ class MainActivity : FragmentActivity() {
                     if (isLoggedIn) {
                         try {
                             ContextCompat.startForegroundService(applicationContext, serviceIntent)
-                            PushTokenRegistrar.syncCurrentToken(applicationContext)
+                            PushTokenRegistrar.syncCurrentToken(applicationContext, sessionManager)
                         } catch (e: Exception) {
                             android.util.Log.e("MainActivity", "Failed to start CallListenerService", e)
                         }

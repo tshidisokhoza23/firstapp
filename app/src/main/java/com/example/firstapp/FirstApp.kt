@@ -6,7 +6,6 @@ import androidx.work.NetworkType
 import androidx.work.WorkManager
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
-import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.common.data.worker.SyncWorker
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit

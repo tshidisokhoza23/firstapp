@@ -7,17 +7,16 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.pm.ServiceInfo
 import android.content.Intent
-import android.app.AlarmManager
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
-import android.util.Base64
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import com.example.firstapp.MainActivity
 import com.example.firstapp.R
-import com.example.firstapp.common.data.TokenManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,13 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkRequest
 import java.util.concurrent.ConcurrentHashMap
-import org.json.JSONObject
-import kotlin.collections.*
-import kotlin.text.*
-import kotlin.*
-
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -40,8 +33,8 @@ class CallListenerService : Service() {
 
     @Inject lateinit var webRtcCallManager: WebRtcCallManager
     @Inject lateinit var callTonePlayer: CallTonePlayer
-    @Inject lateinit var sessionManager: com.example.firstapp.common.domain.auth.SessionManager
-    @Inject lateinit var callWebSocketClient: com.example.firstapp.chat.data.CallWebSocketClient
+    @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var callWebSocketClient: CallWebSocketClient
 
     private val activeIncomingNotifications = ConcurrentHashMap<String, Int>()
     private val serviceJob = SupervisorJob()
@@ -128,7 +121,6 @@ class CallListenerService : Service() {
         val ongoingNotification = buildOngoingNotification()
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                // Use remoteMessaging for idle state on Android 14+
                 val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
                 startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification, type)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -138,14 +130,11 @@ class CallListenerService : Service() {
                 startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification)
             }
         } catch (e: Exception) {
-            android.util.Log.e("CallListenerService", "Failed to start foreground service in onCreate", e)
+            Log.e("CallListenerService", "Failed to start foreground service", e)
         }
 
-        TokenManager.initialize(applicationContext)
-        android.util.Log.d("CallListenerService", "Service created and foreground started")
-        
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
-        connectivityManager.registerDefaultNetworkCallback(networkCallback)
+        connectivityManager?.registerDefaultNetworkCallback(networkCallback)
         
         webRtcCallManager.onSignal = { signalType, payload ->
             val participantId = GlobalCallState.activeParticipantId.value
@@ -183,7 +172,7 @@ class CallListenerService : Service() {
 
     private fun updateServiceNotification(isCallActive: Boolean) {
         val manager = getSystemService(NotificationManager::class.java)
-        val notification = if (isCallActive) {
+        if (isCallActive) {
             val sessionId = GlobalCallState.activeSessionId.value
             val participantId = GlobalCallState.activeParticipantId.value ?: ""
             val callType = GlobalCallState.activeCallType.value ?: CallType.VOICE
@@ -212,7 +201,6 @@ class CallListenerService : Service() {
                 val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 val hasCam = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 
-                // Only request mic/camera if we actually have permissions, otherwise the system kills the FGS
                 if (hasMic) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 if (hasCam) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
                 
@@ -230,27 +218,24 @@ class CallListenerService : Service() {
                 try {
                     startForeground(ONGOING_NOTIFICATION_ID, n, type)
                 } catch (e: Exception) {
-                    android.util.Log.e("CallListenerService", "Denied FGS types (likely background restriction), falling back", e)
-                    // Fallback to phoneCall only, or just service if even that is denied
                     try {
                         startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
                     } catch (_: Exception) {
                         startForeground(ONGOING_NOTIFICATION_ID, n)
                     }
                 }
-                return
+            } else {
+                val n = NotificationCompat.Builder(this, CHANNEL_CALL_SERVICE)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle("Ongoing Call with $participantName")
+                    .setContentText("Tap to return to call")
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setCategory(NotificationCompat.CATEGORY_CALL)
+                    .setOngoing(true)
+                    .setContentIntent(pendingIntent)
+                    .build()
+                startForeground(ONGOING_NOTIFICATION_ID, n)
             }
-
-            NotificationCompat.Builder(this, CHANNEL_CALL_SERVICE)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Ongoing Call with $participantName")
-                .setContentText("Tap to return to call")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_CALL)
-                .setOngoing(true)
-                .setContentIntent(pendingIntent)
-                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-                .build()
         } else {
             val n = buildOngoingNotification()
             try {
@@ -262,11 +247,9 @@ class CallListenerService : Service() {
                     startForeground(ONGOING_NOTIFICATION_ID, n)
                 }
             } catch (e: Exception) {
-                android.util.Log.e("CallListenerService", "Failed to start foreground service (idle)", e)
+                Log.e("CallListenerService", "Failed to start foreground service", e)
             }
-            return
         }
-        manager?.notify(ONGOING_NOTIFICATION_ID, notification)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -281,13 +264,9 @@ class CallListenerService : Service() {
     override fun onDestroy() {
         serviceScope.cancel()
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
-        connectivityManager.unregisterNetworkCallback(networkCallback)
+        connectivityManager?.unregisterNetworkCallback(networkCallback)
         callWebSocketClient.disconnect(listener)
         super.onDestroy()
-    }
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -414,22 +393,6 @@ class CallListenerService : Service() {
         incomingChannel.vibrationPattern = longArrayOf(0, 1000, 1000)
 
         manager.createNotificationChannel(incomingChannel)
-    }
-
-    private fun getCurrentUserIdFromToken(): String? {
-        return try {
-            val token = TokenManager.getToken() ?: return null
-            val parts = token.split('.')
-            if (parts.size < 2) return null
-            val decodedBytes = Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-            val payload = String(decodedBytes, Charsets.UTF_8)
-            val json = JSONObject(payload)
-            val id = json.optString("user_id", "")
-            if (id.isNotEmpty()) return id
-            json.optString("sub", "")
-        } catch (_: Exception) {
-            null
-        }
     }
 
     companion object {

@@ -33,7 +33,6 @@ import com.example.firstapp.common.model.*
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
-import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.common.util.MediaUtils
@@ -70,7 +69,7 @@ fun ProfileView(
     onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
-    val isLoggedIn by TokenManager.authState.collectAsState()
+    val isLoggedIn by userViewModel.isLoggedIn.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
     val normalizedUserId = remember(userId) { if (userId.length > 0) userId else null }
     val isMyProfile = remember(normalizedUserId, currentUser?.id) { 

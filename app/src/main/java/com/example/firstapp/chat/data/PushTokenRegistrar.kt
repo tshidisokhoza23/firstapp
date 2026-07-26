@@ -2,7 +2,7 @@ package com.example.firstapp.chat.data
 
 import android.content.Context
 import android.provider.Settings
-import com.example.firstapp.common.data.TokenManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.common.data.api.ApiClient
 import com.example.firstapp.common.data.api.PushTokenRequest
 import com.google.firebase.messaging.FirebaseMessaging
@@ -12,23 +12,23 @@ import kotlinx.coroutines.launch
 
 object PushTokenRegistrar {
 
-    fun syncCurrentToken(context: Context) {
-        if (!TokenManager.isLoggedIn()) {
+    fun syncCurrentToken(context: Context, sessionManager: SessionManager) {
+        if (!sessionManager.isLoggedIn()) {
             return
         }
 
         FirebaseMessaging.getInstance().token
             .addOnSuccessListener { token ->
-                uploadToken(context, token)
+                uploadToken(context, token, sessionManager)
             }
             .addOnFailureListener {
                 // no-op
             }
     }
 
-    fun uploadToken(context: Context, token: String?) {
+    fun uploadToken(context: Context, token: String?, sessionManager: SessionManager) {
         val cleanToken = token?.trim().orEmpty()
-        if (cleanToken.isEmpty() || !TokenManager.isLoggedIn()) {
+        if (cleanToken.isEmpty() || !sessionManager.isLoggedIn()) {
             return
         }
 

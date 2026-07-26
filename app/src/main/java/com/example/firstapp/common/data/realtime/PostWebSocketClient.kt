@@ -2,41 +2,39 @@ package com.example.firstapp.common.data.realtime
 
 import android.util.Log
 import com.example.firstapp.BuildConfig
-import com.example.firstapp.common.data.AuthSessionManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.CopyOnWriteArraySet
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object PostWebSocketClient {
-    private var client: OkHttpClient? = null
+@Singleton
+class PostWebSocketClient @Inject constructor(
+    private val sessionManager: SessionManager,
+    private val httpClient: OkHttpClient
+) {
     private var webSocket: WebSocket? = null
-    private val listeners = java.util.concurrent.CopyOnWriteArraySet<PostSocketListener>()
+    private val listeners = CopyOnWriteArraySet<PostSocketListener>()
 
     fun connect(listener: PostSocketListener) {
         listeners.add(listener)
         if (webSocket != null) return
 
-        client = OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build()
-
-        val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL) ?: return
-        val wsUrl = BuildConfig.WS_BASE_URL
-        var baseUrl = wsUrl
-        if (baseUrl.isNotEmpty() && baseUrl.endsWith("/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length - 1)
-        }
-        val url = "$baseUrl/ws/posts?token=$token"
+        val token = sessionManager.getToken() ?: return
+        val baseUrl = BuildConfig.WS_BASE_URL
+        val wsUrl = (if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/") + "ws/posts?token=$token"
+        
         val request = Request.Builder()
-            .url(url)
+            .url(wsUrl)
             .addHeader("Authorization", "Bearer $token")
             .build()
 
-        webSocket = client?.newWebSocket(request, object : WebSocketListener() {
+        webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("PostWebSocket", "Connected")
                 listeners.forEach { it.onOpen() }
@@ -63,7 +61,7 @@ object PostWebSocketClient {
                             listeners.forEach { it.onStoriesEvent(action, storyId) }
                         }
                     }
-                } catch (e: RuntimeException) {
+                } catch (e: Exception) {
                     Log.e("PostWebSocket", "Error parsing message", e)
                 }
             }

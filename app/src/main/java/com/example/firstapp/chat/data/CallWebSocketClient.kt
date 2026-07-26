@@ -3,8 +3,6 @@ package com.example.firstapp.chat.data
 import android.util.Log
 import com.example.firstapp.BuildConfig
 import com.example.firstapp.common.domain.auth.SessionManager
-import com.example.firstapp.common.data.AuthSessionManager
-import com.example.firstapp.common.data.api.ApiClient
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
@@ -20,17 +18,19 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.text.*
-import kotlin.jvm.Volatile
 
 enum class CallType {
     VOICE,
     VIDEO;
 
-    fun wireValue(): String = if (this == VIDEO) "video" else "voice"
+    fun wireValue(): String {
+        return if (this == VIDEO) "video" else "voice"
+    }
 
     companion object {
-        fun fromWire(value: String?): CallType = if (value == "video") VIDEO else VOICE
+        fun fromWire(value: String?): CallType {
+            return if ("video" == value) VIDEO else VOICE
+        }
     }
 }
 
@@ -88,14 +88,13 @@ class CallWebSocketClient @Inject constructor(
     private val listeners = CopyOnWriteArraySet<CallSocketListener>()
     private val connectMutex = Mutex()
     private val isReconnecting = AtomicBoolean(false)
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    @Volatile
     private var manualClose = false
 
     fun connect(listener: CallSocketListener) {
         listeners.add(listener)
-        // Use a background scope instead of manual Thread
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch {
             ensureConnected()
         }
     }
@@ -113,17 +112,22 @@ class CallWebSocketClient @Inject constructor(
             if (webSocket != null) return@withLock
 
             val token = sessionManager.getToken()
-            if (token.isNullOrBlank()) {
+            if (token == null || token.isEmpty()) {
                 notifyError("Missing auth token")
                 return@withLock
             }
 
             manualClose = false
             val baseUrl = BuildConfig.WS_BASE_URL
-            val url = (if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/") + "ws/calls?token=$token"
+            val url = if (baseUrl.endsWith("/")) {
+                baseUrl + "ws/calls?token=" + token
+            } else {
+                baseUrl + "/ws/calls?token=" + token
+            }
+            
             val request = Request.Builder()
                 .url(url)
-                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Authorization", "Bearer " + token)
                 .build()
 
             webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
@@ -149,19 +153,18 @@ class CallWebSocketClient @Inject constructor(
                             )
                         )
                     } catch (e: Exception) {
-                        Log.e("CallWebSocket", "Error parsing message: ${e.message}", e)
+                        Log.e("CallWebSocket", "Error parsing message: " + e.message)
                     }
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Log.e("CallWebSocket", "WebSocket failure: ${t.message}", t)
+                    Log.e("CallWebSocket", "WebSocket failure: " + t.message)
                     this@CallWebSocketClient.webSocket = null
-                    // Reconnect handled via scheduleReconnect
                     scheduleReconnect()
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    Log.d("CallWebSocket", "WebSocket closed: $code / $reason")
+                    Log.d("CallWebSocket", "WebSocket closed: " + code + " / " + reason)
                     this@CallWebSocketClient.webSocket = null
                     if (!manualClose) scheduleReconnect()
                 }
@@ -171,31 +174,37 @@ class CallWebSocketClient @Inject constructor(
 
     private fun notifyOpen() {
         Log.d("CallWebSocket", "WebSocket connection opened")
-        listeners.forEach { it.onOpen() }
+        for (l in listeners) {
+            l.onOpen()
+        }
     }
 
     private fun notifyEvent(event: CallEvent) {
-        Log.d("CallWebSocket", "WebSocket event received: ${event.type}")
-        listeners.forEach { it.onEvent(event) }
+        Log.d("CallWebSocket", "WebSocket event received: " + event.type)
+        for (l in listeners) {
+            l.onEvent(event)
+        }
     }
 
     private fun notifyError(error: String) {
-        Log.e("CallWebSocket", "WebSocket error: $error")
-        listeners.forEach { it.onError(error) }
+        Log.e("CallWebSocket", "WebSocket error: " + error)
+        for (l in listeners) {
+            l.onError(error)
+        }
     }
 
-    private fun scheduleReconnect(immediate: Boolean = false) {
+    private fun scheduleReconnect() {
         if (manualClose || listeners.isEmpty()) {
             Log.d("CallWebSocket", "Reconnect skipped")
             return
         }
         if (!isReconnecting.compareAndSet(false, true)) return
         
-        Log.d("CallWebSocket", "Scheduling reconnect, immediate=$immediate")
-        CoroutineScope(Dispatchers.IO).launch {
+        Log.d("CallWebSocket", "Scheduling reconnect")
+        scope.launch {
             try {
-                if (!immediate) delay(5000)
-                if (!manualClose && listeners.isNotEmpty() && webSocket == null) {
+                delay(5000)
+                if (!manualClose && !listeners.isEmpty() && webSocket == null) {
                     ensureConnected()
                 }
             } finally {
@@ -237,5 +246,6 @@ class CallWebSocketClient @Inject constructor(
         webSocket?.close(1000, "Goodbye")
         webSocket = null
         listeners.clear()
+        scope.cancel()
     }
 }

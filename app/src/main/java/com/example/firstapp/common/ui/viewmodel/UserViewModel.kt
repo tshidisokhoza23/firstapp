@@ -5,7 +5,7 @@ import javax.inject.Inject
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.firstapp.common.data.TokenManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.CryptoUtils
@@ -30,11 +30,14 @@ class UserViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val chatRepository: ChatRepository,
     private val systemRepository: SystemRepository,
+    private val sessionManager: SessionManager,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
+    val isLoggedIn: StateFlow<Boolean> = sessionManager.authState
 
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList<Contact>())
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
@@ -57,15 +60,15 @@ class UserViewModel @Inject constructor(
 
     private fun ensureE2EEKeys() {
         viewModelScope.launch {
-            val existingPriv = TokenManager.getPrivateKey()
-            val existingPub = TokenManager.getPublicKey()
+            val existingPriv = sessionManager.getPrivateKey()
+            val existingPub = sessionManager.getPublicKey()
             
             if (existingPriv == null || existingPub == null) {
                 val pair = CryptoUtils.generateKeyPair()
                 val pub = pair.first
                 val priv = pair.second
-                TokenManager.setPrivateKey(priv)
-                TokenManager.setPublicKey(pub)
+                sessionManager.setPrivateKey(priv)
+                sessionManager.setPublicKey(pub)
                 accountRepository.setPublicKey(pub)
             } else {
                 accountRepository.setPublicKey(existingPub)
@@ -157,7 +160,7 @@ class UserViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.deleteAccount().collect { resource ->
                 if (resource is Resource.Success) {
-                    TokenManager.clear()
+                    sessionManager.clearSession()
                     onSuccess()
                 } else if (resource is Resource.Error) {
                     _toastMessage.value = resource.message ?: "Failed to delete account"

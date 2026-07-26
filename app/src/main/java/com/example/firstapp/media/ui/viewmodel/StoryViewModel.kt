@@ -22,7 +22,8 @@ import com.example.firstapp.account.domain.repository.AccountRepository
 @HiltViewModel
 class StoryViewModel @Inject constructor(
     private val repository: SocialRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient
 ) : ViewModel() {
 
     private val _stories = MutableStateFlow<Resource<List<UserStory>>>(Resource.Loading())
@@ -40,7 +41,7 @@ class StoryViewModel @Inject constructor(
 
     init {
         fetchStories()
-        PostWebSocketClient.connect(socketListener)
+        postWebSocketClient.connect(socketListener)
     }
 
     private val _postResult = MutableStateFlow<Resource<Boolean>?>(null)
@@ -130,7 +131,7 @@ class StoryViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        PostWebSocketClient.disconnect(socketListener)
+        postWebSocketClient.disconnect(socketListener)
         super.onCleared()
     }
 }

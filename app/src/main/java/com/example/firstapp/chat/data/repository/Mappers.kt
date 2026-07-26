@@ -9,7 +9,6 @@ import com.example.firstapp.common.data.local.entity.CallLogEntity
 import com.example.firstapp.common.data.local.entity.ContactEntity
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.data.GlobalCallState
-import com.example.firstapp.common.data.TokenManager
 import com.example.firstapp.common.util.CryptoUtils
 import android.util.Base64
 import android.util.Log
@@ -19,6 +18,10 @@ import com.example.firstapp.common.ui.theme.AppPrimary
 import com.example.firstapp.common.ui.theme.BoyishPurple
 import com.example.firstapp.BuildConfig
 import com.example.firstapp.common.model.ConversationType
+import com.example.firstapp.common.data.api.ApiUser
+import com.example.firstapp.chat.jobs.model.Job
+import com.example.firstapp.common.data.local.entity.JobEntity
+import androidx.compose.ui.graphics.Color
 
 fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     val timestamp = chat.time
@@ -46,26 +49,23 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     )
 }
 
-fun mapApiMessage(apiMessage: ApiMessage): Message {
+fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null): Message {
     var body = apiMessage.message_text
     val isEncrypted = body.startsWith("ENC:")
-    if (isEncrypted) {
+    if (isEncrypted && privateKeyStr != null) {
         val encryptedText = body.removePrefix("ENC:")
-        val privateKeyStr = TokenManager.getPrivateKey()
-        if (privateKeyStr != null) {
-            try {
-                val privateBytes = Base64.decode(privateKeyStr, Base64.DEFAULT)
-                val keySpec = PKCS8EncodedKeySpec(privateBytes)
-                val kf = KeyFactory.getInstance("RSA")
-                val privKey = kf.generatePrivate(keySpec)
-                body = CryptoUtils.decrypt(encryptedText, privKey)
-            } catch (e: Exception) {
-                Log.e("Mappers", "Decryption failed", e)
-                body = "[Encrypted Message]"
-            }
-        } else {
+        try {
+            val privateBytes = Base64.decode(privateKeyStr, Base64.DEFAULT)
+            val keySpec = PKCS8EncodedKeySpec(privateBytes)
+            val kf = KeyFactory.getInstance("RSA")
+            val privKey = kf.generatePrivate(keySpec)
+            body = CryptoUtils.decrypt(encryptedText, privKey)
+        } catch (e: Exception) {
+            Log.e("Mappers", "Decryption failed", e)
             body = "[Encrypted Message]"
         }
+    } else if (isEncrypted) {
+        body = "[Encrypted Message]"
     }
 
     val timestamp = apiMessage.created_at
@@ -260,6 +260,22 @@ fun CallLogEntity.toModel() = CallLog(id, sessionId, callerId, calleeId, contact
 
 fun Contact.toEntity() = ContactEntity(id, username, displayName, avatarUrl, phoneNumber, isRegistered, isAuthenticated, isVerified, bio, publicKey)
 fun ContactEntity.toModel() = Contact(id, username, displayName, avatarUrl, phoneNumber, isRegistered, isAuthenticated, isVerified, bio, publicKey)
+
+fun mapApiContact(api: ApiUser): Contact {
+    return Contact(
+        id = api.id,
+        username = api.username,
+        displayName = api.display_name,
+        avatarUrl = api.avatar_url,
+        phoneNumber = api.phone_number ?: "",
+        isVerified = api.is_verified,
+        bio = api.bio,
+        publicKey = api.public_key
+    )
+}
+
+fun Job.toEntity() = JobEntity(id, title, companyName, companyLogoUrl, location, salaryRange, jobType, postedTime, description, requirements, isVerified, isApplied, isSaved)
+fun JobEntity.toModel() = Job(id, title, companyName, companyLogoUrl, location, Color.Gray, salaryRange, jobType, postedTime, description, requirements, isVerified, isApplied, isSaved)
 
 fun formatUrl(url: String?): String {
     if (url == null || url.isBlank()) return ""

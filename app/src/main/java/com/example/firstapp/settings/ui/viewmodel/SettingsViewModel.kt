@@ -2,7 +2,7 @@ package com.example.firstapp.settings.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.firstapp.common.data.TokenManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +18,8 @@ import com.example.firstapp.common.domain.repository.SystemRepository
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    private val repository: SystemRepository
+    private val repository: SystemRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -44,7 +45,7 @@ class SettingsViewModel @Inject constructor(
                             val data = result.data
                             _toastMessage.value = "Successfully reset. Use username: ${data?.username}, password: ${data?.password}"
                             // OLD TOKENS ARE INVALID. Clear local auth state.
-                            TokenManager.clear()
+                            sessionManager.clearSession()
                         }
                         is Resource.Error -> {
                             _toastMessage.value = "Server reset failed: ${result.message}"
@@ -72,7 +73,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.deleteAccount().collect { resource ->
                 if (resource is Resource.Success) {
-                    TokenManager.clear()
+                    sessionManager.clearSession()
                     onSuccess()
                 }
             }

@@ -5,7 +5,7 @@ import com.example.firstapp.auth.data.api.AuthApi
 import com.example.firstapp.chat.data.api.ChatApi
 import com.example.firstapp.chat.jobs.data.api.JobApi
 import com.example.firstapp.chat.rewards.data.api.RewardsApi
-import com.example.firstapp.common.data.AuthSessionManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.drive.data.api.DriveApi
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
@@ -16,10 +16,27 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import android.content.Context
+import com.example.firstapp.common.util.ContextProvider
 
 object ApiClient {
     private val baseUrl = BuildConfig.API_BASE_URL
     private val refreshLock = Any()
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface SessionEntryPoint {
+        fun sessionManager(): SessionManager
+    }
+
+    private fun getSessionManager(): SessionManager? {
+        val context = ContextProvider.context ?: return null
+        return EntryPointAccessors.fromApplication(context, SessionEntryPoint::class.java).sessionManager()
+    }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -29,48 +46,55 @@ object ApiClient {
         val request = chain.request()
         val requestBuilder = request.newBuilder()
         val path = request.url.encodedPath
-        val isAuthEndpoint = path.endsWith("/auth/login") ||
-            path.endsWith("/auth/register") ||
-            path.endsWith("/auth/refresh") ||
-            path.endsWith("/auth/logout")
-
-        if (!isAuthEndpoint) {
-            AuthSessionManager.currentAccessTokenOrNull()?.let { token ->
+        
+        val session = getSessionManager()
+        if (session != null) {
+            session.getToken()?.let { token ->
                 requestBuilder.addHeader("Authorization", "Bearer $token")
             }
         }
+        
         chain.proceed(requestBuilder.build())
     }
 
     private val tokenAuthenticator = Authenticator { _, response ->
-        val path = response.request.url.encodedPath
-        val isAuthEndpoint = path.endsWith("/auth/login") ||
-            path.endsWith("/auth/register") ||
-            path.endsWith("/auth/refresh") ||
-            path.endsWith("/auth/logout")
-        if (isAuthEndpoint) return@Authenticator null
-
         if (responseCount(response) >= 2) return@Authenticator null
 
-        val previousAuthHeader = response.request.header("Authorization")
-        val previousToken = previousAuthHeader
-            ?.takeIf { it.startsWith("Bearer ") }
-            ?.removePrefix("Bearer ")
+        val session = getSessionManager() ?: return@Authenticator null
+        val refreshToken = session.getRefreshToken() ?: return@Authenticator null
 
         synchronized(refreshLock) {
-            val latestToken = AuthSessionManager.currentAccessTokenOrNull()
-            if (!latestToken.isNullOrBlank() && latestToken != previousToken) {
+            val latestToken = session.getToken()
+            val previousAuthHeader = response.request.header("Authorization")
+            val previousToken = previousAuthHeader?.removePrefix("Bearer ")
+
+            if (latestToken != null && latestToken != previousToken) {
                 return@Authenticator response.request.newBuilder()
                     .header("Authorization", "Bearer $latestToken")
                     .build()
             }
 
-            val refreshedToken = AuthSessionManager.refreshTokensBlocking(baseUrl)
-            if (!refreshedToken.isNullOrBlank()) {
-                return@Authenticator response.request.newBuilder()
-                    .header("Authorization", "Bearer $refreshedToken")
+            try {
+                val authApi = Retrofit.Builder()
+                    .baseUrl(baseUrl)
+                    .addConverterFactory(GsonConverterFactory.create())
                     .build()
-            }
+                    .create(AuthApi::class.java)
+
+                val refreshResponse = kotlinx.coroutines.runBlocking {
+                    authApi.refresh(TokenRefreshRequest(refreshToken))
+                }
+
+                if (refreshResponse.isSuccessful && refreshResponse.body() != null) {
+                    val body = refreshResponse.body()!!
+                    session.saveSession(body.token, body.refreshToken, session.currentUser.value)
+                    return@Authenticator response.request.newBuilder()
+                        .header("Authorization", "Bearer ${body.token}")
+                        .build()
+                } else {
+                    session.clearSession()
+                }
+            } catch (_: Exception) {}
 
             null
         }

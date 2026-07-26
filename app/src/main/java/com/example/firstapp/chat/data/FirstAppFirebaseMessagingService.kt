@@ -12,16 +12,20 @@ import androidx.core.app.NotificationCompat
 import com.example.firstapp.MainActivity
 import com.example.firstapp.R
 import com.example.firstapp.IncomingCallActivity
-import com.example.firstapp.common.data.TokenManager
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
+
+    @Inject lateinit var sessionManager: SessionManager
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        TokenManager.initialize(applicationContext)
-        PushTokenRegistrar.uploadToken(applicationContext, token)
+        PushTokenRegistrar.uploadToken(applicationContext, token, sessionManager)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

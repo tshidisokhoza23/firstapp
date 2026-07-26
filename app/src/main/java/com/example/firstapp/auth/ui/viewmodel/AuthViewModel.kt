@@ -5,8 +5,8 @@ import javax.inject.Inject
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.firstapp.common.data.TokenManager
-import com.example.firstapp.common.data.api.ApiClient
+import com.example.firstapp.auth.data.api.AuthApi
+import com.example.firstapp.common.domain.auth.SessionManager
 import com.example.firstapp.common.data.api.AuthResponse
 import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,11 +15,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 import com.example.firstapp.vocab.domain.repository.UserRepository
-import java.util.Locale
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val sessionManager: SessionManager,
+    private val authApi: AuthApi
 ) : ViewModel() {
 
     private val _authState = MutableStateFlow<Resource<AuthResponse>?>(null)
@@ -107,10 +108,7 @@ class AuthViewModel @Inject constructor(
 
     private fun saveToken(authResponse: AuthResponse?) {
         authResponse?.let {
-            TokenManager.setToken(it.token)
-            if (it.refreshToken.isNotBlank()) {
-                TokenManager.setRefreshToken(it.refreshToken)
-            }
+            sessionManager.saveSession(it.token, it.refreshToken, it.user)
         }
     }
 
@@ -138,7 +136,7 @@ class AuthViewModel @Inject constructor(
             _authState.value = Resource.Loading()
             var allAvailable = false
             try {
-                val response = ApiClient.authApi.checkAvailability(username, email, phone)
+                val response = authApi.checkAvailability(username, email, phone)
                 if (response.isSuccessful) {
                     val availability = response.body()
                     if (availability != null) {

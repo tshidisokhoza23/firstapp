@@ -11,7 +11,6 @@ import com.example.firstapp.common.data.api.*
 import com.example.firstapp.common.data.local.dao.*
 import com.example.firstapp.common.data.local.entity.MessageEntity
 import com.example.firstapp.common.data.local.entity.ChatEntity
-import com.example.firstapp.common.data.repository.*
 import com.example.firstapp.chat.data.repository.mapApiChatSummary
 import com.example.firstapp.chat.data.repository.mapApiMessage
 import com.example.firstapp.chat.data.repository.toEntity
@@ -177,7 +176,8 @@ class ChatRepositoryImpl @Inject constructor(
             
             if (response.isSuccessful && response.body() != null) {
                 val apiMessages = response.body()!!.messages
-                val messages = apiMessages.map { am: ApiMessage -> mapApiMessage(am) }
+                val privKey = sessionManager.getPrivateKey()
+                val messages = apiMessages.map { am: com.example.firstapp.chat.data.api.ApiMessage -> mapApiMessage(am, privKey) }
                 // Insert new messages into the database
                 chatDao.insertMessages(messages.map { m: Message -> m.toEntity(chatId) })
             }

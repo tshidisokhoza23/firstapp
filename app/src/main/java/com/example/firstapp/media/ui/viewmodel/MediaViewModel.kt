@@ -24,7 +24,8 @@ import java.util.Locale
 class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
     private val accountRepository: AccountRepository,
-    private val adManager: com.example.firstapp.common.data.ads.AdManager
+    private val adManager: com.example.firstapp.common.data.ads.AdManager,
+    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
@@ -104,7 +105,7 @@ class MediaViewModel @Inject constructor(
     private var lastRealtimePostRefreshMs: Long = 0L
 
     private fun connectPostRealtime() {
-        PostWebSocketClient.connect(object : PostSocketListener {
+        postWebSocketClient.connect(object : com.example.firstapp.common.data.realtime.PostSocketListener {
             override fun onOpen() {}
             override fun onPostsEvent(action: String, postId: String?) {
                 val now = System.currentTimeMillis()

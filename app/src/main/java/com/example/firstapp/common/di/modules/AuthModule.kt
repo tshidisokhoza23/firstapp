@@ -41,5 +41,12 @@ abstract class AuthModule {
             httpClient: OkHttpClient,
             gson: Gson
         ): CallWebSocketClient = CallWebSocketClient(sessionManager, httpClient, gson)
+
+        @Provides
+        @Singleton
+        fun providePostWebSocketClient(
+            sessionManager: SessionManager,
+            httpClient: OkHttpClient
+        ): com.example.firstapp.common.data.realtime.PostWebSocketClient = com.example.firstapp.common.data.realtime.PostWebSocketClient(sessionManager, httpClient)
     }
 }
