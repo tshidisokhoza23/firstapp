@@ -350,7 +350,7 @@ fun ChatsListScreen(
                             onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
                             onSongClick = { song, queue -> musicViewModel.playSong(song, queue) },
                             onArtistClick = { artist -> musicViewModel.requestArtist(artist.displayName) },
-                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id)) }
+                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                         )
                     } else {
                         if (chatsState is Resource.Loading && sanitizedChats.isEmpty()) {
@@ -444,7 +444,7 @@ fun ChatsListScreen(
                             onChatClick = {},
                             onMessageClick = {},
                             onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
-                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id)) }
+                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                         )
                     } else {
                         DataStateHandler(jobsState) { jobs -> 
@@ -463,7 +463,7 @@ fun ChatsListScreen(
                             onChatClick = {},
                             onMessageClick = {},
                             onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) },
-                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id)) }
+                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                         )
                     } else {
                         DataStateHandler(channelsState) { channels -> 

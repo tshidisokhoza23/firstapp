@@ -336,7 +336,10 @@ fun ChatMessagesScreen(
                                         modifier = Modifier
                                             .weight(1f)
                                             .clip(RoundedCornerShape(12.dp))
-                                            .clickable { onShowProfile(chat.id, chat.isGroup) }
+                                            .clickable { 
+                                                val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
+                                                onShowProfile(targetId, chat.isGroup) 
+                                            }
                                             .padding(4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -415,10 +418,11 @@ fun ChatMessagesScreen(
 
                                     Row {
                                         if (chat.type == ConversationType.DIRECT) {
-                                            IconButton(onClick = { chatViewModel.initiateCall(chat.id, CallType.VOICE) }) {
+                                            val targetId = chat.otherUserId ?: chat.id
+                                            IconButton(onClick = { chatViewModel.initiateCall(targetId, CallType.VOICE) }) {
                                                 Icon(Icons.Default.Call, "Voice Call", tint = Color.White, modifier = Modifier.size(22.dp))
                                             }
-                                            IconButton(onClick = { chatViewModel.initiateCall(chat.id, CallType.VIDEO) }) {
+                                            IconButton(onClick = { chatViewModel.initiateCall(targetId, CallType.VIDEO) }) {
                                                 Icon(Icons.Default.VideoCall, "Video Call", tint = Color.White, modifier = Modifier.size(22.dp))
                                             }
                                         }
@@ -433,8 +437,12 @@ fun ChatMessagesScreen(
                                                 modifier = Modifier.background(AppSecondary)
                                             ) {
                                                 DropdownMenuItem(
-                                                    text = { Text("View Contact", color = Color.White) },
-                                                    onClick = { showMenu = false; onShowProfile(chat.id, chat.isGroup) }
+                                                    text = { Text(if (chat.isGroup) "Group Info" else "View Contact", color = Color.White) },
+                                                    onClick = { 
+                                                        showMenu = false
+                                                        val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
+                                                        onShowProfile(targetId, chat.isGroup) 
+                                                    }
                                                 )
                                                 DropdownMenuItem(
                                                     text = { Text("Search", color = Color.White) },

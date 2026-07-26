@@ -40,7 +40,9 @@ data class ChatSummary(
     val time: Long,
     val unread_count: Int,
     val is_muted: Boolean,
-    val is_pinned: Boolean
+    val is_pinned: Boolean,
+    val contact_id: String? = null,
+    val avatar_url: String? = null
 )
 
 data class ChatSummaryResponse(val chats: List<ChatSummary>)

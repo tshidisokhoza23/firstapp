@@ -37,10 +37,12 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         lastMessage = chat.last_message,
         timestamp = timestamp,
         unreadCount = chat.unread_count,
+        avatarUrl = formatUrl(chat.avatar_url),
         avatarColor = BoyishPurple,
         isMuted = chat.is_muted,
         isPinned = chat.is_pinned,
-        isGroup = type == ConversationType.GROUP
+        isGroup = type == ConversationType.GROUP,
+        otherUserId = chat.contact_id
     )
 }
 
@@ -130,7 +132,8 @@ fun ChatMessage.toEntity() = ChatEntity(
     lastMessageIsFromMe = lastMessageIsFromMe,
     lastMessageRead = lastMessageRead,
     publicKey = publicKey,
-    phoneNumber = phoneNumber
+    phoneNumber = phoneNumber,
+    otherUserId = otherUserId
 )
 
 fun ChatEntity.toModel() = ChatMessage(
@@ -162,7 +165,8 @@ fun ChatEntity.toModel() = ChatMessage(
     lastMessageIsFromMe = lastMessageIsFromMe,
     lastMessageRead = lastMessageRead,
     publicKey = publicKey,
-    phoneNumber = phoneNumber
+    phoneNumber = phoneNumber,
+    otherUserId = otherUserId
 )
 
 fun Message.toEntity(chatId: String) = MessageEntity(

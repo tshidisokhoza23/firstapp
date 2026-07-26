@@ -53,12 +53,14 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                    else ConversationType.DIRECT
         
         var resolvedChatId by remember { mutableStateOf<String?>(if (typeStr == "initiate") null else chatId) }
+        var targetUserId by remember { mutableStateOf<String?>(if (typeStr == "initiate") chatId else null) }
         
         LaunchedEffect(chatId, typeStr) {
             if (typeStr == "initiate") {
                 chatViewModel.initiateDM(chatId).collect { resource ->
                     if (resource is Resource.Success && resource.data != null) {
                         resolvedChatId = resource.data
+                        targetUserId = chatId
                     }
                 }
             } else {
@@ -98,7 +100,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             avatarUrl = null,
             avatarColor = BoyishPurple,
             isGroup = type == ConversationType.GROUP,
-            isAdmin = false
+            isAdmin = false,
+            otherUserId = targetUserId
         )).copy(type = type)
         
         LaunchedEffect(resolvedChatId) {
@@ -136,7 +139,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             timestamp = 0L,
             unreadCount = 0,
             avatarUrl = null,
-            avatarColor = BoyishPurple
+            avatarColor = BoyishPurple,
+            otherUserId = chatId
         )
 
         ChatMessagesScreen(
@@ -245,8 +249,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
 
         SharedMediaScreen(
             chat = chat,
-            viewModel = viewModel,
-            onBack = { navController.popBackStack() }
+            onBack = { navController.popBackStack() },
+            viewModel = viewModel
         )
     }
 }

@@ -139,7 +139,8 @@ class ChatRepositoryImpl @Inject constructor(
                     isTyping = false,
                     lastMessageIsFromMe = false,
                     lastMessageRead = true,
-                    phoneNumber = contact?.phoneNumber
+                    phoneNumber = contact?.phoneNumber,
+                    otherUserId = contactId
                 )
                 chatDao.insertChats(listOf(newChat))
                 

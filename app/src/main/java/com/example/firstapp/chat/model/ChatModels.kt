@@ -78,5 +78,6 @@ data class ChatMessage(
     val mediaVisibility: Boolean = true,
     val disappearingMessagesDuration: Int = 0,
     val publicKey: String? = null,
-    val phoneNumber: String? = null
+    val phoneNumber: String? = null,
+    val otherUserId: String? = null
 )
