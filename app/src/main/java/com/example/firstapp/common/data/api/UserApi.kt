@@ -106,6 +106,7 @@ data class ApiUser(
     val id: String,
     val username: String,
     val display_name: String,
+    val email: String,
     val phone_number: String? = null,
     val avatar_url: String? = null,
     val is_verified: Boolean = false,

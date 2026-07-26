@@ -1,26 +1,24 @@
 package com.example.firstapp.common.data.api
 
 import com.example.firstapp.BuildConfig
-import com.example.firstapp.common.data.TokenManager
-import kotlinx.coroutines.runBlocking
-import okhttp3.Authenticator
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import okhttp3.Route
-import okhttp3.logging.HttpLoggingInterceptor
+import com.example.firstapp.auth.data.api.AuthApi
 import com.example.firstapp.chat.data.api.ChatApi
-import com.example.firstapp.music.data.api.MusicApi
+import com.example.firstapp.chat.jobs.data.api.JobApi
+import com.example.firstapp.chat.rewards.data.api.RewardsApi
+import com.example.firstapp.common.data.AuthSessionManager
 import com.example.firstapp.drive.data.api.DriveApi
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
-import com.example.firstapp.chat.jobs.data.api.JobApi
-import com.example.firstapp.auth.data.api.AuthApi
-import com.example.firstapp.chat.rewards.data.api.RewardsApi
+import com.example.firstapp.music.data.api.MusicApi
+import okhttp3.Authenticator
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
-    private val BASE_URL = BuildConfig.API_BASE_URL
+    private val baseUrl = BuildConfig.API_BASE_URL
     private val refreshLock = Any()
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -37,14 +35,14 @@ object ApiClient {
             path.endsWith("/auth/logout")
 
         if (!isAuthEndpoint) {
-            TokenManager.getToken()?.let { token ->
+            AuthSessionManager.currentAccessTokenOrNull()?.let { token ->
                 requestBuilder.addHeader("Authorization", "Bearer $token")
             }
         }
         chain.proceed(requestBuilder.build())
     }
 
-    private val tokenAuthenticator = Authenticator { route, response ->
+    private val tokenAuthenticator = Authenticator { _, response ->
         val path = response.request.url.encodedPath
         val isAuthEndpoint = path.endsWith("/auth/login") ||
             path.endsWith("/auth/register") ||
@@ -60,43 +58,21 @@ object ApiClient {
             ?.removePrefix("Bearer ")
 
         synchronized(refreshLock) {
-            // Another request may have already refreshed the token while this one was waiting.
-            val latestToken = TokenManager.getToken()
+            val latestToken = AuthSessionManager.currentAccessTokenOrNull()
             if (!latestToken.isNullOrBlank() && latestToken != previousToken) {
                 return@Authenticator response.request.newBuilder()
                     .header("Authorization", "Bearer $latestToken")
                     .build()
             }
 
-            val refreshToken = TokenManager.getRefreshToken() ?: return@Authenticator null
-            val refreshRequest = TokenRefreshRequest(refresh_token = refreshToken)
-
-            try {
-                val refreshResponse = runBlocking {
-                    Retrofit.Builder()
-                        .baseUrl(BASE_URL)
-                        .addConverterFactory(GsonConverterFactory.create())
-                        .build()
-                        .create(AuthApi::class.java)
-                        .refresh(refreshRequest)
-                }
-
-                if (refreshResponse.isSuccessful) {
-                    val body = refreshResponse.body()
-                    if (body != null && body.token.isNotBlank() && body.refreshToken.isNotBlank()) {
-                        TokenManager.setToken(body.token)
-                        TokenManager.setRefreshToken(body.refreshToken)
-                        return@Authenticator response.request.newBuilder()
-                            .header("Authorization", "Bearer ${body.token}")
-                            .build()
-                    }
-                }
-            } catch (_: Exception) {
-                // refresh failed
+            val refreshedToken = AuthSessionManager.refreshTokensBlocking(baseUrl)
+            if (!refreshedToken.isNullOrBlank()) {
+                return@Authenticator response.request.newBuilder()
+                    .header("Authorization", "Bearer $refreshedToken")
+                    .build()
             }
 
-            // Keep current token state to avoid wiping valid tokens during concurrent refresh races.
-            return@Authenticator null
+            null
         }
     }
 
@@ -121,7 +97,7 @@ object ApiClient {
         .build()
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
+        .baseUrl(baseUrl)
         .client(client)
         .addConverterFactory(GsonConverterFactory.create())
         .build()

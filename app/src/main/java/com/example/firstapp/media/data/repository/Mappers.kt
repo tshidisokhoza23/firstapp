@@ -14,120 +14,73 @@ import java.util.ArrayList
 
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     when (item.type) {
-        "POST" -> item.post?.let { mapApiMediaPost(it, "POST") }
-        "INTERNAL_AD" -> item.post?.let { mapApiMediaPost(it, "INTERNAL_AD") }
+        "POST", "INTERNAL_AD" -> item.post?.let { mapApiPost(it, item.type) }
         "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdPlaceholder(item.placeholder)
         "AD_UNIT" -> mapAdUnitPlaceholder(item)
         else -> null
     }
 }
 
-private fun mapApiMediaPost(apiPost: ApiMediaPost, itemType: String): Post = Post(
-    id = apiPost.id ?: "",
-    authorId = apiPost.user_id ?: "",
-    authorName = apiPost.author_name?.takeIf { it.isNotBlank() } ?: (apiPost.author_handle?.let { "@$it" } ?: ""),
-    authorHandle = apiPost.author_handle ?: "",
-    authorAvatarUrl = MediaUtils.formatUrl(apiPost.author_avatar_url),
-    authorAvatarColor = AppPrimary,
-    isVerifiedAuthor = apiPost.is_verified_author,
-    content = apiPost.content_text ?: "",
-    mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
-    mediaType = apiPost.media_type,
-    altText = apiPost.alt_text,
-    timestamp = apiPost.created_at ?: "",
-    likes = apiPost.like_count,
-    repliesCount = apiPost.reply_count,
-    shares = apiPost.repost_count,
-    views = apiPost.view_count,
-    quoteCount = apiPost.quote_count,
-    type = when (itemType) {
-        "NATIVE_AD" -> PostType.NATIVE_AD
-        "INTERNAL_AD" -> PostType.INTERNAL_AD
-        else -> when (apiPost.media_type) {
+fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
+    val author = apiPost.author
+    
+    return Post(
+        id = apiPost.id ?: "",
+        authorId = apiPost.author_id ?: apiPost.user_id ?: author?.id ?: "",
+        authorName = author?.display_name ?: apiPost.author_name ?: "",
+        authorHandle = author?.username ?: apiPost.author_handle ?: "",
+        authorAvatarUrl = MediaUtils.formatUrl(author?.avatar_url ?: apiPost.author_avatar_url),
+        authorAvatarColor = AppPrimary,
+        isVerifiedAuthor = author?.is_verified ?: false,
+        content = apiPost.content ?: apiPost.content_text ?: "",
+        mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
+        mediaType = apiPost.media_type,
+        altText = apiPost.alt_text,
+        timestamp = apiPost.created_at?.toString() ?: "",
+        likes = if (apiPost.likes > 0) apiPost.likes else apiPost.like_count,
+        repliesCount = if (apiPost.replies_count > 0) apiPost.replies_count else apiPost.reply_count,
+        shares = if (apiPost.shares > 0) apiPost.shares else apiPost.repost_count,
+        views = if (apiPost.views > 0) apiPost.views else apiPost.view_count,
+        quoteCount = apiPost.quote_count,
+        type = when (itemType ?: apiPost.post_type ?: apiPost.media_type) {
+            "INTERNAL_AD" -> PostType.INTERNAL_AD
+            "NATIVE_AD" -> PostType.NATIVE_AD
+            "AD_UNIT" -> PostType.AD_UNIT
             "short" -> PostType.SHORT
             "repost" -> PostType.REPOST
             else -> PostType.POST
-        }
-    },
-    thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url),
-    aspectRatio = apiPost.aspect_ratio,
-    durationSec = apiPost.duration_sec,
-    blurhash = apiPost.blurhash,
-    parentPostId = apiPost.parent_post_id,
-    rootPostId = apiPost.root_post_id,
-    repostOfId = apiPost.repost_of_id,
-    repliesLocked = apiPost.replies_locked,
-    status = apiPost.status ?: "published",
-    isPinned = apiPost.is_pinned,
-    replySettings = apiPost.reply_settings ?: "everyone",
-    updatedAt = apiPost.updated_at
-)
-
-fun mapApiPost(apiPost: ApiPost): Post = Post(
-    id = apiPost.id ?: "",
-    authorId = apiPost.author_id ?: "",
-    authorName = apiPost.author?.display_name?.takeIf { it.isNotBlank() } ?: (apiPost.author?.username?.let { "@$it" } ?: ""),
-    authorHandle = apiPost.author?.username ?: "",
-    authorAvatarUrl = MediaUtils.formatUrl(apiPost.author?.avatar_url),
-    authorAvatarColor = AppPrimary,
-    isVerifiedAuthor = apiPost.author?.is_verified ?: false,
-    content = apiPost.content ?: "",
-    mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
-    mediaType = apiPost.post_type,
-    timestamp = apiPost.created_at?.toString() ?: "",
-    likes = apiPost.likes,
-    repliesCount = apiPost.replies_count,
-    shares = apiPost.shares,
-    views = apiPost.views,
-    quoteCount = 0,
-    type = when (apiPost.post_type) {
-        "INTERNAL_AD" -> PostType.INTERNAL_AD
-        "NATIVE_AD" -> PostType.NATIVE_AD
-        "AD_UNIT" -> PostType.AD_UNIT
-        "short" -> PostType.SHORT
-        "repost" -> PostType.REPOST
-        else -> PostType.POST
-    },
-    repliesLocked = apiPost.replies_locked,
-    isLiked = apiPost.is_liked,
-    isReposted = apiPost.is_reposted,
-    isBookmarked = apiPost.is_bookmarked,
-    isAuthorFollowed = apiPost.is_followed,
-    replies = apiPost.replies?.map { mapApiPostReply(it) } ?: emptyList(),
-    poll = apiPost.poll?.let { apiPoll ->
-        PostPoll(
-            expiresAt = apiPoll.expires_at?.toString() ?: "",
-            options = apiPoll.options.map { PollOption(it.id, it.option_text, it.vote_count) },
-            userVote = apiPoll.user_vote
-        )
-    },
-    location = apiPost.location,
-    tags = apiPost.tags ?: emptyList(),
-    ad = apiPost.ad?.let { mapApiAdvert(it) }
-)
-
-fun mapApiPostReply(apiReply: ApiPostReply): Post = Post(
-    id = apiReply.id ?: "", 
-    authorId = apiReply.author_id ?: "",
-    authorName = apiReply.author?.display_name?.takeIf { it.isNotBlank() } ?: (apiReply.author?.username?.let { "@$it" } ?: apiReply.author_id ?: ""),
-    authorHandle = apiReply.author?.username ?: "", 
-    authorAvatarUrl = MediaUtils.formatUrl(apiReply.author?.avatar_url),
-    authorAvatarColor = AppPrimary,
-    isVerifiedAuthor = apiReply.author?.is_verified ?: false, 
-    content = apiReply.content ?: "",
-    timestamp = apiReply.created_at?.toString() ?: "",
-    likes = apiReply.likes, 
-    repliesCount = apiReply.nested_replies?.size?.toLong() ?: 0L,
-    isLiked = apiReply.is_liked, 
-    isReposted = apiReply.is_reposted, 
-    isBookmarked = false, 
-    type = when (apiReply.post_type) {
-        "INTERNAL_AD" -> PostType.INTERNAL_AD
-        else -> PostType.POST
-    },
-    replies = apiReply.nested_replies?.map { mapApiPostReply(it) } ?: emptyList(),
-    ad = apiReply.ad?.let { mapApiAdvert(it) }
-)
+        },
+        repliesLocked = apiPost.replies_locked,
+        isLiked = apiPost.is_liked,
+        isReposted = apiPost.is_reposted,
+        isBookmarked = apiPost.is_bookmarked,
+        isAuthorFollowed = apiPost.is_followed,
+        replies = apiPost.replies?.map { mapApiPost(it) } ?: emptyList(),
+        poll = apiPost.poll?.let { apiPoll ->
+            PostPoll(
+                expiresAt = apiPoll.expires_at?.toString() ?: "",
+                options = apiPoll.options.map { PollOption(it.id, it.option_text, it.vote_count) },
+                userVote = apiPoll.user_vote
+            )
+        },
+        location = apiPost.location,
+        tags = apiPost.tags ?: emptyList(),
+        ad = apiPost.ad?.let { mapApiAdvert(it) },
+        thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url),
+        aspectRatio = apiPost.aspect_ratio,
+        durationSec = apiPost.duration_sec,
+        blurhash = apiPost.blurhash,
+        parentPostId = apiPost.parent_post_id,
+        rootPostId = apiPost.root_post_id,
+        repostOfId = apiPost.repost_of_id,
+        status = apiPost.status ?: "active",
+        isPinned = apiPost.is_pinned,
+        replySettings = apiPost.reply_settings ?: "everyone",
+        updatedAt = apiPost.updated_at?.toString(),
+        hasThread = apiPost.has_thread,
+        threadCount = apiPost.thread_count
+    )
+}
 
 private fun mapExternalAdPlaceholder(placeholder: ApiExternalAdPlaceholder?): Post = Post(
     id = "external_ad_${placeholder?.placement ?: System.currentTimeMillis()}",
@@ -257,27 +210,8 @@ private fun formatTimeAgo(timestamp: Long): String {
 }
 
 fun mapMediaReplyItems(items: List<com.example.firstapp.media.data.api.ApiReplyItem>): List<Post> = items.mapNotNull { item ->
-    item.reply?.let { mapApiMediaReplyToPost(it) }
+    item.reply?.let { mapApiPost(it) }
 }
-
-private fun mapApiMediaReplyToPost(apiReply: ApiMediaReply): Post = Post(
-    id = apiReply.id ?: "",
-    authorId = apiReply.user_id ?: "",
-    authorName = apiReply.author_name?.takeIf { it.isNotBlank() } ?: (apiReply.handle?.let { "@$it" } ?: ""),
-    authorHandle = apiReply.handle ?: "",
-    authorAvatarUrl = null,
-    authorAvatarColor = AppPrimary,
-    isVerifiedAuthor = false,
-    content = apiReply.reply_text ?: "",
-    timestamp = apiReply.created_at ?: "",
-    likes = 0,
-    repliesCount = 0,
-    shares = 0,
-    views = 0,
-    quoteCount = 0,
-    type = PostType.POST,
-    updatedAt = apiReply.created_at
-)
 
 fun Post.toPostEntity(feedType: String = "standard") = PostEntity(
     id = id,

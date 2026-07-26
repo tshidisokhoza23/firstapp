@@ -96,18 +96,16 @@ class ProfileViewModel @Inject constructor(
 
     fun loadUserPosts(userId: String?) {
         viewModelScope.launch {
-            repository.getPosts(1).collect { resource ->
-                if (resource is Resource.Success && resource.data != null) {
-                    val filtered = if (userId == null) {
-                        val current = (profileUser.value as? Resource.Success)?.data
-                        resource.data.filter { it.authorId == current?.id }
-                    } else {
-                        resource.data.filter { it.authorId == userId }
-                    }
-                    _userPosts.value = Resource.Success(filtered)
-                } else {
-                    _userPosts.value = resource
-                }
+            val uid = if (userId != null) userId else {
+                val current = (profileUser.value as? Resource.Success)?.data
+                current?.id ?: ""
+            }
+            if (uid == "") {
+                _userPosts.value = Resource.Success(kotlin.collections.emptyList())
+                return@launch
+            }
+            repository.getUserPosts(uid, "standard", 1).collect { resource ->
+                _userPosts.value = resource
             }
         }
     }

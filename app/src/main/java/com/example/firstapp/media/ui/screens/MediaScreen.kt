@@ -226,7 +226,7 @@ fun MediaScreen(
             when {
                 showProfile && selectedUser != null -> {
                     ProfileView(
-                        userId = selectedUserId,
+                        userId = selectedUser!!.id,
                         showExperienceTab = false,
                         adManager = adManager,
                         onBack = { 

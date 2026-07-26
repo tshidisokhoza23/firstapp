@@ -3,6 +3,8 @@ package com.example.firstapp.common.data.ads
 import android.app.Activity
 import android.content.Context
 import android.view.View
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
@@ -14,6 +16,10 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 class AdMobManagerImpl : AdManager {
 
     override fun initialize(context: Context) {
+        if (!isGooglePlayServicesReady(context)) {
+            android.util.Log.w("AdMobManager", "Skipping MobileAds init: Google Play services unavailable")
+            return
+        }
         MobileAds.initialize(context) {}
     }
 
@@ -24,6 +30,10 @@ class AdMobManagerImpl : AdManager {
         onAdFailed: (String) -> Unit,
         onAdRevenuePaid: ((Double) -> Unit)?
     ) {
+        if (!isGooglePlayServicesReady(context)) {
+            onAdFailed("Google Play services unavailable")
+            return
+        }
         val adLoader = AdLoader.Builder(context, adUnitId)
             .forNativeAd { nativeAd ->
                 nativeAd.setOnPaidEventListener { value ->
@@ -49,6 +59,10 @@ class AdMobManagerImpl : AdManager {
         onAdFailed: (String) -> Unit,
         onAdRevenuePaid: ((Double) -> Unit)?
     ) {
+        if (!isGooglePlayServicesReady(context)) {
+            onAdFailed("Google Play services unavailable")
+            return
+        }
         val videoOptions = VideoOptions.Builder()
             .setStartMuted(true)
             .setCustomControlsRequested(false)
@@ -83,6 +97,10 @@ class AdMobManagerImpl : AdManager {
         onAdLoaded: (View) -> Unit,
         onAdFailed: (String) -> Unit
     ) {
+        if (!isGooglePlayServicesReady(context)) {
+            onAdFailed("Google Play services unavailable")
+            return
+        }
         val adView = AdView(context)
         adView.setAdSize(AdSize.BANNER)
         adView.adUnitId = adUnitId
@@ -103,6 +121,10 @@ class AdMobManagerImpl : AdManager {
         onAdLoaded: (Any) -> Unit,
         onAdFailed: (String) -> Unit
     ) {
+        if (!isGooglePlayServicesReady(context)) {
+            onAdFailed("Google Play services unavailable")
+            return
+        }
         InterstitialAd.load(context, adUnitId, AdRequest.Builder().build(), 
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
@@ -140,6 +162,10 @@ class AdMobManagerImpl : AdManager {
         onAdLoaded: (Any) -> Unit,
         onAdFailed: (String) -> Unit
     ) {
+        if (!isGooglePlayServicesReady(context)) {
+            onAdFailed("Google Play services unavailable")
+            return
+        }
         RewardedAd.load(context, adUnitId, AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
@@ -181,6 +207,10 @@ class AdMobManagerImpl : AdManager {
         onAdsLoaded: (List<Any>) -> Unit,
         onAdFailed: (String) -> Unit
     ) {
+        if (!isGooglePlayServicesReady(context)) {
+            onAdFailed("Google Play services unavailable")
+            return
+        }
         val loadedAds = mutableListOf<NativeAd>()
         var failedCount = 0
         
@@ -211,5 +241,10 @@ class AdMobManagerImpl : AdManager {
             is NativeAd -> adObject.destroy()
             is AdView -> adObject.destroy()
         }
+    }
+
+    private fun isGooglePlayServicesReady(context: Context): Boolean {
+        return GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
     }
 }

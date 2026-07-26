@@ -34,13 +34,13 @@ class SocialRepositoryImpl @Inject constructor(
 ) : SocialRepository {
 
     @OptIn(ExperimentalPagingApi::class)
-    override fun getPostsPaging(following: Boolean, authorId: String?, feedType: String): Flow<PagingData<Post>> {
+    override fun getPostsPaging(following: Boolean, authorId: String, feedType: String): Flow<PagingData<Post>> {
         val pagingSourceFactory = { postDao.getPostsPaging(feedType) }
         
-        return if (authorId == null) {
+        return if (authorId == "") {
             Pager(
                 config = PagingConfig(pageSize = 20, enablePlaceholders = false),
-                remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, null, feedType),
+                remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, "", feedType),
                 pagingSourceFactory = pagingSourceFactory
             ).flow.flowMap { pagingData ->
                 pagingData.pagingMap { entity -> entity.toPost() }
@@ -67,10 +67,10 @@ class SocialRepositoryImpl @Inject constructor(
         postDao.updateBookmarkStatus(postId, isBookmarked)
     }
 
-    override fun getUserPosts(userId: String, page: Int): Flow<Resource<List<Post>>> = flow {
+    override fun getUserPosts(userId: String, feedType: String, page: Int): Flow<Resource<List<Post>>> = flow {
         emit(Resource.Loading())
         try {
-            val response = socialApi.getPosts(page, authorId = userId)
+            val response = socialApi.getPosts(page = page, following = false, authorId = userId, feedType = feedType)
             if (response.isSuccessful) {
                 val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
@@ -84,8 +84,8 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getPosts(page: Int): Flow<Resource<List<Post>>> = flow {
-        val cachedEntities = postDao.getPosts("standard").first()
+    override fun getPosts(page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
+        val cachedEntities = postDao.getPosts(feedType).first()
         val cached = cachedEntities.map { it.toPost() }
         if (cached.isNotEmpty()) {
             emit(Resource.Loading(cached))
@@ -94,15 +94,15 @@ class SocialRepositoryImpl @Inject constructor(
         }
         
         try {
-            val response = socialApi.getPosts(page)
+            val response = socialApi.getPosts(page = page, following = false, authorId = "", feedType = feedType)
             if (response.isSuccessful) {
                 val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 Log.d("SocialRepo", "Fetched ${apiPosts.size} posts for page $page")
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 // Avoid wiping media feed cache when legacy /posts returns empty.
                 if (posts.isNotEmpty()) {
-                    if (page == 1) postDao.clearPosts("standard")
-                    postDao.insertPosts(posts.map { it.toPostEntity("standard") })
+                    if (page == 1) postDao.clearPosts(feedType)
+                    postDao.insertPosts(posts.map { it.toPostEntity(feedType) })
                 }
             } else {
                 Log.e("SocialRepo", "getPosts failed: ${response.code()} ${response.errorBody()?.string()}")
@@ -112,16 +112,16 @@ class SocialRepositoryImpl @Inject constructor(
             Log.e("SocialRepositoryImpl", "getPosts failed with exception", e)
         }
         
-        emitAll(postDao.getPosts("standard").flowMap { entities ->
+        emitAll(postDao.getPosts(feedType).flowMap { entities ->
             val models = entities.map { it.toPost() }
             Resource.Success<List<Post>>(models)
         })
     }
 
-    override fun getFollowingPosts(page: Int): Flow<Resource<List<Post>>> = flow {
+    override fun getFollowingPosts(page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
         emit(Resource.Loading())
         try {
-            val response = socialApi.getPosts(page, following = true)
+            val response = socialApi.getPosts(page = page, following = true, authorId = "", feedType = feedType)
             if (response.isSuccessful) {
                 val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
@@ -135,10 +135,10 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getChannelPosts(channelId: String, page: Int): Flow<Resource<List<Post>>> = flow {
+    override fun getChannelPosts(channelId: String, page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
         emit(Resource.Loading())
         try {
-            val response = socialApi.getPosts(page, channelId = channelId)
+            val response = socialApi.getPosts(page = page, following = false, channelId = channelId, authorId = "", feedType = feedType)
             if (response.isSuccessful) {
                 val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
@@ -236,6 +236,7 @@ class SocialRepositoryImpl @Inject constructor(
                     val userModel = com.example.firstapp.common.model.User(
                         id = user.id,
                         username = user.username,
+                        email = user.email,
                         displayName = user.display_name,
                         phoneNumber = user.phone_number ?: ""
                     )

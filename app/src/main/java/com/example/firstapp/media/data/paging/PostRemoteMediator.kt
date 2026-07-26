@@ -21,7 +21,7 @@ class PostRemoteMediator(
     private val socialApi: SocialApi,
     private val appDatabase: AppDatabase,
     private val following: Boolean = false,
-    private val authorId: String? = null,
+    private val authorId: String,
     private val feedType: String = "standard"
 ) : RemoteMediator<Int, PostEntity>() {
 
@@ -51,7 +51,7 @@ class PostRemoteMediator(
         try {
             android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId, feedType=$feedType")
             
-            val apiPosts = if (!following && authorId == null) {
+            val apiPosts = if (!following && authorId == "") {
                 // ... logic for general feeds ...
                 when (feedType) {
                     "short" -> {
@@ -83,7 +83,7 @@ class PostRemoteMediator(
             appDatabase.withTransaction {
                 if (loadType == LoadType.REFRESH) {
                     appDatabase.postRemoteKeysDao().clearRemoteKeys(feedType)
-                    if (!following && authorId == null) appDatabase.postDao().clearPosts(feedType)
+                    if (!following && authorId == "") appDatabase.postDao().clearPosts(feedType)
                 }
                 val prevKey = if (page == 1) null else page - 1
                 val nextKey = if (endOfPaginationReached) null else page + 1

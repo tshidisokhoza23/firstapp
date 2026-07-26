@@ -43,7 +43,7 @@ class ChannelDetailViewModel @Inject constructor(
 
     fun loadPosts(channelId: String) {
         viewModelScope.launch {
-            socialRepository.getChannelPosts(channelId).collect { _posts.value = it }
+            socialRepository.getChannelPosts(channelId, 1, "standard").collect { _posts.value = it }
         }
     }
 

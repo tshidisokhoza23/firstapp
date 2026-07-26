@@ -1,8 +1,6 @@
 package com.example.firstapp.media.data.api
 
-import com.google.gson.annotations.SerializedName
 import com.example.firstapp.common.data.api.*
-import com.example.firstapp.media.data.api.ApiPostReply
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*

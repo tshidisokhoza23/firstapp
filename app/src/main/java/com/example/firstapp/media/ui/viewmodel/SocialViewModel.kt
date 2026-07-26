@@ -68,7 +68,7 @@ class SocialViewModel @Inject constructor(
 
     fun fetchPosts() {
         viewModelScope.launch {
-            socialRepository.getPosts().collect { _posts.value = it }
+            socialRepository.getPosts(1, "standard").collect { _posts.value = it }
         }
     }
 

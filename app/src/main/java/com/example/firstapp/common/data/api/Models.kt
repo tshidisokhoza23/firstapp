@@ -17,7 +17,7 @@ data class LoginRequest(val username: String, val password: String)
 data class AuthResponse(
     @SerializedName("token") val token: String,
     @SerializedName("refresh_token") val refreshToken: String = "",
-    @SerializedName("user") val user: com.example.firstapp.common.model.User
+    @SerializedName("user") val user: com.example.firstapp.common.model.User? = null
 )
 
 data class PushTokenRequest(val token: String, val device_id: String, val platform: String = "android")

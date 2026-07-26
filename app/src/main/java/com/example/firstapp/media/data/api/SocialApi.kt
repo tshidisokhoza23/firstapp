@@ -1,8 +1,10 @@
 package com.example.firstapp.media.data.api
 
 import com.example.firstapp.common.data.api.*
+import com.google.gson.annotations.SerializedName
 import retrofit2.Response
 import retrofit2.http.*
+import java.util.ArrayList
 
 interface SocialApi {
     @GET("media/feed")
@@ -36,11 +38,11 @@ interface SocialApi {
 
     @GET("posts")
     suspend fun getPosts(
-        @Query("page") page: Int = 1, 
-        @Query("following") following: Boolean = false,
+        @Query("page") page: Int, 
+        @Query("following") following: Boolean,
         @Query("channel_id") channelId: String? = null,
-        @Query("user_id") authorId: String? = null,
-        @Query("type") feedType: String? = null
+        @Query("user_id") authorId: String,
+        @Query("type") feedType: String
     ): Response<List<ApiPost>>
 
     @GET("media/feed/shorts")
@@ -125,7 +127,7 @@ interface SocialApi {
     suspend fun getChannels(): Response<ChannelsResponse>
 
     @POST("channels-create")
-    suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiChannel>
+    suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiPost>
 
     @POST("channels/{channelId}/subscribe")
     suspend fun subscribeToChannel(@Path("channelId") channelId: String): Response<StatusResponse>
@@ -146,7 +148,7 @@ data class RepliesResponse(val items: List<ApiReplyItem>)
 data class BoostRequest(val total_budget_cents: Int, val duration_days: Int)
 data class CreateMediaReplyRequest(val reply_text: String)
 data class ToggleRepliesLockRequest(val replies_locked: Boolean)
-data class CreateMediaReplyResponse(val type: String, val reply: ApiMediaReply)
+data class CreateMediaReplyResponse(val type: String, val reply: ApiPost)
 
 data class ApiExternalAdPlaceholder(
     val network: String?,
@@ -155,7 +157,7 @@ data class ApiExternalAdPlaceholder(
 
 data class ApiFeedItem(
     val type: String,
-    val post: ApiMediaPost?,
+    val post: ApiPost?,
     val placeholder: ApiExternalAdPlaceholder?,
     val ad_placement_id: String? = null,
     val format: String? = null
@@ -163,52 +165,61 @@ data class ApiFeedItem(
 
 data class ApiReplyItem(
     val type: String,
-    val reply: ApiMediaReply? = null,
+    val reply: ApiPost? = null,
     val placeholder: ApiExternalAdPlaceholder? = null
 )
 
-data class ApiMediaPost(
+data class ApiPost(
     val id: String?,
-    val user_id: String?,
-    val author_name: String?,
-    val author_handle: String?,
-    val author_avatar_url: String?,
-    val is_verified_author: Boolean = false,
-    val content_text: String?,
-    val media_urls: List<String>?,
-    val media_type: String? = null,
-    val alt_text: String? = null,
-    val thumbnail_url: String? = null,
-    val aspect_ratio: Double? = null,
-    val duration_sec: Int? = null,
+    @SerializedName("author_id") val author_id: String?,
+    @SerializedName("user_id") val user_id: String?,
+    val content: String?,
+    @SerializedName("content_text") val content_text: String?,
+    @SerializedName("media_urls") val media_urls: List<String>?,
+    @SerializedName("media_type") val media_type: String? = null,
+    @SerializedName("post_type") val post_type: String? = null,
+    @SerializedName("alt_text") val alt_text: String? = null,
+    @SerializedName("thumbnail_url") val thumbnail_url: String? = null,
+    @SerializedName("aspect_ratio") val aspect_ratio: Double? = null,
+    @SerializedName("duration_sec") val duration_sec: Int? = null,
     val blurhash: String? = null,
-    val parent_post_id: String? = null,
-    val root_post_id: String? = null,
-    val repost_of_id: String? = null,
-    val like_count: Long = 0,
-    val reply_count: Long = 0,
-    val repost_count: Long = 0,
-    val quote_count: Long = 0,
-    val view_count: Long = 0,
-    val is_boosted: Boolean = false,
-    val total_budget_cents: Int = 0,
-    val boost_expires_at: String? = null,
-    val replies_locked: Boolean = false,
-    val status: String? = "published",
-    val is_pinned: Boolean = false,
-    val reply_settings: String? = "everyone",
-    val created_at: String?,
-    val updated_at: String? = null
-)
-
-data class ApiMediaReply(
-    val id: String?,
-    val media_post_id: String?,
-    val user_id: String?,
-    val author_name: String?,
-    val handle: String?,
-    val reply_text: String?,
-    val created_at: String?
+    @SerializedName("parent_post_id") val parent_post_id: String? = null,
+    @SerializedName("root_post_id") val root_post_id: String? = null,
+    @SerializedName("repost_of_id") val repost_of_id: String? = null,
+    val likes: Long = 0,
+    @SerializedName("like_count") val like_count: Long = 0,
+    @SerializedName("replies_count") val replies_count: Long = 0,
+    @SerializedName("reply_count") val reply_count: Long = 0,
+    val shares: Long = 0,
+    @SerializedName("repost_count") val repost_count: Long = 0,
+    val views: Long = 0,
+    @SerializedName("view_count") val view_count: Long = 0,
+    @SerializedName("quote_count") val quote_count: Long = 0,
+    @SerializedName("is_boosted") val is_boosted: Boolean = false,
+    @SerializedName("total_budget_cents") val total_budget_cents: Int = 0,
+    @SerializedName("boost_expires_at") val boost_expires_at: String? = null,
+    @SerializedName("replies_locked") val replies_locked: Boolean = false,
+    val status: String? = "active",
+    @SerializedName("is_pinned") val is_pinned: Boolean = false,
+    @SerializedName("reply_settings") val reply_settings: String? = "everyone",
+    @SerializedName("created_at") val created_at: Any?,
+    @SerializedName("updated_at") val updated_at: Any? = null,
+    @SerializedName("author_name") val author_name: String? = null,
+    @SerializedName("author_handle") val author_handle: String? = null,
+    @SerializedName("author_avatar_url") val author_avatar_url: String? = null,
+    @SerializedName("author_email") val author_email: String? = null,
+    @SerializedName("is_liked") val is_liked: Boolean = false,
+    @SerializedName("is_reposted") val is_reposted: Boolean = false,
+    @SerializedName("is_bookmarked") val is_bookmarked: Boolean = false,
+    @SerializedName("is_followed") val is_followed: Boolean = false,
+    @SerializedName("has_thread") val has_thread: Boolean = false,
+    @SerializedName("thread_count") val thread_count: Int = 0,
+    val location: String? = null,
+    val tags: List<String>? = null,
+    val author: ApiPostAuthor? = null,
+    val replies: List<ApiPost>? = null,
+    val poll: ApiPostPoll? = null,
+    val ad: ApiAdvert? = null
 )
 
 data class UserIdRequest(val user_id: String)
@@ -220,11 +231,11 @@ data class CreateChannelRequest(
 
 data class CreatePostRequest(
     val content: String,
-    val media_urls: List<String> = emptyList(),
+    val media_urls: List<String>,
     val post_type: String = "text_only",
     val media_type: String? = null,
     val location: String? = null,
-    val tags: List<String> = emptyList(),
+    val tags: List<String>,
     val poll: CreatePollRequest? = null,
     val channel_id: String? = null
 )
@@ -236,6 +247,7 @@ data class CreatePollRequest(
 
 data class VotePollRequest(val option_id: String)
 data class CreatePostReplyRequest(val content: String, val parent_reply_id: String? = null)
+
 data class CreateStoryRequest(
     val content: String = "",
     val content_url: String? = null,
@@ -245,52 +257,11 @@ data class CreateStoryRequest(
 
 data class ApiPostAuthor(
     val id: String?,
-    val username: String?,
-    val display_name: String?,
+    val username: String,
+    val display_name: String,
+    val email: String,
     val avatar_url: String?,
     val is_verified: Boolean = false
-)
-
-data class ApiPostReply(
-    val id: String?,
-    val author_id: String?,
-    val post_id: String?,
-    val content: String?,
-    val created_at: Long?,
-    val likes: Long = 0,
-    val is_liked: Boolean = false,
-    val is_reposted: Boolean = false,
-    val parent_reply_id: String?,
-    val author: ApiPostAuthor?,
-    val nested_replies: List<ApiPostReply>?,
-    val ad: ApiAdvert?,
-    val post_type: String?
-)
-
-data class ApiPost(
-    val id: String?,
-    val author_id: String?,
-    val content: String?,
-    val media_urls: List<String>?,
-    val created_at: Long?,
-    val likes: Long = 0,
-    val replies_count: Long = 0,
-    val shares: Long = 0,
-    val views: Long = 0,
-    val post_type: String?,
-    val has_thread: Boolean = false,
-    val thread_count: Int = 0,
-    val is_liked: Boolean = false,
-    val is_reposted: Boolean = false,
-    val is_bookmarked: Boolean = false,
-    val is_followed: Boolean = false,
-    val replies_locked: Boolean = false,
-    val location: String?,
-    val tags: List<String>?,
-    val author: ApiPostAuthor?,
-    val replies: List<ApiPostReply>?,
-    val poll: ApiPostPoll?,
-    val ad: ApiAdvert?
 )
 
 data class ApiPostPoll(
@@ -309,7 +280,7 @@ data class ApiPollOption(
 
 data class TrendingTopic(val tag: String, val post_count: Long)
 data class TrendingTopicsResponse(val trending: List<TrendingTopic>)
-data class PostReplyResponse(val reply: ApiPostReply)
+data class PostReplyResponse(val reply: ApiPost)
 
 data class ApiStoryItem(
     val id: String,

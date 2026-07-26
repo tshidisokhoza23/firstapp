@@ -61,6 +61,9 @@ object TokenManager {
 
             token = prefs.getString(KEY_TOKEN, null)
             refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)
+            if (token != null && !AuthSessionManager.isSupportedAccessToken(token)) {
+                clear()
+            }
             _authState.value = token != null
         }
     }

@@ -3,20 +3,20 @@ package com.example.firstapp.common.di.modules
 import com.example.firstapp.BuildConfig
 import com.example.firstapp.auth.data.api.AuthApi
 import com.example.firstapp.chat.data.api.ChatApi
-import com.example.firstapp.common.data.TokenManager
-import com.example.firstapp.common.data.api.*
-import com.example.firstapp.drive.data.api.DriveApi
 import com.example.firstapp.chat.jobs.data.api.JobApi
+import com.example.firstapp.chat.rewards.data.api.RewardsApi
+import com.example.firstapp.common.data.AuthSessionManager
+import com.example.firstapp.common.data.api.SystemApi
+import com.example.firstapp.common.data.api.UserApi
+import com.example.firstapp.common.data.network.ActivePassiveInterceptor
+import com.example.firstapp.drive.data.api.DriveApi
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.music.data.api.MusicApi
-import com.example.firstapp.chat.rewards.data.api.RewardsApi
-import com.example.firstapp.common.data.network.ActivePassiveInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -30,13 +30,9 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val BASE_URL_FALLBACK = "http://127.0.0.1:8082/api/v1/"
-
     @Provides
     @Singleton
-    fun provideBaseUrl(): String {
-        return BuildConfig.ACTIVE_API_URL
-    }
+    fun provideBaseUrl(): String = BuildConfig.ACTIVE_API_URL
 
     @Provides
     @Singleton
@@ -59,7 +55,7 @@ object NetworkModule {
                 path.endsWith("/auth/logout")
 
             if (!isAuthEndpoint) {
-                TokenManager.getToken()?.let { token ->
+                AuthSessionManager.currentAccessTokenOrNull()?.let { token ->
                     requestBuilder.addHeader("Authorization", "Bearer $token")
                 }
             }
@@ -87,43 +83,20 @@ object NetworkModule {
                 ?.removePrefix("Bearer ")
 
             synchronized(refreshLock) {
-                val latestToken = TokenManager.getToken()
+                val latestToken = AuthSessionManager.currentAccessTokenOrNull()
                 if (!latestToken.isNullOrBlank() && latestToken != previousToken) {
                     return@Authenticator response.request.newBuilder()
                         .header("Authorization", "Bearer $latestToken")
                         .build()
                 }
 
-                val refreshToken = TokenManager.getRefreshToken() ?: return@Authenticator null
-                val refreshRequest = TokenRefreshRequest(refresh_token = refreshToken)
-
-                try {
-                    val refreshResponse = runBlocking {
-                        Retrofit.Builder()
-                            .baseUrl(baseUrl)
-                            .addConverterFactory(GsonConverterFactory.create())
-                            .build()
-                            .create(AuthApi::class.java)
-                            .refresh(refreshRequest)
-                    }
-
-                    if (refreshResponse.isSuccessful) {
-                        val body = refreshResponse.body()
-                        if (body != null && body.token.isNotBlank() && body.refreshToken.isNotBlank()) {
-                            TokenManager.setToken(body.token)
-                            TokenManager.setRefreshToken(body.refreshToken)
-                            return@Authenticator response.request.newBuilder()
-                                .header("Authorization", "Bearer ${body.token}")
-                                .build()
-                        }
-                    } else if (refreshResponse.code() == 401 || refreshResponse.code() == 400) {
-                        // Refresh token is invalid or expired, log out
-                        TokenManager.clear()
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("NetworkModule", "Token refresh failed", e)
+                val refreshedToken = AuthSessionManager.refreshTokensBlocking(baseUrl)
+                if (!refreshedToken.isNullOrBlank()) {
+                    return@Authenticator response.request.newBuilder()
+                        .header("Authorization", "Bearer $refreshedToken")
+                        .build()
                 }
-                return@Authenticator null
+                null
             }
         }
     }

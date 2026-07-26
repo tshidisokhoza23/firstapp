@@ -9,11 +9,11 @@ import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.Flow
 
 interface SocialRepository {
-    fun getPosts(page: Int = 1): Flow<Resource<List<Post>>>
-    fun getFollowingPosts(page: Int = 1): Flow<Resource<List<Post>>>
-    fun getChannelPosts(channelId: String, page: Int = 1): Flow<Resource<List<Post>>>
-    fun getUserPosts(userId: String, page: Int = 1): Flow<Resource<List<Post>>>
-    fun getPostsPaging(following: Boolean = false, authorId: String? = null, feedType: String = "standard"): Flow<PagingData<Post>>
+    fun getPosts(page: Int, feedType: String): Flow<Resource<List<Post>>>
+    fun getFollowingPosts(page: Int, feedType: String): Flow<Resource<List<Post>>>
+    fun getChannelPosts(channelId: String, page: Int, feedType: String): Flow<Resource<List<Post>>>
+    fun getUserPosts(userId: String, feedType: String, page: Int): Flow<Resource<List<Post>>>
+    fun getPostsPaging(following: Boolean, authorId: String, feedType: String): Flow<PagingData<Post>>
     suspend fun updatePostLikeLocally(postId: String, likes: Long, isLiked: Boolean)
     suspend fun updatePostRepostLocally(postId: String, shares: Long, isReposted: Boolean)
     suspend fun updatePostBookmarkLocally(postId: String, isBookmarked: Boolean)

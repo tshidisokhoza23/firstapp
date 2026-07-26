@@ -94,6 +94,7 @@ class MediaViewModel @Inject constructor(
             it.copy(
                 posts = socialRepository.getPostsPaging(
                     following = (type == "following"),
+                    authorId = "",
                     feedType = type
                 ).cachedIn(viewModelScope)
             )
@@ -125,7 +126,7 @@ class MediaViewModel @Inject constructor(
     }
 
     fun getUserPosts(userId: String, type: String = "standard"): Flow<PagingData<Post>> {
-        return socialRepository.getPostsPaging(authorId = userId, feedType = type).cachedIn(viewModelScope)
+        return socialRepository.getPostsPaging(following = false, authorId = userId, feedType = type).cachedIn(viewModelScope)
     }
 
     fun fetchTrendingTopics() {
@@ -167,7 +168,7 @@ class MediaViewModel @Inject constructor(
 
         currentSearchJob = viewModelScope.launch {
             _searchResults.value = Resource.Loading()
-            socialRepository.getPosts(1).collect { res ->
+            socialRepository.getPosts(1, "standard").collect { res ->
                 if (res is Resource.Success) {
                     val posts = res.data ?: emptyList()
                     val filtered = ArrayList<Post>()

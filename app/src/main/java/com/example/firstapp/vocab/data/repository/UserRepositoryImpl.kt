@@ -259,6 +259,10 @@ class UserRepositoryImpl @Inject constructor(
         if (existingUser == null) {
             val newUser = UserEntity(
                 id = userId,
+                username = "",
+                email = "",
+                display_name = "",
+                phone_number = "",
                 xp = 0,
                 level = 1,
                 streak = 0,
@@ -461,7 +465,7 @@ class UserRepositoryImpl @Inject constructor(
             }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
-                syncUserLocally(auth.user)
+                auth.user?.let { syncUserLocally(it) }
                 // Award R0.10 for logging in
                 try {
                     com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(0.10, "LOGIN", "Daily login reward")
@@ -485,7 +489,7 @@ class UserRepositoryImpl @Inject constructor(
             }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
-                syncUserLocally(auth.user)
+                auth.user?.let { syncUserLocally(it) }
                 emit(Resource.Success(auth))
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Registration failed"

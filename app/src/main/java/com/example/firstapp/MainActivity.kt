@@ -30,6 +30,8 @@ import com.example.firstapp.chat.ui.components.CallOverlay
 import com.example.firstapp.common.util.GlobalNavigation
 import com.example.firstapp.chat.rewards.data.RewardsManager
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.libraries.places.api.Places
 
 import androidx.compose.ui.unit.dp
@@ -141,8 +143,10 @@ class MainActivity : FragmentActivity() {
 
         setupContactsObserver()
 
-        if (!Places.isInitialized()) {
+        if (!Places.isInitialized() && isGooglePlayServicesReady()) {
             Places.initialize(applicationContext, "AIzaSyAcwjsoRCNMFsX5ayuuYC1CoNqj8NVP3Kw")
+        } else if (!isGooglePlayServicesReady()) {
+            android.util.Log.w("MainActivity", "Skipping Places init: Google Play services unavailable")
         }
         
         enableEdgeToEdge(
@@ -309,6 +313,11 @@ class MainActivity : FragmentActivity() {
             }
         }
         contactsObserver?.register()
+    }
+
+    private fun isGooglePlayServicesReady(): Boolean {
+        return GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(this) == ConnectionResult.SUCCESS
     }
 
     override fun onDestroy() {

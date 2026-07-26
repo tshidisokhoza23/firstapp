@@ -11,7 +11,7 @@ import java.io.IOException
 class PostPagingSource(
     private val socialApi: SocialApi,
     private val following: Boolean = false,
-    private val authorId: String? = null,
+    private val authorId: String,
     private val feedType: String = "standard"
 ) : PagingSource<Int, Post>() {
 
@@ -29,11 +29,16 @@ class PostPagingSource(
         // But we can ensure the first load is large enough or subsequent loads are triggered carefully.
 
         return try {
-            val response = if (feedType == "short" && authorId == null) {
+            val response = if (feedType == "short" && authorId == "") {
                 socialApi.getShorts(page = position)
             } else {
-                socialApi.getPosts(page = position, following = following, authorId = authorId)
+                socialApi.getPosts(page = position, following = following, authorId = authorId, feedType = feedType)
             }
+
+            if (!response.isSuccessful) {
+                return LoadResult.Error(HttpException(response))
+            }
+
             val posts = response.body()?.map { mapApiPost(it) } ?: emptyList()
 
             LoadResult.Page(

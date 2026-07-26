@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -79,9 +78,33 @@ fun ShortsTabScreen(
     val selectedProfileUserId = selectedProfileUser?.id
     val profilePosts = remember(selectedProfileUserId) {
         if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
-            flowOf(PagingData.empty<Post>())
+            flowOf(PagingData.empty())
         } else {
-            mediaViewModel.getUserPosts(selectedProfileUserId)
+            mediaViewModel.getUserPosts(selectedProfileUserId, "standard")
+        }
+    }.collectAsLazyPagingItems()
+
+    val profileShorts = remember(selectedProfileUserId) {
+        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
+            flowOf(PagingData.empty())
+        } else {
+            mediaViewModel.getUserPosts(selectedProfileUserId, "short")
+        }
+    }.collectAsLazyPagingItems()
+
+    val profileMedia = remember(selectedProfileUserId) {
+        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
+            flowOf(PagingData.empty())
+        } else {
+            mediaViewModel.getUserPosts(selectedProfileUserId, "media")
+        }
+    }.collectAsLazyPagingItems()
+
+    val profileReplies = remember(selectedProfileUserId) {
+        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
+            flowOf(PagingData.empty())
+        } else {
+            mediaViewModel.getUserPosts(selectedProfileUserId, "reply")
         }
     }.collectAsLazyPagingItems()
 
@@ -107,7 +130,7 @@ fun ShortsTabScreen(
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         if (showProfile && selectedProfileUser != null) {
             ProfileView(
-                userId = selectedProfileUserId,
+                userId = selectedProfileUserId!!,
                 showExperienceTab = false,
                 adManager = adManager,
                 onBack = {
@@ -115,9 +138,9 @@ fun ShortsTabScreen(
                     selectedProfileUser = null
                 },
                 posts = profilePosts,
-                shorts = profilePosts, // Filtered in ProfileView
-                mediaItems = profilePosts,
-                replies = profilePosts,
+                shorts = profileShorts,
+                mediaItems = profileMedia,
+                replies = profileReplies,
                 userViewModel = userViewModel,
                 mediaViewModel = mediaViewModel,
                 onNavigateToSharedMedia = { target ->
@@ -181,7 +204,9 @@ fun ShortsTabScreen(
                             selectedProfileUser = User(
                                 id = creatorId,
                                 username = short?.authorHandle ?: "",
+                                email = "",
                                 displayName = short?.authorName ?: "",
+                                phoneNumber = "",
                                 avatarUrl = short?.authorAvatarUrl
                             )
                             showProfile = true

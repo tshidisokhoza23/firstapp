@@ -1,23 +1,26 @@
 package com.example.firstapp.chat.data
 
+import android.util.Log
 import com.example.firstapp.BuildConfig
 import com.example.firstapp.chat.data.api.ApiMessage
 import com.example.firstapp.chat.model.Message
-import com.example.firstapp.common.data.TokenManager
+import com.example.firstapp.common.data.AuthSessionManager
 import com.example.firstapp.common.data.api.ApiClient
 import com.example.firstapp.common.data.repository.mapApiMessage
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.MutableSharedFlow
-import okhttp3.*
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import java.util.HashMap
-import android.util.Log
 
 object ChatWebSocketClient {
     private val gson = Gson()
     private var webSocket: WebSocket? = null
     private val httpClient = ApiClient.client
     private var reconnectAttempts = 0
-    
+
     private val _messageFlow = MutableSharedFlow<Message>(extraBufferCapacity = 64)
     val messageFlow = _messageFlow
 
@@ -26,14 +29,14 @@ object ChatWebSocketClient {
 
     fun connect() {
         if (webSocket != null) return
-        val token = TokenManager.getToken() ?: return
+        val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL) ?: return
         reconnectAttempts = 0
         connectWithToken(token)
     }
 
     private fun connectWithToken(token: String) {
         val wsUrl = BuildConfig.WS_BASE_URL.trimEnd('/') + "/ws/chat?token=$token"
-        
+
         val request = Request.Builder()
             .url(wsUrl)
             .addHeader("Authorization", "Bearer $token")
@@ -55,19 +58,20 @@ object ChatWebSocketClient {
                         val apiMsg = gson.fromJson(apiMsgJson, ApiMessage::class.java)
                         _messageFlow.tryEmit(mapApiMessage(apiMsg))
                     }
-                } catch (e: Exception) {
-                    Log.e("ChatWS", "Error: ${e.message}")
+                } catch (e: RuntimeException) {
+                    Log.e("ChatWS", "Error: ${e.message}", e)
                 }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("ChatWS", "Failure code=${response?.code}: ${t.message}")
+                Log.e("ChatWS", "Failure code=${response?.code}: ${t.message}", t)
                 this@ChatWebSocketClient.webSocket = null
-                // 401 means the access token expired — get a fresh one and retry once
                 if (response?.code == 401 && reconnectAttempts < 1) {
                     reconnectAttempts++
-                    val fresh = TokenManager.getToken()
-                    if (fresh != null) connectWithToken(fresh)
+                    val fresh = AuthSessionManager.refreshTokensBlocking(BuildConfig.API_BASE_URL)
+                    if (!fresh.isNullOrBlank()) {
+                        connectWithToken(fresh)
+                    }
                 }
             }
 

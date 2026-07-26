@@ -50,7 +50,7 @@ import kotlin.ranges.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileView(
-    userId: String? = null,
+    userId: String,
     isGroup: Boolean = false,
     showExperienceTab: Boolean = true,
     onBack: () -> Unit,
@@ -72,7 +72,7 @@ fun ProfileView(
     val context = LocalContext.current
     val isLoggedIn by TokenManager.authState.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
-    val normalizedUserId = remember(userId) { if (userId != null && userId.length > 0) userId else null }
+    val normalizedUserId = remember(userId) { if (userId.length > 0) userId else null }
     val isMyProfile = remember(normalizedUserId, currentUser?.id) { 
         normalizedUserId == null || normalizedUserId == currentUser?.id 
     }
@@ -379,115 +379,132 @@ fun ProfileView(
 
                 when (selectedTab) {
                     "Posts" -> {
-                        items(
-                            count = posts.itemCount,
-                            key = posts.itemKey { it?.id ?: 0 }
-                        ) { index ->
-                            val post = posts[index]
-                            if (post != null) {
-                                PostItem(
-                                    adManager = adManager,
-                                    post = post,
-                                    isOwnPost = post.authorId == currentUser?.id,
-                                    onClick = { onNavigateToMediaViewer(post.id, "post") },
-                                    onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                                    onRepostClick = { mediaViewModel.repostPost(it.id) },
-                                    onBookmark = { mediaViewModel.bookmarkPost(it) },
-                                    onDelete = { mediaViewModel.deletePost(post.id) },
-                                    onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
-                                    onProfileClick = {},
-                                    onPlaySong = { _, _ -> },
-                                    onVotePoll = { pid, oid -> }
-                                )
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                        if (posts.itemCount == 0 && posts.loadState.refresh is LoadState.NotLoading) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                                    Text("No posts yet", color = AppTextSecondary)
+                                }
+                            }
+                        } else {
+                            items(
+                                count = posts.itemCount,
+                                key = posts.itemKey { it?.id ?: 0 }
+                            ) { index ->
+                                val post = posts[index]
+                                if (post != null) {
+                                    PostItem(
+                                        adManager = adManager,
+                                        post = post,
+                                        isOwnPost = post.authorId == currentUser?.id,
+                                        onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                        onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                                        onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                        onBookmark = { mediaViewModel.bookmarkPost(it) },
+                                        onDelete = { mediaViewModel.deletePost(post.id) },
+                                        onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
+                                        onProfileClick = {},
+                                        onPlaySong = { _, _ -> },
+                                        onVotePoll = { pid, oid -> }
+                                    )
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                                }
                             }
                         }
                     }
                     "Experience" -> {
-                        if (workExperiences.isEmpty()) {
+                        // ... existing ...
+                    }
+                    "Media" -> {
+                        if (mediaItems.itemCount == 0 && mediaItems.loadState.refresh is LoadState.NotLoading) {
                             item {
                                 Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                                    Text("No work experience added", color = AppTextSecondary)
+                                    Text("No media items yet", color = AppTextSecondary)
                                 }
                             }
                         } else {
-                            items(workExperiences, key = { it.id ?: it.hashCode() }) { experience ->
-                                WorkExperienceItem(
-                                    experience = experience,
-                                    isMyProfile = isMyProfile,
-                                    onEdit = { onNavigateToEditExperience(experience.id) }
-                                )
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                            }
-                        }
-                    }
-                    "Media" -> {
-                        items(
-                            count = mediaItems.itemCount,
-                            key = mediaItems.itemKey { it.id }
-                        ) { index ->
-                            val post = mediaItems[index]
-                            if (post != null) {
-                                PostItem(
-                                    adManager = adManager,
-                                    post = post,
-                                    isOwnPost = post.authorId == currentUser?.id,
-                                    onClick = { onNavigateToMediaViewer(post.id, "post") },
-                                    onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                                    onRepostClick = { mediaViewModel.repostPost(it.id) },
-                                    onBookmark = { mediaViewModel.bookmarkPost(it) },
-                                    onDelete = { mediaViewModel.deletePost(post.id) },
-                                    onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
-                                    onProfileClick = {},
-                                    onPlaySong = { _, _ -> },
-                                    onVotePoll = { pid, oid -> }
-                                )
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                            items(
+                                count = mediaItems.itemCount,
+                                key = mediaItems.itemKey { it.id }
+                            ) { index ->
+                                val post = mediaItems[index]
+                                if (post != null) {
+                                    PostItem(
+                                        adManager = adManager,
+                                        post = post,
+                                        isOwnPost = post.authorId == currentUser?.id,
+                                        onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                        onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                                        onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                        onBookmark = { mediaViewModel.bookmarkPost(it) },
+                                        onDelete = { mediaViewModel.deletePost(post.id) },
+                                        onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
+                                        onProfileClick = {},
+                                        onPlaySong = { _, _ -> },
+                                        onVotePoll = { pid, oid -> }
+                                    )
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                                }
                             }
                         }
                     }
                     "Replies" -> {
-                        items(
-                            count = replies.itemCount,
-                            key = replies.itemKey { it.id }
-                        ) { index ->
-                            val post = replies[index]
-                            if (post != null) {
-                                PostItem(
-                                    adManager = adManager,
-                                    post = post,
-                                    isOwnPost = post.authorId == currentUser?.id,
-                                    onClick = { onNavigateToMediaViewer(post.id, "post") },
-                                    onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                                    onRepostClick = { mediaViewModel.repostPost(it.id) },
-                                    onBookmark = { mediaViewModel.bookmarkPost(it) },
-                                    onDelete = { mediaViewModel.deletePost(post.id) },
-                                    onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
-                                    onProfileClick = {},
-                                    onPlaySong = { _, _ -> },
-                                    onVotePoll = { pid, oid -> }
-                                )
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                        if (replies.itemCount == 0 && replies.loadState.refresh is LoadState.NotLoading) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                                    Text("No replies yet", color = AppTextSecondary)
+                                }
+                            }
+                        } else {
+                            items(
+                                count = replies.itemCount,
+                                key = replies.itemKey { it.id }
+                            ) { index ->
+                                val post = replies[index]
+                                if (post != null) {
+                                    PostItem(
+                                        adManager = adManager,
+                                        post = post,
+                                        isOwnPost = post.authorId == currentUser?.id,
+                                        onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                        onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                                        onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                        onBookmark = { mediaViewModel.bookmarkPost(it) },
+                                        onDelete = { mediaViewModel.deletePost(post.id) },
+                                        onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
+                                        onProfileClick = {},
+                                        onPlaySong = { _, _ -> },
+                                        onVotePoll = { pid, oid -> }
+                                    )
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                                }
                             }
                         }
                     }
                     "Shorts" -> {
-                        val rowCount = (shorts.itemCount + 2) / 3
-                        items(rowCount) { rowIndex ->
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                for (colIndex in 0..2) {
-                                    val index = rowIndex * 3 + colIndex
-                                    if (index < shorts.itemCount) {
-                                        val short = shorts[index]
-                                        if (short != null) {
-                                            Box(modifier = Modifier.weight(1f).padding(1.dp)) {
-                                                ShortGridItem(short, { onShortClick(it) })
+                        if (shorts.itemCount == 0 && shorts.loadState.refresh is LoadState.NotLoading) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                                    Text("No shorts yet", color = AppTextSecondary)
+                                }
+                            }
+                        } else {
+                            val rowCount = (shorts.itemCount + 2) / 3
+                            items(rowCount) { rowIndex ->
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    for (colIndex in 0..2) {
+                                        val index = rowIndex * 3 + colIndex
+                                        if (index < shorts.itemCount) {
+                                            val short = shorts[index]
+                                            if (short != null) {
+                                                Box(modifier = Modifier.weight(1f).padding(1.dp)) {
+                                                    ShortGridItem(short, { onShortClick(it) })
+                                                }
+                                            } else {
+                                                Spacer(modifier = Modifier.weight(1f))
                                             }
                                         } else {
                                             Spacer(modifier = Modifier.weight(1f))
                                         }
-                                    } else {
-                                        Spacer(modifier = Modifier.weight(1f))
                                     }
                                 }
                             }

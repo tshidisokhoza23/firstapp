@@ -5,9 +5,9 @@ import com.google.gson.annotations.SerializedName
 data class User(
     @SerializedName("id") val id: String,
     @SerializedName("username") val username: String = "",
-    @SerializedName("email") val email: String? = null,
+    @SerializedName("email") val email: String = "",
     @SerializedName("display_name") val displayName: String = "",
-    @SerializedName("phone_number") val phoneNumber: String? = null,
+    @SerializedName("phone_number") val phoneNumber: String = "",
     @SerializedName("created_at") val createdAt: String = "",
     @SerializedName("avatar_url") val avatarUrl: String? = null,
     @SerializedName("banner_url") val bannerUrl: String? = null,
@@ -15,6 +15,8 @@ data class User(
     @SerializedName("location") val location: String? = null,
     @SerializedName("is_verified") val isVerified: Boolean = false,
     @SerializedName("is_artist") val isArtist: Boolean = false,
+    @SerializedName("is_driver") val isDriver: Boolean = false,
+
     @SerializedName("followers_count") val followersCount: Int = 0,
     @SerializedName("following_count") val followingCount: Int = 0,
     @SerializedName("is_following") val isFollowing: Boolean = false,

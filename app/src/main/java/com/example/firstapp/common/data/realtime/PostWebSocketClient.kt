@@ -2,8 +2,12 @@ package com.example.firstapp.common.data.realtime
 
 import android.util.Log
 import com.example.firstapp.BuildConfig
-import com.example.firstapp.common.data.TokenManager
-import okhttp3.*
+import com.example.firstapp.common.data.AuthSessionManager
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -20,15 +24,16 @@ object PostWebSocketClient {
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
 
-        val token = TokenManager.getToken() ?: return
+        val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL) ?: return
         val wsUrl = BuildConfig.WS_BASE_URL
         var baseUrl = wsUrl
-        if (baseUrl.length > 0 && baseUrl.endsWith("/")) {
+        if (baseUrl.isNotEmpty() && baseUrl.endsWith("/")) {
             baseUrl = baseUrl.substring(0, baseUrl.length - 1)
         }
-        val url = baseUrl + "/ws/posts?token=" + token
+        val url = "$baseUrl/ws/posts?token=$token"
         val request = Request.Builder()
             .url(url)
+            .addHeader("Authorization", "Bearer $token")
             .build()
 
         webSocket = client?.newWebSocket(request, object : WebSocketListener() {
@@ -43,7 +48,7 @@ object PostWebSocketClient {
                     val json = JSONObject(text)
                     val type = json.optString("type")
                     val action = json.optString("action")
-                    
+
                     when (type) {
                         "post" -> {
                             val postId = if (json.has("post_id")) json.getString("post_id") else null
@@ -58,7 +63,7 @@ object PostWebSocketClient {
                             listeners.forEach { it.onStoriesEvent(action, storyId) }
                         }
                     }
-                } catch (e: Exception) {
+                } catch (e: RuntimeException) {
                     Log.e("PostWebSocket", "Error parsing message", e)
                 }
             }
