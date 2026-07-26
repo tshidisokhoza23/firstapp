@@ -185,44 +185,30 @@ class ChatViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            ChatWebSocketClient.eventFlow.collect { event ->
-                val type = event.type ?: return@collect
-                val uid = event.user_id
-                val cid = event.conversation_id
+            ChatWebSocketClient.eventFlow.collect { frame ->
+                val op = frame.op
+                val payload = frame.payload?.asJsonObject ?: return@collect
                 
-                when (type) {
-                    "presence" -> {
+                when (op) {
+                    "PRESENCE" -> {
+                        val uid = payload.get("user_id")?.asString
+                        val status = payload.get("status")?.asString
                         if (uid != null) {
-                            updateChatPresence(uid, event.is_online, System.currentTimeMillis())
-                            // Also refresh chats to update list status
+                            updateChatPresence(uid, status == "online", System.currentTimeMillis())
                             fetchChats()
                         }
                     }
-                    "typing" -> {
+                    "TYPING" -> {
+                        val cid = payload.get("conversation_id")?.asString
+                        val state = payload.get("state")?.asString
                         if (cid != null) {
-                            updateChatTyping(cid, event.is_typing)
+                            updateChatTyping(cid, state == "START")
                         }
                     }
-                    "delivered" -> {
-                        val mid = event.message_id
+                    "DELIVERY_ACK" -> {
+                        val mid = payload.get("message_id")?.asString
                         if (mid != null) {
-                            viewModelScope.launch {
-                                repository.updateMessageStatus(mid, MessageStatus.DELIVERED)
-                            }
-                        } else {
-                            val aid = activeChatId
-                            if (aid != null) fetchMessages(aid)
-                        }
-                    }
-                    "read" -> {
-                        val mid = event.message_id
-                        if (mid != null) {
-                            viewModelScope.launch {
-                                repository.updateMessageStatus(mid, MessageStatus.READ)
-                            }
-                        } else {
-                            val aid = activeChatId
-                            if (aid != null) fetchMessages(aid)
+                            repository.updateMessageStatus(mid, MessageStatus.DELIVERED)
                         }
                     }
                 }

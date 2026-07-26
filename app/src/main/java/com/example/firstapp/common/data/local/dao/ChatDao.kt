@@ -52,7 +52,7 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE id = :chatId")
     suspend fun searchChatsById(chatId: String): ChatEntity?
 
-    @Query("UPDATE chats SET isOnline = :isOnline, lastSeen = :lastSeen WHERE id = :chatId")
+    @Query("UPDATE chats SET isOnline = :isOnline, lastSeen = :lastSeen WHERE id = :chatId OR otherUserId = :chatId")
     suspend fun updatePresence(chatId: String, isOnline: Boolean, lastSeen: Long)
 
     @Query("UPDATE chats SET isTyping = :isTyping WHERE id = :chatId")

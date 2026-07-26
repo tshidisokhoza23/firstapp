@@ -82,12 +82,12 @@ fun mapApiMessage(apiMessage: ApiMessage): Message {
         isFromMe = apiMessage.direction == "outgoing",
         type = when (apiMessage.media_type.lowercase()) {
             "image" -> MessageType.IMAGE
-            "video" -> MessageType.VIDEO
+            "video", "short_video" -> MessageType.VIDEO
             "audio", "audio_message" -> MessageType.AUDIO_MESSAGE
-            "voice_call" -> MessageType.VOICE_CALL
+            "voice_call", "call" -> MessageType.VOICE_CALL
             "location" -> MessageType.LOCATION
             "contact" -> MessageType.CONTACT
-            "document" -> MessageType.DOCUMENT
+            "document", "file" -> MessageType.DOCUMENT
             "application_link" -> MessageType.APPLICATION_LINK
             "job_post" -> MessageType.JOB_POST
             else -> MessageType.TEXT

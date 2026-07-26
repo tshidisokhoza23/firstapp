@@ -1,5 +1,6 @@
 package com.example.firstapp.chat.data
 
+import android.util.Log
 import com.example.firstapp.BuildConfig
 import com.example.firstapp.common.data.AuthSessionManager
 import com.example.firstapp.common.data.api.ApiClient
@@ -7,15 +8,12 @@ import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 import java.util.concurrent.CopyOnWriteArraySet
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import kotlin.text.*
 
 enum class CallType {
     VOICE,
@@ -106,7 +104,8 @@ object CallWebSocketClient {
         }
 
         manualClose = false
-        val url = "${BuildConfig.WS_BASE_URL}ws/calls"
+        val baseUrl = BuildConfig.WS_BASE_URL.trimEnd('/')
+        val url = "$baseUrl/ws/calls?token=$token"
         val request = Request.Builder()
             .url(url)
             .addHeader("Authorization", "Bearer $token")

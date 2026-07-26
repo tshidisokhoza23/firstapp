@@ -8,6 +8,8 @@ import com.example.firstapp.common.data.AuthSessionManager
 import com.example.firstapp.common.data.api.ApiClient
 import com.example.firstapp.common.data.repository.mapApiMessage
 import com.google.gson.Gson
+import com.google.gson.JsonElement
+import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.flow.MutableSharedFlow
 import okhttp3.Request
 import okhttp3.Response
@@ -24,7 +26,7 @@ object ChatWebSocketClient {
     private val _messageFlow = MutableSharedFlow<Message>(extraBufferCapacity = 64)
     val messageFlow = _messageFlow
 
-    private val _eventFlow = MutableSharedFlow<WsResponse>(extraBufferCapacity = 64)
+    private val _eventFlow = MutableSharedFlow<WSFrame>(extraBufferCapacity = 64)
     val eventFlow = _eventFlow
 
     fun connect() {
@@ -50,16 +52,25 @@ object ChatWebSocketClient {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
-                    val response = gson.fromJson(text, WsResponse::class.java)
-                    _eventFlow.tryEmit(response)
+                    Log.d("ChatWS", "Received raw: $text")
+                    val frame = gson.fromJson(text, WSFrame::class.java)
+                    _eventFlow.tryEmit(frame)
 
-                    if (response.type == "message") {
-                        val apiMsgJson = gson.toJson(response.message)
-                        val apiMsg = gson.fromJson(apiMsgJson, ApiMessage::class.java)
-                        _messageFlow.tryEmit(mapApiMessage(apiMsg))
+                    when (frame.op) {
+                        "INCOMING_MSG" -> {
+                            val payload = frame.payload
+                            if (payload != null) {
+                                try {
+                                    val apiMsg = gson.fromJson(payload, ApiMessage::class.java)
+                                    _messageFlow.tryEmit(mapApiMessage(apiMsg))
+                                } catch (e: Exception) {
+                                    Log.e("ChatWS", "Failed to parse INCOMING_MSG payload", e)
+                                }
+                            }
+                        }
                     }
-                } catch (e: RuntimeException) {
-                    Log.e("ChatWS", "Error: ${e.message}", e)
+                } catch (e: Exception) {
+                    Log.e("ChatWS", "Error parsing frame: ${e.message}", e)
                 }
             }
 
@@ -83,11 +94,12 @@ object ChatWebSocketClient {
     }
 
     fun sendTyping(conversationId: String, isTyping: Boolean) {
-        val event = HashMap<String, Any>()
-        event["type"] = "typing"
-        event["conversation_id"] = conversationId
-        event["is_typing"] = isTyping
-        webSocket?.send(gson.toJson(event))
+        val payload = HashMap<String, Any>()
+        payload["conversation_id"] = conversationId
+        payload["state"] = if (isTyping) "START" else "STOP"
+        
+        val frame = WSFrame(op = "TYPING", payload = gson.toJsonTree(payload))
+        webSocket?.send(gson.toJson(frame))
     }
 
     fun disconnect() {
@@ -96,12 +108,7 @@ object ChatWebSocketClient {
     }
 }
 
-data class WsResponse(
-    val type: String?,
-    val message: Any? = null,
-    val conversation_id: String? = null,
-    val user_id: String? = null,
-    val message_id: String? = null,
-    val is_typing: Boolean = false,
-    val is_online: Boolean = false
+data class WSFrame(
+    @SerializedName("op") val op: String,
+    @SerializedName("payload") val payload: JsonElement? = null
 )
