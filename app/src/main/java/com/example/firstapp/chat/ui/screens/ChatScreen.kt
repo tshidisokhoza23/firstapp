@@ -1051,6 +1051,16 @@ fun MessageItemUnique(
                     }
 
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        if (!message.isFromMe && message.senderName != null && message.senderName != "Unknown") {
+                            Text(
+                                text = message.senderName,
+                                color = AppAccent,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = (fontSize - 3).sp,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
+
                         val isMediaTypePlaceholder = message.content == "Voice Note" || 
                                                    message.content == "Image" || 
                                                    message.content == "Video" || 
