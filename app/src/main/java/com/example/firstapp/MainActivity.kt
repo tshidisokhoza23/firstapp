@@ -191,6 +191,16 @@ class MainActivity : FragmentActivity() {
                         runCatching {
                             RewardsManager.refreshBalance()
                         }
+                        // Automatically sync contacts when logged in
+                        lifecycleScope.launch {
+                            try {
+                                val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
+                                chatRepository.syncContacts(phoneNumbers).collect {}
+                                chatRepository.refreshLocalChatNames()
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "Failed to sync contacts on login", e)
+                            }
+                        }
                     }
 
                     val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
@@ -282,6 +292,14 @@ class MainActivity : FragmentActivity() {
                 ContextCompat.startForegroundService(applicationContext, serviceIntent)
             } catch (e: Exception) {
                 android.util.Log.e("MainActivity", "Failed to start service on resume", e)
+            }
+            
+            // Sync contacts when app comes to foreground
+            lifecycleScope.launch {
+                try {
+                    val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
+                    chatRepository.syncContacts(phoneNumbers).collect {}
+                } catch (_: Exception) {}
             }
         }
     }

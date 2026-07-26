@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.firstapp.domain.repository.ChatRepository
@@ -28,20 +29,31 @@ class ContactPickerViewModel @Inject constructor(
         fetchContacts()
     }
 
+    private var fetchJob: Job? = null
+
     fun fetchContacts() {
-        viewModelScope.launch {
-            syncContacts()
-            repository.getContacts().collect { resource ->
-                _contacts.value = resource
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
+            _contacts.value = Resource.Loading()
+            try {
+                // Wait for sync to complete before starting to collect from DB
+                syncContacts()
+                
+                repository.getContacts().collect { resource ->
+                    _contacts.value = resource
+                }
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    _contacts.value = Resource.Error(e.message ?: "Unknown error")
+                }
             }
         }
     }
 
-    private fun syncContacts() {
-        viewModelScope.launch {
-            val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(context)
-            repository.syncContacts(phoneNumbers).collect { }
-        }
+    private suspend fun syncContacts() {
+        val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(context)
+        // Collect all emissions from syncContacts to ensure it finishes
+        repository.syncContacts(phoneNumbers).collect { }
     }
 
     fun searchContacts(query: String) {

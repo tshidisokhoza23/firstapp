@@ -13,8 +13,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +54,11 @@ fun ContactPickerScreen(
     val contactsResource by viewModel.contacts.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     
+    // Automatically trigger a refresh when screen is opened
+    LaunchedEffect(Unit) {
+        viewModel.fetchContacts()
+    }
+
     val contacts = if (isSearchActive && searchQuery.isNotBlank()) searchResults else (contactsResource.data ?: emptyList())
 
     Scaffold(
@@ -124,6 +132,9 @@ fun ContactPickerScreen(
                         IconButton(onClick = { isSearchActive = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
+                        IconButton(onClick = { viewModel.fetchContacts() }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = AppBackground,
@@ -148,50 +159,56 @@ fun ContactPickerScreen(
         },
         containerColor = AppBackground
     ) { padding ->
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (!isGroupMode) {
-                item {
-                    ContactActionItem(icon = Icons.Default.GroupAdd, label = "New group") {
-                        isGroupMode = true
-                    }
-                }
-                item {
-                    ContactActionItem(icon = Icons.Default.PersonAdd, label = "New contact") {
-                    }
-                }
-            }
-
-            items(contacts) { contact ->
-                val isSelected = selectedContacts.contains(contact)
-                val context = LocalContext.current
-                ContactItem(
-                    contact = contact,
-                    isSelected = isSelected,
-                    showCheckbox = isGroupMode,
-                    onClick = {
-                        if (isGroupMode) {
-                            if (contact.isRegistered) {
-                                if (isSelected) selectedContacts.remove(contact)
-                                else selectedContacts.add(contact)
-                            }
-                        } else {
-                            if (contact.isRegistered) {
-                                onContactSelected(contact)
-                            } else {
-                                val intent = Intent(Intent.ACTION_SENDTO)
-                                intent.data = Uri.parse("smsto:${contact.phoneNumber}")
-                                intent.putExtra("sms_body", "Join me on FirstApp! http://firstapp.com/download")
-                                try {
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {}
-                            }
+        PullToRefreshBox(
+            isRefreshing = contactsResource is Resource.Loading,
+            onRefresh = { viewModel.fetchContacts() },
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (!isGroupMode) {
+                    item {
+                        ContactActionItem(icon = Icons.Default.GroupAdd, label = "New group") {
+                            isGroupMode = true
                         }
                     }
-                )
-            }
-            
-            item {
-                ContactActionItem(icon = Icons.Default.Search, label = "Invite friends", onClick = onInviteClicked)
+                    item {
+                        ContactActionItem(icon = Icons.Default.PersonAdd, label = "New contact") {
+                        }
+                    }
+                }
+
+                items(contacts) { contact ->
+                    val isSelected = selectedContacts.contains(contact)
+                    val context = LocalContext.current
+                    ContactItem(
+                        contact = contact,
+                        isSelected = isSelected,
+                        showCheckbox = isGroupMode,
+                        onClick = {
+                            if (isGroupMode) {
+                                if (contact.isRegistered) {
+                                    if (isSelected) selectedContacts.remove(contact)
+                                    else selectedContacts.add(contact)
+                                }
+                            } else {
+                                if (contact.isRegistered) {
+                                    onContactSelected(contact)
+                                } else {
+                                    val intent = Intent(Intent.ACTION_SENDTO)
+                                    intent.data = Uri.parse("smsto:${contact.phoneNumber}")
+                                    intent.putExtra("sms_body", "Join me on FirstApp! http://firstapp.com/download")
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
+                    )
+                }
+                
+                item {
+                    ContactActionItem(icon = Icons.Default.Search, label = "Invite friends", onClick = onInviteClicked)
+                }
             }
         }
     }

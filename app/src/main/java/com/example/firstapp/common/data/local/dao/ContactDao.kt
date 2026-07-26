@@ -12,7 +12,7 @@ interface ContactDao {
     @Query("SELECT * FROM contacts WHERE id = :id LIMIT 1")
     suspend fun getContactById(id: String): ContactEntity?
 
-    @Query("SELECT * FROM contacts")
+    @Query("SELECT * FROM contacts ORDER BY isRegistered DESC, displayName ASC")
     fun getContacts(): Flow<List<ContactEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -21,6 +21,6 @@ interface ContactDao {
     @Query("DELETE FROM contacts")
     suspend fun clearContacts()
 
-    @Query("SELECT * FROM contacts WHERE LOWER(displayName) LIKE '%' || LOWER(:query) || '%' OR LOWER(username) LIKE '%' || LOWER(:query) || '%' OR phoneNumber LIKE '%' || :query || '%'")
+    @Query("SELECT * FROM contacts WHERE (LOWER(displayName) LIKE '%' || LOWER(:query) || '%' OR LOWER(username) LIKE '%' || LOWER(:query) || '%' OR phoneNumber LIKE '%' || :query || '%') ORDER BY isRegistered DESC, displayName ASC")
     fun searchContacts(query: String): Flow<List<ContactEntity>>
 }
