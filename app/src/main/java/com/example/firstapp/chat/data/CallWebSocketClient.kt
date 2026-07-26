@@ -8,12 +8,16 @@ import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 import java.util.concurrent.CopyOnWriteArraySet
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import kotlin.text.*
+import kotlin.jvm.Volatile
 
 enum class CallType {
     VOICE,
@@ -75,15 +79,19 @@ object CallWebSocketClient {
     private var webSocket: WebSocket? = null
     private val httpClient = ApiClient.client
     private val listeners = CopyOnWriteArraySet<CallSocketListener>()
-    private val reconnectScope = CoroutineScope(Dispatchers.IO)
-    private var reconnectJob: Job? = null
+    private val connectMutex = Mutex()
+    private val isReconnecting = AtomicBoolean(false)
 
     @Volatile
     private var manualClose = false
 
     fun connect(listener: CallSocketListener) {
         listeners.add(listener)
-        ensureConnected()
+        Thread {
+            runBlocking {
+                ensureConnected()
+            }
+        }.start()
     }
 
     fun disconnect(listener: CallSocketListener) {
@@ -93,97 +101,103 @@ object CallWebSocketClient {
         }
     }
 
-    @Synchronized
-    private fun ensureConnected() {
+    private suspend fun ensureConnected() {
         if (webSocket != null) return
+        connectMutex.withLock {
+            if (webSocket != null) return@withLock
 
-        val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL)
-        if (token.isNullOrBlank()) {
-            notifyError("Missing auth token")
-            return
-        }
-
-        manualClose = false
-        val baseUrl = BuildConfig.WS_BASE_URL.trimEnd('/')
-        val url = "$baseUrl/ws/calls?token=$token"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", "Bearer $token")
-            .build()
-
-        webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                notifyOpen()
+            val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL)
+            if (token.isNullOrBlank()) {
+                notifyError("Missing auth token")
+                return@withLock
             }
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                try {
-                    val payload = gson.fromJson(text, WireCallEvent::class.java)
-                    notifyEvent(
-                        CallEvent(
-                            type = payload.type,
-                            senderId = payload.senderId,
-                            receiverId = payload.receiverId,
-                            sessionId = payload.sessionId,
-                            callType = CallType.fromWire(payload.callType),
-                            signalType = payload.signalType,
-                            signalPayload = payload.signalPayload,
-                            durationSeconds = payload.durationSeconds,
-                            endReason = payload.endReason,
-                            timestamp = payload.timestamp
+            manualClose = false
+            val baseUrl = BuildConfig.WS_BASE_URL
+            val url = (if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/") + "ws/calls?token=$token"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+
+            webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    notifyOpen()
+                }
+
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val payload = gson.fromJson(text, WireCallEvent::class.java)
+                        notifyEvent(
+                            CallEvent(
+                                type = payload.type,
+                                senderId = payload.senderId,
+                                receiverId = payload.receiverId,
+                                sessionId = payload.sessionId,
+                                callType = CallType.fromWire(payload.callType),
+                                signalType = payload.signalType,
+                                signalPayload = payload.signalPayload,
+                                durationSeconds = payload.durationSeconds,
+                                endReason = payload.endReason,
+                                timestamp = payload.timestamp
+                            )
                         )
-                    )
-                } catch (e: RuntimeException) {
-                    android.util.Log.e("CallWebSocket", "Error: ${e.message}", e)
+                    } catch (e: Exception) {
+                        Log.e("CallWebSocket", "Error parsing message: ${e.message}", e)
+                    }
                 }
-            }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                android.util.Log.e("CallWebSocket", "WebSocket failure: ${t.message}", t)
-                this@CallWebSocketClient.webSocket = null
-                if (response?.code == 401) {
-                    AuthSessionManager.refreshTokensBlocking(BuildConfig.API_BASE_URL)
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    Log.e("CallWebSocket", "WebSocket failure: ${t.message}", t)
+                    this@CallWebSocketClient.webSocket = null
+                    if (response?.code == 401) {
+                        AuthSessionManager.refreshTokensBlocking(BuildConfig.API_BASE_URL)
+                    }
+                    scheduleReconnect()
                 }
-                scheduleReconnect()
-            }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                android.util.Log.d("CallWebSocket", "WebSocket closed: $code / $reason")
-                this@CallWebSocketClient.webSocket = null
-                if (!manualClose) scheduleReconnect()
-            }
-        })
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    Log.d("CallWebSocket", "WebSocket closed: $code / $reason")
+                    this@CallWebSocketClient.webSocket = null
+                    if (!manualClose) scheduleReconnect()
+                }
+            })
+        }
     }
 
     private fun notifyOpen() {
-        android.util.Log.d("CallWebSocket", "WebSocket connection opened")
+        Log.d("CallWebSocket", "WebSocket connection opened")
         listeners.forEach { it.onOpen() }
     }
 
     private fun notifyEvent(event: CallEvent) {
-        android.util.Log.d("CallWebSocket", "WebSocket event received: ${event.type}")
+        Log.d("CallWebSocket", "WebSocket event received: ${event.type}")
         listeners.forEach { it.onEvent(event) }
     }
 
     private fun notifyError(error: String) {
-        android.util.Log.e("CallWebSocket", "WebSocket error: $error")
+        Log.e("CallWebSocket", "WebSocket error: $error")
         listeners.forEach { it.onError(error) }
     }
 
     private fun scheduleReconnect(immediate: Boolean = false) {
         if (manualClose || listeners.isEmpty()) {
-            android.util.Log.d("CallWebSocket", "Reconnect skipped: manualClose=$manualClose, listenersEmpty=${listeners.isEmpty()}")
+            Log.d("CallWebSocket", "Reconnect skipped")
             return
         }
-        if (reconnectJob?.isActive == true) return
-        android.util.Log.d("CallWebSocket", "Scheduling reconnect, immediate=$immediate")
-        reconnectJob = reconnectScope.launch {
-            if (!immediate) delay(5000)
-            if (!manualClose && listeners.isNotEmpty() && webSocket == null) {
-                android.util.Log.d("CallWebSocket", "Attempting reconnect now...")
-                ensureConnected()
+        if (!isReconnecting.compareAndSet(false, true)) return
+        
+        Log.d("CallWebSocket", "Scheduling reconnect, immediate=$immediate")
+        Thread {
+            try {
+                if (!immediate) Thread.sleep(5000)
+                if (!manualClose && listeners.isNotEmpty() && webSocket == null) {
+                    runBlocking { ensureConnected() }
+                }
+            } finally {
+                isReconnecting.set(false)
             }
-        }
+        }.start()
     }
 
     fun invite(receiverId: String, sessionId: String, callType: CallType) {
@@ -217,8 +231,6 @@ object CallWebSocketClient {
     @Synchronized
     fun close() {
         manualClose = true
-        reconnectJob?.cancel()
-        reconnectJob = null
         webSocket?.close(1000, "Goodbye")
         webSocket = null
         listeners.clear()

@@ -31,13 +31,19 @@ object ChatWebSocketClient {
 
     fun connect() {
         if (webSocket != null) return
-        val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL) ?: return
-        reconnectAttempts = 0
-        connectWithToken(token)
+        // Use background thread to avoid blocking main thread during token refresh
+        Thread {
+            val token = AuthSessionManager.currentAccessTokenForWebSocket(BuildConfig.API_BASE_URL)
+            if (token != null) {
+                reconnectAttempts = 0
+                connectWithToken(token)
+            }
+        }.start()
     }
 
     private fun connectWithToken(token: String) {
-        val wsUrl = BuildConfig.WS_BASE_URL.trimEnd('/') + "/ws/chat?token=$token"
+        val baseUrl = BuildConfig.WS_BASE_URL
+        val wsUrl = (if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/") + "ws/chat?token=$token"
 
         val request = Request.Builder()
             .url(wsUrl)
@@ -79,6 +85,7 @@ object ChatWebSocketClient {
                 this@ChatWebSocketClient.webSocket = null
                 if (response?.code == 401 && reconnectAttempts < 1) {
                     reconnectAttempts++
+                    // Background thread for refresh already handled by OkHttp dispatcher
                     val fresh = AuthSessionManager.refreshTokensBlocking(BuildConfig.API_BASE_URL)
                     if (!fresh.isNullOrBlank()) {
                         connectWithToken(fresh)
