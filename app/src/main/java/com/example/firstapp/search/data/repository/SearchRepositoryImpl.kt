@@ -30,7 +30,8 @@ class SearchRepositoryImpl @Inject constructor(
     private val chatRepository: ChatRepository,
     private val musicRepository: MusicRepository,
     private val jobRepository: JobRepository,
-    private val channelRepository: ChannelRepository
+    private val channelRepository: ChannelRepository,
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager
 ) : SearchRepository {
 
     override fun search(query: String, type: SearchType, filter: SearchFilter): Flow<Resource<SearchResult>> = flow {
@@ -134,10 +135,11 @@ class SearchRepositoryImpl @Inject constructor(
                     val response = userApi.search(query, typeStr)
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
+                        val myUserId = sessionManager.getUserId()
                         emit(Resource.Success(SearchResult(
                             chats = body.chats.map { mapApiChatSummary(it) },
                             contacts = body.contacts.map { mapApiContact(it) },
-                            messages = body.messages.map { mapApiMessage(it) },
+                            messages = body.messages.map { mapApiMessage(it, currentUserId = myUserId) },
                             songs = body.songs.map { mapApiSongToModel(it) },
                             artists = body.artists.map { mapApiContact(it) },
                             channels = body.channels.map { mapApiChannel(it) },

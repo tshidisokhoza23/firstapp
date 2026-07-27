@@ -49,7 +49,7 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     )
 }
 
-fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null): Message {
+fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, currentUserId: String? = null): Message {
     var body = apiMessage.message_text
     val isEncrypted = body.startsWith("ENC:")
     if (isEncrypted && privateKeyStr != null) {
@@ -71,6 +71,13 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null): Messag
     val timestamp = apiMessage.created_at
     val senderId = apiMessage.sender_id
 
+    // Use currentUserId if provided to determine direction, otherwise fallback to API field
+    val isFromMe = if (currentUserId != null) {
+        senderId == currentUserId
+    } else {
+        apiMessage.direction == "outgoing"
+    }
+
     return Message(
         id = apiMessage.id,
         conversationId = apiMessage.conversation_id,
@@ -79,7 +86,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null): Messag
         senderName = apiMessage.sender_name,
         receiverId = apiMessage.receiver_id,
         timestamp = timestamp,
-        isFromMe = apiMessage.direction == "outgoing",
+        isFromMe = isFromMe,
         type = when (apiMessage.media_type.lowercase()) {
             "image" -> MessageType.IMAGE
             "video", "short_video" -> MessageType.VIDEO

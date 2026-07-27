@@ -177,7 +177,8 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val apiMessages = response.body()!!.messages
                 val privKey = sessionManager.getPrivateKey()
-                val messages = apiMessages.map { am: com.example.firstapp.chat.data.api.ApiMessage -> mapApiMessage(am, privKey) }
+                val myUserId = sessionManager.getUserId()
+                val messages = apiMessages.map { am: com.example.firstapp.chat.data.api.ApiMessage -> mapApiMessage(am, privKey, myUserId) }
                 // Insert new messages into the database
                 chatDao.insertMessages(messages.map { m: Message -> m.toEntity(chatId) })
             }
@@ -202,8 +203,9 @@ class ChatRepositoryImpl @Inject constructor(
             )
             if (response.isSuccessful && response.body() != null) {
                 val apiMessages = response.body()!!.messages
+                val myUserId = sessionManager.getUserId()
                 if (apiMessages.isNotEmpty()) {
-                    val mapped = apiMessages.map { am: ApiMessage -> mapApiMessage(am) }
+                    val mapped = apiMessages.map { am: ApiMessage -> mapApiMessage(am, currentUserId = myUserId) }
                     chatDao.insertMessages(mapped.map { m: Message -> m.toEntity(chatId) })
                 }
                 emit(Resource.Success(apiMessages.isNotEmpty()))
@@ -284,7 +286,8 @@ class ChatRepositoryImpl @Inject constructor(
             )
             if (response.isSuccessful && response.body() != null) {
                 Log.d("ChatRepositoryImpl", "sendMessage: API success for clientUuid=$clientUuid")
-                val serverMsg = mapApiMessage(response.body()!!.message).copy(
+                val myUserId = sessionManager.getUserId()
+                val serverMsg = mapApiMessage(response.body()!!.message, currentUserId = myUserId).copy(
                     duration = pendingMsg.duration,
                     fileName = pendingMsg.fileName,
                     fileSize = pendingMsg.fileSize,

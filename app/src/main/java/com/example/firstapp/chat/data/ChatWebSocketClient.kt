@@ -81,7 +81,8 @@ class ChatWebSocketClient @Inject constructor(
                             try {
                                 val apiMsg = gson.fromJson(payload, ApiMessage::class.java)
                                 val privKey = sessionManager.getPrivateKey()
-                                _messageFlow.tryEmit(mapApiMessage(apiMsg, privKey))
+                                val myUserId = sessionManager.getUserId()
+                                _messageFlow.tryEmit(mapApiMessage(apiMsg, privKey, myUserId))
                             } catch (e: Exception) {
                                 Log.e("ChatWS", "Failed to parse INCOMING_MSG payload", e)
                             }

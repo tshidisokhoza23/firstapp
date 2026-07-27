@@ -139,7 +139,14 @@ class WebRtcCallManager(context: Context) {
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
                 when (state) {
                     PeerConnection.IceConnectionState.CONNECTED,
-                    PeerConnection.IceConnectionState.COMPLETED -> onConnected?.invoke()
+                    PeerConnection.IceConnectionState.COMPLETED -> {
+                        // Re-assert the audio route now that media is actually flowing. Some
+                        // OEM firmware (observed on Samsung) resets/ignores the communication
+                        // device chosen at call setup time, leaving audio routed to the quiet
+                        // earpiece even during a video call.
+                        setSpeakerEnabled(callType == CallType.VIDEO)
+                        onConnected?.invoke()
+                    }
                     PeerConnection.IceConnectionState.DISCONNECTED -> {
                         // Network might have switched, try ICE restart if not recovered soon
                         observationScope.launch {
@@ -348,16 +355,42 @@ class WebRtcCallManager(context: Context) {
 
     fun setSpeakerEnabled(enabled: Boolean) {
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        var routedViaCommunicationDevice = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val devices = audioManager.availableCommunicationDevices
             val targetType = if (enabled) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
             val device = devices.firstOrNull { it.type == targetType }
             if (device != null) {
-                audioManager.setCommunicationDevice(device)
+                routedViaCommunicationDevice = audioManager.setCommunicationDevice(device)
             }
-        } else {
+        }
+        // Always also set the legacy speakerphone flag as a fallback: some OEM builds
+        // (observed on Samsung devices) silently fail setCommunicationDevice() or reset
+        // the route shortly after, leaving the call routed to the earpiece (very quiet)
+        // even during a video call. Setting this too costs nothing and guarantees the
+        // expected route is applied.
+        if (!routedViaCommunicationDevice || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = enabled
+        }
+        ensureAudibleCallVolume()
+    }
+
+    /**
+     * Boosts the in-call (STREAM_VOICE_CALL) volume to an audible level when a call starts.
+     * Without this, calls can sound almost silent if the stream's volume index was left low
+     * from a previous call/media session, even though the app itself plays audio at full gain.
+     */
+    private fun ensureAudibleCallVolume() {
+        try {
+            val stream = AudioManager.STREAM_VOICE_CALL
+            val max = audioManager.getStreamMaxVolume(stream)
+            val current = audioManager.getStreamVolume(stream)
+            val minAudible = (max * 0.75f).toInt().coerceAtLeast(1)
+            if (current < minAudible) {
+                audioManager.setStreamVolume(stream, minAudible, 0)
+            }
+        } catch (_: Exception) {
         }
     }
 
