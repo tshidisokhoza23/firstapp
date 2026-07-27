@@ -275,11 +275,10 @@ fun ChatMessagesScreen(
         val cachedName = GlobalCallState.getContactName(chat.id)
         chat.senderName.takeIf { 
             it.isNotBlank() && 
-            !it.startsWith("User ") && 
             it.lowercase() != "unknown" && 
             it.lowercase() != "null" && 
             it.lowercase() != "undefined" 
-        } ?: cachedName ?: chat.id.toString()
+        } ?: cachedName ?: chat.id
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -531,7 +530,7 @@ fun ChatMessagesScreen(
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(text = if (replyMsg.isFromMe) "You" else chat.senderName, color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                            Text(text = replyMsg.content.ifBlank { replyMsg.type.name }, color = AppTextSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(text = replyMsg.content, color = AppTextSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                         IconButton(onClick = { replyingToMessage = null }, modifier = Modifier.size(24.dp)) {
                                             Icon(Icons.Default.Close, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
@@ -1028,7 +1027,7 @@ fun MessageItemUnique(
                                 Spacer(Modifier.width(8.dp))
                                 Column {
                                     Text(
-                                        text = message.replyToSenderName ?: "Unknown",
+                                        text = message.replyToSenderName ?: "",
                                         color = AppAccent,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp
@@ -1051,7 +1050,7 @@ fun MessageItemUnique(
                     }
 
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        if (!message.isFromMe && message.senderName != null && message.senderName != "Unknown") {
+                        if (!message.isFromMe && message.senderName != "" && message.senderName.lowercase() != "unknown") {
                             Text(
                                 text = message.senderName,
                                 color = AppAccent,

@@ -67,25 +67,26 @@ class ChatRepositoryImpl @Inject constructor(
                     val chatModel = mapApiChatSummary(cs)
                     val entity = chatModel.toEntity()
                     
+                    val targetId = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) (entity.otherUserId ?: entity.id) else entity.id
+                    val contact = localContacts[targetId]
+
                     // Improve: Resolve name from device contacts or profile
                     val resolvedName = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
-                        val contact = localContacts[entity.id]
                         displayNameResolver.resolve(
                             com.example.firstapp.common.model.User(
-                                id = entity.id, 
+                                id = targetId, 
                                 displayName = entity.senderName,
                                 username = contact?.username ?: ""
                             ),
-                            contact?.phoneNumber ?: ""
+                            contact?.phoneNumber ?: entity.phoneNumber ?: ""
                         )
                     } else {
                         entity.senderName
                     }
                     
                     val existing = localChats[entity.id]
-                    val contact = localContacts[entity.id]
                     entity.copy(
-                        senderName = resolvedName,
+                        senderName = resolvedName.ifBlank { entity.senderName },
                         avatarUrl = contact?.avatarUrl ?: entity.avatarUrl,
                         phoneNumber = contact?.phoneNumber ?: entity.phoneNumber,
                         wallpaperUrl = existing?.wallpaperUrl,
@@ -445,10 +446,11 @@ class ChatRepositoryImpl @Inject constructor(
          val existing = chatDao.getChatById(chatId).first()
         if (existing == null) {
             // If the chat doesn't exist locally, try to create it from contact info
-            val contact = contactDao.getContactById(chatId)
+            val targetId = chatId // For DMs, chatId IS the otherUserId sometimes, or we need to look it up
+            val contact = contactDao.getContactById(targetId)
             val name = displayNameResolver.resolve(
                 com.example.firstapp.common.model.User(
-                    id = chatId,
+                    id = targetId,
                     displayName = contact?.displayName ?: "",
                     username = contact?.username ?: ""
                 ),
@@ -458,7 +460,7 @@ class ChatRepositoryImpl @Inject constructor(
             val newChat = ChatEntity(
                 id = chatId,
                 type = com.example.firstapp.common.model.ConversationType.DIRECT,
-                senderName = name,
+                senderName = if (name.isNotBlank()) name else targetId,
                 lastMessage = lastMessage,
                 timestamp = time,
                 unreadCount = if (!isFromMe && !isRead) 1 else 0,
@@ -470,22 +472,23 @@ class ChatRepositoryImpl @Inject constructor(
                 lastMessageIsFromMe = isFromMe,
                 lastMessageRead = isRead,
                 phoneNumber = contact?.phoneNumber,
-                otherUserId = chatId
+                otherUserId = targetId
             )
             chatDao.insertChats(listOf(newChat))
         } else {
-            // Resolve name if currently generic
-            if (existing.senderName.startsWith("User ") || existing.senderName.isBlank()) {
-                 val contact = contactDao.getContactById(chatId)
+            // Resolve name if currently empty
+            if (existing.senderName.isBlank()) {
+                 val targetId = if (existing.type == com.example.firstapp.common.model.ConversationType.DIRECT) (existing.otherUserId ?: existing.id) else existing.id
+                 val contact = contactDao.getContactById(targetId)
                  val name = displayNameResolver.resolve(
                     com.example.firstapp.common.model.User(
-                        id = chatId,
+                        id = targetId,
                         displayName = contact?.displayName ?: "",
                         username = contact?.username ?: ""
                     ),
-                    contact?.phoneNumber ?: ""
+                    contact?.phoneNumber ?: existing.phoneNumber ?: ""
                 )
-                 if (name != chatId) {
+                 if (name.isNotBlank() && name != existing.senderName) {
                      chatDao.insertChats(listOf(existing.copy(senderName = name, avatarUrl = contact?.avatarUrl ?: existing.avatarUrl)))
                  }
             }
@@ -580,7 +583,7 @@ class ChatRepositoryImpl @Inject constructor(
                     com.example.firstapp.common.model.User(id = entity.id, displayName = ""),
                     contact?.phoneNumber ?: ""
                 )
-                if (name != entity.senderName && name != entity.id) {
+                if (name != entity.senderName && name != entity.id && name.isNotBlank()) {
                     updated.add(entity.copy(senderName = name, avatarUrl = contact?.avatarUrl ?: entity.avatarUrl))
                 }
             }

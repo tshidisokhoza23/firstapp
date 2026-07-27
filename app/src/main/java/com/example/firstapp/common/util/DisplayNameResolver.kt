@@ -4,7 +4,9 @@ import android.content.Context
 import android.provider.ContactsContract
 import androidx.annotation.WorkerThread
 import com.example.firstapp.common.model.User
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.text.*
 
 /**
  * DisplayNameResolver implements the strict display name fallback hierarchy for UI rendering:
@@ -93,11 +95,19 @@ class DisplayNameResolver(private val context: Context) {
      * Helper to resolve display name from user profile when contact lookup fails.
      */
     private fun resolveFromProfile(user: User, phoneNumber: String): String {
-        return when {
-            !user.displayName.isBlank() -> user.displayName
-            user.username.isNotBlank() -> user.username
-            else -> phoneNumber
+        val d = user.displayName
+        val u = user.username
+        
+        if (d != "" && d != "unknown" && d != "Unknown" && d != "null") {
+            return d
         }
+        if (u != "" && u != "unknown" && u != "Unknown" && u != "null") {
+            return u
+        }
+        if (phoneNumber != "" && phoneNumber != "unknown" && phoneNumber != "null") {
+            return phoneNumber
+        }
+        return user.id
     }
 
     /**

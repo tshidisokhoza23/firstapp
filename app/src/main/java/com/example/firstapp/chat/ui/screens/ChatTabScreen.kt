@@ -85,23 +85,7 @@ fun ChatsListScreen(
     }
     
     val sanitizedChats = remember(chatsState) {
-        val data = if (chatsState.data != null) chatsState.data!! else emptyList<ChatMessage>()
-        val result = java.util.ArrayList<ChatMessage>()
-        for (chat in data) {
-            val sName = chat.senderName
-            val isGeneric = sName == "" || 
-                           sName.startsWith("User ") || 
-                           sName.lowercase() == "unknown" || 
-                           sName.lowercase() == "null" || 
-                           sName.lowercase() == "undefined"
-            
-            val sanitized = if (!isGeneric) sName else {
-                val cachedName = com.example.firstapp.chat.data.GlobalCallState.getContactName(chat.id)
-                cachedName ?: chat.phoneNumber ?: chat.id
-            }
-            result.add(chat.copy(senderName = sanitized))
-        }
-        result
+        chatsState.data ?: emptyList()
     }
 
     var isSearchActive by remember { mutableStateOf(false) }
@@ -821,7 +805,7 @@ fun MessageSearchItem(message: Message) {
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(message.senderName ?: "Unknown", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(message.senderName ?: "", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(formatWhatsAppTime(message.timestamp), color = Color.Gray, fontSize = 12.sp)
             }

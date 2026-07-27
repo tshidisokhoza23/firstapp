@@ -33,10 +33,18 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         else -> ConversationType.DIRECT
     }
 
+    val name = if (chat.title != "" && chat.title != "unknown" && chat.title != "Unknown" && chat.title != "null") {
+        chat.title
+    } else if (chat.contact_id != null && chat.contact_id != "") {
+        chat.contact_id
+    } else {
+        id
+    }
+
     return ChatMessage(
         id = id,
         type = type,
-        senderName = chat.title,
+        senderName = name,
         lastMessage = chat.last_message,
         timestamp = timestamp,
         unreadCount = chat.unread_count,
@@ -78,12 +86,18 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         apiMessage.direction == "outgoing"
     }
 
+    val sName = if (apiMessage.sender_name != "" && apiMessage.sender_name != "unknown" && apiMessage.sender_name != "Unknown" && apiMessage.sender_name != "null") {
+        apiMessage.sender_name
+    } else {
+        senderId
+    }
+
     return Message(
         id = apiMessage.id,
         conversationId = apiMessage.conversation_id,
         content = body,
         senderId = senderId,
-        senderName = apiMessage.sender_name,
+        senderName = sName,
         receiverId = apiMessage.receiver_id,
         timestamp = timestamp,
         isFromMe = isFromMe,
@@ -210,7 +224,7 @@ fun MessageEntity.toModel() = Message(
     conversationId = conversationId,
     content = content,
     senderId = senderId,
-    senderName = senderName ?: "Unknown",
+    senderName = senderName ?: "",
     receiverId = receiverId,
     timestamp = timestamp,
     isFromMe = isFromMe,

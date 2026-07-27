@@ -127,7 +127,7 @@ class ChatViewModel @Inject constructor(
                         resource.data?.forEach { chat ->
                             val currentName = GlobalCallState.getContactName(chat.id)
                             val newName = chat.senderName
-                            if (newName.isNotBlank() && !newName.startsWith("User ") && newName.lowercase() != "unknown") {
+                            if (newName.isNotBlank() && newName.lowercase() != "unknown") {
                                 GlobalCallState.updateContactInfo(chat.id, newName, null)
                             } else if (currentName == null && newName.isNotBlank()) {
                                 GlobalCallState.updateContactInfo(chat.id, newName, null)

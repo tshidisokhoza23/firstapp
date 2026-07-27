@@ -69,10 +69,9 @@ object GlobalCallState {
     fun getContactPhone(userId: String): String? = contactPhones[userId]
 
     fun onCallInvite(event: CallEvent) {
-        // Enrich with known name if not already set or if it's a generic "User " name
-        val senderIdStr = event.senderId.toString()
-        val enriched = if (event.senderName.isBlank() || event.senderName.startsWith("User ")) {
-            val name = contactNames[senderIdStr] ?: contactPhones[senderIdStr] ?: event.senderName
+        val senderIdStr = event.senderId
+        val enriched = if (event.senderName.isBlank()) {
+            val name = contactNames[senderIdStr] ?: contactPhones[senderIdStr] ?: senderIdStr
             event.copy(senderName = name)
         } else event
         _incomingCall.value = enriched

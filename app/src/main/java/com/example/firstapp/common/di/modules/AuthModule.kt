@@ -31,16 +31,18 @@ abstract class AuthModule {
         fun provideChatWebSocketClient(
             sessionManager: SessionManager,
             httpClient: OkHttpClient,
-            gson: Gson
-        ): ChatWebSocketClient = ChatWebSocketClient(sessionManager, httpClient, gson)
+            gson: Gson,
+            envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
+        ): ChatWebSocketClient = ChatWebSocketClient(sessionManager, httpClient, gson, envManager)
 
         @Provides
         @Singleton
         fun provideCallWebSocketClient(
             sessionManager: SessionManager,
             httpClient: OkHttpClient,
-            gson: Gson
-        ): CallWebSocketClient = CallWebSocketClient(sessionManager, httpClient, gson)
+            gson: Gson,
+            envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
+        ): CallWebSocketClient = CallWebSocketClient(sessionManager, httpClient, gson, envManager)
 
         @Provides
         @Singleton
