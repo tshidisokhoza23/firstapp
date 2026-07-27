@@ -32,7 +32,8 @@ class ChatViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val webRtcCallManager: WebRtcCallManager,
     private val callTonePlayer: CallTonePlayer,
-    private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient
+    private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient,
+    private val callWebSocketClient: CallWebSocketClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -280,7 +281,7 @@ class ChatViewModel @Inject constructor(
                     callTonePlayer.playOutgoingRingtone()
                     
                     // Also notify server
-                    CallWebSocketClient.invite(receiverId, sessionId, callType)
+                    callWebSocketClient.invite(receiverId, sessionId, callType)
                 }
             }
         }

@@ -5,7 +5,7 @@ import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.common.data.api.*
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.common.data.local.dao.ContactDao
-import com.example.firstapp.common.data.repository.mapApiContact
+import com.example.firstapp.chat.data.repository.mapApiContact
 import com.example.firstapp.common.model.PrivacySettings
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.Resource

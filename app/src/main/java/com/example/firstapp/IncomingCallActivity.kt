@@ -33,6 +33,7 @@ import javax.inject.Inject
 class IncomingCallActivity : ComponentActivity() {
 
     @Inject lateinit var webRtcCallManager: WebRtcCallManager
+    @Inject lateinit var callWebSocketClient: CallWebSocketClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,7 +106,7 @@ class IncomingCallActivity : ComponentActivity() {
                                 FloatingActionButton(
                                     onClick = {
                                         if (sessionId != null && senderId != "") {
-                                            CallWebSocketClient.reject(
+                                            callWebSocketClient.reject(
                                                 receiverId = senderId,
                                                 sessionId = sessionId,
                                                 callType = callType
@@ -147,7 +148,8 @@ class IncomingCallActivity : ComponentActivity() {
                                                     sessionId = sessionId,
                                                     callType = callType
                                                 ),
-                                                webRtcCallManager
+                                                webRtcCallManager,
+                                                callWebSocketClient
                                             )
                                         }
                                         if (notifId != 0) {

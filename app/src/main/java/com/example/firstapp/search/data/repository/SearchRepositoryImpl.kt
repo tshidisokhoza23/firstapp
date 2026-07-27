@@ -14,6 +14,7 @@ import com.example.firstapp.domain.repository.JobRepository
 import com.example.firstapp.media.domain.repository.ChannelRepository
 import com.example.firstapp.music.domain.repository.MusicRepository
 import com.example.firstapp.common.data.repository.*
+import com.example.firstapp.chat.data.repository.*
 import com.example.firstapp.media.data.repository.*
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.chat.jobs.model.Job

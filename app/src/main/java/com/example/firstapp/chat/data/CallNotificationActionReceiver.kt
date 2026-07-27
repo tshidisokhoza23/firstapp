@@ -13,6 +13,7 @@ import javax.inject.Inject
 class CallNotificationActionReceiver : BroadcastReceiver() {
 
     @Inject lateinit var webRtcCallManager: WebRtcCallManager
+    @Inject lateinit var callWebSocketClient: CallWebSocketClient
 
     override fun onReceive(context: Context, intent: Intent) {
         val sessionId = intent.getStringExtra(EXTRA_SESSION_ID) ?: return
@@ -26,7 +27,7 @@ class CallNotificationActionReceiver : BroadcastReceiver() {
 
         when (intent.action) {
             ACTION_DECLINE -> {
-                CallWebSocketClient.reject(
+                callWebSocketClient.reject(
                     receiverId = senderId,
                     sessionId = sessionId,
                     callType = callType
@@ -44,7 +45,8 @@ class CallNotificationActionReceiver : BroadcastReceiver() {
                         sessionId = sessionId,
                         callType = callType
                     ),
-                    webRtcCallManager
+                    webRtcCallManager,
+                    callWebSocketClient
                 )
 
                 // Bring the app to foreground

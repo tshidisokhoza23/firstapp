@@ -72,7 +72,7 @@ fun CallOverlay(
                 onEndCall = {
                     sessionId?.let { sid ->
                         participantId?.let { pid ->
-                            CallWebSocketClient.end(pid, sid, activeCallType ?: CallType.VOICE, 0)
+                            viewModel.callWebSocketClient.end(pid, sid, activeCallType ?: CallType.VOICE, 0)
                         }
                         GlobalCallState.onCallEnded(sid)
                     }

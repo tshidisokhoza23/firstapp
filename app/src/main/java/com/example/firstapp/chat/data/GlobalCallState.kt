@@ -82,12 +82,12 @@ object GlobalCallState {
         _incomingCall.value = null
     }
 
-    fun acceptCall(event: CallEvent, webRtcCallManager: WebRtcCallManager) {
+    fun acceptCall(event: CallEvent, webRtcCallManager: WebRtcCallManager, callWebSocketClient: CallWebSocketClient) {
         setCallActive(true, event.sessionId, event.senderId.toString(), event.callType)
         setConnectionEstablished(true)
         clearIncomingCall()
         webRtcCallManager.start(event.callType)
-        CallWebSocketClient.accept(event.senderId, event.sessionId, event.callType)
+        callWebSocketClient.accept(event.senderId, event.sessionId, event.callType)
     }
 
     fun onCallEnded(sessionId: String) {
