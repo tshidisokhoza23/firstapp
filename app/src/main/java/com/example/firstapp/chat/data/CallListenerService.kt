@@ -43,8 +43,14 @@ class CallListenerService : Service() {
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             if (sessionManager.isLoggedIn()) {
+                Log.d("CallListenerService", "Network available, connecting socket")
                 callWebSocketClient.connect(listener)
             }
+        }
+
+        override fun onLost(network: Network) {
+            Log.d("CallListenerService", "Network lost, disconnecting socket")
+            callWebSocketClient.disconnect(listener)
         }
     }
 

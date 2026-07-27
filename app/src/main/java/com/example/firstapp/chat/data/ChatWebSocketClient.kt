@@ -27,7 +27,8 @@ import javax.inject.Singleton
 class ChatWebSocketClient @Inject constructor(
     private val sessionManager: SessionManager,
     private val httpClient: OkHttpClient,
-    private val gson: Gson
+    private val gson: Gson,
+    private val envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var webSocket: WebSocket? = null
@@ -51,7 +52,7 @@ class ChatWebSocketClient @Inject constructor(
     }
 
     private fun connectWithToken(token: String) {
-        val baseUrl = BuildConfig.WS_BASE_URL
+        val baseUrl = envManager.currentWsUrl
         val wsUrl = if (baseUrl.endsWith("/")) {
             baseUrl + "ws/chat?token=" + token
         } else {

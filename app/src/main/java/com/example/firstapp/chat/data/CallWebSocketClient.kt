@@ -82,7 +82,8 @@ private data class OutgoingCallEvent(
 class CallWebSocketClient @Inject constructor(
     private val sessionManager: SessionManager,
     private val httpClient: OkHttpClient,
-    private val gson: Gson
+    private val gson: Gson,
+    private val envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
 ) {
     private var webSocket: WebSocket? = null
     private val listeners = CopyOnWriteArraySet<CallSocketListener>()
@@ -118,7 +119,7 @@ class CallWebSocketClient @Inject constructor(
             }
 
             manualClose = false
-            val baseUrl = BuildConfig.WS_BASE_URL
+            val baseUrl = envManager.currentWsUrl
             val url = if (baseUrl.endsWith("/")) {
                 baseUrl + "ws/calls?token=" + token
             } else {

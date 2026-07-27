@@ -124,14 +124,22 @@ class WebRtcCallManager(context: Context) {
             listOf(
                 PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
                 PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer()
+                PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer(),
+                // TURN server placeholders - ESSENTIAL for mobile data connectivity.
+                // Replace with actual credentials from a provider like Twilio, Xirsys, or Coturn.
+                // PeerConnection.IceServer.builder("turn:your-turn-server.com:3478")
+                //     .setUsername("user")
+                //     .setPassword("pass")
+                //     .createIceServer()
             )
         ).apply {
             iceTransportsType = PeerConnection.IceTransportsType.ALL
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
-            iceCandidatePoolSize = 2 // Faster connection setup
+            iceCandidatePoolSize = 2 
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
         }
         peerConnection = factory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {

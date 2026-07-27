@@ -12,13 +12,15 @@ class CallTonePlayer {
     fun playOutgoingRingtone() {
         stop()
         try {
-            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100)
+            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80)
             timer = Timer()
             timer?.schedule(object : TimerTask() {
                 override fun run() {
-                    toneGenerator?.startTone(ToneGenerator.TONE_SUP_RINGTONE)
+                    // Using TONE_CDMA_NETWORK_USA_RINGBACK or similar can sometimes avoid 
+                    // the MODIFY_PHONE_STATE check triggered by TONE_SUP_RINGTONE on some devices.
+                    toneGenerator?.startTone(ToneGenerator.TONE_SUP_PIP)
                 }
-            }, 0, 3000)
+            }, 0, 2000)
         } catch (e: Exception) {
             e.printStackTrace()
         }
