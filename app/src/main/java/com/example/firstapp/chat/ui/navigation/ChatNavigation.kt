@@ -134,7 +134,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chat = existingChat ?: ChatMessage(
             id = chatId,
             type = ConversationType.DIRECT,
-            senderName = GlobalCallState.getContactName(chatId) ?: "User ${chatId.take(8)}",
+            senderName = GlobalCallState.getContactName(chatId) ?: chatId,
             lastMessage = "",
             timestamp = 0L,
             unreadCount = 0,

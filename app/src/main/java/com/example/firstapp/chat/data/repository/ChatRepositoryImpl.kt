@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import java.util.UUID
 import kotlin.collections.*
+import kotlin.text.*
 import okhttp3.ResponseBody
 
 class ChatRepositoryImpl @Inject constructor(
@@ -583,7 +584,7 @@ class ChatRepositoryImpl @Inject constructor(
                     com.example.firstapp.common.model.User(id = entity.id, displayName = ""),
                     contact?.phoneNumber ?: ""
                 )
-                if (name != entity.senderName && name != entity.id && name.isNotBlank()) {
+                if (name != entity.senderName && name != entity.id && name.isNotEmpty()) {
                     updated.add(entity.copy(senderName = name, avatarUrl = contact?.avatarUrl ?: entity.avatarUrl))
                 }
             }

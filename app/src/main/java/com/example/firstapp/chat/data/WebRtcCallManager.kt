@@ -127,8 +127,14 @@ class WebRtcCallManager(context: Context) {
                 PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer(),
                 PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer(),
                 PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun.ekiga.net").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun.ideasip.com").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun.schlund.de").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun.voiparound.com").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun.voipbuster.com").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun.voipstunt.com").createIceServer(),
+                PeerConnection.IceServer.builder("stun:stun.voxgratia.org").createIceServer(),
                 // TURN server placeholders - ESSENTIAL for mobile data connectivity.
-                // Replace with actual credentials from a provider like Twilio, Xirsys, or Coturn.
                 // PeerConnection.IceServer.builder("turn:your-turn-server.com:3478")
                 //     .setUsername("user")
                 //     .setPassword("pass")
