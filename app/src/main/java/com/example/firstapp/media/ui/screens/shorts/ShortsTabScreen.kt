@@ -266,8 +266,12 @@ fun ShortsTabScreen(
                 )
             }
 
-            if (showShortComments && activeShortIdForComments != null) {
-                ShortCommentsSheet(
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showShortComments && activeShortIdForComments != null,
+                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
+                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
+            ) {
+                ShortCommentsOverlay(
                     shortId = activeShortIdForComments!!,
                     repliesState = shortRepliesState,
                     currentUserAvatarUrl = currentUser?.avatarUrl,

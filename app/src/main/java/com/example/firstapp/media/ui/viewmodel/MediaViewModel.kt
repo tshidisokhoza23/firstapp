@@ -57,6 +57,7 @@ class MediaViewModel @Inject constructor(
         preloadAds()
         loadFeed("standard")
         connectPostRealtime()
+        fetchSuggestedUsers()
     }
 
     private fun preloadAds() {

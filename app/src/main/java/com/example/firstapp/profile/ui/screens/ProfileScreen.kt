@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.firstapp.profile.ui.screens
 
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -6,7 +8,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.paging.compose.LazyPagingItems
@@ -40,13 +45,13 @@ import com.example.firstapp.media.ui.components.PostItem
 import com.example.firstapp.common.util.Resource
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.paging.LoadState
+import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.profile.model.WorkExperience
 import java.util.ArrayList
 import kotlin.collections.*
 import kotlin.ranges.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileView(
     userId: String,
@@ -97,8 +102,6 @@ fun ProfileView(
         if (!isLoggedIn) {
             remoteUser = null
         } else if (normalizedUserId != null) {
-            // Fetch remote user even if we think it's us, to get fresh data
-            // but we only display it if isMyProfile is false or currentUser is null
             userViewModel.getUserById(normalizedUserId).collect { resource ->
                 if (resource is Resource.Success) {
                     remoteUser = resource.data
@@ -107,7 +110,6 @@ fun ProfileView(
         }
     }
 
-    // Stabilize user object to prevent flickers between remote and local
     val user = remember(isMyProfile, currentUser, remoteUser) {
         if (isMyProfile) {
             currentUser ?: remoteUser
@@ -137,8 +139,7 @@ fun ProfileView(
 
     val workExperiencesResource by userViewModel.workExperiences.collectAsState()
     val workExperiences = if (workExperiencesResource is Resource.Success) {
-        val data = (workExperiencesResource as Resource.Success<List<WorkExperience>>).data
-        if (data != null) data else emptyList<WorkExperience>()
+        (workExperiencesResource as Resource.Success<List<WorkExperience>>).data ?: emptyList()
     } else {
         emptyList<WorkExperience>()
     }
@@ -185,7 +186,7 @@ fun ProfileView(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 if (user != null) {
-                                    val nameToShow = if (user.displayName != null && user.displayName.length > 0) user.displayName else "No Name"
+                                    val nameToShow = if (user.displayName.isNotEmpty()) user.displayName else "No Name"
                                     Text(
                                         text = nameToShow,
                                         color = Color.White,
@@ -205,26 +206,36 @@ fun ProfileView(
                                 }
                             }
 
-                            AsyncImage(
-                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(user?.avatarUrl),
+                        if (user != null && user.avatarUrl != null) {
+                             val url = user.avatarUrl!!
+                             AsyncImage(
+                                model = MediaUtils.formatUrl(url),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(72.dp)
                                     .clip(CircleShape)
                                     .background(AppSecondary)
                                     .clickable { 
-                                        val url = user?.avatarUrl
-                                        if (url != null) {
-                                            onNavigateToMediaViewer(url, "image")
-                                        }
+                                        onNavigateToMediaViewer(url, "image")
                                     },
                                 contentScale = ContentScale.Crop,
                                 error = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary),
                                 fallback = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary)
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(CircleShape)
+                                    .background(AppSecondary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, null, tint = Color.White)
+                            }
+                        }
                         }
 
-                        if (user?.bio != null && user.bio!!.length > 0) {
+                        if (user?.bio != null && user.bio!!.isNotEmpty()) {
                             Text(
                                 text = user.bio!!,
                                 color = Color.White,
@@ -239,33 +250,13 @@ fun ProfileView(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = "${user?.followersCount ?: 0}",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Followers",
-                                color = AppTextSecondary,
-                                fontSize = 14.sp
-                            )
-                            
+                            Text("${user?.followersCount ?: 0}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Followers", color = AppTextSecondary, fontSize = 14.sp)
                             Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
+                            Text("0", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Views", color = AppTextSecondary, fontSize = 14.sp)
 
-                            Text(
-                                text = "0",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Views",
-                                color = AppTextSecondary,
-                                fontSize = 14.sp
-                            )
-
-                            if (user?.location != null && user.location!!.length > 0) {
+                            if (user?.location != null && user.location!!.isNotEmpty()) {
                                 Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.LocationOn, null, tint = AppTextSecondary, modifier = Modifier.size(14.dp))
@@ -287,7 +278,7 @@ fun ProfileView(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
-                                    Text("Edit Profile", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text("Edit profile", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 }
                             } else if (user != null) {
                                 val isFollowing = user.isFollowing
@@ -337,44 +328,71 @@ fun ProfileView(
                                 border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.5f)),
                                 contentPadding = PaddingValues(0.dp)
                             ) {
-                                Text(if (isMyProfile) "Share Profile" else "Message", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(if (isMyProfile) "Share profile" else "Message", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
+                        }
+
+                        if (isMyProfile) {
+                            val uiState by mediaViewModel.uiState.collectAsState()
+                            val suggestedUsers = uiState.suggestedUsers
+                            
+                            if (suggestedUsers.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Text(
+                                    "Suggested for you",
+                                    color = Color.White,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(suggestedUsers) { contact ->
+                                        SuggestedUserCard(
+                                            contact = contact,
+                                            onFollow = { mediaViewModel.followUser(contact.id) }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
 
                 item {
-                    TabRow(
-                        selectedTabIndex = safeSelectedTabIndex,
-                        containerColor = AppBackground,
-                        contentColor = Color.White,
-                        divider = { HorizontalDivider(color = Color.White.copy(alpha = 0.1f)) },
-                        indicator = { tabPositions ->
-                            if (safeSelectedTabIndex < tabPositions.size) {
-                                TabRowDefaults.SecondaryIndicator(
-                                    Modifier.tabIndicatorOffset(tabPositions[safeSelectedTabIndex]),
-                                    color = Color.White,
-                                    height = 2.dp
+                        TabRow(
+                            selectedTabIndex = safeSelectedTabIndex,
+                            containerColor = AppBackground,
+                            contentColor = Color.White,
+                            divider = { HorizontalDivider(color = Color.White.copy(alpha = 0.1f)) },
+                            indicator = { tabPositions ->
+                                if (safeSelectedTabIndex < tabPositions.size) {
+                                    TabRowDefaults.SecondaryIndicator(
+                                        Modifier.tabIndicatorOffset(tabPositions[safeSelectedTabIndex]),
+                                        color = Color.White,
+                                        height = 2.dp
+                                    )
+                                }
+                            }
+                        ) {
+                            for (idx in 0..tabs.size - 1) {
+                                val title = tabs.get(idx)
+                                Tab(
+                                    selected = safeSelectedTabIndex == idx,
+                                    onClick = { selectedTabIndex = idx },
+                                    text = { 
+                                        Text(
+                                            text = title, 
+                                            fontSize = 14.sp, 
+                                            fontWeight = if (safeSelectedTabIndex == idx) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (safeSelectedTabIndex == idx) Color.White else AppTextSecondary
+                                        ) 
+                                    }
                                 )
                             }
                         }
-                    ) {
-                        for (idx in 0..tabs.size - 1) {
-                            val title = tabs[idx]
-                            Tab(
-                                selected = safeSelectedTabIndex == idx,
-                                onClick = { selectedTabIndex = idx },
-                                text = { 
-                                    Text(
-                                        text = title, 
-                                        fontSize = 14.sp, 
-                                        fontWeight = if (safeSelectedTabIndex == idx) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (safeSelectedTabIndex == idx) Color.White else AppTextSecondary
-                                    ) 
-                                }
-                            )
-                        }
-                    }
                 }
 
                 when (selectedTab) {
@@ -406,9 +424,7 @@ fun ProfileView(
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = onNavigateToMediaViewer,
-                                        onShareClick = { p ->
-                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p)
-                                        }
+                                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -416,7 +432,14 @@ fun ProfileView(
                         }
                     }
                     "Experience" -> {
-                        // ... existing ...
+                        items(workExperiences) { experience ->
+                            WorkExperienceItem(
+                                experience = experience,
+                                isMyProfile = isMyProfile,
+                                onEdit = { onNavigateToEditExperience(experience.id) }
+                            )
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                        }
                     }
                     "Media" -> {
                         if (mediaItems.itemCount == 0 && mediaItems.loadState.refresh is LoadState.NotLoading) {
@@ -446,9 +469,7 @@ fun ProfileView(
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = onNavigateToMediaViewer,
-                                        onShareClick = { p ->
-                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p)
-                                        }
+                                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -483,9 +504,7 @@ fun ProfileView(
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = onNavigateToMediaViewer,
-                                        onShareClick = { p ->
-                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p)
-                                        }
+                                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -530,6 +549,73 @@ fun ProfileView(
                             CircularProgressIndicator(color = AppAccent, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SuggestedUserCard(
+    contact: Contact,
+    onFollow: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(150.dp)
+            .height(210.dp),
+        colors = CardDefaults.cardColors(containerColor = AppSecondary),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            IconButton(
+                onClick = { /* TODO: Dismiss */ },
+                modifier = Modifier.align(Alignment.TopEnd).size(28.dp).padding(4.dp)
+            ) {
+                Icon(Icons.Default.Close, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+            }
+            
+            Column(
+                modifier = Modifier.fillMaxSize().padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AsyncImage(
+                    model = MediaUtils.formatUrl(contact.avatarUrl),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp).clip(CircleShape).background(Color.Gray),
+                    contentScale = ContentScale.Crop
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = contact.displayName,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Text(
+                    text = "@${contact.username}",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Button(
+                    onClick = onFollow,
+                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Follow", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
@@ -582,7 +668,7 @@ private fun ShortGridItem(post: Post, onShortClick: (Post) -> Unit) {
             .background(post.mediaPlaceholderColor ?: Color.Black)
             .clickable { onShortClick(post) }
     ) {
-        val model = if (post.thumbnailUrl != null && post.thumbnailUrl!!.length > 0) post.thumbnailUrl else if (post.mediaUrls.size > 0) post.mediaUrls[0] else null
+        val model = if (post.thumbnailUrl?.isNotEmpty() == true) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
         AsyncImage(
             model = model,
             contentDescription = null,
