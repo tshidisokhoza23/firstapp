@@ -63,6 +63,7 @@ import com.example.firstapp.media.ui.components.FloatingVideoAdOverlay
 import com.example.firstapp.common.ui.theme.AppAccent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -374,13 +375,7 @@ fun ShortItem(
                         .background(Color(0xFF3A4B57))
                         .border(2.dp, Color.White, CircleShape)
                         .clickable { 
-                            // Go to my own profile
-                            short.authorId.takeIf { it == short.authorId }?.let { 
-                                // Actually we want the current user's profile
-                                // but we need the current user's ID
-                                // For now, if we don't have it explicitly passed as a param,
-                                // we can use a callback.
-                            }
+                            onCreatorClick(short.authorId)
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -407,7 +402,7 @@ fun ShortItem(
                 val haptic = LocalHapticFeedback.current
                 ShortActionButton(
                     icon = likeIcon,
-                    text = short.likes.toString(),
+                    text = formatShortNumber(short.likes),
                     iconColor = likeIconColor,
                     onClick = { 
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -416,19 +411,23 @@ fun ShortItem(
                 )
                 ShortActionButton(
                     icon = Icons.AutoMirrored.Filled.Comment,
-                    text = short.repliesCount.toString(),
+                    text = formatShortNumber(short.repliesCount),
                     onClick = { onCommentClick(short.id) }
                 )
                 ShortActionButton(
+                    icon = Icons.Default.Repeat,
+                    text = formatShortNumber(short.shares),
+                    onClick = { onShareClick(short.id) }
+                )
+                ShortActionButton(
                     icon = if (short.isBookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-                    text = "Save",
+                    text = formatShortNumber(0L), // Placeholder for bookmark count
                     onClick = { onBookmarkClick(short.id) }
                 )
                 ShortActionButton(
-                    icon = Icons.Filled.Share,
-                    text = short.shares.toString(),
+                    icon = Icons.Default.IosShare,
+                    text = "Share",
                     onClick = {
-                        onShareClick(short.id)
                         val sendIntent = android.content.Intent().apply {
                             action = android.content.Intent.ACTION_SEND
                             putExtra(android.content.Intent.EXTRA_TEXT, videoUrl ?: "")
@@ -437,12 +436,9 @@ fun ShortItem(
                         context.startActivity(android.content.Intent.createChooser(sendIntent, null))
                     }
                 )
-                ShortActionButton(
-                    icon = Icons.Filled.MoreVert,
-                    text = "",
-                    onClick = { onMoreClick(short.id) }
-                )
             }
+
+            var isExpanded by remember { mutableStateOf(false) }
 
             Column(
                 modifier = Modifier
@@ -452,10 +448,10 @@ fun ShortItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
                             .background(short.authorAvatarColor)
-                            .border(1.5.dp, Color.White.copy(alpha = 0.6f), CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape)
                             .clickable { onCreatorClick(short.authorId) }
                     ) {
                         val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(short.authorAvatarUrl)
@@ -467,45 +463,26 @@ fun ShortItem(
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.clickable { onCreatorClick(short.authorId) }) {
-                        Text(
-                            text = short.authorName,
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
-                            style = androidx.compose.ui.text.TextStyle(
-                                shadow = androidx.compose.ui.graphics.Shadow(
-                                    color = Color.Black.copy(alpha = 0.5f),
-                                    offset = Offset(2f, 2f),
-                                    blurRadius = 4f
-                                )
-                            )
-                        )
-                        Text(
-                            text = "@${short.authorHandle}",
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            style = androidx.compose.ui.text.TextStyle(
-                                shadow = androidx.compose.ui.graphics.Shadow(
-                                    color = Color.Black.copy(alpha = 0.5f),
-                                    offset = Offset(2f, 2f),
-                                    blurRadius = 4f
-                                )
-                            )
-                        )
+                    Text(
+                        text = short.authorName,
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                        modifier = Modifier.clickable { onCreatorClick(short.authorId) }
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Surface(
+                        onClick = { onSubscribeClick(short.authorId) },
+                        color = Color.Transparent,
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, Color.White),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                            Text("Follow", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = short.content,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -519,6 +496,20 @@ fun ShortItem(
                         maxLines = 1
                     )
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = short.content,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    maxLines = if (isExpanded) Int.MAX_VALUE else 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { isExpanded = !isExpanded }
+                )
             }
             
             if (duration > 0) {
@@ -550,6 +541,22 @@ fun ShortItem(
                 )
             }
         }
+    }
+}
+
+fun formatShortNumber(number: Long): String {
+    return when {
+        number >= 1_000_000 -> {
+            val millions = number.toDouble() / 1_000_000.0
+            val s = java.lang.String.format(java.util.Locale.ROOT, "%.1fM", millions)
+            s.replace(".", ",")
+        }
+        number >= 1_000 -> {
+            val thousands = number.toDouble() / 1_000.0
+            val s = java.lang.String.format(java.util.Locale.ROOT, "%.1fK", thousands)
+            s.replace(".", ",")
+        }
+        else -> number.toString()
     }
 }
 
@@ -679,7 +686,7 @@ fun ShortActionButton(
             imageVector = icon,
             contentDescription = null,
             tint = iconColor,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(35.dp)
                 .shadow(elevation = if (isPressed) 0.dp else 2.dp, shape = CircleShape)
         )
         if (text.isNotEmpty()) {
@@ -687,7 +694,7 @@ fun ShortActionButton(
             Text(
                 text = text,
                 color = Color.White,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 style = androidx.compose.ui.text.TextStyle(
                     shadow = androidx.compose.ui.graphics.Shadow(
