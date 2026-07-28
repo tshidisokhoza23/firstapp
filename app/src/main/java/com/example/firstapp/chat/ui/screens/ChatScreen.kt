@@ -549,8 +549,16 @@ fun ChatMessagesScreen(
                                         keyboardController?.hide()
                                     }
                                 },
-                                onAttachClick = { showAttachments = !showAttachments },
-                                onEmojiClick = { showEmojiPicker = !showEmojiPicker },
+                                onAttachClick = { 
+                                    keyboardController?.hide()
+                                    showAttachments = !showAttachments 
+                                    showEmojiPicker = false
+                                },
+                                onEmojiClick = { 
+                                    keyboardController?.hide()
+                                    showEmojiPicker = !showEmojiPicker 
+                                    showAttachments = false
+                                },
                                 onMicClick = { if (isRecording) stopRecording() else startRecording() },
                                 isRecording = isRecording,
                                 recordingDuration = recordingDurationSeconds,

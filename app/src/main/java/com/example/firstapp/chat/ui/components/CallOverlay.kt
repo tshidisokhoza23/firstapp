@@ -44,8 +44,8 @@ fun CallOverlay(
     ) {
         val participantName = remember(participantId) {
             participantId?.let { 
-                GlobalCallState.getContactName(it) ?: GlobalCallState.getContactPhone(it) ?: "$it"
-            } ?: "Unknown"
+                GlobalCallState.getContactName(it) ?: GlobalCallState.getContactPhone(it) ?: it
+            } ?: ""
         }
 
         Box(
@@ -217,11 +217,10 @@ private fun CallControls(
             }
         }
 
-        // Mute
         IconButton(
             onClick = { 
                 muted = !muted
-                onMuteToggle(!muted)
+                onMuteToggle(muted)
             },
             modifier = Modifier
                 .size(56.dp)
