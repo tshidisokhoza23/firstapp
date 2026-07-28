@@ -45,6 +45,10 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         val showComposer = backStackEntry.arguments?.getBoolean("showComposer") ?: false
         val storyViewModel: StoryViewModel = hiltViewModel()
         val userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = hiltViewModel()
+        val mediaViewModel: MediaViewModel = hiltViewModel()
+        val adManager = (navController.context as? com.example.firstapp.MainActivity)?.adManager 
+            ?: com.example.firstapp.common.data.ads.AdMobManagerImpl()
+
         val storiesState = storyViewModel.stories.collectAsState(Resource.Loading()).value
         val currentUser by userViewModel.currentUser.collectAsState()
         val postResult by storyViewModel.postResult.collectAsState()
@@ -65,6 +69,8 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         StoryScreen(
             stories = storiesState.data ?: emptyList(),
             currentUserId = currentUser?.id,
+            mediaViewModel = mediaViewModel,
+            adManager = adManager,
             initialViewingUserId = if (initialUserId.isNotBlank()) initialUserId else null,
             initialShowComposer = showComposer,
             onBack = { navController.popBackStack() },

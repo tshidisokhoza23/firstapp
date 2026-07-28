@@ -33,6 +33,7 @@ import okhttp3.ResponseBody
 class ChatRepositoryImpl @Inject constructor(
     private val chatApi: ChatApi,
     private val socialApi: com.example.firstapp.media.data.api.SocialApi,
+    private val userApi: UserApi,
     private val chatDao: ChatDao,
     private val contactDao: ContactDao,
     private val callLogDao: CallLogDao,
@@ -611,7 +612,7 @@ class ChatRepositoryImpl @Inject constructor(
             val response = if (numbersToSync.isEmpty()) {
                 socialApi.getSuggestedUsers()
             } else {
-                com.example.firstapp.common.data.api.ApiClient.userApi.syncContacts(SyncContactsRequest(numbersToSync))
+                userApi.syncContacts(SyncContactsRequest(numbersToSync))
             }
 
             if (response.isSuccessful && response.body() != null) {

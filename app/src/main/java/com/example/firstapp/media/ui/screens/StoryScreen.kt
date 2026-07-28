@@ -10,6 +10,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,8 +31,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.firstapp.media.model.UserStory
 import com.example.firstapp.common.ui.theme.*
+import com.example.firstapp.common.data.ads.AdManager
+import com.example.firstapp.media.ui.viewmodel.MediaViewModel
+import com.google.android.gms.ads.nativead.NativeAd
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -39,6 +44,8 @@ import com.example.firstapp.common.ui.theme.*
 fun StoryScreen(
     stories: List<UserStory>,
     currentUserId: String?,
+    mediaViewModel: MediaViewModel,
+    adManager: AdManager,
     initialViewingUserId: String? = null,
     initialShowComposer: Boolean = false,
     onBack: () -> Unit,
@@ -49,18 +56,14 @@ fun StoryScreen(
     onNavigateToNewStory: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val preloadedAds by mediaViewModel.preloadedAds.collectAsState()
+    
     var viewingUserStory by remember { 
         mutableStateOf(stories.find { it.id == initialViewingUserId }) 
     }
     var viewingStoryIndex by remember { mutableIntStateOf(0) }
     
-    // Use LaunchedEffect to handle initial viewing state if provided
-    LaunchedEffect(initialViewingUserId, stories) {
-        if (viewingUserStory == null && initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-            viewingUserStory = stories.find { it.id == initialViewingUserId }
-            viewingStoryIndex = 0
-        }
-    }
+    // ... rest of the code ...
 
     var storyToMute by remember { mutableStateOf<UserStory?>(null) }
     var showSearch by remember { mutableStateOf(false) }
@@ -359,16 +362,23 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(recentUpdates) { userStory ->
+                    itemsIndexed(recentUpdates) { idx: Int, item: UserStory ->
                         StoryListItem(
-                            userStory = userStory, 
+                            userStory = item, 
                             isOwnStory = false,
                             onClick = { 
-                                viewingUserStory = userStory
+                                viewingUserStory = item
                                 viewingStoryIndex = 0
                             },
-                            onLongClick = { storyToMute = userStory }
+                            onLongClick = { storyToMute = item }
                         )
+                        
+                        if ((idx + 1) % 3 == 0 && preloadedAds.isNotEmpty()) {
+                            val ad = preloadedAds.get((idx / 3) % preloadedAds.size)
+                            if (ad is NativeAd) {
+                                StoryAdListItem(nativeAd = ad)
+                            }
+                        }
                     }
                 }
 
@@ -382,16 +392,34 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(viewedUpdates) { userStory ->
+                    itemsIndexed(viewedUpdates) { idx: Int, item: UserStory ->
                         StoryListItem(
-                            userStory = userStory, 
+                            userStory = item, 
                             isOwnStory = false,
                             onClick = { 
-                                viewingUserStory = userStory
+                                viewingUserStory = item
                                 viewingStoryIndex = 0
                             },
-                            onLongClick = { storyToMute = userStory }
+                            onLongClick = { storyToMute = item }
                         )
+                        
+                        if ((idx + 1) % 3 == 0 && preloadedAds.isNotEmpty()) {
+                            val adIndex = (idx / 3 + (recentUpdates.size / 3)) % preloadedAds.size
+                            val ad = preloadedAds.get(adIndex)
+                            if (ad is NativeAd) {
+                                StoryAdListItem(nativeAd = ad)
+                            }
+                        }
+                    }
+                }
+                
+                // Final Native Ad at the end of the list
+                if (preloadedAds.isNotEmpty()) {
+                    item {
+                        val finalAd = preloadedAds.get(preloadedAds.size - 1)
+                        if (finalAd is NativeAd) {
+                            StoryAdListItem(nativeAd = finalAd)
+                        }
                     }
                 }
                 
@@ -510,6 +538,54 @@ fun MyStoryListItem(
             }
         )
     }
+}
+
+@Composable
+fun StoryAdListItem(
+    nativeAd: NativeAd
+) {
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        factory = { ctx: android.content.Context ->
+            val view = android.view.LayoutInflater.from(ctx).inflate(com.example.firstapp.R.layout.item_media_native_ad, null) as com.google.android.gms.ads.nativead.NativeAdView
+            
+            view.headlineView = view.findViewById(com.example.firstapp.R.id.ad_headline)
+            view.bodyView = view.findViewById(com.example.firstapp.R.id.ad_body)
+            view.callToActionView = view.findViewById(com.example.firstapp.R.id.ad_call_to_action)
+            view.iconView = view.findViewById(com.example.firstapp.R.id.ad_app_icon)
+            view.advertiserView = view.findViewById(com.example.firstapp.R.id.ad_advertiser)
+            
+            view
+        },
+        update = { view: com.google.android.gms.ads.nativead.NativeAdView ->
+            val ad = nativeAd
+            (view.headlineView as? android.widget.TextView)?.text = ad.headline
+            (view.bodyView as? android.widget.TextView)?.text = ad.body
+            (view.callToActionView as? android.widget.Button)?.text = ad.callToAction
+            
+            val advertiser = ad.advertiser
+            if (advertiser != null) {
+                val advView = view.advertiserView as? android.widget.TextView
+                advView?.visibility = android.view.View.VISIBLE
+                advView?.text = advertiser
+            } else {
+                view.advertiserView?.visibility = android.view.View.GONE
+            }
+
+            val icon = ad.icon
+            if (icon != null) {
+                val iconView = view.iconView as? android.widget.ImageView
+                iconView?.visibility = android.view.View.VISIBLE
+                iconView?.setImageDrawable(icon.drawable)
+            } else {
+                view.iconView?.visibility = android.view.View.GONE
+            }
+            
+            view.setNativeAd(ad)
+        }
+    )
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
