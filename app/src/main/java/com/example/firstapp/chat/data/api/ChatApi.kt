@@ -60,6 +60,10 @@ data class ApiMessage(
     val duration: String? = null,
     val file_name: String? = null,
     val file_size: String? = null,
+    val contact_name: String? = null,
+    val contact_phone: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val created_at: Long,
     val direction: String,
     val reactions: Map<String, Int>?,
@@ -81,6 +85,10 @@ data class SendMessageRequest(
     val duration: String? = null,
     val file_name: String? = null,
     val file_size: String? = null,
+    val contact_name: String? = null,
+    val contact_phone: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val mention_user_ids: List<String>? = null,
     val receiver_id: String? = null
 )

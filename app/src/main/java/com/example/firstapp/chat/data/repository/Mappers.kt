@@ -122,7 +122,11 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         clientId = apiMessage.client_uuid,
         duration = apiMessage.duration,
         fileName = apiMessage.file_name,
-        fileSize = apiMessage.file_size
+        fileSize = apiMessage.file_size,
+        contactName = apiMessage.contact_name,
+        contactPhone = apiMessage.contact_phone,
+        latitude = apiMessage.latitude,
+        longitude = apiMessage.longitude
     )
 }
 

@@ -140,7 +140,46 @@ fun ChatMessagesScreen(
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { sendMediaMessage(it, "document", it.lastPathSegment ?: "File") } }
     val audioPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { sendMediaMessage(it, "audio") } }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success -> if (success) tempPhotoUri?.let { sendMediaMessage(it, "image") } }
-    val contactLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri -> uri?.let { /* contact handling */ } }
+    val contactLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        uri?.let {
+            try {
+                val projection = arrayOf(
+                    android.provider.ContactsContract.Contacts.DISPLAY_NAME,
+                    android.provider.ContactsContract.Contacts._ID
+                )
+                val cursor = context.contentResolver.query(it, projection, null, null, null)
+                cursor?.use { c ->
+                    if (c.moveToFirst()) {
+                        val name = c.getString(0)
+                        val id = c.getString(1)
+                        
+                        // Now get phone number
+                        val phoneCursor = context.contentResolver.query(
+                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                            arrayOf(id),
+                            null
+                        )
+                        phoneCursor?.use { pc ->
+                            if (pc.moveToFirst()) {
+                                val phone = pc.getString(0)
+                                chatViewModel.sendMessage(
+                                    chatId = chat.id,
+                                    body = "Shared Contact",
+                                    messageType = "contact",
+                                    contactName = name,
+                                    contactPhone = phone
+                                )
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted -> if (isGranted) { /* handle granted */ } }
 
     var isRecording by remember { mutableStateOf(false) }
@@ -1263,6 +1302,43 @@ fun AttachmentPreview(
                 Icon(Icons.Default.LocationOn, null, tint = AppAccent, modifier = Modifier.size(40.dp))
                 Text("View Location", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("${message.latitude}, ${message.longitude}", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+            }
+        }
+        MessageType.CONTACT -> {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+                    .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(AppAccent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Person, null, tint = AppBackground)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = message.contactName ?: "Contact",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = message.contactPhone ?: "",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp
+                    )
+                }
+                IconButton(onClick = {
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${message.contactPhone}"))
+                    context.startActivity(intent)
+                }) {
+                    Icon(Icons.Default.Call, null, tint = AppAccent)
+                }
             }
         }
         MessageType.APPLICATION_LINK -> {
