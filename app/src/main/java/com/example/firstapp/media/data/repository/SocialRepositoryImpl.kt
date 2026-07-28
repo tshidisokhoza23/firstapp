@@ -403,4 +403,19 @@ class SocialRepositoryImpl @Inject constructor(
     override fun deletePost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.deletePost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
 
     override fun getStoryViewers(storyId: String): Flow<Resource<List<com.example.firstapp.media.data.api.ApiViewer>>> = flow { emit(Resource.Loading()); try { val res = socialApi.getStoryViewers(storyId); if (res.isSuccessful) emit(Resource.Success(res.body()?.viewers ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Error")) } }
+
+    override fun getPostById(postId: String): Flow<Resource<Post>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.getPost(postId)
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(mapApiPost(response.body()!!)))
+            } else {
+                emit(Resource.Error("Post not found"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Error: ${e.localizedMessage}"))
+        }
+    }
 }

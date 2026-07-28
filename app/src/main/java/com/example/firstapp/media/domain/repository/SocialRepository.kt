@@ -48,4 +48,5 @@ interface SocialRepository {
     ): Flow<Resource<Boolean>>
     fun deletePost(postId: String): Flow<Resource<Boolean>>
     fun getStoryViewers(storyId: String): Flow<Resource<List<ApiViewer>>>
+    fun getPostById(postId: String): Flow<Resource<Post>>
 }

@@ -44,7 +44,8 @@ fun PostItem(
     onProfileClick: (User) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
     onVotePoll: (String, String) -> Unit,
-    onMediaClick: (String, String) -> Unit = { _, _ -> }
+    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    onShareClick: (Post) -> Unit = {}
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
         // Native Ad Component using shared modular parts
@@ -135,7 +136,8 @@ fun PostItem(
                         onLike = onLike,
                         onReplyClick = { onReplyClick(post, null) },
                         onRepostClick = { onRepostClick(post) },
-                        onBookmark = { onBookmark(post.id) }
+                        onBookmark = { onBookmark(post.id) },
+                        onShareClick = { onShareClick(post) }
                     )
                 }
             }
@@ -280,7 +282,8 @@ fun PostActions(
     onLike: (String, Long, Boolean) -> Unit,
     onReplyClick: () -> Unit,
     onRepostClick: () -> Unit,
-    onBookmark: () -> Unit
+    onBookmark: () -> Unit,
+    onShareClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -313,7 +316,7 @@ fun PostActions(
             color = if (post.isBookmarked) TwitterBlue else SecondaryText,
             onClick = onBookmark
         )
-        IconButton(onClick = { /* Share */ }, modifier = Modifier.size(20.dp)) {
+        IconButton(onClick = onShareClick, modifier = Modifier.size(20.dp)) {
             Icon(Icons.Default.Share, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
         }
     }

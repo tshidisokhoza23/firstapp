@@ -73,6 +73,9 @@ sealed class Screen(val route: String) {
     object MediaChat : Screen("media_chat/{userId}") {
         fun createRoute(userId: String) = "media_chat/$userId"
     }
+    object PostDetail : Screen("post_detail/{postId}") {
+        fun createRoute(postId: String) = "post_detail/$postId"
+    }
     object MediaViewer : Screen("media_viewer?url={url}&type={type}") {
         fun createRoute(url: String, type: String = "image") = 
             "media_viewer?url=${android.net.Uri.encode(url)}&type=$type"

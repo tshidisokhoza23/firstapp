@@ -50,7 +50,12 @@ fun MediaTabScreen(
             ownProfileName = currentUser?.displayName.orEmpty().ifBlank { "You" },
             ownProfileHandle = currentUser?.username.orEmpty().ifBlank { "you" },
             ownProfileAvatarUrl = currentUser?.avatarUrl,
-            onPostSelect = { mediaViewModel.selectPost(it) },
+            onPostSelect = { post ->
+                if (post != null) {
+                    mediaViewModel.selectPost(post)
+                    navController.navigate(Screen.PostDetail.createRoute(post.id))
+                }
+            },
             onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, postType = t ?: "standard", tags = tags, pollOptions = p, location = l) },
             onLikePost = { id, l, liked -> mediaViewModel.likePost(id, l, liked) },
             onRepostPost = { mediaViewModel.repostPost(it) },
@@ -86,6 +91,9 @@ fun MediaTabScreen(
             },
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            },
+            onShareClick = { post ->
+                com.example.firstapp.common.util.ShareUtils.sharePost(navController.context, post)
             }
         )
     }

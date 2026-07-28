@@ -270,6 +270,33 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
     }
 
     composable(
+        route = Screen.PostDetail.route,
+        arguments = listOf(navArgument("postId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val postId = backStackEntry.arguments?.getString("postId") ?: ""
+        val mediaViewModel: MediaViewModel = hiltViewModel()
+        val userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = hiltViewModel()
+        val adManager = (navController.context as? com.example.firstapp.MainActivity)?.adManager 
+            ?: com.example.firstapp.common.data.ads.AdMobManagerImpl() // Fallback
+
+        val currentUser by userViewModel.currentUser.collectAsState()
+
+        PostDetailScreen(
+            postId = postId,
+            mediaViewModel = mediaViewModel,
+            adManager = adManager,
+            ownProfileId = currentUser?.id ?: "",
+            onBack = { navController.popBackStack() },
+            onProfileClick = { user ->
+                navController.navigate(Screen.UserProfile.createRoute(user.id))
+            },
+            onMediaClick = { url, type ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            }
+        )
+    }
+
+    composable(
         route = Screen.MediaViewer.route,
         arguments = listOf(
             navArgument("url") { type = NavType.StringType },

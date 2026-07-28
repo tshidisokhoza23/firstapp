@@ -98,6 +98,9 @@ fun NavGraphBuilder.profileNavGraph(
             },
             onNavigateToMediaViewer = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            },
+            onNavigateToPostDetail = { postId ->
+                navController.navigate(Screen.PostDetail.createRoute(postId))
             }
         )
     }

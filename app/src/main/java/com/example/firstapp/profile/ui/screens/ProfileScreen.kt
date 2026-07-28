@@ -66,7 +66,8 @@ fun ProfileView(
     onNavigateToEditExperience: (String?) -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
     onShortClick: (Post) -> Unit = {},
-    onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> }
+    onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> },
+    onNavigateToPostDetail: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val isLoggedIn by userViewModel.isLoggedIn.collectAsState()
@@ -395,15 +396,19 @@ fun ProfileView(
                                         adManager = adManager,
                                         post = post,
                                         isOwnPost = post.authorId == currentUser?.id,
-                                        onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                        onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
-                                        onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
+                                        onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = {},
                                         onPlaySong = { _, _ -> },
-                                        onVotePoll = { pid, oid -> }
+                                        onVotePoll = { pid, oid -> },
+                                        onMediaClick = onNavigateToMediaViewer,
+                                        onShareClick = { p ->
+                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p)
+                                        }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -431,15 +436,19 @@ fun ProfileView(
                                         adManager = adManager,
                                         post = post,
                                         isOwnPost = post.authorId == currentUser?.id,
-                                        onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                        onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
-                                        onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
+                                        onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = {},
                                         onPlaySong = { _, _ -> },
-                                        onVotePoll = { pid, oid -> }
+                                        onVotePoll = { pid, oid -> },
+                                        onMediaClick = onNavigateToMediaViewer,
+                                        onShareClick = { p ->
+                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p)
+                                        }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -464,15 +473,19 @@ fun ProfileView(
                                         adManager = adManager,
                                         post = post,
                                         isOwnPost = post.authorId == currentUser?.id,
-                                        onClick = { onNavigateToMediaViewer(post.id, "post") },
+                                        onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
-                                        onReplyClick = { p, r -> onNavigateToMediaViewer(p.id, "post") },
+                                        onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = {},
                                         onPlaySong = { _, _ -> },
-                                        onVotePoll = { pid, oid -> }
+                                        onVotePoll = { pid, oid -> },
+                                        onMediaClick = onNavigateToMediaViewer,
+                                        onShareClick = { p ->
+                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p)
+                                        }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }

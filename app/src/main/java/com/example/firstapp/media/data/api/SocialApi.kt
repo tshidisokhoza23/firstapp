@@ -57,6 +57,9 @@ interface SocialApi {
     @POST("engagement")
     suspend fun trackEngagement(@Body request: EngagementRequest): Response<StatusResponse>
 
+    @GET("posts/{postId}")
+    suspend fun getPost(@Path("postId") postId: String): Response<ApiPost>
+
     @POST("posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<ApiPost>
 

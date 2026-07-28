@@ -399,6 +399,19 @@ class MediaViewModel @Inject constructor(
         }
     }
 
+    fun selectPostById(postId: String) {
+        viewModelScope.launch {
+            // Check if already selected
+            if (_uiState.value.selectedPost?.id == postId) return@launch
+            
+            socialRepository.getPostById(postId).collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    selectPost(res.data)
+                }
+            }
+        }
+    }
+
     fun fetchShortReplies(postId: String) {
         viewModelScope.launch {
             _shortReplies.value = Resource.Loading()

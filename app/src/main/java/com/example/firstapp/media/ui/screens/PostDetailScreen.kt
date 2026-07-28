@@ -1,0 +1,277 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package com.example.firstapp.media.ui.screens
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.firstapp.common.data.ads.AdManager
+import com.example.firstapp.common.model.User
+import com.example.firstapp.common.ui.theme.*
+import com.example.firstapp.media.model.*
+import com.example.firstapp.media.ui.components.*
+import com.example.firstapp.common.ui.components.DynamicAdCard
+import com.example.firstapp.media.ui.viewmodel.MediaViewModel
+import com.example.firstapp.common.util.Resource
+import com.example.firstapp.music.model.Song
+
+@Composable
+fun PostDetailScreen(
+    postId: String,
+    mediaViewModel: MediaViewModel,
+    adManager: AdManager,
+    ownProfileId: String,
+    onBack: () -> Unit,
+    onProfileClick: (User) -> Unit,
+    onMediaClick: (String, String) -> Unit
+) {
+    val uiState by mediaViewModel.uiState.collectAsState()
+    val post = uiState.selectedPost
+
+    LaunchedEffect(postId) {
+        // We should ideally have a fetchPostById in the viewmodel
+        // but for now we'll assume it's already selected if we came from feed
+        // or we need to add a way to load it.
+        // For now, let's just make sure we are trying to view it.
+        mediaViewModel.viewPost(postId)
+    }
+
+    if (post == null || post.id != postId) {
+        Box(modifier = Modifier.fillMaxSize().background(AppBackground), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = AppAccent)
+        }
+        return
+    }
+
+    var showRepostOptions by remember { mutableStateOf(false) }
+    var replyingToPost by remember { mutableStateOf<Post?>(null) }
+    var replyingToReply by remember { mutableStateOf<Post?>(null) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Thread", color = Color.White, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+            )
+        },
+        bottomBar = {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding(),
+                color = AppBackground,
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.2f))) {
+                        Icon(Icons.Default.Person, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.align(Alignment.Center).size(18.dp))
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clickable { replyingToPost = post },
+                        color = Color.White.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                    ) {
+                        Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Text("Post your reply", color = SecondaryText, fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
+        },
+        containerColor = AppBackground
+    ) { padding ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            item {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PostSideBar(
+                            avatarUrl = post.authorAvatarUrl,
+                            avatarColor = post.authorAvatarColor,
+                            showThreadLine = post.replies.size > 0,
+                            isLastInThread = true,
+                            onProfileClick = { onProfileClick(post.authorToUser()) }
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onProfileClick(post.authorToUser()) }
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                if (post.isVerifiedAuthor) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(Icons.Default.Verified, null, tint = TwitterBlue, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                            Text("@${post.authorHandle}", color = SecondaryText, fontSize = 14.sp)
+                        }
+                    }
+                    
+                    Text(
+                        text = post.content, 
+                        color = Color.White, 
+                        fontSize = 20.sp, 
+                        modifier = Modifier.padding(top = 16.dp),
+                        lineHeight = 26.sp
+                    )
+                    
+                    if (post.mediaUrls.size > 0) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        MediaGrid(post.mediaUrls) { url ->
+                            val urlLower = url.lowercase(java.util.Locale.getDefault())
+                            val type = if (urlLower.endsWith(".mp4") || urlLower.endsWith(".mov")) "video" else "image"
+                            onMediaClick(url, type)
+                        }
+                    }
+                    
+                    Text(
+                        text = "15:51 · 22 Jul 26 · ${post.views} Views", 
+                        color = SecondaryText, 
+                        fontSize = 14.sp, 
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                    
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(), 
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else SecondaryText) { 
+                            if (!post.repliesLocked) replyingToPost = post 
+                        }
+                        InteractionIcon(
+                            icon = Icons.Default.Repeat, 
+                            count = post.shares, 
+                            color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
+                            onClick = { showRepostOptions = true }
+                        )
+                        InteractionIcon(
+                            icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
+                            count = post.likes, 
+                            color = if (post.isLiked) Color(0xFFF91880) else SecondaryText, 
+                            onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
+                        )
+                        InteractionIcon(
+                            icon = if (post.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            count = 0L,
+                            color = if (post.isBookmarked) AppAccent else SecondaryText, 
+                            onClick = { mediaViewModel.bookmarkPost(post.id) }
+                        )
+                    }
+                    
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(top = 16.dp))
+                }
+            }
+            
+            itemsIndexed(post.replies, key = { index, r -> "${r.id}_$index" }) { index, reply ->
+                Column {
+                    PostItem(
+                        adManager = adManager,
+                        post = reply,
+                        isOwnPost = reply.authorId == ownProfileId,
+                        showThreadLine = true,
+                        isLastInThread = index == post.replies.size - 1,
+                        onClick = { 
+                            mediaViewModel.selectPost(reply)
+                            // Ideally we'd navigate to self but with new postId
+                        },
+                        onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                        onRepostClick = { p -> mediaViewModel.repostPost(p.id) },
+                        onBookmark = { id -> mediaViewModel.bookmarkPost(id) },
+                        onDelete = { id -> mediaViewModel.deletePost(id) },
+                        onReplyClick = { p, r -> 
+                            replyingToPost = p
+                            replyingToReply = r
+                        },
+                        onProfileClick = { u -> onProfileClick(u) },
+                        onPlaySong = { _, _ -> },
+                        onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
+                        onMediaClick = onMediaClick,
+                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, p) }
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                }
+            }
+        }
+    }
+
+    if (showRepostOptions) {
+        ModalBottomSheet(
+            onDismissRequest = { showRepostOptions = false },
+            containerColor = AppSecondary
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                ListItem(
+                    headlineContent = { Text(if (post.isReposted) "Undo Repost" else "Repost", color = Color.White) },
+                    leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (post.isReposted) Color(0xFF00BA7C) else Color.White) },
+                    modifier = Modifier.clickable {
+                        mediaViewModel.repostPost(post.id)
+                        showRepostOptions = false
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
+                    headlineContent = { Text("Quote Post", color = Color.White) },
+                    leadingContent = { Icon(Icons.Default.Edit, null, tint = Color.White) },
+                    modifier = Modifier.clickable {
+                        showRepostOptions = false
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+        }
+    }
+
+    if (replyingToPost != null) {
+        ReplyDialog(
+            post = replyingToPost!!,
+            reply = replyingToReply,
+            onDismiss = { 
+                replyingToPost = null
+                replyingToReply = null
+            },
+            onSubmit = { content ->
+                mediaViewModel.createPostReply(replyingToPost!!.id, content, replyingToReply?.id)
+                replyingToPost = null
+                replyingToReply = null
+            }
+        )
+    }
+}

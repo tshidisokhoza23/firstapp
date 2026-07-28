@@ -118,7 +118,8 @@ fun MediaScreen(
     onRequireLogin: () -> Unit = {},
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
-    onMediaClick: (String, String) -> Unit = { _, _ -> }
+    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    onShareClick: (Post) -> Unit = {}
 ) {
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
     LaunchedEffect(refreshTrigger) {
@@ -476,7 +477,8 @@ fun MainFeedSection(
     onRefresh: () -> Unit,
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
-    onMediaClick: (String, String) -> Unit = { _, _ -> }
+    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    onShareClick: (Post) -> Unit = {}
 ) {
     when {
         posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
@@ -540,7 +542,8 @@ fun MainFeedSection(
                         onProfileClick = { u -> onProfileClick(u) },
                         onPlaySong = onPlaySong,
                         onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
-                        onMediaClick = onMediaClick
+                        onMediaClick = onMediaClick,
+                        onShareClick = onShareClick
                     )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
 
@@ -610,7 +613,8 @@ fun PostDetailSection(
     onPlaySong: (Song, List<Song>) -> Unit,
     onProfileClick: (User) -> Unit,
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
-    onMediaClick: (String, String) -> Unit = { _, _ -> }
+    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    onShareClick: (Post) -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -769,6 +773,9 @@ fun PostDetailSection(
                             color = if (post.isBookmarked) AppAccent else SecondaryText, 
                             onClick = { onBookmark(post.id) }
                         )
+                        IconButton(onClick = { onShareClick(post) }, modifier = Modifier.size(20.dp)) {
+                            Icon(Icons.Default.Share, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
+                        }
                     }
                     
                     HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(top = 16.dp))
@@ -811,7 +818,8 @@ fun PostDetailSection(
                                     onProfileClick = { onProfileClick(reply.authorToUser()) },
                                     onPlaySong = onPlaySong,
                                     onVotePoll = { pid, oid -> },
-                                    onMediaClick = onMediaClick
+                                    onMediaClick = onMediaClick,
+                                    onShareClick = onShareClick
                                 )
                             }
                             HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
