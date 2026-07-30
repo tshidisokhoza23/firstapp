@@ -98,6 +98,16 @@ class ChatRepositoryImpl @Inject constructor(
                     )
                 }
                 
+                // CRITICAL: If server was reset, we must remove local chats that no longer exist on server
+                val apiChatIds = finalEntities.map { it.id }.toSet()
+                val localIds = chatDao.getAllChatIds()
+                for (id in localIds) {
+                    if (!apiChatIds.contains(id)) {
+                        chatDao.deleteChat(id)
+                        chatDao.clearMessages(id)
+                    }
+                }
+                
                 chatDao.insertChats(finalEntities)
                 Log.d("ChatRepositoryImpl", "syncChats: successfully inserted ${finalEntities.size} chats")
                 emit(Resource.Success(true))
