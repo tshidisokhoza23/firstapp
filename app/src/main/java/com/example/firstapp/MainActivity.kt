@@ -167,6 +167,11 @@ class MainActivity : FragmentActivity() {
                 var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }
                 var wasLoggedIn by remember { mutableStateOf(isLoggedIn) }
 
+                // Use the initial login state to determine the start destination.
+                // Transitions (Login/Logout) are handled by explicit navController.navigate calls
+                // to avoid recreating the entire NavHost which causes UI flickers and double screens.
+                val startDestination = remember { if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route }
+
                 LaunchedEffect(isLoggedIn) {
                     android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn, wasLoggedIn: $wasLoggedIn")
                     
@@ -219,8 +224,6 @@ class MainActivity : FragmentActivity() {
                     wasLoggedIn = isLoggedIn
                 }
 
-                val startDestination = if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route
-                
                 Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
                     AppNavigation(
                         navController = navController,
