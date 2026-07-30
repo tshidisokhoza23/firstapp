@@ -197,24 +197,23 @@ fun VerticalFeedPostCard(
                 .fillMaxWidth()
                 .animateContentSize()
                 .padding(horizontal = 12.dp, vertical = 8.dp)
-                .clickable { isExpanded = !isExpanded }
         ) {
             Text(
                 text = displayPost.content,
                 color = Color.White,
                 fontSize = 15.sp,
                 lineHeight = 20.sp,
-                maxLines = if (isExpanded) Int.MAX_VALUE else 2,
+                maxLines = if (isExpanded) Int.MAX_VALUE else 5,
                 overflow = TextOverflow.Ellipsis
             )
             
-            if (!isExpanded && displayPost.content.length > 80) {
+            if (!isExpanded && displayPost.content.length > 200) {
                 Text(
                     text = "Show More",
                     color = AppAccent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true }
                 )
             }
         }

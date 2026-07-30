@@ -13,7 +13,7 @@ import com.example.firstapp.media.ui.components.ChannelItem
 
 @Composable
 fun ChannelList(channels: List<Channel>, topBarHeight: Dp = 0.dp, onChannelClick: (Channel) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 180.dp)) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 90.dp)) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(channels, key = { it.id }) { ch -> 
             ChannelItem(channel = ch, onClick = { onChannelClick(ch) })

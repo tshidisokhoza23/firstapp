@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import com.example.firstapp.common.model.User
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.text.*
 import com.example.firstapp.media.model.*
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.common.ui.theme.*
@@ -141,12 +142,29 @@ fun MediaScreen(
 
     var showRepostOptions by remember { mutableStateOf<Post?>(null) }
 
-    val selectedUserId = selectedUser?.id
+    LaunchedEffect(ownProfileId, ownProfileHandle, ownProfileName, ownProfileAvatarUrl) {
+        // If we are showing the own profile and the ID was empty or changed, update it
+        if (showProfile && (selectedUser?.id.isNullOrEmpty() || selectedUser?.id == ownProfileId)) {
+             if (ownProfileId.isNotEmpty() && selectedUser?.id != ownProfileId) {
+                 selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
+             }
+        }
+    }
+
+    val selectedUserId = remember(selectedUser, ownProfileId) { 
+        val id = selectedUser?.id 
+        if (id.isNullOrBlank() && showProfile) {
+            ownProfileId // Fallback to current user if ID is blank and we are trying to show a profile
+        } else {
+            id
+        }
+    }
+    
     val profilePosts = remember(selectedUserId, onGetUserPosts) {
         if (selectedUserId.isNullOrBlank()) {
             flowOf(PagingData.empty())
         } else {
-            onGetUserPosts(selectedUserId, "standard")
+            onGetUserPosts(selectedUserId!!, "standard")
         }
     }.collectAsLazyPagingItems()
 
@@ -247,94 +265,91 @@ fun MediaScreen(
                     )
                 }
                 else -> {
-                    Scaffold(
-                        topBar = {
-                            if (isSearchActive) {
-                                SearchTopBar(
-                                    query = searchQuery,
-                                    onQueryChange = { searchQuery = it },
-                                    onClose = { 
-                                        isSearchActive = false
-                                        searchQuery = ""
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (isSearchActive) {
+                            SearchTopBar(
+                                query = searchQuery,
+                                onQueryChange = { searchQuery = it },
+                                onClose = { 
+                                    isSearchActive = false
+                                    searchQuery = ""
+                                }
+                            )
+                        } else {
+                            TopAppBar(
+                                title = { 
+                                    Text(
+                                        "Media", 
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { isSearchActive = true }
+                                    ) 
+                                },
+                                navigationIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(start = 12.dp)
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(ownProfileAvatarColor)
+                                            .clickable { 
+                                                selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
+                                                showProfile = true
+                                                onProfileViewChange(true)
+                                            }
+                                    ) {
+                                        AsyncImage(
+                                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
+                                            contentDescription = "Profile",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop,
+                                            error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
+                                            fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
+                                        )
                                     }
-                                )
-                            } else {
-                                TopAppBar(
-                                    title = { 
-                                        Text(
-                                            "Media", 
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.clickable { isSearchActive = true }
-                                        ) 
-                                    },
-                                    navigationIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(start = 12.dp)
-                                                .size(32.dp)
-                                                .clip(CircleShape)
-                                                .background(ownProfileAvatarColor)
-                                                .clickable { 
-                                                    selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
-                                                    showProfile = true
-                                                    onProfileViewChange(true)
-                                                }
+                                },
+                                actions = {
+                                    IconButton(onClick = { isSearchActive = true }) {
+                                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                                    }
+                                    IconButton(onClick = { showCreatePost = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = "Create Post")
+                                    }
+                                    var showMenu by remember { mutableStateOf(false) }
+                                    Box {
+                                        IconButton(onClick = { showMenu = true }) {
+                                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                                        }
+                                        DropdownMenu(
+                                            expanded = showMenu,
+                                            onDismissRequest = { showMenu = false },
+                                            containerColor = AppSecondary
                                         ) {
-                                            AsyncImage(
-                                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
-                                                contentDescription = "Profile",
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Crop,
-                                                error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
-                                                fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
+                                            DropdownMenuItem(
+                                                text = { Text("Direct Messages", color = Color.White) },
+                                                leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
+                                                onClick = { 
+                                                    showMenu = false
+                                                    onDirectMessagesClick()
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Settings", color = Color.White) },
+                                                leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
+                                                onClick = { showMenu = false }
                                             )
                                         }
-                                    },
-                                    actions = {
-                                        IconButton(onClick = { isSearchActive = true }) {
-                                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-                                        }
-                                        IconButton(onClick = { showCreatePost = true }) {
-                                            Icon(Icons.Default.Add, contentDescription = "Create Post")
-                                        }
-                                        var showMenu by remember { mutableStateOf(false) }
-                                        Box {
-                                            IconButton(onClick = { showMenu = true }) {
-                                                Icon(Icons.Default.MoreVert, contentDescription = "More")
-                                            }
-                                            DropdownMenu(
-                                                expanded = showMenu,
-                                                onDismissRequest = { showMenu = false },
-                                                containerColor = AppSecondary
-                                            ) {
-                                                DropdownMenuItem(
-                                                    text = { Text("Direct Messages", color = Color.White) },
-                                                    leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
-                                                    onClick = { 
-                                                        showMenu = false
-                                                        onDirectMessagesClick()
-                                                    }
-                                                )
-                                                DropdownMenuItem(
-                                                    text = { Text("Settings", color = Color.White) },
-                                                    leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
-                                                    onClick = { showMenu = false }
-                                                )
-                                            }
-                                        }
-                                    },
-                                    colors = TopAppBarDefaults.topAppBarColors(
-                                        containerColor = AppBackground,
-                                        titleContentColor = Color.White,
-                                        navigationIconContentColor = Color.White,
-                                        actionIconContentColor = Color.White
-                                    )
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = AppBackground,
+                                    titleContentColor = Color.White,
+                                    navigationIconContentColor = Color.White,
+                                    actionIconContentColor = Color.White
                                 )
-                            }
-                        },
-                        containerColor = AppBackground
-                    ) { innerPadding ->
-                        Box(modifier = Modifier.padding(innerPadding)) {
+                            )
+                        }
+                        
+                        Box(modifier = Modifier.weight(1f)) {
                             MainFeedSection(
                                 adManager = adManager,
                                 posts = posts,
@@ -493,7 +508,10 @@ fun MainFeedSection(
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize()
     ) {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
             items(
                 count = posts.itemCount,
                 key = posts.itemKey { it?.id ?: "loading_${it.hashCode()}" },

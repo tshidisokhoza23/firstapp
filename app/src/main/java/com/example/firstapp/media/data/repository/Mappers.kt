@@ -11,6 +11,7 @@ import com.example.firstapp.media.data.api.*
 import com.example.firstapp.media.model.*
 import com.example.firstapp.common.ui.theme.AppPrimary
 import java.util.ArrayList
+import kotlin.text.*
 
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     when (item.type) {
@@ -24,9 +25,16 @@ fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull {
 fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
     val author = apiPost.author
     
+    val authorId: String = when {
+        !apiPost.author_id.isNullOrBlank() -> apiPost.author_id!!
+        !apiPost.user_id.isNullOrBlank() -> apiPost.user_id!!
+        !author?.id.isNullOrBlank() -> author!!.id!!
+        else -> ""
+    }
+
     return Post(
         id = apiPost.id ?: "",
-        authorId = apiPost.author_id ?: apiPost.user_id ?: author?.id ?: "",
+        authorId = authorId,
         authorName = author?.display_name ?: apiPost.author_name ?: "",
         authorHandle = author?.username ?: apiPost.author_handle ?: "",
         authorAvatarUrl = MediaUtils.formatUrl(author?.avatar_url ?: apiPost.author_avatar_url),

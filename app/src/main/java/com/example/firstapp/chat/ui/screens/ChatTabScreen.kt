@@ -327,7 +327,8 @@ fun ChatsListScreen(
                 }
             }
         },
-        containerColor = AppBackground
+        containerColor = AppBackground,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -537,7 +538,7 @@ fun ChatList(
     LazyColumn(
         state = lazyListState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 120.dp)
+        contentPadding = PaddingValues(bottom = 90.dp)
     ) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         item {

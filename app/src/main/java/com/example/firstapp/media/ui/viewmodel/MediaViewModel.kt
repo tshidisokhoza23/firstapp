@@ -206,9 +206,13 @@ class MediaViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = ArrayList<String>()
             for (uriStr in mediaUris) {
-                if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
+                if (uriStr.startsWith("content://") || uriStr.startsWith("file://") || uriStr.startsWith("/")) {
                     try {
-                        val uri = android.net.Uri.parse(uriStr)
+                        val uri = if (uriStr.startsWith("/")) {
+                             android.net.Uri.fromFile(java.io.File(uriStr))
+                        } else {
+                             android.net.Uri.parse(uriStr)
+                        }
                         val context = com.example.firstapp.common.util.ContextProvider.context
                         val file = com.example.firstapp.media.ui.screens.copyUriToTempFile(context, uri)
                         if (file != null) {

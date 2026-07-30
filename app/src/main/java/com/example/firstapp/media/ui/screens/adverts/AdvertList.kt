@@ -34,7 +34,7 @@ fun AdvertList(
             }
         }
     } else {
-        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 180.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 90.dp)) {
             item { header() }
             if (adverts.size > 0) {
                 item {

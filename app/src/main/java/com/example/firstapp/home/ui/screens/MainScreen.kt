@@ -109,7 +109,7 @@ fun MainScreen(
         ) { innerPadding ->
             Box(
                 modifier = Modifier
-                    .padding(bottom = innerPadding.calculateBottomPadding())
+                    .padding(innerPadding)
                     .fillMaxSize()
             ) {
                 val tabToDisplay = if (selectedIndex == 5) {

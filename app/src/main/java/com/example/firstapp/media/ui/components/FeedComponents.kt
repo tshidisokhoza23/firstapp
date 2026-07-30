@@ -43,11 +43,11 @@ fun InteractionIcon(
 
 @Composable
 fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(12.dp)
     val modifier = if (urls.size == 1) {
         Modifier
             .fillMaxWidth()
-            .heightIn(max = 450.dp) // Limit height so interaction buttons are visible
+            .heightIn(min = 200.dp, max = 500.dp)
             .clip(shape)
             .border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
             .background(Color.Black)

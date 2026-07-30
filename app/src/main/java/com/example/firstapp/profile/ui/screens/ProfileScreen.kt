@@ -51,6 +51,7 @@ import com.example.firstapp.profile.model.WorkExperience
 import java.util.ArrayList
 import kotlin.collections.*
 import kotlin.ranges.*
+import kotlin.text.*
 
 @Composable
 fun ProfileView(
@@ -144,7 +145,16 @@ fun ProfileView(
         emptyList<WorkExperience>()
     }
 
-    val isRefreshing = posts.loadState.refresh is LoadState.Loading
+    val selectedTabItems = remember(selectedTab, posts, shorts, mediaItems, replies) {
+        when (selectedTab) {
+            "Shorts" -> shorts
+            "Media" -> mediaItems
+            "Replies" -> replies
+            else -> posts
+        }
+    }
+
+    val isRefreshing = selectedTabItems.loadState.refresh is LoadState.Loading
 
     Scaffold(
         topBar = {
@@ -169,14 +179,17 @@ fun ProfileView(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = AppBackground)
             )
         },
-        containerColor = AppBackground
+        containerColor = AppBackground,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { posts.refresh() },
+            onRefresh = { selectedTabItems.refresh() },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
                 item {
                     Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                         Row(
@@ -206,7 +219,7 @@ fun ProfileView(
                                 }
                             }
 
-                        if (user != null && user.avatarUrl != null) {
+                        if (user != null && !user.avatarUrl.isNullOrBlank()) {
                              val url = user.avatarUrl!!
                              AsyncImage(
                                 model = MediaUtils.formatUrl(url),

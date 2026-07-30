@@ -29,6 +29,7 @@ fun MediaTabScreen(
 
     LaunchedEffect(Unit) {
         mediaViewModel.loadFeed("media")
+        pagedPosts.refresh()
     }
 
     LaunchedEffect(currentUser?.id) {

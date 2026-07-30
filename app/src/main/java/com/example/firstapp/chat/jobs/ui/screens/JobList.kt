@@ -13,7 +13,7 @@ import com.example.firstapp.chat.jobs.ui.components.JobItem
 
 @Composable
 fun JobList(jobs: List<Job>, topBarHeight: Dp = 0.dp, onJobClick: (Job) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 180.dp)) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 90.dp)) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(jobs, key = { it.id }) { job -> 
             JobItem(job = job, onClick = { onJobClick(job) })

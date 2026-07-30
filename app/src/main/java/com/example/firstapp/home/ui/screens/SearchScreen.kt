@@ -178,7 +178,7 @@ fun SearchScreen(
                     CircularProgressIndicator(color = AppAccent)
                 }
             } else if (data != null) {
-                LazyColumn(contentPadding = PaddingValues(bottom = 180.dp + bottomPadding)) {
+                LazyColumn(contentPadding = PaddingValues(bottom = 90.dp + bottomPadding)) {
                     if (data.artists.isNotEmpty()) {
                         item {
                             Text("Artists", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
