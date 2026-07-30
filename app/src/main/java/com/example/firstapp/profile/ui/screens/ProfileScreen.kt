@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -138,6 +139,8 @@ fun ProfileView(
     val selectedTab = if (safeSelectedTabIndex < tabs.size) tabs.get(safeSelectedTabIndex) else if (tabs.size > 0) tabs.get(tabs.size - 1) else ""
     val profileOwnerId = normalizedUserId ?: currentUser?.id
 
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     val workExperiencesResource by userViewModel.workExperiences.collectAsState()
     val workExperiences = if (workExperiencesResource is Resource.Success) {
         (workExperiencesResource as Resource.Success<List<WorkExperience>>).data ?: emptyList()
@@ -157,6 +160,7 @@ fun ProfileView(
     val isRefreshing = selectedTabItems.loadState.refresh is LoadState.Loading
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             CenterAlignedTopAppBar(
                 title = { },
@@ -176,7 +180,9 @@ fun ProfileView(
                         Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = AppBackground)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = AppBackground),
+                scrollBehavior = scrollBehavior,
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
         containerColor = AppBackground,
@@ -188,7 +194,8 @@ fun ProfileView(
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 90.dp)
             ) {
                 item {
                     Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -426,14 +433,19 @@ fun ProfileView(
                                     PostItem(
                                         adManager = adManager,
                                         post = post,
-                                        isOwnPost = post.authorId == currentUser?.id,
+                                        isOwnPost = post.authorId == currentUser?.id || (currentUser?.username?.isNotEmpty() == true && post.authorHandle == currentUser?.username),
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
-                                        onProfileClick = {},
+                                        onProfileClick = { targetUser ->
+                                            if (targetUser.id != userId) {
+                                                // Navigate if it's a different user
+                                                // For now, it's a bit limited within the same view
+                                            }
+                                        },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = onNavigateToMediaViewer,
@@ -471,14 +483,19 @@ fun ProfileView(
                                     PostItem(
                                         adManager = adManager,
                                         post = post,
-                                        isOwnPost = post.authorId == currentUser?.id,
+                                        isOwnPost = post.authorId == currentUser?.id || (currentUser?.username?.isNotEmpty() == true && post.authorHandle == currentUser?.username),
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
-                                        onProfileClick = {},
+                                        onProfileClick = { targetUser ->
+                                            if (targetUser.id != userId) {
+                                                // Navigate if it's a different user
+                                                // For now, it's a bit limited within the same view
+                                            }
+                                        },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = onNavigateToMediaViewer,
@@ -506,14 +523,19 @@ fun ProfileView(
                                     PostItem(
                                         adManager = adManager,
                                         post = post,
-                                        isOwnPost = post.authorId == currentUser?.id,
+                                        isOwnPost = post.authorId == currentUser?.id || (currentUser?.username?.isNotEmpty() == true && post.authorHandle == currentUser?.username),
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
-                                        onProfileClick = {},
+                                        onProfileClick = { targetUser ->
+                                            if (targetUser.id != userId) {
+                                                // Navigate if it's a different user
+                                                // For now, it's a bit limited within the same view
+                                            }
+                                        },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = onNavigateToMediaViewer,

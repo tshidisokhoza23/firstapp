@@ -64,6 +64,7 @@ fun PostItem(
     } else {
         VerticalFeedPostCard(
             post = post,
+            isOwnPost = isOwnPost,
             onLikeClick = { onLike(post.id, post.likes, post.isLiked) },
             onCommentClick = { onReplyClick(post, null) },
             onRepostClick = { onRepostClick(post) },
@@ -81,6 +82,7 @@ fun PostItem(
 @Composable
 fun VerticalFeedPostCard(
     post: Post,
+    isOwnPost: Boolean = false,
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onRepostClick: () -> Unit,
@@ -167,23 +169,25 @@ fun VerticalFeedPostCard(
             }
 
             // Follow Button
-            Button(
-                onClick = onFollowClick,
-                modifier = Modifier.height(32.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (post.isAuthorFollowed) Color.Transparent else AppTextPrimary,
-                    contentColor = if (post.isAuthorFollowed) AppTextPrimary else AppBackground
-                ),
-                border = if (post.isAuthorFollowed) BorderStroke(1.dp, AppTextSecondary) else null,
-                shape = RoundedCornerShape(16.dp),
-                elevation = null
-            ) {
-                Text(
-                    text = if (post.isAuthorFollowed) "Following" else "Follow",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            if (!isOwnPost) {
+                Button(
+                    onClick = onFollowClick,
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (post.isAuthorFollowed) Color.Transparent else AppTextPrimary,
+                        contentColor = if (post.isAuthorFollowed) AppTextPrimary else AppBackground
+                    ),
+                    border = if (post.isAuthorFollowed) BorderStroke(1.dp, AppTextSecondary) else null,
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = null
+                ) {
+                    Text(
+                        text = if (post.isAuthorFollowed) "Following" else "Follow",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             IconButton(onClick = onMoreClick) {

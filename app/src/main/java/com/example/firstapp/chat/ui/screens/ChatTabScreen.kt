@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +56,7 @@ import com.example.firstapp.common.ui.components.DynamicAdCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatsListScreen(
     navController: NavController,
@@ -74,6 +76,8 @@ fun ChatsListScreen(
     val chatsState by chatViewModel.chats.collectAsState()
     val context = LocalContext.current
     val density = LocalDensity.current
+    
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     
     val unreadChatsCount = remember(chatsState) {
         val data = chatsState.data
@@ -117,6 +121,7 @@ fun ChatsListScreen(
     val tabs = listOf("Chats", "Rewards", "Jobs", "Channels")
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             Surface(
                 modifier = Modifier
@@ -131,7 +136,6 @@ fun ChatsListScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .statusBarsPadding()
                         .background(
                             Brush.verticalGradient(
                                 listOf(AppBackground, AppBackground.copy(alpha = 0.95f))

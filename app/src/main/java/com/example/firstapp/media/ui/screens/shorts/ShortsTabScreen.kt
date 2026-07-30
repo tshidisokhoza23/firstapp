@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -54,6 +55,8 @@ fun ShortsTabScreen(
     val currentUser by userViewModel.currentUser.collectAsState()
     val uiState by mediaViewModel.uiState.collectAsState()
     val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
+
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     var selectedShortId by remember { mutableStateOf(initialShortId) }
     val isUploading by mediaViewModel.isUploading.collectAsState()
@@ -127,7 +130,7 @@ fun ShortsTabScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(AppBackground).nestedScroll(scrollBehavior.nestedScrollConnection)) {
         if (showProfile && selectedProfileUser != null) {
             ProfileView(
                 userId = selectedProfileUserId!!,
@@ -253,7 +256,9 @@ fun ShortsTabScreen(
                     containerColor = Color.Transparent,
                     titleContentColor = Color.White,
                     actionIconContentColor = Color.White
-                )
+                ),
+                scrollBehavior = scrollBehavior,
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
 
             if (showUploadDialog) {

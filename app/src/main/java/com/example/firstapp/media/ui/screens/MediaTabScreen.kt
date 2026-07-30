@@ -28,7 +28,7 @@ fun MediaTabScreen(
     val pagedPosts = uiState.posts.collectAsLazyPagingItems()
 
     LaunchedEffect(Unit) {
-        mediaViewModel.loadFeed("media")
+        mediaViewModel.loadFeed("standard")
         pagedPosts.refresh()
     }
 

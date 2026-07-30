@@ -62,12 +62,15 @@ class MediaViewModel @Inject constructor(
 
     private fun preloadAds() {
         viewModelScope.launch {
+            android.util.Log.d("MediaViewModel", "Starting native ad preload...")
             val context = try {
                 com.example.firstapp.common.util.ContextProvider.context
             } catch (e: Exception) {
+                android.util.Log.e("MediaViewModel", "Context provider error: ${e.message}")
                 null
             }
             if (context == null) {
+                android.util.Log.w("MediaViewModel", "No context available for ad preloading")
                 _adsLoaded.value = true
                 return@launch
             }
@@ -76,10 +79,12 @@ class MediaViewModel @Inject constructor(
                 adUnitId = "ca-app-pub-3940256099942544/2247696110",
                 count = 8, // 30 posts / 4 = 7.5 -> 8 ads
                 onAdsLoaded = { ads ->
+                    android.util.Log.d("MediaViewModel", "Successfully preloaded ${ads.size} native ads")
                     _preloadedAds.value = ads
                     _adsLoaded.value = true
                 },
-                onAdFailed = {
+                onAdFailed = { error ->
+                    android.util.Log.e("MediaViewModel", "Native ad preload failed: $error")
                     _adsLoaded.value = true // Continue anyway
                 }
             )
@@ -206,6 +211,7 @@ class MediaViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = ArrayList<String>()
             for (uriStr in mediaUris) {
+                android.util.Log.d("MediaViewModel", "Processing media URI: $uriStr")
                 if (uriStr.startsWith("content://") || uriStr.startsWith("file://") || uriStr.startsWith("/")) {
                     try {
                         val uri = if (uriStr.startsWith("/")) {
@@ -216,16 +222,21 @@ class MediaViewModel @Inject constructor(
                         val context = com.example.firstapp.common.util.ContextProvider.context
                         val file = com.example.firstapp.media.ui.screens.copyUriToTempFile(context, uri)
                         if (file != null) {
+                            android.util.Log.d("MediaViewModel", "File copied to temp: ${file.absolutePath}, size: ${file.length()}")
                             // Synchronously wait for each upload to complete and get the public URL
                             val res = accountRepository.uploadFile(file, "posts").first()
                             if (res is Resource.Success && res.data != null) {
+                                android.util.Log.d("MediaViewModel", "Upload success: ${res.data.url}")
                                 finalUrls.add(res.data.url)
                                 file.delete()
                             } else if (res is Resource.Error) {
+                                android.util.Log.e("MediaViewModel", "Upload failed for ${file.name}: ${res.message}")
                                 _toastMessage.value = "Upload failed: ${res.message}"
                                 _uiState.update { it.copy(isLoading = false) }
                                 return@launch
                             }
+                        } else {
+                            android.util.Log.e("MediaViewModel", "Failed to copy URI to temp file: $uri")
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("MediaViewModel", "File error: ${e.message}")
@@ -234,7 +245,11 @@ class MediaViewModel @Inject constructor(
                     finalUrls.add(uriStr)
                 }
             }
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, mediaType).collect { res ->
+            
+            // Auto-detect media type if not provided
+            val finalMediaType = if (mediaType == null && postType == "short") "video" else mediaType
+            
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType).collect { res ->
                 if (res is Resource.Success) {
                     _toastMessage.value = "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }

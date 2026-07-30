@@ -33,6 +33,7 @@ import com.example.firstapp.common.ui.components.DynamicAdCard
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.music.model.Song
+import kotlin.text.*
 
 @Composable
 fun PostDetailScreen(
@@ -53,16 +54,36 @@ fun PostDetailScreen(
     }
 
     LaunchedEffect(postId) {
-        // We should ideally have a fetchPostById in the viewmodel
-        // but for now we'll assume it's already selected if we came from feed
-        // or we need to add a way to load it.
-        // For now, let's just make sure we are trying to view it.
+        mediaViewModel.selectPostById(postId)
         mediaViewModel.viewPost(postId)
     }
 
     if (post == null || post.id != postId) {
         Box(modifier = Modifier.fillMaxSize().background(AppBackground), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = AppAccent)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(color = AppAccent)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Loading thread...", color = Color.White, fontSize = 14.sp)
+                
+                // Add a timeout fallback or retry button
+                var showRetry by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(5000)
+                    showRetry = true
+                }
+                
+                if (showRetry) {
+                    Button(
+                        onClick = { 
+                            mediaViewModel.selectPostById(postId)
+                            mediaViewModel.viewPost(postId)
+                        },
+                        modifier = Modifier.padding(top = 16.dp)
+                    ) {
+                        Text("Retry")
+                    }
+                }
+            }
         }
         return
     }
@@ -220,7 +241,7 @@ fun PostDetailScreen(
                     PostItem(
                         adManager = adManager,
                         post = reply,
-                        isOwnPost = reply.authorId == ownProfileId,
+                        isOwnPost = reply.authorId == ownProfileId || (reply.authorHandle.isNotEmpty() && reply.authorHandle == post.authorHandle && post.authorId == ownProfileId),
                         showThreadLine = true,
                         isLastInThread = index == post.replies.size - 1,
                         onClick = { 

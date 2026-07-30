@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -122,6 +123,8 @@ fun MediaScreen(
     onMediaClick: (String, String) -> Unit = { _, _ -> },
     onShareClick: (Post) -> Unit = {}
 ) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
     LaunchedEffect(refreshTrigger) {
         val now = System.currentTimeMillis()
@@ -265,97 +268,105 @@ fun MediaScreen(
                     )
                 }
                 else -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (isSearchActive) {
-                            SearchTopBar(
-                                query = searchQuery,
-                                onQueryChange = { searchQuery = it },
-                                onClose = { 
-                                    isSearchActive = false
-                                    searchQuery = ""
-                                }
-                            )
-                        } else {
-                            TopAppBar(
-                                title = { 
-                                    Text(
-                                        "Media", 
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { isSearchActive = true }
-                                    ) 
-                                },
-                                navigationIcon = {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(start = 12.dp)
-                                            .size(32.dp)
-                                            .clip(CircleShape)
-                                            .background(ownProfileAvatarColor)
-                                            .clickable { 
-                                                selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
-                                                showProfile = true
-                                                onProfileViewChange(true)
-                                            }
-                                    ) {
-                                        AsyncImage(
-                                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
-                                            contentDescription = "Profile",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop,
-                                            error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
-                                            fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
-                                        )
+                    Scaffold(
+                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                        topBar = {
+                            if (isSearchActive) {
+                                SearchTopBar(
+                                    query = searchQuery,
+                                    onQueryChange = { searchQuery = it },
+                                    onClose = { 
+                                        isSearchActive = false
+                                        searchQuery = ""
                                     }
-                                },
-                                actions = {
-                                    IconButton(onClick = { isSearchActive = true }) {
-                                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-                                    }
-                                    IconButton(onClick = { showCreatePost = true }) {
-                                        Icon(Icons.Default.Add, contentDescription = "Create Post")
-                                    }
-                                    var showMenu by remember { mutableStateOf(false) }
-                                    Box {
-                                        IconButton(onClick = { showMenu = true }) {
-                                            Icon(Icons.Default.MoreVert, contentDescription = "More")
-                                        }
-                                        DropdownMenu(
-                                            expanded = showMenu,
-                                            onDismissRequest = { showMenu = false },
-                                            containerColor = AppSecondary
-                                        ) {
-                                            DropdownMenuItem(
-                                                text = { Text("Direct Messages", color = Color.White) },
-                                                leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
-                                                onClick = { 
-                                                    showMenu = false
-                                                    onDirectMessagesClick()
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Settings", color = Color.White) },
-                                                leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
-                                                onClick = { showMenu = false }
-                                            )
-                                        }
-                                    }
-                                },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = AppBackground,
-                                    titleContentColor = Color.White,
-                                    navigationIconContentColor = Color.White,
-                                    actionIconContentColor = Color.White
                                 )
-                            )
-                        }
-                        
-                        Box(modifier = Modifier.weight(1f)) {
+                            } else {
+                                TopAppBar(
+                                    title = { 
+                                        Text(
+                                            "Media", 
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clickable { isSearchActive = true }
+                                        ) 
+                                    },
+                                    navigationIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(start = 12.dp)
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(ownProfileAvatarColor)
+                                                .clickable { 
+                                                    selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
+                                                    showProfile = true
+                                                    onProfileViewChange(true)
+                                                }
+                                        ) {
+                                            AsyncImage(
+                                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
+                                                contentDescription = "Profile",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop,
+                                                error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
+                                                fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
+                                            )
+                                        }
+                                    },
+                                    actions = {
+                                        IconButton(onClick = { isSearchActive = true }) {
+                                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                                        }
+                                        IconButton(onClick = { showCreatePost = true }) {
+                                            Icon(Icons.Default.Add, contentDescription = "Create Post")
+                                        }
+                                        var showMenu by remember { mutableStateOf(false) }
+                                        Box {
+                                            IconButton(onClick = { showMenu = true }) {
+                                                Icon(Icons.Default.MoreVert, contentDescription = "More")
+                                            }
+                                            DropdownMenu(
+                                                expanded = showMenu,
+                                                onDismissRequest = { showMenu = false },
+                                                containerColor = AppSecondary
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Direct Messages", color = Color.White) },
+                                                    leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
+                                                    onClick = { 
+                                                        showMenu = false
+                                                        onDirectMessagesClick()
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Settings", color = Color.White) },
+                                                    leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
+                                                    onClick = { showMenu = false }
+                                                )
+                                            }
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor = AppBackground,
+                                        titleContentColor = Color.White,
+                                        navigationIconContentColor = Color.White,
+                                        actionIconContentColor = Color.White
+                                    ),
+                                    scrollBehavior = scrollBehavior,
+                                    windowInsets = WindowInsets(0, 0, 0, 0) // Takes icons higher by removing default status bar insets
+                                )
+                            }
+                        },
+                        containerColor = AppBackground,
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+                    ) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
                             MainFeedSection(
                                 adManager = adManager,
                                 posts = posts,
                                 preloadedAds = preloadedAds,
                                 adsLoaded = adsLoaded,
                                 ownProfileId = ownProfileId,
+                                ownProfileHandle = ownProfileHandle,
                                 onPostClick = onPostSelect,
                                 onLike = onLikePost,
                                 onRepostClick = { showRepostOptions = it },
@@ -366,7 +377,12 @@ fun MediaScreen(
                                     replyingToReply = r
                                 },
                                 onProfileClick = { user ->
-                                    selectedUser = user
+                                    val targetUser = if (user.id.isNullOrBlank() || user.id == ownProfileId) {
+                                        User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
+                                    } else {
+                                        user
+                                    }
+                                    selectedUser = targetUser
                                     showProfile = true
                                     onProfileViewChange(true)
                                 },
@@ -453,6 +469,7 @@ fun MainFeedSection(
     preloadedAds: List<Any>,
     adsLoaded: Boolean,
     ownProfileId: String,
+    ownProfileHandle: String = "",
     onPostClick: (Post) -> Unit,
     onLike: (String, Long, Boolean) -> Unit,
     onRepostClick: (Post) -> Unit,
@@ -510,7 +527,7 @@ fun MainFeedSection(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp)
+            contentPadding = PaddingValues(bottom = 90.dp)
         ) {
             items(
                 count = posts.itemCount,
@@ -522,7 +539,7 @@ fun MainFeedSection(
                     PostItem(
                         adManager = adManager,
                         post = post,
-                        isOwnPost = post.authorId == ownProfileId,
+                        isOwnPost = post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle),
                         showThreadLine = post.hasThread,
                         isLastInThread = true,
                         onClick = { onPostClick(post) },

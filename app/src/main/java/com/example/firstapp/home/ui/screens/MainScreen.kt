@@ -26,6 +26,14 @@ import com.example.firstapp.media.ui.screens.shorts.ShortsTabScreen
 import com.example.firstapp.music.ui.screens.MusicTabScreen
 import com.example.firstapp.drive.ui.screens.DriveTabScreen
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
@@ -39,6 +47,22 @@ fun MainScreen(
     val selectedIndex by viewModel.selectedBottomItem.collectAsState()
     val currentTab = BottomNavItem.fromIndex(selectedIndex)
     val currentUser by userViewModel.currentUser.collectAsState()
+
+    val density = LocalDensity.current
+    val bottomBarHeight = 80.dp // Approximate height of NavigationBar
+    val bottomBarHeightPx = with(density) { bottomBarHeight.toPx() }
+    val bottomBarOffsetHeightPx = remember { mutableFloatStateOf(0f) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val delta = available.y
+                val newOffset = bottomBarOffsetHeightPx.floatValue + delta
+                bottomBarOffsetHeightPx.floatValue = newOffset.coerceIn(-bottomBarHeightPx, 0f)
+                return Offset.Zero
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         if (currentUser == null) {
@@ -93,18 +117,24 @@ fun MainScreen(
 
     GlobalOverlayContainer(musicViewModel = musicViewModel) {
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(nestedScrollConnection),
             containerColor = AppBackground,
             bottomBar = {
-                MainBottomNavigation(
-                    selectedRoute = currentTab.route,
-                    onTabSelected = { item: BottomNavItem ->
-                        viewModel.setSelectedBottomItem(item.index)
-                        if (item != BottomNavItem.More) {
-                            navigateToTab(item)
+                Box(modifier = Modifier
+                    .offset { IntOffset(0, -bottomBarOffsetHeightPx.floatValue.roundToInt()) }
+                ) {
+                    MainBottomNavigation(
+                        selectedRoute = currentTab.route,
+                        onTabSelected = { item: BottomNavItem ->
+                            viewModel.setSelectedBottomItem(item.index)
+                            if (item != BottomNavItem.More) {
+                                navigateToTab(item)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         ) { innerPadding ->
             Box(
