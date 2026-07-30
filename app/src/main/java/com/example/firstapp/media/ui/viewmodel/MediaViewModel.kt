@@ -206,21 +206,26 @@ class MediaViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = ArrayList<String>()
             for (uriStr in mediaUris) {
-                // ... logic to upload remains same ...
                 if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
                     try {
                         val uri = android.net.Uri.parse(uriStr)
                         val context = com.example.firstapp.common.util.ContextProvider.context
                         val file = com.example.firstapp.media.ui.screens.copyUriToTempFile(context, uri)
                         if (file != null) {
-                            accountRepository.uploadFile(file, "posts").collect { res ->
-                                if (res is Resource.Success && res.data != null) {
-                                    finalUrls.add(res.data.url)
-                                    file.delete()
-                                }
+                            // Synchronously wait for each upload to complete and get the public URL
+                            val res = accountRepository.uploadFile(file, "posts").first()
+                            if (res is Resource.Success && res.data != null) {
+                                finalUrls.add(res.data.url)
+                                file.delete()
+                            } else if (res is Resource.Error) {
+                                _toastMessage.value = "Upload failed: ${res.message}"
+                                _uiState.update { it.copy(isLoading = false) }
+                                return@launch
                             }
                         }
-                    } catch (_: Exception) { }
+                    } catch (e: Exception) {
+                        android.util.Log.e("MediaViewModel", "File error: ${e.message}")
+                    }
                 } else {
                     finalUrls.add(uriStr)
                 }
