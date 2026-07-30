@@ -17,8 +17,9 @@ fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
         val authViewModel: AuthViewModel = hiltViewModel()
         LoginScreen(
             onLoginSuccess = {
-                navController.navigate(Screen.Main.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
+                navController.navigate(Screen.Main.createRoute()) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
                 }
             },
             onNavigateToOtp = { phone, user, email, name, pass ->
@@ -28,7 +29,9 @@ fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
                     email ?: "NONE",
                     name ?: "NONE",
                     pass ?: "NONE"
-                ))
+                )) {
+                    launchSingleTop = true
+                }
             },
             viewModel = authViewModel
         )
@@ -77,8 +80,9 @@ fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
             displayName = displayName,
             password = password,
             onVerificationSuccess = {
-                navController.navigate(Screen.Main.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
+                navController.navigate(Screen.Main.createRoute()) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
                 }
             },
             onBack = { navController.popBackStack() },

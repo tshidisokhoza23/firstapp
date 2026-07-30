@@ -165,78 +165,81 @@ class MainActivity : FragmentActivity() {
                 val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 val isLoggedIn by sessionManager.authState.collectAsState()
                 var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }
+                var wasLoggedIn by remember { mutableStateOf(isLoggedIn) }
 
                 LaunchedEffect(isLoggedIn) {
-                    if (isLoggedIn && BiometricHelper.isBiometricAvailable(this@MainActivity)) {
-                        BiometricHelper.showBiometricPrompt(
-                            activity = this@MainActivity,
-                            onSuccess = { isAppLocked = false },
-                            onError = { _, _ -> /* Handle error */ },
-                            onFailed = { /* Handle failure */ }
-                        )
-                    } else {
-                        isAppLocked = false
-                    }
-                }
-
-                LaunchedEffect(isLoggedIn) {
-                    android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn")
-                    if (!isLoggedIn) {
+                    android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn, wasLoggedIn: $wasLoggedIn")
+                    
+                    // 1. Handle Navigation Transitions (Logout only)
+                    if (wasLoggedIn && !isLoggedIn) {
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
-
+                    
+                    // 2. Handle Biometric Lock
                     if (isLoggedIn) {
+                        if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {
+                            BiometricHelper.showBiometricPrompt(
+                                activity = this@MainActivity,
+                                onSuccess = { isAppLocked = false },
+                                onError = { _, _ -> isAppLocked = false },
+                                onFailed = { /* Handle failure, let them retry manually via button */ }
+                            )
+                        } else {
+                            isAppLocked = false
+                        }
+
+                        // 3. Global Sync on Login/Resume
                         runCatching {
                             RewardsManager.refreshBalance()
                         }
-                        // Automatically sync contacts when logged in
                         lifecycleScope.launch {
                             try {
                                 val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
                                 chatRepository.syncContacts(phoneNumbers).collect {}
                                 chatRepository.refreshLocalChatNames()
                             } catch (e: Exception) {
-                                android.util.Log.e("MainActivity", "Failed to sync contacts on login", e)
+                                android.util.Log.e("MainActivity", "Failed to sync contacts", e)
                             }
                         }
-                    }
-
-                    val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
-                    if (isLoggedIn) {
+                        
                         try {
+                            val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
                             ContextCompat.startForegroundService(applicationContext, serviceIntent)
                             PushTokenRegistrar.syncCurrentToken(applicationContext, sessionManager)
                         } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "Failed to start CallListenerService", e)
+                            android.util.Log.e("MainActivity", "Failed to start services", e)
                         }
                     } else {
-                        applicationContext.stopService(serviceIntent)
+                        isAppLocked = false
+                        applicationContext.stopService(Intent(applicationContext, CallListenerService::class.java))
                     }
+                    
+                    wasLoggedIn = isLoggedIn
                 }
 
-                val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Login.route
+                val startDestination = if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route
                 
                 Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
-                    if (!isAppLocked) {
-                        AppNavigation(
-                            navController = navController,
-                            startDestination = startDestination,
-                            viewModel = viewModel,
-                            musicViewModel = musicViewModel,
-                            adManager = adManager,
-                            onLogout = {
-                                sessionManager.clearSession()
-                                navController.navigate(Screen.Login.route) {
-                                    popUpTo(0) { inclusive = true }
-                                }
+                    AppNavigation(
+                        navController = navController,
+                        startDestination = startDestination,
+                        viewModel = viewModel,
+                        musicViewModel = musicViewModel,
+                        adManager = adManager,
+                        onLogout = {
+                            sessionManager.clearSession()
+                            navController.navigate(Screen.Login.route) {
+                                popUpTo(0) { inclusive = true }
                             }
-                        )
-                    } else {
-                        // Show a placeholder or lock screen
+                        }
+                    )
+                    
+                    if (isAppLocked) {
+                        // Show a placeholder or lock screen overlay
                         Column(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().background(AppBackground),
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -247,7 +250,7 @@ class MainActivity : FragmentActivity() {
                                         BiometricHelper.showBiometricPrompt(
                                             activity = this@MainActivity,
                                             onSuccess = { isAppLocked = false },
-                                            onError = { _, _ -> },
+                                            onError = { _, _ -> isAppLocked = false },
                                             onFailed = { }
                                         )
                                     }

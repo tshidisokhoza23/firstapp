@@ -94,7 +94,7 @@ class SessionManagerImpl @Inject constructor(
         if (user != null) {
             editor.putString(KEY_USER_DATA, gson.toJson(user))
         }
-        editor.apply()
+        editor.commit() // Use commit() here for immediate write to avoid race condition with subsequent API calls
         
         _currentUser.value = user
         _authState.value = true
