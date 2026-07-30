@@ -106,6 +106,13 @@ fun ChatsListScreen(
     val advertsState by advertsViewModel.adverts.collectAsState()
     val viewedAdvertsState by advertsViewModel.viewedAdverts.collectAsState()
     val channelsState by channelsViewModel.channels.collectAsState()
+    val hasRewardedAds by advertsViewModel.hasRewardedAdsAvailable.collectAsState()
+
+    LaunchedEffect(selectedTabItem) {
+        if (selectedTabItem == 1) {
+            advertsViewModel.initializePool(context, "ca-app-pub-3940256099942544/5224354917")
+        }
+    }
 
     val tabs = listOf("Chats", "Rewards", "Jobs", "Channels")
 
@@ -314,7 +321,7 @@ fun ChatsListScreen(
                     onClick = { navController.navigate(Screen.ContactPicker.route) },
                     containerColor = AppAccent,
                     contentColor = AppBackground,
-                    shape = CircleShape
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
                 }
@@ -322,138 +329,165 @@ fun ChatsListScreen(
         },
         containerColor = AppBackground
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding())) {
-            when (selectedTabItem) {
-                0 -> {
-                    val searchResults by searchViewModel.searchResults.collectAsState()
-                    if (isSearchActive && searchQuery.length > 0) {
-                        SearchResultsView(
-                            results = searchResults,
-                            type = SearchType.CHATS,
-                            onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id)) },
-                            onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
-                            onSongClick = { song, queue -> musicViewModel.playSong(song, queue) },
-                            onArtistClick = { artist -> musicViewModel.requestArtist(artist.displayName) },
-                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                        )
-                    } else {
-                        if (chatsState is Resource.Loading && sanitizedChats.isEmpty()) {
-                            LazyColumn(modifier = Modifier.fillMaxSize().padding(top = topBarHeight)) {
-                                items(10) { ChatItemShimmer() }
-                            }
-                        } else {
-                            ChatList(
-                                chats = sanitizedChats,
-                                archivedChatsCount = archivedChatsState.data?.size ?: 0,
-                                stories = storiesState.data ?: emptyList<UserStory>(),
-                                chatViewModel = chatViewModel,
-                                topBarHeight = topBarHeight,
-                                currentUserId = currentUser?.id,
-                                initialScrollDone = isChatInitialScrollDone,
-                                onInitialScrollDone = { isChatInitialScrollDone = it },
-                                onChatClick = { chat -> 
-                                    val typeStr = when (chat.type) {
-                                        ConversationType.CHANNEL -> "channel"
-                                        ConversationType.GROUP -> "group"
-                                        else -> "direct"
-                                    }
-                                    navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
-                                },
-                                onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
-                                onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
-                                onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
-                                onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
-                                onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding())
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedTabItem) {
+                    0 -> {
+                        val searchResults by searchViewModel.searchResults.collectAsState()
+                        if (isSearchActive && searchQuery.length > 0) {
+                            SearchResultsView(
+                                results = searchResults,
+                                type = SearchType.CHATS,
+                                onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id)) },
+                                onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
+                                onSongClick = { song, queue -> musicViewModel.playSong(song, queue) },
+                                onArtistClick = { artist -> musicViewModel.requestArtist(artist.displayName) },
+                                onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                             )
-                        }
-                    }
-                }
-                1 -> {
-                    val ads = advertsState.data ?: emptyList<Advert>()
-                    val viewedAds = viewedAdvertsState.data ?: emptyList<Advert>()
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            DataStateHandler(
-                                resource = advertsState,
-                                onLoading = { SkeletonLoader() }
-                            ) {
-                                 RewardsScreen(
-                                    adManager = adManager,
-                                    adverts = ads,
-                                    viewedAdverts = viewedAds,
-                                    points = points,
-                                    onAdvertClick = { ad -> 
-                                        val activity = context as? android.app.Activity
-                                        if (activity != null) {
-                                            advertsViewModel.adManager.loadRewardedAd(
-                                                context = context,
-                                                adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
-                                                onAdLoaded = { adObject ->
-                                                    advertsViewModel.adManager.showRewardedAd(
-                                                        activity = activity,
-                                                        adObject = adObject,
-                                                        onRewardEarned = {
-                                                            advertsViewModel.markAdvertAsViewed(ad.id)
-                                                            Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
-                                                        },
-                                                        onAdClosed = { }
-                                                    )
-                                                },
-                                                onAdFailed = { error ->
-                                                    Toast.makeText(context, "Ad Failed: $error", Toast.LENGTH_SHORT).show()
-                                                }
-                                            )
+                        } else {
+                            if (chatsState is Resource.Loading && sanitizedChats.isEmpty()) {
+                                LazyColumn(modifier = Modifier.fillMaxSize().padding(top = topBarHeight)) {
+                                    items(10) { ChatItemShimmer() }
+                                }
+                            } else {
+                                ChatList(
+                                    chats = sanitizedChats,
+                                    archivedChatsCount = archivedChatsState.data?.size ?: 0,
+                                    stories = storiesState.data ?: emptyList<UserStory>(),
+                                    chatViewModel = chatViewModel,
+                                    topBarHeight = topBarHeight,
+                                    currentUserId = currentUser?.id,
+                                    initialScrollDone = isChatInitialScrollDone,
+                                    onInitialScrollDone = { isChatInitialScrollDone = it },
+                                    onChatClick = { chat -> 
+                                        val typeStr = when (chat.type) {
+                                            ConversationType.CHANNEL -> "channel"
+                                            ConversationType.GROUP -> "group"
+                                            else -> "direct"
                                         }
+                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
                                     },
-                                    onRefresh = { advertsViewModel.fetchAdverts() },
-                                    onResetAds = { advertsViewModel.resetAds() }
+                                    onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
+                                    onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
+                                    onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
+                                    onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
+                                    onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) }
                                 )
                             }
                         }
-                        
-                        // Banner Ad fixed at the bottom, above bottom navigation
-                        DynamicAdCard(
-                            adManager = adManager,
-                            adUnitId = "ca-app-pub-3940256099942544/6300978111", // AdMob Banner Test ID
-                            isBanner = true
-                        )
                     }
-                }
-                2 -> {
-                    val searchResults by searchViewModel.searchResults.collectAsState()
-                    if (isSearchActive && searchQuery.length > 0) {
-                        SearchResultsView(
-                            results = searchResults,
-                            type = SearchType.JOBS,
-                            onChatClick = {},
-                            onMessageClick = {},
-                            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
-                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                        )
-                    } else {
-                        DataStateHandler(jobsState) { jobs -> 
-                            JobList(jobs) { 
-                                navController.navigate(Screen.JobDetail.createRoute(it.id)) 
-                            } 
+                    1 -> {
+                        val ads = advertsState.data ?: emptyList<Advert>()
+                        val viewedAds = viewedAdvertsState.data ?: emptyList<Advert>()
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                DataStateHandler(
+                                    resource = advertsState,
+                                    onLoading = { SkeletonLoader() },
+                                    onEmpty = {
+                                        RewardsScreen(
+                                            adverts = emptyList(),
+                                            viewedAdverts = viewedAds,
+                                            points = points,
+                                            topBarHeight = topBarHeight,
+                                            onAdvertClick = { ad -> 
+                                                val activity = context as? android.app.Activity
+                                                if (activity != null) {
+                                                    advertsViewModel.adManager.loadRewardedAd(
+                                                        context = context,
+                                                        adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
+                                                        onAdLoaded = { adObject ->
+                                                            advertsViewModel.adManager.showRewardedAd(
+                                                                activity = activity,
+                                                                adObject = adObject,
+                                                                onRewardEarned = {
+                                                                    advertsViewModel.markAdvertAsViewed(ad.id)
+                                                                    Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
+                                                                },
+                                                                onAdClosed = { }
+                                                            )
+                                                        },
+                                                        onAdFailed = { error ->
+                                                            Toast.makeText(context, "Ad Failed: $error", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    )
+                                                }
+                                            },
+                                            onRefresh = { advertsViewModel.fetchAdverts() },
+                                            onResetAds = { advertsViewModel.resetAds() }
+                                        )
+                                    }
+                                ) {
+                                     RewardsScreen(
+                                        adverts = ads,
+                                        viewedAdverts = viewedAds,
+                                        points = points,
+                                        hasAvailableAds = hasRewardedAds,
+                                        topBarHeight = topBarHeight,
+                                        onAdvertClick = { ad -> 
+                                            val activity = context as? android.app.Activity
+                                            if (activity != null) {
+                                                advertsViewModel.showRewardedAd(
+                                                    activity = activity,
+                                                    adUnitId = "ca-app-pub-3940256099942544/5224354917",
+                                                    advertId = ad.id
+                                                )
+                                            }
+                                        },
+                                        onRefresh = { advertsViewModel.fetchAdverts() },
+                                        onResetAds = { advertsViewModel.resetAds() }
+                                    )
+                                }
+                            }
+                            
+                            // Banner Ad only on Rewards tab
+                            DynamicAdCard(
+                                adManager = adManager,
+                                adUnitId = "ca-app-pub-3940256099942544/6300978111", // AdMob Banner Test ID
+                                isBanner = true
+                            )
                         }
                     }
-                }
-                3 -> {
-                    val searchResults by searchViewModel.searchResults.collectAsState()
-                    if (isSearchActive && searchQuery.length > 0) {
-                        SearchResultsView(
-                            results = searchResults,
-                            type = SearchType.CHANNELS,
-                            onChatClick = {},
-                            onMessageClick = {},
-                            onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) },
-                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                        )
-                    } else {
-                        DataStateHandler(channelsState) { channels -> 
-                            ChannelList(channels) { 
-                                navController.navigate(Screen.Chat.createRoute(it.id, type = "channel"))
-                            } 
+                    2 -> {
+                        val searchResults by searchViewModel.searchResults.collectAsState()
+                        if (isSearchActive && searchQuery.length > 0) {
+                            SearchResultsView(
+                                results = searchResults,
+                                type = SearchType.JOBS,
+                                onChatClick = {},
+                                onMessageClick = {},
+                                onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
+                                onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                            )
+                        } else {
+                            DataStateHandler(jobsState) { jobs -> 
+                                JobList(jobs, topBarHeight = topBarHeight) { 
+                                    navController.navigate(Screen.JobDetail.createRoute(it.id)) 
+                                } 
+                            }
+                        }
+                    }
+                    3 -> {
+                        val searchResults by searchViewModel.searchResults.collectAsState()
+                        if (isSearchActive && searchQuery.length > 0) {
+                            SearchResultsView(
+                                results = searchResults,
+                                type = SearchType.CHANNELS,
+                                onChatClick = {},
+                                onMessageClick = {},
+                                onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) },
+                                onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                            )
+                        } else {
+                            DataStateHandler(channelsState) { channels -> 
+                                ChannelList(channels, topBarHeight = topBarHeight) { 
+                                    navController.navigate(Screen.Chat.createRoute(it.id, type = "channel"))
+                                } 
+                            }
                         }
                     }
                 }

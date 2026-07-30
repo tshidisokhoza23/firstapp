@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +47,7 @@ import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.MessageType
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.util.formatWhatsAppTime
+import kotlin.collections.*
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -96,17 +98,18 @@ fun MessageItem(
                     if (message.type == MessageType.JOB_POST) {
                     ApplicationCard(message)
                 } else {
-                    if (message.mediaUri != null && message.mediaUri.isNotBlank()) {
+                    val firstMedia = message.mediaUrls.firstOrNull() ?: ""
+                    if (firstMedia.isNotBlank()) {
                         when (message.type) {
                             MessageType.IMAGE -> {
                                 AsyncImage(
-                                    model = message.mediaUri,
+                                    model = firstMedia,
                                     contentDescription = null,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(200.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .clickable { onImageClick(message.mediaUri) },
+                                        .clickable { onImageClick(firstMedia) },
                                     contentScale = ContentScale.Crop
                                 )
                             }
@@ -117,7 +120,7 @@ fun MessageItem(
                                         .height(200.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(Color.Black.copy(alpha = 0.3f))
-                                        .clickable { onVideoClick(message.mediaUri) },
+                                        .clickable { onVideoClick(firstMedia) },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(Icons.Default.PlayCircle, null, tint = Color.White, modifier = Modifier.size(48.dp))
@@ -479,6 +482,67 @@ fun FullScreenImagePlayer(uri: String, onBack: () -> Unit) {
                 .background(Color.Black.copy(alpha = 0.5f), CircleShape)
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+        }
+    }
+}
+
+@Composable
+fun EncryptionInfoBubble() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            color = AppSecondary,
+            shape = RoundedCornerShape(10.dp),
+            shadowElevation = 0.5.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Default.Lock,
+                    null,
+                    tint = AppAccent,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Messages and calls are end-to-end encrypted. No one outside of this chat can read or listen to them. Tap to learn more.",
+                    color = AppTextPrimary,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ModernDateHeader(date: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            color = AppSecondary,
+            shape = RoundedCornerShape(8.dp),
+            shadowElevation = 1.dp
+        ) {
+            Text(
+                text = date,
+                color = AppTextSecondary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+            )
         }
     }
 }

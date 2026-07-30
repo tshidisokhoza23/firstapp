@@ -17,30 +17,27 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.ui.theme.NiceOrange
-import com.example.firstapp.common.ui.theme.FirstAppTheme
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.media.model.Advert
-import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
+import kotlin.collections.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RewardsScreen(
-    adManager: com.example.firstapp.common.data.ads.AdManager,
     adverts: List<Advert> = emptyList(),
     viewedAdverts: List<Advert> = emptyList(),
     points: Double = 0.0,
+    hasAvailableAds: Boolean = false,
+    topBarHeight: androidx.compose.ui.unit.Dp = 0.dp,
     onAdvertClick: (Advert) -> Unit = { _ -> },
     onRefresh: () -> Unit = {},
-    onResetAds: () -> Unit = {}
+    onResetAds: () -> Unit = {},
 ) {
-    val context = LocalContext.current
     var cooldownSeconds by remember { mutableIntStateOf(0) }
-    var isLoadingAd by remember { mutableStateOf(false) }
     
     LaunchedEffect(cooldownSeconds) {
         if (cooldownSeconds > 0) {
@@ -49,37 +46,6 @@ fun RewardsScreen(
         }
     }
 
-    val onAdFinished = { ad: Advert ->
-        if (!isLoadingAd) {
-            isLoadingAd = true
-            val activity = context as? android.app.Activity
-            if (activity != null) {
-                adManager.loadRewardedAd(
-                    context = context,
-                    adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
-                    onAdLoaded = { adObject ->
-                        isLoadingAd = false
-                        adManager.showRewardedAd(
-                            activity = activity,
-                            adObject = adObject,
-                            onRewardEarned = {
-                                onAdvertClick(ad)
-                                cooldownSeconds = 15
-                            },
-                            onAdClosed = { }
-                        )
-                    },
-                    onAdFailed = { 
-                        isLoadingAd = false
-                        android.widget.Toast.makeText(context, "Ad failed to load: $it", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
-        }
-    }
-
-    android.util.Log.d("RewardsScreen", "Adverts size: ${adverts.size}, viewed: ${viewedAdverts.size}")
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -87,6 +53,9 @@ fun RewardsScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            Spacer(modifier = Modifier.height(topBarHeight))
+        }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -104,7 +73,7 @@ fun RewardsScreen(
                         Icon(Icons.Default.Stars, null, tint = Color.Yellow, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = java.lang.String.format(java.util.Locale.US, "%.1f Points Available", points),
+                            text = String.format(Locale.US, "%.1f Points Available", points),
                             color = AppAccent,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -125,14 +94,6 @@ fun RewardsScreen(
             }
         }
 
-        if (isLoadingAd) {
-            item {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = AppAccent)
-                }
-            }
-        }
-
         if (adverts.isNotEmpty()) {
             item {
                 Text(
@@ -147,6 +108,8 @@ fun RewardsScreen(
             items(adverts) { ad ->
                 val index = adverts.indexOf(ad)
                 val isNext = index == 0
+                val isActuallyAvailable = (isNext && hasAvailableAds && (cooldownSeconds <= 0))
+                
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -154,7 +117,7 @@ fun RewardsScreen(
                         .alpha(if (isNext) 1f else 0.8f),
                     color = Color(0xFF1E1E1E),
                     shape = RoundedCornerShape(12.dp),
-                    onClick = { if (isNext && cooldownSeconds <= 0) onAdFinished(ad) }
+                    onClick = { if (isActuallyAvailable) onAdvertClick(ad) }
                 ) {
                     RewardItem(
                         icon = {
@@ -168,10 +131,14 @@ fun RewardsScreen(
                         },
                         title = if (ad.title.isNotEmpty()) ad.title else "Reward Ad #${index + 1}",
                         coins = "0.1",
-                        actionText = if (isNext) (if (cooldownSeconds > 0) "${cooldownSeconds}s" else "Watch") else "Locked",
+                        actionText = if (isNext) {
+                            if (!hasAvailableAds) "Loading..."
+                            else if (cooldownSeconds > 0) "${cooldownSeconds}s" 
+                            else "Watch"
+                        } else "Locked",
                         isCompleted = false,
-                        enabled = isNext && cooldownSeconds <= 0,
-                        onClick = { if (isNext) onAdFinished(ad) }
+                        enabled = isActuallyAvailable,
+                        onClick = { if (isActuallyAvailable) onAdvertClick(ad) }
                     )
                 }
             }
@@ -235,7 +202,7 @@ fun RewardItem(
     isCompleted: Boolean = false,
     actionText: String? = null,
     enabled: Boolean = true,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -283,7 +250,8 @@ fun RewardItem(
             Button(
                 onClick = onClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (enabled) Color(0xFFF50057) else Color.Gray
+                    containerColor = if (enabled) Color(0xFFF50057) else Color.Gray,
+                    disabledContainerColor = Color.Gray
                 ),
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(horizontal = 24.dp),

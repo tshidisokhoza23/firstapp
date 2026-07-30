@@ -90,6 +90,7 @@ class CallWebSocketClient @Inject constructor(
     private val connectMutex = Mutex()
     private val isReconnecting = AtomicBoolean(false)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val pendingMessages = java.util.concurrent.LinkedBlockingQueue<OutgoingCallEvent>()
 
     private var manualClose = false
 
@@ -175,6 +176,12 @@ class CallWebSocketClient @Inject constructor(
 
     private fun notifyOpen() {
         Log.d("CallWebSocket", "WebSocket connection opened")
+        while (pendingMessages.peek() != null) {
+            val event = pendingMessages.poll()
+            if (event != null) {
+                webSocket?.send(gson.toJson(event))
+            }
+        }
         for (l in listeners) {
             l.onOpen()
         }
@@ -239,7 +246,14 @@ class CallWebSocketClient @Inject constructor(
     }
 
     private fun send(event: OutgoingCallEvent) {
-        webSocket?.send(gson.toJson(event))
+        val ws = webSocket
+        if (ws != null) {
+            ws.send(gson.toJson(event))
+        } else {
+            Log.d("CallWebSocket", "WebSocket not connected, queuing message: ${event.type}")
+            pendingMessages.offer(event)
+            scope.launch { ensureConnected() }
+        }
     }
 
     fun close() {

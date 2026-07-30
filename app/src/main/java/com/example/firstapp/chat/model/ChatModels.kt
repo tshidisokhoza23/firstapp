@@ -2,6 +2,8 @@ package com.example.firstapp.chat.model
 
 import androidx.compose.ui.graphics.Color
 import com.example.firstapp.common.model.ConversationType
+import kotlin.collections.emptyMap
+import kotlin.collections.emptyList
 
 enum class MessageStatus { PENDING, SENT, DELIVERED, READ, FAILED }
 enum class MessageType { TEXT, IMAGE, VIDEO, AUDIO_MESSAGE, LOCATION, CONTACT, DOCUMENT, SHORT_SHARE, JOB_POST, VOICE_CALL, APPLICATION_LINK }
@@ -27,7 +29,7 @@ data class Message(
     val isFromMe: Boolean = false,
     val status: MessageStatus = MessageStatus.SENT,
     val type: MessageType = MessageType.TEXT,
-    val mediaUri: String? = null,
+    val mediaUrls: List<String> = emptyList(),
     val fileName: String? = null,
     val fileSize: String? = null,
     val duration: String? = null,

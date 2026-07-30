@@ -6,13 +6,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.firstapp.media.model.Channel
 import com.example.firstapp.media.ui.components.ChannelItem
 
 @Composable
-fun ChannelList(channels: List<Channel>, onChannelClick: (Channel) -> Unit) {
+fun ChannelList(channels: List<Channel>, topBarHeight: Dp = 0.dp, onChannelClick: (Channel) -> Unit) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 180.dp)) {
+        item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(channels, key = { it.id }) { ch -> 
             ChannelItem(channel = ch, onClick = { onChannelClick(ch) })
             HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))

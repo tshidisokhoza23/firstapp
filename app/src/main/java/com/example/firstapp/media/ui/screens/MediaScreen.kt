@@ -387,9 +387,10 @@ fun MediaScreen(
                                 onVotePoll = onVotePoll,
                                 onRefresh = onRefresh,
                                 onShortClick = { short ->
-                    onShortClick(short)
-                },
-                                onMediaClick = onMediaClick
+                                    onShortClick(short)
+                                },
+                                onMediaClick = onMediaClick,
+                                onFollowUser = onFollowUser
                             )
                         }
                     }
@@ -478,7 +479,8 @@ fun MainFeedSection(
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> },
-    onShareClick: (Post) -> Unit = {}
+    onShareClick: (Post) -> Unit = {},
+    onFollowUser: (String) -> Unit = {}
 ) {
     when {
         posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
@@ -543,7 +545,8 @@ fun MainFeedSection(
                         onPlaySong = onPlaySong,
                         onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
                         onMediaClick = onMediaClick,
-                        onShareClick = onShareClick
+                        onShareClick = onShareClick,
+                        onFollowClick = onFollowUser
                     )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
 
@@ -614,7 +617,8 @@ fun PostDetailSection(
     onProfileClick: (User) -> Unit,
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onMediaClick: (String, String) -> Unit = { _, _ -> },
-    onShareClick: (Post) -> Unit = {}
+    onShareClick: (Post) -> Unit = {},
+    onFollowUser: (String) -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -679,13 +683,21 @@ fun PostDetailSection(
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        PostSideBar(
-                            avatarUrl = post.authorAvatarUrl,
-                            avatarColor = post.authorAvatarColor,
-                            showThreadLine = post.replies.size > 0,
-                            isLastInThread = true,
-                            onProfileClick = { onProfileClick(post.authorToUser()) }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(post.authorAvatarColor)
+                                .clickable { onProfileClick(post.authorToUser()) }
+                        ) {
+                            AsyncImage(
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                error = androidx.compose.ui.graphics.painter.ColorPainter(post.authorAvatarColor)
+                            )
+                        }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(
                             modifier = Modifier

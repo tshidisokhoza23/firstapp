@@ -118,6 +118,24 @@ class ChatWebSocketClient @Inject constructor(
         webSocket?.send(gson.toJson(frame))
     }
 
+    fun sendDeliveryAck(conversationId: String, messageId: String) {
+        val payload = HashMap<String, Any>()
+        payload.put("conversation_id", conversationId)
+        payload.put("message_id", messageId)
+        
+        val frame = WSFrame(op = "DELIVERY_ACK", payload = gson.toJsonTree(payload))
+        webSocket?.send(gson.toJson(frame))
+    }
+
+    fun sendReadAck(conversationId: String, messageId: String) {
+        val payload = HashMap<String, Any>()
+        payload.put("conversation_id", conversationId)
+        payload.put("message_id", messageId)
+        
+        val frame = WSFrame(op = "READ_ACK", payload = gson.toJsonTree(payload))
+        webSocket?.send(gson.toJson(frame))
+    }
+
     fun disconnect() {
         webSocket?.close(1000, "Goodbye")
         webSocket = null

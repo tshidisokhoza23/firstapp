@@ -10,6 +10,7 @@ import com.example.firstapp.common.data.local.entity.ContactEntity
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.common.util.CryptoUtils
+import kotlin.collections.map
 import android.util.Base64
 import android.util.Log
 import java.security.KeyFactory
@@ -113,7 +114,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
             "job_post" -> MessageType.JOB_POST
             else -> MessageType.TEXT
         },
-        mediaUri = formatUrl(apiMessage.media_url),
+        mediaUrls = apiMessage.media_urls.map { formatUrl(it) },
         isRead = false,
         isDelivered = true,
         status = MessageStatus.SENT,
@@ -126,7 +127,10 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         contactName = apiMessage.contact_name,
         contactPhone = apiMessage.contact_phone,
         latitude = apiMessage.latitude,
-        longitude = apiMessage.longitude
+        longitude = apiMessage.longitude,
+        replyToId = apiMessage.reply_to_id,
+        replyToText = apiMessage.reply_to_text,
+        replyToSenderName = apiMessage.reply_to_sender_name
     )
 }
 
@@ -205,7 +209,7 @@ fun Message.toEntity(chatId: String) = MessageEntity(
     timestamp = timestamp,
     isFromMe = isFromMe,
     type = type,
-    mediaUri = mediaUri,
+    mediaUrls = mediaUrls,
     isRead = isRead,
     isDelivered = isDelivered,
     replyToId = replyToId,
@@ -233,7 +237,7 @@ fun MessageEntity.toModel() = Message(
     timestamp = timestamp,
     isFromMe = isFromMe,
     type = type,
-    mediaUri = mediaUri,
+    mediaUrls = mediaUrls,
     isRead = isRead,
     isDelivered = isDelivered,
     replyToId = replyToId,

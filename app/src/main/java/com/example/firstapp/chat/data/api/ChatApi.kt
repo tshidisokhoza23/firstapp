@@ -3,6 +3,7 @@ package com.example.firstapp.chat.data.api
 import com.example.firstapp.common.data.api.StatusResponse
 import retrofit2.Response
 import retrofit2.http.*
+import kotlin.collections.emptyList
 
 interface ChatApi {
     @GET("chats")
@@ -30,7 +31,20 @@ interface ChatApi {
 
     @POST("chats/{conversationID}/read")
     suspend fun markAsRead(@Path("conversationID") conversationID: String): Response<StatusResponse>
+
+    @GET("calls/ice_servers")
+    suspend fun getICEServers(): Response<IceServersResponse>
 }
+
+data class IceServerConfig(
+    val urls: List<String>,
+    val username: String? = null,
+    val credential: String? = null
+)
+
+data class IceServersResponse(
+    val ice_servers: List<IceServerConfig>
+)
 
 data class ChatSummary(
     val conversation_id: String,
@@ -56,7 +70,7 @@ data class ApiMessage(
     val receiver_id: String? = null,
     val message_text: String,
     val media_type: String,
-    val media_url: String?,
+    val media_urls: List<String>,
     val duration: String? = null,
     val file_name: String? = null,
     val file_size: String? = null,
@@ -67,7 +81,10 @@ data class ApiMessage(
     val created_at: Long,
     val direction: String,
     val reactions: Map<String, Int>?,
-    val mention_user_ids: List<String>?
+    val mention_user_ids: List<String>?,
+    val reply_to_id: String? = null,
+    val reply_to_text: String? = null,
+    val reply_to_sender_name: String? = null
 )
 
 data class MessagesResponse(val messages: List<ApiMessage>, val page: Int)
@@ -81,7 +98,7 @@ data class SendMessageRequest(
     val client_uuid: String,
     val message_text: String,
     val media_type: String = "TEXT",
-    val media_url: String? = null,
+    val media_urls: List<String> = emptyList(),
     val duration: String? = null,
     val file_name: String? = null,
     val file_size: String? = null,
@@ -90,7 +107,8 @@ data class SendMessageRequest(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val mention_user_ids: List<String>? = null,
-    val receiver_id: String? = null
+    val receiver_id: String? = null,
+    val reply_to_id: String? = null
 )
 
 data class GroupInfoResponse(

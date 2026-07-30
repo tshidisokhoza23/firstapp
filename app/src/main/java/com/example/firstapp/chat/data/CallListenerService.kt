@@ -14,6 +14,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
+import com.example.firstapp.chat.data.api.IceServerConfig
 import com.example.firstapp.MainActivity
 import com.example.firstapp.R
 import com.example.firstapp.common.domain.auth.SessionManager
@@ -35,6 +36,7 @@ class CallListenerService : Service() {
     @Inject lateinit var callTonePlayer: CallTonePlayer
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var callWebSocketClient: CallWebSocketClient
+    @Inject lateinit var repository: com.example.firstapp.domain.repository.ChatRepository
 
     private val activeIncomingNotifications = ConcurrentHashMap<String, Int>()
     private val serviceJob = SupervisorJob()
@@ -79,6 +81,23 @@ class CallListenerService : Service() {
                             )
                             return
                         }
+
+                        // Fetch ICE servers for professional TURN support
+                        serviceScope.launch {
+                            val iceResource = repository.getICEServers()
+                            if (iceResource is com.example.firstapp.common.util.Resource.Success) {
+                                val servers = iceResource.data?.map { config: IceServerConfig ->
+                                    org.webrtc.PeerConnection.IceServer.builder(config.urls)
+                                        .setUsername(config.username)
+                                        .setPassword(config.credential)
+                                        .createIceServer()
+                                }
+                                if (servers != null) {
+                                    webRtcCallManager.setIceServers(servers)
+                                }
+                            }
+                        }
+
                         GlobalCallState.onCallInvite(event)
                         showIncomingCallNotification(event)
                         callWebSocketClient.ringing(event.senderId, event.sessionId, event.callType)

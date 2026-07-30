@@ -24,6 +24,8 @@ import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.MessageType
 import com.example.firstapp.common.ui.theme.*
+import kotlin.collections.*
+import kotlin.text.isNotBlank
 
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
@@ -80,19 +82,20 @@ fun SharedMediaScreen(
                 verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
                 items(mediaMessages) { message ->
+                    val firstMedia = message.mediaUrls.firstOrNull() ?: ""
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
                             .clickable { 
                                 if (message.type == MessageType.VIDEO) {
-                                    fullScreenVideoUri = message.mediaUri
+                                    fullScreenVideoUri = firstMedia
                                 } else {
-                                    fullScreenImageUri = message.mediaUri
+                                    fullScreenImageUri = firstMedia
                                 }
                             }
                     ) {
                         AsyncImage(
-                            model = message.mediaUri ?: message.content,
+                            model = if (firstMedia.isNotBlank()) firstMedia else message.content,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop

@@ -222,10 +222,10 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun sendMessage(
-        chatId: String, body: String, messageType: String, mediaUrl: String?,
+        chatId: String, body: String, messageType: String, mediaUrls: List<String>,
         duration: String?, fileName: String?, fileSize: String?,
         contactName: String?, contactPhone: String?, latitude: Double?, longitude: Double?,
-        replyToId: String?
+        replyToId: String?, replyToText: String?, replyToSenderName: String?
     ): Flow<Resource<Message>> = flow {
         val clientUuid = UUID.randomUUID().toString()
         dedupManager.trackOutgoing(clientUuid, chatId)
@@ -258,7 +258,7 @@ class ChatRepositoryImpl @Inject constructor(
             status = MessageStatus.PENDING,
             clientId = clientUuid,
             type = type,
-            mediaUri = formatUrl(mediaUrl),
+            mediaUrls = mediaUrls.map { formatUrl(it) },
             duration = duration,
             fileName = fileName,
             fileSize = fileSize,
@@ -266,7 +266,9 @@ class ChatRepositoryImpl @Inject constructor(
             contactPhone = contactPhone,
             latitude = latitude,
             longitude = longitude,
-            replyToId = replyToId
+            replyToId = replyToId,
+            replyToText = replyToText,
+            replyToSenderName = replyToSenderName
         )
         chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
         chatDao.updateLastMessage(chatId, body, pendingMsg.timestamp, true, false)
@@ -280,11 +282,12 @@ class ChatRepositoryImpl @Inject constructor(
                     client_uuid = clientUuid,
                     message_text = body,
                     media_type = messageType.uppercase(java.util.Locale.getDefault()),
-                    media_url = mediaUrl,
+                    media_urls = mediaUrls,
                     duration = duration,
                     file_name = fileName,
                     file_size = fileSize,
-                    receiver_id = receiverId
+                    receiver_id = receiverId,
+                    reply_to_id = replyToId
                 )
             )
             if (response.isSuccessful && response.body() != null) {
@@ -297,7 +300,10 @@ class ChatRepositoryImpl @Inject constructor(
                     latitude = pendingMsg.latitude,
                     longitude = pendingMsg.longitude,
                     contactName = pendingMsg.contactName,
-                    contactPhone = pendingMsg.contactPhone
+                    contactPhone = pendingMsg.contactPhone,
+                    replyToId = pendingMsg.replyToId,
+                    replyToText = pendingMsg.replyToText,
+                    replyToSenderName = pendingMsg.replyToSenderName
                 )
                 dedupManager.confirmOutgoing(clientUuid)
                 chatDao.deleteMessage(clientUuid)
@@ -424,7 +430,11 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateMessageStatus(messageId: String, status: MessageStatus) {
-        if (status == MessageStatus.DELIVERED) chatDao.markAsDelivered(messageId)
+        when (status) {
+            MessageStatus.DELIVERED -> chatDao.markAsDelivered(messageId)
+            MessageStatus.READ -> chatDao.markAsRead(messageId)
+            else -> {}
+        }
     }
 
     override suspend fun markChatAsReadLocal(chatId: String) {
@@ -593,6 +603,19 @@ class ChatRepositoryImpl @Inject constructor(
         
         if (updated.isNotEmpty()) {
             chatDao.insertChats(updated)
+        }
+    }
+
+    override suspend fun getICEServers(): Resource<List<com.example.firstapp.chat.data.api.IceServerConfig>> {
+        return try {
+            val response = chatApi.getICEServers()
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(response.body()!!.ice_servers)
+            } else {
+                Resource.Error("Failed to fetch ICE servers")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Network error")
         }
     }
     

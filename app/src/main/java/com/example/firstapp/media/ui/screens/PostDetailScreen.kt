@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.ui.theme.*
@@ -118,13 +120,21 @@ fun PostDetailScreen(
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        PostSideBar(
-                            avatarUrl = post.authorAvatarUrl,
-                            avatarColor = post.authorAvatarColor,
-                            showThreadLine = post.replies.size > 0,
-                            isLastInThread = true,
-                            onProfileClick = { onProfileClick(post.authorToUser()) }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(post.authorAvatarColor)
+                                .clickable { onProfileClick(post.authorToUser()) }
+                        ) {
+                            AsyncImage(
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                error = androidx.compose.ui.graphics.painter.ColorPainter(post.authorAvatarColor)
+                            )
+                        }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(
                             modifier = Modifier

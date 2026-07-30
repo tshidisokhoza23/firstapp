@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
+import kotlin.collections.emptyList
+import kotlin.collections.listOf
+import kotlin.collections.firstOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -74,10 +77,10 @@ class MediaChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(receiverId: String, content: String, type: String = "text", mediaUrl: String? = null) {
+    fun sendMessage(receiverId: String, content: String, type: String = "text", mediaUrls: List<String> = emptyList()) {
         val chatId = activeChatId ?: return
         viewModelScope.launch {
-            repository.sendMessage(chatId, content, type, mediaUrl).collect { res ->
+            repository.sendMessage(chatId, content, type, mediaUrls).collect { res ->
                 if (res is Resource.Success && res.data != null) {
                     fetchChatMessages(chatId)
                 }
@@ -91,7 +94,7 @@ class MediaChatViewModel @Inject constructor(
             _isLoading.value = true
             accountRepository.uploadFile(file, "media_chat").collect { res ->
                 if (res is Resource.Success && res.data != null) {
-                    sendMessage(receiverId, "", type, res.data.url)
+                    sendMessage(receiverId, "", type, listOf(res.data.url))
                     file.delete()
                 } else if (res is Resource.Error) {
                     _error.value = res.message
@@ -109,7 +112,7 @@ class MediaChatViewModel @Inject constructor(
             content = content,
             timestamp = timestamp,
             isRead = isRead,
-            mediaUrl = mediaUri,
+            mediaUrl = mediaUrls.firstOrNull(),
             type = if (type == MessageType.IMAGE) "image" else if (type == MessageType.VIDEO) "video" else "text"
         )
     }

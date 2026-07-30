@@ -1,0 +1,532 @@
+kotlin version: 2.2.10
+error message: org.jetbrains.kotlin.codegen.CompilationException: Back-end (JVM) Internal error: Couldn't transform method node:
+SharedMediaScreen$lambda$11$lambda$9 (Lcom/example/firstapp/chat/model/ChatMessage;Landroidx/compose/runtime/Composer;I)Lkotlin/Unit;:
+  @Landroidx/compose/runtime/Composable;() // invisible
+  @Landroidx/compose/runtime/ComposableTarget;(applier="androidx.compose.ui.UiComposable") // invisible
+    // annotable parameter count: 3 (visible)
+    // annotable parameter count: 3 (invisible)
+   L0
+    ALOAD 1
+    LDC "C54@2066L222:SharedMediaScreen.kt#njqbab"
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformation (Landroidx/compose/runtime/Composer;Ljava/lang/String;)V
+    ILOAD 2
+    ICONST_3
+    IAND
+    ICONST_2
+    IF_ICMPNE L1
+    ALOAD 1
+    INVOKEINTERFACE androidx/compose/runtime/Composer.getSkipping ()Z (itf)
+    IFNE L2
+   L1
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.isTraceInProgress ()Z
+    IFEQ L3
+    LDC 1274058957
+    ILOAD 2
+    ICONST_M1
+    LDC "com.example.firstapp.media.ui.screens.SharedMediaScreen.<anonymous>.<anonymous> (SharedMediaScreen.kt:54)"
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.traceEventStart (IIILjava/lang/String;)V
+   L3
+    ALOAD 1
+    ASTORE 6
+    ICONST_0
+    ISTORE 7
+   L4
+    LINENUMBER 55 L4
+    NOP
+   L5
+    ICONST_0
+    ISTORE 8
+   L6
+    ALOAD 6
+    LDC -483455358
+    LDC "CC(Column)P(2,3,1)86@4330L61,87@4396L133:Column.kt#2w3rfo"
+   L7
+    LINENUMBER 160 L7
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerStart (Landroidx/compose/runtime/Composer;ILjava/lang/String;)V
+   L8
+    LINENUMBER 161 L8
+    GETSTATIC androidx/compose/ui/Modifier.Companion : Landroidx/compose/ui/Modifier$Companion;
+    CHECKCAST androidx/compose/ui/Modifier
+    ASTORE 3
+   L9
+    LINENUMBER 162 L9
+    GETSTATIC androidx/compose/foundation/layout/Arrangement.INSTANCE : Landroidx/compose/foundation/layout/Arrangement;
+    INVOKEVIRTUAL androidx/compose/foundation/layout/Arrangement.getTop ()Landroidx/compose/foundation/layout/Arrangement$Vertical;
+    ASTORE 4
+   L10
+    LINENUMBER 163 L10
+    GETSTATIC androidx/compose/ui/Alignment.Companion : Landroidx/compose/ui/Alignment$Companion;
+    INVOKEVIRTUAL androidx/compose/ui/Alignment$Companion.getStart ()Landroidx/compose/ui/Alignment$Horizontal;
+    ASTORE 5
+   L11
+    LINENUMBER 166 L11
+    ALOAD 4
+    ALOAD 5
+    ALOAD 6
+    BIPUSH 14
+    ILOAD 7
+    ICONST_3
+    ISHR
+    IAND
+    BIPUSH 112
+    ILOAD 7
+    ICONST_3
+    ISHR
+    IAND
+    IOR
+    INVOKESTATIC androidx/compose/foundation/layout/ColumnKt.columnMeasurePolicy (Landroidx/compose/foundation/layout/Arrangement$Vertical;Landroidx/compose/ui/Alignment$Horizontal;Landroidx/compose/runtime/Composer;I)Landroidx/compose/ui/layout/MeasurePolicy;
+    ASTORE 9
+   L12
+    BIPUSH 112
+    ILOAD 7
+    ICONST_3
+    ISHL
+    IAND
+    ISTORE 10
+   L13
+    LINENUMBER 167 L13
+    NOP
+   L14
+    ICONST_0
+    ISTORE 11
+   L15
+    ALOAD 6
+    LDC -1323940314
+    LDC "CC(Layout)P(!1,2)79@3208L23,82@3359L411:Layout.kt#80mrfh"
+   L16
+    LINENUMBER 168 L16
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerStart (Landroidx/compose/runtime/Composer;ILjava/lang/String;)V
+    ALOAD 6
+    ICONST_0
+   L17
+    LINENUMBER 169 L17
+    INVOKESTATIC androidx/compose/runtime/ComposablesKt.getCurrentCompositeKeyHash (Landroidx/compose/runtime/Composer;I)I
+    ISTORE 12
+   L18
+    ALOAD 6
+   L19
+    LINENUMBER 170 L19
+    INVOKEINTERFACE androidx/compose/runtime/Composer.getCurrentCompositionLocalMap ()Landroidx/compose/runtime/CompositionLocalMap; (itf)
+    ASTORE 13
+   L20
+    ALOAD 6
+   L21
+    LINENUMBER 171 L21
+    ALOAD 3
+    INVOKESTATIC androidx/compose/ui/ComposedModifierKt.materializeModifier (Landroidx/compose/runtime/Composer;Landroidx/compose/ui/Modifier;)Landroidx/compose/ui/Modifier;
+    ASTORE 14
+   L22
+    LINENUMBER 173 L22
+    GETSTATIC androidx/compose/ui/node/ComposeUiNode.Companion : Landroidx/compose/ui/node/ComposeUiNode$Companion;
+    INVOKEVIRTUAL androidx/compose/ui/node/ComposeUiNode$Companion.getConstructor ()Lkotlin/jvm/functions/Function0;
+    ASTORE 15
+    BIPUSH 6
+    SIPUSH 896
+    ILOAD 10
+    BIPUSH 6
+    ISHL
+    IAND
+    IOR
+    ISTORE 16
+   L23
+    LINENUMBER 172 L23
+    NOP
+   L24
+    ICONST_0
+    ISTORE 17
+   L25
+    ALOAD 6
+    LDC -692256719
+    LDC "CC(ReusableComposeNode)P(1,2)376@14062L9:Composables.kt#9igjgp"
+   L26
+    LINENUMBER 174 L26
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerStart (Landroidx/compose/runtime/Composer;ILjava/lang/String;)V
+   L27
+    LINENUMBER 175 L27
+    ALOAD 6
+    INVOKEINTERFACE androidx/compose/runtime/Composer.getApplier ()Landroidx/compose/runtime/Applier; (itf)
+    INSTANCEOF androidx/compose/runtime/Applier
+    IFNE L28
+    INVOKESTATIC androidx/compose/runtime/ComposablesKt.invalidApplier ()V
+   L28
+    ALOAD 6
+   L29
+    LINENUMBER 176 L29
+    INVOKEINTERFACE androidx/compose/runtime/Composer.startReusableNode ()V (itf)
+   L30
+    LINENUMBER 177 L30
+    ALOAD 6
+    INVOKEINTERFACE androidx/compose/runtime/Composer.getInserting ()Z (itf)
+    IFEQ L31
+    ALOAD 6
+   L32
+    LINENUMBER 178 L32
+    ALOAD 15
+    INVOKEINTERFACE androidx/compose/runtime/Composer.createNode (Lkotlin/jvm/functions/Function0;)V (itf)
+    GOTO L33
+   L31
+    ALOAD 6
+   L34
+    LINENUMBER 180 L34
+    INVOKEINTERFACE androidx/compose/runtime/Composer.useNode ()V (itf)
+   L33
+    LINENUMBER 182 L33
+    ALOAD 6
+    INVOKESTATIC androidx/compose/runtime/Updater.constructor-impl (Landroidx/compose/runtime/Composer;)Landroidx/compose/runtime/Composer;
+    ASTORE 18
+   L35
+    ICONST_0
+    ISTORE 19
+   L36
+    LINENUMBER 183 L36
+    ALOAD 18
+    ALOAD 9
+    GETSTATIC androidx/compose/ui/node/ComposeUiNode.Companion : Landroidx/compose/ui/node/ComposeUiNode$Companion;
+    INVOKEVIRTUAL androidx/compose/ui/node/ComposeUiNode$Companion.getSetMeasurePolicy ()Lkotlin/jvm/functions/Function2;
+    INVOKESTATIC androidx/compose/runtime/Updater.set-impl (Landroidx/compose/runtime/Composer;Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)V
+   L37
+    LINENUMBER 184 L37
+    ALOAD 18
+    ALOAD 13
+    GETSTATIC androidx/compose/ui/node/ComposeUiNode.Companion : Landroidx/compose/ui/node/ComposeUiNode$Companion;
+    INVOKEVIRTUAL androidx/compose/ui/node/ComposeUiNode$Companion.getSetResolvedCompositionLocals ()Lkotlin/jvm/functions/Function2;
+    INVOKESTATIC androidx/compose/runtime/Updater.set-impl (Landroidx/compose/runtime/Composer;Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)V
+   L38
+    LINENUMBER 186 L38
+    GETSTATIC androidx/compose/ui/node/ComposeUiNode.Companion : Landroidx/compose/ui/node/ComposeUiNode$Companion;
+    INVOKEVIRTUAL androidx/compose/ui/node/ComposeUiNode$Companion.getSetCompositeKeyHash ()Lkotlin/jvm/functions/Function2;
+    ASTORE 20
+   L39
+    ICONST_0
+    ISTORE 21
+   L40
+    LINENUMBER 187 L40
+    ALOAD 18
+    ASTORE 22
+   L41
+    ICONST_0
+    ISTORE 23
+   L42
+    LINENUMBER 188 L42
+    ALOAD 22
+    INVOKEINTERFACE androidx/compose/runtime/Composer.getInserting ()Z (itf)
+    IFNE L43
+    ALOAD 22
+    INVOKEINTERFACE androidx/compose/runtime/Composer.rememberedValue ()Ljava/lang/Object; (itf)
+    ILOAD 12
+    INVOKESTATIC java/lang/Integer.valueOf (I)Ljava/lang/Integer;
+    INVOKESTATIC kotlin/jvm/internal/Intrinsics.areEqual (Ljava/lang/Object;Ljava/lang/Object;)Z
+    IFNE L44
+   L43
+    LINENUMBER 189 L43
+    ALOAD 22
+    ILOAD 12
+    INVOKESTATIC java/lang/Integer.valueOf (I)Ljava/lang/Integer;
+    INVOKEINTERFACE androidx/compose/runtime/Composer.updateRememberedValue (Ljava/lang/Object;)V (itf)
+   L45
+    LINENUMBER 190 L45
+    ALOAD 18
+    ILOAD 12
+    INVOKESTATIC java/lang/Integer.valueOf (I)Ljava/lang/Integer;
+    ALOAD 20
+    INVOKEINTERFACE androidx/compose/runtime/Composer.apply (Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)V (itf)
+   L44
+    LINENUMBER 192 L44
+    NOP
+   L46
+    LINENUMBER 187 L46
+    NOP
+   L47
+    LINENUMBER 192 L47
+    NOP
+   L48
+    LINENUMBER 193 L48
+    ALOAD 18
+    ALOAD 14
+    GETSTATIC androidx/compose/ui/node/ComposeUiNode.Companion : Landroidx/compose/ui/node/ComposeUiNode$Companion;
+    INVOKEVIRTUAL androidx/compose/ui/node/ComposeUiNode$Companion.getSetModifier ()Lkotlin/jvm/functions/Function2;
+    INVOKESTATIC androidx/compose/runtime/Updater.set-impl (Landroidx/compose/runtime/Composer;Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)V
+   L49
+    LINENUMBER 194 L49
+    NOP
+   L50
+    LINENUMBER 182 L50
+    NOP
+   L51
+    LINENUMBER 195 L51
+    ALOAD 6
+    BIPUSH 14
+    ILOAD 16
+    BIPUSH 6
+    ISHR
+    IAND
+    ISTORE 24
+    ASTORE 25
+   L52
+    ICONST_0
+    ISTORE 26
+   L53
+    ALOAD 25
+    LDC -384784025
+    LDC "C88@4444L9:Column.kt#2w3rfo"
+   L54
+    LINENUMBER 196 L54
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerStart (Landroidx/compose/runtime/Composer;ILjava/lang/String;)V
+    GETSTATIC androidx/compose/foundation/layout/ColumnScopeInstance.INSTANCE : Landroidx/compose/foundation/layout/ColumnScopeInstance;
+    ALOAD 25
+    BIPUSH 6
+    BIPUSH 112
+    ILOAD 7
+    BIPUSH 6
+    ISHR
+    IAND
+    IOR
+    INVOKESTATIC java/lang/Integer.valueOf (I)Ljava/lang/Integer;
+    CHECKCAST java/lang/Number
+    INVOKEVIRTUAL java/lang/Number.intValue ()I
+    ISTORE 27
+    ASTORE 28
+    CHECKCAST androidx/compose/foundation/layout/ColumnScope
+    ASTORE 29
+   L55
+    ICONST_0
+    ISTORE 30
+   L56
+    ALOAD 28
+    LDC -1070046075
+    LDC "C55@2099L69,56@2193L73:SharedMediaScreen.kt#njqbab"
+   L57
+    LINENUMBER 56 L57
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerStart (Landroidx/compose/runtime/Composer;ILjava/lang/String;)V
+    ALOAD 0
+    INVOKEVIRTUAL com/example/firstapp/chat/model/ChatMessage.getSenderName ()Ljava/lang/String;
+    ACONST_NULL
+    LCONST_0
+    BIPUSH 18
+    INVOKESTATIC androidx/compose/ui/unit/TextUnitKt.getSp (I)J
+    ACONST_NULL
+    GETSTATIC androidx/compose/ui/text/font/FontWeight.Companion : Landroidx/compose/ui/text/font/FontWeight$Companion;
+    INVOKEVIRTUAL androidx/compose/ui/text/font/FontWeight$Companion.getBold ()Landroidx/compose/ui/text/font/FontWeight;
+    ACONST_NULL
+    LCONST_0
+    ACONST_NULL
+    ACONST_NULL
+    LCONST_0
+    ICONST_0
+    ICONST_0
+    ICONST_0
+    ICONST_0
+    ACONST_NULL
+    ACONST_NULL
+    ALOAD 28
+    LDC 199680
+    ICONST_0
+    LDC 131030
+    INVOKESTATIC androidx/compose/material3/TextKt.Text--4IGK_g (Ljava/lang/String;Landroidx/compose/ui/Modifier;JJLandroidx/compose/ui/text/font/FontStyle;Landroidx/compose/ui/text/font/FontWeight;Landroidx/compose/ui/text/font/FontFamily;JLandroidx/compose/ui/text/style/TextDecoration;Landroidx/compose/ui/text/style/TextAlign;JIZIILkotlin/jvm/functions/Function1;Landroidx/compose/ui/text/TextStyle;Landroidx/compose/runtime/Composer;III)V
+   L58
+    LINENUMBER 57 L58
+    BIPUSH 12
+    INVOKESTATIC androidx/compose/ui/unit/TextUnitKt.getSp (I)J
+    LSTORE 31
+    INVOKESTATIC com/example/firstapp/common/ui/theme/ColorKt.getAppTextSecondary ()J
+    LSTORE 33
+    LDC "Media, links and docs"
+    ACONST_NULL
+    LLOAD 33
+    LLOAD 31
+    ACONST_NULL
+    ACONST_NULL
+    ACONST_NULL
+    LCONST_0
+    ACONST_NULL
+    ACONST_NULL
+    LCONST_0
+    ICONST_0
+    ICONST_0
+    ICONST_0
+    ICONST_0
+    ACONST_NULL
+    ACONST_NULL
+    ALOAD 28
+    SIPUSH 3462
+    ICONST_0
+    LDC 131058
+    INVOKESTATIC androidx/compose/material3/TextKt.Text--4IGK_g (Ljava/lang/String;Landroidx/compose/ui/Modifier;JJLandroidx/compose/ui/text/font/FontStyle;Landroidx/compose/ui/text/font/FontWeight;Landroidx/compose/ui/text/font/FontFamily;JLandroidx/compose/ui/text/style/TextDecoration;Landroidx/compose/ui/text/style/TextAlign;JIZIILkotlin/jvm/functions/Function1;Landroidx/compose/ui/text/TextStyle;Landroidx/compose/runtime/Composer;III)V
+    ALOAD 28
+   L59
+    LINENUMBER 56 L59
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerEnd (Landroidx/compose/runtime/Composer;)V
+   L60
+    LINENUMBER 58 L60
+    NOP
+    GOTO L61
+   L61
+    GETSTATIC kotlin/Unit.INSTANCE : Lkotlin/Unit;
+   L62
+    LINENUMBER 196 L62
+    POP
+    ALOAD 25
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerEnd (Landroidx/compose/runtime/Composer;)V
+   L63
+    LINENUMBER 195 L63
+    ALOAD 6
+   L64
+    LINENUMBER 197 L64
+    INVOKEINTERFACE androidx/compose/runtime/Composer.endNode ()V (itf)
+    ALOAD 6
+   L65
+    LINENUMBER 174 L65
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerEnd (Landroidx/compose/runtime/Composer;)V
+   L66
+    LINENUMBER 198 L66
+    NOP
+   L67
+    ALOAD 6
+   L68
+    LINENUMBER 168 L68
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerEnd (Landroidx/compose/runtime/Composer;)V
+   L69
+    LINENUMBER 199 L69
+    NOP
+   L70
+    ALOAD 6
+   L71
+    LINENUMBER 160 L71
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.sourceInformationMarkerEnd (Landroidx/compose/runtime/Composer;)V
+   L72
+    LINENUMBER 200 L72
+    NOP
+    GOTO L73
+   L73
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.isTraceInProgress ()Z
+    IFEQ L74
+    INVOKESTATIC androidx/compose/runtime/ComposerKt.traceEventEnd ()V
+   L74
+    GOTO L75
+   L2
+    LINENUMBER 54 L2
+    ALOAD 1
+    INVOKEINTERFACE androidx/compose/runtime/Composer.skipToGroupEnd ()V (itf)
+   L75
+    LINENUMBER 59 L75
+    NOP
+    GETSTATIC kotlin/Unit.INSTANCE : Lkotlin/Unit;
+    ARETURN
+   L76
+    LOCALVARIABLE $i$a$-Column-SharedMediaScreenKt$SharedMediaScreen$2$1$1\8\196\0 I L56 L61 30
+    LOCALVARIABLE $this$SharedMediaScreen_u24lambda_u2411_u24lambda_u249_u24lambda_u248\8 Landroidx/compose/foundation/layout/ColumnScope; L55 L61 29
+    LOCALVARIABLE $composer\8 Landroidx/compose/runtime/Composer; L55 L61 28
+    LOCALVARIABLE $changed\8 I L55 L61 27
+    LOCALVARIABLE $i$a$-Layout-ColumnKt$Column$1\7\195\1 I L53 L63 26
+    LOCALVARIABLE $composer\7 Landroidx/compose/runtime/Composer; L52 L63 25
+    LOCALVARIABLE $changed\7 I L52 L63 24
+    LOCALVARIABLE $i$a$-with-Updater$set$1\6\187\5 I L42 L46 23
+    LOCALVARIABLE $this$set_impl_u24lambda_u240\5 Landroidx/compose/runtime/Composer; L41 L46 22
+    LOCALVARIABLE $i$f$set-impl\5\186 I L40 L48 21
+    LOCALVARIABLE block\5 Lkotlin/jvm/functions/Function2; L39 L48 20
+    LOCALVARIABLE $i$a$-ReusableComposeNode-LayoutKt$Layout$1\4\182\2 I L36 L50 19
+    LOCALVARIABLE $this$Layout_u24lambda_u240\4 Landroidx/compose/runtime/Composer; L35 L50 18
+    LOCALVARIABLE $i$f$ReusableComposeNode\3\172 I L25 L67 17
+    LOCALVARIABLE factory\3 Lkotlin/jvm/functions/Function0; L24 L67 15
+    LOCALVARIABLE $changed\3 I L24 L67 16
+    LOCALVARIABLE $i$f$Layout\2\167 I L15 L70 11
+    LOCALVARIABLE compositeKeyHash\2 I L18 L70 12
+    LOCALVARIABLE localMap\2 Landroidx/compose/runtime/CompositionLocalMap; L20 L70 13
+    LOCALVARIABLE materialized\2 Landroidx/compose/ui/Modifier; L22 L70 14
+    LOCALVARIABLE $changed\2 I L14 L70 10
+    LOCALVARIABLE $i$f$Column\1\55 I L6 L73 8
+    LOCALVARIABLE measurePolicy\1 Landroidx/compose/ui/layout/MeasurePolicy; L12 L73 9
+    LOCALVARIABLE modifier\1 Landroidx/compose/ui/Modifier; L9 L73 3
+    LOCALVARIABLE verticalArrangement\1 Landroidx/compose/foundation/layout/Arrangement$Vertical; L10 L73 4
+    LOCALVARIABLE horizontalAlignment\1 Landroidx/compose/ui/Alignment$Horizontal; L11 L73 5
+    LOCALVARIABLE $composer\1 Landroidx/compose/runtime/Composer; L5 L73 6
+    LOCALVARIABLE $changed\1 I L5 L73 7
+    LOCALVARIABLE $chat Lcom/example/firstapp/chat/model/ChatMessage; L0 L76 0
+    LOCALVARIABLE $composer Landroidx/compose/runtime/Composer; L0 L76 1
+    LOCALVARIABLE $changed I L0 L76 2
+    MAXSTACK = 25
+    MAXLOCALS = 35
+
+File is unknown
+The root cause java.lang.OutOfMemoryError was thrown at: org.jetbrains.org.objectweb.asm.tree.analysis.Frame.<init>(Frame.java:96)
+	at org.jetbrains.kotlin.codegen.TransformationMethodVisitor.visitEnd(TransformationMethodVisitor.kt:89)
+	at org.jetbrains.org.objectweb.asm.MethodVisitor.visitEnd(MethodVisitor.java:796)
+	at org.jetbrains.org.objectweb.asm.tree.MethodNode.accept(MethodNode.java:770)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generateMethod(ClassCodegen.kt:469)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generate(ClassCodegen.kt:164)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.generateFile(JvmIrCodegenFactory.kt:419)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.invokeCodegen(JvmIrCodegenFactory.kt:388)
+	at org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler.runCodegen$cli(KotlinToJVMBytecodeCompiler.kt:431)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:95)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:36)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:29)
+	at org.jetbrains.kotlin.cli.pipeline.PipelinePhase.phaseBody(PipelinePhase.kt:68)
+	at org.jetbrains.kotlin.cli.pipeline.PipelinePhase.phaseBody(PipelinePhase.kt:58)
+	at org.jetbrains.kotlin.config.phaser.NamedCompilerPhase.invoke(CompilerPhase.kt:102)
+	at org.jetbrains.kotlin.backend.common.phaser.CompositePhase.invoke(PhaseBuilders.kt:22)
+	at org.jetbrains.kotlin.config.phaser.CompilerPhaseKt.invokeToplevel(CompilerPhase.kt:53)
+	at org.jetbrains.kotlin.cli.pipeline.AbstractCliPipeline.runPhasedPipeline(AbstractCliPipeline.kt:109)
+	at org.jetbrains.kotlin.cli.pipeline.AbstractCliPipeline.execute(AbstractCliPipeline.kt:68)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecutePhased(K2JVMCompiler.kt:78)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecutePhased(K2JVMCompiler.kt:44)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.execImpl(CLICompiler.kt:90)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.exec(CLICompiler.kt:352)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunnerBase.runCompiler(IncrementalJvmCompilerRunnerBase.kt:175)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunnerBase.runCompiler(IncrementalJvmCompilerRunnerBase.kt:38)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.doCompile(IncrementalCompilerRunner.kt:504)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileImpl(IncrementalCompilerRunner.kt:421)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileNonIncrementally(IncrementalCompilerRunner.kt:306)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compile(IncrementalCompilerRunner.kt:133)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.execIncrementalCompiler(CompileServiceImpl.kt:679)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.access$execIncrementalCompiler(CompileServiceImpl.kt:93)
+	at org.jetbrains.kotlin.daemon.CompileServiceImpl.compile(CompileServiceImpl.kt:1806)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714)
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: java.lang.OutOfMemoryError: GC overhead limit exceeded
+	at org.jetbrains.org.objectweb.asm.tree.analysis.Frame.<init>(Frame.java:96)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastMethodAnalyzer._init_$lambda$0(FastMethodAnalyzer.kt:47)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastMethodAnalyzer$$Lambda/0x00007040e2a6eea8.invoke(Unknown Source)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.fullMergeControlFlowEdge(FastAnalyzer.kt:233)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.mergeControlFlowEdge(FastAnalyzer.kt:216)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.processControlFlowEdge(FastAnalyzer.kt:208)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.processControlFlowEdge$default(FastAnalyzer.kt:206)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.visitOpInsn(FastAnalyzer.kt:292)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.visitMeaningfulInstruction(FastAnalyzer.kt:281)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.analyzeInstruction(FastAnalyzer.kt:113)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.analyzeMainLoop(FastAnalyzer.kt:74)
+	at org.jetbrains.kotlin.codegen.optimization.common.FastAnalyzer.analyze(FastAnalyzer.kt:53)
+	at org.jetbrains.kotlin.codegen.optimization.transformer.MethodTransformer.analyze(MethodTransformer.java:49)
+	at org.jetbrains.kotlin.codegen.optimization.ConstantConditionEliminationMethodTransformer$ConstantConditionsOptimization.collectRewriteActions(ConstantConditionEliminationMethodTransformer.kt:65)
+	at org.jetbrains.kotlin.codegen.optimization.ConstantConditionEliminationMethodTransformer$ConstantConditionsOptimization.run(ConstantConditionEliminationMethodTransformer.kt:56)
+	at org.jetbrains.kotlin.codegen.optimization.ConstantConditionEliminationMethodTransformer.transform(ConstantConditionEliminationMethodTransformer.kt:39)
+	at org.jetbrains.kotlin.codegen.optimization.transformer.CompositeMethodTransformer.transform(CompositeMethodTransformer.kt:25)
+	at org.jetbrains.kotlin.codegen.optimization.OptimizationMethodVisitor.performTransformations(OptimizationMethodVisitor.kt:74)
+	at org.jetbrains.kotlin.codegen.TransformationMethodVisitor.visitEnd(TransformationMethodVisitor.kt:67)
+	at org.jetbrains.org.objectweb.asm.MethodVisitor.visitEnd(MethodVisitor.java:796)
+	at org.jetbrains.org.objectweb.asm.tree.MethodNode.accept(MethodNode.java:770)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generateMethod(ClassCodegen.kt:469)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generate(ClassCodegen.kt:164)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.generateFile(JvmIrCodegenFactory.kt:419)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.invokeCodegen(JvmIrCodegenFactory.kt:388)
+	at org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler.runCodegen$cli(KotlinToJVMBytecodeCompiler.kt:431)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:95)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:36)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:29)
+	at org.jetbrains.kotlin.cli.pipeline.PipelinePhase.phaseBody(PipelinePhase.kt:68)
+	at org.jetbrains.kotlin.cli.pipeline.PipelinePhase.phaseBody(PipelinePhase.kt:58)
+	at org.jetbrains.kotlin.config.phaser.NamedCompilerPhase.invoke(CompilerPhase.kt:102)
+
+

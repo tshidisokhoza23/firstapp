@@ -39,7 +39,7 @@ fun formatWhatsAppTime(date: Date): String {
         isToday -> SimpleDateFormat("h:mm a", Locale.getDefault()).format(date)
         isYesterday -> "Yesterday"
         daysDiff < 7 -> SimpleDateFormat("EEEE", Locale.getDefault()).format(date) // e.g. "Monday"
-        else -> SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(date)
+        else -> SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(date)
     }
 }
 

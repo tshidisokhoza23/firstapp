@@ -44,9 +44,17 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val callType = data["call_type"] ?: "voice"
         val callerName = data["caller_name"] ?: "Incoming call"
         val sessionId = data["session_id"] ?: return
-        val senderId = data["caller_id"] ?: return
+        val senderId = data["caller_id"] ?: data["sender_id"] ?: return
         val receiverId = data["receiver_id"] ?: "0"
         val typeEnum = if (callType == "video") CallType.VIDEO else CallType.VOICE
+
+        // Start CallListenerService to ensure WebSocket connection for signaling
+        val serviceIntent = Intent(this, CallListenerService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
         
         GlobalCallState.onCallInvite(
             CallEvent(

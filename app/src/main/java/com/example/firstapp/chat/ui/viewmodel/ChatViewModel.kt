@@ -18,8 +18,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.domain.repository.SettingsRepository
+import com.example.firstapp.chat.data.api.IceServerConfig
 import java.io.File
 import java.util.Locale
+import kotlin.collections.emptyList
+import kotlin.collections.listOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map as flowMap
 import kotlinx.coroutines.launch
@@ -90,7 +93,12 @@ class ChatViewModel @Inject constructor(
         when (intent) {
             is ChatIntent.FetchChats -> fetchChats()
             is ChatIntent.FetchMessages -> fetchMessages(intent.chatId)
-            is ChatIntent.SendMessage -> sendMessage(intent.chatId, intent.body, intent.messageType, intent.mediaUrl, intent.duration, intent.fileName, intent.fileSize, intent.contactName, intent.contactPhone, intent.latitude, intent.longitude, intent.replyToId)
+            is ChatIntent.SendMessage -> sendMessage(
+                intent.chatId, intent.body, intent.messageType, intent.mediaUrls, 
+                intent.duration, intent.fileName, intent.fileSize, 
+                intent.contactName, intent.contactPhone, intent.latitude, intent.longitude, 
+                intent.replyToId
+            )
             is ChatIntent.MarkAsRead -> markAsRead(intent.chatId)
             is ChatIntent.DeleteMessage -> deleteMessage(intent.messageId)
             is ChatIntent.EditMessage -> editMessage(intent.messageId, intent.newBody)
@@ -213,14 +221,39 @@ class ChatViewModel @Inject constructor(
                             repository.updateMessageStatus(mid, MessageStatus.DELIVERED)
                         }
                     }
+                    "READ_ACK" -> {
+                        val mid = payload.get("message_id")?.asString
+                        if (mid != null) {
+                            repository.updateMessageStatus(mid, MessageStatus.READ)
+                        }
+                    }
                 }
             }
         }
     }
 
-    fun sendMessage(chatId: String, body: String, messageType: String = "text", mediaUrl: String? = null, duration: String? = null, fileName: String? = null, fileSize: String? = null, contactName: String? = null, contactPhone: String? = null, latitude: Double? = null, longitude: Double? = null, replyToId: String? = null) {
+    fun sendMessage(
+        chatId: String, 
+        body: String, 
+        messageType: String = "text", 
+        mediaUrls: List<String> = emptyList(), 
+        duration: String? = null, 
+        fileName: String? = null, 
+        fileSize: String? = null, 
+        contactName: String? = null, 
+        contactPhone: String? = null, 
+        latitude: Double? = null, 
+        longitude: Double? = null, 
+        replyToId: String? = null,
+        replyToText: String? = null,
+        replyToSenderName: String? = null
+    ) {
         viewModelScope.launch {
-            repository.sendMessage(chatId, body, messageType, mediaUrl, duration, fileName, fileSize, contactName, contactPhone, latitude, longitude, replyToId).collect { resource ->
+            repository.sendMessage(
+                chatId, body, messageType, mediaUrls, duration, fileName, fileSize,
+                contactName, contactPhone, latitude, longitude, 
+                replyToId, replyToText, replyToSenderName
+            ).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     _uiState.update { it.copy(error = null) }
                     updateChatLastMessage(chatId, resource.data)
@@ -257,7 +290,7 @@ class ChatViewModel @Inject constructor(
                         chatId = chatId,
                         body = name ?: type.replaceFirstChar { it.uppercase() },
                         messageType = finalType,
-                        mediaUrl = res.data.url,
+                        mediaUrls = listOf(res.data.url),
                         duration = duration,
                         fileName = name ?: file.name,
                         fileSize = fileSize
@@ -273,6 +306,20 @@ class ChatViewModel @Inject constructor(
 
     fun initiateCall(receiverId: String, callType: CallType) {
         viewModelScope.launch {
+            // Fetch ICE servers for professional TURN support
+            val iceResource = repository.getICEServers()
+            if (iceResource is Resource.Success) {
+                val servers = iceResource.data?.map { config: IceServerConfig ->
+                    org.webrtc.PeerConnection.IceServer.builder(config.urls)
+                        .setUsername(config.username)
+                        .setPassword(config.credential)
+                        .createIceServer()
+                }
+                if (servers != null) {
+                    webRtcCallManager.setIceServers(servers)
+                }
+            }
+
             repository.initiateCall(receiverId, callType.wireValue()).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val sessionId = resource.data
@@ -330,7 +377,16 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun updateChatTyping(contactId: String, isTyping: Boolean) { viewModelScope.launch { repository.updateTyping(contactId, isTyping) } }
+    fun updateChatTyping(contactId: String, isTyping: Boolean) { 
+        viewModelScope.launch { 
+            _uiState.update { state ->
+                val updated = java.util.HashMap(state.typingStatus)
+                updated[contactId] = isTyping
+                state.copy(typingStatus = updated)
+            }
+            repository.updateTyping(contactId, isTyping) 
+        } 
+    }
     fun updateChatPresence(contactId: String, isOnline: Boolean, lastSeen: Long) { 
         viewModelScope.launch { 
             repository.updatePresence(contactId, isOnline, lastSeen)

@@ -16,6 +16,7 @@ data class ChatUiState(
     val chatSearchResults: List<Message> = emptyList(),
     val selectedContactsForGroup: List<Contact> = emptyList(),
     val closedConversationIds: Set<String> = emptySet(),
+    val typingStatus: Map<String, Boolean> = kotlin.collections.emptyMap(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -27,7 +28,7 @@ sealed class ChatIntent {
         val chatId: String, 
         val body: String, 
         val messageType: String = "text",
-        val mediaUrl: String? = null,
+        val mediaUrls: List<String> = emptyList(),
         val duration: String? = null,
         val fileName: String? = null,
         val fileSize: String? = null,

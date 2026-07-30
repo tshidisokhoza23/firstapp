@@ -16,7 +16,7 @@ data class MessageEntity(
     val timestamp: Long,
     val isFromMe: Boolean,
     val type: MessageType,
-    val mediaUri: String?,
+    val mediaUrls: List<String>,
     val isRead: Boolean,
     val isDelivered: Boolean = false,
     val replyToId: String?,

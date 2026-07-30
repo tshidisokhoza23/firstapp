@@ -60,6 +60,7 @@ class WebRtcCallManager(context: Context) {
     private var localRenderer: SurfaceViewRenderer? = null
     private var remoteRenderer: SurfaceViewRenderer? = null
     private var remoteAudioTrack: AudioTrack? = null
+    private var iceServers: List<PeerConnection.IceServer>? = null
 
     private var callType: CallType = CallType.VOICE
     private val pendingIceCandidates = CopyOnWriteArrayList<IceCandidate>()
@@ -69,6 +70,10 @@ class WebRtcCallManager(context: Context) {
     var onSignal: ((signalType: String, payload: JsonObject) -> Unit)? = null
     var onConnected: (() -> Unit)? = null
     var onDisconnected: (() -> Unit)? = null
+
+    fun setIceServers(servers: List<PeerConnection.IceServer>) {
+        this.iceServers = servers
+    }
 
     companion object {
         @Volatile
@@ -120,27 +125,15 @@ class WebRtcCallManager(context: Context) {
             enableProximitySensor()
         }
         
-        val rtcConfig = PeerConnection.RTCConfiguration(
-            listOf(
-                PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun.ekiga.net").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun.ideasip.com").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun.schlund.de").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun.voiparound.com").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun.voipbuster.com").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun.voipstunt.com").createIceServer(),
-                PeerConnection.IceServer.builder("stun:stun.voxgratia.org").createIceServer(),
-                // TURN server placeholders - ESSENTIAL for mobile data connectivity.
-                // PeerConnection.IceServer.builder("turn:your-turn-server.com:3478")
-                //     .setUsername("user")
-                //     .setPassword("pass")
-                //     .createIceServer()
-            )
-        ).apply {
+        val defaultIceServers = listOf(
+            PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
+            PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
+            PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer(),
+            PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer(),
+            PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer()
+        )
+
+        val rtcConfig = PeerConnection.RTCConfiguration(iceServers ?: defaultIceServers).apply {
             iceTransportsType = PeerConnection.IceTransportsType.ALL
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE

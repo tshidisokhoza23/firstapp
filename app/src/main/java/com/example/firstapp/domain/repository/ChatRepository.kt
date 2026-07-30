@@ -4,6 +4,7 @@ import com.example.firstapp.chat.data.api.GroupInfoResponse
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.util.Resource
 import kotlinx.coroutines.flow.Flow
+import kotlin.collections.emptyList
 
 interface ChatRepository {
     fun getChats(): Flow<Resource<List<ChatMessage>>>
@@ -30,7 +31,7 @@ interface ChatRepository {
         chatId: String,
         body: String,
         messageType: String = "text",
-        mediaUrl: String? = null,
+        mediaUrls: List<String> = emptyList(),
         duration: String? = null,
         fileName: String? = null,
         fileSize: String? = null,
@@ -38,7 +39,9 @@ interface ChatRepository {
         contactPhone: String? = null,
         latitude: Double? = null,
         longitude: Double? = null,
-        replyToId: String? = null
+        replyToId: String? = null,
+        replyToText: String? = null,
+        replyToSenderName: String? = null
     ): Flow<Resource<Message>>
     suspend fun saveMessage(chatId: String, message: Message)
     suspend fun updateMessageInCache(chatId: String, message: Message)
@@ -75,4 +78,5 @@ interface ChatRepository {
     fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter = com.example.firstapp.search.model.SearchFilter.ALL): Flow<List<Message>>
     fun getAllFiles(): Flow<Resource<List<Message>>>
     suspend fun refreshLocalChatNames()
+    suspend fun getICEServers(): Resource<List<com.example.firstapp.chat.data.api.IceServerConfig>>
 }
