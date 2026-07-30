@@ -125,7 +125,6 @@ fun VerticalFeedPostCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppSecondary)
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

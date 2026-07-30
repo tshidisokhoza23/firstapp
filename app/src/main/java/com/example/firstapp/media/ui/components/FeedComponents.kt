@@ -47,9 +47,10 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
     val modifier = if (urls.size == 1) {
         Modifier
             .fillMaxWidth()
+            .heightIn(max = 450.dp) // Limit height so interaction buttons are visible
             .clip(shape)
             .border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
-            .background(Color.Black.copy(alpha = 0.2f))
+            .background(Color.Black)
     } else {
         Modifier
             .fillMaxWidth()
@@ -59,7 +60,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
             .background(Color.Black.copy(alpha = 0.2f))
     }
 
-    Box(modifier = modifier) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
         when {
             urls.isEmpty() -> {}
             urls.size == 1 -> {
@@ -69,7 +70,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onMediaClick(urls[0]) },
-                    contentScale = ContentScale.FillWidth
+                    contentScale = ContentScale.Fit // Show the whole picture
                 )
             }
             urls.size == 2 -> {
