@@ -44,14 +44,22 @@ fun InteractionIcon(
 @Composable
 fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
     val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
+    val modifier = if (urls.size == 1) {
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
+            .background(Color.Black.copy(alpha = 0.2f))
+    } else {
+        Modifier
             .fillMaxWidth()
             .aspectRatio(1.77f)
             .clip(shape)
             .border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
             .background(Color.Black.copy(alpha = 0.2f))
-    ) {
+    }
+
+    Box(modifier = modifier) {
         when {
             urls.isEmpty() -> {}
             urls.size == 1 -> {
@@ -59,9 +67,9 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                     model = urls[0],
                     contentDescription = null,
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .clickable { onMediaClick(urls[0]) },
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.FillWidth
                 )
             }
             urls.size == 2 -> {

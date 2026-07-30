@@ -47,6 +47,11 @@ fun PostDetailScreen(
     val uiState by mediaViewModel.uiState.collectAsState()
     val post = uiState.selectedPost
 
+    androidx.activity.compose.BackHandler {
+        mediaViewModel.selectPost(null)
+        onBack()
+    }
+
     LaunchedEffect(postId) {
         // We should ideally have a fetchPostById in the viewmodel
         // but for now we'll assume it's already selected if we came from feed

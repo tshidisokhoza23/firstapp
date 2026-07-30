@@ -54,6 +54,8 @@ fun MediaTabScreen(
                 if (post != null) {
                     mediaViewModel.selectPost(post)
                     navController.navigate(Screen.PostDetail.createRoute(post.id))
+                } else {
+                    mediaViewModel.selectPost(null)
                 }
             },
             onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, postType = t ?: "standard", tags = tags, pollOptions = p, location = l) },

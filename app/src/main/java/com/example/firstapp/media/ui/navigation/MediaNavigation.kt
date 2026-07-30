@@ -292,7 +292,10 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             mediaViewModel = mediaViewModel,
             adManager = adManager,
             ownProfileId = currentUser?.id ?: "",
-            onBack = { navController.popBackStack() },
+            onBack = { 
+                mediaViewModel.selectPost(null)
+                navController.popBackStack() 
+            },
             onProfileClick = { user ->
                 navController.navigate(Screen.UserProfile.createRoute(user.id))
             },
