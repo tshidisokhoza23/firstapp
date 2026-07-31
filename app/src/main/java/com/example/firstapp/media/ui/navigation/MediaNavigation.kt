@@ -296,8 +296,8 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                 mediaViewModel.selectPost(null)
                 navController.popBackStack() 
             },
-            onProfileClick = { user ->
-                navController.navigate(Screen.UserProfile.createRoute(user.id))
+            onProfileClick = { userId ->
+                navController.navigate(Screen.UserProfile.createRoute(userId))
             },
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))

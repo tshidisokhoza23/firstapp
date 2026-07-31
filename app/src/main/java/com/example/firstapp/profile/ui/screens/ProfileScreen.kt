@@ -72,10 +72,11 @@ fun ProfileView(
     val context = LocalContext.current
     val isLoggedIn by userViewModel.isLoggedIn.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
-    val currentUserId = userViewModel.currentUserId
     
-    val isMyProfile = remember(userId, currentUserId) { 
-        userId.length == 0 || userId == "null" || userId == currentUserId
+    // Single Source of Truth for ID comparison
+    val isMyProfile = remember(userId, currentUser?.id) { 
+        val myId = currentUser?.id
+        userId.length == 0 || userId == "null" || (myId != null && userId == myId)
     }
     
     var remoteUser by remember(userId) { mutableStateOf<User?>(null) }
@@ -106,7 +107,15 @@ fun ProfileView(
         }
     }
 
-    val user = remember(remoteUser) { remoteUser }
+    // "Self-Healing" logic: If this is my profile, use the session user immediately.
+    // This prevents gray loading boxes when navigating to your own profile.
+    val user = remember(isMyProfile, currentUser, remoteUser) {
+        if (isMyProfile) {
+            currentUser ?: remoteUser
+        } else {
+            remoteUser
+        }
+    }
 
     if (!isLoggedIn) {
         return
