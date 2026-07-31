@@ -37,10 +37,8 @@ fun InteractionIcon(
             .padding(8.dp)
     ) {
         Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
-        if (count > 0) {
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(text = count.toString(), color = color, fontSize = 12.sp)
-        }
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text = count.toString(), color = color, fontSize = 12.sp)
     }
 }
 

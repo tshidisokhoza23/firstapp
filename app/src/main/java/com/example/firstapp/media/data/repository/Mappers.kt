@@ -27,6 +27,7 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
     val author = apiPost.author
     
     val authorId: String = when {
+        !apiPost.author_id.isNullOrBlank() -> apiPost.author_id!!
         !apiPost.user_id.isNullOrBlank() -> apiPost.user_id!!
         !author?.id.isNullOrBlank() -> author!!.id!!
         else -> ""

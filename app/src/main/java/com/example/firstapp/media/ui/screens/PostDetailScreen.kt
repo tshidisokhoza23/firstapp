@@ -245,10 +245,10 @@ fun PostDetailScreen(
                             onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
                         )
                         InteractionIcon(
-                            icon = if (post.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                            count = 0L,
-                            color = if (post.isBookmarked) AppAccent else SecondaryText, 
-                            onClick = { mediaViewModel.bookmarkPost(post.id) }
+                            icon = Icons.Default.BarChart,
+                            count = post.views,
+                            color = SecondaryText,
+                            onClick = { /* View stats */ }
                         )
                     }
                     

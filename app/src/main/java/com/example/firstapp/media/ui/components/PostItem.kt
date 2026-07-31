@@ -288,24 +288,31 @@ fun VerticalFeedPostCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             InteractionIcon(
-                icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                count = post.likes,
-                color = if (post.isLiked) Color.Red else Color.Gray,
-                onClick = onLikeClick
+                icon = Icons.Outlined.ChatBubbleOutline,
+                count = displayPost.repliesCount,
+                color = Color.Gray,
+                onClick = onCommentClick
             )
-            
+
             InteractionIcon(
                 icon = Icons.Default.Repeat,
                 count = post.shares,
                 color = if (post.isReposted) Color.Green else Color.Gray,
                 onClick = onRepostClick
             )
-            
+
             InteractionIcon(
-                icon = Icons.Outlined.ChatBubbleOutline,
-                count = displayPost.repliesCount,
+                icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                count = post.likes,
+                color = if (post.isLiked) Color.Red else Color.Gray,
+                onClick = onLikeClick
+            )
+
+            InteractionIcon(
+                icon = Icons.Default.BarChart,
+                count = displayPost.views,
                 color = Color.Gray,
-                onClick = onCommentClick
+                onClick = { /* View stats? */ }
             )
             
             IconButton(onClick = onShareClick) {
@@ -481,10 +488,10 @@ fun PostActions(
             onClick = { onLike(post.id, post.likes, post.isLiked) }
         )
         InteractionIcon(
-            icon = if (post.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-            count = 0,
-            color = if (post.isBookmarked) TwitterBlue else SecondaryText,
-            onClick = onBookmark
+            icon = Icons.Default.BarChart,
+            count = post.views,
+            color = SecondaryText,
+            onClick = { /* View stats */ }
         )
         IconButton(onClick = onShareClick, modifier = Modifier.size(20.dp)) {
             Icon(Icons.Default.Share, null, tint = SecondaryText, modifier = Modifier.size(16.dp))

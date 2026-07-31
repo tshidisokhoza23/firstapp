@@ -174,6 +174,7 @@ data class ApiReplyItem(
 
 data class ApiPost(
     val id: String?,
+    @SerializedName("author_id") val author_id: String?,
     @SerializedName("user_id") val user_id: String?,
     val content: String?,
     @SerializedName("content_text") val content_text: String?,
