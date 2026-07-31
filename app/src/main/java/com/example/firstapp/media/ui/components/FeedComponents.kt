@@ -67,13 +67,14 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
         when {
             urls.isEmpty() -> {}
             urls.size == 1 -> {
-                val urlString = urls[0]
-                val isVideo = urlString.indexOf(".mp4") != -1 || urlString.indexOf(".mov") != -1
+                val rawUrl = urls[0]
+                val urlString = com.example.firstapp.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+                val isVideo = com.example.firstapp.common.util.MediaUtils.isVideo(rawUrl)
                 if (isVideo) {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         VideoPlayer(
                             videoUrl = urlString,
-                            isPlaying = false,
+                            isPlaying = true, // Auto-play single videos in grid
                             modifier = Modifier.fillMaxWidth(),
                             useController = false
                         )
@@ -81,7 +82,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                             imageVector = Icons.Default.PlayCircle,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp).align(Alignment.Center),
-                            tint = Color.White.copy(alpha = 0.8f)
+                            tint = Color.White.copy(alpha = 0.5f)
                         )
                         // Overlay click area
                         Box(modifier = Modifier.matchParentSize().clickable { onMediaClick(urlString) })
@@ -101,7 +102,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(1f)) {
                         AsyncImage(
-                            model = urls[0],
+                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[0]),
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxSize()
@@ -112,7 +113,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                     Spacer(modifier = Modifier.width(1.dp))
                     Box(modifier = Modifier.weight(1f)) {
                         AsyncImage(
-                            model = urls[1],
+                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[1]),
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxSize()
@@ -126,7 +127,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(1f)) {
                         AsyncImage(
-                            model = urls[0],
+                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[0]),
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxSize()
@@ -138,7 +139,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                     Column(modifier = Modifier.weight(1f)) {
                         Box(modifier = Modifier.weight(1f)) {
                             AsyncImage(
-                                model = urls[1],
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[1]),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -149,7 +150,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                         Spacer(modifier = Modifier.height(1.dp))
                         Box(modifier = Modifier.weight(1f)) {
                             AsyncImage(
-                                model = urls[2],
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[2]),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -165,7 +166,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                     Row(modifier = Modifier.weight(1f)) {
                         Box(modifier = Modifier.weight(1f)) {
                             AsyncImage(
-                                model = urls[0],
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[0]),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -176,7 +177,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                         Spacer(modifier = Modifier.width(1.dp))
                         Box(modifier = Modifier.weight(1f)) {
                             AsyncImage(
-                                model = urls[1],
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[1]),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -189,7 +190,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                     Row(modifier = Modifier.weight(1f)) {
                         Box(modifier = Modifier.weight(1f)) {
                             AsyncImage(
-                                model = urls[2],
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[2]),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -200,7 +201,7 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                         Spacer(modifier = Modifier.width(1.dp))
                         Box(modifier = Modifier.weight(1f)) {
                             AsyncImage(
-                                model = urls[3],
+                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[3]),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()

@@ -28,13 +28,14 @@ fun VideoPlayer(
     }
     
     LaunchedEffect(videoUrl) {
-        exoPlayer.setMediaItem(MediaItem.fromUri(videoUrl))
-        exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
+        val mediaItem = MediaItem.fromUri(videoUrl)
+        exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
+        exoPlayer.setPlayWhenReady(isPlaying)
     }
 
     LaunchedEffect(isPlaying) {
-        exoPlayer.playWhenReady = isPlaying
+        exoPlayer.setPlayWhenReady(isPlaying)
     }
 
     DisposableEffect(exoPlayer) {

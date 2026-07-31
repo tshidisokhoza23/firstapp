@@ -87,9 +87,6 @@ fun NavGraphBuilder.profileNavGraph(
                     popUpTo(0) { inclusive = true }
                 }
             },
-            onNavigateToEditExperience = { id ->
-                navController.navigate(Screen.EditWorkExperience.createRoute(id))
-            },
             onNavigateToEditProfile = {
                 navController.navigate(Screen.EditProfile.route)
             },

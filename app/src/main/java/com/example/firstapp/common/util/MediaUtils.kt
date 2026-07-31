@@ -7,7 +7,6 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
-import java.util.Locale
 
 object MediaUtils {
     fun compressImage(context: Context, uri: Uri): File {
@@ -30,7 +29,7 @@ object MediaUtils {
         val contentResolver = context.contentResolver
         val fileName = "TEMP_" + System.currentTimeMillis()
         val extension = getExtension(context, uri) ?: ""
-        val file = File(context.cacheDir, if (extension.isNotEmpty()) "$fileName.$extension" else fileName)
+        val file = File(context.cacheDir, if (extension.length > 0) "$fileName.$extension" else fileName)
         
         try {
             contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -61,26 +60,27 @@ object MediaUtils {
     }
 
     fun formatUrl(url: String?): String? {
-        if (url == null || url.length == 0) return null
-        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url
+        if (url == null) return null
+        if (url.length == 0) return null
+        if (url.startsWith("http") || url.startsWith("data:")) return url
         
-        var baseUrl = com.example.firstapp.BuildConfig.API_BASE_URL
-        if (baseUrl.endsWith("/api/v1")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length - 7)
-        } else if (baseUrl.endsWith("/api/v1/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length - 8)
-        } else if (baseUrl.endsWith("/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length - 1)
+        val base = com.example.firstapp.BuildConfig.API_BASE_URL
+        var cleanBase = base
+        if (base.endsWith("/api/v1/")) {
+            cleanBase = base.substring(0, base.length - 8)
+        } else if (base.endsWith("/api/v1")) {
+            cleanBase = base.substring(0, base.length - 7)
+        } else if (base.endsWith("/")) {
+            cleanBase = base.substring(0, base.length - 1)
         }
         
         val cleanUrl = if (url.startsWith("/")) url.substring(1) else url
-        val result = "$baseUrl/$cleanUrl"
-        return result
+        return "$cleanBase/$cleanUrl"
     }
 
     fun isVideo(url: String?): Boolean {
-        if (url == null || url.isEmpty()) return false
-        val lower = url.lowercase(Locale.ROOT)
-        return lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".avi") || lower.contains("video")
+        if (url == null) return false
+        val s = java.lang.String.valueOf(url).toLowerCase(java.util.Locale.ROOT)
+        return s.contains(".mp4") || s.contains(".mov") || s.contains(".avi") || s.contains("video")
     }
 }

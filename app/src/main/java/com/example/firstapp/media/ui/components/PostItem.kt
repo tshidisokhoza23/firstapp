@@ -223,24 +223,29 @@ fun VerticalFeedPostCard(
         }
 
         // 3. MAIN MEDIA AREA
-        if (displayPost.mediaUrls.isNotEmpty()) {
+        if (displayPost.mediaUrls.size > 0) {
             Spacer(modifier = Modifier.height(8.dp))
-            val mType = displayPost.mediaType?.lowercase(Locale.getDefault()) ?: ""
-            val isVideo = mType == "video" || displayPost.mediaUrls.any { 
-                val url = it.lowercase(Locale.getDefault())
-                url.endsWith(".mp4") || url.endsWith(".mov") 
+            val mType = displayPost.mediaType ?: ""
+            var hasVideoInUrls = false
+            for (u in displayPost.mediaUrls) {
+                if (com.example.firstapp.common.util.MediaUtils.isVideo(u)) {
+                    hasVideoInUrls = true
+                    break
+                }
             }
+            val isVideo = (mType == "video") || (mType == "VIDEO") || (mType == "short") || (mType == "SHORT") || hasVideoInUrls
             
             if (isVideo && displayPost.mediaUrls.size == 1) {
+                val videoUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.mediaUrls[0]) ?: ""
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 0.8f)
                         .background(Color.Black.copy(alpha = 0.1f))
-                        .clickable { onMediaClick(displayPost.mediaUrls[0], "video") }
+                        .clickable { onMediaClick(videoUrl, "video") }
                 ) {
                     VideoPlayer(
-                        videoUrl = displayPost.mediaUrls[0],
+                        videoUrl = videoUrl,
                         isPlaying = true, // Auto-play single videos in feed
                         modifier = Modifier.fillMaxSize(),
                         useController = false
@@ -254,8 +259,9 @@ fun VerticalFeedPostCard(
                 }
             } else {
                 MediaGrid(urls = displayPost.mediaUrls) { url ->
-                    val type = if (url.lowercase(Locale.getDefault()).endsWith(".mp4")) "video" else "image"
-                    onMediaClick(url, type)
+                    val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(url) ?: url
+                    val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
+                    onMediaClick(formattedUrl, type)
                 }
             }
         }

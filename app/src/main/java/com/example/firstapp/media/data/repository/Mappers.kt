@@ -57,8 +57,8 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
             "INTERNAL_AD" -> PostType.INTERNAL_AD
             "NATIVE_AD" -> PostType.NATIVE_AD
             "AD_UNIT" -> PostType.AD_UNIT
-            "short" -> PostType.SHORT
-            "repost" -> PostType.REPOST
+            "short", "SHORT" -> PostType.SHORT
+            "repost", "REPOST" -> PostType.REPOST
             else -> PostType.POST
         },
         repliesLocked = apiPost.replies_locked,

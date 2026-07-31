@@ -84,7 +84,8 @@ fun ShortItem(
     onVideoEnded: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val videoUrl = short.mediaUrls.firstOrNull()?.takeIf { it.isNotBlank() }
+    val rawUrl = short.mediaUrls.firstOrNull()?.takeIf { it.isNotBlank() }
+    val videoUrl = remember(rawUrl) { com.example.firstapp.common.util.MediaUtils.formatUrl(rawUrl) }
     
     var startTime by remember { mutableLongStateOf(0L) }
     

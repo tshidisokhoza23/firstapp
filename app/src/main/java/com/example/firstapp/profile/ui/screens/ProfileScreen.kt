@@ -72,9 +72,11 @@ fun ProfileView(
     val context = LocalContext.current
     val isLoggedIn by userViewModel.isLoggedIn.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
-    val normalizedUserId = remember(userId) { if (userId.length > 0) userId else null }
+    val normalizedUserId = remember(userId) { 
+        if (userId.length > 0 && userId != "null") userId else null
+    }
     val isMyProfile = remember(normalizedUserId, currentUser?.id) { 
-        normalizedUserId == null || normalizedUserId == currentUser?.id 
+        normalizedUserId == null || (currentUser?.id != null && normalizedUserId == currentUser?.id)
     }
     
     var remoteUser by remember(normalizedUserId) { mutableStateOf<User?>(null) }
@@ -638,7 +640,9 @@ private fun ShortGridItem(post: Post, onShortClick: (Post) -> Unit) {
             .background(post.mediaPlaceholderColor ?: Color.Black)
             .clickable { onShortClick(post) }
     ) {
-        val model = if (post.thumbnailUrl?.isNotEmpty() == true) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
+        val rawModel = if (post.thumbnailUrl?.isNotEmpty() == true) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
+        val model = com.example.firstapp.common.util.MediaUtils.formatUrl(rawModel)
+
         AsyncImage(
             model = model,
             contentDescription = null,
