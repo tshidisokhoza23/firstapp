@@ -90,7 +90,7 @@ fun VerticalFeedPostCard(
     onShareClick: () -> Unit,
     onFollowClick: () -> Unit,
     onMoreClick: () -> Unit,
-    onProfileClick: () -> Unit,
+    onProfileClick: (String) -> Unit,
     onMediaClick: (String, String) -> Unit,
     onVotePoll: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
@@ -138,8 +138,7 @@ fun VerticalFeedPostCard(
                     .clip(CircleShape)
                     .background(displayPost.authorAvatarColor)
                     .clickable { 
-                        android.util.Log.d("PostItem", "Navigating to profile: ${displayPost.authorId}")
-                        onProfileClick() 
+                        onProfileClick(displayPost.authorId)
                     }
             ) {
                 AsyncImage(
@@ -158,8 +157,7 @@ fun VerticalFeedPostCard(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { 
-                        android.util.Log.d("PostItem", "Navigating to profile: ${displayPost.authorId}")
-                        onProfileClick() 
+                        onProfileClick(displayPost.authorId)
                     }
             ) {
                 Text(
