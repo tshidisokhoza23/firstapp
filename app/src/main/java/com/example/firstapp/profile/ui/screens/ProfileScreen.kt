@@ -76,7 +76,7 @@ fun ProfileView(
         if (userId.length > 0 && userId != "null") userId else null
     }
     val isMyProfile = remember(normalizedUserId, currentUser?.id) { 
-        normalizedUserId == null || (currentUser?.id != null && normalizedUserId == currentUser?.id)
+        normalizedUserId == null || (currentUser?.id != null && (normalizedUserId == currentUser?.id))
     }
     
     var remoteUser by remember(normalizedUserId) { mutableStateOf<User?>(null) }

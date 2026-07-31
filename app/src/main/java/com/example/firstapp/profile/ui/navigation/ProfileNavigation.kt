@@ -47,30 +47,39 @@ fun NavGraphBuilder.profileNavGraph(
             navArgument("isGroup") { type = NavType.BoolType; defaultValue = false }
         )
     ) { backStackEntry ->
-        val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
+        val userId = backStackEntry.arguments?.getString("userId")?.let { 
+            if (it == "null" || it.isBlank()) null else it 
+        } ?: return@composable
+        
         val isGroup = backStackEntry.arguments?.getBoolean("isGroup") ?: false
         val userViewModel: UserViewModel = hiltViewModel()
         val mediaViewModel: MediaViewModel = hiltViewModel()
         val sharedMediaViewModel: SharedMediaViewModel = hiltViewModel()
         
-        val pagedPosts = remember(userId, mediaViewModel) {
-            mediaViewModel.getUserPosts(userId, "standard")
+        // Ensure we use a stable ID for the paging items, default to current user if requested ID is effectively 'me'
+        val currentUser by userViewModel.currentUser.collectAsState()
+        val effectiveId = remember(userId, currentUser?.id) {
+            userId ?: currentUser?.id ?: ""
+        }
+
+        val pagedPosts = remember(effectiveId, mediaViewModel) {
+            mediaViewModel.getUserPosts(effectiveId, "standard")
         }.collectAsLazyPagingItems()
         
-        val pagedShorts = remember(userId, mediaViewModel) {
-            mediaViewModel.getUserPosts(userId, "short")
+        val pagedShorts = remember(effectiveId, mediaViewModel) {
+            mediaViewModel.getUserPosts(effectiveId, "short")
         }.collectAsLazyPagingItems()
         
-        val pagedMedia = remember(userId, mediaViewModel) {
-            mediaViewModel.getUserPosts(userId, "media")
+        val pagedMedia = remember(effectiveId, mediaViewModel) {
+            mediaViewModel.getUserPosts(effectiveId, "media")
         }.collectAsLazyPagingItems()
         
-        val pagedReplies = remember(userId, mediaViewModel) {
-            mediaViewModel.getUserPosts(userId, "reply")
+        val pagedReplies = remember(effectiveId, mediaViewModel) {
+            mediaViewModel.getUserPosts(effectiveId, "reply")
         }.collectAsLazyPagingItems()
 
         ProfileView(
-            userId = userId,
+            userId = effectiveId,
             isGroup = isGroup,
             adManager = adManager,
             onBack = { navController.popBackStack() },

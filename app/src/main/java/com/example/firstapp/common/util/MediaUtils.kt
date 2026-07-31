@@ -79,8 +79,7 @@ object MediaUtils {
     }
 
     fun isVideo(url: String?): Boolean {
-        if (url == null) return false
-        val s = java.lang.String.valueOf(url).toLowerCase(java.util.Locale.ROOT)
+        val s = url?.lowercase() ?: return false
         return s.contains(".mp4") || s.contains(".mov") || s.contains(".avi") || s.contains("video")
     }
 }
