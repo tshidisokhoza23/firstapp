@@ -380,7 +380,8 @@ fun ChatsListScreen(
                                     onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
                                     onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
                                     onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
-                                    onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) }
+                                    onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) },
+                                    onAvatarClick = { userId -> navController.navigate(Screen.UserProfile.createRoute(userId)) }
                                 )
                             }
                         }
@@ -513,6 +514,7 @@ fun ChatList(
     initialScrollDone: Boolean = false,
     onInitialScrollDone: (Boolean) -> Unit = {},
     onChatClick: (ChatMessage) -> Unit,
+    onAvatarClick: (String) -> Unit = {},
     onStoryClick: (UserStory) -> Unit,
     onMediaStoryClick: () -> Unit,
     onTextStoryClick: () -> Unit,
@@ -647,7 +649,13 @@ fun ChatList(
                     chat = chat,
                     hasStory = hasStory,
                     allStoriesViewed = allStoriesViewed,
-                    onAvatarClick = if (hasStory && story != null) { { onStoryClick(story) } } else null
+                    onAvatarClick = {
+                        if (hasStory && story != null) {
+                            onStoryClick(story)
+                        } else {
+                            onAvatarClick(chat.id)
+                        }
+                    }
                 )
                 HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
             }

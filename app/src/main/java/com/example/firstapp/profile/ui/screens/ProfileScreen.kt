@@ -3,14 +3,11 @@
 package com.example.firstapp.profile.ui.screens
 
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,8 +44,6 @@ import com.example.firstapp.common.util.Resource
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.paging.LoadState
 import com.example.firstapp.chat.model.Contact
-import com.example.firstapp.music.model.Song
-import com.example.firstapp.profile.model.WorkExperience
 import java.util.ArrayList
 import kotlin.collections.*
 import kotlin.ranges.*
@@ -58,7 +53,6 @@ import kotlin.text.*
 fun ProfileView(
     userId: String,
     isGroup: Boolean = false,
-    showExperienceTab: Boolean = true,
     onBack: () -> Unit,
     posts: LazyPagingItems<Post>,
     shorts: LazyPagingItems<Post>,
@@ -70,7 +64,6 @@ fun ProfileView(
     sharedMediaViewModel: SharedMediaViewModel = hiltViewModel(),
     onNavigateToSharedMedia: (String) -> Unit = {},
     onRequireLogin: () -> Unit = {},
-    onNavigateToEditExperience: (String?) -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
     onShortClick: (Post) -> Unit = {},
     onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> },
@@ -124,11 +117,10 @@ fun ProfileView(
         return
     }
 
-    var selectedTabIndex by remember(normalizedUserId, showExperienceTab) { mutableIntStateOf(0) }
-    val tabs = remember(showExperienceTab) {
+    var selectedTabIndex by remember(normalizedUserId) { mutableIntStateOf(0) }
+    val tabs = remember {
         val l = ArrayList<String>()
         l.add("Posts")
-        if (showExperienceTab) l.add("Experience")
         l.add("Replies")
         l.add("Media")
         l.add("Shorts")
@@ -140,13 +132,6 @@ fun ProfileView(
     val profileOwnerId = normalizedUserId ?: currentUser?.id
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-
-    val workExperiencesResource by userViewModel.workExperiences.collectAsState()
-    val workExperiences = if (workExperiencesResource is Resource.Success) {
-        (workExperiencesResource as Resource.Success<List<WorkExperience>>).data ?: emptyList()
-    } else {
-        emptyList<WorkExperience>()
-    }
 
     val selectedTabItems = remember(selectedTab, posts, shorts, mediaItems, replies) {
         when (selectedTab) {
@@ -456,16 +441,6 @@ fun ProfileView(
                             }
                         }
                     }
-                    "Experience" -> {
-                        items(workExperiences) { experience ->
-                            WorkExperienceItem(
-                                experience = experience,
-                                isMyProfile = isMyProfile,
-                                onEdit = { onNavigateToEditExperience(experience.id) }
-                            )
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                        }
-                    }
                     "Media" -> {
                         if (mediaItems.itemCount == 0 && mediaItems.loadState.refresh is LoadState.NotLoading) {
                             item {
@@ -492,8 +467,6 @@ fun ProfileView(
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetUser ->
                                             if (targetUser.id != userId) {
-                                                // Navigate if it's a different user
-                                                // For now, it's a bit limited within the same view
                                             }
                                         },
                                         onPlaySong = { _, _ -> },
@@ -532,8 +505,6 @@ fun ProfileView(
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetUser ->
                                             if (targetUser.id != userId) {
-                                                // Navigate if it's a different user
-                                                // For now, it's a bit limited within the same view
                                             }
                                         },
                                         onPlaySong = { _, _ -> },
@@ -578,7 +549,7 @@ fun ProfileView(
                     }
                 }
 
-                if (posts.loadState.append is LoadState.Loading) {
+                if (selectedTabItems.loadState.append is LoadState.Loading) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = AppAccent, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
@@ -653,42 +624,6 @@ fun SuggestedUserCard(
                     Text("Follow", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun WorkExperienceItem(
-    experience: WorkExperience,
-    isMyProfile: Boolean,
-    onEdit: () -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(experience.jobTitle, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(experience.companyName, color = AppAccent, fontSize = 16.sp)
-            }
-            if (isMyProfile) {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AppTextSecondary, modifier = Modifier.size(20.dp))
-                }
-            }
-        }
-        
-        if (experience.location != null) {
-            Text(experience.location!!, color = AppTextSecondary, fontSize = 14.sp)
-        }
-        
-        Text(
-            "${experience.employmentType} • ${if (experience.isCurrentJob) "Present" else "Past"}",
-            color = AppTextSecondary,
-            fontSize = 12.sp
-        )
-        
-        if (experience.description != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(experience.description!!, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
         }
     }
 }

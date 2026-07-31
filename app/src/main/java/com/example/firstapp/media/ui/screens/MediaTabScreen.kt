@@ -97,6 +97,9 @@ fun MediaTabScreen(
             },
             onShareClick = { post ->
                 com.example.firstapp.common.util.ShareUtils.sharePost(navController.context, post)
+            },
+            onProfileClick = { userId ->
+                navController.navigate(Screen.UserProfile.createRoute(userId))
             }
         )
     }

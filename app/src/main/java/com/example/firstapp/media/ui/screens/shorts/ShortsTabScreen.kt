@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +42,8 @@ import java.io.File
 import kotlinx.coroutines.flow.flowOf
 import kotlin.collections.*
 import kotlin.ranges.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,8 +70,6 @@ fun ShortsTabScreen(
     var showUploadDialog by remember { mutableStateOf(false) }
     var activeShortIdForComments by remember { mutableStateOf<String?>(null) }
     var activeShortForMoreMenu by remember { mutableStateOf<Post?>(null) }
-    var selectedProfileUser by remember { mutableStateOf<User?>(null) }
-    var showProfile by remember { mutableStateOf(false) }
     val shortRepliesState by mediaViewModel.shortReplies.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -78,45 +79,8 @@ fun ShortsTabScreen(
         }
     }
 
-    val selectedProfileUserId = selectedProfileUser?.id
-    val profilePosts = remember(selectedProfileUserId) {
-        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
-            flowOf(PagingData.empty())
-        } else {
-            mediaViewModel.getUserPosts(selectedProfileUserId, "standard")
-        }
-    }.collectAsLazyPagingItems()
-
-    val profileShorts = remember(selectedProfileUserId) {
-        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
-            flowOf(PagingData.empty())
-        } else {
-            mediaViewModel.getUserPosts(selectedProfileUserId, "short")
-        }
-    }.collectAsLazyPagingItems()
-
-    val profileMedia = remember(selectedProfileUserId) {
-        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
-            flowOf(PagingData.empty())
-        } else {
-            mediaViewModel.getUserPosts(selectedProfileUserId, "media")
-        }
-    }.collectAsLazyPagingItems()
-
-    val profileReplies = remember(selectedProfileUserId) {
-        if (selectedProfileUserId == null || selectedProfileUserId.length == 0) {
-            flowOf(PagingData.empty())
-        } else {
-            mediaViewModel.getUserPosts(selectedProfileUserId, "reply")
-        }
-    }.collectAsLazyPagingItems()
-
-    BackHandler(enabled = showProfile || showShortComments || showShortMoreMenu || showUploadDialog || showTopMenu) {
+    BackHandler(enabled = showShortComments || showShortMoreMenu || showUploadDialog || showTopMenu) {
         when {
-            showProfile -> {
-                showProfile = false
-                selectedProfileUser = null
-            }
             showShortComments -> {
                 showShortComments = false
                 activeShortIdForComments = null
@@ -131,182 +95,124 @@ fun ShortsTabScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(AppBackground).nestedScroll(scrollBehavior.nestedScrollConnection)) {
-        if (showProfile && selectedProfileUser != null) {
-            ProfileView(
-                userId = selectedProfileUserId!!,
-                showExperienceTab = false,
-                adManager = adManager,
-                onBack = {
-                    showProfile = false
-                    selectedProfileUser = null
-                },
-                posts = profilePosts,
-                shorts = profileShorts,
-                mediaItems = profileMedia,
-                replies = profileReplies,
-                userViewModel = userViewModel,
-                mediaViewModel = mediaViewModel,
-                onNavigateToSharedMedia = { target ->
-                    if (target == "inbox") {
-                        navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaMessages.route)
-                    }
-                },
-                onNavigateToMediaViewer = { id, type ->
-                    if (type == "chat") {
-                        navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaChat.createRoute(id))
-                    } else {
-                        navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaViewer.createRoute(id, type))
-                    }
-                },
-                onRequireLogin = {
-                    navController.navigate(com.example.firstapp.ui.navigation.Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                onShortClick = { short ->
-                    showProfile = false
-                    selectedProfileUser = null
-                    selectedShortId = short.id
-                }
-            )
+        if (shortsPagingItems.itemCount == 0) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No videos found", color = Color.White, fontSize = 18.sp)
+            }
         } else {
-            if (shortsPagingItems.itemCount == 0) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No videos found", color = Color.White, fontSize = 18.sp)
-                }
-            } else {
-                ShortsList(
-                    adManager = adManager,
-                    shorts = shortsPagingItems,
-                    shortsViewModel = mediaViewModel,
-                    currentUserAvatarUrl = currentUser?.avatarUrl,
-                    bottomPadding = 0.dp,
-                    initialShortId = selectedShortId,
-                    onShortDisplayed = { selectedShortId = null },
-                    onShowComments = { id ->
-                        activeShortIdForComments = id
-                        mediaViewModel.fetchShortReplies(id)
-                        showShortComments = true
-                    },
-                    onShowMoreMenu = { short ->
-                        activeShortForMoreMenu = short
-                        showShortMoreMenu = true
-                    },
-                        onCreatorClick = { creatorId ->
-                            var short: Post? = null
-                            val count = shortsPagingItems.itemCount
-                            var i = 0
-                            while (i < count) {
-                                val s = shortsPagingItems[i]
-                                if (s?.authorId == creatorId) {
-                                    short = s
-                                    break
-                                }
-                                i++
-                            }
-                            selectedProfileUser = User(
-                                id = creatorId,
-                                username = short?.authorHandle ?: "",
-                                email = "",
-                                displayName = short?.authorName ?: "",
-                                phoneNumber = "",
-                                avatarUrl = short?.authorAvatarUrl
-                            )
-                            showProfile = true
-                        }
-                )
-            }
-
-            if (isUploading) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
-                }
-            }
-
-            TopAppBar(
-                title = { },
-                navigationIcon = { },
-                actions = {
-                    IconButton(onClick = { showUploadDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Upload", tint = Color.White)
-                    }
-                    IconButton(onClick = { showTopMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
-                    }
-                    DropdownMenu(
-                        expanded = showTopMenu,
-                        onDismissRequest = { showTopMenu = false },
-                        modifier = Modifier.background(AppSecondary)
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Direct Messages", color = Color.White) },
-                            leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
-                            onClick = {
-                                showTopMenu = false
-                                onDirectMessagesClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Settings", color = Color.White) },
-                            onClick = { showTopMenu = false }
-                        )
-                    }
+            ShortsList(
+                adManager = adManager,
+                shorts = shortsPagingItems,
+                shortsViewModel = mediaViewModel,
+                currentUserAvatarUrl = currentUser?.avatarUrl,
+                bottomPadding = 0.dp,
+                initialShortId = selectedShortId,
+                onShortDisplayed = { selectedShortId = null },
+                onShowComments = { id ->
+                    activeShortIdForComments = id
+                    mediaViewModel.fetchShortReplies(id)
+                    showShortComments = true
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                ),
-                scrollBehavior = scrollBehavior,
-                windowInsets = WindowInsets(0, 0, 0, 0)
+                onShowMoreMenu = { short ->
+                    activeShortForMoreMenu = short
+                    showShortMoreMenu = true
+                },
+                onCreatorClick = { creatorId ->
+                    navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(creatorId))
+                }
             )
+        }
 
-            if (showUploadDialog) {
-                UploadShortDialog(
-                    onDismiss = { showUploadDialog = false },
-                    onUpload = { file, desc ->
-                        mediaViewModel.createPost(desc, java.util.Arrays.asList(file.absolutePath), postType = "short", mediaType = "video")
-                        showUploadDialog = false
-                    }
-                )
+        if (isUploading) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
             }
+        }
 
-            androidx.compose.animation.AnimatedVisibility(
-                visible = showShortComments && activeShortIdForComments != null,
-                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
-                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
-            ) {
-                ShortCommentsOverlay(
-                    shortId = activeShortIdForComments!!,
-                    repliesState = shortRepliesState,
-                    currentUserAvatarUrl = currentUser?.avatarUrl,
-                    onDismiss = {
-                        showShortComments = false
-                        activeShortIdForComments = null
-                    },
-                    onSendReply = { content, parentId ->
-                        mediaViewModel.createPostReply(activeShortIdForComments!!, content, parentId)
-                    },
-                    onLikeReply = { reply ->
-                        mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)
-                    }
-                )
-            }
-
-            if (showShortMoreMenu && activeShortForMoreMenu != null) {
-                ShortMoreMenuSheet(
-                    short = activeShortForMoreMenu!!,
-                    onDismiss = {
-                        showShortMoreMenu = false
-                        activeShortForMoreMenu = null
-                    },
-                    onAction = { action ->
-                        if (action == "message") {
-                            navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaChat.createRoute(activeShortForMoreMenu!!.authorId))
+        TopAppBar(
+            title = { },
+            navigationIcon = { },
+            actions = {
+                IconButton(onClick = { showUploadDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Upload", tint = Color.White)
+                }
+                IconButton(onClick = { showTopMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
+                }
+                DropdownMenu(
+                    expanded = showTopMenu,
+                    onDismissRequest = { showTopMenu = false },
+                    modifier = Modifier.background(AppSecondary)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Direct Messages", color = Color.White) },
+                        leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
+                        onClick = {
+                            showTopMenu = false
+                            onDirectMessagesClick()
                         }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Settings", color = Color.White) },
+                        leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
+                        onClick = { showTopMenu = false }
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                titleContentColor = Color.White,
+                actionIconContentColor = Color.White
+            ),
+            scrollBehavior = scrollBehavior,
+            windowInsets = WindowInsets(0, 0, 0, 0)
+        )
+
+        if (showUploadDialog) {
+            UploadShortDialog(
+                onDismiss = { showUploadDialog = false },
+                onUpload = { file, desc ->
+                    mediaViewModel.createPost(desc, java.util.Arrays.asList(file.absolutePath), postType = "short", mediaType = "video")
+                    showUploadDialog = false
+                }
+            )
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showShortComments && activeShortIdForComments != null,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
+        ) {
+            ShortCommentsOverlay(
+                shortId = activeShortIdForComments!!,
+                repliesState = shortRepliesState,
+                currentUserAvatarUrl = currentUser?.avatarUrl,
+                onDismiss = {
+                    showShortComments = false
+                    activeShortIdForComments = null
+                },
+                onSendReply = { content, parentId ->
+                    mediaViewModel.createPostReply(activeShortIdForComments!!, content, parentId)
+                },
+                onLikeReply = { reply ->
+                    mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)
+                }
+            )
+        }
+
+        if (showShortMoreMenu && activeShortForMoreMenu != null) {
+            ShortMoreMenuSheet(
+                short = activeShortForMoreMenu!!,
+                onDismiss = {
+                    showShortMoreMenu = false
+                    activeShortForMoreMenu = null
+                },
+                onAction = { action ->
+                    if (action == "message") {
+                        navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaChat.createRoute(activeShortForMoreMenu!!.authorId))
                     }
-                )
-            }
+                }
+            )
         }
     }
 }

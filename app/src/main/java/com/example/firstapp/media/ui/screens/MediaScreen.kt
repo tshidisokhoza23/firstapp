@@ -121,7 +121,8 @@ fun MediaScreen(
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> },
-    onShareClick: (Post) -> Unit = {}
+    onShareClick: (Post) -> Unit = {},
+    onProfileClick: (String) -> Unit = {}
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
@@ -138,69 +139,14 @@ fun MediaScreen(
     var replyingToPost by remember { mutableStateOf<Post?>(null) }
     var replyingToReply by remember { mutableStateOf<Post?>(null) }
 
-    var selectedUser by remember { mutableStateOf<User?>(null) }
-    var showProfile by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
 
     var showRepostOptions by remember { mutableStateOf<Post?>(null) }
 
-    LaunchedEffect(ownProfileId, ownProfileHandle, ownProfileName, ownProfileAvatarUrl) {
-        // If we are showing the own profile and the ID was empty or changed, update it
-        if (showProfile && (selectedUser?.id.isNullOrEmpty() || selectedUser?.id == ownProfileId)) {
-             if (ownProfileId.isNotEmpty() && selectedUser?.id != ownProfileId) {
-                 selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
-             }
-        }
-    }
-
-    val selectedUserId = remember(selectedUser, ownProfileId) { 
-        val id = selectedUser?.id 
-        if (id.isNullOrBlank() && showProfile) {
-            ownProfileId // Fallback to current user if ID is blank and we are trying to show a profile
-        } else {
-            id
-        }
-    }
-    
-    val profilePosts = remember(selectedUserId, onGetUserPosts) {
-        if (selectedUserId.isNullOrBlank()) {
-            flowOf(PagingData.empty())
-        } else {
-            onGetUserPosts(selectedUserId!!, "standard")
-        }
-    }.collectAsLazyPagingItems()
-
-    val profileShorts = remember(selectedUserId, onGetUserPosts) {
-        if (selectedUserId.isNullOrBlank()) {
-            flowOf(PagingData.empty())
-        } else {
-            onGetUserPosts(selectedUserId, "short")
-        }
-    }.collectAsLazyPagingItems()
-
-    val profileMedia = remember(selectedUserId, onGetUserPosts) {
-        if (selectedUserId.isNullOrBlank()) {
-            flowOf(PagingData.empty())
-        } else {
-            onGetUserPosts(selectedUserId, "media")
-        }
-    }.collectAsLazyPagingItems()
-
-    val profileReplies = remember(selectedUserId, onGetUserPosts) {
-        if (selectedUserId.isNullOrBlank()) {
-            flowOf(PagingData.empty())
-        } else {
-            onGetUserPosts(selectedUserId, "reply")
-        }
-    }.collectAsLazyPagingItems()
-
     LaunchedEffect(openOwnProfileRequest) {
         if (openOwnProfileRequest > 0) {
-            selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
-            showProfile = true
-            onPostSelect(null)
-            onProfileViewChange(true)
+            onProfileClick(ownProfileId)
         }
     }
 
@@ -212,7 +158,6 @@ fun MediaScreen(
 
     LaunchedEffect(closeOwnProfileRequest) {
         if (closeOwnProfileRequest > 0) {
-            showProfile = false
             onProfileViewChange(false)
         }
     }
@@ -222,7 +167,7 @@ fun MediaScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         androidx.activity.compose.BackHandler(
-            enabled = showProfile || showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null
+            enabled = showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null
         ) {
             when {
                 isSearchActive -> {
@@ -235,168 +180,128 @@ fun MediaScreen(
                     replyingToReply = null
                 }
                 showRepostOptions != null -> showRepostOptions = null
-                showProfile -> {
-                    showProfile = false
-                    selectedUser = null
-                    onProfileViewChange(false)
-                }
             }
         }
 
         Column(modifier = Modifier.fillMaxSize()) {
-            when {
-                showProfile && selectedUser != null -> {
-                    ProfileView(
-                        userId = selectedUser!!.id,
-                        showExperienceTab = false,
+            Scaffold(
+                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                topBar = {
+                    if (isSearchActive) {
+                        SearchTopBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onClose = { 
+                                isSearchActive = false
+                                searchQuery = ""
+                            }
+                        )
+                    } else {
+                        TopAppBar(
+                            title = { 
+                                Text(
+                                    "Media", 
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable { isSearchActive = true }
+                                ) 
+                            },
+                            navigationIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = 12.dp)
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(ownProfileAvatarColor)
+                                        .clickable { 
+                                            onProfileClick(ownProfileId)
+                                        }
+                                ) {
+                                    AsyncImage(
+                                        model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
+                                        contentDescription = "Profile",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop,
+                                        error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
+                                        fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
+                                    )
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = { isSearchActive = true }) {
+                                    Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                                }
+                                IconButton(onClick = { showCreatePost = true }) {
+                                    Icon(Icons.Default.Add, contentDescription = "Create Post")
+                                }
+                                var showMenu by remember { mutableStateOf(false) }
+                                Box {
+                                    IconButton(onClick = { showMenu = true }) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                                    }
+                                    DropdownMenu(
+                                        expanded = showMenu,
+                                        onDismissRequest = { showMenu = false },
+                                        containerColor = AppSecondary
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Direct Messages", color = Color.White) },
+                                            leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
+                                            onClick = { 
+                                                showMenu = false
+                                                onDirectMessagesClick()
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Settings", color = Color.White) },
+                                            leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
+                                            onClick = { showMenu = false }
+                                        )
+                                    }
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = AppBackground,
+                                titleContentColor = Color.White,
+                                navigationIconContentColor = Color.White,
+                                actionIconContentColor = Color.White
+                            ),
+                            scrollBehavior = scrollBehavior,
+                            windowInsets = WindowInsets(0, 0, 0, 0) // Takes icons higher by removing default status bar insets
+                        )
+                    }
+                },
+                containerColor = AppBackground,
+                contentWindowInsets = WindowInsets(0, 0, 0, 0)
+            ) { innerPadding ->
+                Box(modifier = Modifier.padding(innerPadding)) {
+                    MainFeedSection(
                         adManager = adManager,
-                        onBack = { 
-                            showProfile = false
-                            onProfileViewChange(false)
+                        posts = posts,
+                        preloadedAds = preloadedAds,
+                        adsLoaded = adsLoaded,
+                        ownProfileId = ownProfileId,
+                        ownProfileHandle = ownProfileHandle,
+                        onPostClick = onPostSelect,
+                        onLike = onLikePost,
+                        onRepostClick = { showRepostOptions = it },
+                        onBookmark = onBookmarkPost,
+                        onDeletePost = onDeletePost,
+                        onReplyClick = { p, r -> 
+                            replyingToPost = p
+                            replyingToReply = r
                         },
-                        posts = profilePosts,
-                        shorts = profileShorts,
-                        mediaItems = profileMedia,
-                        replies = profileReplies,
-                        userViewModel = userViewModel,
-                        mediaViewModel = mediaViewModel,
-                        onRequireLogin = onRequireLogin,
+                        onProfileClick = { user ->
+                            onProfileClick(user.id)
+                        },
+                        onPlaySong = onPlaySong,
+                        onVotePoll = onVotePoll,
+                        onRefresh = onRefresh,
                         onShortClick = { short ->
                             onShortClick(short)
                         },
-                        onNavigateToMediaViewer = onMediaClick
+                        onMediaClick = onMediaClick,
+                        onFollowUser = onFollowUser
                     )
-                }
-                else -> {
-                    Scaffold(
-                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                        topBar = {
-                            if (isSearchActive) {
-                                SearchTopBar(
-                                    query = searchQuery,
-                                    onQueryChange = { searchQuery = it },
-                                    onClose = { 
-                                        isSearchActive = false
-                                        searchQuery = ""
-                                    }
-                                )
-                            } else {
-                                TopAppBar(
-                                    title = { 
-                                        Text(
-                                            "Media", 
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.clickable { isSearchActive = true }
-                                        ) 
-                                    },
-                                    navigationIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(start = 12.dp)
-                                                .size(32.dp)
-                                                .clip(CircleShape)
-                                                .background(ownProfileAvatarColor)
-                                                .clickable { 
-                                                    selectedUser = User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
-                                                    showProfile = true
-                                                    onProfileViewChange(true)
-                                                }
-                                        ) {
-                                            AsyncImage(
-                                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
-                                                contentDescription = "Profile",
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Crop,
-                                                error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
-                                                fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
-                                            )
-                                        }
-                                    },
-                                    actions = {
-                                        IconButton(onClick = { isSearchActive = true }) {
-                                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-                                        }
-                                        IconButton(onClick = { showCreatePost = true }) {
-                                            Icon(Icons.Default.Add, contentDescription = "Create Post")
-                                        }
-                                        var showMenu by remember { mutableStateOf(false) }
-                                        Box {
-                                            IconButton(onClick = { showMenu = true }) {
-                                                Icon(Icons.Default.MoreVert, contentDescription = "More")
-                                            }
-                                            DropdownMenu(
-                                                expanded = showMenu,
-                                                onDismissRequest = { showMenu = false },
-                                                containerColor = AppSecondary
-                                            ) {
-                                                DropdownMenuItem(
-                                                    text = { Text("Direct Messages", color = Color.White) },
-                                                    leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
-                                                    onClick = { 
-                                                        showMenu = false
-                                                        onDirectMessagesClick()
-                                                    }
-                                                )
-                                                DropdownMenuItem(
-                                                    text = { Text("Settings", color = Color.White) },
-                                                    leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
-                                                    onClick = { showMenu = false }
-                                                )
-                                            }
-                                        }
-                                    },
-                                    colors = TopAppBarDefaults.topAppBarColors(
-                                        containerColor = AppBackground,
-                                        titleContentColor = Color.White,
-                                        navigationIconContentColor = Color.White,
-                                        actionIconContentColor = Color.White
-                                    ),
-                                    scrollBehavior = scrollBehavior,
-                                    windowInsets = WindowInsets(0, 0, 0, 0) // Takes icons higher by removing default status bar insets
-                                )
-                            }
-                        },
-                        containerColor = AppBackground,
-                        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-                    ) { innerPadding ->
-                        Box(modifier = Modifier.padding(innerPadding)) {
-                            MainFeedSection(
-                                adManager = adManager,
-                                posts = posts,
-                                preloadedAds = preloadedAds,
-                                adsLoaded = adsLoaded,
-                                ownProfileId = ownProfileId,
-                                ownProfileHandle = ownProfileHandle,
-                                onPostClick = onPostSelect,
-                                onLike = onLikePost,
-                                onRepostClick = { showRepostOptions = it },
-                                onBookmark = onBookmarkPost,
-                                onDeletePost = onDeletePost,
-                                onReplyClick = { p, r -> 
-                                    replyingToPost = p
-                                    replyingToReply = r
-                                },
-                                onProfileClick = { user ->
-                                    val targetUser = if (user.id.isNullOrBlank() || user.id == ownProfileId) {
-                                        User(id = ownProfileId, username = ownProfileHandle, displayName = ownProfileName, avatarUrl = ownProfileAvatarUrl)
-                                    } else {
-                                        user
-                                    }
-                                    selectedUser = targetUser
-                                    showProfile = true
-                                    onProfileViewChange(true)
-                                },
-                                onPlaySong = onPlaySong,
-                                onVotePoll = onVotePoll,
-                                onRefresh = onRefresh,
-                                onShortClick = { short ->
-                                    onShortClick(short)
-                                },
-                                onMediaClick = onMediaClick,
-                                onFollowUser = onFollowUser
-                            )
-                        }
-                    }
                 }
             }
         }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.provider.ContactsContract
 import android.telephony.TelephonyManager
 import android.util.Log
+import kotlin.collections.*
 
 object ContactUtils {
 
@@ -51,27 +52,34 @@ object ContactUtils {
     }
 
     fun getPhoneContacts(context: Context): List<String> {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return emptyList()
+        }
         val phoneNumbers = mutableSetOf<String>()
-        val contentResolver = context.contentResolver
-        val cursor = contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-            null,
-            null,
-            null
-        )
+        try {
+            val contentResolver = context.contentResolver
+            val cursor = contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                null,
+                null,
+                null
+            )
 
-        val countryCode = getCountryCode(context)
+            val countryCode = getCountryCode(context)
 
-        cursor?.use {
-            val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-            while (it.moveToNext()) {
-                val rawNumber = it.getString(numberIndex)
-                val formattedNumber = formatPhoneNumber(rawNumber, countryCode)
-                if (isValidPhoneNumber(formattedNumber)) {
-                    phoneNumbers.add(formattedNumber)
+            cursor?.use {
+                val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                while (it.moveToNext()) {
+                    val rawNumber = it.getString(numberIndex)
+                    val formattedNumber = formatPhoneNumber(rawNumber, countryCode)
+                    if (isValidPhoneNumber(formattedNumber)) {
+                        phoneNumbers.add(formattedNumber)
+                    }
                 }
             }
+        } catch (e: Exception) {
+            Log.e("ContactUtils", "Error querying contacts", e)
         }
         return phoneNumbers.toList()
     }

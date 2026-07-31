@@ -225,7 +225,11 @@ fun VerticalFeedPostCard(
         // 3. MAIN MEDIA AREA
         if (displayPost.mediaUrls.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
-            val isVideo = displayPost.mediaType == "video" || displayPost.mediaUrls.any { it.endsWith(".mp4") }
+            val mType = displayPost.mediaType?.lowercase(Locale.getDefault()) ?: ""
+            val isVideo = mType == "video" || displayPost.mediaUrls.any { 
+                val url = it.lowercase(Locale.getDefault())
+                url.endsWith(".mp4") || url.endsWith(".mov") 
+            }
             
             if (isVideo && displayPost.mediaUrls.size == 1) {
                 Box(

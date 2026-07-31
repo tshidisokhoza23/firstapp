@@ -44,6 +44,7 @@ import com.example.firstapp.common.util.DisplayNameResolver
 import javax.inject.Inject
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import java.util.ArrayList
 
  @dagger.hilt.android.AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -84,11 +85,12 @@ class MainActivity : FragmentActivity() {
             when (data.host) {
                 "chat" -> {
                     val id = data.lastPathSegment
-                    id?.let { GlobalNavigation.navigateTo(Screen.Chat.createRoute(it)) }
+                    if (id != null) { GlobalNavigation.navigateTo(Screen.Chat.createRoute(id)) }
                 }
                 "post" -> {
                     val shortId = data.lastPathSegment
-                    if (data.toString().contains("short")) {
+                    val path = data.path ?: ""
+                    if (path.indexOf("short") != -1) {
                         GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "media", shortId = shortId))
                     } else {
                         GlobalNavigation.navigateTo(Screen.Main.route + "?tab=media")
@@ -100,9 +102,33 @@ class MainActivity : FragmentActivity() {
                 }
                 "advert" -> {
                     val id = data.lastPathSegment
-                    id?.let { GlobalNavigation.navigateTo(Screen.AdvertDetail.createRoute(it)) }
+                    if (id != null) { GlobalNavigation.navigateTo(Screen.AdvertDetail.createRoute(id)) }
                 }
             }
+        }
+    }
+
+    private fun requestAppPermissions() {
+        if (
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2001)
+        }
+
+        // Request calling permissions early if possible
+        val permissionsToRequest = ArrayList<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
+        }
+        if (permissionsToRequest.isNotEmpty()) {
+            requestPermissions(permissionsToRequest.toArray(arrayOfNulls<String>(0)), 2002)
         }
     }
 
@@ -118,30 +144,6 @@ class MainActivity : FragmentActivity() {
 
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
-
-        if (
-            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2001)
-        }
-
-        // Request calling permissions early if possible
-        val permissionsToRequest = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.CAMERA)
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
-        }
-        if (permissionsToRequest.isNotEmpty()) {
-            requestPermissions(permissionsToRequest.toTypedArray(), 2002)
-        }
-
-        setupContactsObserver()
 
         if (!Places.isInitialized() && isGooglePlayServicesReady()) {
             Places.initialize(applicationContext, "AIzaSyAcwjsoRCNMFsX5ayuuYC1CoNqj8NVP3Kw")
@@ -184,6 +186,9 @@ class MainActivity : FragmentActivity() {
                     
                     // 2. Handle Biometric Lock
                     if (isLoggedIn) {
+                        requestAppPermissions()
+                        setupContactsObserver()
+
                         if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {
                             BiometricHelper.showBiometricPrompt(
                                 activity = this@MainActivity,
@@ -196,8 +201,10 @@ class MainActivity : FragmentActivity() {
                         }
 
                         // 3. Global Sync on Login/Resume
-                        runCatching {
+                        try {
                             RewardsManager.refreshBalance()
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainActivity", "Failed to refresh balance", e)
                         }
                         lifecycleScope.launch {
                             try {
@@ -274,15 +281,14 @@ class MainActivity : FragmentActivity() {
                     }
                 }
 
-                // Handle initial chat navigation from intent
                 LaunchedEffect(Unit) {
                     val openChatId = intent?.getStringExtra("open_chat_id")
                     val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
                     if (isLoggedIn) {
-                        openChatId?.let { 
-                            navController.navigate(Screen.Chat.createRoute(it)) 
-                        } ?: senderId?.let { 
-                            navController.navigate(Screen.Chat.createRoute(it))
+                        if (openChatId != null) { 
+                            navController.navigate(Screen.Chat.createRoute(openChatId)) 
+                        } else if (senderId != null) { 
+                            navController.navigate(Screen.Chat.createRoute(senderId))
                         }
                     }
                 }

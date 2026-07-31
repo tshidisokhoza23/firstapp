@@ -14,8 +14,9 @@ import java.util.ArrayList
 import kotlin.text.*
 
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
-    when (item.type) {
-        "POST", "INTERNAL_AD" -> item.post?.let { mapApiPost(it, item.type) }
+    val itemType = item.type.uppercase(java.util.Locale.ROOT)
+    when (itemType) {
+        "POST", "INTERNAL_AD", "NATIVE_AD" -> item.post?.let { mapApiPost(it, itemType) }
         "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdPlaceholder(item.placeholder)
         "AD_UNIT" -> mapAdUnitPlaceholder(item)
         else -> null
@@ -44,7 +45,9 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
         mediaType = apiPost.media_type,
         altText = apiPost.alt_text,
-        timestamp = apiPost.created_at?.toString() ?: "",
+        timestamp = apiPost.created_at?.let { 
+            if (it is Long) (it * 1000).toString() else it.toString() 
+        } ?: "",
         likes = if (apiPost.likes > 0) apiPost.likes else apiPost.like_count,
         repliesCount = if (apiPost.replies_count > 0) apiPost.replies_count else apiPost.reply_count,
         shares = if (apiPost.shares > 0) apiPost.shares else apiPost.repost_count,

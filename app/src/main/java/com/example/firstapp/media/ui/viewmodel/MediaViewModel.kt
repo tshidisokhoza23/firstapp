@@ -247,7 +247,7 @@ class MediaViewModel @Inject constructor(
             }
             
             // Auto-detect media type if not provided
-            val finalMediaType = if (mediaType == null && postType == "short") "video" else mediaType
+            val finalMediaType = if (postType == "short") "VIDEO" else (mediaType ?: if (finalUrls.size > 0) "IMAGE" else "TEXT")
             
             socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType).collect { res ->
                 if (res is Resource.Success) {
