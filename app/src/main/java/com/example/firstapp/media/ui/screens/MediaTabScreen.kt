@@ -79,7 +79,7 @@ fun MediaTabScreen(
             onArtistClick = { artistName -> musicViewModel.requestArtist(artistName) },
             onCallClick = { userId, type -> chatViewModel.initiateCall(userId, type) },
             onCreatePostClick = 0,
-            onRefresh = { },
+            onRefresh = { mediaViewModel.refreshAll() },
             refreshTrigger = uiState.refreshTrigger,
             onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
             onRequireLogin = {

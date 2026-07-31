@@ -128,6 +128,12 @@ class MediaViewModel @Inject constructor(
         })
     }
 
+    fun refreshAll() {
+        _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        fetchSuggestedUsers()
+        fetchTrendingTopics()
+    }
+
     fun onTabSelected(index: Int) {
         _uiState.update { it.copy(selectedTab = index) }
     }

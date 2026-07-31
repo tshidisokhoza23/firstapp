@@ -179,7 +179,10 @@ fun ProfileView(
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { selectedTabItems.refresh() },
+            onRefresh = { 
+                profileRefreshNonce += 1
+                selectedTabItems.refresh() 
+            },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             LazyColumn(
