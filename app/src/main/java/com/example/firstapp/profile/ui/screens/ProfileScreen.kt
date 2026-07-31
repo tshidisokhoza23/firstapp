@@ -101,21 +101,12 @@ fun ProfileView(
             userViewModel.getUserById(userId).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     remoteUser = resource.data
-                    if (isMyProfile) {
-                        userViewModel.updateProfileLocally(resource.data!!)
-                    }
                 }
             }
         }
     }
 
-    val user = remember(isMyProfile, currentUser, remoteUser) {
-        if (isMyProfile) {
-            currentUser ?: remoteUser
-        } else {
-            remoteUser
-        }
-    }
+    val user = remember(remoteUser) { remoteUser }
 
     if (!isLoggedIn) {
         return
@@ -432,10 +423,9 @@ fun ProfileView(
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
-                                        onProfileClick = { targetUser ->
-                                            if (targetUser.id != userId) {
+                                        onProfileClick = { targetId ->
+                                            if (targetId != userId) {
                                                 // Navigate if it's a different user
-                                                // For now, it's a bit limited within the same view
                                             }
                                         },
                                         onPlaySong = { _, _ -> },
@@ -472,8 +462,8 @@ fun ProfileView(
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
-                                        onProfileClick = { targetUser ->
-                                            if (targetUser.id != userId) {
+                                        onProfileClick = { targetId ->
+                                            if (targetId != userId) {
                                             }
                                         },
                                         onPlaySong = { _, _ -> },
@@ -510,8 +500,8 @@ fun ProfileView(
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
-                                        onProfileClick = { targetUser ->
-                                            if (targetUser.id != userId) {
+                                        onProfileClick = { targetId ->
+                                            if (targetId != userId) {
                                             }
                                         },
                                         onPlaySong = { _, _ -> },

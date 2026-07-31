@@ -91,7 +91,8 @@ class UserViewModel @Inject constructor(
     }
 
     fun getUserById(userId: String): kotlinx.coroutines.flow.Flow<Resource<User>> {
-        return accountRepository.getUserById(userId)
+        val normalizedId = if (userId == "null" || userId.length == 0) sessionManager.getUserId() ?: "" else userId
+        return accountRepository.getUserById(normalizedId)
     }
 
     fun fetchContacts() {

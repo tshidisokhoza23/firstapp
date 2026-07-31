@@ -48,7 +48,7 @@ fun PostItem(
     onBookmark: (String) -> Unit = {},
     onDelete: (String) -> Unit = {},
     onReplyClick: (Post, Post?) -> Unit,
-    onProfileClick: (User) -> Unit,
+    onProfileClick: (String) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
     onVotePoll: (String, String) -> Unit = { _, _ -> },
     onMediaClick: (String, String) -> Unit = { _, _ -> },
@@ -62,6 +62,7 @@ fun PostItem(
             post = post
         )
     } else {
+        val displayPost = if (post.repostOfId != null && post.originalPost != null) post.originalPost!! else post
         VerticalFeedPostCard(
             post = post,
             isOwnPost = isOwnPost,
@@ -69,9 +70,9 @@ fun PostItem(
             onCommentClick = { onReplyClick(post, null) },
             onRepostClick = { onRepostClick(post) },
             onShareClick = { onShareClick(post) },
-            onFollowClick = { onFollowClick(post.authorId) },
+            onFollowClick = { onFollowClick(displayPost.authorId) },
             onMoreClick = { /* Handle more menu */ },
-            onProfileClick = { onProfileClick(post.authorToUser()) },
+            onProfileClick = { onProfileClick(displayPost.authorId) },
             onMediaClick = onMediaClick,
             onVotePoll = onVotePoll,
             modifier = Modifier.clickable(onClick = onClick)
@@ -150,7 +151,11 @@ fun VerticalFeedPostCard(
             Spacer(modifier = Modifier.width(12.dp))
 
             // User details
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onProfileClick() }
+            ) {
                 Text(
                     text = displayPost.authorName,
                     color = AppTextPrimary,
@@ -382,7 +387,7 @@ fun PostHeaderExtras(post: Post, isOwnPost: Boolean) {
 fun PostMainHeader(
     displayPost: Post,
     isOwnPost: Boolean,
-    onProfileClick: (User) -> Unit,
+    onProfileClick: (String) -> Unit,
     onDelete: () -> Unit
 ) {
     Row(
@@ -398,7 +403,7 @@ fun PostMainHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f, fill = false)
-                .clickable { onProfileClick(displayPost.authorToUser()) }
+                .clickable { onProfileClick(displayPost.authorId) }
         )
         if (displayPost.isVerifiedAuthor) {
             Spacer(modifier = Modifier.width(4.dp))
@@ -413,7 +418,7 @@ fun PostMainHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f)
-                .clickable { onProfileClick(displayPost.authorToUser()) }
+                .clickable { onProfileClick(displayPost.authorId) }
         )
 
         if (isOwnPost) {

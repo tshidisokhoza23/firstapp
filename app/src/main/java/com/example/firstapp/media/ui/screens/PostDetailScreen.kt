@@ -43,7 +43,7 @@ fun PostDetailScreen(
     adManager: AdManager,
     ownProfileId: String,
     onBack: () -> Unit,
-    onProfileClick: (User) -> Unit,
+    onProfileClick: (String) -> Unit,
     onMediaClick: (String, String) -> Unit
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
@@ -152,7 +152,7 @@ fun PostDetailScreen(
                                 .size(48.dp)
                                 .clip(CircleShape)
                                 .background(post.authorAvatarColor)
-                                .clickable { onProfileClick(post.authorToUser()) }
+                                .clickable { onProfileClick(post.authorId) }
                         ) {
                             AsyncImage(
                                 model = com.example.firstapp.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
@@ -166,7 +166,7 @@ fun PostDetailScreen(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { onProfileClick(post.authorToUser()) }
+                                .clickable { onProfileClick(post.authorId) }
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -276,7 +276,7 @@ fun PostDetailScreen(
                             replyingToPost = p
                             replyingToReply = r
                         },
-                        onProfileClick = { u -> onProfileClick(u) },
+                        onProfileClick = { id -> onProfileClick(id) },
                         onPlaySong = { _, _ -> },
                         onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                         onMediaClick = onMediaClick,

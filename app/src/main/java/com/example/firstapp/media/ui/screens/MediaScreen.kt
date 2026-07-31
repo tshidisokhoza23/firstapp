@@ -290,8 +290,8 @@ fun MediaScreen(
                             replyingToPost = p
                             replyingToReply = r
                         },
-                        onProfileClick = { user ->
-                            onProfileClick(user.id)
+                        onProfileClick = { id ->
+                            onProfileClick(id)
                         },
                         onPlaySong = onPlaySong,
                         onVotePoll = onVotePoll,
@@ -381,7 +381,7 @@ fun MainFeedSection(
     onBookmark: (String) -> Unit,
     onDeletePost: (String) -> Unit,
     onReplyClick: (Post, Post?) -> Unit,
-    onProfileClick: (User) -> Unit,
+    onProfileClick: (String) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
     onVotePoll: (String, String) -> Unit,
     onRefresh: () -> Unit,
@@ -453,7 +453,7 @@ fun MainFeedSection(
                         onBookmark = { id -> onBookmark(id) },
                         onDelete = { id -> onDeletePost(id) },
                         onReplyClick = { p, r -> onReplyClick(p, r) },
-                        onProfileClick = { u -> onProfileClick(u) },
+                        onProfileClick = { id -> onProfileClick(id) },
                         onPlaySong = onPlaySong,
                         onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
                         onMediaClick = onMediaClick,

@@ -139,7 +139,8 @@ class MediaViewModel @Inject constructor(
     }
 
     fun getUserPosts(userId: String, type: String = "standard"): Flow<PagingData<Post>> {
-        return socialRepository.getPostsPaging(following = false, authorId = userId, feedType = type).cachedIn(viewModelScope)
+        val normalizedId = if (userId == "null") "" else userId
+        return socialRepository.getPostsPaging(following = false, authorId = normalizedId, feedType = type).cachedIn(viewModelScope)
     }
 
     fun fetchTrendingTopics() {
