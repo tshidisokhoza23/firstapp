@@ -46,6 +46,14 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import java.util.ArrayList
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import com.example.firstapp.common.model.User as AppUser
+
+val LocalCurrentUser = staticCompositionLocalOf<AppUser> {
+    error("No current user provided")
+}
+
  @dagger.hilt.android.AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
@@ -166,20 +174,20 @@ class MainActivity : FragmentActivity() {
                 val navController = rememberNavController()
                 val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 val isLoggedIn by sessionManager.authState.collectAsState()
+                val currentUser by sessionManager.currentUser.collectAsState()
                 var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }
                 var wasLoggedIn by remember { mutableStateOf(isLoggedIn) }
-
-                // Use the initial login state to determine the start destination.
-                // Transitions (Login/Logout) are handled by explicit navController.navigate calls
-                // to avoid recreating the entire NavHost which causes UI flickers and double screens.
-                val startDestination = remember { if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route }
 
                 LaunchedEffect(isLoggedIn) {
                     android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn, wasLoggedIn: $wasLoggedIn")
                     
-                    // 1. Handle Navigation Transitions (Logout only)
+                    // 1. Handle Navigation Transitions (Login/Logout)
                     if (wasLoggedIn && !isLoggedIn) {
                         navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    } else if (!wasLoggedIn && isLoggedIn) {
+                        navController.navigate(Screen.Main.createRoute()) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
@@ -232,19 +240,26 @@ class MainActivity : FragmentActivity() {
                 }
 
                 Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
-                    AppNavigation(
-                        navController = navController,
-                        startDestination = startDestination,
-                        viewModel = viewModel,
-                        musicViewModel = musicViewModel,
-                        adManager = adManager,
-                        onLogout = {
-                            sessionManager.clearSession()
-                            navController.navigate(Screen.Login.route) {
-                                popUpTo(0) { inclusive = true }
+                    val content = @Composable {
+                        AppNavigation(
+                            navController = navController,
+                            startDestination = if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route,
+                            viewModel = viewModel,
+                            musicViewModel = musicViewModel,
+                            adManager = adManager,
+                            onLogout = {
+                                sessionManager.clearSession()
                             }
+                        )
+                    }
+
+                    if (isLoggedIn && currentUser != null) {
+                        CompositionLocalProvider(LocalCurrentUser provides currentUser!!) {
+                            content()
                         }
-                    )
+                    } else {
+                        content()
+                    }
                     
                     if (isAppLocked) {
                         // Show a placeholder or lock screen overlay

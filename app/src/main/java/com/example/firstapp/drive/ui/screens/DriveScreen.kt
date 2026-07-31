@@ -70,7 +70,7 @@ fun DriveScreen(
 ) {
     val context = LocalContext.current
     var currentSubScreen by remember { mutableStateOf<String?>(null) }
-    val user by userViewModel.currentUser.collectAsState()
+    val user = com.example.firstapp.LocalCurrentUser.current
     val tripsState by viewModel.trips.collectAsState()
 
     when (currentSubScreen) {

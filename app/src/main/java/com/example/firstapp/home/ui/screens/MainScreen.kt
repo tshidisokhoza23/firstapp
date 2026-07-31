@@ -46,7 +46,7 @@ fun MainScreen(
 ) {
     val selectedIndex by viewModel.selectedBottomItem.collectAsState()
     val currentTab = BottomNavItem.fromIndex(selectedIndex)
-    val currentUser by userViewModel.currentUser.collectAsState()
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
 
     val density = LocalDensity.current
     val bottomBarHeight = 80.dp // Approximate height of NavigationBar
@@ -65,9 +65,7 @@ fun MainScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (currentUser == null) {
-            userViewModel.fetchCurrentUser()
-        }
+        userViewModel.fetchCurrentUser()
     }
 
     // Remember the last active tab before switching to "More" overlay (index 5)

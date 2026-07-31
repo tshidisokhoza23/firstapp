@@ -55,7 +55,7 @@ fun ShortsTabScreen(
     onDirectMessagesClick: () -> Unit = {},
     initialShortId: String? = null
 ) {
-    val currentUser by userViewModel.currentUser.collectAsState()
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
     val uiState by mediaViewModel.uiState.collectAsState()
     val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
 
@@ -74,9 +74,7 @@ fun ShortsTabScreen(
 
     LaunchedEffect(Unit) {
         mediaViewModel.loadFeed("short")
-        if (currentUser == null) {
-            userViewModel.fetchCurrentUser()
-        }
+        userViewModel.fetchCurrentUser()
     }
 
     BackHandler(enabled = showShortComments || showShortMoreMenu || showUploadDialog || showTopMenu) {
@@ -104,7 +102,7 @@ fun ShortsTabScreen(
                 adManager = adManager,
                 shorts = shortsPagingItems,
                 shortsViewModel = mediaViewModel,
-                currentUserAvatarUrl = currentUser?.avatarUrl,
+                currentUserAvatarUrl = currentUser.avatarUrl,
                 bottomPadding = 0.dp,
                 initialShortId = selectedShortId,
                 onShortDisplayed = { selectedShortId = null },

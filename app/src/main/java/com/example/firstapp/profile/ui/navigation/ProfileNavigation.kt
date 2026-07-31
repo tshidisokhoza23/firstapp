@@ -85,11 +85,6 @@ fun NavGraphBuilder.profileNavGraph(
             mediaViewModel = mediaViewModel,
             sharedMediaViewModel = sharedMediaViewModel,
             onNavigateToSharedMedia = { id -> navController.navigate(Screen.SharedMedia.createRoute(id)) },
-            onRequireLogin = {
-                navController.navigate(Screen.Login.route) {
-                    popUpTo(0) { inclusive = true }
-                }
-            },
             onNavigateToEditProfile = {
                 navController.navigate(Screen.EditProfile.route)
             },

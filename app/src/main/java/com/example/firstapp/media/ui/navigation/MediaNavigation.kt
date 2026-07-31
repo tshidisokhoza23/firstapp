@@ -50,7 +50,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             ?: com.example.firstapp.common.data.ads.AdMobManagerImpl()
 
         val storiesState = storyViewModel.stories.collectAsState(Resource.Loading()).value
-        val currentUser by userViewModel.currentUser.collectAsState()
+        val currentUser = com.example.firstapp.LocalCurrentUser.current
         val postResult by storyViewModel.postResult.collectAsState()
         val context = androidx.compose.ui.platform.LocalContext.current
         
@@ -285,13 +285,13 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         val adManager = (navController.context as? com.example.firstapp.MainActivity)?.adManager 
             ?: com.example.firstapp.common.data.ads.AdMobManagerImpl() // Fallback
 
-        val currentUser by userViewModel.currentUser.collectAsState()
+        val currentUser = com.example.firstapp.LocalCurrentUser.current
 
         PostDetailScreen(
             postId = postId,
             mediaViewModel = mediaViewModel,
             adManager = adManager,
-            ownProfileId = currentUser?.id ?: "",
+            ownProfileId = currentUser.id,
             onBack = { 
                 mediaViewModel.selectPost(null)
                 navController.popBackStack() 

@@ -64,15 +64,16 @@ class SessionManagerImpl @Inject constructor(
         val token = getToken()
         val userData = prefs.getString(KEY_USER_DATA, null)
         
-        if (token != null) {
-            _authState.value = true
-            if (userData != null) {
-                try {
-                    _currentUser.value = gson.fromJson(userData, User::class.java)
-                } catch (e: Exception) {
-                    Log.e("SessionManager", "Failed to parse user data", e)
-                }
+        if (token != null && userData != null) {
+            try {
+                _currentUser.value = gson.fromJson(userData, User::class.java)
+                _authState.value = true
+            } catch (e: Exception) {
+                Log.e("SessionManager", "Failed to parse user data", e)
+                _authState.value = false
             }
+        } else {
+            _authState.value = false
         }
     }
 
@@ -85,7 +86,7 @@ class SessionManagerImpl @Inject constructor(
         return tokenSubject(token)
     }
 
-    override fun isLoggedIn(): Boolean = getToken() != null
+    override fun isLoggedIn(): Boolean = _authState.value
 
     override fun saveSession(token: String, refreshToken: String, user: User?) {
         val editor = prefs.edit()
@@ -93,11 +94,15 @@ class SessionManagerImpl @Inject constructor(
         editor.putString(KEY_REFRESH_TOKEN, refreshToken)
         if (user != null) {
             editor.putString(KEY_USER_DATA, gson.toJson(user))
+            editor.commit()
+            _currentUser.value = user
+            _authState.value = true
+        } else {
+            editor.remove(KEY_USER_DATA)
+            editor.commit()
+            _currentUser.value = null
+            _authState.value = false
         }
-        editor.commit() // Use commit() here for immediate write to avoid race condition with subsequent API calls
-        
-        _currentUser.value = user
-        _authState.value = true
     }
 
     override fun updateCurrentUser(user: User) {

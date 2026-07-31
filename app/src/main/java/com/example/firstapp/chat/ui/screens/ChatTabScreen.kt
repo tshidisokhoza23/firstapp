@@ -104,7 +104,7 @@ fun ChatsListScreen(
 
     val storiesState by storyViewModel.stories.collectAsState()
     val archivedChatsState by chatViewModel.archivedChats.collectAsState()
-    val currentUser by userViewModel.currentUser.collectAsState()
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
     val points by advertsViewModel.points.collectAsState()
     val jobsState by jobViewModel.jobs.collectAsState()
     val advertsState by advertsViewModel.adverts.collectAsState()

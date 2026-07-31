@@ -63,42 +63,31 @@ fun ProfileView(
     adManager: com.example.firstapp.common.data.ads.AdManager,
     sharedMediaViewModel: SharedMediaViewModel = hiltViewModel(),
     onNavigateToSharedMedia: (String) -> Unit = {},
-    onRequireLogin: () -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
     onShortClick: (Post) -> Unit = {},
     onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> },
     onNavigateToPostDetail: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val isLoggedIn by userViewModel.isLoggedIn.collectAsState()
-    val currentUser by userViewModel.currentUser.collectAsState()
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
     
     // Single Source of Truth for ID comparison
-    val isMyProfile = remember(userId, currentUser?.id) { 
-        val myId = currentUser?.id
-        userId.length == 0 || userId == "null" || (myId != null && userId == myId)
+    val isMyProfile = remember(userId, currentUser.id) { 
+        userId.length == 0 || userId == "null" || userId == currentUser.id
     }
     
     var remoteUser by remember(userId) { mutableStateOf<User?>(null) }
     var profileRefreshNonce by remember(userId) { mutableIntStateOf(0) }
     var isFollowUpdating by remember(userId) { mutableStateOf(false) }
 
-    LaunchedEffect(isLoggedIn, isMyProfile) {
-        if (isLoggedIn && isMyProfile) {
+    LaunchedEffect(isMyProfile) {
+        if (isMyProfile) {
             userViewModel.fetchCurrentUser()
         }
     }
 
-    LaunchedEffect(isLoggedIn) {
-        if (!isLoggedIn) {
-            onRequireLogin()
-        }
-    }
-    
-    LaunchedEffect(isLoggedIn, userId, profileRefreshNonce) {
-        if (!isLoggedIn) {
-            remoteUser = null
-        } else if (userId.length > 0 && userId != "null") {
+    LaunchedEffect(userId, profileRefreshNonce) {
+        if (userId.length > 0 && userId != "null") {
             userViewModel.getUserById(userId).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     remoteUser = resource.data
@@ -111,15 +100,13 @@ fun ProfileView(
     // This prevents gray loading boxes when navigating to your own profile.
     val user = remember(isMyProfile, currentUser, remoteUser) {
         if (isMyProfile) {
-            currentUser ?: remoteUser
+            currentUser
         } else {
             remoteUser
         }
     }
 
-    if (!isLoggedIn) {
-        return
-    }
+
 
     var selectedTabIndex by remember(userId) { mutableIntStateOf(0) }
     val tabs = remember {
@@ -133,7 +120,7 @@ fun ProfileView(
     
     val safeSelectedTabIndex = if (selectedTabIndex < tabs.size) selectedTabIndex else 0
     val selectedTab = if (safeSelectedTabIndex < tabs.size) tabs.get(safeSelectedTabIndex) else if (tabs.size > 0) tabs.get(tabs.size - 1) else ""
-    val profileOwnerId = if (userId.length > 0 && userId != "null") userId else currentUser?.id
+    val profileOwnerId = if (userId.length > 0 && userId != "null") userId else currentUser.id
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
@@ -425,7 +412,7 @@ fun ProfileView(
                                     PostItem(
                                         adManager = adManager,
                                         post = post,
-                                        isOwnPost = post.authorId == currentUser?.id || (currentUser?.username?.isNotEmpty() == true && post.authorHandle == currentUser?.username),
+                                        isOwnPost = post.authorId == currentUser.id || (currentUser.username.length > 0 && post.authorHandle == currentUser.username),
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
@@ -464,7 +451,7 @@ fun ProfileView(
                                     PostItem(
                                         adManager = adManager,
                                         post = post,
-                                        isOwnPost = post.authorId == currentUser?.id || (currentUser?.username?.isNotEmpty() == true && post.authorHandle == currentUser?.username),
+                                        isOwnPost = post.authorId == currentUser.id || (currentUser.username.length > 0 && post.authorHandle == currentUser.username),
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
@@ -502,7 +489,7 @@ fun ProfileView(
                                     PostItem(
                                         adManager = adManager,
                                         post = post,
-                                        isOwnPost = post.authorId == currentUser?.id || (currentUser?.username?.isNotEmpty() == true && post.authorHandle == currentUser?.username),
+                                        isOwnPost = post.authorId == currentUser.id || (currentUser.username.length > 0 && post.authorHandle == currentUser.username),
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },

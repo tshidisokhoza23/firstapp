@@ -117,7 +117,6 @@ fun MediaScreen(
     onRefresh: () -> Unit = {},
     refreshTrigger: Int = 0,
     onDirectMessagesClick: () -> Unit = {},
-    onRequireLogin: () -> Unit = {},
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String) -> Unit = { _, _ -> },

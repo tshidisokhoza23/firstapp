@@ -11,6 +11,7 @@ import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.ui.navigation.Screen
+import kotlin.text.*
 
 import androidx.paging.compose.collectAsLazyPagingItems
 
@@ -24,7 +25,7 @@ fun MediaTabScreen(
     musicViewModel: MusicViewModel = hiltViewModel()
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
-    val currentUser by userViewModel.currentUser.collectAsState()
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
     val pagedPosts = uiState.posts.collectAsLazyPagingItems()
 
     LaunchedEffect(Unit) {
@@ -32,12 +33,6 @@ fun MediaTabScreen(
         pagedPosts.refresh()
     }
 
-    LaunchedEffect(currentUser?.id) {
-        if (currentUser == null) {
-            userViewModel.fetchCurrentUser()
-        }
-    }
-    
     val onGetUserPosts = remember(mediaViewModel) {
         { userId: String, type: String -> mediaViewModel.getUserPosts(userId, type) }
     }
@@ -47,10 +42,10 @@ fun MediaTabScreen(
             adManager = adManager,
             posts = pagedPosts,
             selectedPost = uiState.selectedPost,
-            ownProfileId = currentUser?.id.orEmpty(),
-            ownProfileName = currentUser?.displayName.orEmpty().ifBlank { "You" },
-            ownProfileHandle = currentUser?.username.orEmpty().ifBlank { "you" },
-            ownProfileAvatarUrl = currentUser?.avatarUrl,
+            ownProfileId = currentUser.id,
+            ownProfileName = currentUser.displayName.ifBlank { "You" },
+            ownProfileHandle = currentUser.username.ifBlank { "you" },
+            ownProfileAvatarUrl = currentUser.avatarUrl,
             onPostSelect = { post ->
                 if (post != null) {
                     mediaViewModel.selectPost(post)
@@ -82,11 +77,6 @@ fun MediaTabScreen(
             onRefresh = { mediaViewModel.refreshAll() },
             refreshTrigger = uiState.refreshTrigger,
             onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
-            onRequireLogin = {
-                navController.navigate(Screen.Login.route) {
-                    popUpTo(0) { inclusive = true }
-                }
-            },
             onAdRevenueLogged = { pid, rev, uid -> mediaViewModel.onAdRevenueLogged(pid, rev, uid) },
             onShortClick = { short ->
                 // REQUIREMENT: Universal Entry Point for shorts
