@@ -241,7 +241,7 @@ fun VerticalFeedPostCard(
                 ) {
                     VideoPlayer(
                         videoUrl = displayPost.mediaUrls[0],
-                        isPlaying = false,
+                        isPlaying = true, // Auto-play single videos in feed
                         modifier = Modifier.fillMaxSize(),
                         useController = false
                     )

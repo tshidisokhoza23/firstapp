@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
 
 object MediaUtils {
     fun compressImage(context: Context, uri: Uri): File {
@@ -75,5 +76,11 @@ object MediaUtils {
         val cleanUrl = if (url.startsWith("/")) url.substring(1) else url
         val result = "$baseUrl/$cleanUrl"
         return result
+    }
+
+    fun isVideo(url: String?): Boolean {
+        if (url == null || url.isEmpty()) return false
+        val lower = url.lowercase(Locale.ROOT)
+        return lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".avi") || lower.contains("video")
     }
 }

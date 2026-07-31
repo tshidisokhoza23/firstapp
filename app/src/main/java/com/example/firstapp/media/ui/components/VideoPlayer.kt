@@ -24,18 +24,20 @@ fun VideoPlayer(
 ) {
     val context = LocalContext.current
     val exoPlayer = remember(videoUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            repeatMode = Player.REPEAT_MODE_ONE
-            setMediaItem(MediaItem.fromUri(videoUrl))
-            prepare()
-        }
+        ExoPlayer.Builder(context).build()
+    }
+    
+    LaunchedEffect(videoUrl) {
+        exoPlayer.setMediaItem(MediaItem.fromUri(videoUrl))
+        exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
+        exoPlayer.prepare()
     }
 
     LaunchedEffect(isPlaying) {
         exoPlayer.playWhenReady = isPlaying
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(exoPlayer) {
         onDispose {
             exoPlayer.release()
         }

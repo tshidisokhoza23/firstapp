@@ -33,6 +33,7 @@ import com.example.firstapp.common.ui.components.DynamicAdCard
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.music.model.Song
+import java.util.Locale
 import kotlin.text.*
 
 @Composable
@@ -188,10 +189,29 @@ fun PostDetailScreen(
                     
                     if (post.mediaUrls.size > 0) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        MediaGrid(post.mediaUrls) { url ->
-                            val urlLower = url.lowercase(java.util.Locale.getDefault())
-                            val type = if (urlLower.endsWith(".mp4") || urlLower.endsWith(".mov")) "video" else "image"
-                            onMediaClick(url, type)
+                        val mType = post.mediaType?.lowercase(Locale.ROOT) ?: ""
+                        val isVideo = mType == "video" || mType == "short"
+                        
+                        if (isVideo && post.mediaUrls.size == 1) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(post.aspectRatio?.toFloat() ?: 0.8f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onMediaClick(post.mediaUrls[0], "video") }
+                            ) {
+                                VideoPlayer(
+                                    videoUrl = post.mediaUrls[0],
+                                    isPlaying = true,
+                                    modifier = Modifier.fillMaxSize(),
+                                    useController = true
+                                )
+                            }
+                        } else {
+                            MediaGrid(post.mediaUrls) { url ->
+                                val type = if (url.contains(".mp4")) "video" else "image"
+                                onMediaClick(url, type)
+                            }
                         }
                     }
                     

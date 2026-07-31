@@ -16,8 +16,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayCircle
 import coil.compose.AsyncImage
 import com.example.firstapp.media.model.PostPoll
+import kotlin.text.*
 
 @Composable
 fun InteractionIcon(
@@ -64,14 +67,35 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
         when {
             urls.isEmpty() -> {}
             urls.size == 1 -> {
-                AsyncImage(
-                    model = urls[0],
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onMediaClick(urls[0]) },
-                    contentScale = ContentScale.Fit // Show the whole picture
-                )
+                val urlString = urls[0]
+                val isVideo = urlString.indexOf(".mp4") != -1 || urlString.indexOf(".mov") != -1
+                if (isVideo) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        VideoPlayer(
+                            videoUrl = urlString,
+                            isPlaying = false,
+                            modifier = Modifier.fillMaxWidth(),
+                            useController = false
+                        )
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp).align(Alignment.Center),
+                            tint = Color.White.copy(alpha = 0.8f)
+                        )
+                        // Overlay click area
+                        Box(modifier = Modifier.matchParentSize().clickable { onMediaClick(urlString) })
+                    }
+                } else {
+                    AsyncImage(
+                        model = urlString,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onMediaClick(urlString) },
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
             urls.size == 2 -> {
                 Row(modifier = Modifier.fillMaxSize()) {
