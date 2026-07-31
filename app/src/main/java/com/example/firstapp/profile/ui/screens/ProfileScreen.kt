@@ -72,19 +72,18 @@ fun ProfileView(
     val context = LocalContext.current
     val isLoggedIn by userViewModel.isLoggedIn.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
-    val normalizedUserId = remember(userId) { 
-        if (userId.length > 0 && userId != "null") userId else null
-    }
-    val isMyProfile = remember(normalizedUserId, currentUser?.id) { 
-        normalizedUserId == null || (currentUser?.id != null && (normalizedUserId == currentUser?.id))
+    val currentUserId = userViewModel.currentUserId
+    
+    val isMyProfile = remember(userId, currentUserId) { 
+        userId.length == 0 || userId == "null" || userId == currentUserId
     }
     
-    var remoteUser by remember(normalizedUserId) { mutableStateOf<User?>(null) }
-    var profileRefreshNonce by remember(normalizedUserId) { mutableIntStateOf(0) }
+    var remoteUser by remember(userId) { mutableStateOf<User?>(null) }
+    var profileRefreshNonce by remember(userId) { mutableIntStateOf(0) }
     var isFollowUpdating by remember(userId) { mutableStateOf(false) }
 
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn && currentUser == null) {
+    LaunchedEffect(isLoggedIn, isMyProfile) {
+        if (isLoggedIn && isMyProfile) {
             userViewModel.fetchCurrentUser()
         }
     }
@@ -95,13 +94,16 @@ fun ProfileView(
         }
     }
     
-    LaunchedEffect(isLoggedIn, normalizedUserId, profileRefreshNonce) {
+    LaunchedEffect(isLoggedIn, userId, profileRefreshNonce) {
         if (!isLoggedIn) {
             remoteUser = null
-        } else if (normalizedUserId != null) {
-            userViewModel.getUserById(normalizedUserId).collect { resource ->
-                if (resource is Resource.Success) {
+        } else if (userId.length > 0 && userId != "null") {
+            userViewModel.getUserById(userId).collect { resource ->
+                if (resource is Resource.Success && resource.data != null) {
                     remoteUser = resource.data
+                    if (isMyProfile) {
+                        userViewModel.updateProfileLocally(resource.data!!)
+                    }
                 }
             }
         }
@@ -119,7 +121,7 @@ fun ProfileView(
         return
     }
 
-    var selectedTabIndex by remember(normalizedUserId) { mutableIntStateOf(0) }
+    var selectedTabIndex by remember(userId) { mutableIntStateOf(0) }
     val tabs = remember {
         val l = ArrayList<String>()
         l.add("Posts")
@@ -131,7 +133,7 @@ fun ProfileView(
     
     val safeSelectedTabIndex = if (selectedTabIndex < tabs.size) selectedTabIndex else 0
     val selectedTab = if (safeSelectedTabIndex < tabs.size) tabs.get(safeSelectedTabIndex) else if (tabs.size > 0) tabs.get(tabs.size - 1) else ""
-    val profileOwnerId = normalizedUserId ?: currentUser?.id
+    val profileOwnerId = if (userId.length > 0 && userId != "null") userId else currentUser?.id
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 

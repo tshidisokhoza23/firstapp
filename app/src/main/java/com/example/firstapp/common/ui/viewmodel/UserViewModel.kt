@@ -34,8 +34,8 @@ class UserViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
-    private val _currentUser = MutableStateFlow<User?>(null)
-    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+    val currentUser: StateFlow<User?> = sessionManager.currentUser
+    val currentUserId: String? get() = sessionManager.getUserId()
 
     val isLoggedIn: StateFlow<Boolean> = sessionManager.authState
 
@@ -80,13 +80,14 @@ class UserViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.getCurrentUser().collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
-                    _currentUser.value = resource.data
-                } else if (resource is Resource.Error && _currentUser.value == null) {
-                    // Only clear if we don't have a user and an error occurred
-                    _currentUser.value = null
+                    sessionManager.updateCurrentUser(resource.data!!)
                 }
             }
         }
+    }
+
+    fun updateProfileLocally(user: User) {
+        sessionManager.updateCurrentUser(user)
     }
 
     fun getUserById(userId: String): kotlinx.coroutines.flow.Flow<Resource<User>> {
@@ -120,8 +121,8 @@ class UserViewModel @Inject constructor(
     fun updateProfile(displayName: String?, bio: String?, location: String?, avatarUrl: String?, bannerUrl: String? = null, isArtist: Boolean? = null) {
         viewModelScope.launch {
             userRepository.updateUser(displayName, bio, location, avatarUrl, bannerUrl, isArtist).collect { resource ->
-                if (resource is Resource.Success) {
-                    _currentUser.value = resource.data
+                if (resource is Resource.Success && resource.data != null) {
+                    sessionManager.updateCurrentUser(resource.data!!)
                     _toastMessage.value = "Profile updated successfully"
                 } else if (resource is Resource.Error) {
                     _toastMessage.value = resource.message ?: "Failed to update profile"
