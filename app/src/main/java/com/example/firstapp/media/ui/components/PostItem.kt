@@ -137,7 +137,10 @@ fun VerticalFeedPostCard(
                     .size(42.dp)
                     .clip(CircleShape)
                     .background(displayPost.authorAvatarColor)
-                    .clickable { onProfileClick() }
+                    .clickable { 
+                        android.util.Log.d("PostItem", "Navigating to profile: ${displayPost.authorId}")
+                        onProfileClick() 
+                    }
             ) {
                 AsyncImage(
                     model = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl),
@@ -154,7 +157,10 @@ fun VerticalFeedPostCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onProfileClick() }
+                    .clickable { 
+                        android.util.Log.d("PostItem", "Navigating to profile: ${displayPost.authorId}")
+                        onProfileClick() 
+                    }
             ) {
                 Text(
                     text = displayPost.authorName,

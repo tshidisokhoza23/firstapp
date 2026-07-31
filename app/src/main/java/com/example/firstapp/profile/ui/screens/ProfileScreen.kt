@@ -73,7 +73,8 @@ fun ProfileView(
     
     // Single Source of Truth for ID comparison
     val isMyProfile = remember(userId, currentUser.id) { 
-        userId.length == 0 || userId == "null" || userId == currentUser.id
+        val u = userId.toString()
+        u.length == 0 || u == "null" || u == currentUser.id
     }
     
     var remoteUser by remember(userId) { mutableStateOf<User?>(null) }
@@ -87,8 +88,9 @@ fun ProfileView(
     }
 
     LaunchedEffect(userId, profileRefreshNonce) {
-        if (userId.length > 0 && userId != "null") {
-            userViewModel.getUserById(userId).collect { resource ->
+        val u = userId.toString()
+        if (u.length > 0 && u != "null") {
+            userViewModel.getUserById(u).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     remoteUser = resource.data
                 }

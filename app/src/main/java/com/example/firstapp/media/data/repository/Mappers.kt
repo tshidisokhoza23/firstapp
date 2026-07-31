@@ -26,18 +26,14 @@ fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull {
 fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
     val author = apiPost.author
     
-    val authorId: String = when {
-        !apiPost.author_id.isNullOrBlank() -> apiPost.author_id!!
-        !apiPost.user_id.isNullOrBlank() -> apiPost.user_id!!
-        !author?.id.isNullOrBlank() -> author!!.id!!
-        else -> ""
-    }
+    // Server uses author_id for the UUID in media_posts table
+    val authorId: String = apiPost.author_id ?: apiPost.user_id ?: author?.id ?: ""
 
     return Post(
         id = apiPost.id ?: "",
         authorId = authorId,
-        authorName = author?.display_name ?: apiPost.author_name ?: "",
-        authorHandle = author?.username ?: apiPost.author_handle ?: "",
+        authorName = author?.display_name ?: apiPost.author_name ?: "User",
+        authorHandle = author?.username ?: apiPost.author_handle ?: "user",
         authorAvatarUrl = MediaUtils.formatUrl(author?.avatar_url ?: apiPost.author_avatar_url),
         authorAvatarColor = AppPrimary,
         isVerifiedAuthor = author?.is_verified ?: false,
