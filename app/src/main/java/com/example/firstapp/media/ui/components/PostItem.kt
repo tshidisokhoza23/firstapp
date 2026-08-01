@@ -298,20 +298,21 @@ fun VerticalFeedPostCard(
                     onMediaClick(formattedUrl, type)
                 }
             }
-        } else if (displayPost.mediaType != null && displayPost.mediaType != "TEXT" && displayPost.mediaType.length > 0) {
-            // Diagnostic placeholder
+        } else if (displayPost.mediaType != null && displayPost.mediaType != "TEXT" && (displayPost.mediaType ?: "").length > 0) {
+            // Diagnostic for development
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .background(Color.DarkGray.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                    .padding(12.dp)
+                    .background(Color.Red.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Media processing... type: ${displayPost.mediaType}",
-                    color = Color.Gray,
-                    fontSize = 11.sp
+                    text = "Post data error: media_type is ${displayPost.mediaType} but media_urls is empty",
+                    color = Color.Red,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

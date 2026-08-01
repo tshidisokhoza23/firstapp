@@ -29,6 +29,25 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
     // Server uses author_id for the UUID in media_posts table
     val authorId: String = apiPost.author_id ?: apiPost.user_id ?: author?.id ?: ""
 
+    val timestampRaw = apiPost.created_at
+    val timestampFormatted = if (timestampRaw != null) {
+        val ts = if (timestampRaw < 10000000000L) timestampRaw * 1000 else timestampRaw
+        ts.toString()
+    } else {
+        System.currentTimeMillis().toString()
+    }
+
+    val mediaUrlsRaw = apiPost.media_urls
+    val mediaUrlsList = ArrayList<String>()
+    if (mediaUrlsRaw != null) {
+        for (u in mediaUrlsRaw) {
+            val formatted = MediaUtils.formatUrl(u)
+            if (formatted != null) {
+                mediaUrlsList.add(formatted)
+            }
+        }
+    }
+
     return Post(
         id = apiPost.id ?: "",
         authorId = authorId,
@@ -38,19 +57,16 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         authorAvatarColor = AppPrimary,
         isVerifiedAuthor = author?.is_verified ?: false,
         content = apiPost.content ?: apiPost.content_text ?: "",
-        mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
+        mediaUrls = mediaUrlsList,
         mediaType = if (apiPost.media_type != null && apiPost.media_type.length > 0) {
             apiPost.media_type
-        } else if (apiPost.media_urls != null && apiPost.media_urls.size > 0) {
-            if (MediaUtils.isVideo(apiPost.media_urls[0])) "VIDEO" else "IMAGE"
+        } else if (mediaUrlsList.size > 0) {
+            if (MediaUtils.isVideo(mediaUrlsList[0])) "VIDEO" else "IMAGE"
         } else {
             "TEXT"
         },
         altText = apiPost.alt_text,
-        timestamp = (apiPost.created_at?.let { 
-            val ts = if (it < 10000000000L) it * 1000 else it 
-            ts.toString()
-        } ?: System.currentTimeMillis().toString()),
+        timestamp = timestampFormatted,
         likes = if (apiPost.likes > 0) apiPost.likes else apiPost.like_count,
         repliesCount = if (apiPost.replies_count > 0) apiPost.replies_count else apiPost.reply_count,
         shares = if (apiPost.shares > 0) apiPost.shares else apiPost.repost_count,
