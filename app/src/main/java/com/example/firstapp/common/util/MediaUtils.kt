@@ -80,6 +80,8 @@ object MediaUtils {
 
     fun isVideo(url: String?): Boolean {
         val s = url?.lowercase() ?: return false
-        return s.contains(".mp4") || s.contains(".mov") || s.contains(".avi") || s.contains("video")
+        return s.contains(".mp4") || s.contains(".mov") || s.contains(".avi") || 
+               s.contains(".webm") || s.contains(".mkv") || s.contains(".3gp") ||
+               s.contains("video") || s.contains("/shorts/") || s.contains(".tmp")
     }
 }

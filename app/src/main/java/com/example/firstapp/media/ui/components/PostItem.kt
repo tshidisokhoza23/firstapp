@@ -157,19 +157,44 @@ fun VerticalFeedPostCard(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { 
-                        onProfileClick(displayPost.authorId)
+                        if (displayPost.authorId.length > 0) {
+                            onProfileClick(displayPost.authorId)
+                        }
                     }
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val name = if (displayPost.authorName.length > 0) displayPost.authorName else "User"
+                    Text(
+                        text = name,
+                        color = AppTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (displayPost.isVerifiedAuthor) {
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = "Verified",
+                            tint = TwitterBlue,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    val timestamp = formatTwitterTime(displayPost.timestamp)
+                    if (timestamp.length > 0) {
+                        Text(
+                            text = " · $timestamp",
+                            color = AppTextSecondary,
+                            fontSize = 13.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+                val handle = if (displayPost.authorHandle.length > 0) displayPost.authorHandle else "user"
                 Text(
-                    text = displayPost.authorName,
-                    color = AppTextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "@${displayPost.authorHandle}",
+                    text = "@$handle",
                     color = AppTextSecondary,
                     fontSize = 13.sp,
                     maxLines = 1,

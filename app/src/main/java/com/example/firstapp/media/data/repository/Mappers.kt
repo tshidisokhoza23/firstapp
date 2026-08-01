@@ -42,8 +42,9 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         mediaType = apiPost.media_type,
         altText = apiPost.alt_text,
         timestamp = apiPost.created_at?.let { 
-            if (it is Long) (it * 1000).toString() else it.toString() 
-        } ?: "",
+            val ts = if (it < 10000000000L) it * 1000 else it // heuristic to detect seconds vs millis
+            ts.toString()
+        } ?: System.currentTimeMillis().toString(),
         likes = if (apiPost.likes > 0) apiPost.likes else apiPost.like_count,
         repliesCount = if (apiPost.replies_count > 0) apiPost.replies_count else apiPost.reply_count,
         shares = if (apiPost.shares > 0) apiPost.shares else apiPost.repost_count,
@@ -53,7 +54,7 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
             "INTERNAL_AD" -> PostType.INTERNAL_AD
             "NATIVE_AD" -> PostType.NATIVE_AD
             "AD_UNIT" -> PostType.AD_UNIT
-            "short", "SHORT" -> PostType.SHORT
+            "short", "SHORT", "video", "VIDEO" -> PostType.SHORT
             "repost", "REPOST" -> PostType.REPOST
             else -> PostType.POST
         },

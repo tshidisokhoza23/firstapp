@@ -254,8 +254,15 @@ class MediaViewModel @Inject constructor(
             }
             
             // Auto-detect media type if not provided
-            val finalMediaType = if (postType == "short") "VIDEO" else (mediaType ?: if (finalUrls.size > 0) "IMAGE" else "TEXT")
+            val finalMediaType = if (postType == "short") "VIDEO" else (mediaType ?: if (finalUrls.size > 0) {
+                if (com.example.firstapp.common.util.MediaUtils.isVideo(finalUrls[0])) "VIDEO" else "IMAGE"
+            } else "TEXT")
             
+            android.util.Log.d("MediaViewModel", "Creating post with ${finalUrls.size} media URLs. Type: $finalMediaType, PostType: $postType")
+            for (url in finalUrls) {
+                android.util.Log.d("MediaViewModel", "Media URL: $url")
+            }
+
             socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType).collect { res ->
                 if (res is Resource.Success) {
                     _toastMessage.value = "Post created successfully"
