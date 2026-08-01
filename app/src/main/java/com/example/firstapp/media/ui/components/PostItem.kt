@@ -560,21 +560,21 @@ fun PostActions(
             color = SecondaryText,
             onClick = onReplyClick
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
         InteractionIcon(
             icon = Icons.Default.Repeat,
             count = post.shares,
             color = if (post.isReposted) Color.Green else SecondaryText,
             onClick = onRepostClick
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
         InteractionIcon(
             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
             count = post.likes,
             color = if (post.isLiked) Color.Red else SecondaryText,
             onClick = { onLike(post.id, post.likes, post.isLiked) }
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
         InteractionIcon(
             icon = Icons.Default.BarChart,
             count = post.views,

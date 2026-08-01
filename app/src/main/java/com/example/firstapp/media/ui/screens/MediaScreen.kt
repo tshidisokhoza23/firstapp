@@ -119,8 +119,6 @@ fun MediaScreen(
     onShareClick: (Post) -> Unit = {},
     onProfileClick: (String) -> Unit = {}
 ) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
     LaunchedEffect(refreshTrigger) {
         val now = System.currentTimeMillis()
@@ -180,7 +178,7 @@ fun MediaScreen(
 
         Column(modifier = Modifier.fillMaxSize()) {
             Scaffold(
-                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                modifier = Modifier,
                 topBar = {
                     if (isSearchActive) {
                         SearchTopBar(
@@ -259,14 +257,11 @@ fun MediaScreen(
                                 titleContentColor = Color.White,
                                 navigationIconContentColor = Color.White,
                                 actionIconContentColor = Color.White
-                            ),
-                            scrollBehavior = scrollBehavior,
-                            windowInsets = WindowInsets(0, 0, 0, 0) // Takes icons higher by removing default status bar insets
+                            )
                         )
                     }
                 },
-                containerColor = AppBackground,
-                contentWindowInsets = WindowInsets(0, 0, 0, 0)
+                containerColor = AppBackground
             ) { innerPadding ->
                 Box(modifier = Modifier.padding(innerPadding)) {
                     MainFeedSection(

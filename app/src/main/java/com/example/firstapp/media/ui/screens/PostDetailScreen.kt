@@ -253,27 +253,31 @@ fun PostDetailScreen(
                         InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else SecondaryText) { 
                             if (!post.repliesLocked) replyingToPost = post 
                         }
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(12.dp))
                         InteractionIcon(
                             icon = Icons.Default.Repeat, 
                             count = post.shares, 
                             color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
                             onClick = { showRepostOptions = true }
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(12.dp))
                         InteractionIcon(
                             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
                             count = post.likes, 
                             color = if (post.isLiked) Color(0xFFF91880) else SecondaryText, 
                             onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(12.dp))
                         InteractionIcon(
                             icon = Icons.Default.BarChart,
                             count = post.views,
                             color = SecondaryText,
                             onClick = { /* View stats */ }
                         )
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, post) }) {
+                            Icon(Icons.Default.Share, null, tint = SecondaryText, modifier = Modifier.size(20.dp))
+                        }
                     }
                     
                     HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(top = 16.dp))

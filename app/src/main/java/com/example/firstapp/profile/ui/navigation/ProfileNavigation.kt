@@ -91,8 +91,8 @@ fun NavGraphBuilder.profileNavGraph(
             onShortClick = { short ->
                 navController.navigate(Screen.Main.createRoute(tab = "shorts", shortId = short.id))
             },
-            onNavigateToMediaViewer = { url, type ->
-                navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            onNavigateToMediaViewer = { url, type, pos ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type, pos))
             },
             onNavigateToPostDetail = { postId ->
                 navController.navigate(Screen.PostDetail.createRoute(postId))

@@ -34,7 +34,7 @@ fun InteractionIcon(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(8.dp)
+            .padding(4.dp)
     ) {
         Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(4.dp))

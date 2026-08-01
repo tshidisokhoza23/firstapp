@@ -66,7 +66,7 @@ fun ProfileView(
     onNavigateToSharedMedia: (String) -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
     onShortClick: (Post) -> Unit = {},
-    onNavigateToMediaViewer: (String, String) -> Unit = { _, _ -> },
+    onNavigateToMediaViewer: (String, String, Long) -> Unit = { _, _, _ -> },
     onNavigateToPostDetail: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -160,12 +160,10 @@ fun ProfileView(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = AppBackground),
-                scrollBehavior = scrollBehavior,
-                windowInsets = WindowInsets(0, 0, 0, 0)
+                scrollBehavior = scrollBehavior
             )
         },
-        containerColor = AppBackground,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        containerColor = AppBackground
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -192,8 +190,9 @@ fun ProfileView(
                             closestIndex = item.index
                         }
                     }
-                    if (closestIndex != -1 && closestIndex < selectedTabItems.itemCount) {
-                        selectedTabItems.peek(closestIndex)?.id
+                    val itemOffset = 2
+                    if (closestIndex >= itemOffset && (closestIndex - itemOffset) < selectedTabItems.itemCount) {
+                        selectedTabItems.peek(closestIndex - itemOffset)?.id
                     } else null
                 }
             }
@@ -242,7 +241,7 @@ fun ProfileView(
                                     .clip(CircleShape)
                                     .background(AppSecondary)
                                     .clickable { 
-                                        onNavigateToMediaViewer(url, "image")
+                                        onNavigateToMediaViewer(url, "image", 0L)
                                     },
                                 contentScale = ContentScale.Crop,
                                 error = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary),
@@ -342,7 +341,7 @@ fun ProfileView(
                                     if (isMyProfile) {
                                         onNavigateToSharedMedia("inbox")
                                     } else if (user != null) {
-                                        onNavigateToMediaViewer(user.id, "chat")
+                                        onNavigateToMediaViewer(user.id, "chat", 0L)
                                     }
                                 },
                                 modifier = Modifier.weight(1f).height(44.dp),
@@ -454,7 +453,7 @@ fun ProfileView(
                                         },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
-                                        onMediaClick = onNavigateToMediaViewer,
+                                        onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
                                         onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
@@ -493,7 +492,7 @@ fun ProfileView(
                                         },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
-                                        onMediaClick = onNavigateToMediaViewer,
+                                        onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
                                         onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
@@ -532,7 +531,7 @@ fun ProfileView(
                                         },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
-                                        onMediaClick = onNavigateToMediaViewer,
+                                        onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
                                         onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))

@@ -120,7 +120,6 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(AppBackground)
-                .statusBarsPadding()
                 .nestedScroll(nestedScrollConnection)
         ) {
             val tabToDisplay = if (selectedIndex == 5) {
@@ -169,6 +168,8 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Color.Transparent)
                     .offset { IntOffset(0, -bottomBarOffsetHeightPx.floatValue.roundToInt()) }
             ) {
                 MainBottomNavigation(
@@ -206,7 +207,8 @@ fun MainBottomNavigation(
 ) {
     NavigationBar(
         containerColor = AppSecondary,
-        tonalElevation = 0.dp
+        tonalElevation = 0.dp,
+        windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
         for (item in BottomNavItem.items) {
             val isSelected = selectedRoute == item.route
