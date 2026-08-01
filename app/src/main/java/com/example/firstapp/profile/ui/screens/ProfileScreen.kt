@@ -102,7 +102,7 @@ fun ProfileView(
     // This prevents gray loading boxes when navigating to your own profile.
     val user = remember(isMyProfile, currentUser, remoteUser) {
         if (isMyProfile) {
-            currentUser
+            remoteUser ?: currentUser
         } else {
             remoteUser
         }

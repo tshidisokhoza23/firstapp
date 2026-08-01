@@ -58,6 +58,7 @@ val LocalCurrentUser = staticCompositionLocalOf<AppUser> {
 class MainActivity : FragmentActivity() {
 
     @Inject lateinit var displayNameResolver: DisplayNameResolver
+    @Inject lateinit var systemRepository: com.example.firstapp.common.domain.repository.SystemRepository
     @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
     @Inject lateinit var adManager: com.example.firstapp.common.data.ads.AdManager
     @Inject lateinit var sessionManager: com.example.firstapp.common.domain.auth.SessionManager
@@ -240,25 +241,35 @@ class MainActivity : FragmentActivity() {
                 }
 
                 Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
-                    val content = @Composable {
-                        AppNavigation(
-                            navController = navController,
-                            startDestination = if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route,
-                            viewModel = viewModel,
-                            musicViewModel = musicViewModel,
-                            adManager = adManager,
-                            onLogout = {
-                                sessionManager.clearSession()
-                            }
-                        )
-                    }
-
-                    if (isLoggedIn && currentUser != null) {
-                        CompositionLocalProvider(LocalCurrentUser provides currentUser!!) {
-                            content()
+                    if (isLoggedIn && currentUser == null) {
+                        // Splash/Loading while session user is being restored from storage
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = androidx.compose.ui.graphics.Color(0xFF2196F3))
                         }
                     } else {
-                        content()
+                        val content = @Composable {
+                            AppNavigation(
+                                navController = navController,
+                                startDestination = if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route,
+                                viewModel = viewModel,
+                                musicViewModel = musicViewModel,
+                                adManager = adManager,
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        systemRepository.clearAllData()
+                                        sessionManager.clearSession()
+                                    }
+                                }
+                            )
+                        }
+
+                        if (isLoggedIn && currentUser != null) {
+                            CompositionLocalProvider(LocalCurrentUser provides currentUser!!) {
+                                content()
+                            }
+                        } else {
+                            content()
+                        }
                     }
                     
                     if (isAppLocked) {
