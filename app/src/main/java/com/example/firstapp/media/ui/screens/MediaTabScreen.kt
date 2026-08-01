@@ -54,15 +54,13 @@ fun MediaTabScreen(
                     mediaViewModel.selectPost(null)
                 }
             },
-            onCreatePost = { c, m, tags, t, p, l -> mediaViewModel.createPost(c, m, postType = t ?: "standard", tags = tags, pollOptions = p, location = l) },
+            onCreatePost = { c, m, tags, t, p, l, pId, rId -> 
+                mediaViewModel.createPost(c, m, postType = t ?: "standard", tags = tags, pollOptions = p, location = l, parentPostId = pId, rootPostId = rId) 
+            },
             onLikePost = { id, l, liked -> mediaViewModel.likePost(id, l, liked) },
             onRepostPost = { mediaViewModel.repostPost(it) },
             onDeletePost = { mediaViewModel.deletePost(it) },
-            onReplySubmit = { p1, p2, c -> mediaViewModel.createPostReply(p1, c, p2) }, 
-            onReplyLike = { mediaViewModel.likePostReply(it) }, 
-            onReplyRepost = { mediaViewModel.repostPostReply(it) }, 
             onBookmarkPost = { mediaViewModel.bookmarkPost(it) }, 
-            onBookmarkReply = { mediaViewModel.bookmarkPostReply(it) }, 
             onViewPost = { mediaViewModel.viewPost(it) }, 
             onProfileViewChange = { /* Handle internal profile view if needed */ }, 
             onGetUserPosts = onGetUserPosts,

@@ -211,7 +211,9 @@ class MediaViewModel @Inject constructor(
         tags: List<String> = emptyList(), 
         channelId: String? = null, 
         pollOptions: List<String>? = null, 
-        location: String? = null
+        location: String? = null,
+        parentPostId: String? = null,
+        rootPostId: String? = null
     ) {
         if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty())) return
         viewModelScope.launch {
@@ -271,12 +273,12 @@ class MediaViewModel @Inject constructor(
                 return@launch
             }
 
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType).collect { res ->
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId).collect { res ->
                 if (res is Resource.Success) {
-                    _toastMessage.value = "Post created successfully"
+                    _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
                 } else if (res is Resource.Error) {
-                    _toastMessage.value = "Failed to create post: ${res.message}"
+                    _toastMessage.value = "Failed to post: ${res.message}"
                 }
             }
             _uiState.update { it.copy(isLoading = false) }
@@ -387,29 +389,6 @@ class MediaViewModel @Inject constructor(
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
                 } else if (res is Resource.Error) {
                     _toastMessage.value = "Failed to delete: ${res.message}"
-                }
-            }
-        }
-    }
-
-    fun createPostReply(postId: String, content: String, parentReplyId: String? = null) {
-        if (content.isBlank()) return
-        viewModelScope.launch {
-            socialRepository.createPostReply(postId, content.trim(), parentReplyId).collect { resource ->
-                if (resource is Resource.Success && resource.data == true) {
-                    val selected = _uiState.value.selectedPost
-                    if (selected != null && selected.id == postId) {
-                        val currentCount = selected.repliesCount
-                        _uiState.update {
-                            it.copy(selectedPost = selected.copy(repliesCount = currentCount + 1))
-                        }
-                        fetchReplies(postId)
-                    }
-                    // For Shorts: refresh the specific short replies state
-                    fetchShortReplies(postId)
-                    _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-                } else if (resource is Resource.Error) {
-                    _toastMessage.value = "Failed to add reply: ${resource.message}"
                 }
             }
         }

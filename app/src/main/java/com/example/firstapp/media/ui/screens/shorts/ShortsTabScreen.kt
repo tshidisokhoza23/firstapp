@@ -201,7 +201,12 @@ fun ShortsTabScreen(
                     activeShortIdForComments = null
                 },
                 onSendReply = { content, parentId ->
-                    mediaViewModel.createPostReply(activeShortIdForComments!!, content, parentId)
+                    mediaViewModel.createPost(
+                        content = content,
+                        parentPostId = parentId ?: activeShortIdForComments,
+                        rootPostId = activeShortIdForComments,
+                        postType = "reply"
+                    )
                 },
                 onLikeReply = { reply ->
                     mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)

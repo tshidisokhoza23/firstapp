@@ -321,16 +321,28 @@ fun PostDetailScreen(
         }
     }
 
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
+
     if (replyingToPost != null) {
-        ReplyDialog(
-            post = replyingToPost!!,
-            reply = replyingToReply,
+        val rootId = replyingToPost!!.rootPostId ?: replyingToPost!!.id
+        PostComposerDialog(
+            replyingTo = replyingToReply ?: replyingToPost,
+            avatarUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(currentUser.avatarUrl),
             onDismiss = { 
                 replyingToPost = null
                 replyingToReply = null
             },
-            onSubmit = { content ->
-                mediaViewModel.createPostReply(replyingToPost!!.id, content, replyingToReply?.id)
+            onSubmit = { content, media, tags, type, poll, loc ->
+                mediaViewModel.createPost(
+                    content = content,
+                    mediaUris = media,
+                    postType = type ?: "reply",
+                    tags = tags,
+                    pollOptions = poll,
+                    location = loc,
+                    parentPostId = replyingToReply?.id ?: replyingToPost?.id,
+                    rootPostId = rootId
+                )
                 replyingToPost = null
                 replyingToReply = null
             }

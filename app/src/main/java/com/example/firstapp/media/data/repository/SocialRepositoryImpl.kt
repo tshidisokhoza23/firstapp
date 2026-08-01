@@ -157,7 +157,7 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?): Flow<Resource<Boolean>> = flow {
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             val pollRequest = if (pollOptions != null && pollOptions.size > 0) {
@@ -172,7 +172,9 @@ class SocialRepositoryImpl @Inject constructor(
                 location = location,
                 tags = tags,
                 channel_id = channelId,
-                poll = pollRequest
+                poll = pollRequest,
+                parent_post_id = parentPostId,
+                root_post_id = rootPostId
             )
             if (socialApi.createPost(request).isSuccessful) {
                 emit(Resource.Success(true))
@@ -215,7 +217,6 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createPostReply(postId: String, content: String, parentReplyId: String?): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.createPostReply(postId, com.example.firstapp.media.data.api.CreatePostReplyRequest(content, parentReplyId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun likePostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.likePostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun repostPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun bookmarkPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
