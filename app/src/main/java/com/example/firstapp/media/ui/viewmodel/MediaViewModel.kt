@@ -258,9 +258,17 @@ class MediaViewModel @Inject constructor(
                 if (com.example.firstapp.common.util.MediaUtils.isVideo(finalUrls[0])) "VIDEO" else "IMAGE"
             } else "TEXT")
             
-            android.util.Log.d("MediaViewModel", "Creating post with ${finalUrls.size} media URLs. Type: $finalMediaType, PostType: $postType")
-            for (url in finalUrls) {
-                android.util.Log.d("MediaViewModel", "Media URL: $url")
+            android.util.Log.d("MediaViewModel", "READY TO CREATE POST: mediaCount=" + finalUrls.size + ", type=" + finalMediaType)
+            var idx = 0
+            while (idx < finalUrls.size) {
+                android.util.Log.d("MediaViewModel", "  URL[" + idx + "]: " + finalUrls[idx])
+                idx++
+            }
+
+            if (finalUrls.size == 0 && content.length == 0 && (pollOptions == null || pollOptions.size == 0)) {
+                android.util.Log.w("MediaViewModel", "Aborting createPost: No content and no media")
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
             }
 
             socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType).collect { res ->
