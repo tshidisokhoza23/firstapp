@@ -28,10 +28,15 @@ fun VideoPlayer(
     }
     
     LaunchedEffect(videoUrl) {
-        val mediaItem = MediaItem.fromUri(videoUrl)
-        exoPlayer.setMediaItem(mediaItem)
-        exoPlayer.prepare()
-        exoPlayer.setPlayWhenReady(isPlaying)
+        if (videoUrl.length > 0) {
+            android.util.Log.d("VideoPlayer", "Loading video: $videoUrl")
+            val mediaItem = MediaItem.fromUri(videoUrl)
+            exoPlayer.setMediaItem(mediaItem)
+            exoPlayer.prepare()
+            exoPlayer.setPlayWhenReady(isPlaying)
+        } else {
+            android.util.Log.w("VideoPlayer", "Empty videoUrl received")
+        }
     }
 
     LaunchedEffect(isPlaying) {

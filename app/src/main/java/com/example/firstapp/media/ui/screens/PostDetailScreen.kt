@@ -62,12 +62,18 @@ fun PostDetailScreen(
     if (post == null || post.id != postId) {
         Box(modifier = Modifier.fillMaxSize().background(AppBackground), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(color = AppAccent)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Loading thread...", color = Color.White, fontSize = 14.sp)
+                if (uiState.errorMessage != null) {
+                    Icon(Icons.Default.ErrorOutline, null, tint = Color.Red, modifier = Modifier.size(48.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(uiState.errorMessage!!, color = Color.White, fontSize = 14.sp)
+                } else {
+                    CircularProgressIndicator(color = AppAccent)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Loading thread...", color = Color.White, fontSize = 14.sp)
+                }
                 
                 // Add a timeout fallback or retry button
-                var showRetry by remember { mutableStateOf(false) }
+                var showRetry by remember(uiState.errorMessage) { mutableStateOf(uiState.errorMessage != null) }
                 LaunchedEffect(Unit) {
                     kotlinx.coroutines.delay(5000)
                     showRetry = true

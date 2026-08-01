@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MoreVert
@@ -129,7 +130,17 @@ fun ShortsTabScreen(
 
         TopAppBar(
             title = { },
-            navigationIcon = { },
+            navigationIcon = {
+                if (initialShortId != null) {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                }
+            },
             actions = {
                 IconButton(onClick = { showUploadDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "Upload", tint = Color.White)

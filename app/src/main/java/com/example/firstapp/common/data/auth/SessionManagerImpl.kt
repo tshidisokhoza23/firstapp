@@ -115,6 +115,9 @@ class SessionManagerImpl @Inject constructor(
             .remove(KEY_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
             .remove(KEY_USER_DATA)
+            .remove(KEY_PRIVATE_KEY)
+            .remove(KEY_PUBLIC_KEY)
+            .remove(KEY_DB_PASSPHRASE)
             .apply()
         _currentUser.value = null
         _authState.value = false

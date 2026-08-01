@@ -433,12 +433,21 @@ class MediaViewModel @Inject constructor(
 
     fun selectPostById(postId: String) {
         viewModelScope.launch {
-            // Check if already selected
+            // If already loading or selected this post, don't restart
             if (_uiState.value.selectedPost?.id == postId) return@launch
+            
+            // Clear previous so UI shows loading state
+            _uiState.update { it.copy(selectedPost = null) }
             
             socialRepository.getPostById(postId).collect { res ->
                 if (res is Resource.Success && res.data != null) {
+                    _uiState.update { it.copy(errorMessage = null) }
                     selectPost(res.data)
+                } else if (res is Resource.Error) {
+                    android.util.Log.e("MediaViewModel", "Failed to load post $postId: ${res.message}")
+                    _uiState.update { it.copy(errorMessage = res.message ?: "Failed to load post") }
+                } else if (res is Resource.Loading) {
+                    _uiState.update { it.copy(errorMessage = null) }
                 }
             }
         }
