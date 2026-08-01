@@ -43,17 +43,17 @@ fun ArchivedChatsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (chats.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No archived chats", color = Color.Gray)
+                Text("No archived chats", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -66,10 +66,14 @@ fun ArchivedChatsScreen(
                             ChatItem(chat)
                         }
                         IconButton(onClick = { viewModel.archiveChat(chat.id, false) }) {
-                            Icon(Icons.Default.Unarchive, contentDescription = "Unarchive", tint = Color.Gray)
+                            Icon(Icons.Default.Unarchive, contentDescription = "Unarchive", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp), 
+                        thickness = 0.5.dp, 
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
                 }
             }
         }

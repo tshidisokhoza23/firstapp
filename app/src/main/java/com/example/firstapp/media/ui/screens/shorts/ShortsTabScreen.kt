@@ -152,19 +152,19 @@ fun ShortsTabScreen(
                 DropdownMenu(
                     expanded = showTopMenu,
                     onDismissRequest = { showTopMenu = false },
-                    modifier = Modifier.background(AppSecondary)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Direct Messages", color = Color.White) },
-                        leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
+                        text = { Text("Direct Messages") },
+                        leadingIcon = { Icon(Icons.Default.Mail, null) },
                         onClick = {
                             showTopMenu = false
                             onDirectMessagesClick()
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Settings", color = Color.White) },
-                        leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
+                        text = { Text("Settings") },
+                        leadingIcon = { Icon(Icons.Default.Settings, null) },
                         onClick = { showTopMenu = false }
                     )
                 }
@@ -175,7 +175,7 @@ fun ShortsTabScreen(
                 actionIconContentColor = Color.White
             ),
             scrollBehavior = scrollBehavior,
-            windowInsets = WindowInsets(0, 0, 0, 0)
+            windowInsets = WindowInsets.statusBars
         )
 
         if (showUploadDialog) {

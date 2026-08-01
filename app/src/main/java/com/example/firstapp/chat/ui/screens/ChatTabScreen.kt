@@ -126,11 +126,12 @@ fun ChatsListScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .onGloballyPositioned { coords ->
                         topBarHeight = (coords.size.height.toFloat() / density.density).dp
                     }
                     .zIndex(1f),
-                color = AppBackground,
+                color = MaterialTheme.colorScheme.background,
                 tonalElevation = 8.dp,
                 shadowElevation = 8.dp
             ) {
@@ -138,7 +139,10 @@ fun ChatsListScreen(
                     modifier = Modifier
                         .background(
                             Brush.verticalGradient(
-                                listOf(AppBackground, AppBackground.copy(alpha = 0.95f))
+                                listOf(
+                                    MaterialTheme.colorScheme.background, 
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
+                                )
                             )
                         )
                 ) {
@@ -176,19 +180,19 @@ fun ChatsListScreen(
                                     unfocusedContainerColor = Color.Transparent,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
-                                    cursorColor = AppAccent,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    cursorColor = MaterialTheme.colorScheme.primary,
+                                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
                                 ),
                                 leadingIcon = {
                                     IconButton(onClick = { isSearchActive = false; searchQuery = "" ; searchViewModel.search("", searchType) }) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                     }
                                 },
                                 trailingIcon = {
                                     if (searchQuery.isNotEmpty()) {
                                         IconButton(onClick = { searchQuery = ""; searchViewModel.search("", searchType) }) {
-                                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                                            Icon(Icons.Default.Clear, contentDescription = "Clear")
                                         }
                                     }
                                 },
@@ -199,7 +203,7 @@ fun ChatsListScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "FirstApp",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onBackground,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = (-0.5).sp
@@ -207,73 +211,73 @@ fun ChatsListScreen(
                             Spacer(modifier = Modifier.weight(1f))
                             
                             IconButton(onClick = { isSearchActive = true }) { 
-                                Icon(Icons.Default.Search, contentDescription = "Search", tint = AppTextPrimary) 
+                                Icon(Icons.Default.Search, contentDescription = "Search") 
                             }
                             
                             Box {
                                 var showMenu by remember { mutableStateOf(false) }
                                 IconButton(onClick = { showMenu = true }) { 
-                                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextPrimary) 
+                                    Icon(Icons.Default.MoreVert, contentDescription = "More") 
                                 }
                                 DropdownMenu(
                                     expanded = showMenu,
                                     onDismissRequest = { showMenu = false },
-                                    modifier = Modifier.background(AppSecondary)
+                                    containerColor = MaterialTheme.colorScheme.surface
                                 ) {
                                     when (selectedTabItem) {
                                         0 -> {
                                             DropdownMenuItem(
-                                                text = { Text("Contacts", color = Color.White) },
+                                                text = { Text("Contacts") },
                                                 onClick = { showMenu = false; navController.navigate(Screen.ContactPicker.route) },
-                                                leadingIcon = { Icon(Icons.Default.Person, null, tint = AppAccent) }
+                                                leadingIcon = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary) }
                                             )
                                             DropdownMenuItem(
-                                                text = { Text("New Group", color = Color.White) },
+                                                text = { Text("New Group") },
                                                 onClick = { showMenu = false; navController.navigate(Screen.ContactPicker.createRoute(isGroupMode = true)) },
-                                                leadingIcon = { Icon(Icons.Default.GroupAdd, null, tint = AppAccent) }
+                                                leadingIcon = { Icon(Icons.Default.GroupAdd, null, tint = MaterialTheme.colorScheme.primary) }
                                             )
                                             DropdownMenuItem(
-                                                text = { Text("Starred Messages", color = Color.White) },
+                                                text = { Text("Starred Messages") },
                                                 onClick = { showMenu = false; navController.navigate(Screen.StarredMessages.route) },
                                                 leadingIcon = { Icon(Icons.Default.Star, null, tint = Color.Yellow) }
                                             )
                                         }
                                         1 -> {
                                             DropdownMenuItem(
-                                                text = { Text("Wallet", color = Color.White) },
+                                                text = { Text("Wallet") },
                                                 onClick = { showMenu = false; navController.navigate(Screen.Wallet.route) },
                                                 leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = Color.Green) }
                                             )
                                         }
                                         2 -> {
                                             DropdownMenuItem(
-                                                text = { Text("Job Profile", color = Color.White) },
+                                                text = { Text("Job Profile") },
                                                 onClick = { showMenu = false; navController.navigate(Screen.JobProfile.route) },
-                                                leadingIcon = { Icon(Icons.Default.Work, null, tint = AppAccent) }
+                                                leadingIcon = { Icon(Icons.Default.Work, null, tint = MaterialTheme.colorScheme.primary) }
                                             )
                                         }
                                         3 -> {
                                             DropdownMenuItem(
-                                                text = { Text("Add Channel", color = Color.White) },
+                                                text = { Text("Add Channel") },
                                                 onClick = { 
                                                     showMenu = false
                                                     onShowMore()
                                                 },
-                                                leadingIcon = { Icon(Icons.Default.Add, null, tint = AppAccent) }
+                                                leadingIcon = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary) }
                                             )
                                         }
                                     }
                                     
-                                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                                     DropdownMenuItem(
-                                        text = { Text("Settings", color = Color.White) },
+                                        text = { Text("Settings") },
                                         onClick = { showMenu = false; navController.navigate(Screen.Settings.route) },
                                         leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.Gray) }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Sign Out", color = Color(0xFFE57373)) },
+                                        text = { Text("Sign Out", color = MaterialTheme.colorScheme.error) },
                                         onClick = { showMenu = false; onLogout() },
-                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color(0xFFE57373)) }
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) }
                                     )
                                 }
                             }
@@ -291,11 +295,11 @@ fun ChatsListScreen(
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTabItem == index
                             val animatedColor by animateColorAsState(
-                                targetValue = if (isSelected) AppAccent else AppSecondary,
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                                 label = "tabColor"
                             )
                             val animatedContentColor by animateColorAsState(
-                                targetValue = if (isSelected) AppBackground else Color.White,
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 label = "tabContentColor"
                             )
                             
@@ -303,7 +307,7 @@ fun ChatsListScreen(
                                 onClick = { selectedTabItem = index },
                                 color = animatedColor,
                                 shape = RoundedCornerShape(24.dp),
-                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                                border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                             ) {
                                 Text(
                                     text = title,
@@ -323,15 +327,15 @@ fun ChatsListScreen(
             if (selectedTabItem == 0 && !isSearchActive) {
                 FloatingActionButton(
                     onClick = { navController.navigate(Screen.ContactPicker.route) },
-                    containerColor = AppAccent,
-                    contentColor = AppBackground,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
                 }
             }
         },
-        containerColor = AppBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         Column(

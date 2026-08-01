@@ -180,85 +180,87 @@ fun MediaScreen(
             Scaffold(
                 modifier = Modifier,
                 topBar = {
-                    if (isSearchActive) {
-                        SearchTopBar(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                            onClose = { 
-                                isSearchActive = false
-                                searchQuery = ""
-                            }
-                        )
-                    } else {
-                        TopAppBar(
-                            title = { 
-                                Text(
-                                    "Media", 
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { isSearchActive = true }
-                                ) 
-                            },
-                            navigationIcon = {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(start = 12.dp)
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(ownProfileAvatarColor)
-                                        .clickable { 
-                                            onProfileClick(ownProfileId)
-                                        }
-                                ) {
-                                    AsyncImage(
-                                        model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
-                                        contentDescription = "Profile",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
-                                        error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
-                                        fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
-                                    )
+                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+                        if (isSearchActive) {
+                            SearchTopBar(
+                                query = searchQuery,
+                                onQueryChange = { searchQuery = it },
+                                onClose = { 
+                                    isSearchActive = false
+                                    searchQuery = ""
                                 }
-                            },
-                            actions = {
-                                IconButton(onClick = { isSearchActive = true }) {
-                                    Icon(Icons.Default.Search, contentDescription = "Search")
-                                }
-                                IconButton(onClick = { showCreatePost = true }) {
-                                    Icon(Icons.Default.Add, contentDescription = "Create Post")
-                                }
-                                var showMenu by remember { mutableStateOf(false) }
-                                Box {
-                                    IconButton(onClick = { showMenu = true }) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = "More")
-                                    }
-                                    DropdownMenu(
-                                        expanded = showMenu,
-                                        onDismissRequest = { showMenu = false },
-                                        containerColor = MaterialTheme.colorScheme.surface
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Direct Messages") },
-                                            leadingIcon = { Icon(Icons.Default.Mail, null) },
-                                            onClick = { 
-                                                showMenu = false
-                                                onDirectMessagesClick()
-                                            }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Settings") },
-                                            leadingIcon = { Icon(Icons.Default.Settings, null) },
-                                            onClick = { showMenu = false }
-                                        )
-                                    }
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.background,
-                                titleContentColor = MaterialTheme.colorScheme.onBackground,
-                                navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                                actionIconContentColor = MaterialTheme.colorScheme.onBackground
                             )
-                        )
+                        } else {
+                            TopAppBar(
+                                title = { 
+                                    Text(
+                                        "Media", 
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { isSearchActive = true }
+                                    ) 
+                                },
+                                navigationIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(start = 12.dp)
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(ownProfileAvatarColor)
+                                            .clickable { 
+                                                onProfileClick(ownProfileId)
+                                            }
+                                    ) {
+                                        AsyncImage(
+                                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
+                                            contentDescription = "Profile",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop,
+                                            error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
+                                            fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
+                                        )
+                                    }
+                                },
+                                actions = {
+                                    IconButton(onClick = { isSearchActive = true }) {
+                                        Icon(Icons.Default.Search, contentDescription = "Search")
+                                    }
+                                    IconButton(onClick = { showCreatePost = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = "Create Post")
+                                    }
+                                    var showMenu by remember { mutableStateOf(false) }
+                                    Box {
+                                        IconButton(onClick = { showMenu = true }) {
+                                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                                        }
+                                        DropdownMenu(
+                                            expanded = showMenu,
+                                            onDismissRequest = { showMenu = false },
+                                            containerColor = MaterialTheme.colorScheme.surface
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Direct Messages") },
+                                                leadingIcon = { Icon(Icons.Default.Mail, null) },
+                                                onClick = { 
+                                                    showMenu = false
+                                                    onDirectMessagesClick()
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Settings") },
+                                                leadingIcon = { Icon(Icons.Default.Settings, null) },
+                                                onClick = { showMenu = false }
+                                            )
+                                        }
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = Color.Transparent,
+                                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                                )
+                            )
+                        }
                     }
                 },
                 containerColor = MaterialTheme.colorScheme.background

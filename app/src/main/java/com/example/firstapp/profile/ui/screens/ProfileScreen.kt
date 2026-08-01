@@ -141,29 +141,36 @@ fun ProfileView(
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /* TODO: Search */ }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-                    }
-                    IconButton(onClick = { /* TODO: Notifications */ }) {
-                        Icon(Icons.Default.NotificationsNone, contentDescription = "Notifications", tint = Color.White)
-                    }
-                    IconButton(onClick = { /* TODO: More */ }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = AppBackground),
-                scrollBehavior = scrollBehavior
-            )
+            Box(modifier = Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+                CenterAlignedTopAppBar(
+                    title = { },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { /* TODO: Search */ }) {
+                            Icon(Icons.Default.Search, contentDescription = "Search")
+                        }
+                        IconButton(onClick = { /* TODO: Notifications */ }) {
+                            Icon(Icons.Default.NotificationsNone, contentDescription = "Notifications")
+                        }
+                        IconButton(onClick = { /* TODO: More */ }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                    ),
+                    scrollBehavior = scrollBehavior
+                )
+            }
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,

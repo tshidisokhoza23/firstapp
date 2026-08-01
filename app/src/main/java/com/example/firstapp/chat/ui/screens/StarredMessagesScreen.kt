@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.ui.viewmodel.StarredMessagesViewModel
-import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.ui.theme.AppPrimary
 import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.common.util.Resource
@@ -50,24 +49,24 @@ fun StarredMessagesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (messagesState) {
                 is Resource.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color.White)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
                 is Resource.Error -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(messagesState.message ?: "Error loading starred messages", color = Color.Red)
+                        Text(messagesState.message ?: "Error loading starred messages", color = MaterialTheme.colorScheme.error)
                     }
                 }
                 is Resource.Success -> {
@@ -75,9 +74,9 @@ fun StarredMessagesScreen(
                     if (messages.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Star, contentDescription = null, tint = Color.Gray.copy(alpha = 0.3f), modifier = Modifier.size(64.dp))
+                                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), modifier = Modifier.size(64.dp))
                                 Spacer(Modifier.height(16.dp))
-                                Text("No starred messages", color = Color.Gray)
+                                Text("No starred messages", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     } else {
@@ -88,7 +87,11 @@ fun StarredMessagesScreen(
                                     onClick = { onMessageClick(message) },
                                     onLongClick = { selectedMessageForMenu = message }
                                 )
-                                HorizontalDivider(modifier = Modifier.padding(start = 16.dp, end = 16.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp), 
+                                    thickness = 0.5.dp, 
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                )
                             }
                         }
                     }
@@ -99,11 +102,11 @@ fun StarredMessagesScreen(
         selectedMessageForMenu?.let { message ->
             AlertDialog(
                 onDismissRequest = { selectedMessageForMenu = null },
-                title = { Text("Message Options", color = Color.White) },
+                title = { Text("Message Options", color = MaterialTheme.colorScheme.onSurface) },
                 text = {
                     Column {
                         ListItem(
-                            headlineContent = { Text("Unstar Message", color = Color.White) },
+                            headlineContent = { Text("Unstar Message", color = MaterialTheme.colorScheme.onSurface) },
                             leadingContent = { Icon(Icons.Default.StarOutline, null, tint = Color.Yellow) },
                             modifier = Modifier.clickable { 
                                 viewModel.unstarMessage(message.id)
@@ -112,8 +115,8 @@ fun StarredMessagesScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                         ListItem(
-                            headlineContent = { Text("Delete Message", color = Color.Red) },
-                            leadingContent = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
+                            headlineContent = { Text("Delete Message", color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
                             modifier = Modifier.clickable { 
                                 viewModel.deleteMessage(message.id)
                                 selectedMessageForMenu = null 
@@ -123,7 +126,7 @@ fun StarredMessagesScreen(
                     }
                 },
                 confirmButton = {},
-                containerColor = AppSecondary,
+                containerColor = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(24.dp)
             )
         }
@@ -146,7 +149,7 @@ fun StarredMessageItem(message: Message, onClick: () -> Unit, onLongClick: () ->
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(AppPrimary.copy(alpha = 0.2f), shape = CircleShape),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Default.Star, contentDescription = null, tint = Color.Yellow, modifier = Modifier.size(24.dp))
@@ -154,10 +157,10 @@ fun StarredMessageItem(message: Message, onClick: () -> Unit, onLongClick: () ->
         Spacer(modifier = Modifier.width(16.dp))
         Column {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(message.senderName ?: "Unknown", color = Color.White, fontWeight = FontWeight.Bold)
-                Text(formatWhatsAppTime(message.timestamp), color = Color.Gray, fontSize = 12.sp)
+                Text(message.senderName ?: "Unknown", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Text(formatWhatsAppTime(message.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
-            Text(message.content, color = Color.Gray, fontSize = 14.sp, maxLines = 2)
+            Text(message.content, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 2)
         }
     }
 }

@@ -63,26 +63,26 @@ fun SearchScreen(
                 viewModel.search(it)
             },
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            placeholder = { Text("Search songs or artists", color = AppTextSecondary) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AppTextSecondary) },
+            placeholder = { Text("Search songs or artists", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { 
                         query = ""
                         viewModel.search("")
                     }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = AppTextSecondary)
+                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = AppSecondary,
-                unfocusedContainerColor = AppSecondary,
-                focusedBorderColor = AppAccent,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
             ),
             singleLine = true
         )
@@ -94,10 +94,10 @@ fun SearchScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Recent Searches", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Recent Searches", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                     Text(
                         "Clear", 
-                        color = AppAccent, 
+                        color = MaterialTheme.colorScheme.primary, 
                         modifier = Modifier.clickable { viewModel.clearSearchHistory() },
                         fontSize = 14.sp
                     )
@@ -112,13 +112,13 @@ fun SearchScreen(
                                 query = historyItem
                                 viewModel.search(historyItem)
                             },
-                            color = AppSecondary,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(0.1f))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(0.1f))
                         ) {
                             Text(
                                 historyItem, 
-                                color = Color.White, 
+                                color = MaterialTheme.colorScheme.onSurface, 
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 fontSize = 14.sp
                             )
@@ -130,7 +130,7 @@ fun SearchScreen(
 
             Text(
                 "Explore Genres",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -175,13 +175,13 @@ fun SearchScreen(
                 }
             } else if (searchResults is Resource.Loading && data == null) {
                 Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = AppAccent)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             } else if (data != null) {
                 LazyColumn(contentPadding = PaddingValues(bottom = 90.dp + bottomPadding)) {
                     if (data.artists.isNotEmpty()) {
                         item {
-                            Text("Artists", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
+                            Text("Artists", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
                         }
                         items(data.artists) { artist ->
                             ArtistListItemWithAction(artist) { onArtistClick(artist) }
@@ -190,7 +190,7 @@ fun SearchScreen(
                     
                     if (data.songs.isNotEmpty()) {
                         item {
-                            Text("Songs", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
+                            Text("Songs", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
                         }
                         items(data.songs) { song ->
                             SongListItem(
@@ -203,10 +203,6 @@ fun SearchScreen(
                                     val contact = data.artists.find { it.displayName == name }
                                     if (contact != null) {
                                         onArtistClick(contact)
-                                    } else {
-                                        // Handle cases where artist is not in search results
-                                        // Maybe create a dummy contact or just pass the name if onArtistClick can handle it
-                                        // Actually, onArtistClick in SearchScreen takes a Contact.
                                     }
                                 }
                             )
@@ -228,19 +224,19 @@ fun ArtistListItemWithAction(artist: com.example.firstapp.chat.model.Contact, on
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(60.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Gray.copy(0.3f)),
+            modifier = Modifier.size(60.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             if (artist.avatarUrl != null) {
                 coil.compose.AsyncImage(model = artist.avatarUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
             } else {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column {
-            Text(artist.displayName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("Artist", color = AppTextSecondary, fontSize = 14.sp)
+            Text(artist.displayName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Artist", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
     }
 }
