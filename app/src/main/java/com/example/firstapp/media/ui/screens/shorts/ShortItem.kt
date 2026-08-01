@@ -212,10 +212,12 @@ fun ShortItem(
             }
 
             player.addListener(listener)
+            android.util.Log.d("ShortItem", "Preparing video: $videoUrl for short: ${short.id}")
             player.setMediaItem(MediaItem.fromUri(videoUrl))
             player.prepare()
             
             onDispose {
+                android.util.Log.d("ShortItem", "Releasing player for short: ${short.id}")
                 player.removeListener(listener)
                 ShortsVideoCache.releasePlayer(player, videoUrl)
             }

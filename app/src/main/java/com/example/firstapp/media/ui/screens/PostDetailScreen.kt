@@ -204,7 +204,6 @@ fun PostDetailScreen(
                                     .fillMaxWidth()
                                     .aspectRatio(post.aspectRatio?.toFloat() ?: 0.8f)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onMediaClick(post.mediaUrls[0], "video") }
                             ) {
                                 VideoPlayer(
                                     videoUrl = post.mediaUrls[0],
@@ -212,10 +211,23 @@ fun PostDetailScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     useController = true
                                 )
+                                // Add a specific area or overlay that allows going full screen without blocking controls
+                                // Twitter uses a button or double tap, but let's add a small overlay icon or just make it clickable if not on controls
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .size(32.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                        .clickable { onMediaClick(post.mediaUrls[0], "video") },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Fullscreen, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                }
                             }
                         } else {
                             MediaGrid(post.mediaUrls) { url ->
-                                val type = if (url.contains(".mp4")) "video" else "image"
+                                val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
                                 onMediaClick(url, type)
                             }
                         }

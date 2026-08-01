@@ -18,6 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
@@ -40,8 +41,10 @@ fun MediaViewerScreen(
         if (type == "video") {
             val exoPlayer = remember(url) {
                 val player = ShortsVideoCache.acquirePlayer(context, url)
-                player.repeatMode = Player.REPEAT_MODE_ONE
-                player.playWhenReady = true
+                player.setRepeatMode(Player.REPEAT_MODE_ONE)
+                player.setMediaItem(MediaItem.fromUri(url))
+                player.prepare()
+                player.setPlayWhenReady(true)
                 player
             }
 

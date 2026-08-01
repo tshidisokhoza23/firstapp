@@ -187,31 +187,42 @@ fun ShortsTabScreen(
             )
         }
 
+        val activeId = activeShortIdForComments
         androidx.compose.animation.AnimatedVisibility(
-            visible = showShortComments && activeShortIdForComments != null,
+            visible = showShortComments && activeId != null,
             enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
             exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
         ) {
-            ShortCommentsOverlay(
-                shortId = activeShortIdForComments!!,
-                repliesState = shortRepliesState,
-                currentUserAvatarUrl = currentUser?.avatarUrl,
-                onDismiss = {
-                    showShortComments = false
-                    activeShortIdForComments = null
-                },
-                onSendReply = { content, parentId ->
-                    mediaViewModel.createPost(
-                        content = content,
-                        parentPostId = parentId ?: activeShortIdForComments,
-                        rootPostId = activeShortIdForComments,
-                        postType = "reply"
-                    )
-                },
-                onLikeReply = { reply ->
-                    mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)
-                }
-            )
+            if (activeId != null) {
+                ShortCommentsOverlay(
+                    shortId = activeId,
+                    repliesState = shortRepliesState,
+                    currentUserAvatarUrl = currentUser?.avatarUrl,
+                    onDismiss = {
+                        showShortComments = false
+                        // activeShortIdForComments = null // Moved out to avoid crash during exit animation
+                    },
+                    onSendReply = { content, parentId ->
+                        mediaViewModel.createPost(
+                            content = content,
+                            parentPostId = parentId ?: activeId,
+                            rootPostId = activeId,
+                            postType = "reply"
+                        )
+                    },
+                    onLikeReply = { reply ->
+                        mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)
+                    }
+                )
+            }
+        }
+        
+        // Cleanup active ID when visibility is fully gone
+        LaunchedEffect(showShortComments) {
+            if (!showShortComments) {
+                kotlinx.coroutines.delay(500) // wait for animation
+                activeShortIdForComments = null
+            }
         }
 
         if (showShortMoreMenu && activeShortForMoreMenu != null) {
