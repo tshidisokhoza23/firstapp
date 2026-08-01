@@ -204,7 +204,7 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -216,12 +216,12 @@ fun LoginScreen(
             text = if (isSignUp) "Create Account" else "Welcome Back",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            color = AppTextPrimary
+            color = MaterialTheme.colorScheme.onBackground
         )
         Text(
             text = if (isSignUp) "Join FirstApp today" else "Login to continue",
             fontSize = 16.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp)
         )
         
@@ -230,7 +230,7 @@ fun LoginScreen(
         if (errorMessage != null) {
             Text(
                 text = errorMessage,
-                color = Color.Red,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
         }
@@ -249,12 +249,12 @@ fun LoginScreen(
                 isError = fieldErrors.containsKey("username"),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AppAccent,
-                    unfocusedBorderColor = AppSecondary,
-                    focusedLabelColor = AppAccent,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 )
             )
             ValidationText(fieldErrors["username"])
@@ -273,12 +273,12 @@ fun LoginScreen(
                     isError = fieldErrors.containsKey("email"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppAccent,
-                        unfocusedBorderColor = AppSecondary,
-                        focusedLabelColor = AppAccent,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 ValidationText(fieldErrors["email"])
@@ -295,12 +295,12 @@ fun LoginScreen(
                     isError = fieldErrors.containsKey("displayName"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppAccent,
-                        unfocusedBorderColor = AppSecondary,
-                        focusedLabelColor = AppAccent,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 ValidationText(fieldErrors["displayName"])
@@ -337,12 +337,12 @@ fun LoginScreen(
                         isError = fieldErrors.containsKey("phone"),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppAccent,
-                            unfocusedBorderColor = AppSecondary,
-                            focusedLabelColor = AppAccent,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
@@ -370,7 +370,7 @@ fun LoginScreen(
                         Icon(
                             imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             contentDescription = null,
-                            tint = Color.Gray
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -378,12 +378,12 @@ fun LoginScreen(
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AppAccent,
-                    unfocusedBorderColor = AppSecondary,
-                    focusedLabelColor = AppAccent,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 )
             )
             ValidationText(fieldErrors["password"])
@@ -403,7 +403,7 @@ fun LoginScreen(
                             Icon(
                                 imageVector = if (isConfirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                 contentDescription = null,
-                                tint = Color.Gray
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     },
@@ -411,12 +411,12 @@ fun LoginScreen(
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppAccent,
-                        unfocusedBorderColor = AppSecondary,
-                        focusedLabelColor = AppAccent,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 ValidationText(fieldErrors["confirmPassword"])
@@ -426,7 +426,7 @@ fun LoginScreen(
         if (!isSignUp) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                 TextButton(onClick = { showForgotPassword = true }) {
-                    Text("Forgot Password?", color = AppTextPrimary.copy(alpha = 0.6f), fontSize = 14.sp)
+                    Text("Forgot Password?", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 14.sp)
                 }
             }
         }
@@ -439,14 +439,21 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
             enabled = !isLoading
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AppBackground, strokeWidth = 2.dp)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp), 
+                    color = MaterialTheme.colorScheme.onPrimary, 
+                    strokeWidth = 2.dp
+                )
             } else {
                 val buttonText = if (!isSignUp) "Login" else "Send Code"
-                Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppBackground)
+                Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -459,7 +466,7 @@ fun LoginScreen(
         }) {
             Text(
                 text = if (isSignUp) "Already have an account? Login" else "Don't have an account? Sign Up",
-                color = AppAccent,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -470,11 +477,11 @@ fun LoginScreen(
     if (showForgotPassword) {
         AlertDialog(
             onDismissRequest = { showForgotPassword = false },
-            containerColor = AppSecondary,
-            title = { Text("Reset Password", color = Color.White) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Reset Password", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
-                    Text("Enter your email or username and we'll send you instructions.", color = Color.White.copy(0.7f))
+                    Text("Enter your email or username and we'll send you instructions.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = forgotPasswordId,
@@ -482,10 +489,10 @@ fun LoginScreen(
                         label = { Text("Email or Username") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppAccent,
-                            unfocusedBorderColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 }
@@ -502,12 +509,12 @@ fun LoginScreen(
                         showForgotPassword = false
                     }
                 }) {
-                    Text("Send", color = AppAccent)
+                    Text("Send", color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showForgotPassword = false }) {
-                    Text("Cancel", color = Color.White.copy(0.6f))
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )

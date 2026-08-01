@@ -158,7 +158,7 @@ fun MediaScreen(
     val preloadedAds by mediaViewModel.preloadedAds.collectAsState()
     val adsLoaded by mediaViewModel.adsLoaded.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         androidx.activity.compose.BackHandler(
             enabled = showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null
         ) {
@@ -221,7 +221,7 @@ fun MediaScreen(
                             },
                             actions = {
                                 IconButton(onClick = { isSearchActive = true }) {
-                                    Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                                    Icon(Icons.Default.Search, contentDescription = "Search")
                                 }
                                 IconButton(onClick = { showCreatePost = true }) {
                                     Icon(Icons.Default.Add, contentDescription = "Create Post")
@@ -234,34 +234,34 @@ fun MediaScreen(
                                     DropdownMenu(
                                         expanded = showMenu,
                                         onDismissRequest = { showMenu = false },
-                                        containerColor = AppSecondary
+                                        containerColor = MaterialTheme.colorScheme.surface
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("Direct Messages", color = Color.White) },
-                                            leadingIcon = { Icon(Icons.Default.Mail, null, tint = Color.White) },
+                                            text = { Text("Direct Messages") },
+                                            leadingIcon = { Icon(Icons.Default.Mail, null) },
                                             onClick = { 
                                                 showMenu = false
                                                 onDirectMessagesClick()
                                             }
                                         )
                                         DropdownMenuItem(
-                                            text = { Text("Settings", color = Color.White) },
-                                            leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.White) },
+                                            text = { Text("Settings") },
+                                            leadingIcon = { Icon(Icons.Default.Settings, null) },
                                             onClick = { showMenu = false }
                                         )
                                     }
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = AppBackground,
-                                titleContentColor = Color.White,
-                                navigationIconContentColor = Color.White,
-                                actionIconContentColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.background,
+                                titleContentColor = MaterialTheme.colorScheme.onBackground,
+                                navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                                actionIconContentColor = MaterialTheme.colorScheme.onBackground
                             )
                         )
                     }
                 },
-                containerColor = AppBackground
+                containerColor = MaterialTheme.colorScheme.background
             ) { innerPadding ->
                 Box(modifier = Modifier.padding(innerPadding)) {
                     MainFeedSection(
@@ -397,9 +397,9 @@ fun MainFeedSection(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(text = "Could not load media feed", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Could not load media feed", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = error.localizedMessage ?: "Connection error", color = SecondaryText, fontSize = 14.sp)
+                Text(text = error.localizedMessage ?: "Connection error", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = { posts.retry(); onRefresh() }) { Text("Retry") }
             }
@@ -411,7 +411,7 @@ fun MainFeedSection(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(text = "No posts yet", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(text = "No posts yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             return
         }
@@ -520,14 +520,20 @@ fun MainFeedSection(
 
 @Composable
 fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth().height(64.dp), color = AppBackground, tonalElevation = 4.dp) {
+    Surface(modifier = Modifier.fillMaxWidth().height(64.dp), color = MaterialTheme.colorScheme.background, tonalElevation = 4.dp) {
         TextField(
             value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxSize(),
             placeholder = { Text("Search profiles or posts...", color = Color.Gray) },
-            leadingIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) } },
-            trailingIcon = { if (query.isNotEmpty()) { IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Default.Close, null, tint = Color.White) } } },
+            leadingIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
+            trailingIcon = { if (query.isNotEmpty()) { IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Default.Close, null) } } },
             singleLine = true,
-            colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, cursorColor = AppAccent, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent, 
+                unfocusedContainerColor = Color.Transparent, 
+                cursorColor = MaterialTheme.colorScheme.primary, 
+                focusedTextColor = MaterialTheme.colorScheme.onBackground, 
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+            )
         )
     }
 }

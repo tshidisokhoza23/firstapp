@@ -71,23 +71,23 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Settings", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 actions = {
                     IconButton(onClick = onEditProfile) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AppAccent)
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground,
+                    containerColor = MaterialTheme.colorScheme.background,
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -102,8 +102,8 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
                 shape = RoundedCornerShape(24.dp),
-                color = Color.White.copy(alpha = 0.05f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -115,7 +115,7 @@ fun SettingsScreen(
                             .clip(CircleShape)
                             .background(
                                 Brush.linearGradient(
-                                    colors = listOf(AppPrimary, AppAccent)
+                                    colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)
                                 )
                             ),
                         contentAlignment = Alignment.Center
@@ -130,7 +130,7 @@ fun SettingsScreen(
                         } else {
                             Text(
                                 text = user?.displayName?.take(1)?.uppercase() ?: "U",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 fontSize = 40.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -139,19 +139,19 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = user?.displayName ?: "User",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "@${user?.username ?: "username"}",
-                        color = AppAccent,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 14.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = user?.bio ?: "No bio set",
-                        color = AppTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
@@ -256,10 +256,10 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             // Danger Zone
-            Text("Management", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("Management", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
             
-            ActionRow(Icons.Default.Sync, "Refresh & Sync", AppAccent) { showResetConfirm = true }
+            ActionRow(Icons.Default.Sync, "Refresh & Sync", MaterialTheme.colorScheme.primary) { showResetConfirm = true }
             ActionRow(Icons.Default.DeleteForever, "Terminate Account", Color(0xFFE57373).copy(alpha = 0.6f)) { showDeleteConfirm = true }
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -268,56 +268,32 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("FIRSTAPP ECOSYSTEM", color = Color.White.copy(0.2f), fontSize = 10.sp, letterSpacing = 4.sp)
-                Text("v1.0.6-unique", color = Color.White.copy(0.1f), fontSize = 10.sp)
+                Text("FIRSTAPP ECOSYSTEM", color = MaterialTheme.colorScheme.onBackground.copy(0.2f), fontSize = 10.sp, letterSpacing = 4.sp)
+                Text("v1.0.6-unique", color = MaterialTheme.colorScheme.onBackground.copy(0.1f), fontSize = 10.sp)
             }
-            
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Help Section
-            SettingsSectionTitle("Support")
-            Row(modifier = Modifier.fillMaxWidth()) {
-                ModernSettingsCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.AutoMirrored.Filled.Help,
-                    title = "Help Center",
-                    color = Color(0xFFFFD54F),
-                    onClick = onNavigateToHelp
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                ModernSettingsCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.QuestionAnswer,
-                    title = "FAQ",
-                    color = Color(0xFF4FC3F7),
-                    onClick = onNavigateToHelp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = AppSecondary,
-            title = { Text("Delete Account?", color = Color.White) },
-            text = { Text("This will permanently delete your account and all your data. This action cannot be undone.", color = Color.White.copy(0.7f)) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Delete Account?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("This will permanently delete your account and all your data. This action cannot be undone.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = { 
                         showDeleteConfirm = false
                         viewModel.deleteAccount(onLogout)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete Forever", color = Color.White)
+                    Text("Delete Forever", color = MaterialTheme.colorScheme.onError)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel", color = Color.White.copy(0.6f))
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -326,23 +302,23 @@ fun SettingsScreen(
     if (showResetConfirm) {
         AlertDialog(
             onDismissRequest = { showResetConfirm = false },
-            containerColor = AppSecondary,
-            title = { Text("Reset and Sync?", color = Color.White) },
-            text = { Text("This will clear all currently cached data (chats, messages, etc.) and register your phone contacts as chats. Country codes will be handled automatically.", color = Color.White.copy(0.7f)) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Reset and Sync?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("This will clear all currently cached data (chats, messages, etc.) and register your phone contacts as chats. Country codes will be handled automatically.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = { 
                         showResetConfirm = false
                         viewModel.resetAndSyncContacts(context)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Reset and Sync", color = AppBackground)
+                    Text("Reset and Sync", color = MaterialTheme.colorScheme.onPrimary)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showResetConfirm = false }) {
-                    Text("Cancel", color = Color.White.copy(0.6f))
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -354,13 +330,13 @@ fun QuickInfoBadge(title: String, label: String, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.03f))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f))
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = AppTextSecondary, fontSize = 11.sp)
+        Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
     }
 }
 
@@ -368,7 +344,7 @@ fun QuickInfoBadge(title: String, label: String, onClick: () -> Unit) {
 fun SettingsSectionTitle(title: String) {
     Text(
         text = title,
-        color = Color.White.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(bottom = 12.dp)
@@ -388,8 +364,8 @@ fun ModernSettingsCard(
             .height(100.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.05f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -405,7 +381,7 @@ fun ModernSettingsCard(
                 Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -422,6 +398,6 @@ fun ActionRow(icon: ImageVector, title: String, tint: Color, onClick: () -> Unit
     ) {
         Icon(icon, null, tint = tint.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(16.dp))
-        Text(title, color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
+        Text(title, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f), fontSize = 15.sp)
     }
 }

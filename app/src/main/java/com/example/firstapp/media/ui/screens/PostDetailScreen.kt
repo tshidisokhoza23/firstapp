@@ -103,13 +103,13 @@ fun PostDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Thread", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Thread", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         bottomBar = {
@@ -117,8 +117,8 @@ fun PostDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .imePadding(),
-                color = AppBackground,
-                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                color = MaterialTheme.colorScheme.background,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
             ) {
                 Row(
                     modifier = Modifier
@@ -126,8 +126,8 @@ fun PostDetailScreen(
                         .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.2f))) {
-                        Icon(Icons.Default.Person, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.align(Alignment.Center).size(18.dp))
+                    Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))) {
+                        Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.align(Alignment.Center).size(18.dp))
                     }
                     
                     Spacer(modifier = Modifier.width(12.dp))
@@ -137,18 +137,18 @@ fun PostDetailScreen(
                             .weight(1f)
                             .height(40.dp)
                             .clickable { replyingToPost = post },
-                        color = Color.White.copy(alpha = 0.05f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                         shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                     ) {
                         Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 16.dp)) {
-                            Text("Post your reply", color = SecondaryText, fontSize = 14.sp)
+                            Text("Post your reply", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
             }
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
             item {
@@ -176,19 +176,19 @@ fun PostDetailScreen(
                                 .clickable { onProfileClick(post.authorId) }
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(post.authorName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(post.authorName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 if (post.isVerifiedAuthor) {
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(Icons.Default.Verified, null, tint = TwitterBlue, modifier = Modifier.size(14.dp))
                                 }
                             }
-                            Text("@${post.authorHandle}", color = SecondaryText, fontSize = 14.sp)
+                            Text("@${post.authorHandle}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                     
                     Text(
                         text = post.content, 
-                        color = Color.White, 
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 20.sp, 
                         modifier = Modifier.padding(top = 16.dp),
                         lineHeight = 26.sp
@@ -239,7 +239,7 @@ fun PostDetailScreen(
                     
                     Text(
                         text = "15:51 · 22 Jul 26 · ${post.views} Views", 
-                        color = SecondaryText, 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp, 
                         modifier = Modifier.padding(top = 16.dp)
                     )
@@ -250,33 +250,33 @@ fun PostDetailScreen(
                         modifier = Modifier.fillMaxWidth(), 
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else SecondaryText) { 
+                        InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else MaterialTheme.colorScheme.onSurfaceVariant) { 
                             if (!post.repliesLocked) replyingToPost = post 
                         }
                         Spacer(Modifier.width(12.dp))
                         InteractionIcon(
                             icon = Icons.Default.Repeat, 
                             count = post.shares, 
-                            color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
+                            color = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurfaceVariant, 
                             onClick = { showRepostOptions = true }
                         )
                         Spacer(Modifier.width(12.dp))
                         InteractionIcon(
                             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
                             count = post.likes, 
-                            color = if (post.isLiked) Color(0xFFF91880) else SecondaryText, 
+                            color = if (post.isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant, 
                             onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
                         )
                         Spacer(Modifier.width(12.dp))
                         InteractionIcon(
                             icon = Icons.Default.BarChart,
                             count = post.views,
-                            color = SecondaryText,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             onClick = { /* View stats */ }
                         )
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, post) }) {
-                            Icon(Icons.Default.Share, null, tint = SecondaryText, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                         }
                     }
                     

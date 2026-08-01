@@ -19,28 +19,32 @@ private val DarkColorScheme = darkColorScheme(
     background = AppBackground,
     surface = AppSecondary,
     onPrimary = Color.White,
-    onSecondary = SoftWhite,
-    onBackground = SoftWhite,
-    onSurface = SoftWhite
+    onSecondary = Color.White,
+    onBackground = Color.White,
+    onSurface = Color.White,
+    outline = DividerColor,
+    surfaceVariant = SurfaceColor
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = AppPrimary,
-    secondary = AppSecondary,
-    tertiary = BoyishPurple,
-    background = Color.White,
-    surface = SoftWhite,
+    secondary = Color(0xFFE5E5EA),
+    tertiary = AppAccent,
+    background = Color(0xFFF2F2F7),
+    surface = Color.White,
     onPrimary = Color.White,
-    onSecondary = DarkGunmetal,
-    onBackground = DarkGunmetal,
-    onSurface = DarkGunmetal
+    onSecondary = Color.Black,
+    onBackground = Color.Black,
+    onSurface = Color.Black,
+    outline = Color(0xFFC7C7CC),
+    surfaceVariant = Color(0xFFF2F2F7)
 )
 
 @Composable
 fun FirstAppTheme(
-    darkTheme: Boolean = true, // Force dark theme for now to match AppBackground usage
+    darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = false, // Disabled to ensure custom theme colors are used
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

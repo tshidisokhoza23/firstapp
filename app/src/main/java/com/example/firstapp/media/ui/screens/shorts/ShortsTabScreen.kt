@@ -94,10 +94,10 @@ fun ShortsTabScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(AppBackground).nestedScroll(scrollBehavior.nestedScrollConnection)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).nestedScroll(scrollBehavior.nestedScrollConnection)) {
         if (shortsPagingItems.itemCount == 0) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No videos found", color = Color.White, fontSize = 18.sp)
+                Text("No videos found", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp)
             }
         } else {
             ShortsList(

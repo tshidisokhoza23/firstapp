@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -160,9 +161,11 @@ class MainActivity : FragmentActivity() {
             android.util.Log.w("MainActivity", "Skipping Places init: Google Play services unavailable")
         }
         
+        val isSystemDark = android.content.res.Configuration.UI_MODE_NIGHT_YES == (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+        
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(AppBackground.toArgb()),
-            navigationBarStyle = SystemBarStyle.dark(AppBackground.toArgb())
+            statusBarStyle = if (isSystemDark) SystemBarStyle.dark(AppBackground.toArgb()) else SystemBarStyle.light(Color.White.toArgb(), Color.Black.toArgb()),
+            navigationBarStyle = if (isSystemDark) SystemBarStyle.dark(AppBackground.toArgb()) else SystemBarStyle.light(Color.White.toArgb(), Color.Black.toArgb())
         )
 
         setContent {
@@ -170,6 +173,14 @@ class MainActivity : FragmentActivity() {
             val autoNightMode by viewModel.autoNightMode.collectAsState()
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
             val darkTheme = if (autoNightMode) isSystemDark else true
+
+            DisposableEffect(darkTheme) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { darkTheme },
+                    navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { darkTheme }
+                )
+                onDispose { }
+            }
 
             FirstAppTheme(darkTheme = darkTheme) {
                 val navController = rememberNavController()

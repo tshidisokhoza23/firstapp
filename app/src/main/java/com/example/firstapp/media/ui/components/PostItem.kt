@@ -111,7 +111,7 @@ fun VerticalFeedPostCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(vertical = 4.dp)
     ) {
         // Repost Header (Optional)
@@ -122,11 +122,16 @@ fun VerticalFeedPostCard(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Repeat, null, tint = AppTextSecondary, modifier = Modifier.size(14.dp))
+                Icon(
+                    Icons.Default.Repeat, 
+                    null, 
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    modifier = Modifier.size(14.dp)
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "${post.authorName} reposted",
-                    color = AppTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -177,7 +182,7 @@ fun VerticalFeedPostCard(
                     val name = if (displayPost.authorName.length > 0) displayPost.authorName else "User"
                     Text(
                         text = name,
-                        color = AppTextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -197,7 +202,7 @@ fun VerticalFeedPostCard(
                     if (timestamp.length > 0) {
                         Text(
                             text = " · $timestamp",
-                            color = AppTextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp,
                             maxLines = 1
                         )
@@ -206,7 +211,7 @@ fun VerticalFeedPostCard(
                 val handle = if (displayPost.authorHandle.length > 0) displayPost.authorHandle else "user"
                 Text(
                     text = "@$handle",
-                    color = AppTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -220,10 +225,10 @@ fun VerticalFeedPostCard(
                     modifier = Modifier.height(32.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (post.isAuthorFollowed) Color.Transparent else AppTextPrimary,
-                        contentColor = if (post.isAuthorFollowed) AppTextPrimary else AppBackground
+                        containerColor = if (post.isAuthorFollowed) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                        contentColor = if (post.isAuthorFollowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface
                     ),
-                    border = if (post.isAuthorFollowed) BorderStroke(1.dp, AppTextSecondary) else null,
+                    border = if (post.isAuthorFollowed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
                     shape = RoundedCornerShape(16.dp),
                     elevation = null
                 ) {
@@ -236,7 +241,7 @@ fun VerticalFeedPostCard(
             }
 
             IconButton(onClick = onMoreClick) {
-                Icon(Icons.Default.MoreVert, null, tint = Color.Gray)
+                Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -249,7 +254,7 @@ fun VerticalFeedPostCard(
         ) {
             Text(
                 text = displayPost.content,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
                 lineHeight = 20.sp,
                 maxLines = if (isExpanded) Int.MAX_VALUE else 5,
@@ -259,7 +264,7 @@ fun VerticalFeedPostCard(
             if (!isExpanded && displayPost.content.length > 200) {
                 Text(
                     text = "Show More",
-                    color = AppAccent,
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true }
@@ -368,41 +373,46 @@ fun VerticalFeedPostCard(
             InteractionIcon(
                 icon = Icons.Outlined.ChatBubbleOutline,
                 count = displayPost.repliesCount,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = onCommentClick
             )
 
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(2.dp))
 
             InteractionIcon(
                 icon = Icons.Default.Repeat,
                 count = post.shares,
-                color = if (post.isReposted) Color.Green else Color.Gray,
+                color = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = onRepostClick
             )
 
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(2.dp))
 
             InteractionIcon(
                 icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                 count = post.likes,
-                color = if (post.isLiked) Color.Red else Color.Gray,
+                color = if (post.isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = onLikeClick
             )
 
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(2.dp))
 
             InteractionIcon(
                 icon = Icons.Default.BarChart,
                 count = displayPost.views,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = { /* View stats? */ }
             )
             
             Spacer(modifier = Modifier.weight(1f))
 
             IconButton(onClick = onShareClick) {
-                Icon(Icons.Default.Share, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Default.Share, 
+                    null, 
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

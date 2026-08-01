@@ -65,8 +65,8 @@ fun PostComposerDialog(
             Surface(
                 modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.8f).padding(bottom = 80.dp), 
                 shape = RoundedCornerShape(24.dp), 
-                color = AppBackground, 
-                border = BorderStroke(1.dp, DividerColor.copy(alpha = 0.2f))
+                color = MaterialTheme.colorScheme.surface, 
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header
@@ -75,7 +75,7 @@ fun PostComposerDialog(
                         horizontalArrangement = Arrangement.SpaceBetween, 
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = Color.White) }
+                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface) }
                         Button(
                             onClick = {
                                 val mediaList = ArrayList<String>()
@@ -94,7 +94,7 @@ fun PostComposerDialog(
                                 onSubmit(content, mediaList, emptyList<String>(), postType, finalPoll, selectedLocation)
                             }, 
                             enabled = content.isNotEmpty() || selectedMediaUris.isNotEmpty() || selectedAudioUris.isNotEmpty() || showPoll, 
-                            colors = ButtonDefaults.buttonColors(containerColor = AppPrimary, contentColor = Color.White), 
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary), 
                             shape = RoundedCornerShape(20.dp), 
                             modifier = Modifier.padding(end = 8.dp).height(36.dp)
                         ) { 
@@ -106,12 +106,12 @@ fun PostComposerDialog(
                         if (replyingTo != null) {
                             Row(modifier = Modifier.padding(bottom = 8.dp)) {
                                 Box(modifier = Modifier.width(40.dp), contentAlignment = Alignment.Center) {
-                                    Box(modifier = Modifier.width(2.dp).height(24.dp).background(DividerColor.copy(alpha = 0.5f)))
+                                    Box(modifier = Modifier.width(2.dp).height(24.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)))
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Text(
                                     text = "Replying to @${replyingTo.authorHandle}",
-                                    color = SecondaryText,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 14.sp
                                 )
                             }
@@ -122,21 +122,21 @@ fun PostComposerDialog(
                                 if (avatarUrl != null) { 
                                     AsyncImage(model = avatarUrl, null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) 
                                 } else { 
-                                    Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.align(Alignment.Center)) 
+                                    Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center)) 
                                 }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             TextField(
                                 value = content, 
                                 onValueChange = { content = it }, 
-                                placeholder = { Text(if (replyingTo != null) "Post your reply" else "What's happening?", color = SecondaryText, fontSize = 18.sp) }, 
+                                placeholder = { Text(if (replyingTo != null) "Post your reply" else "What's happening?", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp) }, 
                                 modifier = Modifier.fillMaxWidth(), 
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent, 
                                     unfocusedContainerColor = Color.Transparent, 
-                                    cursorColor = AppPrimary, 
-                                    focusedTextColor = Color.White, 
-                                    unfocusedTextColor = Color.White
+                                    cursorColor = MaterialTheme.colorScheme.primary, 
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ), 
                                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp)
                             )
@@ -148,7 +148,7 @@ fun PostComposerDialog(
                                 items(selectedMediaUris) { uri ->
                                     val mimeType = context.contentResolver.getType(uri)
                                     val isVideo = mimeType?.startsWith("video") == true
-                                    Box(modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)).background(Color.DarkGray)) {
+                                    Box(modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
                                         AsyncImage(model = uri, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                         if (isVideo) { 
                                             Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(32.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)) 
@@ -167,14 +167,14 @@ fun PostComposerDialog(
                         if (selectedLocation != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(
-                                modifier = Modifier.background(AppPrimary.copy(alpha = 0.1f), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 6.dp), 
+                                modifier = Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 6.dp), 
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.LocationOn, null, tint = AppPrimary, modifier = Modifier.size(14.dp))
+                                Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text(selectedLocation!!, color = AppPrimary, fontSize = 12.sp)
+                                Text(selectedLocation!!, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
                                 Spacer(Modifier.width(4.dp))
-                                Icon(Icons.Default.Close, null, tint = AppPrimary, modifier = Modifier.size(14.dp).clickable { selectedLocation = null })
+                                Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp).clickable { selectedLocation = null })
                             }
                         }
 
@@ -182,8 +182,8 @@ fun PostComposerDialog(
                             Spacer(modifier = Modifier.height(16.dp))
                             Card(
                                 modifier = Modifier.fillMaxWidth(), 
-                                colors = CardDefaults.cardColors(containerColor = SurfaceColor), 
-                                border = BorderStroke(1.dp, DividerColor), 
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), 
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)), 
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
@@ -197,7 +197,10 @@ fun PostComposerDialog(
                                             }, 
                                             placeholder = { Text("Choice ${index + 1}") }, 
                                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), 
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White), 
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                                            ), 
                                             shape = RoundedCornerShape(8.dp)
                                         )
                                     }
@@ -209,18 +212,18 @@ fun PostComposerDialog(
                     // Footer toolbar
                     Column(modifier = Modifier.fillMaxWidth().imePadding()) {
                         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clickable { }, verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Public, null, tint = AppPrimary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Public, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Everyone can reply", color = AppPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Everyone can reply", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                        HorizontalDivider(color = DividerColor.copy(alpha = 0.5f), thickness = 0.5.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), thickness = 0.5.dp)
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 4.dp), 
                             horizontalArrangement = Arrangement.Start, 
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(onClick = { mediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }) { 
-                                Icon(Icons.Default.Image, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) 
+                                Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) 
                             }
                             IconButton(onClick = { 
                                 if (!showPoll) { 
@@ -229,10 +232,10 @@ fun PostComposerDialog(
                                     selectedAudioUris = emptyList() 
                                 } 
                             }) { 
-                                Icon(Icons.Default.Poll, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) 
+                                Icon(Icons.Default.Poll, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) 
                             }
                             IconButton(onClick = { selectedLocation = "Cape Town, SA" }) { 
-                                Icon(Icons.Default.LocationOn, null, tint = AppPrimary, modifier = Modifier.size(20.dp)) 
+                                Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
                         }
                     }

@@ -214,20 +214,20 @@ fun ProfileView(
                                     val nameToShow = if (user.displayName.isNotEmpty()) user.displayName else "No Name"
                                     Text(
                                         text = nameToShow,
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onBackground,
                                         fontSize = 24.sp,
                                         fontWeight = FontWeight.Black,
                                         letterSpacing = (-0.5).sp
                                     )
                                     Text(
                                         text = "@${user.username}",
-                                        color = AppTextSecondary,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 15.sp,
                                         modifier = Modifier.padding(top = 2.dp)
                                     )
                                 } else {
-                                    Box(modifier = Modifier.width(150.dp).height(24.dp).background(Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(4.dp)))
-                                    Box(modifier = Modifier.padding(top = 4.dp).width(100.dp).height(16.dp).background(Color.Gray.copy(alpha = 0.2f), RoundedCornerShape(4.dp)))
+                                    Box(modifier = Modifier.width(150.dp).height(24.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(4.dp)))
+                                    Box(modifier = Modifier.padding(top = 4.dp).width(100.dp).height(16.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(4.dp)))
                                 }
                             }
 
@@ -263,7 +263,7 @@ fun ProfileView(
                         if (user?.bio != null && user.bio!!.isNotEmpty()) {
                             Text(
                                 text = user.bio!!,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onBackground,
                                 fontSize = 15.sp,
                                 modifier = Modifier.padding(top = 16.dp),
                                 lineHeight = 20.sp
@@ -275,18 +275,18 @@ fun ProfileView(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("${user?.followersCount ?: 0}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text("Followers", color = AppTextSecondary, fontSize = 14.sp)
-                            Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
-                            Text("0", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text("Views", color = AppTextSecondary, fontSize = 14.sp)
+                            Text("${user?.followersCount ?: 0}", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Followers", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
+                            Text("0", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Views", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
 
                             if (user?.location != null && user.location!!.isNotEmpty()) {
-                                Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(AppTextSecondary))
+                                Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.LocationOn, null, tint = AppTextSecondary, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text(user.location!!, color = AppTextSecondary, fontSize = 14.sp)
+                                    Text(user.location!!, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 }
                             }
                         }
@@ -300,7 +300,10 @@ fun ProfileView(
                                     onClick = onNavigateToEditProfile,
                                     modifier = Modifier.weight(1f).height(44.dp),
                                     shape = CircleShape,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.onBackground, 
+                                        contentColor = MaterialTheme.colorScheme.background
+                                    ),
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
                                     Text("Edit profile", fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -326,10 +329,10 @@ fun ProfileView(
                                     modifier = Modifier.weight(1f).height(44.dp),
                                     shape = CircleShape,
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isFollowing) Color.Transparent else Color.White,
-                                        contentColor = if (isFollowing) Color.White else Color.Black
+                                        containerColor = if (isFollowing) Color.Transparent else MaterialTheme.colorScheme.onBackground,
+                                        contentColor = if (isFollowing) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.background
                                     ),
-                                    border = if (isFollowing) BorderStroke(1.dp, Color.Gray.copy(alpha = 0.5f)) else null,
+                                    border = if (isFollowing) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
                                     Text(if (isFollowing) "Following" else "Follow", fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -348,9 +351,9 @@ fun ProfileView(
                                 shape = CircleShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color.Transparent,
-                                    contentColor = Color.White
+                                    contentColor = MaterialTheme.colorScheme.onBackground
                                 ),
-                                border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.5f)),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                                 contentPadding = PaddingValues(0.dp)
                             ) {
                                 Text(if (isMyProfile) "Share profile" else "Message", fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -365,7 +368,7 @@ fun ProfileView(
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Text(
                                     "Suggested for you",
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onBackground,
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -389,14 +392,14 @@ fun ProfileView(
                 item {
                         TabRow(
                             selectedTabIndex = safeSelectedTabIndex,
-                            containerColor = AppBackground,
-                            contentColor = Color.White,
-                            divider = { HorizontalDivider(color = Color.White.copy(alpha = 0.1f)) },
+                            containerColor = MaterialTheme.colorScheme.background,
+                            contentColor = MaterialTheme.colorScheme.onBackground,
+                            divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)) },
                             indicator = { tabPositions ->
                                 if (safeSelectedTabIndex < tabPositions.size) {
                                     TabRowDefaults.SecondaryIndicator(
                                         Modifier.tabIndicatorOffset(tabPositions[safeSelectedTabIndex]),
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.primary,
                                         height = 2.dp
                                     )
                                 }
@@ -412,7 +415,7 @@ fun ProfileView(
                                             text = title, 
                                             fontSize = 14.sp, 
                                             fontWeight = if (safeSelectedTabIndex == idx) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (safeSelectedTabIndex == idx) Color.White else AppTextSecondary
+                                            color = if (safeSelectedTabIndex == idx) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
                                         ) 
                                     }
                                 )
@@ -592,7 +595,7 @@ fun SuggestedUserCard(
         modifier = Modifier
             .width(150.dp)
             .height(210.dp),
-        colors = CardDefaults.cardColors(containerColor = AppSecondary),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -600,7 +603,7 @@ fun SuggestedUserCard(
                 onClick = { /* TODO: Dismiss */ },
                 modifier = Modifier.align(Alignment.TopEnd).size(28.dp).padding(4.dp)
             ) {
-                Icon(Icons.Default.Close, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
             }
             
             Column(
@@ -611,7 +614,7 @@ fun SuggestedUserCard(
                 AsyncImage(
                     model = MediaUtils.formatUrl(contact.avatarUrl),
                     contentDescription = null,
-                    modifier = Modifier.size(80.dp).clip(CircleShape).background(Color.Gray),
+                    modifier = Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                     contentScale = ContentScale.Crop
                 )
                 
@@ -619,7 +622,7 @@ fun SuggestedUserCard(
                 
                 Text(
                     text = contact.displayName,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -628,7 +631,7 @@ fun SuggestedUserCard(
                 
                 Text(
                     text = "@${contact.username}",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -640,7 +643,10 @@ fun SuggestedUserCard(
                     onClick = onFollow,
                     modifier = Modifier.fillMaxWidth().height(32.dp),
                     contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary, 
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Follow", fontWeight = FontWeight.Bold, fontSize = 13.sp)

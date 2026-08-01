@@ -14,9 +14,6 @@ import androidx.navigation.NavController
 import com.example.firstapp.home.ui.viewmodel.MainViewModel
 import com.example.firstapp.ui.navigation.BottomNavItem
 import com.example.firstapp.ui.navigation.Screen
-import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.ui.components.GlobalOverlayContainer
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.home.ui.components.MoreShortcutsSheet
@@ -119,7 +116,7 @@ fun MainScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(AppBackground)
+                .background(MaterialTheme.colorScheme.background)
                 .nestedScroll(nestedScrollConnection)
         ) {
             val tabToDisplay = if (selectedIndex == 5) {
@@ -206,7 +203,7 @@ fun MainBottomNavigation(
     onTabSelected: (BottomNavItem) -> Unit
 ) {
     NavigationBar(
-        containerColor = AppSecondary,
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
@@ -218,11 +215,11 @@ fun MainBottomNavigation(
                 selected = isSelected,
                 onClick = { onTabSelected(item) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = AppAccent,
-                    selectedTextColor = AppAccent,
-                    unselectedIconColor = Color.Gray,
-                    unselectedTextColor = Color.Gray,
-                    indicatorColor = AppAccent.copy(alpha = 0.1f)
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                 )
             )
         }

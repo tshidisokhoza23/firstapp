@@ -54,7 +54,7 @@ fun ShortCommentsOverlay(
                 .fillMaxWidth()
                 .fillMaxHeight(0.65f)
                 .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                .background(AppBackground)
+                .background(MaterialTheme.colorScheme.surface)
                 .clickable(enabled = false) {}
         ) {
             // Drag handle / Notch
@@ -65,7 +65,7 @@ fun ShortCommentsOverlay(
                     .width(40.dp)
                     .height(4.dp)
                     .clip(CircleShape)
-                    .background(Color.Gray.copy(alpha = 0.5f))
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
             )
 
             // Header
@@ -76,12 +76,12 @@ fun ShortCommentsOverlay(
             ) {
                 Text(
                     text = "Comments", 
-                    color = Color.White, 
+                    color = MaterialTheme.colorScheme.onSurface, 
                     fontWeight = FontWeight.Bold, 
                     fontSize = 16.sp
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
             }
 
@@ -89,8 +89,8 @@ fun ShortCommentsOverlay(
             Box(modifier = Modifier.weight(1f)) {
                 DataStateHandler(
                     resource = repliesState,
-                    onLoading = { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = AppAccent) } },
-                    onEmpty = { Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No comments yet", color = Color.Gray) } }
+                    onLoading = { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) } },
+                    onEmpty = { Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No comments yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                 ) { replies: List<Post> ->
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(replies) { reply ->
@@ -123,19 +123,19 @@ fun ShortCommentsOverlay(
 
             // Input field
             Surface(
-                color = AppSecondary,
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.fillMaxWidth().imePadding()
             ) {
                 Column {
                     if (replyingTo != null) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.2f)).padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Replying to @${replyingTo?.authorHandle}", color = AppAccent, fontSize = 12.sp)
+                            Text("Replying to @${replyingTo?.authorHandle}", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
                             IconButton(onClick = { replyingTo = null }, modifier = Modifier.size(20.dp)) {
-                                Icon(Icons.Default.Close, null, tint = Color.White)
+                                Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -144,7 +144,7 @@ fun ShortCommentsOverlay(
                         modifier = Modifier.fillMaxWidth().padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.Gray)) {
+                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))) {
                             AsyncImage(
                                 model = currentUserAvatarUrl,
                                 contentDescription = null,
@@ -159,16 +159,16 @@ fun ShortCommentsOverlay(
                             value = replyText,
                             onValueChange = { replyText = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Join the conversation...", color = Color.Gray, fontSize = 14.sp) },
+                            placeholder = { Text("Join the conversation...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = AppAccent
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                cursorColor = MaterialTheme.colorScheme.primary
                             ),
                             trailingIcon = {
-                                Icon(Icons.Default.Gif, null, tint = Color.White, modifier = Modifier.padding(end = 8.dp))
+                                Icon(Icons.Default.Gif, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 8.dp))
                             }
                         )
                         
@@ -180,7 +180,7 @@ fun ShortCommentsOverlay(
                                     replyingTo = null
                                 }
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, null, tint = AppAccent)
+                                Icon(Icons.AutoMirrored.Filled.Send, null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -197,7 +197,7 @@ fun CommentItem(
     onReplyClick: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.Gray)) {
+        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))) {
             AsyncImage(
                 model = comment.authorAvatarUrl,
                 contentDescription = null,
@@ -212,20 +212,20 @@ fun CommentItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = comment.authorHandle, 
-                    color = Color.White, 
+                    color = MaterialTheme.colorScheme.onSurface, 
                     fontSize = 13.sp, 
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(text = "2w", color = Color.Gray, fontSize = 12.sp)
+                Text(text = "2w", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
             Spacer(Modifier.height(2.dp))
-            Text(comment.content, color = Color.White, fontSize = 14.sp, lineHeight = 18.sp)
+            Text(comment.content, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, lineHeight = 18.sp)
             
             Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "Reply", 
-                    color = Color.Gray, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
                     fontSize = 12.sp, 
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { onReplyClick() }
@@ -238,11 +238,11 @@ fun CommentItem(
                 Icon(
                     if (comment.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     null,
-                    tint = if (comment.isLiked) Color.Red else Color.Gray,
+                    tint = if (comment.isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
             }
-            Text(comment.likes.toString(), color = Color.Gray, fontSize = 11.sp)
+            Text(comment.likes.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
         }
     }
 }

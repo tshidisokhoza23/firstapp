@@ -55,15 +55,15 @@ fun ArtistSongsScreen(
         allSongs.filter { it.artist == artistName || (artistId != null && it.artistId == artistId) }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp).statusBarsPadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground)
             }
-            Text(artistName, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(artistName, color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
 
         LazyColumn(
@@ -77,7 +77,7 @@ fun ArtistSongsScreen(
                         .height(200.dp)
                         .padding(16.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(AppSecondary),
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     if (avatarUrl != null) {
@@ -88,10 +88,10 @@ fun ArtistSongsScreen(
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
                     } else {
-                        Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(80.dp))
+                        Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(80.dp))
                     }
                     Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
-                    Text("ARTIST", color = AppAccent, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.BottomStart).padding(16.dp))
+                    Text("ARTIST", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.BottomStart).padding(16.dp))
                 }
             }
 
@@ -240,7 +240,7 @@ fun MusicScreen(
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.background(AppBackground).statusBarsPadding()) {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -250,29 +250,29 @@ fun MusicScreen(
                 ) {
                     Text(
                         "Music",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Row {
                         IconButton(onClick = { currentScreen = "Search" }) {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onBackground)
                         }
                         IconButton(onClick = { onShowSettings() }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground)
                         }
                     }
                 }
                 
                 TabRow(
                     selectedTabIndex = tabs.indexOf(currentScreen),
-                    containerColor = AppBackground,
-                    contentColor = AppAccent,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.primary,
                     divider = {},
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[tabs.indexOf(currentScreen)]).padding(horizontal = 24.dp).clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
-                            color = AppAccent,
+                            color = MaterialTheme.colorScheme.primary,
                             height = 3.dp
                         )
                     }
@@ -284,7 +284,7 @@ fun MusicScreen(
                             text = {
                                 Text(
                                     text = tab,
-                                    color = if (currentScreen == tab) Color.White else Color.White.copy(alpha = 0.5f),
+                                    color = if (currentScreen == tab) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 15.sp,
                                     fontWeight = if (currentScreen == tab) FontWeight.Bold else FontWeight.Medium
                                 )
@@ -294,7 +294,7 @@ fun MusicScreen(
                 }
             }
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (songs.isEmpty()) {
