@@ -19,5 +19,6 @@ data class MediaUiState(
     val selectedPost: Post? = null,
     val refreshTrigger: Int = 0,
     val shortReplies: Resource<List<Post>> = Resource.Success(emptyList()),
-    val isUploading: Boolean = false
+    val isUploading: Boolean = false,
+    val activePostId: String? = null
 )

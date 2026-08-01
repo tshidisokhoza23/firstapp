@@ -29,6 +29,7 @@ import com.example.firstapp.media.data.ShortsVideoCache
 fun MediaViewerScreen(
     url: String,
     type: String = "image",
+    initialPosition: Long = 0L,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -46,6 +47,9 @@ fun MediaViewerScreen(
             LaunchedEffect(url) {
                 exoPlayer.setRepeatMode(Player.REPEAT_MODE_ONE)
                 exoPlayer.setMediaItem(MediaItem.fromUri(url))
+                if (initialPosition > 0) {
+                    exoPlayer.seekTo(initialPosition)
+                }
                 exoPlayer.prepare()
                 exoPlayer.setPlayWhenReady(true)
             }

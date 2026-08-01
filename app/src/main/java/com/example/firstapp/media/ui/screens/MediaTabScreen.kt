@@ -80,8 +80,8 @@ fun MediaTabScreen(
                 // REQUIREMENT: Universal Entry Point for shorts
                 navController.navigate(Screen.Main.createRoute(tab = "shorts", shortId = short.id))
             },
-            onMediaClick = { url, type ->
-                navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            onMediaClick = { url, type, pos ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type, pos))
             },
             onShareClick = { post ->
                 com.example.firstapp.common.util.ShareUtils.sharePost(navController.context, post)

@@ -39,10 +39,14 @@ fun ShortCommentsOverlay(
     onSendReply: (String, String?) -> Unit,
     onLikeReply: (Post) -> Unit = {}
 ) {
-    if (shortId == null) return
+    if (shortId == null) {
+        // Return a dummy box to keep layout stable during animation
+        Box(Modifier.fillMaxSize())
+        return
+    }
 
-    var replyText by remember { mutableStateOf("") }
-    var replyingTo by remember { mutableStateOf<Post?>(null) }
+    var replyText by remember(shortId) { mutableStateOf("") }
+    var replyingTo by remember(shortId) { mutableStateOf<Post?>(null) }
 
     Box(
         modifier = Modifier

@@ -41,6 +41,7 @@ import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.common.util.MediaUtils
 import com.example.firstapp.media.ui.components.PostItem
 import com.example.firstapp.common.util.Resource
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.paging.LoadState
 import com.example.firstapp.chat.model.Contact
@@ -174,7 +175,31 @@ fun ProfileView(
             },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
+            val listState = rememberLazyListState()
+            val activePostId by remember {
+                derivedStateOf {
+                    val layoutInfo = listState.layoutInfo
+                    val visibleItems = layoutInfo.visibleItemsInfo
+                    if (visibleItems.size == 0) return@derivedStateOf null
+                    val center = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                    var minDistance = Int.MAX_VALUE
+                    var closestIndex = -1
+                    for (item in visibleItems) {
+                        val itemCenter = item.offset + (item.size / 2)
+                        val distance = Math.abs(itemCenter - center)
+                        if (distance < minDistance) {
+                            minDistance = distance
+                            closestIndex = item.index
+                        }
+                    }
+                    if (closestIndex != -1 && closestIndex < selectedTabItems.itemCount) {
+                        selectedTabItems.peek(closestIndex)?.id
+                    } else null
+                }
+            }
+
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 90.dp)
             ) {
@@ -415,6 +440,7 @@ fun ProfileView(
                                         adManager = adManager,
                                         post = post,
                                         isOwnPost = post.authorId == currentUser.id || (currentUser.username.length > 0 && post.authorHandle == currentUser.username),
+                                        activePostId = activePostId,
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
@@ -454,6 +480,7 @@ fun ProfileView(
                                         adManager = adManager,
                                         post = post,
                                         isOwnPost = post.authorId == currentUser.id || (currentUser.username.length > 0 && post.authorHandle == currentUser.username),
+                                        activePostId = activePostId,
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },
@@ -492,6 +519,7 @@ fun ProfileView(
                                         adManager = adManager,
                                         post = post,
                                         isOwnPost = post.authorId == currentUser.id || (currentUser.username.length > 0 && post.authorHandle == currentUser.username),
+                                        activePostId = activePostId,
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                                         onRepostClick = { mediaViewModel.repostPost(it.id) },

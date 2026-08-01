@@ -44,10 +44,11 @@ fun PostDetailScreen(
     ownProfileId: String,
     onBack: () -> Unit,
     onProfileClick: (String) -> Unit,
-    onMediaClick: (String, String) -> Unit
+    onMediaClick: (String, String, Long) -> Unit
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
     val post = uiState.selectedPost
+    var currentPlaybackPosition by remember { mutableLongStateOf(0L) }
 
     androidx.activity.compose.BackHandler {
         mediaViewModel.selectPost(null)
@@ -209,7 +210,8 @@ fun PostDetailScreen(
                                     videoUrl = post.mediaUrls[0],
                                     isPlaying = true,
                                     modifier = Modifier.fillMaxSize(),
-                                    useController = true
+                                    useController = true,
+                                    onPositionUpdate = { currentPlaybackPosition = it }
                                 )
                                 // Add a specific area or overlay that allows going full screen without blocking controls
                                 // Twitter uses a button or double tap, but let's add a small overlay icon or just make it clickable if not on controls
@@ -219,7 +221,9 @@ fun PostDetailScreen(
                                         .padding(8.dp)
                                         .size(32.dp)
                                         .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                                        .clickable { onMediaClick(post.mediaUrls[0], "video") },
+                                        .clickable { 
+                                            onMediaClick(post.mediaUrls[0], "video", currentPlaybackPosition) 
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(Icons.Default.Fullscreen, null, tint = Color.White, modifier = Modifier.size(20.dp))
@@ -228,7 +232,7 @@ fun PostDetailScreen(
                         } else {
                             MediaGrid(post.mediaUrls) { url ->
                                 val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
-                                onMediaClick(url, type)
+                                onMediaClick(url, type, 0L)
                             }
                         }
                     }
@@ -249,21 +253,21 @@ fun PostDetailScreen(
                         InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else SecondaryText) { 
                             if (!post.repliesLocked) replyingToPost = post 
                         }
-                        Spacer(Modifier.width(32.dp))
+                        Spacer(Modifier.width(4.dp))
                         InteractionIcon(
                             icon = Icons.Default.Repeat, 
                             count = post.shares, 
                             color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
                             onClick = { showRepostOptions = true }
                         )
-                        Spacer(Modifier.width(32.dp))
+                        Spacer(Modifier.width(4.dp))
                         InteractionIcon(
                             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
                             count = post.likes, 
                             color = if (post.isLiked) Color(0xFFF91880) else SecondaryText, 
                             onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
                         )
-                        Spacer(Modifier.width(32.dp))
+                        Spacer(Modifier.width(4.dp))
                         InteractionIcon(
                             icon = Icons.Default.BarChart,
                             count = post.views,

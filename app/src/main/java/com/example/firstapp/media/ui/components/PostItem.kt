@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.*
@@ -42,6 +44,7 @@ fun PostItem(
     isOwnPost: Boolean = false,
     showThreadLine: Boolean = false,
     isLastInThread: Boolean = false,
+    activePostId: String? = null,
     onClick: () -> Unit,
     onLike: (String, Long, Boolean) -> Unit,
     onRepostClick: (Post) -> Unit,
@@ -51,7 +54,7 @@ fun PostItem(
     onProfileClick: (String) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
     onVotePoll: (String, String) -> Unit = { _, _ -> },
-    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
     onFollowClick: (String) -> Unit = {}
 ) {
@@ -66,6 +69,7 @@ fun PostItem(
         VerticalFeedPostCard(
             post = post,
             isOwnPost = isOwnPost,
+            activePostId = activePostId,
             onLikeClick = { onLike(post.id, post.likes, post.isLiked) },
             onCommentClick = { onReplyClick(post, null) },
             onRepostClick = { onRepostClick(post) },
@@ -73,7 +77,7 @@ fun PostItem(
             onFollowClick = { onFollowClick(displayPost.authorId) },
             onMoreClick = { /* Handle more menu */ },
             onProfileClick = { onProfileClick(displayPost.authorId) },
-            onMediaClick = onMediaClick,
+            onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
             onVotePoll = onVotePoll,
             modifier = Modifier.clickable(onClick = onClick)
         )
@@ -84,6 +88,7 @@ fun PostItem(
 fun VerticalFeedPostCard(
     post: Post,
     isOwnPost: Boolean = false,
+    activePostId: String? = null,
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onRepostClick: () -> Unit,
@@ -91,11 +96,17 @@ fun VerticalFeedPostCard(
     onFollowClick: () -> Unit,
     onMoreClick: () -> Unit,
     onProfileClick: (String) -> Unit,
-    onMediaClick: (String, String) -> Unit,
+    onMediaClick: (String, String, Long) -> Unit,
     onVotePoll: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    var currentPlaybackPosition by remember { mutableLongStateOf(0L) }
+    var isMuted by remember { mutableStateOf(true) }
+
+    val isVideoPlaying = remember(activePostId, post.id) {
+        activePostId == post.id
+    }
 
     Column(
         modifier = modifier
@@ -276,26 +287,48 @@ fun VerticalFeedPostCard(
                         .fillMaxWidth()
                         .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 0.8f)
                         .background(Color.Black.copy(alpha = 0.1f))
-                        .clickable { onMediaClick(videoUrl, "video") }
+                        .clickable { onMediaClick(videoUrl, "video", currentPlaybackPosition) }
                 ) {
                     VideoPlayer(
                         videoUrl = videoUrl,
-                        isPlaying = true, // Auto-play single videos in feed
+                        isPlaying = isVideoPlaying, 
                         modifier = Modifier.fillMaxSize(),
-                        useController = false
+                        useController = false,
+                        isMuted = isMuted,
+                        onPositionUpdate = { currentPlaybackPosition = it }
                     )
-                    Icon(
-                        Icons.Default.PlayCircle,
-                        null,
-                        modifier = Modifier.size(48.dp).align(Alignment.Center),
-                        tint = Color.White.copy(alpha = 0.8f)
-                    )
+                    
+                    if (!isVideoPlaying) {
+                        Icon(
+                            Icons.Default.PlayCircle,
+                            null,
+                            modifier = Modifier.size(48.dp).align(Alignment.Center),
+                            tint = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    // Floating Mute Button
+                    IconButton(
+                        onClick = { isMuted = !isMuted },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .size(32.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Mute",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             } else {
                 MediaGrid(urls = displayPost.mediaUrls) { url ->
                     val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(url) ?: url
                     val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
-                    onMediaClick(formattedUrl, type)
+                    onMediaClick(formattedUrl, type, 0L)
                 }
             }
         } else if (displayPost.mediaType != null && displayPost.mediaType != "TEXT" && (displayPost.mediaType ?: "").length > 0) {
@@ -339,7 +372,7 @@ fun VerticalFeedPostCard(
                 onClick = onCommentClick
             )
 
-            Spacer(Modifier.width(24.dp))
+            Spacer(Modifier.width(4.dp))
 
             InteractionIcon(
                 icon = Icons.Default.Repeat,
@@ -348,7 +381,7 @@ fun VerticalFeedPostCard(
                 onClick = onRepostClick
             )
 
-            Spacer(Modifier.width(24.dp))
+            Spacer(Modifier.width(4.dp))
 
             InteractionIcon(
                 icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -357,7 +390,7 @@ fun VerticalFeedPostCard(
                 onClick = onLikeClick
             )
 
-            Spacer(Modifier.width(24.dp))
+            Spacer(Modifier.width(4.dp))
 
             InteractionIcon(
                 icon = Icons.Default.BarChart,
@@ -527,21 +560,21 @@ fun PostActions(
             color = SecondaryText,
             onClick = onReplyClick
         )
-        Spacer(Modifier.width(28.dp))
+        Spacer(Modifier.width(12.dp))
         InteractionIcon(
             icon = Icons.Default.Repeat,
             count = post.shares,
             color = if (post.isReposted) Color.Green else SecondaryText,
             onClick = onRepostClick
         )
-        Spacer(Modifier.width(28.dp))
+        Spacer(Modifier.width(12.dp))
         InteractionIcon(
             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
             count = post.likes,
             color = if (post.isLiked) Color.Red else SecondaryText,
             onClick = { onLike(post.id, post.likes, post.isLiked) }
         )
-        Spacer(Modifier.width(28.dp))
+        Spacer(Modifier.width(12.dp))
         InteractionIcon(
             icon = Icons.Default.BarChart,
             count = post.views,
@@ -618,6 +651,6 @@ fun VerticalFeedPostCardPreview() {
         onFollowClick = {},
         onMoreClick = {},
         onProfileClick = {},
-        onMediaClick = { _, _ -> }
+        onMediaClick = { _, _, _ -> }
     )
 }

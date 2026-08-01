@@ -63,6 +63,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.paging.compose.itemContentType
 import androidx.paging.LoadState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import kotlinx.coroutines.flow.Flow
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.ui.components.DynamicAdCard
@@ -114,7 +115,7 @@ fun MediaScreen(
     onDirectMessagesClick: () -> Unit = {},
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
-    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
     onProfileClick: (String) -> Unit = {}
 ) {
@@ -383,7 +384,7 @@ fun MainFeedSection(
     onRefresh: () -> Unit,
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
-    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
     onFollowUser: (String) -> Unit = {}
 ) {
@@ -426,7 +427,35 @@ fun MainFeedSection(
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize()
     ) {
+        val listState = rememberLazyListState()
+        val activePostId by remember {
+            derivedStateOf {
+                val layoutInfo = listState.layoutInfo
+                val visibleItems = layoutInfo.visibleItemsInfo
+                if (visibleItems.size == 0) return@derivedStateOf null
+                
+                // Find item closest to the middle of the screen
+                val center = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                var minDistance = Int.MAX_VALUE
+                var closestIndex = -1
+                
+                for (item in visibleItems) {
+                    val itemCenter = item.offset + (item.size / 2)
+                    val distance = Math.abs(itemCenter - center)
+                    if (distance < minDistance) {
+                        minDistance = distance
+                        closestIndex = item.index
+                    }
+                }
+                
+                if (closestIndex != -1 && closestIndex < posts.itemCount) {
+                    posts.peek(closestIndex)?.id
+                } else null
+            }
+        }
+
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
@@ -443,6 +472,7 @@ fun MainFeedSection(
                         isOwnPost = post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle),
                         showThreadLine = post.hasThread,
                         isLastInThread = true,
+                        activePostId = activePostId,
                         onClick = { onPostClick(post) },
                         onLike = { id, likes, liked -> onLike(id, likes, liked) },
                         onRepostClick = { p -> onRepostClick(p) },

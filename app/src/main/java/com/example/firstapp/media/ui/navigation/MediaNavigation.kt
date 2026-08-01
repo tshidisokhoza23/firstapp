@@ -299,8 +299,8 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onProfileClick = { userId ->
                 navController.navigate(Screen.UserProfile.createRoute(userId))
             },
-            onMediaClick = { url, type ->
-                navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            onMediaClick = { url, type, pos ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type, pos))
             }
         )
     }
@@ -309,14 +309,17 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         route = Screen.MediaViewer.route,
         arguments = listOf(
             navArgument("url") { type = NavType.StringType },
-            navArgument("type") { type = NavType.StringType; defaultValue = "image" }
+            navArgument("type") { type = NavType.StringType; defaultValue = "image" },
+            navArgument("position") { type = NavType.LongType; defaultValue = 0L }
         )
     ) { backStackEntry ->
         val url = backStackEntry.arguments?.getString("url") ?: ""
         val type = backStackEntry.arguments?.getString("type") ?: "image"
+        val position = backStackEntry.arguments?.getLong("position") ?: 0L
         MediaViewerScreen(
             url = url,
             type = type,
+            initialPosition = position,
             onBack = { navController.popBackStack() }
         )
     }

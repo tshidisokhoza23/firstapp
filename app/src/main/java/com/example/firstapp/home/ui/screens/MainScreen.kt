@@ -2,9 +2,11 @@ package com.example.firstapp.home.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -114,83 +116,84 @@ fun MainScreen(
     }
 
     GlobalOverlayContainer(musicViewModel = musicViewModel) {
-        Scaffold(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(nestedScrollConnection),
-            containerColor = AppBackground,
-            bottomBar = {
-                Box(modifier = Modifier
-                    .offset { IntOffset(0, -bottomBarOffsetHeightPx.floatValue.roundToInt()) }
-                ) {
-                    MainBottomNavigation(
-                        selectedRoute = currentTab.route,
-                        onTabSelected = { item: BottomNavItem ->
-                            viewModel.setSelectedBottomItem(item.index)
-                            if (item != BottomNavItem.More) {
-                                navigateToTab(item)
-                            }
-                        }
+                .background(AppBackground)
+                .statusBarsPadding()
+                .nestedScroll(nestedScrollConnection)
+        ) {
+            val tabToDisplay = if (selectedIndex == 5) {
+                BottomNavItem.fromIndex(lastActiveTab.intValue)
+            } else {
+                currentTab
+            }
+
+            // Crossfade provides clean UI transitions between active screens
+            Crossfade(
+                targetState = tabToDisplay, 
+                label = "TabSwitch",
+                modifier = Modifier.fillMaxSize()
+            ) { targetTab ->
+                when (targetTab) {
+                    BottomNavItem.Chat -> ChatsListScreen(
+                        navController = navController,
+                        adManager = adManager,
+                        onLogout = onLogout
+                    )
+                    BottomNavItem.Media -> MediaTabScreen(
+                        navController = navController,
+                        adManager = adManager
+                    )
+                    BottomNavItem.Shorts -> ShortsTabScreen(
+                        navController = navController,
+                        adManager = adManager,
+                        onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
+                        initialShortId = initialShortId
+                    )
+                    BottomNavItem.Music -> MusicTabScreen(
+                        navController = navController
+                    )
+                    BottomNavItem.Drive -> DriveTabScreen(
+                        navController = navController
+                    )
+                    else -> ChatsListScreen(
+                        navController = navController,
+                        adManager = adManager,
+                        onLogout = onLogout
                     )
                 }
             }
-        ) { innerPadding ->
+
+            // Bottom Navigation Overlay
             Box(
                 modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
+                    .align(Alignment.BottomCenter)
+                    .offset { IntOffset(0, -bottomBarOffsetHeightPx.floatValue.roundToInt()) }
             ) {
-                val tabToDisplay = if (selectedIndex == 5) {
-                    BottomNavItem.fromIndex(lastActiveTab.intValue)
-                } else {
-                    currentTab
-                }
-
-                // Crossfade provides clean UI transitions between active screens
-                Crossfade(targetState = tabToDisplay, label = "TabSwitch") { targetTab ->
-                    when (targetTab) {
-                        BottomNavItem.Chat -> ChatsListScreen(
-                            navController = navController,
-                            adManager = adManager,
-                            onLogout = onLogout
-                        )
-                        BottomNavItem.Media -> MediaTabScreen(
-                            navController = navController,
-                            adManager = adManager
-                        )
-                        BottomNavItem.Shorts -> ShortsTabScreen(
-                            navController = navController,
-                            adManager = adManager,
-                            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
-                            initialShortId = initialShortId
-                        )
-                        BottomNavItem.Music -> MusicTabScreen(
-                            navController = navController
-                        )
-                        BottomNavItem.Drive -> DriveTabScreen(
-                            navController = navController
-                        )
-                        else -> ChatsListScreen(
-                            navController = navController,
-                            adManager = adManager,
-                            onLogout = onLogout
-                        )
-                    }
-                }
-
-                // "More" Shortcuts Sheet Overlay
-                if (selectedIndex == 5) {
-                    MoreShortcutsSheet(
-                        isVisible = true,
-                        onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
-                        onNavigate = { route: String ->
-                            viewModel.setSelectedBottomItem(lastActiveTab.intValue)
-                            navController.navigate(route) {
-                                launchSingleTop = true
-                            }
+                MainBottomNavigation(
+                    selectedRoute = currentTab.route,
+                    onTabSelected = { item: BottomNavItem ->
+                        viewModel.setSelectedBottomItem(item.index)
+                        if (item != BottomNavItem.More) {
+                            navigateToTab(item)
                         }
-                    )
-                }
+                    }
+                )
+            }
+
+            // "More" Shortcuts Sheet Overlay
+            if (selectedIndex == 5) {
+                MoreShortcutsSheet(
+                    isVisible = true,
+                    onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
+                    onNavigate = { route: String ->
+                        viewModel.setSelectedBottomItem(lastActiveTab.intValue)
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
             }
         }
     }
