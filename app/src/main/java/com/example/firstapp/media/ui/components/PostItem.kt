@@ -259,7 +259,7 @@ fun VerticalFeedPostCard(
         // 3. MAIN MEDIA AREA
         if (displayPost.mediaUrls.size > 0) {
             Spacer(modifier = Modifier.height(8.dp))
-            val mType = displayPost.mediaType ?: ""
+            val mType = (displayPost.mediaType ?: "").uppercase(Locale.ROOT)
             var hasVideoInUrls = false
             for (u in displayPost.mediaUrls) {
                 if (com.example.firstapp.common.util.MediaUtils.isVideo(u)) {
@@ -267,7 +267,7 @@ fun VerticalFeedPostCard(
                     break
                 }
             }
-            val isVideo = (mType == "video") || (mType == "VIDEO") || (mType == "short") || (mType == "SHORT") || hasVideoInUrls
+            val isVideo = (mType == "VIDEO") || (mType == "SHORT") || hasVideoInUrls
             
             if (isVideo && displayPost.mediaUrls.size == 1) {
                 val videoUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.mediaUrls[0]) ?: ""
@@ -297,6 +297,22 @@ fun VerticalFeedPostCard(
                     val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
                     onMediaClick(formattedUrl, type)
                 }
+            }
+        } else if (displayPost.mediaType != null && displayPost.mediaType != "TEXT" && displayPost.mediaType.length > 0) {
+            // Diagnostic placeholder
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .background(Color.DarkGray.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Media processing... type: ${displayPost.mediaType}",
+                    color = Color.Gray,
+                    fontSize = 11.sp
+                )
             }
         }
 

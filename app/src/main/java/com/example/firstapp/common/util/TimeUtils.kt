@@ -111,9 +111,18 @@ fun formatTwitterTime(isoTimestamp: String?): String {
     if (isoTimestamp.isNullOrBlank()) return ""
     
     // Try to parse as Long first (milliseconds)
-    val date = isoTimestamp.toLongOrNull()?.let { java.util.Date(it) } ?: parseIso(isoTimestamp) ?: return ""
+    val date = try {
+        isoTimestamp.toLongOrNull()?.let { java.util.Date(it) } ?: parseIso(isoTimestamp)
+    } catch (_: Exception) {
+        parseIso(isoTimestamp)
+    } ?: return ""
     
-    val diffMs = System.currentTimeMillis() - date.time
+    val now = System.currentTimeMillis()
+    val diffMs = now - date.time
+    
+    // If the diff is negative (phone clock behind server), show "now"
+    if (diffMs < 0) return "now"
+
     val mins = diffMs / 60_000
     val hours = mins / 60
     val days = hours / 24
