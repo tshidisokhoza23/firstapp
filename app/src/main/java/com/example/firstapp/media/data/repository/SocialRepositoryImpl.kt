@@ -97,7 +97,12 @@ class SocialRepositoryImpl @Inject constructor(
             val response = socialApi.getPosts(page = page, following = false, authorId = "", feedType = feedType)
             if (response.isSuccessful) {
                 val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
-                Log.d("SocialRepo", "Fetched ${apiPosts.size} posts for page $page")
+                Log.d("SocialRepo", "Fetched " + apiPosts.size + " posts for page " + page)
+                if (apiPosts.size > 0) {
+                    val first = apiPosts[0]
+                    Log.d("SocialRepo", "Sample Post ID: " + first.id)
+                    Log.d("SocialRepo", "Sample Media URLs: " + first.media_urls)
+                }
                 val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
                 // Avoid wiping media feed cache when legacy /posts returns empty.
                 if (posts.isNotEmpty()) {

@@ -39,12 +39,18 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         isVerifiedAuthor = author?.is_verified ?: false,
         content = apiPost.content ?: apiPost.content_text ?: "",
         mediaUrls = apiPost.media_urls?.mapNotNull { MediaUtils.formatUrl(it) } ?: emptyList(),
-        mediaType = apiPost.media_type,
+        mediaType = if (apiPost.media_type != null && apiPost.media_type.length > 0) {
+            apiPost.media_type
+        } else if (apiPost.media_urls != null && apiPost.media_urls.size > 0) {
+            if (MediaUtils.isVideo(apiPost.media_urls[0])) "VIDEO" else "IMAGE"
+        } else {
+            "TEXT"
+        },
         altText = apiPost.alt_text,
-        timestamp = apiPost.created_at?.let { 
-            val ts = if (it < 10000000000L) it * 1000 else it // heuristic to detect seconds vs millis
+        timestamp = (apiPost.created_at?.let { 
+            val ts = if (it < 10000000000L) it * 1000 else it 
             ts.toString()
-        } ?: System.currentTimeMillis().toString(),
+        } ?: System.currentTimeMillis().toString()),
         likes = if (apiPost.likes > 0) apiPost.likes else apiPost.like_count,
         repliesCount = if (apiPost.replies_count > 0) apiPost.replies_count else apiPost.reply_count,
         shares = if (apiPost.shares > 0) apiPost.shares else apiPost.repost_count,
