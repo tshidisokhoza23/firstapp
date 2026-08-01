@@ -172,14 +172,13 @@ class SocialViewModel @Inject constructor(
                     val context = com.example.firstapp.common.util.ContextProvider.context
                     val file = com.example.firstapp.media.ui.screens.copyUriToTempFile(context, uri)
                     if (file != null) {
-                        val res = accountRepository.uploadFile(file, "stories").first()
-                        if (res is Resource.Success && res.data != null) {
-                            finalUrl = res.data.url
-                            file.delete()
-                        } else if (res is Resource.Error) {
-                            // If upload fails, we shouldn't proceed to create the story with a local URL
-                            _stories.value = Resource.Error(res.message ?: "Upload failed")
-                            return@launch
+                        accountRepository.uploadFile(file, "stories").collect { res ->
+                            if (res is Resource.Success && res.data != null) {
+                                finalUrl = res.data.url
+                                file.delete()
+                            } else if (res is Resource.Error) {
+                                _stories.value = Resource.Error(res.message ?: "Upload failed")
+                            }
                         }
                     }
                 } catch (e: Exception) {

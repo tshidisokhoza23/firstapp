@@ -47,6 +47,7 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
             }
         }
     }
+    android.util.Log.d("Mapper", "Post ${apiPost.id} mapped with ${mediaUrlsList.size} media URLs. Type: ${apiPost.media_type}")
 
     return Post(
         id = apiPost.id ?: "",

@@ -233,16 +233,15 @@ class MediaViewModel @Inject constructor(
                         if (file != null) {
                             android.util.Log.d("MediaViewModel", "File copied to temp: ${file.absolutePath}, size: ${file.length()}")
                             // Synchronously wait for each upload to complete and get the public URL
-                            val res = accountRepository.uploadFile(file, "posts").first()
-                            if (res is Resource.Success && res.data != null) {
-                                android.util.Log.d("MediaViewModel", "Upload success: ${res.data.url}")
-                                finalUrls.add(res.data.url)
-                                file.delete()
-                            } else if (res is Resource.Error) {
-                                android.util.Log.e("MediaViewModel", "Upload failed for ${file.name}: ${res.message}")
-                                _toastMessage.value = "Upload failed: ${res.message}"
-                                _uiState.update { it.copy(isLoading = false) }
-                                return@launch
+                            accountRepository.uploadFile(file, "posts").collect { res ->
+                                if (res is Resource.Success && res.data != null) {
+                                    android.util.Log.d("MediaViewModel", "Upload success: ${res.data.url}")
+                                    finalUrls.add(res.data.url)
+                                    file.delete()
+                                } else if (res is Resource.Error) {
+                                    android.util.Log.e("MediaViewModel", "Upload failed for ${file.name}: ${res.message}")
+                                    _toastMessage.value = "Upload failed: ${res.message}"
+                                }
                             }
                         } else {
                             android.util.Log.e("MediaViewModel", "Failed to copy URI to temp file: $uri")
@@ -275,9 +274,11 @@ class MediaViewModel @Inject constructor(
 
             socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId).collect { res ->
                 if (res is Resource.Success) {
+                    android.util.Log.d("MediaViewModel", "Post created SUCCESS. Data: ${res.data}")
                     _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
                 } else if (res is Resource.Error) {
+                    android.util.Log.e("MediaViewModel", "Post creation FAILED: ${res.message}")
                     _toastMessage.value = "Failed to post: ${res.message}"
                 }
             }
