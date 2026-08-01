@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.ArrayList
 
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -91,10 +92,10 @@ class SocialViewModel @Inject constructor(
         }
     }
 
-    fun createPost(content: String, mediaUris: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList()) {
-        if (content.isBlank() && mediaUris.isEmpty()) return
+    fun createPost(content: String, mediaUris: List<String> = kotlin.collections.emptyList(), postType: String? = null, tags: List<String> = kotlin.collections.emptyList()) {
+        if (content.trim().length == 0 && mediaUris.size == 0) return
         viewModelScope.launch {
-            val finalUrls = mutableListOf<String>()
+            val finalUrls = ArrayList<String>()
             for (uriStr in mediaUris) {
                 if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
                     try {
@@ -115,7 +116,7 @@ class SocialViewModel @Inject constructor(
                 }
             }
             socialRepository.createPost(content.trim(), finalUrls, postType, tags).collect { result ->
-                if (result is Resource.Success && result.data == true) fetchPosts()
+                if (result is Resource.Success<Boolean> && result.data == true) fetchPosts()
             }
         }
     }
@@ -125,10 +126,15 @@ class SocialViewModel @Inject constructor(
     fun bookmarkPost(postId: String) { viewModelScope.launch { socialRepository.bookmarkPost(postId).collect { } } }
 
     fun createPostReply(postId: String, content: String, parentReplyId: String? = null) {
-        if (content.isBlank()) return
+        if (content.trim().length == 0) return
         viewModelScope.launch {
-            socialRepository.createPostReply(postId, content.trim(), parentReplyId).collect { result ->
-                if (result is Resource.Success && result.data == true) fetchPosts()
+            socialRepository.createPost(
+                content = content.trim(),
+                postType = "reply",
+                parentPostId = parentReplyId ?: postId,
+                rootPostId = postId
+            ).collect { result ->
+                if (result is Resource.Success<Boolean> && result.data == true) fetchPosts()
             }
         }
     }
@@ -141,9 +147,13 @@ class SocialViewModel @Inject constructor(
     fun deletePost(postId: String) {
         viewModelScope.launch {
             socialRepository.deletePost(postId).collect { result ->
-                if (result is Resource.Success) {
+                if (result is Resource.Success<Boolean>) {
                     val current = _posts.value.data ?: return@collect
-                    _posts.value = Resource.Success(current.filter { it.id != postId })
+                    val filtered = ArrayList<Post>()
+                    for (p in current) {
+                        if (p.id != postId) filtered.add(p)
+                    }
+                    _posts.value = Resource.Success(filtered)
                 }
             }
         }
