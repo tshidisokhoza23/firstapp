@@ -82,7 +82,7 @@ fun ShortsTabScreen(
         when {
             showShortComments -> {
                 showShortComments = false
-                activeShortIdForComments = null
+                // activeShortIdForComments = null // Let LaunchedEffect handle this after animation
             }
             showShortMoreMenu -> {
                 showShortMoreMenu = false
@@ -200,7 +200,6 @@ fun ShortsTabScreen(
                     currentUserAvatarUrl = currentUser?.avatarUrl,
                     onDismiss = {
                         showShortComments = false
-                        // activeShortIdForComments = null // Moved out to avoid crash during exit animation
                     },
                     onSendReply = { content, parentId ->
                         mediaViewModel.createPost(

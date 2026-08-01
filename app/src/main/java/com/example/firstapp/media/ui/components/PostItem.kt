@@ -329,8 +329,7 @@ fun VerticalFeedPostCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             InteractionIcon(
@@ -340,12 +339,16 @@ fun VerticalFeedPostCard(
                 onClick = onCommentClick
             )
 
+            Spacer(Modifier.width(24.dp))
+
             InteractionIcon(
                 icon = Icons.Default.Repeat,
                 count = post.shares,
                 color = if (post.isReposted) Color.Green else Color.Gray,
                 onClick = onRepostClick
             )
+
+            Spacer(Modifier.width(24.dp))
 
             InteractionIcon(
                 icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -354,6 +357,8 @@ fun VerticalFeedPostCard(
                 onClick = onLikeClick
             )
 
+            Spacer(Modifier.width(24.dp))
+
             InteractionIcon(
                 icon = Icons.Default.BarChart,
                 count = displayPost.views,
@@ -361,6 +366,8 @@ fun VerticalFeedPostCard(
                 onClick = { /* View stats? */ }
             )
             
+            Spacer(modifier = Modifier.weight(1f))
+
             IconButton(onClick = onShareClick) {
                 Icon(Icons.Default.Share, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
             }
@@ -512,7 +519,6 @@ fun PostActions(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         InteractionIcon(
@@ -521,24 +527,28 @@ fun PostActions(
             color = SecondaryText,
             onClick = onReplyClick
         )
+        Spacer(Modifier.width(28.dp))
         InteractionIcon(
             icon = Icons.Default.Repeat,
             count = post.shares,
             color = if (post.isReposted) Color.Green else SecondaryText,
             onClick = onRepostClick
         )
+        Spacer(Modifier.width(28.dp))
         InteractionIcon(
             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
             count = post.likes,
             color = if (post.isLiked) Color.Red else SecondaryText,
             onClick = { onLike(post.id, post.likes, post.isLiked) }
         )
+        Spacer(Modifier.width(28.dp))
         InteractionIcon(
             icon = Icons.Default.BarChart,
             count = post.views,
             color = SecondaryText,
             onClick = { /* View stats */ }
         )
+        Spacer(Modifier.weight(1f))
         IconButton(onClick = onShareClick, modifier = Modifier.size(20.dp)) {
             Icon(Icons.Default.Share, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
         }

@@ -128,20 +128,19 @@ fun ShortItem(
         }
     }
 
-    val exoPlayer: androidx.media3.exoplayer.ExoPlayer? = remember(videoUrl, isVisible) {
-        if (isVisible && videoUrl != null) {
-            ShortsVideoCache.acquirePlayer(context, videoUrl).apply {
-                repeatMode = Player.REPEAT_MODE_ONE
-                volume = if (isMuted) 0f else 1f
-                playWhenReady = true
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                        .setUsage(C.USAGE_MEDIA)
-                        .build(),
-                    true
-                )
-            }
+    val exoPlayer = remember(videoUrl) {
+        if (videoUrl != null) {
+            val player = androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
+            player.setRepeatMode(Player.REPEAT_MODE_ONE)
+            player.setVolume(if (isMuted) 0f else 1f)
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                true
+            )
+            player
         } else {
             null
         }
@@ -168,11 +167,11 @@ fun ShortItem(
     }
 
     LaunchedEffect(isMuted) {
-        exoPlayer?.volume = if (isMuted) 0f else 1f
+        exoPlayer?.setVolume(if (isMuted) 0f else 1f)
     }
 
-    LaunchedEffect(isPlaying, isAppInBackground) {
-        exoPlayer?.playWhenReady = isPlaying && !isAppInBackground
+    LaunchedEffect(isPlaying, isAppInBackground, isVisible) {
+        exoPlayer?.setPlayWhenReady(isPlaying && !isAppInBackground && isVisible)
     }
 
     DisposableEffect(exoPlayer, videoUrl) {
@@ -219,7 +218,7 @@ fun ShortItem(
             onDispose {
                 android.util.Log.d("ShortItem", "Releasing player for short: ${short.id}")
                 player.removeListener(listener)
-                ShortsVideoCache.releasePlayer(player, videoUrl)
+                player.release()
             }
         }
     }

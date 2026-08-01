@@ -32,13 +32,15 @@ import com.example.firstapp.common.ui.theme.AppSecondary
 
 @Composable
 fun ShortCommentsOverlay(
-    shortId: String,
+    shortId: String?,
     repliesState: Resource<List<Post>>,
     currentUserAvatarUrl: String? = null,
     onDismiss: () -> Unit,
     onSendReply: (String, String?) -> Unit,
     onLikeReply: (Post) -> Unit = {}
 ) {
+    if (shortId == null) return
+
     var replyText by remember { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<Post?>(null) }
 

@@ -40,17 +40,19 @@ fun MediaViewerScreen(
     ) {
         if (type == "video") {
             val exoPlayer = remember(url) {
-                val player = ShortsVideoCache.acquirePlayer(context, url)
-                player.setRepeatMode(Player.REPEAT_MODE_ONE)
-                player.setMediaItem(MediaItem.fromUri(url))
-                player.prepare()
-                player.setPlayWhenReady(true)
-                player
+                androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
+            }
+
+            LaunchedEffect(url) {
+                exoPlayer.setRepeatMode(Player.REPEAT_MODE_ONE)
+                exoPlayer.setMediaItem(MediaItem.fromUri(url))
+                exoPlayer.prepare()
+                exoPlayer.setPlayWhenReady(true)
             }
 
             DisposableEffect(exoPlayer) {
                 onDispose {
-                    ShortsVideoCache.releasePlayer(exoPlayer, url)
+                    exoPlayer.release()
                 }
             }
 
@@ -61,6 +63,9 @@ fun MediaViewerScreen(
                         useController = true
                         resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                     }
+                },
+                update = { view ->
+                    view.player = exoPlayer
                 },
                 modifier = Modifier.fillMaxSize()
             )

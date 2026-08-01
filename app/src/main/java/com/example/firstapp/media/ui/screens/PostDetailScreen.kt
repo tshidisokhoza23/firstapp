@@ -244,24 +244,26 @@ fun PostDetailScreen(
                     
                     Row(
                         modifier = Modifier.fillMaxWidth(), 
-                        horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else SecondaryText) { 
                             if (!post.repliesLocked) replyingToPost = post 
                         }
+                        Spacer(Modifier.width(32.dp))
                         InteractionIcon(
                             icon = Icons.Default.Repeat, 
                             count = post.shares, 
                             color = if (post.isReposted) Color(0xFF00BA7C) else SecondaryText, 
                             onClick = { showRepostOptions = true }
                         )
+                        Spacer(Modifier.width(32.dp))
                         InteractionIcon(
                             icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
                             count = post.likes, 
                             color = if (post.isLiked) Color(0xFFF91880) else SecondaryText, 
                             onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
                         )
+                        Spacer(Modifier.width(32.dp))
                         InteractionIcon(
                             icon = Icons.Default.BarChart,
                             count = post.views,
