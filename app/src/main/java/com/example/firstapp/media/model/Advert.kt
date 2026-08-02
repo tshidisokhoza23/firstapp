@@ -5,7 +5,7 @@ data class Advert(
     val advertiserName: String,
     val advertiserId: String = "",
     val title: String = "",
-    val time: String,
+    val time: String? = null,
     val avatarUrl: String? = null,
     val avatarColor: Int,
     val contentUrl: String? = null,
