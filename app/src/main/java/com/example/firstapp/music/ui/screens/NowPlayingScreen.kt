@@ -69,25 +69,42 @@ fun NowPlayingScreen(
         currentProgress = progress
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { },
                     navigationIcon = {
                         IconButton(onClick = onClose) {
-                            Icon(Icons.Default.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                            Icon(
+                                Icons.Default.KeyboardArrowDown, 
+                                null, 
+                                tint = MaterialTheme.colorScheme.onBackground, 
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                     },
                     actions = {
                         IconButton(onClick = { showSleepTimer = true }) {
-                            Icon(Icons.Default.Timer, null, tint = if (sleepTimerRemaining != null) AppAccent else Color.White)
+                            Icon(
+                                Icons.Default.Timer, 
+                                null, 
+                                tint = if (sleepTimerRemaining != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                            )
                         }
                         IconButton(onClick = { showPlaylistDialog = true }) {
-                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = Color.White)
+                            Icon(
+                                Icons.AutoMirrored.Filled.PlaylistAdd, 
+                                null, 
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
                         }
                         IconButton(onClick = { }) {
-                            Icon(Icons.Default.MoreVert, null, tint = Color.White)
+                            Icon(
+                                Icons.Default.MoreVert, 
+                                null, 
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -132,7 +149,7 @@ fun NowPlayingScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = song.title,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -140,7 +157,7 @@ fun NowPlayingScreen(
                         )
                         Text(
                             text = song.artist,
-                            color = AppAccent,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 18.sp,
                             modifier = Modifier.clickable { onArtistClick(song.artist) }
                         )
@@ -149,7 +166,7 @@ fun NowPlayingScreen(
                         Icon(
                             imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = null,
-                            tint = if (isLiked) Color.Red else Color.White,
+                            tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -162,9 +179,9 @@ fun NowPlayingScreen(
                     onValueChange = { currentProgress = it },
                     onValueChangeFinished = { onSeek(currentProgress) },
                     colors = SliderDefaults.colors(
-                        thumbColor = Color.White,
-                        activeTrackColor = Color.White,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f)
                     )
                 )
 
@@ -172,8 +189,8 @@ fun NowPlayingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("0:00", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
-                    Text(song.duration, color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                    Text("0:00", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    Text(song.duration, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -184,29 +201,43 @@ fun NowPlayingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onToggleShuffle) {
-                        Icon(Icons.Default.Shuffle, null, tint = if (isShuffleEnabled) AppAccent else Color.White)
+                        Icon(
+                            Icons.Default.Shuffle, 
+                            null, 
+                            tint = if (isShuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                        )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onPrevious) {
-                            Icon(Icons.Filled.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(40.dp))
+                            Icon(
+                                Icons.Filled.SkipPrevious, 
+                                null, 
+                                tint = MaterialTheme.colorScheme.onBackground, 
+                                modifier = Modifier.size(40.dp)
+                            )
                         }
                         Surface(
                             onClick = onTogglePlay,
                             shape = CircleShape,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(72.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     contentDescription = null,
-                                    tint = Color.Black,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(40.dp)
                                 )
                             }
                         }
                         IconButton(onClick = onNext) {
-                            Icon(Icons.Filled.SkipNext, null, tint = Color.White, modifier = Modifier.size(40.dp))
+                            Icon(
+                                Icons.Filled.SkipNext, 
+                                null, 
+                                tint = MaterialTheme.colorScheme.onBackground, 
+                                modifier = Modifier.size(40.dp)
+                            )
                         }
                     }
                     IconButton(onClick = onToggleRepeat) {
@@ -217,7 +248,7 @@ fun NowPlayingScreen(
                                 else -> Icons.Default.Repeat
                             },
                             contentDescription = null,
-                            tint = if (repeatMode != androidx.media3.common.Player.REPEAT_MODE_OFF) AppAccent else Color.White
+                            tint = if (repeatMode != androidx.media3.common.Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
                         )
                     }
                 }
@@ -227,10 +258,10 @@ fun NowPlayingScreen(
         if (showPlaylistDialog) {
             AlertDialog(
                 onDismissRequest = { showPlaylistDialog = false },
-                title = { Text("Add to Playlist") },
+                title = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
                 text = {
                     if (playlists.isEmpty()) {
-                        Text("No playlists created yet.", color = Color.White)
+                        Text("No playlists created yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         LazyColumn {
                             items(playlists) { playlist ->
@@ -241,17 +272,19 @@ fun NowPlayingScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(playlist.name, color = Color.White)
+                                    Text(playlist.name, color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showPlaylistDialog = false }) { Text("Cancel") }
+                    TextButton(onClick = { showPlaylistDialog = false }) { 
+                        Text("Cancel", color = MaterialTheme.colorScheme.primary) 
+                    }
                 },
-                containerColor = AppSecondary,
-                titleContentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.surface,
+                titleContentColor = MaterialTheme.colorScheme.onSurface
             )
         }
     }

@@ -99,7 +99,7 @@ fun ArtistSongsScreen(
                 item {
                     Text(
                         text = bio,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         fontSize = 14.sp,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         lineHeight = 20.sp
@@ -190,7 +190,7 @@ fun MusicScreen(
             text = {
                 val playlists = playlistsState.data ?: emptyList()
                 if (playlists.isEmpty()) {
-                    Text("No playlists created yet.", color = Color.White)
+                    Text("No playlists created yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     LazyColumn {
                         items(playlists) { playlist ->
@@ -201,7 +201,7 @@ fun MusicScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(playlist.name, color = Color.White)
+                                Text(playlist.name, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -210,8 +210,8 @@ fun MusicScreen(
             confirmButton = {
                 TextButton(onClick = { songForPlaylist = null }) { Text("Cancel") }
             },
-            containerColor = AppSecondary,
-            titleContentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 

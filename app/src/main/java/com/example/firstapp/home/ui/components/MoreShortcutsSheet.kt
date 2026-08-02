@@ -70,7 +70,7 @@ fun MoreShortcutsSheet(
                     .padding(horizontal = 8.dp)
                     .padding(bottom = 16.dp), // Gap above bottom nav
                 shape = RoundedCornerShape(28.dp),
-                color = Color(0xFF1E232C)
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
                     modifier = Modifier
@@ -84,7 +84,7 @@ fun MoreShortcutsSheet(
                     ) {
                         Text(
                             text = "Shortcuts",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -92,7 +92,7 @@ fun MoreShortcutsSheet(
                             onClick = onDismiss,
                             modifier = Modifier.size(24.dp)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White.copy(alpha = 0.6f))
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -139,7 +139,7 @@ fun ShortcutCell(item: ShortcutItem, onClick: () -> Unit) {
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = item.label,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,

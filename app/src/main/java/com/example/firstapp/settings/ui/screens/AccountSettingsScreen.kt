@@ -45,16 +45,28 @@ fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewMode
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Account", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Text(
+                        "Account", 
+                        color = MaterialTheme.colorScheme.onBackground, 
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back", 
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -81,7 +93,10 @@ fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewMode
                 onClick = { viewModel.requestPasswordReset("user@example.com") }
             )
             
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = AppSecondary)
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp), 
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            )
             
             Row(
                 modifier = Modifier
@@ -90,15 +105,15 @@ fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewMode
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Security notifications", color = Color.White, fontSize = 16.sp)
-                    Text("Show notifications for security alerts", color = AppTextSecondary, fontSize = 14.sp)
+                    Text("Security notifications", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+                    Text("Show notifications for security alerts", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 }
                 Switch(
                     checked = securityNotificationsEnabled,
                     onCheckedChange = { 
                         viewModel.toggleSecurityNotifications(it)
                     },
-                    colors = SwitchDefaults.colors(checkedThumbColor = AppAccent)
+                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                 )
             }
         }

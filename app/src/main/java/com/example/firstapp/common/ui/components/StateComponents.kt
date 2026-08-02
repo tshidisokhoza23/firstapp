@@ -19,8 +19,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.common.util.Resource
-import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppBackground
 
 @Composable
 fun <T> DataStateHandler(
@@ -38,7 +36,7 @@ fun <T> DataStateHandler(
                 onSuccess(d)
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth().height(2.dp),
-                    color = AppAccent,
+                    color = MaterialTheme.colorScheme.primary,
                     trackColor = Color.Transparent
                 )
             } else {
@@ -94,15 +92,22 @@ fun SkeletonLoader() {
 fun ErrorStateView(message: String?) {
     Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.ErrorOutline, null, tint = Color.Red, modifier = Modifier.size(48.dp))
+            Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
             Spacer(Modifier.height(16.dp))
-            Text(text = message ?: "Connection Error", color = Color.White, textAlign = TextAlign.Center)
+            Text(
+                text = message ?: "Connection Error", 
+                color = MaterialTheme.colorScheme.onBackground, 
+                textAlign = TextAlign.Center
+            )
             Button(
                 onClick = { },
                 modifier = Modifier.padding(top = 16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
-                Text("Retry", color = AppBackground)
+                Text("Retry")
             }
         }
     }
@@ -145,13 +150,13 @@ fun EmptyStateView() {
             Spacer(Modifier.height(24.dp))
             Text(
                 "Everything is quiet here",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 "Check back later for updates",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 8.dp)

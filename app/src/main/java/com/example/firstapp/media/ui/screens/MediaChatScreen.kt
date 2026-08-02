@@ -22,9 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.AppPrimary
-import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.media.model.MediaMessage
 
 import androidx.compose.material.icons.filled.Image
@@ -56,7 +53,7 @@ fun MediaChatScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(Color.Gray)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                         ) {
                             val avatar = receiverUser?.avatarUrl
                             if (avatar != null) {
@@ -71,22 +68,22 @@ fun MediaChatScreen(
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = receiverUser?.displayName ?: "User $userId",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 18.sp
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         bottomBar = {
             Surface(
-                color = AppBackground,
+                color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
                 Row(
@@ -106,7 +103,7 @@ fun MediaChatScreen(
                         }
                     }
                     IconButton(onClick = { mediaLauncher.launch("image/*") }) {
-                        Icon(Icons.Default.Image, "Attach Image", tint = Color.White)
+                        Icon(Icons.Default.Image, "Attach Image", tint = MaterialTheme.colorScheme.primary)
                     }
                     TextField(
                         value = messageText,
@@ -114,10 +111,10 @@ fun MediaChatScreen(
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Type a message...") },
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = AppSecondary,
-                            unfocusedContainerColor = AppSecondary,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(24.dp)
                     )
@@ -129,14 +126,16 @@ fun MediaChatScreen(
                                 messageText = ""
                             }
                         },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = AppPrimary)
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.Send, null, tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             }
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val msgList = messagesState.value
         val reversedMessages = remember<List<MediaMessage>>(msgList) { msgList.reversed() }
@@ -162,7 +161,7 @@ fun MessageBubble(message: MediaMessage, isOwnMessage: Boolean) {
         horizontalAlignment = if (isOwnMessage) Alignment.End else Alignment.Start
     ) {
         Surface(
-            color = if (isOwnMessage) AppPrimary else AppSecondary,
+            color = if (isOwnMessage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
@@ -187,7 +186,7 @@ fun MessageBubble(message: MediaMessage, isOwnMessage: Boolean) {
                 if (message.content != "") {
                     Text(
                         text = message.content,
-                        color = Color.White,
+                        color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp
                     )
                 }

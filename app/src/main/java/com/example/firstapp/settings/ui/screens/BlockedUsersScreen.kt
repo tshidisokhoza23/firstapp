@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,30 +33,30 @@ fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel =
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Blocked Users", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Blocked Users", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { /* Show contact picker to block */ },
-                containerColor = AppAccent,
-                contentColor = AppBackground,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Block new user")
             }
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (blockedUsers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No blocked users", color = AppTextSecondary)
+                Text("No blocked users", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -81,7 +80,7 @@ fun BlockedUserItem(user: Contact, onUnblock: () -> Unit) {
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(AppSecondary),
+                .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             if (user.avatarUrl != null) {
@@ -92,16 +91,16 @@ fun BlockedUserItem(user: Contact, onUnblock: () -> Unit) {
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Text(user.displayName.take(1).uppercase(), color = Color.White)
+                Text(user.displayName.take(1).uppercase(), color = MaterialTheme.colorScheme.onSurface)
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(user.displayName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(user.phoneNumber ?: "", color = AppTextSecondary, fontSize = 13.sp)
+            Text(user.displayName, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(user.phoneNumber ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
         TextButton(onClick = onUnblock) {
-            Text("Unblock", color = AppAccent)
+            Text("Unblock", color = MaterialTheme.colorScheme.primary)
         }
     }
 }

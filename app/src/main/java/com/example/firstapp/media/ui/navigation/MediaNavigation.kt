@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.ui.unit.dp
-import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.chat.model.Contact
 import androidx.navigation.NavGraphBuilder
@@ -151,7 +150,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             
             AlertDialog(
                 onDismissRequest = { showAddAdminDialog = false },
-                title = { Text("Select Admin", color = Color.White) },
+                title = { Text("Select Admin", color = MaterialTheme.colorScheme.onSurface) },
                 text = {
                     val contacts = (contactsState as? Resource.Success<List<Contact>>)?.data ?: emptyList()
                     LazyColumn(modifier = Modifier.height(300.dp)) {
@@ -168,14 +167,14 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
-                                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.Gray),
+                                    modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     val initial = if (contact.displayName.isNotEmpty()) contact.displayName.substring(0, 1) else ""
-                                    Text(initial, color = Color.White)
+                                    Text(initial, color = MaterialTheme.colorScheme.onSurface)
                                 }
                                 Spacer(Modifier.width(12.dp))
-                                Text(contact.displayName, color = Color.White)
+                                Text(contact.displayName, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -183,10 +182,10 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                 confirmButton = {},
                 dismissButton = {
                     TextButton(onClick = { showAddAdminDialog = false }) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
-                containerColor = AppSecondary
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
 
@@ -194,7 +193,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             var postContent by remember { mutableStateOf("") }
             AlertDialog(
                 onDismissRequest = { showCreatePostDialog = false },
-                title = { Text("Post to Channel", color = Color.White) },
+                title = { Text("Post to Channel", color = MaterialTheme.colorScheme.onSurface) },
                 text = {
                     TextField(
                         value = postContent,
@@ -204,8 +203,8 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 },
@@ -219,17 +218,20 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                                 Toast.makeText(context, "Post shared to channel", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     ) {
-                        Text("Post", color = AppBackground)
+                        Text("Post")
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showCreatePostDialog = false }) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
-                containerColor = AppSecondary
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }

@@ -49,7 +49,7 @@ fun ChatTopBar(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = AppBackground,
+        color = MaterialTheme.colorScheme.background,
         shadowElevation = 4.dp
     ) {
         Column(modifier = Modifier.statusBarsPadding()) {
@@ -64,19 +64,19 @@ fun ChatTopBar(
                         onSearchModeChange(false)
                         onSearchQueryChange("")
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = AppAccent)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.primary)
                     }
                     TextField(
                         value = chatSearchQuery,
                         onValueChange = onSearchQueryChange,
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Search...", color = AppTextSecondary) },
+                        placeholder = { Text("Search...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = AppTextPrimary,
-                            unfocusedTextColor = AppTextPrimary,
-                            cursorColor = AppAccent,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent
                         ),
@@ -84,25 +84,25 @@ fun ChatTopBar(
                     )
                     if (chatSearchQuery != "") {
                         IconButton(onClick = onClearSearch) {
-                            Icon(Icons.Default.Close, "Clear", tint = AppTextSecondary)
+                            Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else if (selectedMessagesCount > 0) {
                     IconButton(onClick = onClearSelectedMessages) {
-                        Icon(Icons.Default.Close, "Back", tint = AppTextPrimary)
+                        Icon(Icons.Default.Close, "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     Text(
                         text = "$selectedMessagesCount Selected",
-                        color = AppAccent,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         modifier = Modifier.weight(1f).padding(start = 16.dp)
                     )
-                    IconButton(onClick = onDeleteSelectedMessages) { Icon(Icons.Default.Delete, "Delete", tint = AppTextPrimary) }
-                    IconButton(onClick = onForwardSelectedMessages) { Icon(Icons.AutoMirrored.Filled.Forward, "Forward", tint = AppTextPrimary) }
+                    IconButton(onClick = onDeleteSelectedMessages) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurface) }
+                    IconButton(onClick = onForwardSelectedMessages) { Icon(Icons.AutoMirrored.Filled.Forward, "Forward", tint = MaterialTheme.colorScheme.onSurface) }
                 } else {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = AppTextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     
                     Row(
@@ -120,7 +120,7 @@ fun ChatTopBar(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(AppSecondary)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             if (chat.avatarUrl != null) {
                                 AsyncImage(
@@ -133,7 +133,7 @@ fun ChatTopBar(
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text(
                                         text = "?",
-                                        color = AppAccent,
+                                        color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 18.sp
                                     )
@@ -148,7 +148,7 @@ fun ChatTopBar(
                                 text = sanitizedName,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = AppTextPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -163,7 +163,7 @@ fun ChatTopBar(
                             Text(
                                 text = presenceText,
                                 fontSize = 11.sp,
-                                color = if (isTyping || chat.isOnline) AppAccent else AppTextSecondary,
+                                color = if (isTyping || chat.isOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -173,24 +173,24 @@ fun ChatTopBar(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val targetId = chat.otherUserId ?: chat.id
                         IconButton(onClick = { onInitiateCall(targetId, CallType.VIDEO) }) {
-                            Icon(Icons.Default.Videocam, "Video Call", tint = AppTextPrimary, modifier = Modifier.size(24.dp))
+                            Icon(Icons.Default.Videocam, "Video Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
                         }
                         IconButton(onClick = { onInitiateCall(targetId, CallType.VOICE) }) {
-                            Icon(Icons.Default.Call, "Voice Call", tint = AppTextPrimary, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Call, "Voice Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                         }
                         
                         var showMenu by remember { mutableStateOf(false) }
                         Box {
                             IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Default.MoreVert, "More", tint = AppTextPrimary)
+                                Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             DropdownMenu(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false },
-                                modifier = Modifier.background(AppSecondary)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(if (chat.isGroup) "Group Info" else "View Profile", color = AppTextPrimary) },
+                                    text = { Text(if (chat.isGroup) "Group Info" else "View Profile", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = { 
                                         showMenu = false
                                         val tid = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
@@ -198,16 +198,16 @@ fun ChatTopBar(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Search Chat", color = AppTextPrimary) },
+                                    text = { Text("Search Chat", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = { showMenu = false; onSearchModeChange(true) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Clear Messages", color = AppTextPrimary) },
+                                    text = { Text("Clear Messages", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = { showMenu = false; onClearChat() }
                                 )
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.05f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                                 DropdownMenuItem(
-                                    text = { Text("Delete Conversation", color = Color.Red.copy(alpha = 0.8f)) },
+                                    text = { Text("Delete Conversation", color = MaterialTheme.colorScheme.error) },
                                     onClick = { showMenu = false; onDeleteChat() }
                                 )
                             }

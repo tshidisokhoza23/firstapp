@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.ui.theme.NiceOrange
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.media.model.Advert
@@ -49,7 +48,7 @@ fun RewardsScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -65,7 +64,7 @@ fun RewardsScreen(
                 Column {
                     Text(
                         text = "Earn Rewards",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -74,14 +73,14 @@ fun RewardsScreen(
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = String.format(Locale.US, "%.1f Points Available", points),
-                            color = AppAccent,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = AppAccent)
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
                 }
             }
             
@@ -90,7 +89,7 @@ fun RewardsScreen(
                 modifier = Modifier.padding(top = 4.dp),
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text("Reset Progress (Dev)", color = Color.Red.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text("Reset Progress (Dev)", color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f), fontSize = 12.sp)
             }
         }
 
@@ -98,7 +97,7 @@ fun RewardsScreen(
             item {
                 Text(
                     text = "Available Tasks",
-                    color = AppAccent,
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
@@ -115,7 +114,7 @@ fun RewardsScreen(
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
                         .alpha(if (isNext) 1f else 0.8f),
-                    color = Color(0xFF1E1E1E),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(12.dp),
                     onClick = { if (isActuallyAvailable) onAdvertClick(ad) }
                 ) {
@@ -123,9 +122,9 @@ fun RewardsScreen(
                         icon = {
                             Box(contentAlignment = Alignment.Center) {
                                 if (isNext) {
-                                    Icon(Icons.Default.VideoLibrary, null, tint = AppAccent, modifier = Modifier.size(24.dp))
+                                    Icon(Icons.Default.VideoLibrary, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                                 } else {
-                                    Icon(Icons.Default.Lock, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 }
                             }
                         },
@@ -149,10 +148,10 @@ fun RewardsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Celebration, null, tint = Color.Gray, modifier = Modifier.size(48.dp))
+                        Icon(Icons.Default.Celebration, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(16.dp))
-                        Text("No more ads for today!", color = Color.Gray, textAlign = TextAlign.Center)
-                        Text("Come back tomorrow for more coins.", color = Color.Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        Text("No more ads for today!", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        Text("Come back tomorrow for more coins.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -162,7 +161,7 @@ fun RewardsScreen(
             item {
                 Text(
                     text = "Viewed Tasks",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp)
@@ -172,12 +171,12 @@ fun RewardsScreen(
             items(viewedAdverts) { ad ->
                 Surface(
                     modifier = Modifier.fillMaxWidth().alpha(0.6f),
-                    color = Color(0xFF121212),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     RewardItem(
                         icon = {
-                            Icon(Icons.Default.VideoLibrary, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+                            Icon(Icons.Default.VideoLibrary, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                         },
                         title = if (ad.title.isNotEmpty()) ad.title else "Ad from ${ad.advertiserName}",
                         coins = "0.1",
@@ -217,7 +216,7 @@ fun RewardItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -250,29 +249,34 @@ fun RewardItem(
             Button(
                 onClick = onClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (enabled) Color(0xFFF50057) else Color.Gray,
-                    disabledContainerColor = Color.Gray
+                    containerColor = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                    disabledContainerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                 ),
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(horizontal = 24.dp),
                 modifier = Modifier.height(40.dp),
                 enabled = enabled
             ) {
-                Text(actionText, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    actionText, 
+                    color = if (enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, 
+                    fontSize = 16.sp, 
+                    fontWeight = FontWeight.Bold
+                )
             }
         } else {
             Box(
                 modifier = Modifier
                     .size(80.dp, 40.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (isCompleted) Color(0xFF1E1E1E) else Color.White.copy(alpha = 0.05f)),
+                    .background(if (isCompleted) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (isCompleted) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,8 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.jobs.model.Job
-import com.example.firstapp.common.ui.theme.AppTextPrimary
-import com.example.firstapp.common.ui.theme.AppTextSecondary
 import com.example.firstapp.common.util.formatPostedTime
 
 import androidx.compose.foundation.layout.fillMaxSize
@@ -76,7 +75,7 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = job.title,
-                color = AppTextPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2
@@ -85,7 +84,7 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = job.companyName,
-                    color = AppTextPrimary.copy(alpha = 0.9f),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
                     fontSize = 15.sp
                 )
                 if (job.isVerified) {
@@ -93,7 +92,7 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
                     Icon(
                         imageVector = Icons.Filled.Verified,
                         contentDescription = "Verified",
-                        tint = AppAccent,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -101,20 +100,20 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
             
             Text(
                 text = job.location,
-                color = AppTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
 
             Spacer(modifier = Modifier.height(6.dp))
             
             Surface(
-                color = Color.White.copy(alpha = 0.05f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
                     text = job.jobType,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    color = AppTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -124,7 +123,7 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
                 Text(
                     text = formatPostedTime(job.postedTime),
                     modifier = Modifier.padding(top = 4.dp),
-                    color = AppTextSecondary.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     fontSize = 12.sp
                 )
             }

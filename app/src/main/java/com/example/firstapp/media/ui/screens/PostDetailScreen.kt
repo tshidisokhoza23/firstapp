@@ -61,16 +61,16 @@ fun PostDetailScreen(
     }
 
     if (post == null || post.id != postId) {
-        Box(modifier = Modifier.fillMaxSize().background(AppBackground), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (uiState.errorMessage != null) {
-                    Icon(Icons.Default.ErrorOutline, null, tint = Color.Red, modifier = Modifier.size(48.dp))
+                    Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(uiState.errorMessage!!, color = Color.White, fontSize = 14.sp)
+                    Text(uiState.errorMessage!!, color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp)
                 } else {
-                    CircularProgressIndicator(color = AppAccent)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Loading thread...", color = Color.White, fontSize = 14.sp)
+                    Text("Loading thread...", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp)
                 }
                 
                 // Add a timeout fallback or retry button
@@ -319,12 +319,12 @@ fun PostDetailScreen(
     if (showRepostOptions) {
         ModalBottomSheet(
             onDismissRequest = { showRepostOptions = false },
-            containerColor = AppSecondary
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
                 ListItem(
-                    headlineContent = { Text(if (post.isReposted) "Undo Repost" else "Repost", color = Color.White) },
-                    leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (post.isReposted) Color(0xFF00BA7C) else Color.White) },
+                    headlineContent = { Text(if (post.isReposted) "Undo Repost" else "Repost", color = MaterialTheme.colorScheme.onSurface) },
+                    leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurface) },
                     modifier = Modifier.clickable {
                         mediaViewModel.repostPost(post.id)
                         showRepostOptions = false
@@ -332,8 +332,8 @@ fun PostDetailScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Quote Post", color = Color.White) },
-                    leadingContent = { Icon(Icons.Default.Edit, null, tint = Color.White) },
+                    headlineContent = { Text("Quote Post", color = MaterialTheme.colorScheme.onSurface) },
+                    leadingContent = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) },
                     modifier = Modifier.clickable {
                         showRepostOptions = false
                     },

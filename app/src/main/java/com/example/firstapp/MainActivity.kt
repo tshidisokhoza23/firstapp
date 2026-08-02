@@ -172,7 +172,7 @@ class MainActivity : FragmentActivity() {
             val viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val autoNightMode by viewModel.autoNightMode.collectAsState()
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val darkTheme = if (autoNightMode) isSystemDark else true
+            val darkTheme = if (autoNightMode) isSystemDark else isSystemDark // Default to system if not auto
 
             DisposableEffect(darkTheme) {
                 enableEdgeToEdge(
@@ -251,7 +251,7 @@ class MainActivity : FragmentActivity() {
                     wasLoggedIn = isLoggedIn
                 }
 
-                Box(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     if (isLoggedIn && currentUser == null) {
                         // Splash/Loading while session user is being restored from storage
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -286,11 +286,11 @@ class MainActivity : FragmentActivity() {
                     if (isAppLocked) {
                         // Show a placeholder or lock screen overlay
                         Column(
-                            modifier = Modifier.fillMaxSize().background(AppBackground),
+                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("App Locked", color = androidx.compose.ui.graphics.Color.White, fontSize = 24.sp)
+                            Text("App Locked", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp)
                             Button(
                                 onClick = {
                                     if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {

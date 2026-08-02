@@ -136,6 +136,7 @@ fun MediaScreen(
     var isSearchActive by remember { mutableStateOf(false) }
 
     var showRepostOptions by remember { mutableStateOf<Post?>(null) }
+    var showTopMoreSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(openOwnProfileRequest) {
         if (openOwnProfileRequest > 0) {
@@ -180,7 +181,7 @@ fun MediaScreen(
             Scaffold(
                 modifier = Modifier,
                 topBar = {
-                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
                         if (isSearchActive) {
                             SearchTopBar(
                                 query = searchQuery,
@@ -192,65 +193,15 @@ fun MediaScreen(
                             )
                         } else {
                             TopAppBar(
-                                title = { 
-                                    Text(
-                                        "Media", 
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { isSearchActive = true }
-                                    ) 
-                                },
-                                navigationIcon = {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(start = 12.dp)
-                                            .size(32.dp)
-                                            .clip(CircleShape)
-                                            .background(ownProfileAvatarColor)
-                                            .clickable { 
-                                                onProfileClick(ownProfileId)
-                                            }
-                                    ) {
-                                        AsyncImage(
-                                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
-                                            contentDescription = "Profile",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop,
-                                            error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
-                                            fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
-                                        )
-                                    }
+                                title = {
+                                    Text("Media", fontWeight = FontWeight.Bold)
                                 },
                                 actions = {
                                     IconButton(onClick = { isSearchActive = true }) {
                                         Icon(Icons.Default.Search, contentDescription = "Search")
                                     }
-                                    IconButton(onClick = { showCreatePost = true }) {
-                                        Icon(Icons.Default.Add, contentDescription = "Create Post")
-                                    }
-                                    var showMenu by remember { mutableStateOf(false) }
-                                    Box {
-                                        IconButton(onClick = { showMenu = true }) {
-                                            Icon(Icons.Default.MoreVert, contentDescription = "More")
-                                        }
-                                        DropdownMenu(
-                                            expanded = showMenu,
-                                            onDismissRequest = { showMenu = false },
-                                            containerColor = MaterialTheme.colorScheme.surface
-                                        ) {
-                                            DropdownMenuItem(
-                                                text = { Text("Direct Messages") },
-                                                leadingIcon = { Icon(Icons.Default.Mail, null) },
-                                                onClick = { 
-                                                    showMenu = false
-                                                    onDirectMessagesClick()
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Settings") },
-                                                leadingIcon = { Icon(Icons.Default.Settings, null) },
-                                                onClick = { showMenu = false }
-                                            )
-                                        }
+                                    IconButton(onClick = { showTopMoreSheet = true }) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = "More")
                                     }
                                 },
                                 colors = TopAppBarDefaults.topAppBarColors(
@@ -263,7 +214,8 @@ fun MediaScreen(
                         }
                     }
                 },
-                containerColor = MaterialTheme.colorScheme.background
+                containerColor = MaterialTheme.colorScheme.background,
+                contentWindowInsets = WindowInsets(0, 0, 0, 0)
             ) { innerPadding ->
                 Box(modifier = Modifier.padding(innerPadding)) {
                     MainFeedSection(
@@ -298,16 +250,77 @@ fun MediaScreen(
             }
         }
 
+        if (showTopMoreSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showTopMoreSheet = false },
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                    ListItem(
+                        headlineContent = { Text("View Profile", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { 
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(ownProfileAvatarColor)
+                            ) {
+                                AsyncImage(
+                                    model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
+                                    contentDescription = "Profile",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                    error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
+                                    fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
+                                )
+                            }
+                        },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            onProfileClick(ownProfileId)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Create Post", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            showCreatePost = true
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Direct Messages", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Mail, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            onDirectMessagesClick()
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+        }
+
         if (showRepostOptions != null) {
             val targetPost = showRepostOptions!!
             ModalBottomSheet(
                 onDismissRequest = { showRepostOptions = null },
-                containerColor = AppSecondary
+                containerColor = MaterialTheme.colorScheme.surface
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
                     ListItem(
-                        headlineContent = { Text(if (targetPost.isReposted) "Undo Repost" else "Repost", color = Color.White) },
-                        leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (targetPost.isReposted) Color(0xFF00BA7C) else Color.White) },
+                        headlineContent = { Text(if (targetPost.isReposted) "Undo Repost" else "Repost", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (targetPost.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurface) },
                         modifier = Modifier.clickable {
                             onRepostPost(targetPost.id)
                             showRepostOptions = null
@@ -315,12 +328,9 @@ fun MediaScreen(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                     ListItem(
-                        headlineContent = { Text("Quote Post", color = Color.White) },
-                        leadingContent = { Icon(Icons.Default.Edit, null, tint = Color.White) },
+                        headlineContent = { Text("Quote Post", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) },
                         modifier = Modifier.clickable {
-                            // TODO: Open composer with quote
-                            // mediaViewModel.setQuotedPost(targetPost)
-                            // showCreatePost = true
                             showRepostOptions = null
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -454,7 +464,7 @@ fun MainFeedSection(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 90.dp)
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             items(
                 count = posts.itemCount,
@@ -463,48 +473,48 @@ fun MainFeedSection(
             ) { index ->
                 val post = posts[index]
                 if (post != null) {
-                    PostItem(
-                        adManager = adManager,
-                        post = post,
-                        isOwnPost = post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle),
-                        showThreadLine = post.hasThread,
-                        isLastInThread = true,
-                        activePostId = activePostId,
-                        onClick = { onPostClick(post) },
-                        onLike = { id, likes, liked -> onLike(id, likes, liked) },
-                        onRepostClick = { p -> onRepostClick(p) },
-                        onBookmark = { id -> onBookmark(id) },
-                        onDelete = { id -> onDeletePost(id) },
-                        onReplyClick = { p, r -> onReplyClick(p, r) },
-                        onProfileClick = { id -> onProfileClick(id) },
-                        onPlaySong = onPlaySong,
-                        onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
-                        onMediaClick = onMediaClick,
-                        onShareClick = onShareClick,
-                        onFollowClick = onFollowUser
-                    )
-                    HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
+                        PostItem(
+                            adManager = adManager,
+                            post = post,
+                            isOwnPost = post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle),
+                            showThreadLine = post.hasThread,
+                            isLastInThread = true,
+                            activePostId = activePostId,
+                            onClick = { onPostClick(post) },
+                            onLike = { id, likes, liked -> onLike(id, likes, liked) },
+                            onRepostClick = { p -> onRepostClick(p) },
+                            onBookmark = { id -> onBookmark(id) },
+                            onDelete = { id -> onDeletePost(id) },
+                            onReplyClick = { p, r -> onReplyClick(p, r) },
+                            onProfileClick = { id -> onProfileClick(id) },
+                            onPlaySong = onPlaySong,
+                            onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
+                            onMediaClick = onMediaClick,
+                            onShareClick = onShareClick,
+                            onFollowClick = onFollowUser
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), thickness = 0.5.dp)
 
-                    // REQUIREMENT: Inject 1 native ad unit every 4 content posts
-                    if ((index + 1) % 4 == 0) {
-                        val adIndex = (index + 1) / 4 - 1
-                        if (adIndex < preloadedAds.size) {
-                            com.example.firstapp.common.ui.components.StaticAdCard(
-                                nativeAd = preloadedAds[adIndex],
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        } else {
-                            DynamicAdCard(
-                                adManager = adManager,
-                                adUnitId = "ca-app-pub-3940256099942544/2247696110",
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                onAdRevenuePaid = { rev ->
-                                    onAdRevenueLogged(post.id, rev, "main_feed")
-                                }
-                            )
+                        // REQUIREMENT: Inject 1 native ad unit every 4 content posts
+                        if ((index + 1) % 4 == 0) {
+                            val adIndex = (index + 1) / 4 - 1
+                            if (adIndex < preloadedAds.size) {
+                                com.example.firstapp.common.ui.components.StaticAdCard(
+                                    nativeAd = preloadedAds[adIndex],
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            } else {
+                                DynamicAdCard(
+                                    adManager = adManager,
+                                    adUnitId = "ca-app-pub-3940256099942544/2247696110",
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    onAdRevenuePaid = { rev ->
+                                        onAdRevenueLogged(post.id, rev, "main_feed")
+                                    }
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), thickness = 0.5.dp)
                         }
-                        HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
-                    }
                 }
             }
             

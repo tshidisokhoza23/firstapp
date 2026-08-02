@@ -66,46 +66,56 @@ fun DirectMessagesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNewDM,
-                containerColor = AppAccent,
-                contentColor = AppBackground,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
                 Icon(if (selectedTab == 0) Icons.AutoMirrored.Filled.Chat else Icons.Default.Add, contentDescription = "New")
             }
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = AppBackground,
-                contentColor = AppAccent,
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary,
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = AppAccent
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Messages", color = if (selectedTab == 0) AppAccent else Color.Gray) }
+                    text = { 
+                        Text(
+                            "Messages", 
+                            color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ) 
+                    }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Calls", color = if (selectedTab == 1) AppAccent else Color.Gray) }
+                    text = { 
+                        Text(
+                            "Calls", 
+                            color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ) 
+                    }
                 )
             }
 
@@ -126,7 +136,11 @@ fun DMList(chats: List<ChatMessage>, onChatSelect: (ChatMessage) -> Unit) {
         LazyColumn {
             items(chats) { chat ->
                 DMItem(chat = chat, onClick = { onChatSelect(chat) })
-                HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 72.dp), 
+                    thickness = 0.5.dp, 
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                )
             }
         }
     }
@@ -140,7 +154,11 @@ fun CallList(calls: List<CallLog>, onCallSelect: (CallLog) -> Unit) {
         LazyColumn {
             items(calls) { call ->
                 CallItem(call = call, onClick = { onCallSelect(call) })
-                HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 72.dp), 
+                    thickness = 0.5.dp, 
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                )
             }
         }
     }
@@ -185,10 +203,10 @@ fun DMItem(chat: ChatMessage, onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(resolvedName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(formatWhatsAppTime(chat.timestamp), color = Color.Gray, fontSize = 12.sp)
+                Text(resolvedName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(formatWhatsAppTime(chat.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
-            Text(chat.lastMessage, color = Color.Gray, fontSize = 14.sp, maxLines = 1)
+            Text(chat.lastMessage, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 1)
         }
     }
 }
@@ -206,18 +224,18 @@ fun CallItem(call: CallLog, onClick: () -> Unit) {
             modifier = Modifier
                 .size(50.dp)
                 .clip(CircleShape)
-                .background(Color.Gray),
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             if (call.contactAvatar != null) {
                 AsyncImage(model = call.contactAvatar, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             } else {
-                Text(call.contactName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(call.contactName.take(1).uppercase(), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(call.contactName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(call.contactName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = when(call.status) {
@@ -229,14 +247,14 @@ fun CallItem(call: CallLog, onClick: () -> Unit) {
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(formatWhatsAppTime(call.timestamp), color = Color.Gray, fontSize = 12.sp)
+                Text(formatWhatsAppTime(call.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
         }
         IconButton(onClick = { /* Start call */ }) {
             Icon(
                 imageVector = if (call.callType == "video") Icons.Default.VideoCall else Icons.Default.Call,
                 contentDescription = null,
-                tint = AppAccent
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -245,6 +263,6 @@ fun CallItem(call: CallLog, onClick: () -> Unit) {
 @Composable
 fun EmptyState(message: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(message, color = Color.Gray)
+        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

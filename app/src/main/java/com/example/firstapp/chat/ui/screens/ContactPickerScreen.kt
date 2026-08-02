@@ -29,8 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.ui.viewmodel.ContactPickerViewModel
-import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppBackground
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.DisplayNameResolver
 import com.example.firstapp.common.util.Resource
@@ -79,9 +77,9 @@ fun ContactPickerScreen(
                                 unfocusedContainerColor = Color.Transparent,
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent,
-                                cursorColor = AppAccent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                cursorColor = MaterialTheme.colorScheme.primary,
+                                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
                             ),
                             singleLine = true
                         )
@@ -95,14 +93,14 @@ fun ContactPickerScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             } else {
                 TopAppBar(
                     title = {
                         Column {
                             Text(if (isGroupMode) "Add participants" else "Select contact", fontWeight = FontWeight.Bold)
-                            Text("${contacts.size} contacts", fontSize = 12.sp, color = Color.Gray)
+                            Text("${contacts.size} contacts", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     },
                     navigationIcon = {
@@ -124,7 +122,7 @@ fun ContactPickerScreen(
                                 val registeredContacts = contacts.filter { it.isRegistered }
                                 Text(
                                     if (selectedContacts.size == registeredContacts.size && registeredContacts.isNotEmpty()) "None" else "All",
-                                    color = AppAccent,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -137,10 +135,10 @@ fun ContactPickerScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = AppBackground,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
             }
@@ -149,15 +147,15 @@ fun ContactPickerScreen(
             if (isGroupMode && selectedContacts.isNotEmpty()) {
                 FloatingActionButton(
                     onClick = { onGroupCreate(selectedContacts.toList()) },
-                    containerColor = AppAccent,
-                    contentColor = AppBackground,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = CircleShape
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Done")
                 }
             }
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = contactsResource is Resource.Loading,
@@ -226,14 +224,14 @@ fun ContactActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
         Surface(
             modifier = Modifier.size(40.dp),
             shape = CircleShape,
-            color = AppAccent
+            color = MaterialTheme.colorScheme.primary
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = AppBackground, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
-        Text(label, color = Color.White, fontWeight = FontWeight.Bold)
+        Text(label, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -273,22 +271,29 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (contact.isRegistered) AppAccent else Color.Gray),
+                .background(if (contact.isRegistered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
-                Text(resolvedName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    resolvedName.take(1).uppercase(), 
+                    color = if (contact.isRegistered) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, 
+                    fontWeight = FontWeight.Bold
+                )
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-                Text(resolvedName, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(if (contact.isRegistered) (contact.bio ?: "Available") else contact.phoneNumber, color = Color.Gray, fontSize = 14.sp)
+                Text(resolvedName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+            Text(if (contact.isRegistered) (contact.bio ?: "Available") else contact.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
         
         if (showCheckbox && contact.isRegistered) {
             Checkbox(
                 checked = isSelected,
                 onCheckedChange = { onClick() },
-                colors = CheckboxDefaults.colors(checkedColor = AppAccent, checkmarkColor = AppBackground)
+                colors = CheckboxDefaults.colors(
+                    checkedColor = MaterialTheme.colorScheme.primary, 
+                    checkmarkColor = MaterialTheme.colorScheme.onPrimary
+                )
             )
         } else if (!contact.isRegistered) {
             TextButton(
@@ -298,7 +303,7 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
                     intent.putExtra("sms_body", "Join me on FirstApp! http://firstapp.com/download")
                     context.startActivity(intent)
                 },
-                colors = ButtonDefaults.textButtonColors(contentColor = AppAccent)
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("INVITE", fontWeight = FontWeight.Bold)
             }

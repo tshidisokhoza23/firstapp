@@ -50,12 +50,12 @@ fun MoreTabScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp)
     ) {
         Text(
             text = "Shortcuts",
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 32.dp)

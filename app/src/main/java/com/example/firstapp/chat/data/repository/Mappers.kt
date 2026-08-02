@@ -36,10 +36,8 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
 
     val name = if (chat.title != "" && chat.title != "unknown" && chat.title != "Unknown" && chat.title != "null") {
         chat.title
-    } else if (chat.contact_id != null && chat.contact_id != "") {
-        chat.contact_id
     } else {
-        id
+        "" // Leave empty so Repository can resolve it better
     }
 
     return ChatMessage(

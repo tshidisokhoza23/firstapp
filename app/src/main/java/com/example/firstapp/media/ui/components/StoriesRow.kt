@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,10 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.firstapp.media.model.UserStory
-import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.AppPrimary
-import com.example.firstapp.common.ui.theme.AppTextPrimary
 
 @Composable
 fun StoriesRow(
@@ -113,7 +110,7 @@ private fun MyStoryThumbnail(
                     .border(
                         width = 2.dp,
                         brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
-                                else Brush.linearGradient(listOf(AppAccent, Color(0xFF7C4DFF), AppAccent)),
+                                else Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFF7C4DFF), MaterialTheme.colorScheme.primary)),
                         shape = CircleShape
                     )
                     .padding(3.dp),
@@ -150,17 +147,17 @@ private fun MyStoryThumbnail(
                     .size(22.dp)
                     .align(Alignment.BottomEnd)
                     .offset(x = 2.dp, y = 2.dp)
-                    .background(AppBackground, CircleShape)
+                    .background(MaterialTheme.colorScheme.background, CircleShape)
                     .padding(2.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(AppAccent, CircleShape)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
                         .clickable(onClick = { showMenu = true }),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Add, null, tint = AppBackground, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
                 }
             }
             
@@ -175,7 +172,7 @@ private fun MyStoryThumbnail(
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "My Story",
-            color = AppTextPrimary,
+            color = MaterialTheme.colorScheme.onBackground,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
@@ -208,14 +205,14 @@ private fun AddStoryItem(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Add Story",
-                    tint = AppAccent,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -223,7 +220,7 @@ private fun AddStoryItem(
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "My Story",
-            color = AppTextPrimary.copy(alpha = 0.9f),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
@@ -250,22 +247,22 @@ private fun StoryContextMenu(
     androidx.compose.material3.DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
-        modifier = Modifier.background(Color(0xFF1C1C1E))
+        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
     ) {
         androidx.compose.material3.DropdownMenuItem(
-            text = { Text("Media story", color = Color.White) },
+            text = { Text("Media story", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onMediaStory,
-            leadingIcon = { Icon(Icons.Default.CameraAlt, null, tint = Color.White) }
+            leadingIcon = { Icon(Icons.Default.CameraAlt, null, tint = MaterialTheme.colorScheme.onSurface) }
         )
         androidx.compose.material3.DropdownMenuItem(
-            text = { Text("Text story", color = Color.White) },
+            text = { Text("Text story", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onTextStory,
-            leadingIcon = { Icon(Icons.Default.Edit, null, tint = Color.White) }
+            leadingIcon = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) }
         )
         androidx.compose.material3.DropdownMenuItem(
-            text = { Text("Posted stories", color = Color.White) },
+            text = { Text("Posted stories", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onPostedStories,
-            leadingIcon = { Icon(Icons.Default.Update, null, tint = Color.White) }
+            leadingIcon = { Icon(Icons.Default.Update, null, tint = MaterialTheme.colorScheme.onSurface) }
         )
     }
 }
@@ -299,8 +296,8 @@ private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
                         .shadow(
                             elevation = 8.dp,
                             shape = CircleShape,
-                            ambientColor = AppAccent.copy(alpha = 0.5f),
-                            spotColor = AppAccent
+                            ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            spotColor = MaterialTheme.colorScheme.primary
                         )
                 )
             }
@@ -312,7 +309,7 @@ private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
                     .border(
                         width = 2.dp,
                         brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f)))
-                                else Brush.linearGradient(listOf(AppAccent, Color(0xFF7C4DFF), AppAccent)),
+                                else Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFF7C4DFF), MaterialTheme.colorScheme.primary)),
                         shape = CircleShape
                     )
                     .padding(3.dp),
@@ -346,7 +343,7 @@ private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = story.userName.split(" ").first(),
-            color = if (allViewed) AppTextPrimary.copy(alpha = 0.6f) else AppTextPrimary,
+            color = if (allViewed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
             fontSize = 11.sp,
             fontWeight = if (allViewed) FontWeight.Normal else FontWeight.Bold,
             textAlign = TextAlign.Center,

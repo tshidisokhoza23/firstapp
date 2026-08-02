@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.common.ui.theme.AppBackground
@@ -37,7 +38,7 @@ fun ChatMessageList(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         LazyColumn(
             state = messagesLazyListState,
@@ -79,7 +80,7 @@ fun ChatMessageList(
                     }
                     
                     MessageItemUnique(
-                        message = m,
+                        messageItem = m,
                         isSelected = isSelected,
                         referencedMessage = referencedMsg,
                         fontSize = fontSize,

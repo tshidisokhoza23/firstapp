@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.common.util.MediaUtils
 
@@ -62,10 +61,10 @@ fun EditProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Profile", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Edit Profile", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 actions = {
@@ -80,13 +79,13 @@ fun EditProfileScreen(
                         )
                         onBack()
                     }) {
-                        Text("Save", color = AppAccent, fontWeight = FontWeight.Bold)
+                        Text("Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -99,7 +98,7 @@ fun EditProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
-                    .background(AppSecondary)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable { bannerLauncher.launch("image/*") }
             ) {
                 if (user.bannerUrl != null) {
@@ -130,7 +129,7 @@ fun EditProfileScreen(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(AppPrimary, AppAccent)))
+                        .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)))
                         .clickable { imageLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
@@ -163,10 +162,10 @@ fun EditProfileScreen(
                     label = { Text("Display Name") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = AppAccent,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     )
                 )
                 
@@ -179,10 +178,10 @@ fun EditProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = AppAccent,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     )
                 )
 
@@ -194,12 +193,12 @@ fun EditProfileScreen(
                     label = { Text("Location") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = AppAccent,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     ),
-                    leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = AppAccent) }
+                    leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary) }
                 )
             }
         }

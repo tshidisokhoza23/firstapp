@@ -39,13 +39,13 @@ fun WalletScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppSecondary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -57,7 +57,7 @@ fun WalletScreen(
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = AppSecondary,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(24.dp),
                     tonalElevation = 8.dp
                 ) {
@@ -67,7 +67,7 @@ fun WalletScreen(
                     ) {
                         Text(
                             text = "Total Balance",
-                            color = AppTextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -82,14 +82,14 @@ fun WalletScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = java.lang.String.format(java.util.Locale.US, "%.1f", points),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 48.sp,
                                 fontWeight = FontWeight.Black
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Points",
-                                color = AppAccent,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 16.dp)
@@ -102,7 +102,7 @@ fun WalletScreen(
             item {
                 Text(
                     "Quick Actions",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(vertical = 8.dp)
@@ -136,19 +136,19 @@ fun WalletScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = AppAccent.copy(alpha = 0.1f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                     shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AppAccent.copy(alpha = 0.2f))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = AppAccent)
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "Earn more points by watching rewarded ads on the Home screen tab!",
-                            color = Color.White.copy(alpha = 0.9f),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 13.sp,
                             lineHeight = 18.sp
                         )
@@ -159,7 +159,7 @@ fun WalletScreen(
             item {
                 Text(
                     "Reward Benefits",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
@@ -188,7 +188,7 @@ fun WalletActionItem(
     Surface(
         onClick = { /* TODO */ },
         modifier = modifier,
-        color = AppSecondary,
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -199,13 +199,13 @@ fun WalletActionItem(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(AppBackground),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = AppAccent, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -218,18 +218,18 @@ fun RewardBenefitItem(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        color = AppSecondary.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(24.dp))
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text(description, color = AppTextSecondary, fontSize = 12.sp)
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
         }
     }

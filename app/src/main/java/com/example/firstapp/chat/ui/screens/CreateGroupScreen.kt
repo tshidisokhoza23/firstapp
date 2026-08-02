@@ -52,7 +52,7 @@ fun CreateGroupScreen(
                 title = {
                     Column {
                         Text("New Group", fontWeight = FontWeight.Bold)
-                        Text("Add subject", fontSize = 12.sp, color = Color.Gray)
+                        Text("Add subject", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 navigationIcon = {
@@ -61,13 +61,13 @@ fun CreateGroupScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -84,10 +84,10 @@ fun CreateGroupScreen(
                     modifier = Modifier
                         .size(50.dp)
                         .clip(CircleShape),
-                    color = AppSecondary
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.Gray)
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 
@@ -101,8 +101,10 @@ fun CreateGroupScreen(
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = AppAccent,
-                        unfocusedIndicatorColor = Color.Gray
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
             }
@@ -110,7 +112,7 @@ fun CreateGroupScreen(
             Text(
                 "Participants: ${selectedContacts.size}",
                 modifier = Modifier.padding(16.dp),
-                color = AppAccent,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
@@ -127,16 +129,16 @@ fun CreateGroupScreen(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(Color.Gray),
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(contact.displayName.take(1).uppercase(), color = Color.White)
+                            Text(contact.displayName.take(1).uppercase(), color = MaterialTheme.colorScheme.onSurface)
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text(contact.displayName, color = Color.White, modifier = Modifier.weight(1f))
+                        Text(contact.displayName, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                         
                         IconButton(onClick = { onRemoveContact(contact) }) {
-                            Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.Gray)
+                            Icon(Icons.Default.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -154,10 +156,13 @@ fun CreateGroupScreen(
                     },
                     enabled = groupName.isNotBlank() && !isCreating,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
-                    if (isCreating) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AppBackground)
-                    else Text("CREATE GROUP", color = AppBackground, fontWeight = FontWeight.Bold)
+                    if (isCreating) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    else Text("CREATE GROUP", fontWeight = FontWeight.Bold)
                 }
             }
         }

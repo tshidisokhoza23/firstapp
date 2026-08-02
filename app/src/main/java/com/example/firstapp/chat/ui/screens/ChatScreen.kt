@@ -375,15 +375,15 @@ fun ChatMessagesScreen(
             bottomBar = {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = AppBackground,
+                    color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 4.dp
                 ) {
-                    Column(modifier = Modifier.background(AppBackground).navigationBarsPadding().imePadding()) {
+                    Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding().imePadding()) {
                         if (chat.isTyping) {
                             Text(
                                 text = stringResource(R.string.typing),
                                 modifier = Modifier.padding(start = 16.dp, bottom = 4.dp, top = 4.dp),
-                                color = AppAccent,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -410,20 +410,20 @@ fun ChatMessagesScreen(
                                 Surface(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                                     shape = RoundedCornerShape(12.dp),
-                                    color = AppSecondary
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(modifier = Modifier.width(3.dp).height(32.dp).clip(CircleShape).background(AppAccent))
+                                        Box(modifier = Modifier.width(3.dp).height(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(text = if (replyMsg.isFromMe) "You" else chat.senderName, color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                            Text(text = replyMsg.content, color = AppTextPrimary.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(text = if (replyMsg.isFromMe) "You" else chat.senderName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text(text = replyMsg.content, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                         IconButton(onClick = { replyingToMessage = null }, modifier = Modifier.size(24.dp)) {
-                                            Icon(Icons.Default.Close, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 }

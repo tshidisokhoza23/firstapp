@@ -17,7 +17,11 @@ fun ChannelList(channels: List<Channel>, topBarHeight: Dp = 0.dp, onChannelClick
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(channels, key = { it.id }) { ch -> 
             ChannelItem(channel = ch, onClick = { onChannelClick(ch) })
-            HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 72.dp), 
+                thickness = 0.5.dp, 
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            )
         }
     }
 }

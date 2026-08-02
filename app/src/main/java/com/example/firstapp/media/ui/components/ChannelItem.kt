@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,8 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.media.model.Channel
-import com.example.firstapp.common.ui.theme.AppTextPrimary
-import com.example.firstapp.common.ui.theme.AppTextSecondary
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
@@ -78,7 +77,7 @@ fun ChannelItem(channel: Channel, onClick: () -> Unit = {}) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = channel.name,
-                    color = AppTextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -87,14 +86,14 @@ fun ChannelItem(channel: Channel, onClick: () -> Unit = {}) {
                     Icon(
                         imageVector = Icons.Filled.Verified,
                         contentDescription = "Verified",
-                        tint = AppAccent,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(14.dp)
                     )
                 }
             }
             Text(
                 text = "${channel.followers} followers",
-                color = AppTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
         }
@@ -102,7 +101,10 @@ fun ChannelItem(channel: Channel, onClick: () -> Unit = {}) {
         if (!channel.isSubscribed) {
             Button(
                 onClick = { /* Subscribe */ },
-                colors = ButtonDefaults.buttonColors(containerColor = AppAccent.copy(alpha = 0.1f), contentColor = AppAccent),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), 
+                    contentColor = MaterialTheme.colorScheme.primary
+                ),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                 modifier = Modifier.height(32.dp),
                 shape = RoundedCornerShape(16.dp)

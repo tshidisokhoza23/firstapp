@@ -90,13 +90,13 @@ fun JobProfileScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppSecondary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -109,13 +109,13 @@ fun JobProfileScreen(
             Column {
                 Text(
                     "Showcase your talent",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     "Complete your profile to get discovered by top companies.",
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             }
@@ -148,22 +148,22 @@ fun JobProfileScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Work Experience", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                    Text("Work Experience", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                     IconButton(onClick = { onNavigateToEditExperience(null) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Experience", tint = AppAccent)
+                        Icon(Icons.Default.Add, contentDescription = "Add Experience", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
 
                 if (sortedExperiences.isEmpty()) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = Color.White.copy(alpha = 0.05f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
                             "No experience added yet. Click + to add your roles.",
                             modifier = Modifier.padding(16.dp),
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
                         )
                     }
@@ -187,7 +187,7 @@ fun JobProfileScreen(
             SectionHeader("JOB PREFERENCES")
             
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Work Preference", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                Text("Work Preference", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val prefs = kotlin.collections.listOf("Remote", "On-site", "Hybrid")
                     for (pref in prefs) {
@@ -196,9 +196,9 @@ fun JobProfileScreen(
                             onClick = { workPreference = pref },
                             label = { Text(pref) },
                             colors = FilterChipDefaults.filterChipColors(
-                                labelColor = Color.White,
-                                selectedLabelColor = AppBackground,
-                                selectedContainerColor = AppAccent
+                                labelColor = MaterialTheme.colorScheme.onSurface,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedContainerColor = MaterialTheme.colorScheme.primary
                             )
                         )
                     }
@@ -220,9 +220,9 @@ fun JobProfileScreen(
             OutlinedButton(
                 onClick = { pdfLauncher.launch("application/pdf") },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AppAccent),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppAccent)
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.CloudUpload, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -242,10 +242,13 @@ fun JobProfileScreen(
                     )
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("SAVE PROFESSIONAL PROFILE", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppBackground)
+                Text("SAVE PROFESSIONAL PROFILE", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -258,12 +261,12 @@ fun SectionHeader(title: String) {
     Column(modifier = Modifier.padding(top = 8.dp)) {
         Text(
             title,
-            color = AppAccent,
+            color = MaterialTheme.colorScheme.primary,
             fontSize = 12.sp,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 1.sp
         )
-        HorizontalDivider(modifier = Modifier.padding(top = 4.dp), thickness = 1.dp, color = AppAccent.copy(alpha = 0.3f))
+        HorizontalDivider(modifier = Modifier.padding(top = 4.dp), thickness = 1.dp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
     }
 }
 
@@ -276,18 +279,18 @@ fun ProfileTextField(
     minLines: Int = 1
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 14.sp)
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(placeholder, color = Color.Gray, fontSize = 14.sp) },
-            textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 16.sp),
+            placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+            textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AppAccent,
-                unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
-                cursorColor = AppAccent,
-                focusedContainerColor = Color.White.copy(alpha = 0.05f)
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
             ),
             minLines = minLines,
             shape = RoundedCornerShape(8.dp)
@@ -304,9 +307,9 @@ fun ExperienceItem(
     
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White.copy(alpha = 0.05f),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
         shape = RoundedCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -315,24 +318,24 @@ fun ExperienceItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = experience.jobTitle,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
                 Text(
                     text = "${experience.companyName} • ${experience.employmentType}",
-                    color = AppAccent,
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 14.sp
                 )
                 val endDateStr = experience.endDate?.let { dateFormat.format(Date(it)) } ?: ""
                 Text(
                     text = "${dateFormat.format(Date(experience.startDate))} - ${if (experience.isCurrentJob) "Present" else endDateStr}",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
             IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AppAccent, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
             }
         }
     }

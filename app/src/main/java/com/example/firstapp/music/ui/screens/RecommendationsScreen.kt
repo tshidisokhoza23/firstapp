@@ -10,9 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -99,7 +97,7 @@ fun RecommendationsScreen(
             ) {
                 val artists = songs.map { it.artist }.distinct().take(10)
                 items(artists) { artist ->
-                    ArtistCard(name = artist, imageUrl = null, color = AppSecondary, onClick = { onArtistClick(artist) })
+                    ArtistCard(name = artist, imageUrl = null, color = MaterialTheme.colorScheme.surfaceVariant, onClick = { onArtistClick(artist) })
                 }
             }
         }
@@ -205,7 +203,7 @@ fun RecommendationsScreen(
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp)) {
                     items(songs.take(5)) { song ->
                         TextButton(onClick = { onAddToPlaylist(song) }) {
-                            Text("+ ${song.title}", color = Color.White)
+                            Text("+ ${song.title}", color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -258,13 +256,13 @@ fun TrendingSongCard(
                     .padding(12.dp)
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(AppAccent),
+                    .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
                 androidx.compose.material3.Icon(
                     imageVector = androidx.compose.material.icons.Icons.Default.Equalizer,
                     contentDescription = null,
-                    tint = Color.Black,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -287,7 +285,7 @@ fun ChartItemRow(
     ) {
         Text(
             text = rank.toString(),
-            color = if (isPlaying) AppAccent else Color.White.copy(alpha = 0.5f),
+            color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.width(24.dp)
@@ -302,14 +300,14 @@ fun ChartItemRow(
         Column {
             Text(
                 text = song.title,
-                color = if (isPlaying) AppAccent else Color.White,
+                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1
             )
             Text(
                 text = song.artist,
-                color = AppTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 maxLines = 1
             )
@@ -337,7 +335,7 @@ fun CompactSongCard(
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = song.title,
-            color = if (isPlaying) AppAccent else Color.White,
+            color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
@@ -351,13 +349,13 @@ fun GenreChip(name: String) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(AppSecondary)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable { /* Filter by genre */ }
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         Text(
             text = name,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp
         )

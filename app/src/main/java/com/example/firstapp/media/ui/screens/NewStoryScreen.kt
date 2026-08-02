@@ -122,12 +122,15 @@ fun NewStoryScreen(
                         onClick = { 
                             onNext(caption, selectedMediaUri?.toString() ?: "", mediaType)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         shape = RoundedCornerShape(24.dp)
                     ) {
-                        Text("NEXT", color = AppBackground, fontWeight = FontWeight.Bold)
+                        Text("NEXT", fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Default.ChevronRight, null, tint = AppBackground)
+                        Icon(Icons.Default.ChevronRight, null)
                     }
                 }
             }

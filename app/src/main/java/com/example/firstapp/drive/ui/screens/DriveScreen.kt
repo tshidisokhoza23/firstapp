@@ -264,14 +264,14 @@ fun DriveDrawerContent(
 ) {
     val context = LocalContext.current
     ModalDrawerSheet(
-        drawerContainerColor = AppSecondary,
+        drawerContainerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.width(320.dp),
         drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(AppAccent.copy(0.15f), Color.Transparent)))
+                .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary.copy(0.15f), Color.Transparent)))
                 .padding(top = 40.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
         ) {
             Column {
@@ -279,7 +279,7 @@ fun DriveDrawerContent(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(AppPrimary),
+                        .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
                     if (user?.avatarUrl != null) {
@@ -292,18 +292,27 @@ fun DriveDrawerContent(
                     } else {
                         Text(
                             user?.displayName?.take(1)?.uppercase() ?: "U",
-                            color = Color.White, 
+                            color = MaterialTheme.colorScheme.onPrimary, 
                             fontWeight = FontWeight.ExtraBold, 
                             fontSize = 28.sp
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(user?.displayName ?: "Guest", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                Text(
+                    user?.displayName ?: "Guest", 
+                    color = MaterialTheme.colorScheme.onSurface, 
+                    fontWeight = FontWeight.ExtraBold, 
+                    fontSize = 22.sp
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Star, contentDescription = null, tint = NiceOrange, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("${user?.streak ?: 0} Streak • Gold Member", color = AppTextSecondary, fontSize = 14.sp)
+                    Text(
+                        "${user?.streak ?: 0} Streak • Gold Member", 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -328,10 +337,10 @@ fun DriveDrawerContent(
 @Composable
 fun DrawerItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit = {}) {
     NavigationDrawerItem(
-        label = { Text(label, color = Color.White, fontWeight = FontWeight.Medium) },
+        label = { Text(label, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium) },
         selected = false,
         onClick = onClick,
-        icon = { Icon(icon, contentDescription = null, tint = Color.White.copy(0.7f)) },
+        icon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent),
         modifier = Modifier.padding(horizontal = 12.dp)
     )
@@ -456,8 +465,8 @@ fun DriveMainContent(
         modifier = Modifier.fillMaxSize(),
         scaffoldState = scaffoldState,
         sheetPeekHeight = currentPeekHeight,
-        sheetContainerColor = AppSecondary,
-        sheetContentColor = Color.White,
+        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        sheetContentColor = MaterialTheme.colorScheme.onSurface,
         sheetShadowElevation = 24.dp,
         sheetDragHandle = {
             Box(
@@ -465,7 +474,7 @@ fun DriveMainContent(
                     .padding(vertical = 12.dp)
                     .width(40.dp)
                     .height(4.dp)
-                    .background(Color.White.copy(0.2f), CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), CircleShape)
             )
         },
         sheetShape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
@@ -685,9 +694,9 @@ fun DriveMainContent(
                 if (!isSearchingView && step == 0) {
                     IconButton(
                         onClick = onMenuClick,
-                        modifier = Modifier.background(AppSecondary, CircleShape).size(48.dp)
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).size(48.dp)
                     ) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 } else {
                     IconButton(
@@ -704,9 +713,9 @@ fun DriveMainContent(
                                 }
                             }
                         },
-                        modifier = Modifier.background(AppSecondary, CircleShape).size(48.dp)
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).size(48.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
                 
@@ -715,9 +724,9 @@ fun DriveMainContent(
                 if (step == 0 && !isSearchingView) {
                     IconButton(
                         onClick = { onSafetyCenterToggle(true) },
-                        modifier = Modifier.background(AppSecondary, CircleShape).size(48.dp)
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).size(48.dp)
                     ) {
-                        Icon(Icons.Default.Shield, contentDescription = "Safety", tint = AppAccent)
+                        Icon(Icons.Default.Shield, contentDescription = "Safety", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -732,8 +741,8 @@ fun DriveMainContent(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(bottom = 16.dp, end = 16.dp),
-                    containerColor = AppSecondary,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     shape = CircleShape
                 ) {
                     Icon(Icons.Default.MyLocation, contentDescription = "My Location")
@@ -1076,7 +1085,7 @@ fun SearchFlow(
         if (!isSearching) {
             Surface(
                 onClick = { onSearchToggle(true) },
-                color = Color(0xFF233138),
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.fillMaxWidth().height(64.dp)
             ) {
@@ -1084,9 +1093,9 @@ fun SearchFlow(
                     modifier = Modifier.padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = AppAccent, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text("Where to?", color = AppTextSecondary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Where to?", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             
@@ -1094,7 +1103,7 @@ fun SearchFlow(
 
             Text(
                 "Good morning, ${user?.displayName?.substringBefore(" ") ?: "Guest"}",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -1119,12 +1128,13 @@ fun SearchFlow(
                     onClick = { onSearchToggle(true) },
                     modifier = Modifier
                         .size(44.dp)
-                        .background(Color(0xFF233138), RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add favorite", tint = AppAccent)
+                    Icon(Icons.Default.Add, contentDescription = "Add favorite", tint = MaterialTheme.colorScheme.primary)
                 }
             }
-        } else {
+        }
+else {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1141,7 +1151,7 @@ fun SearchFlow(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF233138), RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
                         .padding(4.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1150,7 +1160,7 @@ fun SearchFlow(
                             modifier = Modifier.padding(start = 16.dp).width(24.dp)
                         ) {
                             Box(modifier = Modifier.size(8.dp).background(Color(0xFF4A89F3), CircleShape))
-                            Box(modifier = Modifier.width(1.dp).height(if (additionalStops.isEmpty()) 50.dp else (50 + additionalStops.size * 60).dp).background(Color.White.copy(0.15f)))
+                            Box(modifier = Modifier.width(1.dp).height(if (additionalStops.isEmpty()) 50.dp else (50 + additionalStops.size * 60).dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)))
                             Box(modifier = Modifier.size(8.dp).background(Color(0xFFEA4335), RoundedCornerShape(1.dp)))
                         }
                         Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
@@ -1160,37 +1170,37 @@ fun SearchFlow(
                                     onFromChange(it)
                                     focusedField = 0
                                 },
-                                placeholder = { Text("Pick-up location", color = Color.White.copy(0.4f)) },
+                                placeholder = { Text("Pick-up location", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
                                     unfocusedContainerColor = Color.Transparent,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    cursorColor = AppAccent
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    cursorColor = MaterialTheme.colorScheme.primary
                                 ),
                                 singleLine = true
                             )
                             
                             additionalStops.forEachIndexed { index, stop ->
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         stop.name, 
-                                        color = Color.White, 
+                                        color = MaterialTheme.colorScheme.onSurface, 
                                         modifier = Modifier.weight(1f).padding(16.dp),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     IconButton(onClick = { onRemoveStop(index) }) {
-                                        Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove stop", tint = Color.White.copy(0.4f))
+                                        Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove stop", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                                     }
                                 }
                             }
 
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 TextField(
                                     value = toLocation,
@@ -1198,7 +1208,7 @@ fun SearchFlow(
                                         onToChange(it)
                                         focusedField = 1
                                     },
-                                    placeholder = { Text("Where to?", color = Color.White.copy(0.4f)) },
+                                    placeholder = { Text("Where to?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
                                     modifier = Modifier
                                         .weight(1f)
                                         .focusRequester(focusRequester),
@@ -1207,22 +1217,20 @@ fun SearchFlow(
                                         unfocusedContainerColor = Color.Transparent,
                                         focusedIndicatorColor = Color.Transparent,
                                         unfocusedIndicatorColor = Color.Transparent,
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        cursorColor = AppAccent
+                                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        cursorColor = MaterialTheme.colorScheme.primary
                                     ),
                                     singleLine = true
                                 )
-                                if (additionalStops.size < 2) { // Limit stops for simulation
+                                if (additionalStops.size < 2) { 
                                     IconButton(onClick = { 
-                                        // Simple logic: if toLocation is a valid destination name from suggestions
-                                        // we could add it. For now, let's just use the first suggestion if available
                                         viewModel.suggestions.value.firstOrNull()?.let { 
                                             onAddStop(it)
                                             onToChange("")
                                         }
                                     }) {
-                                        Icon(Icons.Default.Add, contentDescription = "Add stop", tint = AppAccent)
+                                        Icon(Icons.Default.Add, contentDescription = "Add stop", tint = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }
@@ -1290,7 +1298,7 @@ fun SearchFlow(
 fun QuickActionChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        color = Color(0xFF233138),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.height(44.dp)
     ) {
@@ -1298,9 +1306,9 @@ fun QuickActionChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label
             modifier = Modifier.padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White.copy(0.7f), modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -1329,15 +1337,15 @@ fun DestinationItem(destination: Destination, onFavoriteToggle: (Destination) ->
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(destination.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text(destination.address, color = AppTextSecondary, fontSize = 13.sp)
+            Text(destination.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(destination.address, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
         
         IconButton(onClick = { onFavoriteToggle(destination) }) {
             Icon(
                 if (destination.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
                 contentDescription = "Favorite",
-                tint = if (destination.isFavorite) NiceOrange else Color.White.copy(alpha = 0.2f),
+                tint = if (destination.isFavorite) NiceOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -1480,8 +1488,8 @@ fun RideSelectionFlow(
 fun RideOptionItem(option: RideOption, isSelected: Boolean, onSelect: () -> Unit) {
     Surface(
         onClick = onSelect,
-        color = if (isSelected) AppAccent.copy(0.1f) else Color.Transparent,
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, AppAccent) else null,
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1505,15 +1513,30 @@ fun RideOptionItem(option: RideOption, isSelected: Boolean, onSelect: () -> Unit
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(option.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(option.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.Person, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(14.dp))
-                    Text(" 4", color = AppTextSecondary, fontSize = 12.sp)
+                    Icon(
+                        Icons.Default.Person, 
+                        contentDescription = null, 
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(" 4", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
-                Text(option.arrivalTime, color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(option.description, color = AppTextSecondary, fontSize = 12.sp, maxLines = 1)
+                Text(option.arrivalTime, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(
+                    option.description, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    fontSize = 12.sp, 
+                    maxLines = 1
+                )
             }
-            Text("R${option.price}", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            Text(
+                "R${option.price}", 
+                color = MaterialTheme.colorScheme.onSurface, 
+                fontWeight = FontWeight.ExtraBold, 
+                fontSize = 18.sp
+            )
         }
     }
 }
@@ -1542,8 +1565,8 @@ fun LiveTrackingFlow(
                 .fillMaxWidth()
                 .height(4.dp)
                 .clip(CircleShape),
-            color = if (status == DriveViewModel.BookingStatus.IN_PROGRESS) NiceOrange else AppAccent,
-            trackColor = Color.White.copy(0.1f)
+            color = if (status == DriveViewModel.BookingStatus.IN_PROGRESS) NiceOrange else MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
         )
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -1558,13 +1581,22 @@ fun LiveTrackingFlow(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(if (assignedDriver != null) AppAccent.copy(0.1f) else Color.Gray),
+                    .background(if (assignedDriver != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Gray),
                 contentAlignment = Alignment.Center
             ) {
                 if (assignedDriver != null) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = AppAccent, modifier = Modifier.size(32.dp))
+                    Icon(
+                        Icons.Default.Person, 
+                        contentDescription = null, 
+                        tint = MaterialTheme.colorScheme.primary, 
+                        modifier = Modifier.size(32.dp)
+                    )
                 } else {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp), 
+                        color = MaterialTheme.colorScheme.primary, 
+                        strokeWidth = 2.dp
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -1578,20 +1610,20 @@ fun LiveTrackingFlow(
                         DriveViewModel.BookingStatus.COMPLETED -> "Arrived at destination"
                         else -> "Processing..."
                     },
-                    color = Color.White, 
+                    color = MaterialTheme.colorScheme.onSurface, 
                     fontWeight = FontWeight.Bold, 
                     fontSize = 18.sp
                 )
                 val eta = viewModel.remainingTime.value
                 Text(
                     text = if (assignedDriver == null) "Searching for nearby cars" else "${assignedDriver.name} • ${assignedDriver.vehicleModel}${if (eta != null) " • $eta" else ""}",
-                    color = AppTextSecondary, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
                     fontSize = 14.sp
                 )
                 if (assignedDriver != null) {
                     Text(
                         text = assignedDriver.licensePlate,
-                        color = Color.White.copy(0.6f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )

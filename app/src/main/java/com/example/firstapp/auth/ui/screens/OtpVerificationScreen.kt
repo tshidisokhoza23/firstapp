@@ -99,7 +99,7 @@ fun OtpVerificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -108,18 +108,22 @@ fun OtpVerificationScreen(
             text = "Verify Phone",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onBackground
         )
         
         Text(
             text = "Enter the 6-digit code sent to your registered number",
             fontSize = 16.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
         )
 
         if (errorMessage != null) {
-            Text(text = errorMessage, color = Color.Red, modifier = Modifier.padding(bottom = 16.dp))
+            Text(
+                text = errorMessage, 
+                color = MaterialTheme.colorScheme.error, 
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
         }
 
         OutlinedTextField(
@@ -137,10 +141,10 @@ fun OtpVerificationScreen(
             shape = RoundedCornerShape(12.dp),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AppAccent,
-                unfocusedBorderColor = AppSecondary,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
             )
         )
 
@@ -150,11 +154,17 @@ fun OtpVerificationScreen(
             onClick = { verify() },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
             enabled = !isLoading && otpCode.length == 6
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AppBackground)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp), 
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             } else {
                 Text(if (isRegistration) "Verify & Sign Up" else "Verify & Login", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
@@ -175,7 +185,7 @@ fun OtpVerificationScreen(
             Text(
                 text = "Hash: $appHash",
                 fontSize = 10.sp,
-                color = Color.Gray.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.clickable {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     val clip = android.content.ClipData.newPlainText("App Hash", appHash)
@@ -189,12 +199,12 @@ fun OtpVerificationScreen(
                 client.startSmsRetriever()
                 viewModel.requestOTP(phoneNumber)
             }) {
-                Text("Resend Code", color = AppAccent)
+                Text("Resend Code", color = MaterialTheme.colorScheme.primary)
             }
         }
         
         TextButton(onClick = onBack) {
-            Text("Edit Phone Number", color = AppAccent)
+            Text("Edit Phone Number", color = MaterialTheme.colorScheme.primary)
         }
     }
 }

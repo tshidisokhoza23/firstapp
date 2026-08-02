@@ -91,10 +91,20 @@ fun EditWorkExperienceScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (experienceId == null) "Add Experience" else "Edit Experience", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { 
+                    Text(
+                        if (experienceId == null) "Add Experience" else "Edit Experience", 
+                        color = MaterialTheme.colorScheme.onBackground, 
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back", 
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
                     }
                 },
                 actions = {
@@ -126,20 +136,20 @@ fun EditWorkExperienceScreen(
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = AppAccent,
+                                color = MaterialTheme.colorScheme.primary,
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            val btnColor = if (canSave) AppAccent else Color.Gray
+                            val btnColor = if (canSave) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             Text("Save", color = btnColor, fontWeight = FontWeight.Bold)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -155,7 +165,12 @@ fun EditWorkExperienceScreen(
                 label = { Text("Job Title") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AppAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f))
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, 
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
             )
 
             OutlinedTextField(
@@ -164,7 +179,12 @@ fun EditWorkExperienceScreen(
                 label = { Text("Company Name") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AppAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f))
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, 
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
             )
 
             OutlinedTextField(
@@ -174,7 +194,12 @@ fun EditWorkExperienceScreen(
                 placeholder = { Text("e.g. Johannesburg or Remote") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AppAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f))
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, 
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
             )
 
             ExposedDropdownMenuBox(
@@ -188,7 +213,12 @@ fun EditWorkExperienceScreen(
                     label = { Text("Employment Type") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AppAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f))
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                        focusedBorderColor = MaterialTheme.colorScheme.primary, 
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
                 )
                 ExposedDropdownMenu(
                     expanded = expanded,
@@ -207,14 +237,14 @@ fun EditWorkExperienceScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Is Current Job?", color = Color.White, modifier = Modifier.weight(1f))
+                Text("Is Current Job?", color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                 Switch(
                     checked = isCurrentJob,
                     onCheckedChange = { 
                         isCurrentJob = it
                         if (it) endDate = null
                     },
-                    colors = SwitchDefaults.colors(checkedThumbColor = AppAccent)
+                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                 )
             }
 
@@ -235,11 +265,16 @@ fun EditWorkExperienceScreen(
                             }
                         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
                     }) {
-                        Icon(Icons.Default.CalendarToday, null, tint = AppAccent)
+                        Icon(Icons.Default.CalendarToday, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AppAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f))
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, 
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
             )
 
             val currentEnd = endDate
@@ -262,17 +297,17 @@ fun EditWorkExperienceScreen(
                             }
                         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
                     }, enabled = !isCurrentJob) {
-                        Icon(Icons.Default.CalendarToday, null, tint = if (isCurrentJob) Color.Gray else AppAccent)
+                        Icon(Icons.Default.CalendarToday, null, tint = if (isCurrentJob) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White, 
-                    unfocusedTextColor = Color.White, 
-                    disabledTextColor = Color.Gray,
-                    focusedBorderColor = AppAccent,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
-                    disabledBorderColor = Color.White.copy(alpha = 0.05f)
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
                 )
             )
 
@@ -283,7 +318,12 @@ fun EditWorkExperienceScreen(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 minLines = 3,
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AppAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f))
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface, 
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, 
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
             )
         }
     }

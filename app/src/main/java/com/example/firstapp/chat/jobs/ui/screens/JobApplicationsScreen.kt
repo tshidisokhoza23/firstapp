@@ -47,21 +47,25 @@ fun JobApplicationsScreen(
                 title = { Text("Application History", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back", 
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppSecondary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (applications.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No applications yet", color = AppTextSecondary)
+                Text("No applications yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(
@@ -94,7 +98,7 @@ fun ApplicationItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = AppSecondary.copy(alpha = 0.5f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp),
     ) {
         Row(
@@ -118,18 +122,18 @@ fun ApplicationItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = application.jobTitle,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "${application.companyName} • ${application.location}",
-                    color = AppTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
                 Text(
                     text = "Applied on ${formatWhatsAppTime(application.appliedDate)}",
-                    color = AppTextSecondary.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 4.dp)
                 )
@@ -161,7 +165,7 @@ fun ApplicationActions(
             Icon(
                 Icons.Default.MoreVert,
                 contentDescription = "More",
-                tint = AppTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -169,35 +173,35 @@ fun ApplicationActions(
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            modifier = Modifier.background(AppSecondary)
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
         ) {
             DropdownMenuItem(
-                text = { Text("View Job Details", color = Color.White) },
-                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = AppAccent) },
+                text = { Text("View Job Details", color = MaterialTheme.colorScheme.onSurface) },
+                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 onClick = { 
                     showMenu = false
                     onViewJobDetails()
                 }
             )
             DropdownMenuItem(
-                text = { Text("Withdraw Application", color = Color.White) },
-                leadingIcon = { Icon(Icons.Default.Close, contentDescription = null, tint = Color.Red) },
+                text = { Text("Withdraw Application", color = MaterialTheme.colorScheme.error) },
+                leadingIcon = { Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                 onClick = { 
                     showMenu = false
                     onWithdrawApplication()
                 }
             )
             DropdownMenuItem(
-                text = { Text("Contact Recruiter", color = Color.White) },
-                leadingIcon = { Icon(Icons.Default.Notifications, contentDescription = null, tint = AppAccent) },
+                text = { Text("Contact Recruiter", color = MaterialTheme.colorScheme.onSurface) },
+                leadingIcon = { Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 onClick = { 
                     showMenu = false
                     onContactRecruiter()
                 }
             )
             DropdownMenuItem(
-                text = { Text("Set Reminder", color = Color.White) },
-                leadingIcon = { Icon(Icons.Default.Work, contentDescription = null, tint = AppAccent) },
+                text = { Text("Set Reminder", color = MaterialTheme.colorScheme.onSurface) },
+                leadingIcon = { Icon(Icons.Default.Work, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 onClick = { 
                     showMenu = false
                     onSetReminder()

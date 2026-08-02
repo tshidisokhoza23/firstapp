@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.ui.components.ChatItem
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
-import com.example.firstapp.common.ui.theme.AppBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

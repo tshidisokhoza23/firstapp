@@ -19,12 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +27,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Work
-import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -40,11 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.jobs.model.Job
-import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.AppSecondary
-import com.example.firstapp.common.ui.theme.AppTextPrimary
-import com.example.firstapp.common.ui.theme.AppTextSecondary
+import com.example.firstapp.common.util.formatPostedTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,17 +45,20 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                 title = { Text("Job Details", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back", 
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppSecondary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -77,7 +70,7 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
-                    .background(Brush.verticalGradient(listOf(job.logoColor, AppSecondary)))
+                    .background(Brush.verticalGradient(listOf(job.logoColor, MaterialTheme.colorScheme.surfaceVariant)))
                     .padding(24.dp),
                 contentAlignment = Alignment.BottomStart
             ) {
@@ -85,7 +78,7 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                     Surface(
                         modifier = Modifier.size(72.dp),
                         shape = RoundedCornerShape(16.dp),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 8.dp
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -101,14 +94,14 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                     Column {
                         Text(
                             text = job.title,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.ExtraBold,
                             lineHeight = 28.sp
                         )
                         Text(
                             text = job.companyName,
-                            color = Color.White.copy(alpha = 0.8f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -134,14 +127,14 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
 
                 Text(
                     text = "Description",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = job.description,
-                    color = AppTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 15.sp,
                     lineHeight = 24.sp
                 )
@@ -150,15 +143,15 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
                         text = "Requirements",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     job.requirements.forEach { req ->
                         Row(modifier = Modifier.padding(vertical = 4.dp)) {
-                            Text("•", color = AppAccent, modifier = Modifier.width(16.dp))
-                            Text(text = req, color = AppTextSecondary, fontSize = 14.sp)
+                            Text("•", color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(16.dp))
+                            Text(text = req, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
@@ -170,14 +163,15 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                     enabled = !job.isApplied,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (job.isApplied) Color.Gray else AppAccent,
-                        disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     ),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
                         if (job.isApplied) "Applied" else "Apply Now", 
-                        color = if (job.isApplied) Color.White else AppBackground, 
                         fontWeight = FontWeight.ExtraBold, 
                         fontSize = 16.sp
                     )
@@ -192,17 +186,17 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
 @Composable
 fun JobDetailChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
     Surface(
-        color = Color.White.copy(alpha = 0.05f),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
         shape = RoundedCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, null, tint = AppAccent, modifier = Modifier.size(16.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         }
     }
 }

@@ -8,9 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Badge
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,12 +35,12 @@ fun ChatItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val avatarModifier = if (hasStory) {
-            val borderColor = if (allStoriesViewed) AppTextSecondary.copy(alpha = 0.5f) else AppAccent
+            val borderColor = if (allStoriesViewed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary
             Modifier
                 .size(56.dp)
                 .clip(CircleShape)
@@ -67,7 +65,7 @@ fun ChatItem(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(CircleShape)
-                    .background(AppSecondary),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 if (chat.avatarUrl != null) {
@@ -80,7 +78,7 @@ fun ChatItem(
                 } else {
                     Text(
                         text = chat.senderName.take(1).uppercase(),
-                        color = AppTextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
@@ -98,7 +96,7 @@ fun ChatItem(
             ) {
                 Text(
                     text = chat.senderName,
-                    color = AppTextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     maxLines = 1,
@@ -107,7 +105,7 @@ fun ChatItem(
                 )
                 Text(
                     text = formatWhatsAppTime(chat.timestamp),
-                    color = if (chat.unreadCount > 0) AppAccent else AppTextSecondary,
+                    color = if (chat.unreadCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = if (chat.unreadCount > 0) FontWeight.Bold else FontWeight.Normal
                 )
@@ -120,7 +118,7 @@ fun ChatItem(
                     Icon(
                         imageVector = if (chat.lastMessageRead) Icons.Default.DoneAll else Icons.Default.Done,
                         contentDescription = null,
-                        tint = if (chat.lastMessageRead) Color(0xFF34B7F1) else AppTextSecondary,
+                        tint = if (chat.lastMessageRead) Color(0xFF34B7F1) else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))
@@ -132,19 +130,19 @@ fun ChatItem(
                 val isSticker = chat.lastMessage.lowercase().contains("sticker")
                 
                 if (isPhoto && !chat.isTyping) {
-                    Icon(Icons.Default.Image, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                 } else if (isVideo && !chat.isTyping) {
-                    Icon(Icons.Default.Videocam, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Videocam, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                 } else if (isSticker && !chat.isTyping) {
-                    Icon(Icons.Default.Face, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Face, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                 }
 
                 Text(
                     text = if (chat.isTyping) "typing..." else chat.lastMessage,
-                    color = if (chat.isTyping) AppAccent else AppTextSecondary,
+                    color = if (chat.isTyping) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -152,11 +150,11 @@ fun ChatItem(
                 )
 
                 if (chat.isMuted) {
-                    Icon(Icons.AutoMirrored.Filled.VolumeOff, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.VolumeOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 if (chat.isPinned) {
-                    Icon(Icons.Default.PushPin, null, tint = AppTextSecondary, modifier = Modifier.size(16.dp).rotate(45f))
+                    Icon(Icons.Default.PushPin, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp).rotate(45f))
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 if (chat.unreadCount > 0) {
@@ -164,12 +162,12 @@ fun ChatItem(
                         modifier = Modifier
                             .size(20.dp)
                             .clip(CircleShape)
-                            .background(AppAccent),
+                            .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = chat.unreadCount.toString(),
-                            color = AppBackground,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )

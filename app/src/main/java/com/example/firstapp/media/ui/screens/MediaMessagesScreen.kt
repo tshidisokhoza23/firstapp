@@ -70,16 +70,16 @@ fun MediaMessagesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Direct Messages", color = Color.White) },
+                title = { Text("Direct Messages", color = MaterialTheme.colorScheme.onBackground) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             OutlinedTextField(
@@ -88,16 +88,16 @@ fun MediaMessagesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Search messages", color = SecondaryText) },
-                leadingIcon = { Icon(Icons.Default.Search, null, tint = SecondaryText) },
+                placeholder = { Text("Search messages", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 shape = CircleShape,
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = DividerColor,
-                    focusedBorderColor = Color.White,
-                    unfocusedContainerColor = AppSecondary,
-                    focusedContainerColor = AppSecondary,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 )
             )
 
@@ -150,13 +150,13 @@ fun ConversationItem(
             ) {
                 Text(
                     text = conversation.otherUserName,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
                 Text(
                     text = "1h",
-                    color = SecondaryText,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -168,7 +168,7 @@ fun ConversationItem(
             ) {
                 Text(
                     text = conversation.lastMessage,
-                    color = if (conversation.unreadCount > 0) Color.White else SecondaryText,
+                    color = if (conversation.unreadCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -181,12 +181,12 @@ fun ConversationItem(
                         modifier = Modifier
                             .padding(start = 8.dp)
                             .size(20.dp)
-                            .background(Color.Blue, CircleShape),
+                            .background(MaterialTheme.colorScheme.primary, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = conversation.unreadCount.toString(),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
                         )

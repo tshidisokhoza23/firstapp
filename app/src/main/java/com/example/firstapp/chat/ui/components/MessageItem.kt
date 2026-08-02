@@ -44,7 +44,7 @@ import kotlin.math.abs
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageItemUnique(
-    message: Message,
+    messageItem: Message,
     isSelected: Boolean,
     referencedMessage: Message? = null,
     fontSize: Float = 16f,
@@ -54,11 +54,12 @@ fun MessageItemUnique(
     onReply: (Message) -> Unit,
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
-    val alignment = if (message.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
-    val bubbleColor = if (message.isFromMe) AppPrimary else AppSecondary
+    val alignment = if (messageItem.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
+    val bubbleColor = if (messageItem.isFromMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (messageItem.isFromMe) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     
     // Unique rounded bubble shape without tails
-    val shape = if (message.isFromMe) {
+    val shape = if (messageItem.isFromMe) {
         RoundedCornerShape(18.dp, 18.dp, 2.dp, 18.dp)
     } else {
         RoundedCornerShape(18.dp, 18.dp, 18.dp, 2.dp)
@@ -74,22 +75,22 @@ fun MessageItemUnique(
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { _, drag ->
                         val newValue = (dragAmount.value + drag)
-                        if (!message.isFromMe && newValue > 0) {
+                        if (!messageItem.isFromMe && newValue > 0) {
                             scope.launch { dragAmount.snapTo(newValue.coerceIn(0f, 100f)) }
-                        } else if (message.isFromMe && newValue < 0) {
+                        } else if (messageItem.isFromMe && newValue < 0) {
                             scope.launch { dragAmount.snapTo(newValue.coerceIn(-100f, 0f)) }
                         }
                     },
                     onDragEnd = {
                         if (abs(dragAmount.value) > 60f) {
-                            onReply(message)
+                            onReply(messageItem)
                         }
                         scope.launch { dragAmount.animateTo(0f) }
                     },
                     onDragCancel = { scope.launch { dragAmount.animateTo(0f) } }
                 )
             }
-            .background(if (isSelected) AppAccent.copy(alpha = 0.15f) else Color.Transparent)
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
             .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
         // Reply Icon Indicator (Dynamic highlight)
@@ -103,7 +104,7 @@ fun MessageItemUnique(
                 Icon(
                     Icons.AutoMirrored.Filled.Reply,
                     null,
-                    tint = AppAccent.copy(alpha = (abs(dragAmount.value) / 100f).coerceIn(0f, 1f)),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = (abs(dragAmount.value) / 100f).coerceIn(0f, 1f)),
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -125,16 +126,16 @@ fun MessageItemUnique(
                 shape = shape,
                 color = if (isSelected) bubbleColor.copy(alpha = 0.8f) else bubbleColor,
                 shadowElevation = 2.dp,
-                border = if (!message.isFromMe) BorderStroke(0.5.dp, Color.White.copy(alpha = 0.05f)) else null
+                border = if (!messageItem.isFromMe) BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)) else null
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp)
                 ) {
                     // Reply / Referenced Message View
-                    val replyToSender = referencedMessage?.senderName ?: message.replyToSenderName
-                    val replyToContent = referencedMessage?.content ?: message.replyToText
+                    val replyToSender = referencedMessage?.senderName ?: messageItem.replyToSenderName
+                    val replyToContent = referencedMessage?.content ?: messageItem.replyToText
                     
-                    if (message.replyToId != null || referencedMessage != null) {
+                    if (messageItem.replyToId != null || referencedMessage != null) {
                         Surface(
                             modifier = Modifier
                                 .padding(bottom = 8.dp)
@@ -148,19 +149,19 @@ fun MessageItemUnique(
                                         .width(4.dp)
                                         .height(36.dp)
                                         .clip(CircleShape)
-                                        .background(AppAccent)
+                                        .background(MaterialTheme.colorScheme.primary)
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Column {
                                     Text(
                                         text = if (replyToSender == "You" || referencedMessage?.isFromMe == true) "You" else (replyToSender ?: "Sender"),
-                                        color = AppAccent,
+                                        color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp
                                     )
                                     Text(
                                         text = replyToContent ?: "Message",
-                                        color = AppTextPrimary.copy(alpha = 0.7f),
+                                        color = contentColor.copy(alpha = 0.7f),
                                         fontSize = 13.sp,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
@@ -171,10 +172,10 @@ fun MessageItemUnique(
                     }
 
                     // Sender Name (For Groups)
-                    if (!message.isFromMe && message.senderName.isNotEmpty() && message.senderName != "Me") {
+                    if (!messageItem.isFromMe && messageItem.senderName.isNotEmpty() && messageItem.senderName != "Me") {
                         Text(
-                            text = message.senderName,
-                            color = AppAccent,
+                            text = messageItem.senderName,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = 4.dp)
@@ -182,25 +183,25 @@ fun MessageItemUnique(
                     }
 
                     // Content Rendering
-                    if (message.type == MessageType.VOICE_CALL || message.content.contains("Voice call")) {
-                        CallLogItem(message)
+                    if (messageItem.type == MessageType.VOICE_CALL || (messageItem.content != null && messageItem.content.contains("Voice call"))) {
+                        CallLogItem(messageItem, contentColor)
                     } else {
-                        if (message.mediaUrls.isNotEmpty() ||
-                            message.type == MessageType.LOCATION || 
-                            message.type == MessageType.APPLICATION_LINK) {
-                            AttachmentPreview(message, onMediaClick = onMediaClick)
+                        if (messageItem.mediaUrls.isNotEmpty() ||
+                            messageItem.type == MessageType.LOCATION || 
+                            messageItem.type == MessageType.APPLICATION_LINK) {
+                            AttachmentPreview(messageItem, contentColor, onMediaClick = onMediaClick)
                         }
 
-                        val isMediaTypePlaceholder = message.content == "Voice Note" || 
-                                                   message.content == "Image" || 
-                                                   message.content == "Video" || 
-                                                   message.content == "Shared Location" ||
-                                                   message.content == "File"
+                        val isMediaTypePlaceholder = messageItem.content == "Voice Note" || 
+                                                   messageItem.content == "Image" || 
+                                                   messageItem.content == "Video" || 
+                                                   messageItem.content == "Shared Location" ||
+                                                   messageItem.content == "File"
 
-                        if (message.content.isNotBlank() && (message.type == MessageType.TEXT || !isMediaTypePlaceholder)) {
+                        if (messageItem.content.isNotBlank() && (messageItem.type == MessageType.TEXT || !isMediaTypePlaceholder)) {
                             Text(
-                                text = message.content,
-                                color = AppTextPrimary,
+                                text = messageItem.content,
+                                color = contentColor,
                                 fontSize = fontSize.sp,
                                 lineHeight = (fontSize * 1.35f).sp
                             )
@@ -213,21 +214,21 @@ fun MessageItemUnique(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = formatWhatsAppTime(message.timestamp),
-                            color = AppTextSecondary.copy(alpha = 0.6f),
+                            text = formatWhatsAppTime(messageItem.timestamp),
+                            color = contentColor.copy(alpha = 0.6f),
                             fontSize = 10.sp
                         )
-                        if (message.isFromMe) {
+                        if (messageItem.isFromMe) {
                             Spacer(modifier = Modifier.width(4.dp))
-                            val tickIcon = when (message.status) {
+                            val tickIcon = when (messageItem.status) {
                                 MessageStatus.READ -> Icons.Default.DoneAll
                                 MessageStatus.DELIVERED -> Icons.Default.DoneAll
                                 else -> Icons.Default.Done
                             }
-                            val tickColor = if (message.status == MessageStatus.READ && showReadReceipts) {
+                            val tickColor = if (messageItem.status == MessageStatus.READ && showReadReceipts) {
                                 Color(0xFF1D9BF0) // Twitter-like verified blue
                             } else {
-                                AppTextSecondary.copy(alpha = 0.4f)
+                                contentColor.copy(alpha = 0.4f)
                             }
                             Icon(
                                 imageVector = tickIcon,
@@ -241,19 +242,19 @@ fun MessageItemUnique(
             }
             
             // Reactions (Bubble-floating style)
-            if (message.reactions.isNotEmpty()) {
+            if (messageItem.reactions.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .padding(top = (-10).dp)
-                        .align(if (message.isFromMe) Alignment.End else Alignment.Start),
+                        .align(if (messageItem.isFromMe) Alignment.End else Alignment.Start),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    message.reactions.entries.forEach { entry ->
+                    messageItem.reactions.entries.forEach { entry ->
                         Surface(
-                            color = AppSecondary,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = CircleShape,
                             shadowElevation = 4.dp,
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             modifier = Modifier.padding(horizontal = 2.dp)
                         ) {
                             Text(
@@ -270,8 +271,8 @@ fun MessageItemUnique(
 }
 
 @Composable
-fun CallLogItem(message: Message) {
-    val isMissed = message.content.contains("No answer")
+fun CallLogItem(message: Message, contentColor: Color = MaterialTheme.colorScheme.onSurface) {
+    val isMissed = message.content.startsWith("No answer")
     val isOutgoing = message.isFromMe
     
     Row(
@@ -284,13 +285,13 @@ fun CallLogItem(message: Message) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.1f)),
+                .background(contentColor.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = if (isOutgoing) Icons.Default.CallMade else Icons.Default.CallReceived,
                 contentDescription = null,
-                tint = if (isMissed) Color.Red else AppAccent,
+                tint = if (isMissed) Color.Red else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -298,13 +299,13 @@ fun CallLogItem(message: Message) {
         Column {
             Text(
                 text = "Voice call",
-                color = AppTextPrimary,
+                color = contentColor,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = if (isMissed) "No answer" else (message.duration ?: "Ended"),
-                color = AppTextSecondary,
+                color = contentColor.copy(alpha = 0.7f),
                 fontSize = 13.sp
             )
         }
@@ -315,6 +316,7 @@ fun CallLogItem(message: Message) {
 @Composable
 fun AttachmentPreview(
     message: Message,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
     onMediaClick: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
@@ -373,16 +375,16 @@ fun AttachmentPreview(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
-                    .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Description, null, tint = AppAccent, modifier = Modifier.size(32.dp))
+                Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = message.fileName ?: "Document",
-                        color = AppTextPrimary,
+                        color = contentColor,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
@@ -390,7 +392,7 @@ fun AttachmentPreview(
                     )
                     Text(
                         text = message.fileSize ?: "File",
-                        color = AppTextSecondary,
+                        color = contentColor.copy(alpha = 0.7f),
                         fontSize = 11.sp
                     )
                 }
@@ -402,7 +404,7 @@ fun AttachmentPreview(
                     .fillMaxWidth()
                     .height(140.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.2f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     .clickable {
                         val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}")
                         val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
@@ -412,8 +414,8 @@ fun AttachmentPreview(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(Icons.Default.LocationOn, null, tint = AppAccent, modifier = Modifier.size(36.dp))
-                Text("Shared Location", color = AppTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+                Text("Shared Location", color = contentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
         MessageType.CONTACT -> {
@@ -421,44 +423,44 @@ fun AttachmentPreview(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
-                    .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(AppAccent),
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Person, null, tint = AppBackground)
+                    Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onPrimary)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = message.contactName ?: "Contact", color = AppTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text(text = message.contactPhone ?: "", color = AppTextSecondary, fontSize = 12.sp)
+                    Text(text = message.contactName ?: "Contact", color = contentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(text = message.contactPhone ?: "", color = contentColor.copy(alpha = 0.7f), fontSize = 12.sp)
                 }
                 IconButton(onClick = {
                     val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${message.contactPhone}"))
                     context.startActivity(intent)
                 }) {
-                    Icon(Icons.Default.Call, null, tint = AppAccent)
+                    Icon(Icons.Default.Call, null, tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
         MessageType.APPLICATION_LINK -> {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                color = AppAccent.copy(alpha = 0.1f),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, AppAccent.copy(alpha = 0.2f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
             ) {
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(AppAccent), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Work, null, tint = AppBackground, modifier = Modifier.size(24.dp))
+                    Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Work, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(text = "Job Application", color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(text = "Profile Summary Attached", color = AppTextPrimary.copy(alpha = 0.8f), fontSize = 12.sp)
+                        Text(text = "Job Application", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(text = "Profile Summary Attached", color = contentColor.copy(alpha = 0.8f), fontSize = 12.sp)
                     }
                 }
             }
@@ -508,8 +510,8 @@ fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(AppAccent.copy(alpha = 0.2f))) {
-                Icon(Icons.Default.Person, null, tint = AppAccent, modifier = Modifier.align(Alignment.Center))
+            Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))) {
+                Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.Center))
             }
             Icon(
                 Icons.Default.Mic,
@@ -519,7 +521,7 @@ fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
                     .size(16.dp)
                     .align(Alignment.BottomEnd)
                     .offset(x = 2.dp, y = 2.dp)
-                    .background(AppBackground, CircleShape)
+                    .background(MaterialTheme.colorScheme.background, CircleShape)
                     .padding(2.dp)
             )
         }
@@ -535,7 +537,7 @@ fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
             Icon(
                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                 null,
-                tint = AppTextPrimary,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(32.dp)
             )
         }

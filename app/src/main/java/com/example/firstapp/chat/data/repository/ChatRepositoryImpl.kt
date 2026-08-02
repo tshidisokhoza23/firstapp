@@ -74,7 +74,7 @@ class ChatRepositoryImpl @Inject constructor(
 
                     // Improve: Resolve name from device contacts or profile
                     val resolvedName = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
-                        displayNameResolver.resolve(
+                        val name = displayNameResolver.resolve(
                             com.example.firstapp.common.model.User(
                                 id = targetId, 
                                 displayName = entity.senderName,
@@ -82,8 +82,9 @@ class ChatRepositoryImpl @Inject constructor(
                             ),
                             contact?.phoneNumber ?: entity.phoneNumber ?: ""
                         )
+                        if (name.isBlank()) entity.senderName.ifBlank { targetId } else name
                     } else {
-                        entity.senderName
+                        entity.senderName.ifBlank { entity.id }
                     }
                     
                     val existing = localChats[entity.id]
@@ -124,6 +125,25 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun initiateDM(contactId: String): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         try {
+            // First check if a DM already exists with this user to avoid double chats
+            val localChats = chatDao.getChats().first()
+            var existing: ChatEntity? = null
+            for (chat in localChats) {
+                if (chat.type == com.example.firstapp.common.model.ConversationType.DIRECT && 
+                    (chat.otherUserId == contactId || chat.id == contactId)) {
+                    existing = chat
+                    break
+                }
+            }
+            if (existing != null) {
+                emit(Resource.Success(existing.id))
+                return@flow
+            }
+            if (existing != null) {
+                emit(Resource.Success(existing.id))
+                return@flow
+            }
+
             val response = chatApi.initiateDM(InitiateDMRequest(contactId))
             if (response.isSuccessful && response.body() != null) {
                 val conversationId = response.body()!!.conversation_id
@@ -142,7 +162,7 @@ class ChatRepositoryImpl @Inject constructor(
                 val newChat = ChatEntity(
                     id = conversationId,
                     type = com.example.firstapp.common.model.ConversationType.DIRECT,
-                    senderName = resolvedName,
+                    senderName = resolvedName.ifBlank { contact?.displayName ?: contactId },
                     lastMessage = "",
                     timestamp = System.currentTimeMillis(),
                     unreadCount = 0,
@@ -157,6 +177,10 @@ class ChatRepositoryImpl @Inject constructor(
                     otherUserId = contactId
                 )
                 chatDao.insertChats(listOf(newChat))
+                
+                // CRITICAL: Update GlobalCallState so name appears in Calling UI immediately
+                GlobalCallState.updateContactInfo(conversationId, resolvedName, contact?.phoneNumber)
+                GlobalCallState.updateContactInfo(contactId, resolvedName, contact?.phoneNumber)
                 
                 emit(Resource.Success(conversationId))
             } else {

@@ -57,7 +57,7 @@ fun AppLogoWithText(
             modifier = Modifier
                 .width(100.dp)
                 .height(20.dp)
-                .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                .background(androidx.compose.material3.MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), CircleShape)
         )
     }
 }

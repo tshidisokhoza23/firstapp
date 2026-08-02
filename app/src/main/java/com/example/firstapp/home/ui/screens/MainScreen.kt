@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.firstapp.home.ui.viewmodel.MainViewModel
 import com.example.firstapp.ui.navigation.BottomNavItem
@@ -25,14 +26,6 @@ import com.example.firstapp.media.ui.screens.shorts.ShortsTabScreen
 import com.example.firstapp.music.ui.screens.MusicTabScreen
 import com.example.firstapp.drive.ui.screens.DriveTabScreen
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import kotlin.math.roundToInt
-
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
@@ -46,22 +39,6 @@ fun MainScreen(
     val selectedIndex by viewModel.selectedBottomItem.collectAsState()
     val currentTab = BottomNavItem.fromIndex(selectedIndex)
     val currentUser = com.example.firstapp.LocalCurrentUser.current
-
-    val density = LocalDensity.current
-    val bottomBarHeight = 80.dp // Approximate height of NavigationBar
-    val bottomBarHeightPx = with(density) { bottomBarHeight.toPx() }
-    val bottomBarOffsetHeightPx = remember { mutableFloatStateOf(0f) }
-
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val delta = available.y
-                val newOffset = bottomBarOffsetHeightPx.floatValue + delta
-                bottomBarOffsetHeightPx.floatValue = newOffset.coerceIn(-bottomBarHeightPx, 0f)
-                return Offset.Zero
-            }
-        }
-    }
 
     LaunchedEffect(Unit) {
         userViewModel.fetchCurrentUser()
@@ -113,62 +90,8 @@ fun MainScreen(
     }
 
     GlobalOverlayContainer(musicViewModel = musicViewModel) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .nestedScroll(nestedScrollConnection)
-        ) {
-            val tabToDisplay = if (selectedIndex == 5) {
-                BottomNavItem.fromIndex(lastActiveTab.intValue)
-            } else {
-                currentTab
-            }
-
-            // Crossfade provides clean UI transitions between active screens
-            Crossfade(
-                targetState = tabToDisplay, 
-                label = "TabSwitch",
-                modifier = Modifier.fillMaxSize()
-            ) { targetTab ->
-                when (targetTab) {
-                    BottomNavItem.Chat -> ChatsListScreen(
-                        navController = navController,
-                        adManager = adManager,
-                        onLogout = onLogout
-                    )
-                    BottomNavItem.Media -> MediaTabScreen(
-                        navController = navController,
-                        adManager = adManager
-                    )
-                    BottomNavItem.Shorts -> ShortsTabScreen(
-                        navController = navController,
-                        adManager = adManager,
-                        onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
-                        initialShortId = initialShortId
-                    )
-                    BottomNavItem.Music -> MusicTabScreen(
-                        navController = navController
-                    )
-                    BottomNavItem.Drive -> DriveTabScreen(
-                        navController = navController
-                    )
-                    else -> ChatsListScreen(
-                        navController = navController,
-                        adManager = adManager,
-                        onLogout = onLogout
-                    )
-                }
-            }
-
-            // Bottom Navigation Overlay
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(Color.Transparent)
-                    .offset { IntOffset(0, -bottomBarOffsetHeightPx.floatValue.roundToInt()) }
-            ) {
+        Scaffold(
+            bottomBar = {
                 MainBottomNavigation(
                     selectedRoute = currentTab.route,
                     onTabSelected = { item: BottomNavItem ->
@@ -178,20 +101,68 @@ fun MainScreen(
                         }
                     }
                 )
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                val tabToDisplay = if (selectedIndex == 5) {
+                    BottomNavItem.fromIndex(lastActiveTab.intValue)
+                } else {
+                    currentTab
+                }
 
-            // "More" Shortcuts Sheet Overlay
-            if (selectedIndex == 5) {
-                MoreShortcutsSheet(
-                    isVisible = true,
-                    onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
-                    onNavigate = { route: String ->
-                        viewModel.setSelectedBottomItem(lastActiveTab.intValue)
-                        navController.navigate(route) {
-                            launchSingleTop = true
-                        }
+                // Crossfade provides clean UI transitions between active screens
+                Crossfade(
+                    targetState = tabToDisplay, 
+                    label = "TabSwitch",
+                    modifier = Modifier.fillMaxSize()
+                ) { targetTab ->
+                    when (targetTab) {
+                        BottomNavItem.Chat -> ChatsListScreen(
+                            navController = navController,
+                            adManager = adManager,
+                            onLogout = onLogout
+                        )
+                        BottomNavItem.Media -> MediaTabScreen(
+                            navController = navController,
+                            adManager = adManager
+                        )
+                        BottomNavItem.Shorts -> ShortsTabScreen(
+                            navController = navController,
+                            adManager = adManager,
+                            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
+                            initialShortId = initialShortId
+                        )
+                        BottomNavItem.Music -> MusicTabScreen(
+                            navController = navController
+                        )
+                        BottomNavItem.Drive -> DriveTabScreen(
+                            navController = navController
+                        )
+                        else -> ChatsListScreen(
+                            navController = navController,
+                            adManager = adManager,
+                            onLogout = onLogout
+                        )
                     }
-                )
+                }
+
+                // "More" Shortcuts Sheet Overlay
+                if (selectedIndex == 5) {
+                    MoreShortcutsSheet(
+                        isVisible = true,
+                        onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
+                        onNavigate = { route: String ->
+                            viewModel.setSelectedBottomItem(lastActiveTab.intValue)
+                            navController.navigate(route) {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
             }
         }
     }
@@ -202,26 +173,39 @@ fun MainBottomNavigation(
     selectedRoute: String,
     onTabSelected: (BottomNavItem) -> Unit
 ) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        windowInsets = WindowInsets(0, 0, 0, 0)
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp
     ) {
-        for (item in BottomNavItem.items) {
-            val isSelected = selectedRoute == item.route
-            NavigationBarItem(
-                icon = { Icon(item.icon, contentDescription = item.title) },
-                label = { Text(item.title) },
-                selected = isSelected,
-                onClick = { onTabSelected(item) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                )
+        Column {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                thickness = 0.5.dp
             )
+            NavigationBar(
+                containerColor = Color.Transparent,
+                tonalElevation = 0.dp,
+                windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
+                modifier = Modifier.height(72.dp)
+            ) {
+                for (item in BottomNavItem.items) {
+                    val isSelected = selectedRoute == item.route
+                    NavigationBarItem(
+                        icon = { Icon(item.icon, contentDescription = item.title, modifier = Modifier.size(22.dp)) },
+                        label = { Text(item.title, fontSize = 10.sp) },
+                        selected = isSelected,
+                        onClick = { onTabSelected(item) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                    )
+                }
+            }
         }
     }
 }

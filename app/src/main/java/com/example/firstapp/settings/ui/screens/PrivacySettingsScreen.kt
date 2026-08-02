@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.firstapp.common.ui.theme.*
 
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.settings.ui.viewmodel.PrivacySettingsViewModel
@@ -64,18 +63,18 @@ fun PrivacySettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Privacy & Security", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Privacy & Security", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -86,8 +85,8 @@ fun PrivacySettingsScreen(
         ) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = Color.White.copy(alpha = 0.03f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     PrivacyItemUnique(title = "Blocked Users", subtitle = "Manage blocked accounts", onClick = onNavigateToBlockedUsers)
@@ -98,12 +97,12 @@ fun PrivacySettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Security", color = AppAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp, bottom = 12.dp))
+            Text("Security", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp, bottom = 12.dp))
             
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = Color.White.copy(alpha = 0.03f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     PrivacyItemUnique(title = "Passcode Lock", subtitle = "Off")
@@ -134,10 +133,10 @@ fun PrivacyItemUnique(title: String, subtitle: String, onClick: () -> Unit = {})
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = AppAccent, fontSize = 13.sp)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
         }
-        Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(alpha = 0.1f))
+        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
     }
 }
 
@@ -150,8 +149,8 @@ fun PrivacyToggleItemUnique(
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
-        color = Color.White.copy(alpha = 0.03f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
         Row(
             modifier = Modifier
@@ -160,17 +159,15 @@ fun PrivacyToggleItemUnique(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                Text(subtitle, color = AppTextSecondary, fontSize = 13.sp)
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             }
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = AppAccent,
-                    checkedTrackColor = AppAccent.copy(alpha = 0.3f),
-                    uncheckedThumbColor = Color.Gray,
-                    uncheckedTrackColor = Color.Gray.copy(alpha = 0.2f)
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                 )
             )
         }
@@ -186,7 +183,7 @@ fun PrivacyOptionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(title, color = MaterialTheme.colorScheme.onSurface) },
         text = {
             Column {
                 listOf("everyone", "my_contacts", "nobody").forEach { option ->
@@ -200,11 +197,11 @@ fun PrivacyOptionDialog(
                         RadioButton(
                             selected = currentOption == option,
                             onClick = null,
-                            colors = RadioButtonDefaults.colors(selectedColor = AppAccent)
+                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
                         )
                         Text(
                             text = option.replace("_", " ").replaceFirstChar { it.uppercase() },
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(start = 16.dp)
                         )
                     }
@@ -213,11 +210,11 @@ fun PrivacyOptionDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = AppAccent)
+                Text("Cancel", color = MaterialTheme.colorScheme.primary)
             }
         },
-        containerColor = AppSecondary,
-        titleContentColor = Color.White
+        containerColor = MaterialTheme.colorScheme.surface,
+        titleContentColor = MaterialTheme.colorScheme.onSurface
     )
 }
 

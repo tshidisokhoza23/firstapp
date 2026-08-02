@@ -50,14 +50,14 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
             .fillMaxWidth()
             .heightIn(min = 200.dp, max = 500.dp)
             .clip(shape)
-            .border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
+            .border(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), shape)
             .background(Color.Black)
     } else {
         Modifier
             .fillMaxWidth()
             .aspectRatio(1.77f)
             .clip(shape)
-            .border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
+            .border(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), shape)
             .background(Color.Black.copy(alpha = 0.2f))
     }
 
@@ -241,14 +241,14 @@ fun PollView(poll: PostPoll, onVote: (String) -> Unit) {
                     .padding(vertical = 4.dp)
                     .height(40.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                     .clickable { onVote(option.id) }
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(percentage)
-                        .background(Color.Blue.copy(alpha = 0.2f))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                 )
                 Row(
                     modifier = Modifier
@@ -257,8 +257,8 @@ fun PollView(poll: PostPoll, onVote: (String) -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(option.text, color = Color.White, fontSize = 14.sp)
-                    Text("${(percentage * 100).toInt()}%", color = Color.Gray, fontSize = 14.sp)
+                    Text(option.text, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    Text("${(percentage * 100).toInt()}%", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 }
             }
         }

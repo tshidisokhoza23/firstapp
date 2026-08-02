@@ -27,10 +27,6 @@ import androidx.compose.ui.unit.sp
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.music.model.Playlist
 import com.example.firstapp.music.ui.components.*
-import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.AppSecondary
-import com.example.firstapp.common.ui.theme.AppTextSecondary
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.common.ui.components.DataStateHandler
@@ -79,17 +75,22 @@ fun LibraryScreen(
                         Icon(Icons.Default.Add, contentDescription = "Create Playlist")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background, 
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(bottom = bottomPadding)) {
             if (selectedPlaylist == null) {
                 ScrollableTabRow(
                     selectedTabIndex = tabs.indexOf(selectedTab),
-                    containerColor = AppBackground,
-                    contentColor = AppAccent,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.primary,
                     edgePadding = 16.dp,
                     divider = {}
                 ) {
@@ -97,7 +98,13 @@ fun LibraryScreen(
                         Tab(
                             selected = selectedTab == tab,
                             onClick = { selectedTab = tab },
-                            text = { Text(tab, fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal) }
+                            text = { 
+                                Text(
+                                    tab, 
+                                    color = if (selectedTab == tab) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal
+                                ) 
+                            }
                         )
                     }
                 }
@@ -173,7 +180,7 @@ fun LibraryScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(240.dp)
-                            .background(AppSecondary),
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         val coverUrl = playlist.coverArtUrl
@@ -185,14 +192,14 @@ fun LibraryScreen(
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
                         } else {
-                            Icon(Icons.Default.MusicNote, contentDescription = null, tint = AppAccent, modifier = Modifier.size(80.dp))
+                            Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(80.dp))
                         }
                         Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
                         Column(
                             modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
                         ) {
                             Text(playlist.name, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                            Text("Playlist", color = AppTextSecondary, fontSize = 14.sp)
+                            Text("Playlist", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                         }
                     }
 

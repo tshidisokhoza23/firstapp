@@ -57,14 +57,14 @@ fun PlaylistListItem(playlist: Playlist, onClick: () -> Unit) {
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AppAccent)
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = playlist.name,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 maxLines = 1,
@@ -82,7 +82,7 @@ fun MusicSectionHeader(title: String, onSeeAll: (() -> Unit)? = null) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
         if (onSeeAll != null) {
             Text(
                 "See all",
@@ -129,7 +129,7 @@ fun SongCard(song: Song, isPlaying: Boolean = false, onClick: () -> Unit, onArti
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
                         contentDescription = null,
-                        tint = AppAccent,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(48.dp)
                     )
                 }
@@ -138,7 +138,7 @@ fun SongCard(song: Song, isPlaying: Boolean = false, onClick: () -> Unit, onArti
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = song.title,
-            color = if (isPlaying) AppAccent else Color.White,
+            color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
             maxLines = 1,
@@ -146,7 +146,7 @@ fun SongCard(song: Song, isPlaying: Boolean = false, onClick: () -> Unit, onArti
         )
         Text(
             text = song.artist,
-            color = AppTextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -191,7 +191,7 @@ fun SongListItem(
             }
             if (isPlaying) {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = AppAccent, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 }
             }
         }
@@ -199,7 +199,7 @@ fun SongListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
-                color = if (isPlaying) AppAccent else Color.White,
+                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 maxLines = 1,
@@ -207,7 +207,7 @@ fun SongListItem(
             )
             Text(
                 text = song.artist,
-                color = AppTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -216,7 +216,7 @@ fun SongListItem(
         }
         Box {
             IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More", tint = AppTextSecondary)
+                Icon(Icons.Default.MoreVert, contentDescription = "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             DropdownMenu(
                 expanded = showMenu,
@@ -267,13 +267,13 @@ fun ArtistCard(name: String, imageUrl: String?, color: Color, onClick: () -> Uni
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
+                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
             }
         }
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = name,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
             maxLines = 1,
@@ -289,13 +289,13 @@ fun ArtistListItem(name: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.Gray.copy(0.3f)),
+            modifier = Modifier.size(50.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(modifier = Modifier.width(16.dp))
-        Text(name, color = Color.White, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+        Text(name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium, fontSize = 16.sp)
     }
 }
 
@@ -335,13 +335,13 @@ fun FeaturedPlaylistCard(
                 .padding(20.dp)
         ) {
             Surface(
-                color = AppAccent,
+                color = MaterialTheme.colorScheme.primary,
                 shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 Text(
                     text = "FEATURED",
-                    color = Color.Black,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -376,7 +376,7 @@ fun AlbumCard(name: String, artist: String, color: Color) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             name,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -384,7 +384,7 @@ fun AlbumCard(name: String, artist: String, color: Color) {
         )
         Text(
             artist,
-            color = AppTextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -407,7 +407,7 @@ fun MiniPlayer(
             .height(72.dp)
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clickable { onClick() },
-        color = AppSecondary,
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(12.dp),
         shadowElevation = 8.dp
     ) {
@@ -440,7 +440,7 @@ fun MiniPlayer(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = song.title,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         maxLines = 1,
@@ -448,7 +448,7 @@ fun MiniPlayer(
                     )
                     Text(
                         text = song.artist,
-                        color = AppTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -459,7 +459,7 @@ fun MiniPlayer(
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         contentDescription = null,
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 
@@ -467,7 +467,7 @@ fun MiniPlayer(
                     Icon(
                         imageVector = Icons.Filled.SkipNext,
                         contentDescription = null,
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -475,7 +475,7 @@ fun MiniPlayer(
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(2.dp),
-                color = AppAccent,
+                color = MaterialTheme.colorScheme.primary,
                 trackColor = Color.Transparent
             )
         }

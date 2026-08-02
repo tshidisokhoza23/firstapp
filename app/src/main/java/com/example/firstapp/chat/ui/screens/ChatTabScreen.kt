@@ -96,10 +96,15 @@ fun ChatsListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var topBarHeight by remember { mutableStateOf(0.dp) }
     var isChatInitialScrollDone by remember { mutableStateOf(false) }
+    var showTopMoreSheet by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = isSearchActive) {
-        isSearchActive = false
-        searchQuery = ""
+    BackHandler(enabled = isSearchActive || showTopMoreSheet) {
+        if (isSearchActive) {
+            isSearchActive = false
+            searchQuery = ""
+        } else {
+            showTopMoreSheet = false
+        }
     }
 
     val storiesState by storyViewModel.stories.collectAsState()
@@ -121,15 +126,10 @@ fun ChatsListScreen(
     val tabs = listOf("Chats", "Rewards", "Jobs", "Channels")
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
-                    .onGloballyPositioned { coords ->
-                        topBarHeight = (coords.size.height.toFloat() / density.density).dp
-                    }
                     .zIndex(1f),
                 color = MaterialTheme.colorScheme.background,
                 tonalElevation = 8.dp,
@@ -199,87 +199,14 @@ fun ChatsListScreen(
                                 singleLine = true
                             )
                         } else {
-                            AppLogo(size = 32.dp, modifier = Modifier.clickable { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) })
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "FirstApp",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = (-0.5).sp
-                            )
                             Spacer(modifier = Modifier.weight(1f))
                             
                             IconButton(onClick = { isSearchActive = true }) { 
                                 Icon(Icons.Default.Search, contentDescription = "Search") 
                             }
                             
-                            Box {
-                                var showMenu by remember { mutableStateOf(false) }
-                                IconButton(onClick = { showMenu = true }) { 
-                                    Icon(Icons.Default.MoreVert, contentDescription = "More") 
-                                }
-                                DropdownMenu(
-                                    expanded = showMenu,
-                                    onDismissRequest = { showMenu = false },
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ) {
-                                    when (selectedTabItem) {
-                                        0 -> {
-                                            DropdownMenuItem(
-                                                text = { Text("Contacts") },
-                                                onClick = { showMenu = false; navController.navigate(Screen.ContactPicker.route) },
-                                                leadingIcon = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary) }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("New Group") },
-                                                onClick = { showMenu = false; navController.navigate(Screen.ContactPicker.createRoute(isGroupMode = true)) },
-                                                leadingIcon = { Icon(Icons.Default.GroupAdd, null, tint = MaterialTheme.colorScheme.primary) }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Starred Messages") },
-                                                onClick = { showMenu = false; navController.navigate(Screen.StarredMessages.route) },
-                                                leadingIcon = { Icon(Icons.Default.Star, null, tint = Color.Yellow) }
-                                            )
-                                        }
-                                        1 -> {
-                                            DropdownMenuItem(
-                                                text = { Text("Wallet") },
-                                                onClick = { showMenu = false; navController.navigate(Screen.Wallet.route) },
-                                                leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = Color.Green) }
-                                            )
-                                        }
-                                        2 -> {
-                                            DropdownMenuItem(
-                                                text = { Text("Job Profile") },
-                                                onClick = { showMenu = false; navController.navigate(Screen.JobProfile.route) },
-                                                leadingIcon = { Icon(Icons.Default.Work, null, tint = MaterialTheme.colorScheme.primary) }
-                                            )
-                                        }
-                                        3 -> {
-                                            DropdownMenuItem(
-                                                text = { Text("Add Channel") },
-                                                onClick = { 
-                                                    showMenu = false
-                                                    onShowMore()
-                                                },
-                                                leadingIcon = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary) }
-                                            )
-                                        }
-                                    }
-                                    
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                                    DropdownMenuItem(
-                                        text = { Text("Settings") },
-                                        onClick = { showMenu = false; navController.navigate(Screen.Settings.route) },
-                                        leadingIcon = { Icon(Icons.Default.Settings, null, tint = Color.Gray) }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Sign Out", color = MaterialTheme.colorScheme.error) },
-                                        onClick = { showMenu = false; onLogout() },
-                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) }
-                                    )
-                                }
+                            IconButton(onClick = { showTopMoreSheet = true }) { 
+                                Icon(Icons.Default.MoreVert, contentDescription = "More") 
                             }
                         }
                     }
@@ -329,7 +256,8 @@ fun ChatsListScreen(
                     onClick = { navController.navigate(Screen.ContactPicker.route) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.navigationBarsPadding()
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
                 }
@@ -338,10 +266,143 @@ fun ChatsListScreen(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
+        if (showTopMoreSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showTopMoreSheet = false },
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                    ListItem(
+                        headlineContent = { Text("View Profile", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { 
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                            ) {
+                                AsyncImage(
+                                    model = currentUser?.avatarUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                    error = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                                )
+                            }
+                        },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            navController.navigate(Screen.UserProfile.createRoute(currentUser?.id ?: ""))
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    
+                    ListItem(
+                        headlineContent = { Text("Create Post", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            // Navigate to media tab and show composer logic could be added to MainViewModel
+                            navController.navigate(Screen.Main.createRoute(tab = "media"))
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 8.dp))
+
+                    when (selectedTabItem) {
+                        0 -> {
+                            ListItem(
+                                headlineContent = { Text("Contacts", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.ContactPicker.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                            ListItem(
+                                headlineContent = { Text("New Group", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.GroupAdd, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.ContactPicker.createRoute(isGroupMode = true)) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                            ListItem(
+                                headlineContent = { Text("Starred Messages", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Star, null, tint = Color.Yellow) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.StarredMessages.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        1 -> {
+                            ListItem(
+                                headlineContent = { Text("Wallet", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.AccountBalanceWallet, null, tint = Color.Green) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.Wallet.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        2 -> {
+                            ListItem(
+                                headlineContent = { Text("Job Profile", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Work, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.JobProfile.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        3 -> {
+                            ListItem(
+                                headlineContent = { Text("Add Channel", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    onShowMore()
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                    }
+                    
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    ListItem(
+                        headlineContent = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        modifier = Modifier.clickable { 
+                            showTopMoreSheet = false
+                            navController.navigate(Screen.Settings.route) 
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Sign Out", color = MaterialTheme.colorScheme.error) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) },
+                        modifier = Modifier.clickable { 
+                            showTopMoreSheet = false
+                            onLogout() 
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding())
+                .padding(top = innerPadding.calculateTopPadding())
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 when (selectedTabItem) {
@@ -359,7 +420,7 @@ fun ChatsListScreen(
                             )
                         } else {
                             if (chatsState is Resource.Loading && sanitizedChats.isEmpty()) {
-                                LazyColumn(modifier = Modifier.fillMaxSize().padding(top = topBarHeight)) {
+                                LazyColumn(modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding())) {
                                     items(10) { ChatItemShimmer() }
                                 }
                             } else {
@@ -368,7 +429,7 @@ fun ChatsListScreen(
                                     archivedChatsCount = archivedChatsState.data?.size ?: 0,
                                     stories = storiesState.data ?: emptyList<UserStory>(),
                                     chatViewModel = chatViewModel,
-                                    topBarHeight = topBarHeight,
+                                    topBarHeight = innerPadding.calculateTopPadding(),
                                     currentUserId = currentUser?.id,
                                     initialScrollDone = isChatInitialScrollDone,
                                     onInitialScrollDone = { isChatInitialScrollDone = it },
@@ -403,7 +464,7 @@ fun ChatsListScreen(
                                             adverts = emptyList(),
                                             viewedAdverts = viewedAds,
                                             points = points,
-                                            topBarHeight = topBarHeight,
+                                            topBarHeight = innerPadding.calculateTopPadding(),
                                             onAdvertClick = { ad -> 
                                                 val activity = context as? android.app.Activity
                                                 if (activity != null) {
@@ -437,7 +498,7 @@ fun ChatsListScreen(
                                         viewedAdverts = viewedAds,
                                         points = points,
                                         hasAvailableAds = hasRewardedAds,
-                                        topBarHeight = topBarHeight,
+                                        topBarHeight = innerPadding.calculateTopPadding(),
                                         onAdvertClick = { ad -> 
                                             val activity = context as? android.app.Activity
                                             if (activity != null) {
@@ -475,7 +536,7 @@ fun ChatsListScreen(
                             )
                         } else {
                             DataStateHandler(jobsState) { jobs -> 
-                                JobList(jobs, topBarHeight = topBarHeight) { 
+                                JobList(jobs, topBarHeight = innerPadding.calculateTopPadding()) { 
                                     navController.navigate(Screen.JobDetail.createRoute(it.id)) 
                                 } 
                             }
@@ -494,7 +555,7 @@ fun ChatsListScreen(
                             )
                         } else {
                             DataStateHandler(channelsState) { channels -> 
-                                ChannelList(channels, topBarHeight = topBarHeight) { 
+                                ChannelList(channels, topBarHeight = innerPadding.calculateTopPadding()) {
                                     navController.navigate(Screen.Chat.createRoute(it.id, type = "channel"))
                                 } 
                             }
@@ -548,7 +609,7 @@ fun ChatList(
     LazyColumn(
         state = lazyListState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 90.dp)
+        contentPadding = PaddingValues(bottom = 120.dp)
     ) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         item {

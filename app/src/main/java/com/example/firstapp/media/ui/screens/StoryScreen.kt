@@ -139,6 +139,7 @@ fun StoryScreen(
 
     if (showComposer) {
         Scaffold(
+            modifier = Modifier.statusBarsPadding(),
             topBar = {
                 TopAppBar(
                     title = { Text("Text Story") },
@@ -147,7 +148,11 @@ fun StoryScreen(
                             Icon(Icons.Default.Close, contentDescription = "Close")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White)
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background, 
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
             },
             bottomBar = {
@@ -164,26 +169,42 @@ fun StoryScreen(
                         .navigationBarsPadding()
                         .imePadding()
                         .padding(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
-                    Text("Share story", color = AppBackground, fontWeight = FontWeight.Bold)
+                    Text("Share story", fontWeight = FontWeight.Bold)
                 }
             },
-            containerColor = AppBackground
+            containerColor = MaterialTheme.colorScheme.background
         ) { p ->
             Box(modifier = Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) {
                 TextField(
                     value = composerText,
                     onValueChange = { composerText = it },
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    placeholder = { Text("Type a story...", color = Color.Gray.copy(alpha = 0.5f), fontSize = 24.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
-                    textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                    placeholder = { 
+                        Text(
+                            "Type a story...", 
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), 
+                            fontSize = 24.sp, 
+                            textAlign = TextAlign.Center, 
+                            modifier = Modifier.fillMaxWidth()
+                        ) 
+                    },
+                    textStyle = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onBackground, 
+                        fontSize = 28.sp, 
+                        fontWeight = FontWeight.Bold, 
+                        textAlign = TextAlign.Center
+                    ),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = AppAccent
+                        cursorColor = MaterialTheme.colorScheme.primary
                     )
                 )
             }
@@ -225,19 +246,20 @@ fun StoryScreen(
         )
     } else {
         Scaffold(
+            modifier = Modifier.statusBarsPadding(),
             topBar = {
                 TopAppBar(
-                    title = { Text("My stories", color = AppTextPrimary, fontWeight = FontWeight.Bold) },
+                    title = { Text("My stories", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AppTextPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                         }
                     },
                     actions = {
-                        IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Default.Search, "Search", tint = AppTextPrimary) }
-                        IconButton(onClick = { showViewedFirst = !showViewedFirst }) { Icon(Icons.Default.MoreVert, "More", tint = AppTextPrimary) }
+                        IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onBackground) }
+                        IconButton(onClick = { showViewedFirst = !showViewedFirst }) { Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onBackground) }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             },
             floatingActionButton = {
@@ -247,22 +269,22 @@ fun StoryScreen(
                 ) {
                     SmallFloatingActionButton(
                         onClick = { showComposer = true },
-                        containerColor = AppSecondary,
-                        contentColor = Color.White,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 16.dp)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = "New Text Story")
                     }
                     FloatingActionButton(
                         onClick = { onNavigateToNewStory() },
-                        containerColor = AppAccent,
-                        contentColor = AppBackground
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = "New Camera Story")
                     }
                 }
             },
-            containerColor = AppBackground
+            containerColor = MaterialTheme.colorScheme.background
         ) { padding ->
             LazyColumn(
                 modifier = Modifier
@@ -287,7 +309,7 @@ fun StoryScreen(
                     Text(
                         "Story",
                         modifier = Modifier.padding(16.dp),
-                        color = AppTextPrimary,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -311,20 +333,28 @@ fun StoryScreen(
                                 modifier = Modifier
                                     .size(60.dp)
                                     .clip(CircleShape)
-                                    .background(AppSecondary),
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(36.dp))
+                                Icon(
+                                    Icons.Default.Person, 
+                                    null, 
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                    modifier = Modifier.size(36.dp)
+                                )
                                 Box(
-                                    modifier = Modifier.align(Alignment.BottomEnd).background(AppAccent, CircleShape).border(2.dp, AppBackground, CircleShape)
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                        .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
                                 ) {
-                                    Icon(Icons.Default.Add, null, tint = AppBackground, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
                                 }
                             }
                             Spacer(Modifier.width(16.dp))
                             Column {
-                                Text("My story", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Tap to add story update", color = AppTextSecondary, fontSize = 14.sp)
+                                Text("My story", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Tap to add story update", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                             }
                         }
                     }
@@ -335,7 +365,7 @@ fun StoryScreen(
                         Text(
                             "Posted stories",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = AppTextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -357,7 +387,7 @@ fun StoryScreen(
                         Text(
                             "Recent updates",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = AppTextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -387,7 +417,7 @@ fun StoryScreen(
                         Text(
                             "Viewed updates",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = AppTextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -431,20 +461,26 @@ fun StoryScreen(
     storyToMute?.let { story ->
         AlertDialog(
             onDismissRequest = { storyToMute = null },
-            containerColor = AppSecondary,
-            title = { Text(if (story.isMuted) "Unmute ${story.userName}?" else "Mute ${story.userName}?", color = Color.White) },
-            text = { Text(if (story.isMuted) "New story updates from ${story.userName} will appear in recent updates." else "New story updates from ${story.userName} won't appear under recent updates anymore.", color = AppTextSecondary) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text(if (story.isMuted) "Unmute ${story.userName}?" else "Mute ${story.userName}?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { 
+                Text(
+                    if (story.isMuted) "New story updates from ${story.userName} will appear in recent updates." 
+                    else "New story updates from ${story.userName} won't appear under recent updates anymore.", 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ) 
+            },
             confirmButton = {
                 TextButton(onClick = { 
                     onMuteStory(story.id, !story.isMuted)
                     storyToMute = null
                 }) {
-                    Text(if (story.isMuted) "UNMUTE" else "MUTE", color = AppAccent)
+                    Text(if (story.isMuted) "UNMUTE" else "MUTE", color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { storyToMute = null }) {
-                    Text("CANCEL", color = Color.White)
+                    Text("CANCEL", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -500,40 +536,40 @@ fun MyStoryListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (story.content.isNotBlank()) story.content else "Media story",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
             Text(
                 text = story.timestamp,
-                color = AppTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
         }
         
         IconButton(onClick = { showDeleteConfirm = true }) {
-            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.7f))
+            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
         }
     }
 
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = AppSecondary,
-            title = { Text("Delete story?", color = Color.White) },
-            text = { Text("This story will be deleted for everyone.", color = AppTextSecondary) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Delete story?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("This story will be deleted for everyone.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 TextButton(onClick = { 
                     onDelete()
                     showDeleteConfirm = false
                 }) {
-                    Text("DELETE", color = Color.Red)
+                    Text("DELETE", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("CANCEL", color = Color.White)
+                    Text("CANCEL", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -598,6 +634,9 @@ fun StoryListItem(
 ) {
     val totalStories = userStory.stories.size
     
+    val viewedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    val activeColor = MaterialTheme.colorScheme.primary
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -618,11 +657,7 @@ fun StoryListItem(
                         val sweepAngle = (360f / totalStories) - gapAngle
                         
                         for (i in 0 until totalStories) {
-                            val color = if (userStory.stories[i].isViewed) {
-                                AppTextSecondary.copy(alpha = 0.4f)
-                            } else {
-                                AppAccent
-                            }
+                            val color = if (userStory.stories[i].isViewed) viewedColor else activeColor
                             
                             drawArc(
                                 color = color,
@@ -667,13 +702,13 @@ fun StoryListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (isOwnStory) "My story" else userStory.userName,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = if (isOwnStory && totalStories == 0) "Tap to add story update" else userStory.lastUpdated,
-                color = AppTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
         }
