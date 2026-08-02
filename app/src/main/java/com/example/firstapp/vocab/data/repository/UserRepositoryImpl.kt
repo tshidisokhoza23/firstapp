@@ -502,6 +502,13 @@ class UserRepositoryImpl @Inject constructor(
 
     override fun requestOTP(phoneNumber: String): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
+        
+        // TEST BYPASS: Skip SMS for test numbers or numbers ending in 0000
+        if (phoneNumber.endsWith("0000") || phoneNumber == "+27710000000") {
+            emit(Resource.Success("TEST MODE: Use 123456"))
+            return@flow
+        }
+
         try {
             val response = withTimeout(15000) {
                 ApiClient.authApi.requestOTP(mapOf("phone_number" to phoneNumber))
