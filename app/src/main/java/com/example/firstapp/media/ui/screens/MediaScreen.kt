@@ -159,9 +159,11 @@ fun MediaScreen(
     val preloadedAds by mediaViewModel.preloadedAds.collectAsState()
     val adsLoaded by mediaViewModel.adsLoaded.collectAsState()
 
+    var showPostMoreOptions by remember { mutableStateOf<Post?>(null) }
+
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         androidx.activity.compose.BackHandler(
-            enabled = showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null
+            enabled = showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null || showPostMoreOptions != null
         ) {
             when {
                 isSearchActive -> {
@@ -174,6 +176,7 @@ fun MediaScreen(
                     replyingToReply = null
                 }
                 showRepostOptions != null -> showRepostOptions = null
+                showPostMoreOptions != null -> showPostMoreOptions = null
             }
         }
 
@@ -181,7 +184,7 @@ fun MediaScreen(
             Scaffold(
                 modifier = Modifier,
                 topBar = {
-                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
+                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
                         if (isSearchActive) {
                             SearchTopBar(
                                 query = searchQuery,
@@ -192,19 +195,21 @@ fun MediaScreen(
                                 }
                             )
                         } else {
-                            TopAppBar(
+                            CenterAlignedTopAppBar(
                                 title = {
                                     Text("Media", fontWeight = FontWeight.Bold)
+                                },
+                                navigationIcon = {
+                                    IconButton(onClick = { showTopMoreSheet = true }) {
+                                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                    }
                                 },
                                 actions = {
                                     IconButton(onClick = { isSearchActive = true }) {
                                         Icon(Icons.Default.Search, contentDescription = "Search")
                                     }
-                                    IconButton(onClick = { showTopMoreSheet = true }) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = "More")
-                                    }
                                 },
-                                colors = TopAppBarDefaults.topAppBarColors(
+                                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                                     containerColor = Color.Transparent,
                                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
@@ -230,6 +235,7 @@ fun MediaScreen(
                         onRepostClick = { showRepostOptions = it },
                         onBookmark = onBookmarkPost,
                         onDeletePost = onDeletePost,
+                        onMoreClick = { showPostMoreOptions = it },
                         onReplyClick = { p, r -> 
                             replyingToPost = p
                             replyingToReply = r
@@ -256,40 +262,6 @@ fun MediaScreen(
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
-                    ListItem(
-                        headlineContent = { Text("View Profile", color = MaterialTheme.colorScheme.onSurface) },
-                        leadingContent = { 
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(ownProfileAvatarColor)
-                            ) {
-                                AsyncImage(
-                                    model = com.example.firstapp.common.util.MediaUtils.formatUrl(ownProfileAvatarUrl),
-                                    contentDescription = "Profile",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                    error = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor),
-                                    fallback = androidx.compose.ui.graphics.painter.ColorPainter(ownProfileAvatarColor)
-                                )
-                            }
-                        },
-                        modifier = Modifier.clickable {
-                            showTopMoreSheet = false
-                            onProfileClick(ownProfileId)
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                    ListItem(
-                        headlineContent = { Text("Create Post", color = MaterialTheme.colorScheme.onSurface) },
-                        leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
-                        modifier = Modifier.clickable {
-                            showTopMoreSheet = false
-                            showCreatePost = true
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
                     ListItem(
                         headlineContent = { Text("Direct Messages", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Mail, null, tint = MaterialTheme.colorScheme.onSurface) },
@@ -339,6 +311,48 @@ fun MediaScreen(
             }
         }
 
+        if (showPostMoreOptions != null) {
+            val targetPost = showPostMoreOptions!!
+            val isOwnPost = targetPost.authorId == ownProfileId
+            ModalBottomSheet(
+                onDismissRequest = { showPostMoreOptions = null },
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                    ListItem(
+                        headlineContent = { Text(if (targetPost.isBookmarked) "Remove Bookmark" else "Bookmark", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(if (targetPost.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, null) },
+                        modifier = Modifier.clickable {
+                            onBookmarkPost(targetPost.id)
+                            showPostMoreOptions = null
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    
+                    if (isOwnPost) {
+                        ListItem(
+                            headlineContent = { Text("Delete Post", color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            modifier = Modifier.clickable {
+                                onDeletePost(targetPost.id)
+                                showPostMoreOptions = null
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                    } else {
+                        ListItem(
+                            headlineContent = { Text("Report Post", color = MaterialTheme.colorScheme.onSurface) },
+                            leadingContent = { Icon(Icons.Default.Report, null) },
+                            modifier = Modifier.clickable {
+                                showPostMoreOptions = null
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                    }
+                }
+            }
+        }
+
         if (showCreatePost) {
             PostComposerDialog(
                 avatarUrl = ownProfileAvatarUrl,
@@ -384,6 +398,7 @@ fun MainFeedSection(
     onRepostClick: (Post) -> Unit,
     onBookmark: (String) -> Unit,
     onDeletePost: (String) -> Unit,
+    onMoreClick: (Post) -> Unit,
     onReplyClick: (Post, Post?) -> Unit,
     onProfileClick: (String) -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
@@ -464,7 +479,7 @@ fun MainFeedSection(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             items(
                 count = posts.itemCount,
@@ -485,6 +500,7 @@ fun MainFeedSection(
                             onRepostClick = { p -> onRepostClick(p) },
                             onBookmark = { id -> onBookmark(id) },
                             onDelete = { id -> onDeletePost(id) },
+                            onMoreClick = onMoreClick,
                             onReplyClick = { p, r -> onReplyClick(p, r) },
                             onProfileClick = { id -> onProfileClick(id) },
                             onPlaySong = onPlaySong,
@@ -493,7 +509,6 @@ fun MainFeedSection(
                             onShareClick = onShareClick,
                             onFollowClick = onFollowUser
                         )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), thickness = 0.5.dp)
 
                         // REQUIREMENT: Inject 1 native ad unit every 4 content posts
                         if ((index + 1) % 4 == 0) {
@@ -513,7 +528,6 @@ fun MainFeedSection(
                                     }
                                 )
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), thickness = 0.5.dp)
                         }
                 }
             }

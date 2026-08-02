@@ -68,7 +68,7 @@ fun ArtistSongsScreen(
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 120.dp + bottomPadding)
+            contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
         ) {
             item {
                 Box(

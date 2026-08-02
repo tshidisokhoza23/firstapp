@@ -132,11 +132,11 @@ fun ChatsListScreen(
                     .fillMaxWidth()
                     .zIndex(1f),
                 color = MaterialTheme.colorScheme.background,
-                tonalElevation = 8.dp,
-                shadowElevation = 8.dp
+                tonalElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier
+                        .statusBarsPadding()
                         .background(
                             Brush.verticalGradient(
                                 listOf(
@@ -149,7 +149,7 @@ fun ChatsListScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (isSearchActive) {
@@ -199,14 +199,21 @@ fun ChatsListScreen(
                                 singleLine = true
                             )
                         } else {
-                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(onClick = { showTopMoreSheet = true }) { 
+                                Icon(Icons.Default.Menu, contentDescription = "Menu") 
+                            }
+                            
+                            Text(
+                                text = "Chats",
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Center,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
                             
                             IconButton(onClick = { isSearchActive = true }) { 
                                 Icon(Icons.Default.Search, contentDescription = "Search") 
-                            }
-                            
-                            IconButton(onClick = { showTopMoreSheet = true }) { 
-                                Icon(Icons.Default.MoreVert, contentDescription = "More") 
                             }
                         }
                     }
@@ -246,7 +253,6 @@ fun ChatsListScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         },
@@ -256,8 +262,7 @@ fun ChatsListScreen(
                     onClick = { navController.navigate(Screen.ContactPicker.route) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.navigationBarsPadding()
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
                 }
@@ -272,44 +277,6 @@ fun ChatsListScreen(
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
-                    ListItem(
-                        headlineContent = { Text("View Profile", color = MaterialTheme.colorScheme.onSurface) },
-                        leadingContent = { 
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                            ) {
-                                AsyncImage(
-                                    model = currentUser?.avatarUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                    error = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                                )
-                            }
-                        },
-                        modifier = Modifier.clickable {
-                            showTopMoreSheet = false
-                            navController.navigate(Screen.UserProfile.createRoute(currentUser?.id ?: ""))
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                    
-                    ListItem(
-                        headlineContent = { Text("Create Post", color = MaterialTheme.colorScheme.onSurface) },
-                        leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
-                        modifier = Modifier.clickable {
-                            showTopMoreSheet = false
-                            // Navigate to media tab and show composer logic could be added to MainViewModel
-                            navController.navigate(Screen.Main.createRoute(tab = "media"))
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 8.dp))
-
                     when (selectedTabItem) {
                         0 -> {
                             ListItem(
@@ -414,13 +381,11 @@ fun ChatsListScreen(
                                 type = SearchType.CHATS,
                                 onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id)) },
                                 onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
-                                onSongClick = { song, queue -> musicViewModel.playSong(song, queue) },
-                                onArtistClick = { artist -> musicViewModel.requestArtist(artist.displayName) },
                                 onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                             )
                         } else {
                             if (chatsState is Resource.Loading && sanitizedChats.isEmpty()) {
-                                LazyColumn(modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding())) {
+                                LazyColumn(modifier = Modifier.fillMaxSize()) {
                                     items(10) { ChatItemShimmer() }
                                 }
                             } else {
@@ -429,7 +394,7 @@ fun ChatsListScreen(
                                     archivedChatsCount = archivedChatsState.data?.size ?: 0,
                                     stories = storiesState.data ?: emptyList<UserStory>(),
                                     chatViewModel = chatViewModel,
-                                    topBarHeight = innerPadding.calculateTopPadding(),
+                                    topBarHeight = 0.dp, // No spacer inside list
                                     currentUserId = currentUser?.id,
                                     initialScrollDone = isChatInitialScrollDone,
                                     onInitialScrollDone = { isChatInitialScrollDone = it },
@@ -464,7 +429,7 @@ fun ChatsListScreen(
                                             adverts = emptyList(),
                                             viewedAdverts = viewedAds,
                                             points = points,
-                                            topBarHeight = innerPadding.calculateTopPadding(),
+                                            topBarHeight = 0.dp,
                                             onAdvertClick = { ad -> 
                                                 val activity = context as? android.app.Activity
                                                 if (activity != null) {
@@ -488,8 +453,7 @@ fun ChatsListScreen(
                                                     )
                                                 }
                                             },
-                                            onRefresh = { advertsViewModel.fetchAdverts() },
-                                            onResetAds = { advertsViewModel.resetAds() }
+                                            onRefresh = { advertsViewModel.fetchAdverts() }
                                         )
                                     }
                                 ) {
@@ -498,7 +462,7 @@ fun ChatsListScreen(
                                         viewedAdverts = viewedAds,
                                         points = points,
                                         hasAvailableAds = hasRewardedAds,
-                                        topBarHeight = innerPadding.calculateTopPadding(),
+                                        topBarHeight = 0.dp,
                                         onAdvertClick = { ad -> 
                                             val activity = context as? android.app.Activity
                                             if (activity != null) {
@@ -509,8 +473,7 @@ fun ChatsListScreen(
                                                 )
                                             }
                                         },
-                                        onRefresh = { advertsViewModel.fetchAdverts() },
-                                        onResetAds = { advertsViewModel.resetAds() }
+                                        onRefresh = { advertsViewModel.fetchAdverts() }
                                     )
                                 }
                             }
@@ -536,7 +499,7 @@ fun ChatsListScreen(
                             )
                         } else {
                             DataStateHandler(jobsState) { jobs -> 
-                                JobList(jobs, topBarHeight = innerPadding.calculateTopPadding()) { 
+                                JobList(jobs, topBarHeight = 0.dp) { 
                                     navController.navigate(Screen.JobDetail.createRoute(it.id)) 
                                 } 
                             }
@@ -555,7 +518,7 @@ fun ChatsListScreen(
                             )
                         } else {
                             DataStateHandler(channelsState) { channels -> 
-                                ChannelList(channels, topBarHeight = innerPadding.calculateTopPadding()) {
+                                ChannelList(channels, topBarHeight = 0.dp) {
                                     navController.navigate(Screen.Chat.createRoute(it.id, type = "channel"))
                                 } 
                             }
@@ -608,10 +571,8 @@ fun ChatList(
 
     LazyColumn(
         state = lazyListState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 120.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        item { Spacer(modifier = Modifier.height(topBarHeight)) }
         item {
             Box(
                 modifier = Modifier
@@ -680,7 +641,6 @@ fun ChatList(
                     Text(text = "Archived", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     Text(text = archivedChatsCount.toString(), color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
-                HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
             }
         }
 
@@ -714,15 +674,7 @@ fun ChatList(
                     chat = chat,
                     hasStory = hasStory,
                     allStoriesViewed = allStoriesViewed,
-                    onAvatarClick = {
-                        if (hasStory && story != null) {
-                            onStoryClick(story)
-                        } else {
-                            onAvatarClick(chat.id)
-                        }
-                    }
                 )
-                HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
             }
         }
     }
@@ -785,8 +737,6 @@ fun SearchResultsView(
     type: com.example.firstapp.search.model.SearchType = com.example.firstapp.search.model.SearchType.GLOBAL,
     onChatClick: (ChatMessage) -> Unit,
     onMessageClick: (Message) -> Unit,
-    onSongClick: (Song, List<Song>) -> Unit = { _, _ -> },
-    onArtistClick: (Contact) -> Unit = {},
     onJobClick: (Job) -> Unit = {},
     onChannelClick: (Channel) -> Unit = {},
     onContactClick: (Contact) -> Unit = {}
@@ -807,7 +757,6 @@ fun SearchResultsView(
     }
     
     val messages = results.messages
-    val songs = results.songs
     val artists = results.artists
     val jobs = results.jobs
     val channels = results.channels
@@ -825,26 +774,6 @@ fun SearchResultsView(
             items(items = contacts, key = { "contact_" + it.id }) { contactItem: Contact ->
                 Column(modifier = Modifier.clickable { onContactClick(contactItem) }) {
                     ContactSearchItem(contactItem)
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
-                }
-            }
-        }
-
-        if (showMusic && artists.size > 0) {
-            item { SearchSectionHeader("Artists") }
-            items(artists, key = { "artist_" + it.id }) { artist ->
-                Column(modifier = Modifier.clickable { onArtistClick(artist) }) {
-                    ContactSearchItem(artist)
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
-                }
-            }
-        }
-
-        if (showMusic && songs.size > 0) {
-            item { SearchSectionHeader("Songs") }
-            items(songs, key = { "song_" + it.id }) { song ->
-                Column(modifier = Modifier.clickable { onSongClick(song, songs) }) {
-                    SongSearchItem(song)
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
                 }
             }
@@ -928,30 +857,6 @@ fun MessageSearchItem(message: Message) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-        }
-    }
-}
-
-@Composable
-fun SongSearchItem(song: Song) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(song.albumArtColor),
-            contentAlignment = Alignment.Center
-        ) {
-            if (song.albumArtUrl != null) {
-                coil.compose.AsyncImage(model = song.albumArtUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            } else {
-                Icon(Icons.Default.MusicNote, null, tint = Color.White)
-            }
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column {
-            Text(song.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(song.artist, color = Color.Gray, fontSize = 14.sp)
         }
     }
 }

@@ -107,6 +107,7 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(bottom = innerPadding.calculateBottomPadding())
             ) {
                 val tabToDisplay = if (selectedIndex == 5) {
                     BottomNavItem.fromIndex(lastActiveTab.intValue)
@@ -179,15 +180,10 @@ fun MainBottomNavigation(
         tonalElevation = 0.dp
     ) {
         Column {
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                thickness = 0.5.dp
-            )
             NavigationBar(
                 containerColor = Color.Transparent,
                 tonalElevation = 0.dp,
-                windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
-                modifier = Modifier.height(72.dp)
+                windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
             ) {
                 for (item in BottomNavItem.items) {
                     val isSelected = selectedRoute == item.route

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -427,7 +428,7 @@ fun ShortItem(
                     onClick = { onBookmarkClick(short.id) }
                 )
                 ShortActionButton(
-                    icon = Icons.Default.IosShare,
+                    icon = Icons.AutoMirrored.Filled.Shortcut,
                     text = "Share",
                     onClick = {
                         val sendIntent = android.content.Intent().apply {

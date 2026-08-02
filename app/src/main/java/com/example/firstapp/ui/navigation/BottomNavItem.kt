@@ -15,7 +15,7 @@ sealed class BottomNavItem(
     object Media : BottomNavItem("media_tab", "Media", Icons.Default.PermMedia, 1)
     object Shorts : BottomNavItem("shorts_tab", "Shorts", Icons.Default.PlayArrow, 2)
     object Music : BottomNavItem("music_tab", "Music", Icons.Default.MusicNote, 3)
-    object Drive : BottomNavItem("drive_tab", "Drive", Icons.Default.CloudQueue, 4)
+    object Drive : BottomNavItem("drive_tab", "Drive", Icons.Default.DirectionsCar, 4)
     object More : BottomNavItem("more_tab", "More", Icons.Default.MoreHoriz, 5)
 
     companion object {

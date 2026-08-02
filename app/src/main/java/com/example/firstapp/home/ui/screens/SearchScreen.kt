@@ -137,7 +137,7 @@ fun SearchScreen(
             )
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(bottom = 180.dp + bottomPadding, start = 16.dp, end = 16.dp, top = 8.dp),
+                contentPadding = PaddingValues(bottom = 16.dp + bottomPadding, start = 16.dp, end = 16.dp, top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -178,7 +178,7 @@ fun SearchScreen(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             } else if (data != null) {
-                LazyColumn(contentPadding = PaddingValues(bottom = 90.dp + bottomPadding)) {
+                LazyColumn(contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)) {
                     if (data.artists.isNotEmpty()) {
                         item {
                             Text("Artists", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))

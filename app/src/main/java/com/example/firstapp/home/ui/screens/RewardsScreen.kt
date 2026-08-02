@@ -34,7 +34,6 @@ fun RewardsScreen(
     topBarHeight: androidx.compose.ui.unit.Dp = 0.dp,
     onAdvertClick: (Advert) -> Unit = { _ -> },
     onRefresh: () -> Unit = {},
-    onResetAds: () -> Unit = {},
 ) {
     var cooldownSeconds by remember { mutableIntStateOf(0) }
     
@@ -69,8 +68,6 @@ fun RewardsScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Stars, null, tint = Color.Yellow, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
                         Text(
                             text = String.format(Locale.US, "%.1f Points Available", points),
                             color = MaterialTheme.colorScheme.primary,
@@ -82,14 +79,6 @@ fun RewardsScreen(
                 IconButton(onClick = onRefresh) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
                 }
-            }
-            
-            TextButton(
-                onClick = onResetAds,
-                modifier = Modifier.padding(top = 4.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("Reset Progress (Dev)", color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f), fontSize = 12.sp)
             }
         }
 
@@ -188,7 +177,7 @@ fun RewardsScreen(
         }
         
         item {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

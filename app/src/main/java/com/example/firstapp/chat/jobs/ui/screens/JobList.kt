@@ -13,15 +13,10 @@ import com.example.firstapp.chat.jobs.ui.components.JobItem
 
 @Composable
 fun JobList(jobs: List<Job>, topBarHeight: Dp = 0.dp, onJobClick: (Job) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 90.dp)) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(jobs, key = { it.id }) { job -> 
             JobItem(job = job, onClick = { onJobClick(job) })
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp), 
-                thickness = 0.5.dp, 
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-            )
         }
     }
 }

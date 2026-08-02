@@ -13,15 +13,10 @@ import com.example.firstapp.media.ui.components.ChannelItem
 
 @Composable
 fun ChannelList(channels: List<Channel>, topBarHeight: Dp = 0.dp, onChannelClick: (Channel) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 90.dp)) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(channels, key = { it.id }) { ch -> 
             ChannelItem(channel = ch, onClick = { onChannelClick(ch) })
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 72.dp), 
-                thickness = 0.5.dp, 
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-            )
         }
     }
 }

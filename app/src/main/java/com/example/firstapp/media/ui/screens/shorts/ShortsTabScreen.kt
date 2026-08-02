@@ -105,7 +105,7 @@ fun ShortsTabScreen(
                 shorts = shortsPagingItems,
                 shortsViewModel = mediaViewModel,
                 currentUserAvatarUrl = currentUser.avatarUrl,
-                bottomPadding = 100.dp,
+                bottomPadding = 16.dp,
                 initialShortId = selectedShortId,
                 onShortDisplayed = { selectedShortId = null },
                 onShowComments = { id ->

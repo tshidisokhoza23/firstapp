@@ -55,10 +55,12 @@ class AdvertsViewModel @Inject constructor(
 
     fun initializePool(context: Context, adUnitId: String) {
         viewModelScope.launch {
-            val user = userRepository.observeCurrentUser().firstOrNull()
-            if (user != null) {
-                poolManager.initialize(context, adUnitId, user.id)
-            }
+            userRepository.observeCurrentUser()
+                .filterNotNull()
+                .first()
+                .let { user ->
+                    poolManager.initialize(context, adUnitId, user.id)
+                }
         }
     }
 

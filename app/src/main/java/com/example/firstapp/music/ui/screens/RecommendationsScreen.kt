@@ -47,7 +47,7 @@ fun RecommendationsScreen(
     
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 180.dp + bottomPadding)
+        contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
     ) {
         // ... (rest of the sections)
         // ... (Featured, Quick Picks, Artists, Trending, New Releases, Charts, Moods)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.*
@@ -56,7 +57,8 @@ fun PostItem(
     onVotePoll: (String, String) -> Unit = { _, _ -> },
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
-    onFollowClick: (String) -> Unit = {}
+    onFollowClick: (String) -> Unit = {},
+    onMoreClick: (Post) -> Unit = {}
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
         NativeAdCard(
@@ -75,7 +77,7 @@ fun PostItem(
             onRepostClick = { onRepostClick(post) },
             onShareClick = { onShareClick(post) },
             onFollowClick = { onFollowClick(displayPost.authorId) },
-            onMoreClick = { /* Handle more menu */ },
+            onMoreClick = { onMoreClick(post) },
             onProfileClick = { onProfileClick(displayPost.authorId) },
             onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
             onVotePoll = onVotePoll,
@@ -241,7 +243,7 @@ fun VerticalFeedPostCard(
             }
 
             IconButton(onClick = onMoreClick) {
-                Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -408,7 +410,7 @@ fun VerticalFeedPostCard(
 
             IconButton(onClick = onShareClick) {
                 Icon(
-                    Icons.Default.Share, 
+                    Icons.AutoMirrored.Filled.Shortcut,
                     null, 
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, 
                     modifier = Modifier.size(20.dp)
@@ -528,7 +530,7 @@ fun PostMainHeader(
             var showMenu by remember { mutableStateOf(false) }
             Box {
                 IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.MoreVert, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.MoreHoriz, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
                 }
                 DropdownMenu(
                     expanded = showMenu,
@@ -584,16 +586,9 @@ fun PostActions(
             color = if (post.isLiked) Color.Red else SecondaryText,
             onClick = { onLike(post.id, post.likes, post.isLiked) }
         )
-        Spacer(Modifier.width(8.dp))
-        InteractionIcon(
-            icon = Icons.Default.BarChart,
-            count = post.views,
-            color = SecondaryText,
-            onClick = { /* View stats */ }
-        )
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onShareClick, modifier = Modifier.size(20.dp)) {
-            Icon(Icons.Default.Share, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
+            Icon(Icons.AutoMirrored.Filled.Shortcut, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
         }
     }
 }

@@ -30,7 +30,6 @@ fun ChatItem(
     chat: ChatMessage,
     hasStory: Boolean = false,
     allStoriesViewed: Boolean = false,
-    onAvatarClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -57,8 +56,7 @@ fun ChatItem(
         }
 
         Box(
-            modifier = avatarModifier
-                .then(if (onAvatarClick != null) Modifier.clickable { onAvatarClick() } else Modifier),
+            modifier = avatarModifier,
             contentAlignment = Alignment.Center
         ) {
             Box(

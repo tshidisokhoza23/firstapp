@@ -6,7 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -17,11 +17,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoPlayer(
     videoUrl: String,
@@ -36,13 +40,18 @@ fun VideoPlayer(
     val playerInstance = remember(videoUrl) {
         val p = ExoPlayer.Builder(context).build()
         p.repeatMode = Player.REPEAT_MODE_ONE
+        p.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                .setUsage(C.USAGE_MEDIA)
+                .build(),
+            true // handleAudioFocus
+        )
         p
     }
 
-    var internalMuted by remember { mutableStateOf(isMuted) }
-    
     LaunchedEffect(videoUrl) {
-        if (videoUrl.length > 0) {
+        if (videoUrl.isNotEmpty()) {
             val mediaItem = MediaItem.fromUri(videoUrl)
             playerInstance.setMediaItem(mediaItem)
             if (initialPosition > 0) {
@@ -57,16 +66,16 @@ fun VideoPlayer(
         playerInstance.playWhenReady = isPlaying
     }
 
-    LaunchedEffect(internalMuted) {
-        playerInstance.volume = if (internalMuted) 0f else 1f
+    LaunchedEffect(isMuted) {
+        android.util.Log.d("VideoPlayer", "Setting volume to ${if (isMuted) 0f else 1f}")
+        playerInstance.volume = if (isMuted) 0f else 1f
     }
 
-    // Emit position periodically if playing
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             while (true) {
                 onPositionUpdate(playerInstance.currentPosition)
-                kotlinx.coroutines.delay(1000)
+                delay(1000)
             }
         }
     }
@@ -98,23 +107,5 @@ fun VideoPlayer(
             },
             modifier = Modifier.fillMaxSize()
         )
-
-        if (!useController) {
-            IconButton(
-                onClick = { internalMuted = !internalMuted },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(32.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-            ) {
-                Icon(
-                    imageVector = if (internalMuted) Icons.AutoMirrored.Filled.VolumeMute else Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = "Mute",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
     }
 }
