@@ -4,18 +4,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -38,16 +30,15 @@ fun VideoPlayer(
 ) {
     val context = LocalContext.current
     val playerInstance = remember(videoUrl) {
-        val p = ExoPlayer.Builder(context).build()
-        p.repeatMode = Player.REPEAT_MODE_ONE
-        p.setAudioAttributes(
-            AudioAttributes.Builder()
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_ONE
+            val audioAttributes = AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .setUsage(C.USAGE_MEDIA)
-                .build(),
-            true // handleAudioFocus
-        )
-        p
+                .build()
+            setAudioAttributes(audioAttributes, true)
+            volume = if (isMuted) 0f else 1f
+        }
     }
 
     LaunchedEffect(videoUrl) {
@@ -67,7 +58,7 @@ fun VideoPlayer(
     }
 
     LaunchedEffect(isMuted) {
-        android.util.Log.d("VideoPlayer", "Setting volume to ${if (isMuted) 0f else 1f}")
+        android.util.Log.d("VideoPlayer", "Unmuting: isMuted=$isMuted. Setting volume to ${if (isMuted) 0f else 1f}")
         playerInstance.volume = if (isMuted) 0f else 1f
     }
 

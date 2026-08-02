@@ -168,6 +168,7 @@ fun ShortItem(
     }
 
     LaunchedEffect(isMuted) {
+        android.util.Log.d("ShortItem", "Volume update: isMuted=$isMuted -> Setting volume to ${if (isMuted) 0f else 1f}")
         exoPlayer?.setVolume(if (isMuted) 0f else 1f)
     }
 
