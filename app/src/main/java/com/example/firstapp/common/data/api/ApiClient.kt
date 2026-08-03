@@ -91,8 +91,12 @@ object ApiClient {
                     return@Authenticator response.request.newBuilder()
                         .header("Authorization", "Bearer ${body.token}")
                         .build()
-                } else {
+                } else if (refreshResponse.code() == 401 || refreshResponse.code() == 403 || refreshResponse.code() == 400) {
+                    // Only clear session if the refresh token itself is rejected (401/403/400)
+                    android.util.Log.e("ApiClient", "Refresh failed with ${refreshResponse.code()}, clearing session")
                     session.clearSession()
+                } else {
+                    android.util.Log.w("ApiClient", "Refresh failed with ${refreshResponse.code()}, not clearing session")
                 }
             } catch (_: Exception) {}
 

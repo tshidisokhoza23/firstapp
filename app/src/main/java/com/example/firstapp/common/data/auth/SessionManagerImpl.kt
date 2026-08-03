@@ -47,9 +47,9 @@ class SessionManagerImpl @Inject constructor(
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
+            ).also { Log.d("SessionManager", "Successfully created EncryptedSharedPreferences") }
         } catch (e: Exception) {
-            Log.e("SessionManager", "Failed to create EncryptedSharedPreferences", e)
+            Log.e("SessionManager", "Failed to create EncryptedSharedPreferences, USING FALLBACK (unencrypted)", e)
             context.getSharedPreferences("first_app_fallback_prefs", Context.MODE_PRIVATE)
         }
     }
@@ -111,6 +111,7 @@ class SessionManagerImpl @Inject constructor(
     }
 
     override fun clearSession() {
+        Log.w("SessionManager", "Clearing session!")
         prefs.edit()
             .remove(KEY_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
@@ -118,7 +119,7 @@ class SessionManagerImpl @Inject constructor(
             .remove(KEY_PRIVATE_KEY)
             .remove(KEY_PUBLIC_KEY)
             .remove(KEY_DB_PASSPHRASE)
-            .apply()
+            .commit() // Use commit for synchronous flush
         _currentUser.value = null
         _authState.value = false
     }
@@ -139,6 +140,7 @@ class SessionManagerImpl @Inject constructor(
         var pass = prefs.getString(KEY_DB_PASSPHRASE, null)
         if (pass == null) {
             pass = UUID.randomUUID().toString()
+            Log.d("SessionManager", "Generated new DB passphrase")
             prefs.edit().putString(KEY_DB_PASSPHRASE, pass).commit()
         }
         return pass

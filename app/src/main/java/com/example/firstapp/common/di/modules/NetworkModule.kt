@@ -113,7 +113,12 @@ object NetworkModule {
                             .header("Authorization", "Bearer " + body.token)
                             .build()
                     } else {
-                        sessionManager.clearSession()
+                        if (refreshResponse.code() == 401 || refreshResponse.code() == 403 || refreshResponse.code() == 400) {
+                            android.util.Log.e("NetworkModule", "Refresh failed with ${refreshResponse.code()}, clearing session")
+                            sessionManager.clearSession()
+                        } else {
+                            android.util.Log.w("NetworkModule", "Refresh failed with ${refreshResponse.code()}, not clearing session")
+                        }
                         null
                     }
                 } catch (e: Exception) {
