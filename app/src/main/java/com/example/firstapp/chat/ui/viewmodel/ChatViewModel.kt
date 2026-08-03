@@ -184,11 +184,22 @@ class ChatViewModel @Inject constructor(
                     return@collect
                 }
                 repository.saveMessage(message.conversationId, message)
-                if (!message.isFromMe && activeChatId == message.conversationId) {
-                    markAsRead(message.conversationId)
+                
+                // Real-time update for the open chat screen
+                if (activeChatId == message.conversationId) {
+                    _uiState.update { state ->
+                        val current = state.messages.data ?: emptyList()
+                        if (current.none { it.id == message.id || (it.clientId != null && it.clientId == message.clientId) }) {
+                            state.copy(messages = Resource.Success(current + message))
+                        } else state
+                    }
+                    if (!message.isFromMe) {
+                        markAsRead(message.conversationId)
+                    }
                 } else if (!message.isFromMe) {
                     repository.incrementUnreadCount(message.conversationId)
                 }
+
                 updateChatLastMessage(message.conversationId, message)
                 fetchChats()
             }
