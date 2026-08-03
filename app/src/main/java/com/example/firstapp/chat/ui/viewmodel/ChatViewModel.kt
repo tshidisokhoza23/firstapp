@@ -255,8 +255,26 @@ class ChatViewModel @Inject constructor(
                 replyToId, replyToText, replyToSenderName
             ).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
-                    _uiState.update { it.copy(error = null) }
-                    updateChatLastMessage(chatId, resource.data)
+                    val newMsg = resource.data!!
+                    _uiState.update { state ->
+                        val currentMessages = state.messages.data ?: emptyList()
+                        // Find if we already have this message (either by ID or clientId)
+                        val existingIndex = currentMessages.indexOfFirst { 
+                            it.id == newMsg.id || (it.clientId != null && it.clientId == newMsg.clientId) 
+                        }
+                        
+                        val updatedList = if (existingIndex != -1) {
+                            currentMessages.toMutableList().apply { set(existingIndex, newMsg) }
+                        } else {
+                            currentMessages + newMsg
+                        }
+                        
+                        state.copy(
+                            messages = Resource.Success(updatedList),
+                            error = null
+                        )
+                    }
+                    updateChatLastMessage(chatId, newMsg)
                 } else if (resource is Resource.Error) {
                     val msg = resource.message.orEmpty()
                     val isClosed = msg.contains("conversation is closed", ignoreCase = true) ||

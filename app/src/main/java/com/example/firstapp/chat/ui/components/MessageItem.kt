@@ -223,18 +223,21 @@ fun MessageItemUnique(
                             val tickIcon = when (messageItem.status) {
                                 MessageStatus.READ -> Icons.Default.DoneAll
                                 MessageStatus.DELIVERED -> Icons.Default.DoneAll
-                                else -> Icons.Default.Done
+                                MessageStatus.SENT -> Icons.Default.Done
+                                MessageStatus.SENDING, MessageStatus.PENDING -> Icons.Default.AccessTime
+                                MessageStatus.FAILED -> Icons.Default.Error
                             }
-                            val tickColor = if (messageItem.status == MessageStatus.READ && showReadReceipts) {
-                                Color(0xFF1D9BF0) // Twitter-like verified blue
-                            } else {
-                                contentColor.copy(alpha = 0.4f)
+                            val tickColor = when (messageItem.status) {
+                                MessageStatus.READ -> if (showReadReceipts) Color(0xFF1D9BF0) else contentColor.copy(alpha = 0.4f)
+                                MessageStatus.FAILED -> Color.Red
+                                MessageStatus.SENDING, MessageStatus.PENDING -> contentColor.copy(alpha = 0.3f)
+                                else -> contentColor.copy(alpha = 0.4f)
                             }
                             Icon(
                                 imageVector = tickIcon,
-                                contentDescription = null,
+                                contentDescription = messageItem.status.name,
                                 tint = tickColor,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(12.dp)
                             )
                         }
                     }

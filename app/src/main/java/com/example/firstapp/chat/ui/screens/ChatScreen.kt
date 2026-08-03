@@ -268,6 +268,9 @@ fun ChatMessagesScreen(
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
+            // Mark as read if we are on the screen
+            chatViewModel.markAsRead(chat.id)
+
             val lastMsg = messages[messages.size - 1]
             val isAtBottom = messagesLazyListState.firstVisibleItemIndex >= (messages.size - 8).coerceAtLeast(0)
             
@@ -438,9 +441,18 @@ fun ChatMessagesScreen(
                                 onSend = {
                                     if (messageText.isNotBlank()) {
                                         chatViewModel.sendTyping(false)
-                                        sendToServer(body = messageText.trim(), messageType = "text")
+                                        val textToSend = messageText.trim()
                                         messageText = ""
+                                        sendToServer(body = textToSend, messageType = "text")
                                         keyboardController?.hide()
+                                        
+                                        // Standard pro app behavior: immediate scroll to bottom on send
+                                        scope.launch {
+                                            delay(100)
+                                            if (messages.isNotEmpty()) {
+                                                messagesLazyListState.animateScrollToItem(messages.size - 1)
+                                            }
+                                        }
                                     }
                                 },
                                 onAttachClick = { 

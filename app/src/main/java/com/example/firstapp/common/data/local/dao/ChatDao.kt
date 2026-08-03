@@ -87,6 +87,12 @@ interface ChatDao {
 
     @Query("SELECT conversationId FROM messages WHERE id = :messageId")
     suspend fun getChatIdForMessage(messageId: String): String?
+
+    @androidx.room.Transaction
+    suspend fun confirmSentMessage(clientId: String, serverMsg: MessageEntity) {
+        deleteMessage(clientId)
+        insertMessages(listOf(serverMsg))
+    }
     
     @Query("UPDATE chats SET isPinned = :isPinned WHERE id = :chatId")
     suspend fun updatePinned(chatId: String, isPinned: Boolean)

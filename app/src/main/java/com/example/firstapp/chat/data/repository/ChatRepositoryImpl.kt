@@ -199,7 +199,9 @@ class ChatRepositoryImpl @Inject constructor(
         if (cached.isNotEmpty()) {
             emit(Resource.Success(cached))
         } else {
-            emit(Resource.Loading())
+            // Emit success with empty list instead of loading, 
+            // so optimistic messages can be shown immediately
+            emit(Resource.Success(emptyList()))
         }
 
         // Then, try to sync from network
@@ -289,7 +291,7 @@ class ChatRepositoryImpl @Inject constructor(
             receiverId = receiverId,
             timestamp = System.currentTimeMillis(),
             isFromMe = true,
-            status = MessageStatus.PENDING,
+            status = MessageStatus.SENDING,
             clientId = clientUuid,
             type = type,
             mediaUrls = mediaUrls.map { formatUrl(it) },
@@ -304,12 +306,14 @@ class ChatRepositoryImpl @Inject constructor(
             replyToText = replyToText,
             replyToSenderName = replyToSenderName
         )
+        
+        Log.d("ChatRepositoryImpl", "sendMessage: Optimistic insert clientUuid=$clientUuid")
         chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
         chatDao.updateLastMessage(chatId, body, pendingMsg.timestamp, true, false)
         emit(Resource.Success(pendingMsg))
 
         try {
-            Log.d("ChatRepositoryImpl", "sendMessage: sending to API for chatId=$chatId")
+            Log.d("ChatRepositoryImpl", "sendMessage: calling API for clientUuid=$clientUuid")
             val response = chatApi.sendMessage(
                 conversationID = chatId,
                 request = SendMessageRequest(
@@ -325,7 +329,7 @@ class ChatRepositoryImpl @Inject constructor(
                 )
             )
             if (response.isSuccessful && response.body() != null) {
-                Log.d("ChatRepositoryImpl", "sendMessage: API success for clientUuid=$clientUuid")
+                Log.d("ChatRepositoryImpl", "sendMessage: API success for clientUuid=$clientUuid, serverId=${response.body()!!.message.id}")
                 val myUserId = sessionManager.getUserId()
                 val serverMsg = mapApiMessage(response.body()!!.message, currentUserId = myUserId).copy(
                     duration = pendingMsg.duration,
@@ -337,11 +341,11 @@ class ChatRepositoryImpl @Inject constructor(
                     contactPhone = pendingMsg.contactPhone,
                     replyToId = pendingMsg.replyToId,
                     replyToText = pendingMsg.replyToText,
-                    replyToSenderName = pendingMsg.replyToSenderName
+                    replyToSenderName = pendingMsg.replyToSenderName,
+                    timestamp = pendingMsg.timestamp 
                 )
                 dedupManager.confirmOutgoing(clientUuid)
-                chatDao.deleteMessage(clientUuid)
-                chatDao.insertMessages(listOf(serverMsg.toEntity(chatId)))
+                chatDao.confirmSentMessage(clientUuid, serverMsg.toEntity(chatId))
                 chatDao.updateLastMessage(chatId, serverMsg.content, serverMsg.timestamp, true, true)
                 emit(Resource.Success(serverMsg))
             } else {
@@ -350,27 +354,13 @@ class ChatRepositoryImpl @Inject constructor(
                 dedupManager.failOutgoing(clientUuid)
                 val failedMsg = pendingMsg.copy(status = MessageStatus.FAILED)
                 chatDao.insertMessages(listOf(failedMsg.toEntity(chatId)))
-                
-                var serverMessage = ""
-                if (errorBodyStr.isNotEmpty() && errorBodyStr.contains("\"error\"")) {
-                    try {
-                        val key = "\"error\""
-                        val idx = errorBodyStr.indexOf(key)
-                        val start = errorBodyStr.indexOf(':', idx)
-                        if (start >= 0) {
-                            serverMessage = errorBodyStr.substring(start + 1).replace("{", "").replace("}", "").trim().trim('"')
-                        }
-                    } catch (_: Exception) { }
-                }
-
-                emit(Resource.Error(serverMessage.ifBlank { "Failed to send message" }))
+                emit(Resource.Error(parseServerError(response.errorBody())))
             }
         } catch (e: Exception) {
             Log.e("ChatRepositoryImpl", "sendMessage: exception: ${e.message}", e)
             dedupManager.failOutgoing(clientUuid)
             val failedMsg = pendingMsg.copy(status = MessageStatus.FAILED)
             chatDao.insertMessages(listOf(failedMsg.toEntity(chatId)))
-            Log.e("ChatRepositoryImpl", "Send message failed", e)
             emit(Resource.Error(e.message ?: "Send message failed"))
         }
     }
