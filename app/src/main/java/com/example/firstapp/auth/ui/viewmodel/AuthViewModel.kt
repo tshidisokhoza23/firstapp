@@ -44,15 +44,8 @@ class AuthViewModel @Inject constructor(
                 if (resource is Resource.Success) {
                     val authResponse = resource.data
                     if (authResponse != null) {
-                        pendingAuthResponse = authResponse
-                        val user = authResponse.user
-                        val phoneNumber = user?.phoneNumber ?: ""
-                        if (phoneNumber.length > 0) {
-                            requestOTP(phoneNumber)
-                        } else {
-                            saveToken(authResponse)
-                            _authState.value = resource
-                        }
+                        saveToken(authResponse)
+                        _authState.value = resource
                     } else {
                         _authState.value = Resource.Error("Login failed")
                     }

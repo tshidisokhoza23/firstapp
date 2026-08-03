@@ -503,41 +503,15 @@ class UserRepositoryImpl @Inject constructor(
     override fun requestOTP(phoneNumber: String): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         
-        // TEST BYPASS: Skip SMS for test numbers or numbers ending in 0000
-        if (phoneNumber.endsWith("0000") || phoneNumber == "+27710000000") {
-            emit(Resource.Success("TEST MODE: Use 123456"))
-            return@flow
-        }
-
-        try {
-            val response = withTimeout(15000) {
-                ApiClient.authApi.requestOTP(mapOf("phone_number" to phoneNumber))
-            }
-            if (response.isSuccessful) {
-                val msg = response.body()?.code?.let { "DEBUG OTP: $it" } ?: "Verification code requested"
-                emit(Resource.Success(msg))
-            } else {
-                emit(Resource.Error("Failed to request OTP"))
-            }
-        } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
+        // GLOBAL TEST BYPASS: Skip SMS for ALL numbers
+        emit(Resource.Success("TEST MODE: OTP Disabled. Use any code."))
     }
 
     override fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         
-        // TEST BYPASS: If code is "123456", succeed immediately without network call
-        if (code == "123456") {
-            emit(Resource.Success(true))
-            return@flow
-        }
-
-        try {
-            val response = withTimeout(15000) {
-                ApiClient.authApi.verifyOTP(mapOf("phone_number" to phoneNumber, "code" to code))
-            }
-            if (response.isSuccessful) emit(Resource.Success(true))
-            else emit(Resource.Error("Invalid code"))
-        } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
+        // GLOBAL TEST BYPASS: Accept ANY code
+        emit(Resource.Success(true))
     }
 
     override fun getWorkExperiences(): Flow<Resource<List<WorkExperience>>> = flow {

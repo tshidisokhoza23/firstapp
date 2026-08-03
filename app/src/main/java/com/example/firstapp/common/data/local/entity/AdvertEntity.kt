@@ -9,7 +9,7 @@ data class AdvertEntity(
     val advertiserName: String,
     val advertiserId: String,
     val title: String,
-    val time: String,
+    val time: String?,
     val avatarUrl: String?,
     val avatarColor: Int,
     val contentUrl: String?,
