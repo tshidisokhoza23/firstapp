@@ -235,12 +235,13 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (isSystemInDarkTheme()) Color(0xFF0F0F0F) else Color(0xFFF0F2F5))
+            .background(if (isSystemInDarkTheme()) Color.Black else Color(0xFFF8F9FA))
             .verticalScroll(scrollState)
             .padding(horizontal = 32.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
+
 
         Spacer(modifier = Modifier.height(60.dp))
         
@@ -254,12 +255,13 @@ fun LoginScreen(
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Image(
-                    painter = painterResource(id = R.drawable.app_logo_transparent),
+                    painter = painterResource(id = R.drawable.app_logo_main),
                     contentDescription = "App Logo",
                     modifier = Modifier.size(90.dp)
                 )
             }
         }
+
 
 
 

@@ -20,8 +20,8 @@ fun AppLogo(
     modifier: Modifier = Modifier,
     tint: Color = Color.Unspecified
 ) {
-    // Use the transparent logo for everything to match all colors naturally
-    val logoRes = R.drawable.app_logo_transparent
+    // Use the main high-res logo for everything
+    val logoRes = R.drawable.app_logo_main
     
     Box(
         modifier = modifier.size(size),
@@ -34,6 +34,7 @@ fun AppLogo(
         )
     }
 }
+
 
 
 

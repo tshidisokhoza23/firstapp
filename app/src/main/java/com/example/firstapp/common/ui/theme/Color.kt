@@ -19,11 +19,12 @@ val LogoBlueDark = Color(0xFF003BA1)
 val LogoBlueLight = Color(0xFF00D1FF)
 
 val AppPrimary = LogoBlueDark
-val AppSecondary = Charcoal
-val AppBackground = DarkGunmetal
+val AppSecondary = Color(0xFF1C1C1E)
+val AppBackground = Color(0xFF000000) // Pure black for OLED/Premium feel
 val AppTextPrimary = SoftWhite
 val AppTextSecondary = MutedSlate
 val AppAccent = LogoBlueLight
+
 
 
 val DividerColor = Color(0xFF2F3336)
