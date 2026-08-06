@@ -81,7 +81,8 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
                 request
             )
         } catch (e: Exception) {
-            android.util.Log.e("FirstApp", "Failed to schedule sync", e)
+            android.util.Log.e("TJ", "Failed to schedule sync", e)
+
         }
     }
 }

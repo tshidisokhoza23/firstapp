@@ -484,7 +484,7 @@ class WebRtcCallManager(context: Context) {
     private fun enableProximitySensor() {
         if (proximityWakeLock == null) {
             try {
-                proximityWakeLock = powerManager.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "FirstApp:ProximityLock")
+                proximityWakeLock = powerManager.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "TJ:ProximityLock")
             } catch (_: Exception) {}
         }
         proximityWakeLock?.let {

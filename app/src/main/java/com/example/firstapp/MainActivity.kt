@@ -22,7 +22,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.firstapp.ui.navigation.AppNavigation
 import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.FirstAppTheme
+import com.example.firstapp.common.ui.theme.TJTheme
+
 import com.example.firstapp.home.ui.viewmodel.MainViewModel
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.chat.data.*
@@ -182,7 +183,8 @@ class MainActivity : FragmentActivity() {
                 onDispose { }
             }
 
-            FirstAppTheme(darkTheme = darkTheme) {
+            TJTheme(darkTheme = darkTheme) {
+
                 val navController = rememberNavController()
                 val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 val isLoggedIn by sessionManager.authState.collectAsState()

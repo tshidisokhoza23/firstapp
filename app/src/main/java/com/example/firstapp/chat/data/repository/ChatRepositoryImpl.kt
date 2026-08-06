@@ -663,8 +663,10 @@ class ChatRepositoryImpl @Inject constructor(
             }
 
             if (response.isSuccessful && response.body() != null) {
-                val apiUsers = response.body()!!.contacts
+                val apiUsers = response.body()?.let { it.contacts } ?: emptyList()
                 Log.d("ChatRepositoryImpl", "syncContacts: API returned ${apiUsers.size} registered contacts")
+
+
                 
                 // Helper to get normalized suffix
                 fun normalize(phone: String?, length: Int): String? {

@@ -24,7 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.data.*
-import com.example.firstapp.common.ui.theme.FirstAppTheme
+import com.example.firstapp.common.ui.theme.TJTheme
+
 
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -61,7 +62,8 @@ class IncomingCallActivity : ComponentActivity() {
         val callType  = if (callTypeStr == "video") CallType.VIDEO else CallType.VOICE
 
         setContent {
-            FirstAppTheme {
+            TJTheme {
+
                 val incomingCall by GlobalCallState.incomingCall.collectAsState()
                 val callerName = incomingCall?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("User ") }
                     ?: GlobalCallState.getContactName(senderId)

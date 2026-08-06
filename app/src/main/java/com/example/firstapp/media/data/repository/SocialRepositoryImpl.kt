@@ -237,7 +237,7 @@ class SocialRepositoryImpl @Inject constructor(
         try { 
             val response = socialApi.getSuggestedUsers()
             if (response.isSuccessful && response.body() != null) { 
-                val users = response.body()!!.contacts
+                val users = response.body()?.let { it.contacts } ?: emptyList()
                 val contacts = users.map { user: com.example.firstapp.common.data.api.ApiUser -> 
                     val userModel = com.example.firstapp.common.model.User(
                         id = user.id,

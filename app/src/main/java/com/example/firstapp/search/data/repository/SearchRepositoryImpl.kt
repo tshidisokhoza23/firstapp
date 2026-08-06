@@ -61,9 +61,11 @@ class SearchRepositoryImpl @Inject constructor(
                     val response = userApi.search(query, typeStr)
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
-                        val remoteUsers = body.contacts.map { 
+                        val remoteUsers = (body.contacts as List<com.example.firstapp.common.data.api.ApiUser>? ?: emptyList()).map { 
                             mapApiContact(it)
                         }
+
+
                         val allContacts = (localContacts + remoteUsers).associateBy { it.id }.values.toList()
                         emit(Resource.Success(SearchResult(
                             chats = localChats,
@@ -137,14 +139,16 @@ class SearchRepositoryImpl @Inject constructor(
                         val body = response.body()!!
                         val myUserId = sessionManager.getUserId()
                         emit(Resource.Success(SearchResult(
-                            chats = body.chats.map { mapApiChatSummary(it) },
-                            contacts = body.contacts.map { mapApiContact(it) },
-                            messages = body.messages.map { mapApiMessage(it, currentUserId = myUserId) },
-                            songs = body.songs.map { mapApiSongToModel(it) },
-                            artists = body.artists.map { mapApiContact(it) },
-                            channels = body.channels.map { mapApiChannel(it) },
-                            jobs = body.jobs.map { mapApiJob(it) }
+                            chats = (body.chats as List<com.example.firstapp.chat.data.api.ChatSummary>? ?: emptyList()).map { mapApiChatSummary(it) },
+                            contacts = (body.contacts as List<com.example.firstapp.common.data.api.ApiUser>? ?: emptyList()).map { mapApiContact(it) },
+                            messages = (body.messages as List<com.example.firstapp.chat.data.api.ApiMessage>? ?: emptyList()).map { mapApiMessage(it, currentUserId = myUserId) },
+                            songs = (body.songs as List<com.example.firstapp.music.data.api.ApiSong>? ?: emptyList()).map { mapApiSongToModel(it) },
+                            artists = (body.artists as List<com.example.firstapp.common.data.api.ApiUser>? ?: emptyList()).map { mapApiContact(it) },
+                            channels = (body.channels as List<com.example.firstapp.media.data.api.ApiChannel>? ?: emptyList()).map { mapApiChannel(it) },
+                            jobs = (body.jobs as List<com.example.firstapp.chat.jobs.data.api.ApiJob>? ?: emptyList()).map { mapApiJob(it) }
                         )))
+
+
                     }
                 } catch (_: Exception) {}
             }
