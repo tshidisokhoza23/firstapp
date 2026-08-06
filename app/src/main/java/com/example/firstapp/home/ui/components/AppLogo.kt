@@ -3,44 +3,35 @@ package com.example.firstapp.home.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppPrimary
+import com.example.firstapp.R
 
 @Composable
 fun AppLogo(
     size: Dp = 40.dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tint: Color = Color.Unspecified
 ) {
     Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(AppPrimary, AppAccent)
-                )
-            ),
+        modifier = modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Default.AutoAwesome,
+            painter = painterResource(id = R.drawable.ic_app_logo),
             contentDescription = "App Logo",
-            tint = Color.White,
-            modifier = Modifier.size(size * 0.6f)
+            tint = tint,
+            modifier = Modifier.fillMaxSize()
         )
     }
 }
+
 
 @Composable
 fun AppLogoWithText(

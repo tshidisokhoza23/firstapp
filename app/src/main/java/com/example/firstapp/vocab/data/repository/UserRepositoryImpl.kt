@@ -6,8 +6,10 @@ import com.example.firstapp.vocab.data.local.entity.LessonProgressEntity
 import com.example.firstapp.vocab.data.local.entity.UserEntity
 import com.example.firstapp.common.model.User
 import com.example.firstapp.vocab.domain.repository.UserRepository
-import com.example.firstapp.common.data.api.ApiClient
+import com.example.firstapp.common.data.api.UserApi
+import com.example.firstapp.auth.data.api.AuthApi
 import com.example.firstapp.chat.rewards.data.RewardsManager
+
 import com.example.firstapp.common.data.api.UpdateUserRequest
 import com.example.firstapp.common.data.api.ForgotPasswordRequest
 import com.example.firstapp.common.util.Resource
@@ -33,10 +35,10 @@ import javax.inject.Inject
 
 class UserRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
-    private val lessonProgressDao: LessonProgressDao
+    private val lessonProgressDao: LessonProgressDao,
+    private val apiService: UserApi,
+    private val authApi: AuthApi
 ) : UserRepository {
-
-    private val apiService = ApiClient.userApi
 
     override fun getUserData(userId: String): Flow<User?> {
         val userFlow = userDao.getUser(userId)
@@ -442,7 +444,7 @@ class UserRepositoryImpl @Inject constructor(
     override fun forgotPassword(emailOrUsername: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            val response = ApiClient.authApi.forgotPassword(ForgotPasswordRequest(emailOrUsername))
+            val response = authApi.forgotPassword(ForgotPasswordRequest(emailOrUsername))
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("User not found or request failed"))
         } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
@@ -461,11 +463,11 @@ class UserRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         try {
             val response = withTimeout(15000) {
-                ApiClient.authApi.login(com.example.firstapp.common.data.api.LoginRequest(username, password))
+                authApi.login(com.example.firstapp.common.data.api.LoginRequest(username, password))
             }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
-                auth.user?.let { syncUserLocally(it) }
+                auth.user?.let { user -> syncUserLocally(user) }
                 // Award R0.10 for logging in
                 try {
                     com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(0.10, "LOGIN", "Daily login reward")
@@ -485,11 +487,11 @@ class UserRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         try {
             val response = withTimeout(15000) {
-                ApiClient.authApi.register(com.example.firstapp.common.data.api.RegisterRequest(username, email, displayName, phoneNumber, password))
+                authApi.register(com.example.firstapp.common.data.api.RegisterRequest(username, email, displayName, phoneNumber, password))
             }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
-                auth.user?.let { syncUserLocally(it) }
+                auth.user?.let { user -> syncUserLocally(user) }
                 emit(Resource.Success(auth))
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Registration failed"

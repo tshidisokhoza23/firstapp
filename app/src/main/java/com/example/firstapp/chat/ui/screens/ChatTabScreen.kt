@@ -203,18 +203,14 @@ fun ChatsListScreen(
                                 Icon(Icons.Default.Menu, contentDescription = "Menu") 
                             }
                             
-                            Text(
-                                text = "Chats",
-                                modifier = Modifier.weight(1f),
-                                textAlign = TextAlign.Center,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
+                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                AppLogo(size = 36.dp)
+                            }
                             
                             IconButton(onClick = { isSearchActive = true }) { 
                                 Icon(Icons.Default.Search, contentDescription = "Search") 
                             }
+
                         }
                     }
                     

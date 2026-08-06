@@ -15,12 +15,16 @@ val SoftWhite = Color(0xFFF2F2F7)
 val MutedSlate = Color(0xFF8E8E93)
 
 // Brand Colors
-val AppPrimary = BoyishPurple
+val LogoBlueDark = Color(0xFF003BA1)
+val LogoBlueLight = Color(0xFF00D1FF)
+
+val AppPrimary = LogoBlueDark
 val AppSecondary = Charcoal
 val AppBackground = DarkGunmetal
 val AppTextPrimary = SoftWhite
 val AppTextSecondary = MutedSlate
-val AppAccent = NiceOrange
+val AppAccent = LogoBlueLight
+
 
 val DividerColor = Color(0xFF2F3336)
 val SecondaryText = Color(0xFF71767B)

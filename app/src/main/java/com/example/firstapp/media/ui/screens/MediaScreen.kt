@@ -43,7 +43,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.example.firstapp.common.model.User
+import com.example.firstapp.home.ui.components.AppLogo
 import java.io.File
+
 import java.io.FileOutputStream
 import kotlin.text.*
 import com.example.firstapp.media.model.*
@@ -197,9 +199,10 @@ fun MediaScreen(
                         } else {
                             CenterAlignedTopAppBar(
                                 title = {
-                                    Text("Media", fontWeight = FontWeight.Bold)
+                                    AppLogo(size = 36.dp)
                                 },
                                 navigationIcon = {
+
                                     IconButton(onClick = { showTopMoreSheet = true }) {
                                         Icon(Icons.Default.Menu, contentDescription = "Menu")
                                     }

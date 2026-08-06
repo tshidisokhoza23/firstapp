@@ -102,26 +102,30 @@ object NetworkModule {
                         .build()
                         .create(AuthApi::class.java)
 
+                    android.util.Log.d("NetworkModule", "Attempting token refresh...")
                     val refreshResponse = runBlocking {
                         authApi.refresh(com.example.firstapp.common.data.api.TokenRefreshRequest(refreshToken))
                     }
                     
                     if (refreshResponse.isSuccessful && refreshResponse.body() != null) {
                         val body = refreshResponse.body()!!
+                        android.util.Log.i("NetworkModule", "Refresh successful")
                         sessionManager.saveSession(body.token, body.refreshToken, sessionManager.currentUser.value)
                         response.request.newBuilder()
                             .header("Authorization", "Bearer " + body.token)
                             .build()
                     } else {
-                        if (refreshResponse.code() == 401 || refreshResponse.code() == 403 || refreshResponse.code() == 400) {
-                            android.util.Log.e("NetworkModule", "Refresh failed with ${refreshResponse.code()}, clearing session")
+                        val code = refreshResponse.code()
+                        if (code == 401 || code == 403 || code == 400) {
+                            android.util.Log.e("NetworkModule", "Refresh failed with $code, clearing session")
                             sessionManager.clearSession()
                         } else {
-                            android.util.Log.w("NetworkModule", "Refresh failed with ${refreshResponse.code()}, not clearing session")
+                            android.util.Log.w("NetworkModule", "Refresh failed with $code (transient?), keeping session")
                         }
                         null
                     }
                 } catch (e: Exception) {
+                    android.util.Log.e("NetworkModule", "Exception during refresh", e)
                     null
                 }
             }

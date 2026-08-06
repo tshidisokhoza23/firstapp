@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 import com.example.firstapp.vocab.domain.repository.UserRepository
+import com.example.firstapp.common.data.api.ForgotPasswordRequest
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -26,7 +27,11 @@ class AuthViewModel @Inject constructor(
     private val _authState = MutableStateFlow<Resource<AuthResponse>?>(null)
     val authState: StateFlow<Resource<AuthResponse>?> = _authState.asStateFlow()
 
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+
     private var pendingAuthResponse: AuthResponse? = null
+
 
     private val _otpState = MutableStateFlow<Resource<String>?>(null)
     val otpState: StateFlow<Resource<String>?> = _otpState.asStateFlow()
@@ -91,7 +96,29 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun forgotPassword(emailOrUsername: String) {
+        viewModelScope.launch {
+            _authState.value = Resource.Loading()
+            try {
+                val response = authApi.forgotPassword(ForgotPasswordRequest(emailOrUsername))
+                if (response.isSuccessful) {
+                    _toastMessage.value = "Reset link sent!"
+                    _authState.value = null
+                } else {
+                    _authState.value = Resource.Error("User not found or request failed")
+                }
+            } catch (e: Exception) {
+                _authState.value = Resource.Error("Connection error: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun clearToastMessage() {
+        _toastMessage.value = null
+    }
+
     fun commitLogin() {
+
         pendingAuthResponse?.let {
             saveToken(it)
             _authState.value = Resource.Success(it)

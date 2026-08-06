@@ -62,17 +62,25 @@ class SessionManagerImpl @Inject constructor(
 
     init {
         val token = getToken()
+        val refreshToken = getRefreshToken()
         val userData = prefs.getString(KEY_USER_DATA, null)
         
-        if (token != null && userData != null) {
-            try {
-                _currentUser.value = gson.fromJson(userData, User::class.java)
-                _authState.value = true
-            } catch (e: Exception) {
-                Log.e("SessionManager", "Failed to parse user data", e)
-                _authState.value = false
+        Log.d("SessionManager", "Init: token=${token?.take(10)}... refreshToken=${refreshToken?.take(10)}... hasUserData=${userData != null}")
+
+        if (token != null) {
+            // We have a token, so the user is technically authenticated.
+            // We'll try to restore the user profile if possible.
+            if (userData != null) {
+                try {
+                    _currentUser.value = gson.fromJson(userData, User::class.java)
+                    Log.i("SessionManager", "Init: Session restored for user ${_currentUser.value?.id}")
+                } catch (e: Exception) {
+                    Log.e("SessionManager", "Init: Failed to parse user data", e)
+                }
             }
+            _authState.value = true
         } else {
+            Log.w("SessionManager", "Init: No valid token found. User is logged out.")
             _authState.value = false
         }
     }
@@ -89,29 +97,33 @@ class SessionManagerImpl @Inject constructor(
     override fun isLoggedIn(): Boolean = _authState.value
 
     override fun saveSession(token: String, refreshToken: String, user: User?) {
+        Log.d("SessionManager", "saveSession: token=${token.take(10)}... hasUser=${user != null}")
         val editor = prefs.edit()
         editor.putString(KEY_TOKEN, token)
         editor.putString(KEY_REFRESH_TOKEN, refreshToken)
+        
         if (user != null) {
             editor.putString(KEY_USER_DATA, gson.toJson(user))
-            editor.commit()
             _currentUser.value = user
-            _authState.value = true
-        } else {
-            editor.remove(KEY_USER_DATA)
-            editor.commit()
-            _currentUser.value = null
-            _authState.value = false
+        }
+        
+        // We only clear authState if we are explicitly logging out (clearSession)
+        // or if we have NO token. If we have a token, we should be "logged in".
+        _authState.value = true
+        
+        if (!editor.commit()) {
+            Log.e("SessionManager", "Failed to commit session changes!")
         }
     }
 
     override fun updateCurrentUser(user: User) {
+        Log.d("SessionManager", "updateCurrentUser: ${user.id}")
         prefs.edit().putString(KEY_USER_DATA, gson.toJson(user)).apply()
         _currentUser.value = user
     }
 
     override fun clearSession() {
-        Log.w("SessionManager", "Clearing session!")
+        Log.w("SessionManager", "clearSession: Explicit logout triggered")
         prefs.edit()
             .remove(KEY_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
@@ -119,7 +131,7 @@ class SessionManagerImpl @Inject constructor(
             .remove(KEY_PRIVATE_KEY)
             .remove(KEY_PUBLIC_KEY)
             .remove(KEY_DB_PASSPHRASE)
-            .commit() // Use commit for synchronous flush
+            .commit()
         _currentUser.value = null
         _authState.value = false
     }

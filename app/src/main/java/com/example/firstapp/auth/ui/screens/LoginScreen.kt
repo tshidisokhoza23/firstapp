@@ -5,7 +5,9 @@ package com.example.firstapp.auth.ui.screens
 import kotlin.text.Regex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,13 +24,25 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.ui.text.input.VisualTransformation
+
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.painterResource
+import com.example.firstapp.R
+import com.example.firstapp.common.ui.theme.LogoBlueDark
+import com.example.firstapp.common.ui.theme.LogoBlueLight
 import android.widget.Toast
+
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
-import com.example.firstapp.common.data.api.ApiClient
 import com.example.firstapp.common.data.api.ForgotPasswordRequest
 import java.net.ConnectException
+
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlinx.coroutines.launch
@@ -202,23 +216,42 @@ fun LoginScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
-            .padding(24.dp),
+            .padding(horizontal = 32.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
+        Spacer(modifier = Modifier.height(60.dp))
+        
+        // Logo Container
+        Surface(
+            modifier = Modifier.size(100.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color(0xFFF5F5F7),
+            shadowElevation = 4.dp
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_app_logo),
+                    contentDescription = "App Logo",
+                    modifier = Modifier.size(70.dp),
+                    tint = Color.Unspecified
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
             text = if (isSignUp) "Create Account" else "Welcome Back",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
             text = if (isSignUp) "Join FirstApp today" else "Login to continue",
-            fontSize = 16.sp,
+            fontSize = 15.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.padding(top = 4.dp)
         )
         
         Spacer(modifier = Modifier.height(48.dp))
@@ -231,6 +264,7 @@ fun LoginScreen(
             )
         }
 
+        // Username Field
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = username,
@@ -240,17 +274,26 @@ fun LoginScreen(
                     viewModel.resetState()
                 },
                 label = { Text("Username") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 isError = fieldErrors.containsKey("username"),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedBorderColor = LogoBlueDark,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    focusedLabelColor = LogoBlueDark,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                    focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                 )
             )
             ValidationText(fieldErrors["username"])
@@ -259,50 +302,63 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isSignUp) {
+            // Email Field
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it; viewModel.setFieldError("email", null) },
                     label = { Text("Email Address") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     isError = fieldErrors.containsKey("email"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                        focusedBorderColor = LogoBlueDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                        focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                     )
                 )
                 ValidationText(fieldErrors["email"])
             }
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Display Name
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = { displayName = it; viewModel.setFieldError("displayName", null) },
                     label = { Text("Display Name") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Badge,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     isError = fieldErrors.containsKey("displayName"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                        focusedBorderColor = LogoBlueDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                        focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                     )
                 )
                 ValidationText(fieldErrors["displayName"])
             }
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Phone Number
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -328,17 +384,22 @@ fun LoginScreen(
                         },
                         label = { Text("Phone Number") },
                         placeholder = { Text("e.g. 812345678") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         isError = fieldErrors.containsKey("phone"),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary,
-                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                            focusedBorderColor = LogoBlueDark,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                            unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                            focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                         ),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
@@ -350,6 +411,8 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+
+        // Password Field
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = password,
@@ -359,6 +422,13 @@ fun LoginScreen(
                     viewModel.resetState()
                 },
                 label = { Text("Password") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                },
                 isError = fieldErrors.containsKey("password"),
                 visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
@@ -366,20 +436,22 @@ fun LoginScreen(
                         Icon(
                             imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedBorderColor = LogoBlueDark,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    focusedLabelColor = LogoBlueDark,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                    focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                 )
             )
             ValidationText(fieldErrors["password"])
@@ -399,20 +471,18 @@ fun LoginScreen(
                             Icon(
                                 imageVector = if (isConfirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                        focusedBorderColor = LogoBlueDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                        focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                     )
                 )
                 ValidationText(fieldErrors["confirmPassword"])
@@ -422,48 +492,72 @@ fun LoginScreen(
         if (!isSignUp) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                 TextButton(onClick = { showForgotPassword = true }) {
-                    Text("Forgot Password?", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 14.sp)
+                    Text(
+                        "Forgot Password?", 
+                        color = LogoBlueDark, 
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Gradient Login Button
+        val gradientBrush = Brush.linearGradient(
+            colors = listOf(LogoBlueDark, LogoBlueLight)
+        )
 
         Button(
             onClick = { performLogin() },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
+                .height(56.dp)
+                .background(gradientBrush, shape = RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = Color.Transparent, // Use background gradient
+                contentColor = Color.White
             ),
-            enabled = !isLoading
+            enabled = !isLoading,
+            contentPadding = PaddingValues() // Important to let gradient fill
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp), 
-                    color = MaterialTheme.colorScheme.onPrimary, 
-                    strokeWidth = 2.dp
-                )
-            } else {
-                val buttonText = if (!isSignUp) "Login" else "Send Code"
-                Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp), 
+                        color = Color.White, 
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    val buttonText = if (!isSignUp) "Login" else "Sign Up"
+                    Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        TextButton(onClick = { 
-            isSignUp = !isSignUp
-            viewModel.resetState()
-            viewModel.clearFieldErrors()
-        }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = if (isSignUp) "Already have an account? Login" else "Don't have an account? Sign Up",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold
+                text = if (isSignUp) "Already have an account? " else "Don't have an account? ",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 14.sp
+            )
+            Text(
+                text = if (isSignUp) "Login" else "Sign Up",
+                modifier = Modifier.clickable { 
+                    isSignUp = !isSignUp
+                    viewModel.resetState()
+                    viewModel.clearFieldErrors()
+                },
+                color = LogoBlueDark,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
             )
         }
 
@@ -494,14 +588,17 @@ fun LoginScreen(
                 }
             },
             confirmButton = {
+                val toastMessage by viewModel.toastMessage.collectAsState()
+                LaunchedEffect(toastMessage) {
+                    toastMessage?.let {
+                        Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                        viewModel.clearToastMessage()
+                    }
+                }
+                
                 TextButton(onClick = {
                     if (forgotPasswordId.isNotBlank()) {
-                        scope.launch {
-                            try {
-                                ApiClient.authApi.forgotPassword(ForgotPasswordRequest(forgotPasswordId))
-                                Toast.makeText(context, "Reset link sent!", Toast.LENGTH_SHORT).show()
-                            } catch (_: Exception) {}
-                        }
+                        viewModel.forgotPassword(forgotPasswordId)
                         showForgotPassword = false
                     }
                 }) {
