@@ -5,7 +5,9 @@ package com.example.firstapp.auth.ui.screens
 import kotlin.text.Regex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
+
 import androidx.compose.foundation.clickable
 
 import androidx.compose.foundation.layout.*
@@ -33,7 +35,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.shadow
 import com.example.firstapp.R
+
 import com.example.firstapp.common.ui.theme.LogoBlueDark
 import com.example.firstapp.common.ui.theme.LogoBlueLight
 import android.widget.Toast
@@ -231,30 +235,32 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (isSystemInDarkTheme()) Color(0xFF121212) else Color(0xFFF8F9FA))
+            .background(if (isSystemInDarkTheme()) Color(0xFF0F0F0F) else Color(0xFFF0F2F5))
             .verticalScroll(scrollState)
             .padding(horizontal = 32.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
+
         Spacer(modifier = Modifier.height(60.dp))
         
         // Logo Container
         Surface(
-            modifier = Modifier.size(120.dp),
+            modifier = Modifier
+                .size(120.dp)
+                .shadow(elevation = 12.dp, shape = RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
             color = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White,
-            shadowElevation = 8.dp
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
+                Image(
                     painter = painterResource(id = R.drawable.app_logo_transparent),
                     contentDescription = "App Logo",
-                    modifier = Modifier.size(90.dp),
-                    tint = Color.Unspecified
+                    modifier = Modifier.size(90.dp)
                 )
             }
         }
+
 
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -540,9 +546,10 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         // Gradient Login Button
-        val gradientBrush = Brush.linearGradient(
-            colors = listOf(LogoBlueDark, LogoBlueLight)
+        val gradientBrush = Brush.horizontalGradient(
+            colors = listOf(Color(0xFF1A237E), Color(0xFF00D1FF))
         )
+
 
         Button(
             onClick = { performLogin() },
