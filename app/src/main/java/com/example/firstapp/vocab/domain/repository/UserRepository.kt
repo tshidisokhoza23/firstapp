@@ -23,8 +23,9 @@ interface UserRepository {
     fun forgotPassword(emailOrUsername: String): Flow<Resource<Boolean>>
     fun deleteAccount(): Flow<Resource<Boolean>>
     fun login(username: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
-    fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
-    fun requestOTP(phoneNumber: String): Flow<Resource<String>>
+    fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String, countryCode: String? = null, location: String? = null): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
+    fun requestOTP(phoneNumber: String, countryCode: String? = null): Flow<Resource<String>>
+
     fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>>
 
     // Work Experience

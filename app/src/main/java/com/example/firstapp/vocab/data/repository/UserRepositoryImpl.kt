@@ -483,11 +483,11 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>> = flow {
+    override fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String, countryCode: String?, location: String?): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>> = flow {
         emit(Resource.Loading())
         try {
             val response = withTimeout(15000) {
-                authApi.register(com.example.firstapp.common.data.api.RegisterRequest(username, email, displayName, phoneNumber, password))
+                authApi.register(com.example.firstapp.common.data.api.RegisterRequest(username, email, displayName, phoneNumber, password, countryCode, location))
             }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
@@ -502,12 +502,13 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun requestOTP(phoneNumber: String): Flow<Resource<String>> = flow {
+    override fun requestOTP(phoneNumber: String, countryCode: String?): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         
         // GLOBAL TEST BYPASS: Skip SMS for ALL numbers
         emit(Resource.Success("TEST MODE: OTP Disabled. Use any code."))
     }
+
 
     override fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())

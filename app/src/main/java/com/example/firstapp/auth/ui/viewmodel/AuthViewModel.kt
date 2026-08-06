@@ -61,14 +61,15 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun requestOTP(phoneNumber: String) {
+    fun requestOTP(phoneNumber: String, countryCode: String? = null) {
         viewModelScope.launch {
             lastRequestedPhone = phoneNumber
-            userRepository.requestOTP(phoneNumber).collect { resource ->
+            userRepository.requestOTP(phoneNumber, countryCode).collect { resource ->
                 _otpState.value = resource
             }
         }
     }
+
 
     fun verifyOTP(phoneNumber: String, code: String, onVerified: () -> Unit) {
         viewModelScope.launch {
@@ -85,9 +86,9 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String) {
+    fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String, countryCode: String? = null) {
         viewModelScope.launch {
-            userRepository.register(username, email, displayName, phoneNumber, password).collect { resource ->
+            userRepository.register(username, email, displayName, phoneNumber, password, countryCode).collect { resource ->
                 if (resource is Resource.Success) {
                     saveToken(resource.data)
                 }
@@ -95,6 +96,7 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
+
 
     fun forgotPassword(emailOrUsername: String) {
         viewModelScope.launch {

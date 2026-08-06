@@ -61,9 +61,10 @@ import androidx.core.content.ContextCompat
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onNavigateToOtp: (String, String?, String?, String?, String?) -> Unit,
+    onNavigateToOtp: (String, String?, String?, String?, String?, String?) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
+
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -108,13 +109,14 @@ fun LoginScreen(
         if (otpState is Resource.Success) {
             val phone = viewModel.lastRequestedPhone
             if (isSignUp) {
-                onNavigateToOtp(phone, username.trim(), email.trim(), displayName.trim(), password)
+                onNavigateToOtp(phone, username.trim(), email.trim(), displayName.trim(), password, selectedCountry?.dialCode)
             } else {
-                onNavigateToOtp(phone, null, null, null, null)
+                onNavigateToOtp(phone, null, null, null, null, selectedCountry?.dialCode)
             }
             viewModel.resetOtpState()
         }
     }
+
 
     fun performLogin() {
         viewModel.clearFieldErrors()
@@ -211,10 +213,11 @@ fun LoginScreen(
                 if (isAvailable) {
                     val client = SmsRetriever.getClient(context)
                     client.startSmsRetriever()
-                    viewModel.requestOTP(cleanPhone)
+                    viewModel.requestOTP(cleanPhone, selectedCountry?.dialCode)
                 }
             }
         } else {
+
             if (!hasError) {
                 val client = SmsRetriever.getClient(context)
                 client.startSmsRetriever()

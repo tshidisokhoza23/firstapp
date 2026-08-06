@@ -31,10 +31,12 @@ fun OtpVerificationScreen(
     email: String? = null,
     displayName: String? = null,
     password: String? = null,
+    countryCode: String? = null,
     onVerificationSuccess: () -> Unit,
     onBack: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
+
     var otpCode by remember { mutableStateOf("") }
     val context = LocalContext.current
     val otpState by viewModel.otpState.collectAsState()
@@ -79,13 +81,14 @@ fun OtpVerificationScreen(
         if (otpCode.length == 6) {
             viewModel.verifyOTP(phoneNumber, otpCode) {
                 if (isRegistration) {
-                    viewModel.register(username!!, email ?: "", displayName ?: "", phoneNumber, password!!)
+                    viewModel.register(username!!, email ?: "", displayName ?: "", phoneNumber, password!!, countryCode)
                 } else {
                     viewModel.commitLogin()
                 }
             }
         }
     }
+
 
     LaunchedEffect(otpCode) {
         if (otpCode.length == 6) {
@@ -197,10 +200,11 @@ fun OtpVerificationScreen(
             TextButton(onClick = {
                 val client = SmsRetriever.getClient(context)
                 client.startSmsRetriever()
-                viewModel.requestOTP(phoneNumber)
+                viewModel.requestOTP(phoneNumber, countryCode)
             }) {
                 Text("Resend Code", color = MaterialTheme.colorScheme.primary)
             }
+
         }
         
         TextButton(onClick = onBack) {

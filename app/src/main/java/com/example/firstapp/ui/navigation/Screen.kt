@@ -6,10 +6,11 @@ sealed class Screen(val route: String) {
         fun createRoute(tab: String = "home", shortId: String? = null) = 
             "main?tab=$tab&shortId=${shortId ?: ""}"
     }
-    object OtpVerification : Screen("otp_verification/{phoneNumber}/{username}/{email}/{displayName}/{password}") {
-        fun createRoute(phoneNumber: String, username: String, email: String, displayName: String, password: String) = 
-            "otp_verification/${android.net.Uri.encode(phoneNumber)}/${android.net.Uri.encode(username)}/${android.net.Uri.encode(email)}/${android.net.Uri.encode(displayName)}/${android.net.Uri.encode(password)}"
+    object OtpVerification : Screen("otp_verification/{phoneNumber}/{username}/{email}/{displayName}/{password}?countryCode={countryCode}") {
+        fun createRoute(phoneNumber: String, username: String, email: String, displayName: String, password: String, countryCode: String? = null) = 
+            "otp_verification/${android.net.Uri.encode(phoneNumber)}/${android.net.Uri.encode(username)}/${android.net.Uri.encode(email)}/${android.net.Uri.encode(displayName)}/${android.net.Uri.encode(password)}?countryCode=${android.net.Uri.encode(countryCode ?: "")}"
     }
+
     object Chat : Screen("chat/{chatId}?type={type}&jobId={jobId}&jobTitle={jobTitle}&companyName={companyName}") {
         fun createRoute(chatId: String, type: String = "direct", jobId: String? = null, jobTitle: String? = null, companyName: String? = null) = 
             "chat/$chatId?type=$type&jobId=${jobId ?: ""}&jobTitle=${android.net.Uri.encode(jobTitle ?: "")}&companyName=${android.net.Uri.encode(companyName ?: "")}"

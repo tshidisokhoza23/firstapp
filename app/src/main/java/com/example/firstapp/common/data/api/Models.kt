@@ -12,7 +12,16 @@ data class ReportRequest(val reason: String)
 data class DevResetRequest(val contacts: List<com.example.firstapp.common.util.ContactUtils.ContactInfo>)
 data class DevResetResponse(val status: String, val username: String, val password: String)
 
-data class RegisterRequest(val username: String, val email: String, val display_name: String, val phone_number: String, val password: String)
+data class RegisterRequest(
+    val username: String, 
+    val email: String, 
+    val display_name: String, 
+    val phone_number: String, 
+    val password: String,
+    val country_code: String? = null,
+    val location: String? = null
+)
+
 data class LoginRequest(val username: String, val password: String)
 data class AuthResponse(
     @SerializedName("token") val token: String,
