@@ -224,20 +224,22 @@ fun LoginScreen(
         
         // Logo Container
         Surface(
-            modifier = Modifier.size(100.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color(0xFFF5F5F7),
-            shadowElevation = 4.dp
+            modifier = Modifier.size(120.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White,
+            shadowElevation = 8.dp
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                val logoRes = if (isSystemInDarkTheme()) R.drawable.app_logo_dark else R.drawable.app_logo_light
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_app_logo),
+                    painter = painterResource(id = logoRes),
                     contentDescription = "App Logo",
-                    modifier = Modifier.size(70.dp),
+                    modifier = Modifier.size(90.dp),
                     tint = Color.Unspecified
                 )
             }
         }
+
 
         Spacer(modifier = Modifier.height(32.dp))
         

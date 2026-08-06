@@ -3,6 +3,7 @@ package com.example.firstapp.home.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,18 +20,21 @@ fun AppLogo(
     modifier: Modifier = Modifier,
     tint: Color = Color.Unspecified
 ) {
+    val logoRes = if (isSystemInDarkTheme()) R.drawable.app_logo_dark else R.drawable.app_logo_light
+    
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter = painterResource(id = R.drawable.ic_app_logo),
+            painter = painterResource(id = logoRes),
             contentDescription = "App Logo",
             tint = tint,
             modifier = Modifier.fillMaxSize()
         )
     }
 }
+
 
 
 @Composable
