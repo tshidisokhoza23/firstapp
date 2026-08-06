@@ -194,7 +194,7 @@ fun ContactPickerScreen(
                                 } else {
                                     val intent = Intent(Intent.ACTION_SENDTO)
                                     intent.data = Uri.parse("smsto:${contact.phoneNumber}")
-                                    intent.putExtra("sms_body", "Join me on FirstApp! http://firstapp.com/download")
+                                    intent.putExtra("sms_body", "Join me on TJ! http://tjapp.com/download")
                                     try {
                                         context.startActivity(intent)
                                     } catch (_: Exception) {}
@@ -300,7 +300,7 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
                 onClick = {
                     val intent = Intent(Intent.ACTION_SENDTO)
                     intent.data = Uri.parse("smsto:${contact.phoneNumber}")
-                    intent.putExtra("sms_body", "Join me on FirstApp! http://firstapp.com/download")
+                    intent.putExtra("sms_body", "Join me on TJ! http://tjapp.com/download")
                     context.startActivity(intent)
                 },
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)

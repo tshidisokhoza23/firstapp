@@ -3,8 +3,9 @@ package com.example.firstapp.home.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.isSystemInDarkTheme
+
 import androidx.compose.material3.Icon
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +21,8 @@ fun AppLogo(
     modifier: Modifier = Modifier,
     tint: Color = Color.Unspecified
 ) {
-    val logoRes = if (isSystemInDarkTheme()) R.drawable.app_logo_dark else R.drawable.app_logo_light
+    // Use the transparent logo for everything to match all colors naturally
+    val logoRes = R.drawable.app_logo_transparent
     
     Box(
         modifier = modifier.size(size),
@@ -34,6 +36,7 @@ fun AppLogo(
         )
     }
 }
+
 
 
 

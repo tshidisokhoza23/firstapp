@@ -118,17 +118,28 @@ fun LoginScreen(
 
     fun performLogin() {
         viewModel.clearFieldErrors()
-        val cleanUsername = username.trim().lowercase()
+        val rawIdentity = username.trim()
         val cleanEmail = email.trim().lowercase()
         val cleanDisplayName = displayName.trim()
         val rawPhone = phoneNumber.trim()
         val cleanPassword = password
 
+        // Smart formatting for login with phone number
+        val loginIdentity = if (!isSignUp && !rawIdentity.startsWith("+") && rawIdentity.all { it.isDigit() }) {
+            val dialCode = selectedCountry?.dialCode ?: ""
+            val formatted = if (rawIdentity.startsWith("0")) rawIdentity.substring(1) else rawIdentity
+            dialCode + formatted
+        } else {
+            rawIdentity
+        }
+
         var hasError = false
-        if (cleanUsername.isBlank()) {
-            viewModel.setFieldError("username", "Username is required")
+        if (rawIdentity.isBlank()) {
+            val field = if (isSignUp) "username" else "phone"
+            viewModel.setFieldError(field, "${if (isSignUp) "Username" else "Phone number"} is required")
             hasError = true
         }
+
         
         if (cleanPassword.isBlank()) {
             viewModel.setFieldError("password", "Password is required")
@@ -136,6 +147,7 @@ fun LoginScreen(
         }
 
         if (isSignUp) {
+            val cleanUsername = loginIdentity.lowercase()
             if (cleanUsername.isBlank()) {
                 viewModel.setFieldError("username", "Username is required")
                 hasError = true
@@ -206,15 +218,17 @@ fun LoginScreen(
             if (!hasError) {
                 val client = SmsRetriever.getClient(context)
                 client.startSmsRetriever()
-                viewModel.login(cleanUsername, cleanPassword)
+                // Send the phone number in the 'username' field to the backend
+                viewModel.login(loginIdentity, cleanPassword)
             }
         }
     }
 
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(if (isSystemInDarkTheme()) Color(0xFF121212) else Color(0xFFF8F9FA))
             .verticalScroll(scrollState)
             .padding(horizontal = 32.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -230,9 +244,8 @@ fun LoginScreen(
             shadowElevation = 8.dp
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                val logoRes = if (isSystemInDarkTheme()) R.drawable.app_logo_dark else R.drawable.app_logo_light
                 Icon(
-                    painter = painterResource(id = logoRes),
+                    painter = painterResource(id = R.drawable.app_logo_transparent),
                     contentDescription = "App Logo",
                     modifier = Modifier.size(90.dp),
                     tint = Color.Unspecified
@@ -250,11 +263,19 @@ fun LoginScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = if (isSignUp) "Join FirstApp today" else "Login to continue",
+            text = if (isSignUp) "Join TJ today" else "Login to continue",
             fontSize = 15.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp)
         )
+        Text(
+            text = "by TPSK",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.padding(top = 2.dp)
+        )
+
         
         Spacer(modifier = Modifier.height(48.dp))
 
@@ -266,7 +287,7 @@ fun LoginScreen(
             )
         }
 
-        // Username Field
+        // Phone/Username Field
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = username,
@@ -275,10 +296,10 @@ fun LoginScreen(
                     viewModel.setFieldError("username", null)
                     viewModel.resetState()
                 },
-                label = { Text("Username") },
+                label = { Text(if (isSignUp) "Username" else "Phone Number") },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.Person,
+                        imageVector = if (isSignUp) Icons.Default.Person else Icons.Default.Phone,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
@@ -296,10 +317,19 @@ fun LoginScreen(
                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                     unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
                     focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
-                )
+                ),
+                keyboardOptions = if (!isSignUp) {
+                    androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                    )
+                } else {
+                    androidx.compose.foundation.text.KeyboardOptions.Default
+                }
             )
             ValidationText(fieldErrors["username"])
         }
+
+
 
         Spacer(modifier = Modifier.height(16.dp))
 

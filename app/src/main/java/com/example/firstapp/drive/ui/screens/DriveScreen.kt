@@ -324,7 +324,7 @@ fun DriveDrawerContent(
         DrawerItem(Icons.Default.Payment, "Wallet") { onShowPayment() }
         DrawerItem(Icons.Default.CardGiftcard, "Promotions") { onShowPayment() }
         DrawerItem(Icons.Default.SupportAgent, "Help Center") { onShowSupport() }
-        DrawerItem(Icons.Default.Info, "Legal") { Toast.makeText(context, "FirstApp Drive v1.2", Toast.LENGTH_SHORT).show() }
+        DrawerItem(Icons.Default.Info, "Legal") { Toast.makeText(context, "TJ Drive v1.2", Toast.LENGTH_SHORT).show() }
         
         Spacer(modifier = Modifier.weight(1f))
         
@@ -808,7 +808,7 @@ fun SafetyCenterDialog(onDismiss: () -> Unit, context: Context, viewModel: Drive
                     onClick = {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, "I am currently on a FirstApp Drive trip. My ETA is ${viewModel.remainingTime.value ?: "soon"}.")
+                            putExtra(Intent.EXTRA_TEXT, "I am currently on a TJ Drive trip. My ETA is ${viewModel.remainingTime.value ?: "soon"}.")
                         }
                         context.startActivity(Intent.createChooser(shareIntent, "Share trip"))
                     }
@@ -1708,7 +1708,7 @@ fun LiveTrackingFlow(
                         onClick = {
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "I am currently on a FirstApp Drive trip. My ETA is ${viewModel.remainingTime.value ?: "soon"}.")
+                                putExtra(Intent.EXTRA_TEXT, "I am currently on a TJ Drive trip. My ETA is ${viewModel.remainingTime.value ?: "soon"}.")
                             }
                             context.startActivity(Intent.createChooser(shareIntent, "Share trip"))
                             Toast.makeText(context, "Trip details ready to share", Toast.LENGTH_SHORT).show()

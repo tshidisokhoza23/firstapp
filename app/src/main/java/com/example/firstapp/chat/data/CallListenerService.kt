@@ -299,7 +299,7 @@ class CallListenerService : Service() {
     private fun buildOngoingNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_CALL_SERVICE)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("FirstApp call service")
+            .setContentTitle("TJ call service")
             .setContentText("Listening for incoming calls")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
