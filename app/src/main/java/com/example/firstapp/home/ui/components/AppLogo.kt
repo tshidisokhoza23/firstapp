@@ -1,11 +1,10 @@
 package com.example.firstapp.home.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+
 import androidx.compose.foundation.shape.CircleShape
-
-import androidx.compose.material3.Icon
-
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,14 +27,14 @@ fun AppLogo(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
+        Image(
             painter = painterResource(id = logoRes),
             contentDescription = "App Logo",
-            tint = tint,
             modifier = Modifier.fillMaxSize()
         )
     }
 }
+
 
 
 
