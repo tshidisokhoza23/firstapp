@@ -66,6 +66,9 @@ fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewMode
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -116,6 +119,8 @@ fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewMode
                     colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                 )
             }
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 

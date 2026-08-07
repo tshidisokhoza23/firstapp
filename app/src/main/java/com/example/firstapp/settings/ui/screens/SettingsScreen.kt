@@ -87,6 +87,9 @@ fun SettingsScreen(
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -271,6 +274,8 @@ fun SettingsScreen(
                 Text("FIRSTAPP ECOSYSTEM", color = MaterialTheme.colorScheme.onBackground.copy(0.2f), fontSize = 10.sp, letterSpacing = 4.sp)
                 Text("v1.0.6-unique", color = MaterialTheme.colorScheme.onBackground.copy(0.1f), fontSize = 10.sp)
             }
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 

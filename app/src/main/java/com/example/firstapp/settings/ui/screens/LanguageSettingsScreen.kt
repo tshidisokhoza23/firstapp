@@ -55,6 +55,9 @@ fun LanguageSettingsScreen(
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = AppBackground
     ) { padding ->
         Column(
@@ -68,6 +71,8 @@ fun LanguageSettingsScreen(
                     viewModel.setSelectedLanguage(name)
                 }
             }
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }

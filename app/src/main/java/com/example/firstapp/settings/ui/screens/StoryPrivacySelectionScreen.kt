@@ -76,6 +76,9 @@ fun StoryPrivacySelectionScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -103,6 +106,10 @@ fun StoryPrivacySelectionScreen(
                             }
                         }
                     )
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(100.dp))
                 }
             }
         }

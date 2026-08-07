@@ -49,6 +49,9 @@ fun DevicesScreen(
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = AppBackground
     ) { padding ->
         Column(
@@ -114,6 +117,8 @@ fun DevicesScreen(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }

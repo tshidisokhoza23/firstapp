@@ -42,6 +42,9 @@ fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel =
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { /* Show contact picker to block */ },
@@ -62,6 +65,10 @@ fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel =
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
                 items(blockedUsers) { user ->
                     BlockedUserItem(user) { viewModel.unblockUser(user.id) }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(100.dp))
                 }
             }
         }

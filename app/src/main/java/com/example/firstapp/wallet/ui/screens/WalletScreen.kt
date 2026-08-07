@@ -45,6 +45,9 @@ fun WalletScreen(
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
@@ -174,6 +177,10 @@ fun WalletScreen(
             }
             item {
                 RewardBenefitItem("Donate", "Convert points to real currency for charities.", Icons.Default.Favorite)
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
     }

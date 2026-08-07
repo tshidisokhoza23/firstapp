@@ -93,6 +93,9 @@ fun PrivacySettingsScreen(
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -138,6 +141,8 @@ fun PrivacySettingsScreen(
                 checked = settings.show_read_receipts,
                 onCheckedChange = { viewModel.updateSettings(settings.copy(show_read_receipts = it)) }
             )
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }

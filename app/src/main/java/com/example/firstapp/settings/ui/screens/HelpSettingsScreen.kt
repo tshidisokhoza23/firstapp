@@ -75,6 +75,9 @@ fun HelpSettingsScreen(
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -87,6 +90,8 @@ fun HelpSettingsScreen(
             HelpItem(Icons.Default.Group, "Contact us", "Questions? Need help?")
             HelpItem(Icons.Default.Description, "Terms and Privacy Policy", "")
             HelpItem(Icons.Default.Info, "App info", "Version $appVersion", onClick = onAppInfoClick)
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }

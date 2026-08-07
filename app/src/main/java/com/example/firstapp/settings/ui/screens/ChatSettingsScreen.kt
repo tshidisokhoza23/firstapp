@@ -42,6 +42,9 @@ fun ChatSettingsScreen(onBack: () -> Unit, viewModel: ChatSettingsViewModel = hi
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background, titleContentColor = MaterialTheme.colorScheme.onBackground)
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -126,6 +129,8 @@ fun ChatSettingsScreen(onBack: () -> Unit, viewModel: ChatSettingsViewModel = hi
                 Spacer(Modifier.width(8.dp))
                 Text("Clear all chats", fontWeight = FontWeight.Bold)
             }
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }

@@ -50,6 +50,9 @@ fun StorageSettingsScreen(
                 )
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -103,6 +106,8 @@ fun StorageSettingsScreen(
                     StorageSwitchItemUnique("Smart Streaming", "Bandwidth optimization", streamingVideos) { viewModel.setStreamingVideos(it) }
                 }
             }
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }

@@ -42,6 +42,9 @@ fun NotificationSettingsScreen(onBack: () -> Unit, viewModel: NotificationSettin
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White)
             )
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView()
+        },
         containerColor = AppBackground
     ) { padding ->
         Column(
@@ -75,6 +78,8 @@ fun NotificationSettingsScreen(onBack: () -> Unit, viewModel: NotificationSettin
             NotificationSwitch("Notification Sounds", "Play sounds for incoming messages", soundsEnabled) { viewModel.setSoundsEnabled(it) }
             NotificationSwitch("Vibrate", "Vibrate for incoming messages", vibrateEnabled) { viewModel.setVibrateEnabled(it) }
             NotificationSwitch("Message Previews", "Show preview text in notifications", previewsEnabled) { viewModel.setPreviewsEnabled(it) }
+
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
