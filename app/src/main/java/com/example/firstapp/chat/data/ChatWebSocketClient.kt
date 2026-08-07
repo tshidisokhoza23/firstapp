@@ -12,6 +12,7 @@ import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import okhttp3.OkHttpClient
@@ -67,12 +68,12 @@ class ChatWebSocketClient @Inject constructor(
         webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 reconnectAttempts = 0
-                Log.d("ChatWS", "Connected")
+                Log.d("ChatWS", "Connected to Chat WebSocket")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
-                    Log.d("ChatWS", "Received raw: " + text)
+                    Log.d("ChatWS", "Received Chat WS message: $text")
                     val frame = gson.fromJson(text, WSFrame::class.java)
                     _eventFlow.tryEmit(frame)
 
@@ -83,7 +84,9 @@ class ChatWebSocketClient @Inject constructor(
                                 val apiMsg = gson.fromJson(payload, ApiMessage::class.java)
                                 val privKey = sessionManager.getPrivateKey()
                                 val myUserId = sessionManager.getUserId()
-                                _messageFlow.tryEmit(mapApiMessage(apiMsg, privKey, myUserId))
+                                val message = mapApiMessage(apiMsg, privKey, myUserId)
+                                Log.d("ChatWS", "Decoded message: ${message.content}")
+                                _messageFlow.tryEmit(message)
                             } catch (e: Exception) {
                                 Log.e("ChatWS", "Failed to parse INCOMING_MSG payload", e)
                             }
@@ -95,14 +98,22 @@ class ChatWebSocketClient @Inject constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("ChatWS", "Failure code=" + response?.code + ": " + t.message, t)
+                Log.e("ChatWS", "Chat WS Failure code=${response?.code}: ${t.message}", t)
                 this@ChatWebSocketClient.webSocket = null
-                if (response?.code == 401 && reconnectAttempts < 1) {
-                    reconnectAttempts++
+                
+                // Exponential backoff for reconnection
+                if (reconnectAttempts < 5) {
+                    val delayMs = (2000 * Math.pow(2.0, reconnectAttempts.toDouble())).toLong()
+                    scope.launch {
+                        delay(delayMs)
+                        reconnectAttempts++
+                        connect()
+                    }
                 }
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                Log.d("ChatWS", "Closing Chat WS: $reason")
                 webSocket.close(1000, null)
                 this@ChatWebSocketClient.webSocket = null
             }

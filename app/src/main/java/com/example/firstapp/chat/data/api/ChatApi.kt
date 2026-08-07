@@ -70,7 +70,7 @@ data class ApiMessage(
     val receiver_id: String? = null,
     val message_text: String,
     val media_type: String,
-    val media_urls: List<String>,
+    val media_urls: List<String>? = null,
     val duration: String? = null,
     val file_name: String? = null,
     val file_size: String? = null,

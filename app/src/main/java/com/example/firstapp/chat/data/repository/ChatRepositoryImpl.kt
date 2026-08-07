@@ -213,6 +213,14 @@ class ChatRepositoryImpl @Inject constructor(
                 val myUserId = sessionManager.getUserId()
                 val messages = apiMessages.map { am: com.example.firstapp.chat.data.api.ApiMessage -> mapApiMessage(am, privKey, myUserId) }
                 
+                // Cleanup logic: If we have local messages that match the client_uuid of incoming server messages,
+                // we must delete the local (pending) one to avoid duplicates in the UI.
+                messages.forEach { msg ->
+                    if (msg.clientId != null && msg.id != msg.clientId) {
+                        chatDao.deleteMessage(msg.clientId!!)
+                    }
+                }
+
                 // Insert new messages into the database
                 chatDao.insertMessages(messages.map { m: Message -> m.toEntity(chatId) })
                 

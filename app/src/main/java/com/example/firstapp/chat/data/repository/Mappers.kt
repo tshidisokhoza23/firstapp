@@ -112,7 +112,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
             "job_post" -> MessageType.JOB_POST
             else -> MessageType.TEXT
         },
-        mediaUrls = apiMessage.media_urls.map { formatUrl(it) },
+        mediaUrls = apiMessage.media_urls?.map { formatUrl(it) } ?: emptyList(),
         isRead = false,
         isDelivered = true,
         status = MessageStatus.SENT,

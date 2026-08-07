@@ -36,7 +36,8 @@ class ChatViewModel @Inject constructor(
     private val webRtcCallManager: WebRtcCallManager,
     private val callTonePlayer: CallTonePlayer,
     private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient,
-    private val callWebSocketClient: CallWebSocketClient
+    private val callWebSocketClient: CallWebSocketClient,
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -76,7 +77,17 @@ class ChatViewModel @Inject constructor(
     init {
         handleIntent(ChatIntent.FetchChats)
         fetchCurrentUser()
-        connectChatRealtime()
+        
+        // Connect and observe auth state for reconnection
+        viewModelScope.launch {
+            sessionManager.authState.collect { isLoggedIn ->
+                if (isLoggedIn) {
+                    connectChatRealtime()
+                } else {
+                    chatWebSocketClient.disconnect()
+                }
+            }
+        }
     }
 
     private fun fetchCurrentUser() {
@@ -184,24 +195,12 @@ class ChatViewModel @Inject constructor(
                 if (!shouldProcess) {
                     return@collect
                 }
+                
+                // SAVE TO DB: This triggers the Room Flow in getMessages(chatId) 
+                // which automatically updates the UI messages list.
                 repository.saveMessage(message.conversationId, message)
                 
-                // Real-time update for the open chat screen
                 if (activeChatId == message.conversationId) {
-                    _uiState.update { state ->
-                        val current = state.messages.data ?: emptyList()
-                        // Ensure no duplicates by ID or ClientID
-                        if (current.none { it.id == message.id || (it.clientId != null && it.clientId == message.clientId) }) {
-                            val newList = (current + message).sortedBy { it.timestamp }
-                            state.copy(messages = Resource.Success(newList))
-                        } else {
-                            // If it exists, update it (might have changed status or content)
-                            val updatedList = current.map { 
-                                if (it.id == message.id || (it.clientId != null && it.clientId == message.clientId)) message else it 
-                            }
-                            state.copy(messages = Resource.Success(updatedList))
-                        }
-                    }
                     if (!message.isFromMe) {
                         markAsRead(message.conversationId)
                     }

@@ -238,7 +238,7 @@ private fun CallControls(
         IconButton(
             onClick = { 
                 muted = !muted
-                onMuteToggle(muted)
+                onMuteToggle(!muted)
             },
             modifier = Modifier
                 .size(56.dp)

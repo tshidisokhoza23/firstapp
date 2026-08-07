@@ -97,7 +97,7 @@ fun ChatMessageList(
                 
                 items(
                     items = dayMessages,
-                    key = { it.clientId ?: it.id }
+                    key = { it.id }
                 ) { m: Message ->
                     val isSelected = selectedMessages.contains(m.id)
                     

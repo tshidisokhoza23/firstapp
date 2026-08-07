@@ -357,6 +357,7 @@ class WebRtcCallManager(context: Context) {
 
     fun setMicEnabled(enabled: Boolean) {
         localAudioTrack?.setEnabled(enabled)
+        localAudioTrack?.setVolume(if (enabled) 1.0 else 0.0)
         audioManager.isMicrophoneMute = !enabled
     }
 
