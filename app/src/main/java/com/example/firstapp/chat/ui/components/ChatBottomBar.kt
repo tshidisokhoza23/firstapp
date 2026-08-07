@@ -31,12 +31,13 @@ fun ChatBottomBarUnique(
     onEmojiClick: () -> Unit,
     onCameraClick: () -> Unit,
     onMicClick: () -> Unit,
+    modifier: Modifier = Modifier,
     isRecording: Boolean = false,
     recordingDuration: Int = 0,
     enterIsSend: Boolean = false
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(start = 8.dp, end = 8.dp, bottom = 12.dp, top = 8.dp),
         verticalAlignment = Alignment.Bottom

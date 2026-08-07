@@ -46,7 +46,9 @@ fun WalletScreen(
             )
         },
         bottomBar = {
-            com.example.firstapp.media.ui.components.BannerAdView()
+            com.example.firstapp.media.ui.components.BannerAdView(
+                modifier = Modifier.navigationBarsPadding()
+            )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->

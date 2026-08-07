@@ -417,7 +417,9 @@ fun ChatMessagesScreen(
                         
                         // Banner Ad (at the bottom of Jobs or Channel chats)
                         if (jobId != null || chat.type == ConversationType.CHANNEL) {
-                            com.example.firstapp.media.ui.components.BannerAdView()
+                            com.example.firstapp.media.ui.components.BannerAdView(
+                                modifier = Modifier.navigationBarsPadding()
+                            )
                         }
 
                         if (chat.isTyping) {
@@ -512,7 +514,8 @@ fun ChatMessagesScreen(
                                 onMicClick = { if (isRecording) stopRecording() else startRecording() },
                                 isRecording = isRecording,
                                 recordingDuration = recordingDurationSeconds,
-                                enterIsSend = enterIsSend
+                                enterIsSend = enterIsSend,
+                                modifier = Modifier.navigationBarsPadding()
                             )
                         } else {
                             Surface(

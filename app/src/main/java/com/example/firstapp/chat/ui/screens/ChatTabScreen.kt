@@ -472,7 +472,9 @@ fun ChatsListScreen(
                             }
                             
                             // Banner Ad only on Rewards tab
-                            BannerAdView()
+                            BannerAdView(
+                                modifier = Modifier.navigationBarsPadding()
+                            )
                         }
                     }
                     2 -> {
@@ -496,7 +498,9 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            BannerAdView()
+                            BannerAdView(
+                                modifier = Modifier.navigationBarsPadding()
+                            )
                         }
                     }
                     3 -> {
@@ -520,7 +524,9 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            BannerAdView()
+                            BannerAdView(
+                                modifier = Modifier.navigationBarsPadding()
+                            )
                         }
                     }
                 }

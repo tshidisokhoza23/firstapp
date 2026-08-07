@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.navigationBarsPadding
 import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.common.util.formatPostedTime
 
@@ -60,7 +61,9 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
         },
         bottomBar = {
             // Sticky Banner Ad at the bottom
-            com.example.firstapp.media.ui.components.BannerAdView()
+            com.example.firstapp.media.ui.components.BannerAdView(
+                modifier = Modifier.navigationBarsPadding()
+            )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->

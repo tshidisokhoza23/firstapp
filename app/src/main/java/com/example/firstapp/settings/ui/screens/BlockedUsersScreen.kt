@@ -43,7 +43,9 @@ fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel =
             )
         },
         bottomBar = {
-            com.example.firstapp.media.ui.components.BannerAdView()
+            com.example.firstapp.media.ui.components.BannerAdView(
+                modifier = Modifier.navigationBarsPadding()
+            )
         },
         floatingActionButton = {
             FloatingActionButton(
