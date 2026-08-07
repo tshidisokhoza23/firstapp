@@ -25,6 +25,7 @@ import kotlin.collections.emptyList
 import kotlin.collections.listOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map as flowMap
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -182,12 +183,15 @@ class ChatViewModel @Inject constructor(
         
         messagesFetchJob?.cancel()
         messagesFetchJob = viewModelScope.launch {
-            // Only show loading if we don't have messages for this chat yet
-            if (activeChatId != chatId || _uiState.value.messages.data.isNullOrEmpty()) {
+            // Check cache FIRST manually to avoid "No Messages" flicker
+            val cached = repository.getMessages(chatId).first()
+            if (cached is Resource.Success && cached.data?.isNotEmpty() == true) {
+                _uiState.update { it.copy(messages = cached) }
+            } else {
                 _uiState.update { it.copy(messages = Resource.Loading()) }
             }
             
-            // Collect from repository
+            // Collect flow for real-time updates from Room
             repository.getMessages(chatId).collect { resource ->
                 _uiState.update { it.copy(messages = resource) }
             }

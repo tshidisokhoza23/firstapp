@@ -498,41 +498,14 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) {
-         val existing = chatDao.getChatById(chatId).first()
+        val existing = chatDao.getChatById(chatId).first()
         if (existing == null) {
-            // If the chat doesn't exist locally, try to create it from contact info
-            val targetId = chatId // For DMs, chatId IS the otherUserId sometimes, or we need to look it up
-            val contact = contactDao.getContactById(targetId)
-            val name = displayNameResolver.resolve(
-                com.example.firstapp.common.model.User(
-                    id = targetId,
-                    displayName = contact?.displayName ?: "",
-                    username = contact?.username ?: ""
-                ),
-                contact?.phoneNumber ?: ""
-            )
-
-            val newChat = ChatEntity(
-                id = chatId,
-                type = com.example.firstapp.common.model.ConversationType.DIRECT,
-                senderName = if (name.isNotBlank()) name else targetId,
-                lastMessage = lastMessage,
-                timestamp = time,
-                unreadCount = if (!isFromMe && !isRead) 1 else 0,
-                avatarUrl = contact?.avatarUrl,
-                isOnline = false,
-                isMuted = false,
-                isPinned = false,
-                isTyping = false,
-                lastMessageIsFromMe = isFromMe,
-                lastMessageRead = isRead,
-                phoneNumber = contact?.phoneNumber,
-                otherUserId = targetId
-            )
-            chatDao.insertChats(listOf(newChat))
+            // If the chat doesn't exist locally, we can't reliably create it without more info (like who the other user is)
+            // So we trigger a full sync instead to stay consistent with server
+            syncChats().collect {}
         } else {
-            // Resolve name if currently empty
-            if (existing.senderName.isBlank()) {
+            // Resolve name if currently empty or generic
+            if (existing.senderName.isBlank() || existing.senderName == existing.id) {
                  val targetId = if (existing.type == com.example.firstapp.common.model.ConversationType.DIRECT) (existing.otherUserId ?: existing.id) else existing.id
                  val contact = contactDao.getContactById(targetId)
                  val name = displayNameResolver.resolve(
@@ -543,8 +516,11 @@ class ChatRepositoryImpl @Inject constructor(
                     ),
                     contact?.phoneNumber ?: existing.phoneNumber ?: ""
                 )
-                 if (name.isNotBlank() && name != existing.senderName) {
+                 if (name.isNotBlank() && name != existing.senderName && name != targetId) {
                      chatDao.insertChats(listOf(existing.copy(senderName = name, avatarUrl = contact?.avatarUrl ?: existing.avatarUrl)))
+                     // Also update global call cache for consistency
+                     GlobalCallState.updateContactInfo(existing.id, name, existing.phoneNumber)
+                     existing.otherUserId?.let { GlobalCallState.updateContactInfo(it, name, existing.phoneNumber) }
                  }
             }
             chatDao.updateLastMessage(chatId, lastMessage, time, isFromMe, isRead)

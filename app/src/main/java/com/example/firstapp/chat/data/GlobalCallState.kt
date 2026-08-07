@@ -61,6 +61,7 @@ object GlobalCallState {
     private val contactPhones = mutableMapOf<String, String>()
 
     fun updateContactInfo(userId: String, name: String, phone: String?) {
+        if (name.isBlank() || name.lowercase() == "unknown" || name == userId) return
         contactNames[userId] = name
         if (phone != null) contactPhones[userId] = phone
     }

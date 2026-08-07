@@ -446,14 +446,18 @@ class WebRtcCallManager(context: Context) {
     }
 
     fun attachRemoteRenderer(renderer: SurfaceViewRenderer) {
-        remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
-        remoteRenderer = renderer
-        try {
-            renderer.init(eglBase.eglBaseContext, null)
-            renderer.setEnableHardwareScaler(true)
-            renderer.setMirror(false)
-        } catch (_: Exception) {}
-        remoteVideoTrack?.addSink(renderer)
+        observationScope.launch {
+            remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
+            remoteRenderer = renderer
+            try {
+                renderer.init(eglBase.eglBaseContext, null)
+                renderer.setEnableHardwareScaler(true)
+                renderer.setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                renderer.setMirror(false)
+            } catch (_: Exception) {}
+            remoteVideoTrack?.setEnabled(true)
+            remoteVideoTrack?.addSink(renderer)
+        }
     }
 
     fun detachRemoteRenderer() {

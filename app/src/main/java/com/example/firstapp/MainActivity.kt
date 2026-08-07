@@ -244,6 +244,7 @@ class MainActivity : FragmentActivity() {
                                         res.data?.forEach { chat ->
                                             if (chat.senderName.isNotBlank() && chat.senderName.lowercase() != "unknown") {
                                                 GlobalCallState.updateContactInfo(chat.id, chat.senderName, chat.phoneNumber)
+                                                chat.otherUserId?.let { GlobalCallState.updateContactInfo(it, chat.senderName, chat.phoneNumber) }
                                             }
                                         }
                                     }
