@@ -215,7 +215,7 @@ fun ContactPickerScreen(
                 }
 
                 item {
-                    Spacer(modifier = Modifier.height(100.dp))
+                    Spacer(modifier = Modifier.height(150.dp))
                 }
             }
         }

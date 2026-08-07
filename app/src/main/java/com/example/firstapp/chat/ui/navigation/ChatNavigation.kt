@@ -79,11 +79,18 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chats = chatsState.data ?: emptyList<ChatMessage>()
         val existingChat = chats.firstOrNull { it.id == resolvedChatId && it.type == type }
         
-        val baseName = if (type == ConversationType.GROUP) (chatViewModel.getCachedGroupName(resolvedChatId!!) ?: "") 
-            else if (type == ConversationType.CHANNEL) ""
-            else GlobalCallState.getContactName(resolvedChatId!!)
+        val baseName = if (type == ConversationType.GROUP) {
+            existingChat?.senderName ?: chatViewModel.getCachedGroupName(resolvedChatId!!) ?: ""
+        } else if (type == ConversationType.CHANNEL) {
+            existingChat?.senderName ?: ""
+        } else {
+            // Priority: Local DB Name > Contact Cache Name > Phone Number
+            existingChat?.senderName?.takeIf { it.isNotBlank() && it != resolvedChatId }
+                ?: GlobalCallState.getContactName(resolvedChatId!!)
                 ?: GlobalCallState.getContactPhone(resolvedChatId!!) 
+                ?: existingChat?.phoneNumber
                 ?: ""
+        }
         
         val sanitizedName = if (baseName == "" || baseName.lowercase() == "unknown" || baseName.lowercase() == "null") {
             resolvedChatId!!

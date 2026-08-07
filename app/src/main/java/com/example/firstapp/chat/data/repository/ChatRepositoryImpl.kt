@@ -77,13 +77,15 @@ class ChatRepositoryImpl @Inject constructor(
                         val name = displayNameResolver.resolve(
                             com.example.firstapp.common.model.User(
                                 id = targetId, 
-                                displayName = entity.senderName,
-                                username = contact?.username ?: ""
+                                displayName = cs.title, // Profile name from API
+                                username = "" // Skip username fallback
                             ),
                             contact?.phoneNumber ?: entity.phoneNumber ?: ""
                         )
-                        if (name.isBlank() || name.lowercase() == "unknown" || name == targetId) {
-                            entity.senderName.ifBlank { targetId }
+                        
+                        // User requirement: Saved Name > Profile Name > Phone Number (NEVER Username)
+                        if (name.isBlank() || name == targetId) {
+                            entity.phoneNumber ?: targetId
                         } else name
                     } else {
                         entity.senderName.ifBlank { entity.id }

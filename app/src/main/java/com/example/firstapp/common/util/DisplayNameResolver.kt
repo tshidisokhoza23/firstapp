@@ -13,21 +13,12 @@ import kotlin.text.*
  *
  * 1. If target user's phone number exists in device's local phone contacts → display Contact Name
  * 2. Else if user has registered online profile full_name → display registered name
- * 3. Else → display raw phone number
- *
- * This ensures consistent UX across chat, job applications, and channel membership lists.
- * Contact lookups are cached to avoid repeated ContentProvider queries.
+ * 3. Else → display raw phone number (NEVER display username as per requirements)
  */
 class DisplayNameResolver(private val context: Context) {
 
-    // Cache contact names to avoid repeated database queries
-    // ConcurrentHashMap does not allow null values, so we use an empty string for "not found"
     private val contactCache = ConcurrentHashMap<String, String>()
 
-    /**
-     * Resolve display name for a user following strict fallback order.
-     * MUST be called on background thread (database query).
-     */
     @WorkerThread
     fun resolve(user: User, phoneNumber: String): String {
         if (phoneNumber.isEmpty()) return resolveFromProfile(user, phoneNumber)
@@ -38,7 +29,7 @@ class DisplayNameResolver(private val context: Context) {
             return if (cached.isNotEmpty()) cached else resolveFromProfile(user, phoneNumber)
         }
 
-        // 1. Check local contacts
+        // 1. Check local contacts via PhoneLookup (handles normalization automatically)
         val contactName = queryContactName(phoneNumber)
         contactCache[phoneNumber] = contactName ?: ""
 
@@ -46,93 +37,50 @@ class DisplayNameResolver(private val context: Context) {
             return contactName
         }
 
-        // 2. Fall back to profile name or phone number
+        // 2. Fall back to phone number (Skip username fallback)
         return resolveFromProfile(user, phoneNumber)
     }
 
-    /**
-     * Query Android contacts database for display name.
-     * Returns null if phone number not found in contacts.
-     */
     private fun queryContactName(phoneNumber: String): String? {
+        if (phoneNumber.isBlank()) return null
         return try {
-            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-            val projection = arrayOf(
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.CONTACT_ID
+            val uri = android.net.Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                android.net.Uri.encode(phoneNumber)
             )
+            val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
 
-            // Normalize phone number for matching (remove spaces, dashes, etc.)
-            val normalizedPhone = normalizePhoneNumber(phoneNumber)
-
-            val cursor = context.contentResolver.query(
-                uri,
-                projection,
-                "${ContactsContract.CommonDataKinds.Phone.NUMBER} = ?",
-                arrayOf(normalizedPhone),
-                null
-            )
+            val cursor = context.contentResolver.query(uri, projection, null, null, null)
 
             cursor?.use { c ->
                 if (c.moveToFirst()) {
-                    val nameIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    if (nameIdx >= 0) {
-                        c.getString(nameIdx)
-                    } else {
-                        null
-                    }
-                } else {
-                    null
-                }
+                    val nameIdx = c.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME)
+                    if (nameIdx >= 0) c.getString(nameIdx) else null
+                } else null
             }
         } catch (e: Exception) {
-            // Handle security exceptions, null pointers gracefully
             null
         }
     }
 
-    /**
-     * Helper to resolve display name from user profile when contact lookup fails.
-     */
     private fun resolveFromProfile(user: User, phoneNumber: String): String {
         val d = user.displayName
-        val u = user.username
         
-        if (d != "" && d != "unknown" && d != "Unknown" && d != "null") {
+        // 1. Profile Display Name (often contains "Full Name")
+        if (d.isNotBlank() && d.lowercase() != "unknown" && d.lowercase() != "null") {
             return d
         }
-        if (u != "" && u != "unknown" && u != "Unknown" && u != "null") {
-            return u
-        }
-        if (phoneNumber != "" && phoneNumber != "unknown" && phoneNumber != "null") {
+        
+        // 2. Phone Number (Skip username fallback as requested)
+        if (phoneNumber.isNotBlank() && phoneNumber.lowercase() != "unknown" && phoneNumber.lowercase() != "null") {
             return phoneNumber
         }
+        
+        // 3. Last resort ID
         return user.id
     }
 
-    /**
-     * Normalize phone number for consistent matching:
-     * - Remove spaces, dashes, parentheses
-     * - Preserve country code prefix if present
-     */
-    private fun normalizePhoneNumber(phone: String): String {
-        return phone
-            .replace(" ", "")
-            .replace("-", "")
-            .replace("(", "")
-            .replace(")", "")
-            .replace("+", "00") // Handle country code variations
-    }
-
-    /**
-     * Clear contact cache (e.g., after permission grant or on app resume).
-     */
     fun clearCache() {
         contactCache.clear()
     }
-
-    /**
-     * Get cached contact count (for debugging).
-     */
-    fun getCacheSize(): Int = contactCache.size
 }

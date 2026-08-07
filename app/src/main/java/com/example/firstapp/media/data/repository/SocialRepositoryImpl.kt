@@ -29,6 +29,7 @@ class SocialRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
     private val postDao: PostDao,
     private val storyDao: StoryDao,
+    private val contactDao: com.example.firstapp.common.data.local.dao.ContactDao,
     private val appDatabase: AppDatabase,
     private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver
 ) : SocialRepository {
@@ -285,7 +286,32 @@ class SocialRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 val apiStories = response.body()?.stories ?: emptyList<com.example.firstapp.media.data.api.ApiStoryResponse>()
                 Log.d("SocialRepo", "Fetched ${apiStories.size} story sets")
-                val stories = apiStories.map { apiStory: com.example.firstapp.media.data.api.ApiStoryResponse -> mapApiStory(apiStory) }
+                
+                // Pre-fetch contacts for name resolution
+                val localContacts = contactDao.getContacts().first().associateBy { it.id }
+
+                val stories = apiStories.map { apiStory: com.example.firstapp.media.data.api.ApiStoryResponse -> 
+                    val contact = localContacts[apiStory.user_id]
+                    val model = mapApiStory(apiStory)
+                    
+                    // User Requirement: Saved Name > Profile Name > Phone Number (NEVER Username)
+                    // We pass an empty username to force DisplayNameResolver to skip that level.
+                    val resolvedName = displayNameResolver.resolve(
+                        com.example.firstapp.common.model.User(
+                            id = apiStory.user_id,
+                            displayName = apiStory.user_name,
+                            username = "" 
+                        ),
+                        contact?.phoneNumber ?: ""
+                    )
+                    
+                    val finalName = if (resolvedName.isBlank() || resolvedName == apiStory.user_id) {
+                         // If no name found, use phone number if we have it, else fallback to API name
+                         contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: apiStory.user_name
+                    } else resolvedName
+
+                    model.copy(userName = finalName)
+                }
                 storyDao.clearStories()
                 storyDao.insertStories(stories.map { it.toStoryEntity() })
             } else {

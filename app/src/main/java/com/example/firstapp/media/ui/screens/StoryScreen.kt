@@ -82,8 +82,18 @@ fun StoryScreen(
     }
     
     val myStory = stories.find { it.id == currentUserId }
+    val contactIds = remember(contacts) { contacts.map { it.id }.toSet() }
+    val contactNames = remember(contacts) { contacts.map { it.displayName.lowercase().trim() }.toSet() }
+    
+    // User Requirement: Only show stories from contacts
     val otherStories = filteredStories.filter { story -> 
-        story.id != currentUserId && (contacts.any { it.id == story.id } || story.id == "system_ad")
+        if (story.id == currentUserId) return@filter false
+        if (story.id == "system_ad") return@filter true
+        
+        // If contacts list is still loading (first 5 seconds), show everything to avoid a blank screen.
+        // Once loaded, filter strictly by ID or Saved Name.
+        if (contacts.isEmpty()) true 
+        else contactIds.contains(story.id) || contactNames.contains(story.userName.lowercase().trim())
     }
     val activeStories = otherStories.filter { !it.isMuted }
     val mutedStories = otherStories.filter { it.isMuted }
@@ -388,11 +398,6 @@ fun StoryScreen(
                             }
                         )
                     }
-                    item {
-                        com.example.firstapp.media.ui.components.BannerAdView(
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-                    }
                 }
 
                 if (recentUpdates.isNotEmpty()) {
@@ -415,12 +420,6 @@ fun StoryScreen(
                             },
                             onLongClick = { storyToMute = item }
                         )
-                        
-                        if ((idx + 1) % 4 == 0) {
-                            com.example.firstapp.media.ui.components.BannerAdView(
-                                modifier = Modifier.padding(vertical = 12.dp)
-                            )
-                        }
                     }
                 }
 
@@ -444,12 +443,6 @@ fun StoryScreen(
                             },
                             onLongClick = { storyToMute = item }
                         )
-                        
-                        if ((idx + 1) % 4 == 0) {
-                            com.example.firstapp.media.ui.components.BannerAdView(
-                                modifier = Modifier.padding(vertical = 12.dp)
-                            )
-                        }
                     }
                 }
                 
