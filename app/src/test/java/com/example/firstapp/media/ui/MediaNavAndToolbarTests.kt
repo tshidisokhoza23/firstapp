@@ -17,19 +17,24 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.collections.*
 
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class MediaNavAndToolbarTests {
 
     private lateinit var viewModel: MediaViewModel
     private val socialRepository: SocialRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val adManager: AdManager = mockk(relaxed = true)
+    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = MediaViewModel(socialRepository, accountRepository, adManager)
+        viewModel = MediaViewModel(socialRepository, accountRepository, adManager, postWebSocketClient)
     }
 
     @After
@@ -41,7 +46,7 @@ class MediaNavAndToolbarTests {
     @Test
     fun `search filters profiles and posts matching the string`() = runTest {
         val query = "test"
-        coEvery { socialRepository.getPosts(1) } returns flowOf(Resource.Success(emptyList<Post>()))
+        coEvery { socialRepository.getPosts(1, any()) } returns flowOf(Resource.Success(emptyList<Post>()))
         
         viewModel.search(query)
         
@@ -51,12 +56,12 @@ class MediaNavAndToolbarTests {
     @Test
     fun `search cache prevents duplicate network hits within TTL`() = runTest {
         val query = "cache-test"
-        coEvery { socialRepository.getPosts(1) } returns flowOf(Resource.Success(emptyList<Post>()))
+        coEvery { socialRepository.getPosts(1, any()) } returns flowOf(Resource.Success(emptyList<Post>()))
         
         viewModel.search(query)
         viewModel.search(query)
         
-        coVerify(exactly = 1) { socialRepository.getPosts(1) }
+        coVerify(exactly = 1) { socialRepository.getPosts(1, any()) }
     }
 
     @Test
@@ -66,6 +71,6 @@ class MediaNavAndToolbarTests {
         assertTrue(viewModel.searchResults.value is Resource.Success)
         val data = (viewModel.searchResults.value as Resource.Success).data
         assertTrue(data.isNullOrEmpty())
-        coVerify(exactly = 0) { socialRepository.getPosts(any()) }
+        coVerify(exactly = 0) { socialRepository.getPosts(any(), any()) }
     }
 }

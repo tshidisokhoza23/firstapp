@@ -22,12 +22,14 @@ class AuthViewModelTest {
 
     private lateinit var viewModel: AuthViewModel
     private val userRepository: UserRepository = mockk(relaxed = true)
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
+    private val authApi: com.example.firstapp.auth.data.api.AuthApi = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = AuthViewModel(userRepository)
+        viewModel = AuthViewModel(userRepository, sessionManager, authApi)
     }
 
     @After
@@ -37,17 +39,18 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `login with correct credentials navigates to OTP screen`() = runTest {
+    fun `login with correct credentials updates auth state`() = runTest {
         val user = User(id = "1", username = "test", displayName = "Test", phoneNumber = "1234567890")
         val authResponse = AuthResponse(token = "token", user = user)
         
         coEvery { userRepository.login("test", "password") } returns flowOf(Resource.Success(authResponse))
-        coEvery { userRepository.requestOTP("1234567890") } returns flowOf(Resource.Success("OTP Sent"))
 
         viewModel.login("test", "password")
 
-        assertEquals("1234567890", viewModel.lastRequestedPhone)
-        coVerify { userRepository.requestOTP("1234567890") }
+        val state = viewModel.authState.value
+        assertTrue(state is Resource.Success)
+        assertEquals(user, (state as Resource.Success).data?.user)
+        coVerify { sessionManager.saveSession("token", any(), user) }
     }
 
     @Test

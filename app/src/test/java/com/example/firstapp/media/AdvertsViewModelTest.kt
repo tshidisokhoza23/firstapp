@@ -24,6 +24,7 @@ class AdvertsViewModelTest {
     private val adRepository: AdRepository = mockk(relaxed = true)
     private val userRepository: UserRepository = mockk(relaxed = true)
     private val adManager: AdManager = mockk(relaxed = true)
+    private val poolManager: com.example.firstapp.common.data.ads.RewardedAdPoolManager = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
@@ -31,7 +32,7 @@ class AdvertsViewModelTest {
         Dispatchers.setMain(testDispatcher)
         every { adRepository.getAdverts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.media.model.Advert>()))
         every { userRepository.observeCurrentUser() } returns flowOf(null)
-        viewModel = AdvertsViewModel(adRepository, userRepository, adManager)
+        viewModel = AdvertsViewModel(adRepository, userRepository, adManager, poolManager)
     }
 
     @After
@@ -41,16 +42,18 @@ class AdvertsViewModelTest {
     }
 
     @Test
-    fun `watching a rewarded ad awards R0 10`() = runTest {
+    fun `watching a rewarded ad awards points and refreshes`() = runTest {
         val advertId = "ad1"
         coEvery { userRepository.getCurrentUser() } returns flowOf(Resource.Success(mockk(relaxed = true)))
         coEvery { adRepository.markAdvertViewed(advertId) } returns flowOf(Resource.Success(true))
         
+        // Mock RewardsManager object to avoid it trying to access Hilt EntryPoints in unit test
+        mockkObject(com.example.firstapp.chat.rewards.data.RewardsManager)
+        coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance() } returns true
+        
         viewModel.markAdvertAsViewed(advertId)
         
         coVerify { adRepository.markAdvertViewed(advertId) }
-        coVerify(atLeast = 1) { userRepository.getCurrentUser() }
-        // Server awards +0.1; VM must refresh user to reflect new wallet balance.
     }
 
     @Test

@@ -34,11 +34,11 @@ class MediaCacheVerificationTests {
         // Mock cached data
         val mockEntities = java.util.ArrayList<com.example.firstapp.common.data.local.entity.PostEntity>()
         mockEntities.add(mockk(relaxed = true))
-        every { postDao.getPosts() } returns flowOf(mockEntities)
+        every { postDao.getPosts(any()) } returns flowOf(mockEntities)
         
-        val results = repository.getPosts(1).take(1).toList()
+        val results = repository.getPosts(1, "standard").take(1).toList()
         
         assertTrue(results.size > 0)
-        coVerify { postDao.getPosts() }
+        coVerify { postDao.getPosts(any()) }
     }
 }

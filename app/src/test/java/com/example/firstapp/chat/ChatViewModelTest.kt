@@ -33,13 +33,17 @@ class ChatViewModelTest {
     private val settingsRepository: SettingsRepository = mockk(relaxed = true)
     private val webRtcCallManager: WebRtcCallManager = mockk(relaxed = true)
     private val callTonePlayer: CallTonePlayer = mockk(relaxed = true)
+    private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient = mockk(relaxed = true)
+    private val callWebSocketClient: com.example.firstapp.chat.data.CallWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<Contact>()))
-        viewModel = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer)
+        every { chatWebSocketClient.messageFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        every { chatWebSocketClient.eventFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        viewModel = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer, chatWebSocketClient, callWebSocketClient)
     }
 
     @After
@@ -67,7 +71,9 @@ class ChatViewModelTest {
         coEvery { chatRepository.getContacts() } returns flowOf(Resource.Success(listOf(contact1, contact2)))
         
         // In ChatViewModel, contacts is a val stateIn with WhileSubscribed.
-        val vm = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer)
+        every { chatWebSocketClient.messageFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        every { chatWebSocketClient.eventFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        val vm = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer, chatWebSocketClient, callWebSocketClient)
         
         // Start a collector to trigger the flow
         val collectJob = launch(testDispatcher) {
@@ -115,7 +121,7 @@ class ChatViewModelTest {
         viewModel.sendMediaMessage("chat1", file, "image")
         
         coVerify { accountRepository.uploadFile(file, "chat/images") }
-        coVerify { chatRepository.sendMessage("chat1", "Image", "image", "https://example.com/test.jpg", any(), any(), any(), any(), any(), any(), any(), any()) }
+        coVerify { chatRepository.sendMessage("chat1", "Image", "image", listOf("https://example.com/test.jpg"), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test

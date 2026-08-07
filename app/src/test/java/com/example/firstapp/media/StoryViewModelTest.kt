@@ -21,13 +21,14 @@ class StoryViewModelTest {
     private lateinit var viewModel: StoryViewModel
     private val socialRepository: SocialRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
+    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { socialRepository.getStories() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.media.model.UserStory>()))
-        viewModel = StoryViewModel(socialRepository, accountRepository)
+        viewModel = StoryViewModel(socialRepository, accountRepository, postWebSocketClient)
     }
 
     @After

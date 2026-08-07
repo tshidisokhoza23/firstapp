@@ -15,19 +15,24 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class PostAndReplyEngagementTests {
 
     private lateinit var viewModel: MediaViewModel
     private val socialRepository: SocialRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val adManager: AdManager = mockk(relaxed = true)
+    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = MediaViewModel(socialRepository, accountRepository, adManager)
+        viewModel = MediaViewModel(socialRepository, accountRepository, adManager, postWebSocketClient)
     }
 
     @After

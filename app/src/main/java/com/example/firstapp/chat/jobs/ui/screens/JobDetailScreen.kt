@@ -58,6 +58,19 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                 )
             )
         },
+        bottomBar = {
+            // Sticky Banner Ad at the bottom
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                com.example.firstapp.media.ui.components.BannerAdView(
+                    adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
+                )
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -179,19 +192,6 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                 
                 Spacer(modifier = Modifier.height(24.dp))
             }
-        }
-        
-        // Sticky Banner Ad at the bottom
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(60.dp)
-                .background(MaterialTheme.colorScheme.surface)
-        ) {
-            com.example.firstapp.media.ui.components.BannerAdView(
-                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
-            )
         }
     }
 }

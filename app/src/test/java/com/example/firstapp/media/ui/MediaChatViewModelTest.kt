@@ -70,11 +70,11 @@ class MediaChatViewModelTest {
         viewModel.loadMessages(userId)
 
         coEvery { accountRepository.uploadFile(any(), any()) } returns flowOf(Resource.Success(uploadResponse))
-        coEvery { chatRepository.sendMessage(any(), any(), any(), any()) } returns flowOf(Resource.Success(mockk()))
+        coEvery { chatRepository.sendMessage(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns flowOf(Resource.Success(mockk(relaxed = true)))
 
         viewModel.sendMediaMessage(userId, file, "image")
 
         coVerify { accountRepository.uploadFile(file, "media_chat") }
-        coVerify { chatRepository.sendMessage(chatId, "", "image", "https://url.com") }
+        coVerify { chatRepository.sendMessage(chatId, "", "image", listOf("https://url.com"), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 }
