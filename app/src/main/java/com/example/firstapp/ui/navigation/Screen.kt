@@ -32,6 +32,7 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object PrivacySettings : Screen("privacy_settings")
     object BlockedUsers : Screen("blocked_users")
+    object StoryPrivacy : Screen("story_privacy")
     object AccountSettings : Screen("account_settings")
     object ChatSettings : Screen("chat_settings")
     object NotificationSettings : Screen("notification_settings")

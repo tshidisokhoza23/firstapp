@@ -8,6 +8,8 @@ import com.example.firstapp.chat.model.Contact
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +18,8 @@ import com.example.firstapp.account.domain.repository.AccountRepository
 
 @HiltViewModel
 class PrivacySettingsViewModel @Inject constructor(
-    private val repository: AccountRepository
+    private val repository: AccountRepository,
+    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow<Resource<PrivacySettings>>(Resource.Loading())
@@ -24,6 +27,9 @@ class PrivacySettingsViewModel @Inject constructor(
 
     private val _blockedUsers = MutableStateFlow<Resource<List<Contact>>>(Resource.Loading())
     val blockedUsers: StateFlow<Resource<List<Contact>>> = _blockedUsers.asStateFlow()
+
+    val contacts: StateFlow<Resource<List<Contact>>> = chatRepository.getContacts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
 
     init {
         fetchSettings()

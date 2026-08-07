@@ -403,8 +403,8 @@ fun StoryScreen(
                             onLongClick = { storyToMute = item }
                         )
                         
-                        if ((idx + 1) % 3 == 0 && preloadedAds.isNotEmpty()) {
-                            val ad = preloadedAds.get((idx / 3) % preloadedAds.size)
+                        if ((idx + 1) % 4 == 0 && preloadedAds.isNotEmpty()) {
+                            val ad = preloadedAds.get((idx / 4) % preloadedAds.size)
                             if (ad is NativeAd) {
                                 StoryAdListItem(nativeAd = ad)
                             }
@@ -433,8 +433,8 @@ fun StoryScreen(
                             onLongClick = { storyToMute = item }
                         )
                         
-                        if ((idx + 1) % 3 == 0 && preloadedAds.isNotEmpty()) {
-                            val adIndex = (idx / 3 + (recentUpdates.size / 3)) % preloadedAds.size
+                        if ((idx + 1) % 4 == 0 && preloadedAds.isNotEmpty()) {
+                            val adIndex = (idx / 4 + (recentUpdates.size / 4)) % preloadedAds.size
                             val ad = preloadedAds.get(adIndex)
                             if (ad is NativeAd) {
                                 StoryAdListItem(nativeAd = ad)

@@ -30,12 +30,14 @@ import com.example.firstapp.common.model.PrivacySettings
 fun PrivacySettingsScreen(
     onBack: () -> Unit, 
     onNavigateToBlockedUsers: () -> Unit = {},
+    onNavigateToStoryPrivacy: () -> Unit = {},
     viewModel: PrivacySettingsViewModel = hiltViewModel()
 ) {
     val settingsResource by viewModel.settings.collectAsState()
     val settings = settingsResource.data ?: PrivacySettings()
     var showLastSeenDialog by remember { mutableStateOf(false) }
     var showPhoneNumberDialog by remember { mutableStateOf(false) }
+    var showStoriesPrivacyDialog by remember { mutableStateOf(false) }
 
     if (showLastSeenDialog) {
         PrivacyOptionDialog(
@@ -46,6 +48,23 @@ fun PrivacySettingsScreen(
                 showLastSeenDialog = false
             },
             onDismiss = { showLastSeenDialog = false }
+        )
+    }
+
+    if (showStoriesPrivacyDialog) {
+        PrivacyOptionDialog(
+            title = "Who can see my stories",
+            currentOption = settings.who_can_see_stories,
+            options = listOf("everyone", "my_contacts", "my_contacts_except"),
+            onOptionSelected = {
+                if (it == "my_contacts_except") {
+                    onNavigateToStoryPrivacy()
+                } else {
+                    viewModel.updateSettings(settings.copy(who_can_see_stories = it))
+                }
+                showStoriesPrivacyDialog = false
+            },
+            onDismiss = { showStoriesPrivacyDialog = false }
         )
     }
 
@@ -92,6 +111,7 @@ fun PrivacySettingsScreen(
                     PrivacyItemUnique(title = "Blocked Users", subtitle = "Manage blocked accounts", onClick = onNavigateToBlockedUsers)
                     PrivacyItemUnique(title = "Phone Number", subtitle = "Everyone", onClick = { showPhoneNumberDialog = true })
                     PrivacyItemUnique(title = "Last Seen & Online", subtitle = settings.show_last_seen.replace("_", " ").replaceFirstChar { it.uppercase() }, onClick = { showLastSeenDialog = true })
+                    PrivacyItemUnique(title = "Stories", subtitle = settings.who_can_see_stories.replace("_", " ").replaceFirstChar { it.uppercase() }, onClick = { showStoriesPrivacyDialog = true })
                     PrivacyItemUnique(title = "Profile Photos", subtitle = "Everyone")
                 }
             }
@@ -178,6 +198,7 @@ fun PrivacyToggleItemUnique(
 fun PrivacyOptionDialog(
     title: String,
     currentOption: String,
+    options: List<String> = listOf("everyone", "my_contacts", "nobody"),
     onOptionSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -186,7 +207,7 @@ fun PrivacyOptionDialog(
         title = { Text(title, color = MaterialTheme.colorScheme.onSurface) },
         text = {
             Column {
-                listOf("everyone", "my_contacts", "nobody").forEach { option ->
+                options.forEach { option ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
