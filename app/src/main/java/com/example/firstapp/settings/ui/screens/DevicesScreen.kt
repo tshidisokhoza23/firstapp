@@ -54,7 +54,8 @@ fun DevicesScreen(
                 modifier = Modifier.navigationBarsPadding()
             )
         },
-        containerColor = AppBackground
+        containerColor = AppBackground,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
             modifier = Modifier

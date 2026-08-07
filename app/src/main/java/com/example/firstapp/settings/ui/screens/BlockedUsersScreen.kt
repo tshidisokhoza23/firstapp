@@ -57,7 +57,8 @@ fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel =
                 Icon(Icons.Default.Add, contentDescription = "Block new user")
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         if (blockedUsers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {

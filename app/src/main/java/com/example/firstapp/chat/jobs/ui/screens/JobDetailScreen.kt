@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.common.util.formatPostedTime
@@ -65,7 +66,8 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
                 modifier = Modifier.navigationBarsPadding()
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
             modifier = Modifier

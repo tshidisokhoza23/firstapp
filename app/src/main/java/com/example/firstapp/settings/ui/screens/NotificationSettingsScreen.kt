@@ -47,7 +47,8 @@ fun NotificationSettingsScreen(onBack: () -> Unit, viewModel: NotificationSettin
                 modifier = Modifier.navigationBarsPadding()
             )
         },
-        containerColor = AppBackground
+        containerColor = AppBackground,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
             modifier = Modifier
