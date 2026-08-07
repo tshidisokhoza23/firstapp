@@ -28,6 +28,7 @@ import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.chat.data.*
 import com.example.firstapp.chat.ui.components.CallOverlay
 import com.example.firstapp.common.util.GlobalNavigation
+import com.example.firstapp.common.util.Resource
 import com.example.firstapp.chat.rewards.data.RewardsManager
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.common.ConnectionResult
@@ -236,6 +237,17 @@ class MainActivity : FragmentActivity() {
                                 val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
                                 chatRepository.syncContacts(phoneNumbers).collect {}
                                 chatRepository.refreshLocalChatNames()
+                                
+                                // Populate GlobalCallState names from local chats
+                                chatRepository.getChats().collect { res ->
+                                    if (res is Resource.Success) {
+                                        res.data?.forEach { chat ->
+                                            if (chat.senderName.isNotBlank() && chat.senderName.lowercase() != "unknown") {
+                                                GlobalCallState.updateContactInfo(chat.id, chat.senderName, chat.phoneNumber)
+                                            }
+                                        }
+                                    }
+                                }
                             } catch (e: Exception) {
                                 android.util.Log.e("MainActivity", "Failed to sync contacts", e)
                             }

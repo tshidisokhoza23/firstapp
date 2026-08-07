@@ -165,7 +165,16 @@ class ChatViewModel @Inject constructor(
     }
 
     fun fetchMessages(chatId: String) {
-        if (activeChatId == chatId && _uiState.value.messages is Resource.Success) return
+        android.util.Log.d("ChatViewModel", "fetchMessages: chatId=$chatId, activeChatId=$activeChatId")
+        val currentMessages = _uiState.value.messages.data
+        if (activeChatId == chatId && currentMessages != null && currentMessages.isNotEmpty()) {
+             // We already have messages for this chat, don't clear them
+             // Just trigger a refresh from network via repository
+             viewModelScope.launch {
+                 repository.getMessages(chatId, 1).collect { /* background sync */ }
+             }
+             return
+        }
         
         activeChatId = chatId
         exhaustedCursorByChat.remove(chatId)
@@ -173,9 +182,12 @@ class ChatViewModel @Inject constructor(
         
         messagesFetchJob?.cancel()
         messagesFetchJob = viewModelScope.launch {
-            _uiState.update { it.copy(messages = Resource.Loading()) }
+            // Only show loading if we don't have messages for this chat yet
+            if (activeChatId != chatId || _uiState.value.messages.data.isNullOrEmpty()) {
+                _uiState.update { it.copy(messages = Resource.Loading()) }
+            }
             
-            // Collect from repository (it emits local then network then local)
+            // Collect from repository
             repository.getMessages(chatId).collect { resource ->
                 _uiState.update { it.copy(messages = resource) }
             }
@@ -275,24 +287,8 @@ class ChatViewModel @Inject constructor(
             ).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val newMsg = resource.data!!
-                    _uiState.update { state ->
-                        val currentMessages = state.messages.data ?: emptyList()
-                        // Find if we already have this message (either by ID or clientId)
-                        val existingIndex = currentMessages.indexOfFirst { 
-                            it.id == newMsg.id || (it.clientId != null && it.clientId == newMsg.clientId) 
-                        }
-                        
-                        val updatedList = if (existingIndex != -1) {
-                            currentMessages.toMutableList().apply { set(existingIndex, newMsg) }
-                        } else {
-                            currentMessages + newMsg
-                        }
-                        
-                        state.copy(
-                            messages = Resource.Success(updatedList),
-                            error = null
-                        )
-                    }
+                    // NOTE: We don't manually update _uiState.messages here anymore.
+                    // The repository saves to Room, which triggers the Flow in fetchMessages.
                     updateChatLastMessage(chatId, newMsg)
                 } else if (resource is Resource.Error) {
                     val msg = resource.message.orEmpty()
@@ -341,8 +337,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun initiateCall(receiverId: String, callType: CallType) {
+    fun startVoiceOrVideoCall(receiverId: String, callType: com.example.firstapp.chat.data.CallType, name: String? = null) {
         viewModelScope.launch {
+            // Update GlobalCallState with name so it shows immediately
+            name?.let { GlobalCallState.updateContactInfo(receiverId, it, null) }
+
             // Fetch ICE servers for professional TURN support
             val iceResource = repository.getICEServers()
             if (iceResource is Resource.Success) {

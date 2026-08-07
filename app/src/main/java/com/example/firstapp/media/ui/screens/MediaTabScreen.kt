@@ -70,7 +70,7 @@ fun MediaTabScreen(
             onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
             onFollowUser = { mediaViewModel.followUser(it) },
             onArtistClick = { artistName -> musicViewModel.requestArtist(artistName) },
-            onCallClick = { userId, type -> chatViewModel.initiateCall(userId, type) },
+            onCallClick = { userId, type -> chatViewModel.startVoiceOrVideoCall(receiverId = userId, callType = type) },
             onCreatePostClick = 0,
             onRefresh = { mediaViewModel.refreshAll() },
             refreshTrigger = uiState.refreshTrigger,

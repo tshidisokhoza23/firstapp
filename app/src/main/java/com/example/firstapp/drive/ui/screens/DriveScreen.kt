@@ -1670,7 +1670,7 @@ fun LiveTrackingFlow(
                     IconButton(
                         onClick = {
                             val driverId = assignedDriver.id.replace("driver_", "")
-                            chatViewModel.initiateCall(driverId, com.example.firstapp.chat.data.CallType.VOICE)
+                            chatViewModel.startVoiceOrVideoCall(receiverId = driverId, callType = com.example.firstapp.chat.data.CallType.VOICE, name = assignedDriver.name)
                         },
                         modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
                     ) {
@@ -1682,7 +1682,7 @@ fun LiveTrackingFlow(
                     IconButton(
                         onClick = {
                             val driverId = assignedDriver.id.replace("driver_", "")
-                            chatViewModel.initiateCall(driverId, com.example.firstapp.chat.data.CallType.VIDEO)
+                            chatViewModel.startVoiceOrVideoCall(receiverId = driverId, callType = com.example.firstapp.chat.data.CallType.VIDEO, name = assignedDriver.name)
                         },
                         modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
                     ) {

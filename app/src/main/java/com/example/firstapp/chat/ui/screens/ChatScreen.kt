@@ -395,7 +395,7 @@ fun ChatMessagesScreen(
                         onSearchModeChange = { isSearchMode = it },
                         onClearSearch = { chatSearchQuery = "" },
                         onShowProfile = onShowProfile,
-                        onInitiateCall = { targetId, type -> chatViewModel.initiateCall(targetId, type) },
+                            onInitiateCall = { targetId, name, type -> chatViewModel.startVoiceOrVideoCall(receiverId = targetId, callType = type, name = name) },
                         onClearChat = { chatViewModel.clearChat(chat.id) },
                         onDeleteChat = { chatViewModel.deleteChat(chat.id); onBack() },
                         onDeleteSelectedMessages = { deleteSelectedMessages() },

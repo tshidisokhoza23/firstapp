@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -137,27 +136,22 @@ private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Bool
 private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Boolean, callManager: WebRtcCallManager) {
     
     Box(modifier = Modifier.fillMaxSize()) {
-        // Remote Video (Full Screen)
-        AndroidView(
-            factory = { context ->
-                SurfaceViewRenderer(context).apply {
-                    callManager.attachRemoteRenderer(this)
-                    setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-            onRelease = { callManager.detachRemoteRenderer() }
-        )
-
-        // Local Video (Small Overlay)
-        Box(
-            modifier = Modifier
-                .size(120.dp, 160.dp)
-                .align(Alignment.TopEnd)
-                .padding(top = 100.dp, end = 16.dp) // Moved down to avoid overlapping with Banner Ad
-                .clip(MaterialTheme.shapes.medium)
-                .background(Color.Black)
-        ) {
+        if (isConnected) {
+            // Remote Video (Full Screen)
+            AndroidView(
+                factory = { context ->
+                    SurfaceViewRenderer(context).apply {
+                        callManager.attachRemoteRenderer(this)
+                        setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                onRelease = { callManager.detachRemoteRenderer() }
+            )
+            
+            // NOTE: Local preview box removed as requested
+        } else {
+            // Local Video (Full Screen while waiting/ringing)
             AndroidView(
                 factory = { context ->
                     SurfaceViewRenderer(context).apply {
@@ -168,20 +162,23 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
                 modifier = Modifier.fillMaxSize(),
                 onRelease = { callManager.detachLocalRenderer() }
             )
-        }
 
-        if (!isConnected) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f)),
+                    .background(Color.Black.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = if (isRinging) "Ringing $name..." else "Calling $name...",
-                    color = Color.White,
-                    fontSize = 18.sp
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (isRinging) "Ringing $name..." else "Calling $name...",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("Video will start when answered", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                }
             }
         }
     }

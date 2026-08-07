@@ -40,7 +40,7 @@ fun ChatTopBar(
     onSearchModeChange: (Boolean) -> Unit,
     onClearSearch: () -> Unit,
     onShowProfile: (String, Boolean) -> Unit,
-    onInitiateCall: (String, CallType) -> Unit,
+    onInitiateCall: (String, String, CallType) -> Unit,
     onClearChat: () -> Unit,
     onDeleteChat: () -> Unit,
     onDeleteSelectedMessages: () -> Unit,
@@ -172,10 +172,10 @@ fun ChatTopBar(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val targetId = chat.otherUserId ?: chat.id
-                        IconButton(onClick = { onInitiateCall(targetId, CallType.VIDEO) }) {
+                        IconButton(onClick = { onInitiateCall(targetId, sanitizedName, CallType.VIDEO) }) {
                             Icon(Icons.Default.Videocam, "Video Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
                         }
-                        IconButton(onClick = { onInitiateCall(targetId, CallType.VOICE) }) {
+                        IconButton(onClick = { onInitiateCall(targetId, sanitizedName, CallType.VOICE) }) {
                             Icon(Icons.Default.Call, "Voice Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                         }
                         
