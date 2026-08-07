@@ -25,15 +25,9 @@ fun AppLogo(
 ) {
     // Use the main high-res logo for everything
     val logoRes = R.drawable.app_logo_main
-    val isDark = isSystemInDarkTheme()
     
-    // If no tint provided, automatically tint the logo to be visible in light mode 
-    // assuming the asset is white/light (designed for dark mode)
-    val finalColorFilter = when {
-        tint != null -> ColorFilter.tint(tint)
-        !isDark -> ColorFilter.tint(com.example.firstapp.common.ui.theme.LogoBlueDark)
-        else -> null // Keep original white/light for dark mode
-    }
+    // If no tint provided, keep original brand colors (Blue/Cyan)
+    val finalColorFilter = if (tint != null) ColorFilter.tint(tint) else null
     
     Box(
         modifier = modifier.size(size),
