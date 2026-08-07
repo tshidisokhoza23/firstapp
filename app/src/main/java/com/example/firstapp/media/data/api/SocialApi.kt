@@ -300,6 +300,7 @@ data class ApiStoryItem(
 data class ApiStoryResponse(
     val user_id: String,
     val user_name: String,
+    @SerializedName("phone_number") val phone_number: String? = null,
     val avatar_url: String?,
     val is_verified: Boolean,
     val is_muted: Boolean = false,

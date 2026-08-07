@@ -291,7 +291,7 @@ class SocialRepositoryImpl @Inject constructor(
                 val localContacts = contactDao.getContacts().first().associateBy { it.id }
 
                 val stories = apiStories.map { apiStory: com.example.firstapp.media.data.api.ApiStoryResponse -> 
-                    val contact = localContacts[apiStory.user_id]
+                    val contact = localContacts[apiStory.user_id] ?: localContacts[apiStory.user_id.removePrefix("user_")]
                     val model = mapApiStory(apiStory)
                     
                     // User Requirement: Saved Name > Profile Name > Phone Number (NEVER Username)
@@ -299,15 +299,15 @@ class SocialRepositoryImpl @Inject constructor(
                     val resolvedName = displayNameResolver.resolve(
                         com.example.firstapp.common.model.User(
                             id = apiStory.user_id,
-                            displayName = apiStory.user_name,
+                            displayName = contact?.displayName ?: apiStory.user_name,
                             username = "" 
                         ),
-                        contact?.phoneNumber ?: ""
+                        contact?.phoneNumber ?: apiStory.phone_number ?: ""
                     )
                     
                     val finalName = if (resolvedName.isBlank() || resolvedName == apiStory.user_id) {
                          // If no name found, use phone number if we have it, else fallback to API name
-                         contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: apiStory.user_name
+                         contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: apiStory.phone_number ?: apiStory.user_name
                     } else resolvedName
 
                     model.copy(userName = finalName)

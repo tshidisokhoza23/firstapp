@@ -70,7 +70,7 @@ class ChatRepositoryImpl @Inject constructor(
                     val entity = chatModel.toEntity()
                     
                     val targetId = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) (entity.otherUserId ?: entity.id) else entity.id
-                    val contact = localContacts[targetId]
+                    val contact = localContacts[targetId] ?: localContacts[targetId.removePrefix("user_")]
 
                     // Improve: Resolve name from device contacts or profile
                     val resolvedName = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
@@ -83,9 +83,9 @@ class ChatRepositoryImpl @Inject constructor(
                             contact?.phoneNumber ?: entity.phoneNumber ?: ""
                         )
                         
-                        // User requirement: Saved Name > Profile Name > Phone Number (NEVER Username)
+                        // User Requirement: Saved Name > Profile Name > Phone Number (NEVER Username)
                         if (name.isBlank() || name == targetId) {
-                            entity.phoneNumber ?: targetId
+                             contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: entity.phoneNumber ?: targetId
                         } else name
                     } else {
                         entity.senderName.ifBlank { entity.id }

@@ -82,7 +82,9 @@ fun StoryScreen(
     }
     
     val myStory = stories.find { it.id == currentUserId }
-    val contactIds = remember(contacts) { contacts.map { it.id }.toSet() }
+    val contactIds = remember(contacts) { 
+        contacts.map { it.id }.toSet() + contacts.map { "user_${it.id}" }.toSet() + contacts.map { it.id.removePrefix("user_") }.toSet()
+    }
     val contactNames = remember(contacts) { contacts.map { it.displayName.lowercase().trim() }.toSet() }
     
     // User Requirement: Only show stories from contacts
@@ -90,10 +92,11 @@ fun StoryScreen(
         if (story.id == currentUserId) return@filter false
         if (story.id == "system_ad") return@filter true
         
-        // If contacts list is still loading (first 5 seconds), show everything to avoid a blank screen.
-        // Once loaded, filter strictly by ID or Saved Name.
-        if (contacts.isEmpty()) true 
-        else contactIds.contains(story.id) || contactNames.contains(story.userName.lowercase().trim())
+        // Match by ID (normalized) or by Saved Name
+        val isFromContact = contactIds.contains(story.id) || contactNames.contains(story.userName.lowercase().trim())
+        
+        // If contacts list is empty (still loading), show everything to avoid a blank screen.
+        if (contacts.isEmpty()) true else isFromContact
     }
     val activeStories = otherStories.filter { !it.isMuted }
     val mutedStories = otherStories.filter { it.isMuted }
