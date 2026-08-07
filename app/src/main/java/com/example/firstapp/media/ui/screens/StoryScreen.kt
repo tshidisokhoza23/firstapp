@@ -404,7 +404,6 @@ fun StoryScreen(
                         
                         if ((idx + 1) % 4 == 0) {
                             com.example.firstapp.media.ui.components.BannerAdView(
-                                adUnitId = "ca-app-pub-3940256099942544/6300978111",
                                 modifier = Modifier.padding(vertical = 12.dp)
                             )
                         }
@@ -434,7 +433,6 @@ fun StoryScreen(
                         
                         if ((idx + 1) % 4 == 0) {
                             com.example.firstapp.media.ui.components.BannerAdView(
-                                adUnitId = "ca-app-pub-3940256099942544/6300978111",
                                 modifier = Modifier.padding(vertical = 12.dp)
                             )
                         }
@@ -444,7 +442,6 @@ fun StoryScreen(
                 // Final Banner Ad at the end of the list
                 item {
                     com.example.firstapp.media.ui.components.BannerAdView(
-                        adUnitId = "ca-app-pub-3940256099942544/6300978111",
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 }

@@ -60,9 +60,7 @@ fun JobDetailScreen(job: Job, onBack: () -> Unit, onApply: () -> Unit) {
         },
         bottomBar = {
             // Sticky Banner Ad at the bottom
-            com.example.firstapp.media.ui.components.BannerAdView(
-                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
-            )
+            com.example.firstapp.media.ui.components.BannerAdView()
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->

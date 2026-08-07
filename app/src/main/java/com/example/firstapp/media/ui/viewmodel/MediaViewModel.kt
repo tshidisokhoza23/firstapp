@@ -20,6 +20,8 @@ import java.util.HashMap
 import java.util.ArrayList
 import java.util.Locale
 
+import com.example.firstapp.common.data.ads.AdUnitConfig
+
 @HiltViewModel
 class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
@@ -76,7 +78,7 @@ class MediaViewModel @Inject constructor(
             }
             adManager.loadNativeAds(
                 context = context,
-                adUnitId = "ca-app-pub-3940256099942544/2247696110",
+                adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
                 count = 8, // 30 posts / 4 = 7.5 -> 8 ads
                 onAdsLoaded = { ads ->
                     android.util.Log.d("MediaViewModel", "Successfully preloaded ${ads.size} native ads")

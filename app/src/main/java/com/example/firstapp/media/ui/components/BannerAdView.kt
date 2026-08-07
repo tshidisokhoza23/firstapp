@@ -10,9 +10,11 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 
+import com.example.firstapp.common.data.ads.AdUnitConfig
+
 @Composable
 fun BannerAdView(
-    adUnitId: String,
+    adUnitId: String = AdUnitConfig.BANNER_MAIN_ID,
     modifier: Modifier = Modifier
 ) {
     AndroidView(

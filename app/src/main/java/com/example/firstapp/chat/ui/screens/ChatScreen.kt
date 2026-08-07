@@ -417,9 +417,7 @@ fun ChatMessagesScreen(
                         
                         // Banner Ad (at the bottom of Jobs or Channel chats)
                         if (jobId != null || chat.type == ConversationType.CHANNEL) {
-                            com.example.firstapp.media.ui.components.BannerAdView(
-                                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
-                            )
+                            com.example.firstapp.media.ui.components.BannerAdView()
                         }
 
                         if (chat.isTyping) {

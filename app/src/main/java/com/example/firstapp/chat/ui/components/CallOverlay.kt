@@ -62,7 +62,6 @@ fun CallOverlay(
             // Banner Ad (only before connection is established)
             if (!isConnectionEstablished) {
                 com.example.firstapp.media.ui.components.BannerAdView(
-                    adUnitId = "ca-app-pub-3940256099942544/6300978111", // Test ID
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()

@@ -38,6 +38,8 @@ import com.example.firstapp.media.ui.components.PollView
 import java.util.Locale
 import kotlin.collections.*
 
+import com.example.firstapp.common.data.ads.AdUnitConfig
+
 @Composable
 fun PostItem(
     adManager: AdManager,
@@ -63,7 +65,7 @@ fun PostItem(
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
         NativeAdCard(
             adManager = adManager,
-            adUnitId = "ca-app-pub-3940256099942544/2247696110",
+            adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
             post = post
         )
     } else {

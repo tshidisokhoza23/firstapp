@@ -57,6 +57,8 @@ import com.example.firstapp.media.ui.components.BannerAdView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
+import com.example.firstapp.common.data.ads.AdUnitConfig
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatsListScreen(
@@ -120,7 +122,7 @@ fun ChatsListScreen(
 
     LaunchedEffect(selectedTabItem) {
         if (selectedTabItem == 1) {
-            advertsViewModel.initializePool(context, "ca-app-pub-3940256099942544/5224354917")
+            advertsViewModel.initializePool(context, AdUnitConfig.REWARDED_POINTS_ID)
         }
     }
 
@@ -426,7 +428,7 @@ fun ChatsListScreen(
                                                 if (activity != null) {
                                                     advertsViewModel.adManager.loadRewardedAd(
                                                         context = context,
-                                                        adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
+                                                        adUnitId = AdUnitConfig.REWARDED_POINTS_ID,
                                                         onAdLoaded = { adObject ->
                                                             advertsViewModel.adManager.showRewardedAd(
                                                                 activity = activity,
@@ -459,7 +461,7 @@ fun ChatsListScreen(
                                             if (activity != null) {
                                                 advertsViewModel.showRewardedAd(
                                                     activity = activity,
-                                                    adUnitId = "ca-app-pub-3940256099942544/5224354917",
+                                                    adUnitId = AdUnitConfig.REWARDED_POINTS_ID,
                                                     advertId = ad.id
                                                 )
                                             }
@@ -470,9 +472,7 @@ fun ChatsListScreen(
                             }
                             
                             // Banner Ad only on Rewards tab
-                            BannerAdView(
-                                adUnitId = "ca-app-pub-3940256099942544/6300978111" // AdMob Banner Test ID
-                            )
+                            BannerAdView()
                         }
                     }
                     2 -> {
@@ -496,7 +496,7 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
+                            BannerAdView()
                         }
                     }
                     3 -> {
@@ -520,7 +520,7 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
+                            BannerAdView()
                         }
                     }
                 }

@@ -21,6 +21,8 @@ import java.util.ArrayList
 import kotlin.collections.*
 import kotlin.ranges.*
 
+import com.example.firstapp.common.data.ads.AdUnitConfig
+
 @OptIn(ExperimentalFoundationApi::class)
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -90,7 +92,7 @@ fun ShortsList(
             ) {
                 com.example.firstapp.common.ui.components.DynamicAdCard(
                     adManager = adManager,
-                    adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
+                    adUnitId = AdUnitConfig.NATIVE_SHORTS_ID,
                     modifier = Modifier.fillMaxSize(),
                     isShortsAd = true
                 )
