@@ -143,7 +143,8 @@ fun HomeScreen(
             com.example.firstapp.media.ui.components.BannerAdView(
                 modifier = Modifier.navigationBarsPadding()
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         if (uiState.isLoading) {
             Box(

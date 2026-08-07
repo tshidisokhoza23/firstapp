@@ -49,6 +49,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             ?: com.example.firstapp.common.data.ads.AdMobManagerImpl()
 
         val storiesState = storyViewModel.stories.collectAsState(Resource.Loading()).value
+        val contactsState = storyViewModel.contacts.collectAsState(Resource.Loading()).value
         val currentUser = com.example.firstapp.LocalCurrentUser.current
         val postResult by storyViewModel.postResult.collectAsState()
         val context = androidx.compose.ui.platform.LocalContext.current
@@ -67,6 +68,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
 
         StoryScreen(
             stories = storiesState.data ?: emptyList(),
+            contacts = contactsState.data ?: emptyList(),
             currentUserId = currentUser?.id,
             mediaViewModel = mediaViewModel,
             adManager = adManager,

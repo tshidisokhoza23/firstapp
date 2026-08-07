@@ -42,6 +42,7 @@ import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 @Composable
 fun StoryScreen(
     stories: List<UserStory>,
+    contacts: List<com.example.firstapp.chat.model.Contact> = emptyList(),
     currentUserId: String?,
     mediaViewModel: MediaViewModel,
     adManager: AdManager,
@@ -81,7 +82,9 @@ fun StoryScreen(
     }
     
     val myStory = stories.find { it.id == currentUserId }
-    val otherStories = filteredStories.filter { it.id != currentUserId }
+    val otherStories = filteredStories.filter { story -> 
+        story.id != currentUserId && (contacts.any { it.id == story.id } || story.id == "system_ad")
+    }
     val activeStories = otherStories.filter { !it.isMuted }
     val mutedStories = otherStories.filter { it.isMuted }
     
@@ -261,6 +264,11 @@ fun StoryScreen(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             },
+            bottomBar = {
+                com.example.firstapp.media.ui.components.BannerAdView(
+                    modifier = Modifier.navigationBarsPadding()
+                )
+            },
             floatingActionButton = {
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -283,7 +291,8 @@ fun StoryScreen(
                     }
                 }
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { padding ->
             LazyColumn(
                 modifier = Modifier
@@ -379,6 +388,11 @@ fun StoryScreen(
                             }
                         )
                     }
+                    item {
+                        com.example.firstapp.media.ui.components.BannerAdView(
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    }
                 }
 
                 if (recentUpdates.isNotEmpty()) {
@@ -439,14 +453,10 @@ fun StoryScreen(
                     }
                 }
                 
-                // Final Banner Ad at the end of the list
-                item {
-                    com.example.firstapp.media.ui.components.BannerAdView(
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-                }
+                // Final Banner Ad at the end of the list (Optional, now we have bottomBar)
+                // item { com.example.firstapp.media.ui.components.BannerAdView(...) }
                 
-                item { Spacer(modifier = Modifier.height(120.dp)) }
+                item { Spacer(modifier = Modifier.height(150.dp)) }
             }
         }
     }

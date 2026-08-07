@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,11 +25,15 @@ import com.example.firstapp.account.domain.repository.AccountRepository
 class StoryViewModel @Inject constructor(
     private val repository: SocialRepository,
     private val accountRepository: AccountRepository,
+    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository,
     private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient
 ) : ViewModel() {
 
     private val _stories = MutableStateFlow<Resource<List<UserStory>>>(Resource.Loading())
     val stories: StateFlow<Resource<List<UserStory>>> = _stories.asStateFlow()
+
+    val contacts: StateFlow<Resource<List<com.example.firstapp.chat.model.Contact>>> = chatRepository.getContacts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
 
     private val socketListener = object : PostSocketListener {
         override fun onOpen() {}
