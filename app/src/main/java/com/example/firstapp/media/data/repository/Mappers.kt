@@ -178,7 +178,10 @@ fun mapApiChannel(api: ApiChannel): Channel = Channel(
 )
 
 fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
-    val stories = apiStory.stories.map { 
+    val stories = apiStory.stories.filter { 
+        // Remove stories that are actually ads (to be replaced by banners in list)
+        !(it.id.startsWith("ad_"))
+    }.map {
         StoryItem(
             id = it.id, 
             content = it.content ?: "", 

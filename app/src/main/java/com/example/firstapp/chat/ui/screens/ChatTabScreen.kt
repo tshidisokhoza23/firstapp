@@ -496,9 +496,7 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            Box(modifier = Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface)) {
-                                BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
-                            }
+                            BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
                         }
                     }
                     3 -> {
@@ -522,9 +520,7 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            Box(modifier = Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface)) {
-                                BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
-                            }
+                            BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
                         }
                     }
                 }

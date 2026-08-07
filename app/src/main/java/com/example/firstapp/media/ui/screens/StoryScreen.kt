@@ -36,7 +36,6 @@ import com.example.firstapp.media.model.UserStory
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.google.android.gms.ads.nativead.NativeAd
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -403,11 +402,11 @@ fun StoryScreen(
                             onLongClick = { storyToMute = item }
                         )
                         
-                        if ((idx + 1) % 4 == 0 && preloadedAds.isNotEmpty()) {
-                            val ad = preloadedAds.get((idx / 4) % preloadedAds.size)
-                            if (ad is NativeAd) {
-                                StoryAdListItem(nativeAd = ad)
-                            }
+                        if ((idx + 1) % 4 == 0) {
+                            com.example.firstapp.media.ui.components.BannerAdView(
+                                adUnitId = "ca-app-pub-3940256099942544/6300978111",
+                                modifier = Modifier.padding(vertical = 12.dp)
+                            )
                         }
                     }
                 }
@@ -433,24 +432,21 @@ fun StoryScreen(
                             onLongClick = { storyToMute = item }
                         )
                         
-                        if ((idx + 1) % 4 == 0 && preloadedAds.isNotEmpty()) {
-                            val adIndex = (idx / 4 + (recentUpdates.size / 4)) % preloadedAds.size
-                            val ad = preloadedAds.get(adIndex)
-                            if (ad is NativeAd) {
-                                StoryAdListItem(nativeAd = ad)
-                            }
+                        if ((idx + 1) % 4 == 0) {
+                            com.example.firstapp.media.ui.components.BannerAdView(
+                                adUnitId = "ca-app-pub-3940256099942544/6300978111",
+                                modifier = Modifier.padding(vertical = 12.dp)
+                            )
                         }
                     }
                 }
                 
-                // Final Native Ad at the end of the list
-                if (preloadedAds.isNotEmpty()) {
-                    item {
-                        val finalAd = preloadedAds.get(preloadedAds.size - 1)
-                        if (finalAd is NativeAd) {
-                            StoryAdListItem(nativeAd = finalAd)
-                        }
-                    }
+                // Final Banner Ad at the end of the list
+                item {
+                    com.example.firstapp.media.ui.components.BannerAdView(
+                        adUnitId = "ca-app-pub-3940256099942544/6300978111",
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
                 }
                 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -576,53 +572,6 @@ fun MyStoryListItem(
     }
 }
 
-@Composable
-fun StoryAdListItem(
-    nativeAd: NativeAd
-) {
-    AndroidView(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        factory = { ctx: android.content.Context ->
-            val view = android.view.LayoutInflater.from(ctx).inflate(com.example.firstapp.R.layout.item_media_native_ad, null) as com.google.android.gms.ads.nativead.NativeAdView
-            
-            view.headlineView = view.findViewById(com.example.firstapp.R.id.ad_headline)
-            view.bodyView = view.findViewById(com.example.firstapp.R.id.ad_body)
-            view.callToActionView = view.findViewById(com.example.firstapp.R.id.ad_call_to_action)
-            view.iconView = view.findViewById(com.example.firstapp.R.id.ad_app_icon)
-            view.advertiserView = view.findViewById(com.example.firstapp.R.id.ad_advertiser)
-            
-            view
-        },
-        update = { view: com.google.android.gms.ads.nativead.NativeAdView ->
-            val ad = nativeAd
-            (view.headlineView as? android.widget.TextView)?.text = ad.headline
-            (view.bodyView as? android.widget.TextView)?.text = ad.body
-            (view.callToActionView as? android.widget.Button)?.text = ad.callToAction
-            
-            val advertiser = ad.advertiser
-            if (advertiser != null) {
-                val advView = view.advertiserView as? android.widget.TextView
-                advView?.visibility = android.view.View.VISIBLE
-                advView?.text = advertiser
-            } else {
-                view.advertiserView?.visibility = android.view.View.GONE
-            }
-
-            val icon = ad.icon
-            if (icon != null) {
-                val iconView = view.iconView as? android.widget.ImageView
-                iconView?.visibility = android.view.View.VISIBLE
-                iconView?.setImageDrawable(icon.drawable)
-            } else {
-                view.iconView?.visibility = android.view.View.GONE
-            }
-            
-            view.setNativeAd(ad)
-        }
-    )
-}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable

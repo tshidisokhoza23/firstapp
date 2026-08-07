@@ -61,19 +61,13 @@ fun CallOverlay(
 
             // Banner Ad (only before connection is established)
             if (!isConnectionEstablished) {
-                Box(
+                com.example.firstapp.media.ui.components.BannerAdView(
+                    adUnitId = "ca-app-pub-3940256099942544/6300978111", // Test ID
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()
                         .padding(top = 16.dp)
-                        .fillMaxWidth()
-                        .height(60.dp)
-                        .background(Color.Black)
-                ) {
-                    com.example.firstapp.media.ui.components.BannerAdView(
-                        adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
-                    )
-                }
+                )
             }
 
             // Call Controls
