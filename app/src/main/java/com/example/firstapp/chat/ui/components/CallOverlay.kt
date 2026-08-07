@@ -154,7 +154,7 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
             modifier = Modifier
                 .size(120.dp, 160.dp)
                 .align(Alignment.TopEnd)
-                .padding(16.dp)
+                .padding(top = 100.dp, end = 16.dp) // Moved down to avoid overlapping with Banner Ad
                 .clip(MaterialTheme.shapes.medium)
                 .background(Color.Black)
         ) {

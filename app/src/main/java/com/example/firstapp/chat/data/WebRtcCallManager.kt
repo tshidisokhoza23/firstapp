@@ -61,6 +61,7 @@ class WebRtcCallManager(context: Context) {
     private var remoteRenderer: SurfaceViewRenderer? = null
     private var remoteAudioTrack: AudioTrack? = null
     private var iceServers: List<PeerConnection.IceServer>? = null
+    private var audioDeviceModule: org.webrtc.audio.JavaAudioDeviceModule? = null
 
     private var callType: CallType = CallType.VOICE
     private val pendingIceCandidates = CopyOnWriteArrayList<IceCandidate>()
@@ -97,7 +98,7 @@ class WebRtcCallManager(context: Context) {
     private val factory: PeerConnectionFactory by lazy {
         ensureFactoryInitialized(appContext)
 
-        val audioAttributes = org.webrtc.audio.JavaAudioDeviceModule.builder(appContext)
+        val adm = org.webrtc.audio.JavaAudioDeviceModule.builder(appContext)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
@@ -105,9 +106,11 @@ class WebRtcCallManager(context: Context) {
                     .build()
             )
             .createAudioDeviceModule()
+        
+        this.audioDeviceModule = adm
 
         PeerConnectionFactory.builder()
-            .setAudioDeviceModule(audioAttributes)
+            .setAudioDeviceModule(adm)
             .setVideoEncoderFactory(DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, true))
             .setVideoDecoderFactory(DefaultVideoDecoderFactory(eglBase.eglBaseContext))
             .createPeerConnectionFactory()
@@ -358,6 +361,9 @@ class WebRtcCallManager(context: Context) {
     fun setMicEnabled(enabled: Boolean) {
         localAudioTrack?.setEnabled(enabled)
         localAudioTrack?.setVolume(if (enabled) 1.0 else 0.0)
+        // Set hardware mute on the Audio Device Module (Robust for Huawei/Samsung)
+        audioDeviceModule?.setMicrophoneMute(!enabled)
+        // Fallback system mute
         audioManager.isMicrophoneMute = !enabled
     }
 
