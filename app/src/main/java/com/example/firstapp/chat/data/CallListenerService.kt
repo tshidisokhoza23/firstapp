@@ -212,6 +212,7 @@ class CallListenerService : Service() {
                 if (sessionId != null) putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, sessionId)
                 if (participantId.isNotBlank()) putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, participantId)
                 putExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE, callTypeStr)
+                putExtra("is_ongoing_call_return", true)
             }
             val pendingIntent = PendingIntent.getActivity(
                 this,

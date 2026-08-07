@@ -349,9 +349,11 @@ fun ProfileView(
                             Button(
                                 onClick = { 
                                     if (isMyProfile) {
-                                        onNavigateToSharedMedia("inbox")
+                                        // onNavigateToSharedMedia("inbox")
                                     } else if (user != null) {
-                                        onNavigateToMediaViewer(user.id, "chat", 0L)
+                                        com.example.firstapp.common.util.GlobalNavigation.navigateTo(
+                                            com.example.firstapp.ui.navigation.Screen.Chat.createRoute(user.id, type = "initiate")
+                                        )
                                     }
                                 },
                                 modifier = Modifier.weight(1f).height(44.dp),

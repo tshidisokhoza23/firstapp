@@ -455,8 +455,12 @@ class WebRtcCallManager(context: Context) {
                 renderer.setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                 renderer.setMirror(false)
             } catch (_: Exception) {}
-            remoteVideoTrack?.setEnabled(true)
-            remoteVideoTrack?.addSink(renderer)
+            
+            // Explicitly enable and attach if track exists
+            remoteVideoTrack?.let { track ->
+                track.setEnabled(true)
+                track.addSink(renderer)
+            }
         }
     }
 

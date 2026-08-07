@@ -63,10 +63,20 @@ object GlobalCallState {
     fun updateContactInfo(userId: String, name: String, phone: String?) {
         if (name.isBlank() || name.lowercase() == "unknown" || name == userId) return
         contactNames[userId] = name
-        if (phone != null) contactPhones[userId] = phone
+        // Also map the phone number if available
+        phone?.let { contactPhones[userId] = it }
+        
+        android.util.Log.d("GlobalCallState", "Updated contact info: $userId -> $name")
     }
 
-    fun getContactName(userId: String): String? = contactNames[userId]
+    fun getContactName(id: String): String? {
+        // Try direct lookup
+        contactNames[id]?.let { return it }
+        
+        // Try finding by ID if it's a known phone number or secondary ID
+        // (This part is simplified, usually we'd have a more robust lookup)
+        return null
+    }
     fun getContactPhone(userId: String): String? = contactPhones[userId]
 
     fun onCallInvite(event: CallEvent) {

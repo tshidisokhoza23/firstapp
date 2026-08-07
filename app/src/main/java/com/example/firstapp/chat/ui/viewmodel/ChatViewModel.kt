@@ -183,15 +183,16 @@ class ChatViewModel @Inject constructor(
         
         messagesFetchJob?.cancel()
         messagesFetchJob = viewModelScope.launch {
-            // Check cache FIRST manually to avoid "No Messages" flicker
-            val cached = repository.getMessages(chatId).first()
-            if (cached is Resource.Success && cached.data?.isNotEmpty() == true) {
-                _uiState.update { it.copy(messages = cached) }
-            } else {
-                _uiState.update { it.copy(messages = Resource.Loading()) }
+            // Step 1: Check cache immediately and update UI if data exists
+            repository.getMessages(chatId).first().let { resource ->
+                if (resource is Resource.Success && resource.data?.isNotEmpty() == true) {
+                    _uiState.update { it.copy(messages = resource) }
+                } else {
+                    _uiState.update { it.copy(messages = Resource.Loading()) }
+                }
             }
             
-            // Collect flow for real-time updates from Room
+            // Step 2: Observe for all future updates (network sync results + real-time)
             repository.getMessages(chatId).collect { resource ->
                 _uiState.update { it.copy(messages = resource) }
             }

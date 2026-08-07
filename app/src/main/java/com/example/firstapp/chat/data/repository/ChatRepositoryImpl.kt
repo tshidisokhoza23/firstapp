@@ -82,14 +82,21 @@ class ChatRepositoryImpl @Inject constructor(
                             ),
                             contact?.phoneNumber ?: entity.phoneNumber ?: ""
                         )
-                        if (name.isBlank()) entity.senderName.ifBlank { targetId } else name
+                        if (name.isBlank() || name.lowercase() == "unknown" || name == targetId) {
+                            entity.senderName.ifBlank { targetId }
+                        } else name
                     } else {
                         entity.senderName.ifBlank { entity.id }
                     }
                     
+                    val finalName = if (resolvedName.isBlank() || resolvedName == entity.id) {
+                        // Fallback to contact cache
+                        GlobalCallState.getContactName(targetId) ?: resolvedName
+                    } else resolvedName
+
                     val existing = localChats[entity.id]
                     entity.copy(
-                        senderName = resolvedName.ifBlank { entity.senderName },
+                        senderName = finalName,
                         avatarUrl = contact?.avatarUrl ?: entity.avatarUrl,
                         phoneNumber = contact?.phoneNumber ?: entity.phoneNumber,
                         wallpaperUrl = existing?.wallpaperUrl,
@@ -192,13 +199,10 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getMessages(chatId: String, page: Int): Flow<Resource<List<Message>>> = flow {
-        // First, emit what we have locally
+        // First, emit what we have locally (ALWAYS emit first to avoid hangs in .first() or collect)
         val cachedEntities = chatDao.getMessages(chatId).first()
         val cached = cachedEntities.map { it.toModel() }
-        
-        if (cached.isNotEmpty()) {
-            emit(Resource.Success(cached))
-        }
+        emit(Resource.Success(cached))
 
         // Then, try to sync from network
         try {
@@ -451,13 +455,16 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun saveMessage(chatId: String, message: Message) {
-        chatDao.insertMessages(listOf(message.toEntity(chatId)))
-        chatDao.pruneMessages(chatId, 50)
+        // ID Consistency Check: Ensure we use the same chatId throughout the message lifecycle
+        val finalChatId = message.conversationId.ifBlank { chatId }
+        chatDao.insertMessages(listOf(message.toEntity(finalChatId)))
+        chatDao.pruneMessages(finalChatId, 50)
     }
 
     override suspend fun updateMessageInCache(chatId: String, message: Message) {
-        chatDao.insertMessages(listOf(message.toEntity(chatId)))
-        chatDao.pruneMessages(chatId, 50)
+        val finalChatId = message.conversationId.ifBlank { chatId }
+        chatDao.insertMessages(listOf(message.toEntity(finalChatId)))
+        chatDao.pruneMessages(finalChatId, 50)
     }
 
     override suspend fun updateMessageReactions(messageId: String, reactions: Map<String, Int>) {

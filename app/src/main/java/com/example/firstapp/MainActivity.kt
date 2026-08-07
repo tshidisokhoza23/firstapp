@@ -379,8 +379,11 @@ class MainActivity : FragmentActivity() {
         
         // Handle notification-specific navigation
         val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
-        if (senderId != null && sessionManager.isLoggedIn()) {
-            GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId))
+        val isOngoingCallReturn = intent.getBooleanExtra("is_ongoing_call_return", false)
+
+        if (senderId != null && sessionManager.isLoggedIn() && !isOngoingCallReturn) {
+            // Only navigate if it's NOT just returning to an ongoing call from the app itself
+            GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId, type = "initiate"))
         }
     }
 
