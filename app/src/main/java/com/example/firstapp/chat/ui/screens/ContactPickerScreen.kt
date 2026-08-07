@@ -155,6 +155,11 @@ fun ContactPickerScreen(
                 }
             }
         },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView(
+                modifier = Modifier.navigationBarsPadding()
+            )
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         PullToRefreshBox(
@@ -206,6 +211,10 @@ fun ContactPickerScreen(
                 
                 item {
                     ContactActionItem(icon = Icons.Default.Search, label = "Invite friends", onClick = onInviteClicked)
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(100.dp))
                 }
             }
         }

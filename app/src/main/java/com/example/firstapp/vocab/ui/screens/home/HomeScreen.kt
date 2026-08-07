@@ -138,6 +138,11 @@ fun HomeScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            com.example.firstapp.media.ui.components.BannerAdView(
+                modifier = Modifier.navigationBarsPadding()
+            )
         }
     ) { padding ->
         if (uiState.isLoading) {
@@ -285,6 +290,10 @@ fun HomeScreen(
                         onClick = { onStartLesson(lesson.id) }
                     )
                 }
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
     }
