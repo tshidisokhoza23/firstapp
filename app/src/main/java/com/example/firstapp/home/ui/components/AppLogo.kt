@@ -14,14 +14,26 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.firstapp.R
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.ColorFilter
+
 @Composable
 fun AppLogo(
     size: Dp = 40.dp,
     modifier: Modifier = Modifier,
-    tint: Color = Color.Unspecified
+    tint: Color? = null
 ) {
     // Use the main high-res logo for everything
     val logoRes = R.drawable.app_logo_main
+    val isDark = isSystemInDarkTheme()
+    
+    // If no tint provided, automatically tint the logo to be visible in light mode 
+    // assuming the asset is white/light (designed for dark mode)
+    val finalColorFilter = when {
+        tint != null -> ColorFilter.tint(tint)
+        !isDark -> ColorFilter.tint(com.example.firstapp.common.ui.theme.LogoBlueDark)
+        else -> null // Keep original white/light for dark mode
+    }
     
     Box(
         modifier = modifier.size(size),
@@ -30,7 +42,8 @@ fun AppLogo(
         Image(
             painter = painterResource(id = logoRes),
             contentDescription = "App Logo",
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            colorFilter = finalColorFilter
         )
     }
 }

@@ -128,7 +128,13 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         longitude = apiMessage.longitude,
         replyToId = apiMessage.reply_to_id,
         replyToText = apiMessage.reply_to_text,
-        replyToSenderName = apiMessage.reply_to_sender_name
+        replyToSenderName = apiMessage.reply_to_sender_name,
+        applicantProfile = apiMessage.applicant_profile?.let { 
+            ApplicantProfile(it.full_name, it.bio, it.cv_url) 
+        },
+        jobDetails = apiMessage.job_details?.let { 
+            JobDetails(it.title) 
+        }
     )
 }
 
@@ -222,7 +228,10 @@ fun Message.toEntity(chatId: String) = MessageEntity(
     latitude = latitude,
     longitude = longitude,
     replyToText = replyToText,
-    replyToSenderName = replyToSenderName
+    replyToSenderName = replyToSenderName,
+    applicantName = applicantProfile?.full_name,
+    applicantBio = applicantProfile?.bio,
+    jobTitle = jobDetails?.title
 )
 
 fun MessageEntity.toModel() = Message(
@@ -250,7 +259,9 @@ fun MessageEntity.toModel() = Message(
     latitude = latitude,
     longitude = longitude,
     replyToText = replyToText,
-    replyToSenderName = replyToSenderName
+    replyToSenderName = replyToSenderName,
+    applicantProfile = if (applicantName != null) ApplicantProfile(applicantName, applicantBio, null) else null,
+    jobDetails = if (jobTitle != null) JobDetails(jobTitle) else null
 )
 
 fun CallLog.toEntity() = CallLogEntity(

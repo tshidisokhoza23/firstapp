@@ -30,6 +30,9 @@ class ChatSettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val autoNightMode: StateFlow<Boolean> = settingsRepository.autoNightMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val isDarkMode: StateFlow<Boolean> = settingsRepository.isDarkMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun setFontSize(size: Float) {
@@ -50,6 +53,10 @@ class ChatSettingsViewModel @Inject constructor(
 
     fun setAutoNightMode(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setAutoNightMode(enabled) }
+    }
+
+    fun setIsDarkMode(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setIsDarkMode(enabled) }
     }
 
     fun clearAllChats() {

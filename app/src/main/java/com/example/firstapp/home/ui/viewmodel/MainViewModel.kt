@@ -33,6 +33,9 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
 
     val autoNightMode = settingsRepository.autoNightMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val isDarkMode = settingsRepository.isDarkMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val animationsEnabled = settingsRepository.animationsEnabled

@@ -40,13 +40,32 @@ class AdRepositoryImpl @Inject constructor(
     }
 
     override fun markAdvertViewed(advertId: String): Flow<Resource<Boolean>> = flow {
-        try {
-            advertDao.markAsViewed(advertId)
-            mediaApi.markAdvertViewed(advertId)
-            // Award R0.10 for watching a rewarded ad
-            RewardsManager.awardPoints(0.10, "REWARDED_AD", "Watched advert $advertId")
+        if (advertId.isBlank()) {
+            emit(Resource.Error("Invalid advert ID"))
+            return@flow
+        }
+        
+        // Anti-fraud: prevent double-rewarding on the client side
+        val existing = advertDao.getAdvertById(advertId)
+        if (existing != null && existing.isViewed) {
             emit(Resource.Success(true))
-        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+            return@flow
+        }
+
+        try {
+            // 1. Mark as viewed locally for immediate UI feedback (gray out button)
+            advertDao.markAsViewed(advertId)
+            
+            // 2. Notify backend for tracking/analytics.
+            // SECURE DESIGN: The backend will NOT award points based on this client-side call.
+            // It will wait for the cryptographically signed Server-Side Verification (SSV) 
+            // callback directly from Google's servers to prevent fraud.
+            val apiResponse = mediaApi.markAdvertViewed(advertId)
+            
+            emit(Resource.Success(apiResponse.isSuccessful))
+        } catch (e: Exception) { 
+            emit(Resource.Error("Tracking update failed"))
+        }
     }
 
     override fun trackAdvertClick(advertId: String): Flow<Resource<Boolean>> = flow {

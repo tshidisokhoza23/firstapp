@@ -154,24 +154,25 @@ class ChatViewModel @Inject constructor(
     }
 
     fun fetchMessages(chatId: String) {
+        if (activeChatId == chatId && _uiState.value.messages is Resource.Success) return
+        
         activeChatId = chatId
         exhaustedCursorByChat.remove(chatId)
         (repository as? ChatRepositoryImpl)?.clearDedupForConversation(chatId)
+        
         messagesFetchJob?.cancel()
         messagesFetchJob = viewModelScope.launch {
-            // Trigger sync from network
-            launch {
-                repository.getMessages(chatId, 1).collect { }
-            }
-
+            _uiState.update { it.copy(messages = Resource.Loading()) }
+            
+            // Collect from repository (it emits local then network then local)
             repository.getMessages(chatId).collect { resource ->
                 _uiState.update { it.copy(messages = resource) }
             }
         }
         
-        // Also refresh chat info to ensure isAdmin/createdBy are up to date
+        // Refresh chat list to update metadata
         viewModelScope.launch {
-            repository.getChats().collect { /* just triggering a refresh */ }
+            repository.syncChats().collect { }
         }
     }
 
@@ -189,9 +190,17 @@ class ChatViewModel @Inject constructor(
                 if (activeChatId == message.conversationId) {
                     _uiState.update { state ->
                         val current = state.messages.data ?: emptyList()
+                        // Ensure no duplicates by ID or ClientID
                         if (current.none { it.id == message.id || (it.clientId != null && it.clientId == message.clientId) }) {
-                            state.copy(messages = Resource.Success(current + message))
-                        } else state
+                            val newList = (current + message).sortedBy { it.timestamp }
+                            state.copy(messages = Resource.Success(newList))
+                        } else {
+                            // If it exists, update it (might have changed status or content)
+                            val updatedList = current.map { 
+                                if (it.id == message.id || (it.clientId != null && it.clientId == message.clientId)) message else it 
+                            }
+                            state.copy(messages = Resource.Success(updatedList))
+                        }
                     }
                     if (!message.isFromMe) {
                         markAsRead(message.conversationId)

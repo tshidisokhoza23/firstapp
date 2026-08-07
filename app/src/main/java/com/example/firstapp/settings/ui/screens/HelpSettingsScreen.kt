@@ -64,18 +64,18 @@ fun HelpSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Help", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Help", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -103,7 +103,7 @@ fun HelpItem(icon: ImageVector, title: String, subtitle: String, onClick: () -> 
         Icon(icon, contentDescription = null, tint = AppTextSecondary)
         Spacer(modifier = Modifier.width(16.dp))
         Column {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             if (subtitle.isNotEmpty()) {
                 Text(subtitle, color = AppTextSecondary, fontSize = 14.sp)
             }

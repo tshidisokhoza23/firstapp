@@ -84,7 +84,19 @@ data class ApiMessage(
     val mention_user_ids: List<String>?,
     val reply_to_id: String? = null,
     val reply_to_text: String? = null,
-    val reply_to_sender_name: String? = null
+    val reply_to_sender_name: String? = null,
+    val applicant_profile: ApiApplicantProfile? = null,
+    val job_details: ApiJobDetails? = null
+)
+
+data class ApiApplicantProfile(
+    val full_name: String,
+    val bio: String? = null,
+    val cv_url: String? = null
+)
+
+data class ApiJobDetails(
+    val title: String
 )
 
 data class MessagesResponse(val messages: List<ApiMessage>, val page: Int)

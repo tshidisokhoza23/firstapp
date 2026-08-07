@@ -103,7 +103,13 @@ class AdvertsViewModel @Inject constructor(
         viewModelScope.launch {
             repository.markAdvertViewed(advertId).collect { result ->
                 if (result is Resource.Success && (result.data == true)) {
-                    // Trigger user refresh to get new wallet balance from server
+                    // Give the backend SSV callback a moment to process (usually < 2s)
+                    kotlinx.coroutines.delay(2000)
+                    
+                    // Authoritatively refresh balance from server
+                    com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance()
+                    
+                    // Also refresh user profile
                     userRepository.getCurrentUser().collectLatest { }
                 }
             }

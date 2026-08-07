@@ -37,10 +37,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.shadow
 import com.example.firstapp.R
-
-import com.example.firstapp.common.ui.theme.LogoBlueDark
-import com.example.firstapp.common.ui.theme.LogoBlueLight
+import com.example.firstapp.common.ui.theme.*
 import android.widget.Toast
+
 
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
@@ -232,15 +231,30 @@ fun LoginScreen(
     }
 
 
-    Column(
+    val backgroundBrush = if (LocalIsDarkTheme.current) {
+        Brush.verticalGradient(
+            colors = listOf(AppBackgroundDarkTop, AppBackgroundDarkBottom)
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(Color.White, AppBackgroundLight)
+        )
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (isSystemInDarkTheme()) Color.Black else Color(0xFFF8F9FA))
-            .verticalScroll(scrollState)
-            .padding(horizontal = 32.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top
+            .background(backgroundBrush)
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 32.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
+        ) {
+
 
 
         Spacer(modifier = Modifier.height(60.dp))
@@ -254,11 +268,7 @@ fun LoginScreen(
             color = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White,
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Image(
-                    painter = painterResource(id = R.drawable.app_logo_main),
-                    contentDescription = "App Logo",
-                    modifier = Modifier.size(90.dp)
-                )
+                com.example.firstapp.home.ui.components.AppLogo(size = 90.dp)
             }
         }
 
@@ -606,9 +616,11 @@ fun LoginScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 
     if (showForgotPassword) {
+
         AlertDialog(
             onDismissRequest = { showForgotPassword = false },
             containerColor = MaterialTheme.colorScheme.surface,

@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,6 +58,23 @@ fun CallOverlay(
                 VideoCallContent(participantName, isConnectionEstablished, isRinging, callManager)
             } else {
                 VoiceCallContent(participantName, isConnectionEstablished, isRinging)
+            }
+
+            // Banner Ad (only before connection is established)
+            if (!isConnectionEstablished) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 16.dp)
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .background(Color.Black)
+                ) {
+                    com.example.firstapp.media.ui.components.BannerAdView(
+                        adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
+                    )
+                }
             }
 
             // Call Controls
@@ -199,7 +217,7 @@ private fun CallControls(
                 .background(if (speaker) Color.White else Color.White.copy(alpha = 0.2f), CircleShape)
         ) {
             Icon(
-                if (speaker) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                if (speaker) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeDown,
                 contentDescription = "Speaker",
                 tint = if (speaker) Color.Black else Color.White
             )

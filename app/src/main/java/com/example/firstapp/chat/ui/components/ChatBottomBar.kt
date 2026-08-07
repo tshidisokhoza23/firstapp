@@ -29,6 +29,7 @@ fun ChatBottomBarUnique(
     onSend: () -> Unit,
     onAttachClick: () -> Unit,
     onEmojiClick: () -> Unit,
+    onCameraClick: () -> Unit,
     onMicClick: () -> Unit,
     isRecording: Boolean = false,
     recordingDuration: Int = 0,
@@ -102,7 +103,7 @@ fun ChatBottomBarUnique(
                     }
                     
                     if (text == "") {
-                        IconButton(onClick = { /* Camera handled in ChatScreen */ }) {
+                        IconButton(onClick = onCameraClick) {
                             Icon(Icons.Default.PhotoCamera, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }

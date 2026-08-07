@@ -1,6 +1,8 @@
 package com.example.firstapp.common.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 
 // Modern "Boyish" Purple & Blue Palette
 val DeepIndigo = Color(0xFF1A237E)
@@ -19,13 +21,19 @@ val LogoBlueDark = Color(0xFF003BA1)
 val LogoBlueLight = Color(0xFF00D1FF)
 
 val AppPrimary = LogoBlueDark
-val AppSecondary = Color(0xFF1C1C1E)
-val AppBackground = Color(0xFF000000) // Pure black for OLED/Premium feel
-val AppTextPrimary = SoftWhite
-val AppTextSecondary = MutedSlate
+
+// Base Colors for Theme Definition
+val AppBackgroundDarkTop = Color(0xFF041528) // Deep Navy for gradient top
+val AppBackgroundDarkBottom = Color(0xFF000000) // Pure Black for bottom
+val AppBackgroundLight = Color(0xFFF0F2F5)
+val AppSecondaryDark = Color(0xFF1C1C1E)
+
+// Theme-aware accessors (MUST be used within @Composable)
+val AppBackground @Composable get() = MaterialTheme.colorScheme.background
+val AppSecondary @Composable get() = MaterialTheme.colorScheme.secondary
+val AppTextPrimary @Composable get() = MaterialTheme.colorScheme.onBackground
+val AppTextSecondary @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 val AppAccent = LogoBlueLight
-
-
 
 val DividerColor = Color(0xFF2F3336)
 val SecondaryText = Color(0xFF71767B)

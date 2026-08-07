@@ -40,6 +40,18 @@ import kotlin.text.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.absoluteValue
+
+fun getSenderColor(senderId: String): Color {
+    val colors = listOf(
+        Color(0xFFEF5350), Color(0xFFEC407A), Color(0xFFAB47BC), Color(0xFF7E57C2),
+        Color(0xFF5C6BC0), Color(0xFF42A5F5), Color(0xFF29B6F6), Color(0xFF26C6DA),
+        Color(0xFF26A69A), Color(0xFF66BB6A), Color(0xFF9CCC65), Color(0xFFD4E157),
+        Color(0xFFFFEE58), Color(0xFFFFCA28), Color(0xFFFFA726), Color(0xFFFF7043)
+    )
+    if (senderId.isEmpty()) return Color.Gray
+    return colors[senderId.hashCode().absoluteValue % colors.size]
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -171,14 +183,16 @@ fun MessageItemUnique(
                         }
                     }
 
-                    // Sender Name (For Groups)
+                    // Sender Name (For Groups/Channels)
                     if (!messageItem.isFromMe && messageItem.senderName.isNotEmpty() && messageItem.senderName != "Me") {
                         Text(
                             text = messageItem.senderName,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            color = getSenderColor(messageItem.senderId),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 2.dp).clickable {
+                                // Potentially navigate to sender profile
+                            }
                         )
                     }
 
@@ -452,18 +466,86 @@ fun AttachmentPreview(
         MessageType.APPLICATION_LINK -> {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
             ) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Work, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.BusinessCenter, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            val title = message.jobDetails?.title ?: "Job Application"
+                            Text(
+                                text = title,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(text = "Profile Summary Attached", color = contentColor.copy(alpha = 0.7f), fontSize = 12.sp)
+                        }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(text = "Job Application", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(text = "Profile Summary Attached", color = contentColor.copy(alpha = 0.8f), fontSize = 12.sp)
+                    
+                    if (message.applicantProfile != null) {
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Applicant: ${message.applicantProfile.full_name}",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (!message.applicantProfile.bio.isNullOrBlank()) {
+                            Text(
+                                text = message.applicantProfile.bio,
+                                color = contentColor.copy(alpha = 0.6f),
+                                fontSize = 12.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        MessageType.JOB_POST -> {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.WorkOutline, null, tint = MaterialTheme.colorScheme.secondary)
+                        Spacer(Modifier.width(12.dp))
+                        Text("New Job Opportunity", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message.content, 
+                        fontSize = 13.sp, 
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                        maxLines = 3, 
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { /* Navigate to job */ },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Text("View Details", fontSize = 12.sp)
                     }
                 }
             }
@@ -545,6 +627,7 @@ fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
             )
         }
 
+        val secondaryColor = AppTextSecondary
         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
             Canvas(modifier = Modifier.fillMaxWidth().height(24.dp)) {
                 val barWidthPx = 3.dp.toPx()
@@ -559,7 +642,7 @@ fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
                     val isPlayed = progress > (i.toFloat() / count.toFloat())
                     
                     drawLine(
-                        color = if (isPlayed) AppAccent else AppTextSecondary.copy(alpha = 0.3f),
+                        color = if (isPlayed) AppAccent else secondaryColor.copy(alpha = 0.3f),
                         start = Offset(x, canvasHeight / 2 - barHeightPx / 2),
                         end = Offset(x, canvasHeight / 2 + barHeightPx / 2),
                         strokeWidth = barWidthPx,
@@ -567,7 +650,7 @@ fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
                     )
                 }
             }
-            Text(text = duration ?: "Voice", color = AppTextSecondary, fontSize = 10.sp)
+            Text(text = duration ?: "Voice", color = secondaryColor, fontSize = 10.sp)
         }
     }
 }

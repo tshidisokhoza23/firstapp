@@ -31,5 +31,8 @@ data class MessageEntity(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val replyToText: String? = null,
-    val replyToSenderName: String? = null
+    val replyToSenderName: String? = null,
+    val applicantName: String? = null,
+    val applicantBio: String? = null,
+    val jobTitle: String? = null
 )

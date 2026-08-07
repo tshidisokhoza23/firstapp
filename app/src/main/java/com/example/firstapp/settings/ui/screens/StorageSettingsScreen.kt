@@ -39,18 +39,18 @@ fun StorageSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Data & Resource", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Data & Resource", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -118,10 +118,10 @@ fun StorageSettingItemUnique(title: String, subtitle: String, onClick: () -> Uni
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = AppTextSecondary, fontSize = 13.sp)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
-        Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(alpha = 0.1f))
+        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     }
 }
 
@@ -135,9 +135,9 @@ fun StorageSwitchItemUnique(title: String, subtitle: String, checked: Boolean, o
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             if (subtitle.isNotEmpty()) {
-                Text(subtitle, color = AppTextSecondary, fontSize = 13.sp)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             }
         }
         Switch(

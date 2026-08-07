@@ -4,15 +4,19 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.home.ui.viewmodel.MainViewModel
+
 import com.example.firstapp.ui.navigation.BottomNavItem
 import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.ui.components.GlobalOverlayContainer
@@ -89,84 +93,97 @@ fun MainScreen(
         }
     }
 
+    val backgroundBrush = if (LocalIsDarkTheme.current) {
+        Brush.verticalGradient(
+            colors = listOf(AppBackgroundDarkTop, AppBackgroundDarkBottom)
+        )
+    } else {
+         Brush.verticalGradient(
+            colors = listOf(Color.White, AppBackgroundLight)
+        )
+    }
+
     GlobalOverlayContainer(musicViewModel = musicViewModel) {
-        Scaffold(
-            bottomBar = {
-                MainBottomNavigation(
-                    selectedRoute = currentTab.route,
-                    onTabSelected = { item: BottomNavItem ->
-                        viewModel.setSelectedBottomItem(item.index)
-                        if (item != BottomNavItem.More) {
-                            navigateToTab(item)
-                        }
-                    }
-                )
-            },
-            containerColor = MaterialTheme.colorScheme.background
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = innerPadding.calculateBottomPadding())
-            ) {
-                val tabToDisplay = if (selectedIndex == 5) {
-                    BottomNavItem.fromIndex(lastActiveTab.intValue)
-                } else {
-                    currentTab
-                }
-
-                // Crossfade provides clean UI transitions between active screens
-                Crossfade(
-                    targetState = tabToDisplay, 
-                    label = "TabSwitch",
-                    modifier = Modifier.fillMaxSize()
-                ) { targetTab ->
-                    when (targetTab) {
-                        BottomNavItem.Chat -> ChatsListScreen(
-                            navController = navController,
-                            adManager = adManager,
-                            onLogout = onLogout
-                        )
-                        BottomNavItem.Media -> MediaTabScreen(
-                            navController = navController,
-                            adManager = adManager
-                        )
-                        BottomNavItem.Shorts -> ShortsTabScreen(
-                            navController = navController,
-                            adManager = adManager,
-                            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
-                            initialShortId = initialShortId
-                        )
-                        BottomNavItem.Music -> MusicTabScreen(
-                            navController = navController
-                        )
-                        BottomNavItem.Drive -> DriveTabScreen(
-                            navController = navController
-                        )
-                        else -> ChatsListScreen(
-                            navController = navController,
-                            adManager = adManager,
-                            onLogout = onLogout
-                        )
-                    }
-                }
-
-                // "More" Shortcuts Sheet Overlay
-                if (selectedIndex == 5) {
-                    MoreShortcutsSheet(
-                        isVisible = true,
-                        onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
-                        onNavigate = { route: String ->
-                            viewModel.setSelectedBottomItem(lastActiveTab.intValue)
-                            navController.navigate(route) {
-                                launchSingleTop = true
+        Box(modifier = Modifier.fillMaxSize().background(backgroundBrush)) {
+            Scaffold(
+                bottomBar = {
+                    MainBottomNavigation(
+                        selectedRoute = currentTab.route,
+                        onTabSelected = { item: BottomNavItem ->
+                            viewModel.setSelectedBottomItem(item.index)
+                            if (item != BottomNavItem.More) {
+                                navigateToTab(item)
                             }
                         }
                     )
+                },
+                containerColor = Color.Transparent
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                ) {
+                    val tabToDisplay = if (selectedIndex == 5) {
+                        BottomNavItem.fromIndex(lastActiveTab.intValue)
+                    } else {
+                        currentTab
+                    }
+
+                    // Crossfade provides clean UI transitions between active screens
+                    Crossfade(
+                        targetState = tabToDisplay, 
+                        label = "TabSwitch",
+                        modifier = Modifier.fillMaxSize()
+                    ) { targetTab ->
+                        when (targetTab) {
+                            BottomNavItem.Chat -> ChatsListScreen(
+                                navController = navController,
+                                adManager = adManager,
+                                onLogout = onLogout
+                            )
+                            BottomNavItem.Media -> MediaTabScreen(
+                                navController = navController,
+                                adManager = adManager
+                            )
+                            BottomNavItem.Shorts -> ShortsTabScreen(
+                                navController = navController,
+                                adManager = adManager,
+                                onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
+                                initialShortId = initialShortId
+                            )
+                            BottomNavItem.Music -> MusicTabScreen(
+                                navController = navController
+                            )
+                            BottomNavItem.Drive -> DriveTabScreen(
+                                navController = navController
+                            )
+                            else -> ChatsListScreen(
+                                navController = navController,
+                                adManager = adManager,
+                                onLogout = onLogout
+                            )
+                        }
+                    }
+
+                    // "More" Shortcuts Sheet Overlay
+                    if (selectedIndex == 5) {
+                        MoreShortcutsSheet(
+                            isVisible = true,
+                            onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
+                            onNavigate = { route: String ->
+                                viewModel.setSelectedBottomItem(lastActiveTab.intValue)
+                                navController.navigate(route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
     }
+
 }
 
 @Composable
@@ -175,10 +192,11 @@ fun MainBottomNavigation(
     onTabSelected: (BottomNavItem) -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp
     ) {
+
         Column {
             NavigationBar(
                 containerColor = Color.Transparent,

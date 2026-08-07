@@ -118,7 +118,7 @@ fun RewardsScreen(
                             }
                         },
                         title = if (ad.title.isNotEmpty()) ad.title else "Reward Ad #${index + 1}",
-                        coins = "0.1",
+                        coins = "10",
                         actionText = if (isNext) {
                             if (!hasAvailableAds) "Loading..."
                             else if (cooldownSeconds > 0) "${cooldownSeconds}s" 
@@ -168,7 +168,7 @@ fun RewardsScreen(
                             Icon(Icons.Default.VideoLibrary, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                         },
                         title = if (ad.title.isNotEmpty()) ad.title else "Ad from ${ad.advertiserName}",
-                        coins = "0.1",
+                        coins = "10",
                         isCompleted = true,
                         onClick = {}
                     )

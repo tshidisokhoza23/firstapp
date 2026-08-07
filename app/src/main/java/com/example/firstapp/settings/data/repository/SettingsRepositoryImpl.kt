@@ -23,7 +23,8 @@ class SettingsRepositoryImpl @Inject constructor(
     override val enterIsSend: Flow<Boolean> = observeKey("enter_is_send", false)
     override val mediaVisibility: Flow<Boolean> = observeKey("media_visibility", true)
     override val animationsEnabled: Flow<Boolean> = observeKey("animations_enabled", true)
-    override val autoNightMode: Flow<Boolean> = observeKey("auto_night_mode", false)
+    override val autoNightMode: Flow<Boolean> = observeKey("auto_night_mode", true)
+    override val isDarkMode: Flow<Boolean> = observeKey("is_dark_mode", false)
 
     override val privateChatsEnabled: Flow<Boolean> = observeKey("private_chats_enabled", true)
     override val groupsEnabled: Flow<Boolean> = observeKey("groups_enabled", true)
@@ -58,6 +59,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setAutoNightMode(enabled: Boolean) {
         prefs.edit().putBoolean("auto_night_mode", enabled).apply()
+    }
+
+    override suspend fun setIsDarkMode(enabled: Boolean) {
+        prefs.edit().putBoolean("is_dark_mode", enabled).apply()
     }
 
     override suspend fun setPrivateChatsEnabled(enabled: Boolean) {

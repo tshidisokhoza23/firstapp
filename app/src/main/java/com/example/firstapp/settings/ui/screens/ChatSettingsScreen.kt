@@ -28,6 +28,7 @@ fun ChatSettingsScreen(onBack: () -> Unit, viewModel: ChatSettingsViewModel = hi
     val mediaVisibility by viewModel.mediaVisibility.collectAsState()
     val animationsEnabled by viewModel.animationsEnabled.collectAsState()
     val autoNightMode by viewModel.autoNightMode.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
 
     Scaffold(
         topBar = {
@@ -38,10 +39,10 @@ fun ChatSettingsScreen(onBack: () -> Unit, viewModel: ChatSettingsViewModel = hi
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background, titleContentColor = MaterialTheme.colorScheme.onBackground)
             )
         },
-        containerColor = AppBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -58,7 +59,7 @@ fun ChatSettingsScreen(onBack: () -> Unit, viewModel: ChatSettingsViewModel = hi
             )
             
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Font size", color = Color.White, fontSize = 16.sp)
+                Text("Font size", color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp)
                 Slider(
                     value = fontSize,
                     onValueChange = { viewModel.setFontSize(it) },
@@ -80,6 +81,15 @@ fun ChatSettingsScreen(onBack: () -> Unit, viewModel: ChatSettingsViewModel = hi
                 checked = autoNightMode,
                 onCheckedChange = { viewModel.setAutoNightMode(it) }
             )
+
+            if (!autoNightMode) {
+                ChatSettingsSwitch(
+                    title = "Dark mode",
+                    subtitle = "Manually enable dark theme",
+                    checked = isDarkMode,
+                    onCheckedChange = { viewModel.setIsDarkMode(it) }
+                )
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = AppSecondary)
 
@@ -130,8 +140,8 @@ fun ChatSettingsSwitch(title: String, subtitle: String, checked: Boolean, onChec
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp)
-            Text(subtitle, color = AppTextSecondary, fontSize = 14.sp)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
         Switch(
             checked = checked,

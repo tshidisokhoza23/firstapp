@@ -198,31 +198,42 @@ class ChatRepositoryImpl @Inject constructor(
         
         if (cached.isNotEmpty()) {
             emit(Resource.Success(cached))
-        } else {
-            // Emit success with empty list instead of loading, 
-            // so optimistic messages can be shown immediately
-            emit(Resource.Success(emptyList()))
         }
 
         // Then, try to sync from network
         try {
-            val oldestTs = if (cached.isNotEmpty()) cached.minOfOrNull { it.timestamp } else null
-            val response = if (page > 1 && oldestTs != null) {
-                chatApi.getMessages(chatId, page = 1, beforeTs = oldestTs, limit = 50)
-            } else {
-                chatApi.getMessages(chatId, page = page)
-            }
+            // If page is 1, we want the most recent messages.
+            // If we have local messages, we might want to fetch anything newer than our newest,
+            // or just refresh the top.
+            val response = chatApi.getMessages(chatId, page = page, limit = 50)
             
             if (response.isSuccessful && response.body() != null) {
                 val apiMessages = response.body()!!.messages
                 val privKey = sessionManager.getPrivateKey()
                 val myUserId = sessionManager.getUserId()
                 val messages = apiMessages.map { am: com.example.firstapp.chat.data.api.ApiMessage -> mapApiMessage(am, privKey, myUserId) }
+                
                 // Insert new messages into the database
                 chatDao.insertMessages(messages.map { m: Message -> m.toEntity(chatId) })
+                
+                // If it's a new conversation, we might need to update the last message info
+                if (messages.isNotEmpty()) {
+                    val last = messages.first() // API usually returns descending or ascending? Let's assume most recent is here or we find it
+                    val mostRecent = messages.maxByOrNull { it.timestamp }
+                    mostRecent?.let {
+                        chatDao.updateLastMessage(chatId, it.content, it.timestamp, it.isFromMe, it.isRead)
+                    }
+                }
+            } else if (response.code() == 404) {
+                // Conversation might have been deleted on server
+                // chatDao.deleteChat(chatId)
             }
         } catch (e: Exception) {
-            Log.e("ChatRepositoryImpl", "getMessages network sync failed", e)
+            Log.e("ChatRepositoryImpl", "getMessages network sync failed for $chatId", e)
+            // If we have NO cached messages and network fails, emit error
+            if (cached.isEmpty()) {
+                emit(Resource.Error("Could not load messages: ${e.localizedMessage}"))
+            }
         }
 
         // Finally, emit the latest combined local state

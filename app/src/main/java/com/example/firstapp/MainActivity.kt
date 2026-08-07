@@ -21,8 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.firstapp.ui.navigation.AppNavigation
 import com.example.firstapp.ui.navigation.Screen
-import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.TJTheme
+import com.example.firstapp.common.ui.theme.*
 
 import com.example.firstapp.home.ui.viewmodel.MainViewModel
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
@@ -156,6 +155,8 @@ class MainActivity : FragmentActivity() {
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
 
+        adManager.initialize(this)
+
         if (!Places.isInitialized() && isGooglePlayServicesReady()) {
             Places.initialize(applicationContext, "AIzaSyAcwjsoRCNMFsX5ayuuYC1CoNqj8NVP3Kw")
         } else if (!isGooglePlayServicesReady()) {
@@ -165,15 +166,17 @@ class MainActivity : FragmentActivity() {
         val isSystemDark = android.content.res.Configuration.UI_MODE_NIGHT_YES == (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)
         
         enableEdgeToEdge(
-            statusBarStyle = if (isSystemDark) SystemBarStyle.dark(AppBackground.toArgb()) else SystemBarStyle.light(Color.White.toArgb(), Color.Black.toArgb()),
-            navigationBarStyle = if (isSystemDark) SystemBarStyle.dark(AppBackground.toArgb()) else SystemBarStyle.light(Color.White.toArgb(), Color.Black.toArgb())
+            statusBarStyle = if (isSystemDark) SystemBarStyle.dark(AppBackgroundDarkTop.toArgb()) else SystemBarStyle.light(Color.White.toArgb(), Color.Black.toArgb()),
+            navigationBarStyle = if (isSystemDark) SystemBarStyle.dark(AppBackgroundDarkTop.toArgb()) else SystemBarStyle.light(Color.White.toArgb(), Color.Black.toArgb())
         )
 
         setContent {
             val viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val autoNightMode by viewModel.autoNightMode.collectAsState()
+            val isDarkModePref by viewModel.isDarkMode.collectAsState()
+            
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val darkTheme = if (autoNightMode) isSystemDark else isSystemDark // Default to system if not auto
+            val darkTheme = if (autoNightMode) isSystemDark else isDarkModePref
 
             DisposableEffect(darkTheme) {
                 enableEdgeToEdge(

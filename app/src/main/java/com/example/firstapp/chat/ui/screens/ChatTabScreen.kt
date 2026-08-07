@@ -53,6 +53,7 @@ import com.example.firstapp.chat.jobs.ui.screens.JobList
 import com.example.firstapp.chat.channels.ChannelList
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.ui.components.DynamicAdCard
+import com.example.firstapp.media.ui.components.BannerAdView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -131,27 +132,21 @@ fun ChatsListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(1f),
-                color = MaterialTheme.colorScheme.background,
+                color = Color.Transparent,
                 tonalElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier
                         .statusBarsPadding()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    MaterialTheme.colorScheme.background, 
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
-                                )
-                            )
-                        )
                 ) {
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 4.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+
                         if (isSearchActive) {
                             val searchType = when (selectedTabItem) {
                                 0 -> SearchType.CHATS
@@ -475,48 +470,60 @@ fun ChatsListScreen(
                             }
                             
                             // Banner Ad only on Rewards tab
-                            DynamicAdCard(
-                                adManager = adManager,
-                                adUnitId = "ca-app-pub-3940256099942544/6300978111", // AdMob Banner Test ID
-                                isBanner = true
+                            BannerAdView(
+                                adUnitId = "ca-app-pub-3940256099942544/6300978111" // AdMob Banner Test ID
                             )
                         }
                     }
                     2 -> {
                         val searchResults by searchViewModel.searchResults.collectAsState()
-                        if (isSearchActive && searchQuery.length > 0) {
-                            SearchResultsView(
-                                results = searchResults,
-                                type = SearchType.JOBS,
-                                onChatClick = {},
-                                onMessageClick = {},
-                                onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
-                                onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                            )
-                        } else {
-                            DataStateHandler(jobsState) { jobs -> 
-                                JobList(jobs, topBarHeight = 0.dp) { 
-                                    navController.navigate(Screen.JobDetail.createRoute(it.id)) 
-                                } 
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (isSearchActive && searchQuery.length > 0) {
+                                    SearchResultsView(
+                                        results = searchResults,
+                                        type = SearchType.JOBS,
+                                        onChatClick = {},
+                                        onMessageClick = {},
+                                        onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
+                                        onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                                    )
+                                } else {
+                                    DataStateHandler(jobsState) { jobs -> 
+                                        JobList(jobs, topBarHeight = 0.dp) { 
+                                            navController.navigate(Screen.JobDetail.createRoute(it.id)) 
+                                        } 
+                                    }
+                                }
+                            }
+                            Box(modifier = Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface)) {
+                                BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
                             }
                         }
                     }
                     3 -> {
                         val searchResults by searchViewModel.searchResults.collectAsState()
-                        if (isSearchActive && searchQuery.length > 0) {
-                            SearchResultsView(
-                                results = searchResults,
-                                type = SearchType.CHANNELS,
-                                onChatClick = {},
-                                onMessageClick = {},
-                                onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) },
-                                onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                            )
-                        } else {
-                            DataStateHandler(channelsState) { channels -> 
-                                ChannelList(channels, topBarHeight = 0.dp) {
-                                    navController.navigate(Screen.Chat.createRoute(it.id, type = "channel"))
-                                } 
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (isSearchActive && searchQuery.length > 0) {
+                                    SearchResultsView(
+                                        results = searchResults,
+                                        type = SearchType.CHANNELS,
+                                        onChatClick = {},
+                                        onMessageClick = {},
+                                        onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) },
+                                        onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                                    )
+                                } else {
+                                    DataStateHandler(channelsState) { channels -> 
+                                        ChannelList(channels, topBarHeight = 0.dp) {
+                                            navController.navigate(Screen.Chat.createRoute(it.id, type = "channel"))
+                                        } 
+                                    }
+                                }
+                            }
+                            Box(modifier = Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface)) {
+                                BannerAdView(adUnitId = "ca-app-pub-3940256099942544/6300978111")
                             }
                         }
                     }
@@ -526,7 +533,9 @@ fun ChatsListScreen(
     }
 }
 
+
 @OptIn(ExperimentalFoundationApi::class)
+
 @Composable
 fun ChatList(
     chats: List<ChatMessage>,
@@ -634,7 +643,7 @@ fun ChatList(
                 ) {
                     Icon(Icons.Default.Archive, contentDescription = null, tint = AppAccent, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text(text = "Archived", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text(text = "Archived", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     Text(text = archivedChatsCount.toString(), color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
@@ -679,11 +688,11 @@ fun ChatList(
         val selectedChat = selectedChatForMenu!!
         AlertDialog(
             onDismissRequest = { selectedChatForMenu = null },
-            title = { Text(selectedChat.senderName, color = Color.White) },
+            title = { Text(selectedChat.senderName, color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
                     ListItem(
-                        headlineContent = { Text(if (selectedChat.isPinned) "Unpin Chat" else "Pin Chat", color = Color.White) },
+                        headlineContent = { Text(if (selectedChat.isPinned) "Unpin Chat" else "Pin Chat", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.PushPin, null, tint = AppAccent, modifier = Modifier.rotate(if (selectedChat.isPinned) 0f else 45f)) },
                         modifier = Modifier.clickable { 
                             chatViewModel.pinChat(selectedChat.id, !selectedChat.isPinned)
@@ -692,8 +701,8 @@ fun ChatList(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                     ListItem(
-                        headlineContent = { Text(if (selectedChat.isMuted) "Unmute Notifications" else "Mute Notifications", color = Color.White) },
-                        leadingContent = { Icon(if (selectedChat.isMuted) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null, tint = AppAccent) },
+                        headlineContent = { Text(if (selectedChat.isMuted) "Unmute Notifications" else "Mute Notifications", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(if (selectedChat.isMuted) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff, null, tint = AppAccent) },
                         modifier = Modifier.clickable { 
                             chatViewModel.muteChat(selectedChat.id, !selectedChat.isMuted)
                             selectedChatForMenu = null 
@@ -701,7 +710,7 @@ fun ChatList(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                     ListItem(
-                        headlineContent = { Text("Archive Chat", color = Color.White) },
+                        headlineContent = { Text("Archive Chat", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Archive, null, tint = AppAccent) },
                         modifier = Modifier.clickable { 
                             chatViewModel.archiveChat(selectedChat.id, true)
@@ -721,7 +730,7 @@ fun ChatList(
                 }
             },
             confirmButton = {},
-            containerColor = AppSecondary,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -842,7 +851,7 @@ fun MessageSearchItem(message: Message) {
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(message.senderName ?: "", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(message.senderName ?: "", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(formatWhatsAppTime(message.timestamp), color = Color.Gray, fontSize = 12.sp)
             }
@@ -883,12 +892,12 @@ fun ContactSearchItem(contact: Contact) {
             } else {
                 val d = contact.displayName
                 val initial = if (d.length > 0) d.toString().substring(0, 1).uppercase(java.util.Locale.ROOT) else "?"
-                Text(initial, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(initial, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column {
-            Text(contact.displayName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(contact.displayName, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text("@" + contact.username, color = Color.Gray, fontSize = 14.sp)
         }
     }

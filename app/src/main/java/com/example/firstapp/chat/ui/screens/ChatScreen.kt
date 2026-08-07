@@ -81,6 +81,31 @@ import com.example.firstapp.chat.ui.components.ScrollToBottomButton
 import com.example.firstapp.chat.ui.components.ChatTopBar
 import com.example.firstapp.chat.ui.components.ChatMessageList
 
+@Composable
+fun JobInfoHeader(title: String, company: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.BusinessCenter, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(text = company, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatMessagesScreen(
@@ -259,8 +284,10 @@ fun ChatMessagesScreen(
         chatViewModel.markAsRead(chat.id)
     }
 
+    var systemMessageSent by remember { mutableStateOf(false) }
     LaunchedEffect(messagesResource, jobTitle, companyName) {
-        if (messagesResource is Resource.Success && (messagesResource.data?.isEmpty() == true) && jobTitle != null && companyName != null) {
+        if (!systemMessageSent && messagesResource is Resource.Success && (messagesResource.data?.isEmpty() == true) && jobTitle != null && companyName != null) {
+            systemMessageSent = true
             val systemMessage = "Hi, I would like to apply for the position of $jobTitle at $companyName. Attached is my profile summary."
             sendToServer(body = systemMessage, messageType = "application_link")
         }
@@ -355,25 +382,30 @@ fun ChatMessagesScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                ChatTopBar(
-                    chat = chat,
-                    sanitizedName = sanitizedName,
-                    isSearchMode = isSearchMode,
-                    chatSearchQuery = chatSearchQuery,
-                    selectedMessagesCount = selectedMessages.size,
-                    isTyping = uiState.typingStatus[chat.id] ?: false,
-                    onBack = { if (selectedMessages.isNotEmpty()) selectedMessages.clear() else onBack() },
-                    onSearchQueryChange = { chatSearchQuery = it },
-                    onSearchModeChange = { isSearchMode = it },
-                    onClearSearch = { chatSearchQuery = "" },
-                    onShowProfile = onShowProfile,
-                    onInitiateCall = { targetId, type -> chatViewModel.initiateCall(targetId, type) },
-                    onClearChat = { chatViewModel.clearChat(chat.id) },
-                    onDeleteChat = { chatViewModel.deleteChat(chat.id); onBack() },
-                    onDeleteSelectedMessages = { deleteSelectedMessages() },
-                    onForwardSelectedMessages = { /* Forward */ },
-                    onClearSelectedMessages = { selectedMessages.clear() }
-                )
+                Column {
+                    ChatTopBar(
+                        chat = chat,
+                        sanitizedName = sanitizedName,
+                        isSearchMode = isSearchMode,
+                        chatSearchQuery = chatSearchQuery,
+                        selectedMessagesCount = selectedMessages.size,
+                        isTyping = uiState.typingStatus[chat.id] ?: false,
+                        onBack = { if (selectedMessages.isNotEmpty()) selectedMessages.clear() else onBack() },
+                        onSearchQueryChange = { chatSearchQuery = it },
+                        onSearchModeChange = { isSearchMode = it },
+                        onClearSearch = { chatSearchQuery = "" },
+                        onShowProfile = onShowProfile,
+                        onInitiateCall = { targetId, type -> chatViewModel.initiateCall(targetId, type) },
+                        onClearChat = { chatViewModel.clearChat(chat.id) },
+                        onDeleteChat = { chatViewModel.deleteChat(chat.id); onBack() },
+                        onDeleteSelectedMessages = { deleteSelectedMessages() },
+                        onForwardSelectedMessages = { /* Forward */ },
+                        onClearSelectedMessages = { selectedMessages.clear() }
+                    )
+                    if (jobTitle != null && companyName != null) {
+                        JobInfoHeader(title = jobTitle, company = companyName)
+                    }
+                }
             },
             bottomBar = {
                 Surface(
@@ -382,6 +414,16 @@ fun ChatMessagesScreen(
                     tonalElevation = 4.dp
                 ) {
                     Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding().imePadding()) {
+                        
+                        // Banner Ad (at the bottom of Jobs or Channel chats)
+                        if (jobId != null || chat.type == ConversationType.CHANNEL) {
+                            Box(modifier = Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface)) {
+                                com.example.firstapp.media.ui.components.BannerAdView(
+                                    adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ID
+                                )
+                            }
+                        }
+
                         if (chat.isTyping) {
                             Text(
                                 text = stringResource(R.string.typing),
@@ -464,6 +506,12 @@ fun ChatMessagesScreen(
                                     keyboardController?.hide()
                                     showEmojiPicker = !showEmojiPicker 
                                     showAttachments = false
+                                },
+                                onCameraClick = {
+                                    val file = File(context.cacheDir, "IMG_${System.currentTimeMillis()}.jpg")
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                                    tempPhotoUri = uri
+                                    cameraLauncher.launch(uri)
                                 },
                                 onMicClick = { if (isRecording) stopRecording() else startRecording() },
                                 isRecording = isRecording,

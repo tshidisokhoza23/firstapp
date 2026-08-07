@@ -36,7 +36,9 @@ sealed class ChatIntent {
         val contactPhone: String? = null,
         val latitude: Double? = null,
         val longitude: Double? = null,
-        val replyToId: String? = null
+        val replyToId: String? = null,
+        val replyToText: String? = null,
+        val replyToSenderName: String? = null
     ) : ChatIntent()
     data class MarkAsRead(val chatId: String) : ChatIntent()
     data class DeleteMessage(val messageId: String) : ChatIntent()

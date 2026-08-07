@@ -8,6 +8,7 @@ interface SettingsRepository {
     val mediaVisibility: Flow<Boolean>
     val animationsEnabled: Flow<Boolean>
     val autoNightMode: Flow<Boolean>
+    val isDarkMode: Flow<Boolean>
     
     // Notifications
     val privateChatsEnabled: Flow<Boolean>
@@ -33,6 +34,7 @@ interface SettingsRepository {
     suspend fun setMediaVisibility(enabled: Boolean)
     suspend fun setAnimationsEnabled(enabled: Boolean)
     suspend fun setAutoNightMode(enabled: Boolean)
+    suspend fun setIsDarkMode(enabled: Boolean)
 
     suspend fun setPrivateChatsEnabled(enabled: Boolean)
     suspend fun setGroupsEnabled(enabled: Boolean)

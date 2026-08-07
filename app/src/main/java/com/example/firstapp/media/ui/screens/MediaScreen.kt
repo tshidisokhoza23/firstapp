@@ -26,7 +26,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -163,7 +165,17 @@ fun MediaScreen(
 
     var showPostMoreOptions by remember { mutableStateOf<Post?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    val backgroundBrush = if (LocalIsDarkTheme.current) {
+        Brush.verticalGradient(
+            colors = listOf(AppBackgroundDarkTop, AppBackgroundDarkBottom)
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(Color.White, AppBackgroundLight)
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(backgroundBrush)) {
         androidx.activity.compose.BackHandler(
             enabled = showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null || showPostMoreOptions != null
         ) {
@@ -186,7 +198,7 @@ fun MediaScreen(
             Scaffold(
                 modifier = Modifier,
                 topBar = {
-                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+                    Box(modifier = Modifier.background(Color.Transparent).statusBarsPadding()) {
                         if (isSearchActive) {
                             SearchTopBar(
                                 query = searchQuery,
@@ -202,7 +214,6 @@ fun MediaScreen(
                                     AppLogo(size = 36.dp)
                                 },
                                 navigationIcon = {
-
                                     IconButton(onClick = { showTopMoreSheet = true }) {
                                         Icon(Icons.Default.Menu, contentDescription = "Menu")
                                     }
@@ -222,7 +233,7 @@ fun MediaScreen(
                         }
                     }
                 },
-                containerColor = MaterialTheme.colorScheme.background,
+                containerColor = Color.Transparent,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0)
             ) { innerPadding ->
                 Box(modifier = Modifier.padding(innerPadding)) {
@@ -258,6 +269,7 @@ fun MediaScreen(
                 }
             }
         }
+
 
         if (showTopMoreSheet) {
             ModalBottomSheet(
@@ -387,6 +399,7 @@ fun MediaScreen(
         }
     }
 }
+
 
 @Composable
 fun MainFeedSection(
