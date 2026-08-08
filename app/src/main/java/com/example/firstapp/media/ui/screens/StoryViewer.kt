@@ -1,10 +1,12 @@
 package com.example.firstapp.media.ui.screens
 
+import android.widget.Toast
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -13,7 +15,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,7 +55,9 @@ fun StoryViewer(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
-    var currentStoryIndex by remember { mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) }
+    var currentStoryIndex by remember(userStory.id, initialStoryIndex) { 
+        mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) 
+    }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     if (showAd) {
@@ -101,6 +108,9 @@ fun StoryViewer(
 
     LaunchedEffect(currentStoryIndex, isPaused) {
         if (!isPaused) {
+            // Count as viewed at the start of the story
+            onStoryViewed(currentStoryIndex)
+
             val durationMs = currentStory.durationMs.toLong().coerceAtLeast(1000L)
             
             progress.animateTo(
@@ -111,9 +121,6 @@ fun StoryViewer(
                 )
             )
             
-            // Count as viewed after animation completes
-            onStoryViewed(currentStoryIndex)
-
             if (currentStoryIndex < stories.size - 1) {
                 progress.snapTo(0f)
                 currentStoryIndex++
@@ -361,26 +368,94 @@ fun StoryViewer(
         }
 
         // Reply Bar
-        Column(
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                Icons.Default.KeyboardArrowUp,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
+            var replyText by remember { mutableStateOf("") }
+            
+            Surface(
+                modifier = Modifier.weight(1f).height(48.dp),
+                color = Color.Black.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(24.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+            ) {
+                TextField(
+                    value = replyText,
+                    onValueChange = { replyText = it },
+                    placeholder = { Text("Reply", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp) },
+                    modifier = Modifier.fillMaxSize(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color.White
+                    ),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onSend = {
+                            if (replyText.isNotBlank()) {
+                                // Send reply logic - usually sends a message to the user
+                                replyText = ""
+                            }
+                        }
+                    )
+                )
+            }
+            
+            // Reaction Emojis
+            Text(
+                "😍", 
+                fontSize = 28.sp, 
+                modifier = Modifier.clickable { 
+                    Toast.makeText(context, "Sent 😍", Toast.LENGTH_SHORT).show()
+                }
             )
             Text(
-                "REPLY",
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                "😂", 
+                fontSize = 28.sp, 
+                modifier = Modifier.clickable { 
+                    Toast.makeText(context, "Sent 😂", Toast.LENGTH_SHORT).show()
+                }
             )
+            Text(
+                "😮", 
+                fontSize = 28.sp, 
+                modifier = Modifier.clickable { 
+                    Toast.makeText(context, "Sent 😮", Toast.LENGTH_SHORT).show()
+                }
+            )
+            
+            IconButton(onClick = { 
+                Toast.makeText(context, "Story reshared", Toast.LENGTH_SHORT).show()
+            }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Repeat, null, tint = Color.White, modifier = Modifier.size(24.dp))
+            }
+            
+            var isLiked by remember { mutableStateOf(false) }
+            IconButton(onClick = { 
+                isLiked = !isLiked
+                Toast.makeText(context, if (isLiked) "Story liked" else "Like removed", Toast.LENGTH_SHORT).show()
+            }, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
+                    null, 
+                    tint = if (isLiked) Color.Red else Color.White, 
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }

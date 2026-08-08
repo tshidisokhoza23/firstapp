@@ -403,7 +403,7 @@ fun ChatsListScreen(
                                     onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
                                     onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
                                     onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
-                                    onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id)) },
+                                    onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = false)) },
                                     onAvatarClick = { userId -> navController.navigate(Screen.UserProfile.createRoute(userId)) }
                                 )
                             }

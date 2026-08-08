@@ -18,9 +18,9 @@ sealed class Screen(val route: String) {
     object Vocab : Screen("vocab")
     object Files : Screen("files")
     object Calendar : Screen("calendar")
-    object Story : Screen("story?userId={userId}&showComposer={showComposer}") {
-        fun createRoute(userId: String? = null, showComposer: Boolean = false) = 
-            "story?userId=${userId ?: ""}&showComposer=$showComposer"
+    object Story : Screen("story?userId={userId}&showComposer={showComposer}&play={play}") {
+        fun createRoute(userId: String? = null, showComposer: Boolean = false, play: Boolean = true) = 
+            "story?userId=${userId ?: ""}&showComposer=$showComposer&play=$play"
     }
     object NewStory : Screen("new_story")
     object ShareStory : Screen("share_story?content={content}&url={url}&type={type}") {

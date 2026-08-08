@@ -37,11 +37,13 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         route = Screen.Story.route,
         arguments = listOf(
             navArgument("userId") { type = NavType.StringType; defaultValue = "" },
-            navArgument("showComposer") { type = NavType.BoolType; defaultValue = false }
+            navArgument("showComposer") { type = NavType.BoolType; defaultValue = false },
+            navArgument("play") { type = NavType.BoolType; defaultValue = true }
         )
     ) { backStackEntry ->
         val initialUserId = backStackEntry.arguments?.getString("userId") ?: ""
         val showComposer = backStackEntry.arguments?.getBoolean("showComposer") ?: false
+        val play = backStackEntry.arguments?.getBoolean("play") ?: true
         val storyViewModel: StoryViewModel = hiltViewModel()
         val userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = hiltViewModel()
         val mediaViewModel: MediaViewModel = hiltViewModel()
@@ -74,6 +76,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             adManager = adManager,
             initialViewingUserId = if (initialUserId.isNotBlank()) initialUserId else null,
             initialShowComposer = showComposer,
+            initialPlay = play,
             onBack = { navController.popBackStack() },
             onPostStory = { content, url, type -> storyViewModel.postStory(content, url, type) },
             onDeleteStory = { storyId -> storyViewModel.deleteStory(storyId) },

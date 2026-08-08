@@ -48,6 +48,7 @@ fun StoryScreen(
     adManager: AdManager,
     initialViewingUserId: String? = null,
     initialShowComposer: Boolean = false,
+    initialPlay: Boolean = true,
     onBack: () -> Unit,
     onPostStory: (String, String?, String) -> Unit,
     onDeleteStory: (String) -> Unit,
@@ -59,7 +60,7 @@ fun StoryScreen(
     val preloadedAds by mediaViewModel.preloadedAds.collectAsState()
     
     var viewingUserStory by remember { 
-        mutableStateOf(stories.find { it.id == initialViewingUserId }) 
+        mutableStateOf(if (initialPlay) stories.find { it.id == initialViewingUserId } else null)
     }
     var viewingStoryIndex by remember { mutableIntStateOf(0) }
 
@@ -68,8 +69,8 @@ fun StoryScreen(
     var showInViewerAd by remember { mutableStateOf(false) }
 
     // Logic to handle initial navigation to a story
-    LaunchedEffect(initialViewingUserId) {
-        if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+    LaunchedEffect(initialViewingUserId, initialPlay) {
+        if (initialPlay && initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
             val story = stories.find { it.id == initialViewingUserId }
             if (story != null) {
                 viewingUserStory = story
@@ -118,7 +119,7 @@ fun StoryScreen(
     val viewedUpdates = activeStories.filter { it.allViewed }
     
     var showMutedUpdates by remember { mutableStateOf(false) }
-    var showPostedStoriesList by remember { mutableStateOf(false) }
+    var showPostedStoriesList by remember { mutableStateOf(!initialPlay && initialViewingUserId == currentUserId) }
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -268,6 +269,7 @@ fun StoryScreen(
             onStoryClick = { idx ->
                 viewingUserStory = myStory
                 viewingStoryIndex = idx
+                showPostedStoriesList = false
             }
         )
     } else if (viewingUserStory != null && viewingUserStory!!.stories.isNotEmpty()) {
@@ -278,18 +280,7 @@ fun StoryScreen(
             showAd = showInViewerAd,
             onAdFinish = { 
                 showInViewerAd = false
-                // Manually move to next story if ad finished
-                val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
-                if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
-                    viewingUserStory = allViewableStories[currentIndex + 1]
-                    viewingStoryIndex = 0
-                } else {
-                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                        onBack()
-                    } else {
-                        viewingUserStory = null 
-                    }
-                }
+                // No need to manually advance here, StoryViewer will resume from viewingStoryIndex
             },
             onStoryViewed = { storyIndex -> 
                 val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
@@ -299,6 +290,12 @@ fun StoryScreen(
                     // Increment global view counter
                     totalStoriesViewedInViewer++
                     
+                    // Update index so we resume correctly if an ad interrupts
+                    // If it's the last story, onFinish will handle advancement
+                    if (storyIndex < viewingUserStory!!.stories.size - 1) {
+                        viewingStoryIndex = storyIndex + 1
+                    }
+
                     // Trigger ad logic: Every 4 stories viewed across all users
                     if (totalStoriesViewedInViewer > 0 && totalStoriesViewedInViewer % 4 == 0) {
                         showInViewerAd = true
@@ -314,7 +311,7 @@ fun StoryScreen(
                     val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
                     if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
                         viewingUserStory = allViewableStories[currentIndex + 1]
-                        viewingStoryIndex = 0
+                        viewingStoryIndex = 0 // Reset index for next user
                     } else {
                         if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                             onBack()
@@ -399,59 +396,19 @@ fun StoryScreen(
                     }
                 }
 
-                item {
-                    Text(
-                        "Story",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
 
-                item(key = "my_story_item_main") {
-                    myStory?.let {
-                        StoryListItem(it, isOwnStory = true, onClick = { 
-                            viewingUserStory = it
+                item(key = "stories_row_main") {
+                    com.example.firstapp.media.ui.components.StoriesRow(
+                        stories = stories,
+                        currentUserId = currentUserId,
+                        onStoryClick = { story ->
+                            viewingUserStory = story
                             viewingStoryIndex = 0
-                        })
-                    } ?: run {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onNavigateToNewStory() }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                             Box(
-                                modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Person, 
-                                    null, 
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                        .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
-                                ) {
-                                    Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
-                                }
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column {
-                                Text("My story", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Tap to add story update", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                            }
-                        }
-                    }
+                        },
+                        onMediaStoryClick = onNavigateToNewStory,
+                        onTextStoryClick = { showComposer = true },
+                        onPostedStoriesClick = { showPostedStoriesList = true }
+                    )
                 }
 
                 if (myStory != null && myStory.stories.isNotEmpty()) {

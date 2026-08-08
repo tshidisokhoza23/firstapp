@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.ui.platform.LocalContext
 import com.example.firstapp.common.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,22 +34,24 @@ fun NewStoryScreen(
     onBack: () -> Unit,
     onNext: (content: String, url: String, type: String) -> Unit
 ) {
+    val context = LocalContext.current
     var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
     var caption by remember { mutableStateOf("") }
     var mediaType by remember { mutableStateOf("text") }
 
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         uri?.let {
             selectedMediaUri = it
-            mediaType = "image" // Defaulting to image for now, could be video too
+            val mimeType = context.contentResolver.getType(it)
+            mediaType = if (mimeType?.startsWith("video") == true) "video" else "image"
         }
     }
 
     LaunchedEffect(Unit) {
         if (selectedMediaUri == null) {
-            launcher.launch("image/*")
+            launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         }
     }
 
