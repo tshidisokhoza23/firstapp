@@ -306,6 +306,26 @@ class DriveViewModel @Inject constructor(
         }
     }
 
+    fun verifySafetyPin(pin: String): Boolean {
+        return if (pin == _safetyPin.value) {
+            _bookingStatus.value = BookingStatus.IN_PROGRESS
+            true
+        } else {
+            false
+        }
+    }
+
+    fun requestPayout() {
+        viewModelScope.launch {
+            // Logic to transfer _driverEarnings to _walletBalance
+            val amount = _driverEarnings.value
+            if (amount > 0) {
+                _walletBalance.value += amount
+                _driverEarnings.value = 0.0
+            }
+        }
+    }
+
     fun declineRideRequest() {
         _incomingRideRequest.value = null
     }

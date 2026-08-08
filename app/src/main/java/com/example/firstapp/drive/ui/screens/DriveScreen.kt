@@ -1999,6 +1999,7 @@ fun DriverDashboard(
 ) {
     var showDocUpload by remember { mutableStateOf(false) }
     var currentTab by remember { mutableIntStateOf(0) } // 0 for Map/Home, 1 for Docs/Earnings
+    val bookingStatus = viewModel.bookingStatus.value
     
     val pickupLocation = viewModel.pickupLocation.value ?: LatLng(-26.1076, 28.0567)
     val driverPosition by viewModel.driverPosition.collectAsState()
@@ -2151,11 +2152,26 @@ fun DriverDashboard(
                         ) {
                             Column(modifier = Modifier.padding(24.dp)) {
                                 Text("Total Earnings Today", style = MaterialTheme.typography.labelLarge)
-                                Text(
-                                    "R" + "%.2f".format(earnings),
-                                    style = MaterialTheme.typography.headlineLarge,
-                                    fontWeight = FontWeight.Black
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "R" + "%.2f".format(earnings),
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                    if (earnings > 0) {
+                                        Button(
+                                            onClick = { viewModel.requestPayout() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text("Withdraw", fontSize = 12.sp)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -2195,6 +2211,21 @@ fun DriverDashboard(
                         request = incomingRequest,
                         onAccept = onAccept,
                         onDecline = onDecline
+                    )
+                }
+            }
+
+            // PIN Verification Overlay
+            if (isApproved && isOnline && bookingStatus == DriveViewModel.BookingStatus.ARRIVED) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    PinVerificationCard(
+                        onVerify = { pin -> viewModel.verifySafetyPin(pin) }
                     )
                 }
             }
@@ -2421,4 +2452,47 @@ fun TripSummaryDialog(summary: DriveViewModel.TripSummary, onDismiss: () -> Unit
             }
         }
     )
+}
+
+@Composable
+fun PinVerificationCard(onVerify: (String) -> Boolean) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+    ) {
+        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
+            Spacer(Modifier.height(16.dp))
+            Text("Verify Passenger", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text("Ask the passenger for their 4-digit PIN to start the ride.", textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = Color.Gray)
+            
+            Spacer(Modifier.height(24.dp))
+            
+            OutlinedTextField(
+                value = pin,
+                onValueChange = { if (it.length <= 4) { pin = it; error = false } },
+                label = { Text("4-Digit PIN") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+                isError = error,
+                supportingText = { if (error) Text("Incorrect PIN. Please try again.") }
+            )
+            
+            Spacer(Modifier.height(24.dp))
+            
+            Button(
+                onClick = { if (!onVerify(pin)) error = true },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                enabled = pin.length == 4
+            ) {
+                Text("Verify & Start Trip", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
 }
