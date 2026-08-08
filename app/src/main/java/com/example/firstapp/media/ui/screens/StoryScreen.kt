@@ -444,7 +444,9 @@ fun StoryScreen(
                 if (myStory != null && myStory.stories.isNotEmpty()) {
                     item(key = "posted_stories_header_section") {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { showPostedStoriesList = true }.padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { 
+                                showPostedStoriesList = true 
+                            }.padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -457,7 +459,7 @@ fun StoryScreen(
                             Icon(Icons.Default.ArrowForwardIos, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    itemsIndexed(myStory.stories.reversed().take(3), key = { _, s -> "preview_${s.id}" }) { idx, story ->
+                    itemsIndexed(myStory.stories.distinctBy { it.id }.reversed().take(3), key = { _, s -> "preview_${s.id}" }) { idx, story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },

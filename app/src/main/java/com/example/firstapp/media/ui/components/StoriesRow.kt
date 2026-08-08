@@ -106,7 +106,7 @@ private fun MyStoryThumbnail(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .clickable(onClick = { showMenu = true })
+                    .clickable(onClick = onClick)
                     .border(
                         width = 2.dp,
                         brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
