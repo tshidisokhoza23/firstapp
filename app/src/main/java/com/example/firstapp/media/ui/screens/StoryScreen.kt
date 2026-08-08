@@ -442,6 +442,12 @@ fun StoryScreen(
                             },
                             onLongClick = { storyToMute = item }
                         )
+                        if ((idx + 1) % 4 == 0) {
+                            com.example.firstapp.media.ui.components.NativeAdCard(
+                                adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                 }
 
@@ -465,6 +471,12 @@ fun StoryScreen(
                             },
                             onLongClick = { storyToMute = item }
                         )
+                        if ((idx + 1) % 4 == 0) {
+                            com.example.firstapp.media.ui.components.NativeAdCard(
+                                adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                 }
                 

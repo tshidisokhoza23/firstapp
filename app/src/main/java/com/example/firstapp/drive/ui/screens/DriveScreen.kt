@@ -1984,7 +1984,7 @@ fun DriverDashboard(
                         Column(modifier = Modifier.padding(24.dp)) {
                             Text("Total Earnings Today", style = MaterialTheme.typography.labelLarge)
                             Text(
-                                "R${String.format(\"%.2f\", earnings)}",
+                                "R" + "%.2f".format(earnings),
                                 style = MaterialTheme.typography.headlineLarge,
                                 fontWeight = FontWeight.Black
                             )
@@ -2173,7 +2173,7 @@ fun RideRequestCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(request.distance, color = Color.Gray)
-                Text("R${String.format(\"%.2f\", request.fare)}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+                Text("R" + "%.2f".format(request.fare), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
             }
             
             Spacer(Modifier.height(32.dp))
