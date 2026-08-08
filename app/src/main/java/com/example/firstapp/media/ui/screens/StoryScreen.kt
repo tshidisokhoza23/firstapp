@@ -115,15 +115,22 @@ fun StoryScreen(
     val allViewableStories = remember(myStory, recentUpdates, viewedUpdates, viewingUserStory, initialViewingUserId) {
         val list = mutableListOf<UserStory>()
         
-        // If we clicked our own story, put it at the beginning of the sequence
-        if (viewingUserStory?.id == currentUserId && myStory != null) {
+        // If we are looking for a specific user first (via deep link or chat click)
+        val initialStory = if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+            stories.find { it.id == initialViewingUserId }
+        } else null
+
+        if (initialStory != null) {
+            list.add(initialStory)
+        } else if (viewingUserStory?.id == currentUserId && myStory != null) {
+            // If we explicitly clicked our own story from the main row
             list.add(myStory)
         }
         
         list.addAll(recentUpdates)
         list.addAll(viewedUpdates)
         
-        // Ensure no duplicates if myStory was already in updates
+        // Ensure no duplicates
         list.distinctBy { it.id }
     }
 
@@ -410,7 +417,7 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(myStory.stories.reversed()) { story ->
+                    itemsIndexed(myStory.stories.reversed()) { idx, story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },
@@ -419,6 +426,13 @@ fun StoryScreen(
                                 viewingStoryIndex = myStory.stories.indexOf(story)
                             }
                         )
+                        // Add native ad every 4th posted story too for consistency
+                        if ((idx + 1) % 4 == 0) {
+                            com.example.firstapp.media.ui.components.NativeAdCard(
+                                adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                 }
 
