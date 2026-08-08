@@ -1878,3 +1878,274 @@ fun ScheduleRideDialog(onDismiss: () -> Unit, onSchedule: (String, String) -> Un
         }
     )
 }
+
+@Composable
+fun DriverDashboard(
+    isOnline: Boolean,
+    onOnlineToggle: (Boolean) -> Unit,
+    earnings: Double,
+    documents: List<DriveViewModel.DriverDocument>,
+    incomingRequest: DriveViewModel.RideRequest?,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+    onMenuClick: () -> Unit,
+    onUploadDoc: (String, String) -> Unit
+) {
+    var showDocUpload by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            @OptIn(ExperimentalMaterial3Api::class)
+            TopAppBar(
+                title = { Text("Driver Dashboard", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onMenuClick) {
+                        Icon(Icons.Default.Menu, "Menu")
+                    }
+                },
+                actions = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (isOnline) "Online" else "Offline",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isOnline) Color(0xFF4CAF50) else Color.Gray
+                        )
+                        Switch(
+                            checked = isOnline,
+                            onCheckedChange = onOnlineToggle,
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF4CAF50))
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Earnings Card
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(24.dp)) {
+                            Text("Total Earnings Today", style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                "R${String.format(\"%.2f\", earnings)}",
+                                style = MaterialTheme.typography.headlineLarge,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+                }
+
+                // Documents Section
+                item {
+                    Text("Verification Documents", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        documents.forEach { doc ->
+                            DocumentItem(doc)
+                        }
+                        Button(
+                            onClick = { showDocUpload = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.UploadFile, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Upload New Document")
+                        }
+                    }
+                }
+            }
+
+            // Incoming Request Overlay
+            if (incomingRequest != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    RideRequestCard(
+                        request = incomingRequest,
+                        onAccept = onAccept,
+                        onDecline = onDecline
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDocUpload) {
+        DocumentUploadDialog(
+            onDismiss = { showDocUpload = false },
+            onUpload = { type, url ->
+                onUploadDoc(type, url)
+                showDocUpload = false
+            }
+        )
+    }
+}
+
+@Composable
+fun DocumentItem(doc: DriveViewModel.DriverDocument) {
+    val statusColor = when(doc.status) {
+        "APPROVED" -> Color(0xFF4CAF50)
+        "PENDING" -> Color(0xFFFFC107)
+        else -> Color(0xFFF44336)
+    }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(doc.type, fontWeight = FontWeight.Bold)
+                Text("ID: ${doc.id.take(8)}", style = MaterialTheme.typography.bodySmall)
+            }
+            Surface(
+                color = statusColor.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = doc.status,
+                    color = statusColor,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DocumentUploadDialog(onDismiss: () -> Unit, onUpload: (String, String) -> Unit) {
+    var type by remember { mutableStateOf("ID Document") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Upload Document") },
+        text = {
+            Column {
+                Text("Select document type and upload a clear photo.")
+                Spacer(Modifier.height(16.dp))
+                listOf("ID Document", "Driver's License", "Professional Permit", "Vehicle Log").forEach { t ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { type = t }.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = type == t, onClick = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(t)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onUpload(type, "simulated_url") }) {
+                Text("Upload Photo")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun RideRequestCard(
+    request: DriveViewModel.RideRequest,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("New Ride Request", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(request.passengerName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                }
+                Surface(
+                    color = NiceOrange.copy(alpha = 0.1f),
+                    shape = CircleShape
+                ) {
+                    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, null, tint = NiceOrange, modifier = Modifier.size(16.dp))
+                        Text(" ${request.passengerRating}", color = NiceOrange, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            Row {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.size(8.dp).background(Color(0xFF4A89F3), CircleShape))
+                    Box(modifier = Modifier.width(1.dp).height(40.dp).background(Color.Gray.copy(alpha = 0.3f)))
+                    Box(modifier = Modifier.size(8.dp).background(Color(0xFFEA4335), RoundedCornerShape(1.dp)))
+                }
+                Column(modifier = Modifier.padding(start = 16.dp)) {
+                    Text(request.pickupAddress, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(24.dp))
+                    Text(request.destinationAddress, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(request.distance, color = Color.Gray)
+                Text("R${String.format(\"%.2f\", request.fare)}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+            }
+            
+            Spacer(Modifier.height(32.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedButton(
+                    onClick = onDecline,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Decline")
+                }
+                Button(
+                    onClick = onAccept,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                ) {
+                    Text("Accept", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}

@@ -652,12 +652,8 @@ fun ChatList(
         }
 
         items(chats, key = { it.id }) { chat ->
-            var story: UserStory? = null
-            for (s in stories) {
-                if (s.userId == chat.id) {
-                    story = s
-                    break
-                }
+            val story = stories.find { 
+                it.id == chat.id || it.userId == chat.id || (chat.otherUserId != null && (it.id == chat.otherUserId || it.userId == chat.otherUserId))
             }
             val hasStory = story != null
             var allStoriesViewed = false
@@ -673,7 +669,13 @@ fun ChatList(
             
             Column(
                 modifier = Modifier.combinedClickable(
-                    onClick = { onChatClick(chat) },
+                    onClick = { 
+                        if (hasStory && story != null) {
+                            onStoryClick(story)
+                        } else {
+                            onChatClick(chat) 
+                        }
+                    },
                     onLongClick = { selectedChatForMenu = chat }
                 )
             ) {

@@ -134,19 +134,27 @@ fun StoryScreen(
     }
 
     // Sync viewing user story with latest data to handle deletions/updates
-    LaunchedEffect(stories) {
-        viewingUserStory?.let { current ->
-            val updated = stories.find { it.id == current.id }
-            if (updated != null) {
-                viewingUserStory = updated
-                if (viewingStoryIndex >= updated.stories.size) {
-                    viewingStoryIndex = (updated.stories.size - 1).coerceAtLeast(0)
-                }
-            } else if (!current.id.isNullOrBlank()) {
-                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                    onBack()
-                } else {
-                    viewingUserStory = null
+    LaunchedEffect(stories, initialViewingUserId) {
+        if (viewingUserStory == null && initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+            val story = stories.find { it.id == initialViewingUserId }
+            if (story != null) {
+                viewingUserStory = story
+                viewingStoryIndex = 0
+            }
+        } else {
+            viewingUserStory?.let { current ->
+                val updated = stories.find { it.id == current.id }
+                if (updated != null) {
+                    viewingUserStory = updated
+                    if (viewingStoryIndex >= updated.stories.size) {
+                        viewingStoryIndex = (updated.stories.size - 1).coerceAtLeast(0)
+                    }
+                } else if (!current.id.isNullOrBlank()) {
+                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                        onBack()
+                    } else {
+                        viewingUserStory = null
+                    }
                 }
             }
         }

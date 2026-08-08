@@ -122,19 +122,125 @@ class DriveViewModel @Inject constructor(
     )
     val ridePreferences: Map<String, Boolean> = _ridePreferences
 
+    // --- Driver Mode State ---
+    private val _isDriverMode = MutableStateFlow(false)
+    val isDriverMode: StateFlow<Boolean> = _isDriverMode.asStateFlow()
+
+    private val _driverOnlineStatus = MutableStateFlow(false)
+    val driverOnlineStatus: StateFlow<Boolean> = _driverOnlineStatus.asStateFlow()
+
+    private val _driverDocuments = MutableStateFlow<List<DriverDocument>>(emptyList())
+    val driverDocuments: StateFlow<List<DriverDocument>> = _driverDocuments.asStateFlow()
+
+    private val _incomingRideRequest = MutableStateFlow<RideRequest?>(null)
+    val incomingRideRequest: StateFlow<RideRequest?> = _incomingRideRequest.asStateFlow()
+
+    private val _driverEarnings = MutableStateFlow(0.0)
+    val driverEarnings: StateFlow<Double> = _driverEarnings.asStateFlow()
+
     private var searchJob: Job? = null
     private var driversJob: Job? = null
     private var bookingJob: Job? = null
+    private var simulationJob: Job? = null
     private val apiKey = "AIzaSyAcwjsoRCNMFsX5ayuuYC1CoNqj8NVP3Kw"
 
     enum class BookingStatus {
         NONE, SEARCHING, EN_ROUTE, ARRIVED, IN_PROGRESS, COMPLETED
     }
 
+    data class DriverDocument(
+        val id: String,
+        val type: String,
+        val status: String, // "PENDING", "APPROVED", "REJECTED"
+        val url: String? = null
+    )
+
+    data class RideRequest(
+        val id: String,
+        val passengerName: String,
+        val pickupAddress: String,
+        val destinationAddress: String,
+        val fare: Double,
+        val distance: String,
+        val passengerRating: Double = 4.9
+    )
+
     init {
         fetchDestinations()
         fetchTrips()
         startSimulatingDrivers()
+        loadDriverState()
+    }
+
+    private fun loadDriverState() {
+        _driverDocuments.value = listOf(
+            DriverDocument("1", "Driver's License", "APPROVED"),
+            DriverDocument("2", "Vehicle Registration", "PENDING"),
+            DriverDocument("3", "Identity Document", "APPROVED")
+        )
+    }
+
+    fun toggleDriverMode(enabled: Boolean) {
+        _isDriverMode.value = enabled
+        if (enabled) {
+            startDriverSimulation()
+        } else {
+            simulationJob?.cancel()
+            _incomingRideRequest.value = null
+        }
+    }
+
+    fun setDriverOnlineStatus(online: Boolean) {
+        _driverOnlineStatus.value = online
+        if (online) {
+            startDriverSimulation()
+        } else {
+            _incomingRideRequest.value = null
+        }
+    }
+
+    private fun startDriverSimulation() {
+        simulationJob?.cancel()
+        simulationJob = viewModelScope.launch {
+            while(true) {
+                if (_driverOnlineStatus.value && _incomingRideRequest.value == null) {
+                    delay(8000) // Random wait for a request
+                    _incomingRideRequest.value = RideRequest(
+                        id = "req_${System.currentTimeMillis()}",
+                        passengerName = "Sarah Smith",
+                        pickupAddress = "Sandton City Mall",
+                        destinationAddress = "OR Tambo International",
+                        fare = 350.00,
+                        distance = "24 km"
+                    )
+                }
+                delay(5000)
+            }
+        }
+    }
+
+    fun acceptRideRequest() {
+        viewModelScope.launch {
+            val req = _incomingRideRequest.value ?: return@launch
+            _incomingRideRequest.value = null
+            // In a real app, this would start the navigation/trip
+            _bookingStatus.value = BookingStatus.EN_ROUTE
+            _driverEarnings.value += req.fare
+        }
+    }
+
+    fun declineRideRequest() {
+        _incomingRideRequest.value = null
+    }
+
+    fun uploadDocument(type: String, url: String) {
+        val newDoc = DriverDocument(
+            id = System.currentTimeMillis().toString(),
+            type = type,
+            status = "PENDING",
+            url = url
+        )
+        _driverDocuments.value = _driverDocuments.value + newDoc
     }
 
     fun fetchTrips() {
