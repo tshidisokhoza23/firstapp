@@ -141,8 +141,30 @@ class DriveViewModel @Inject constructor(
     private val _driverEarnings = MutableStateFlow(0.0)
     val driverEarnings: StateFlow<Double> = _driverEarnings.asStateFlow()
 
+    private val _driverStats = MutableStateFlow(DriverStats())
+    val driverStats: StateFlow<DriverStats> = _driverStats.asStateFlow()
+
+    private val _completedTripSummary = MutableStateFlow<TripSummary?>(null)
+    val completedTripSummary: StateFlow<TripSummary?> = _completedTripSummary.asStateFlow()
+
     private val _driverPosition = MutableStateFlow<LatLng?>(null)
     val driverPosition: StateFlow<LatLng?> = _driverPosition.asStateFlow()
+
+    data class DriverStats(
+        val totalTrips: Int = 42,
+        val onlineHours: Double = 5.5,
+        val acceptanceRate: Double = 98.0,
+        val weeklyEarnings: Double = 2450.0
+    )
+
+    data class TripSummary(
+        val fare: Double,
+        val distance: String,
+        val duration: String,
+        val date: String = "Today, 14:20",
+        val passengerName: String,
+        val paymentMethod: String = "Wallet"
+    )
 
     private var searchJob: Job? = null
     private var driversJob: Job? = null
@@ -593,11 +615,22 @@ class DriveViewModel @Inject constructor(
             _bookingStatus.value = BookingStatus.COMPLETED
             _remainingTime.value = "Finished"
             
+            val fare = _selectedRide.value?.price?.toDoubleOrNull() ?: 0.0
+            _completedTripSummary.value = TripSummary(
+                fare = fare,
+                distance = _routeDistance.value ?: "0 km",
+                duration = _routeDuration.value ?: "0 min",
+                passengerName = driver.name // Just for simulation
+            )
+
             // Simulated wallet deduction
-            val priceStr = _selectedRide.value?.price ?: "0.00"
-            val price = priceStr.toDoubleOrNull() ?: 0.0
-            _walletBalance.value = (_walletBalance.value - price).coerceAtLeast(0.0)
+            _walletBalance.value = (_walletBalance.value - fare).coerceAtLeast(0.0)
         }
+    }
+
+    fun clearTripSummary() {
+        _completedTripSummary.value = null
+        _bookingStatus.value = BookingStatus.NONE
     }
 
     fun cancelBooking() {

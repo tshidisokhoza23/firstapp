@@ -151,6 +151,7 @@ fun DriveScreen(
     val driverOnlineStatus by viewModel.driverOnlineStatus.collectAsState()
     val isDriverApproved by viewModel.isDriverApproved.collectAsState()
     val rideRequest by viewModel.incomingRideRequest.collectAsState()
+    val completedTrip by viewModel.completedTripSummary.collectAsState()
     val driverDocuments by viewModel.driverDocuments.collectAsState()
     val driverEarnings by viewModel.driverEarnings.collectAsState()
 
@@ -294,6 +295,17 @@ fun DriveScreen(
             onSchedule = { date, time ->
                 Toast.makeText(context, "Ride scheduled for $date at $time", Toast.LENGTH_LONG).show()
                 showSchedulePicker = false
+            }
+        )
+    }
+
+    if (completedTrip != null) {
+        TripSummaryDialog(
+            summary = completedTrip!!,
+            onDismiss = { 
+                viewModel.clearTripSummary()
+                step = 0
+                selectedDestination = null
             }
         )
     }
@@ -2357,4 +2369,56 @@ fun RideRequestCard(
             }
         }
     }
+}
+
+@Composable
+fun TripSummaryDialog(summary: DriveViewModel.TripSummary, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AppSecondary,
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(64.dp))
+                Spacer(Modifier.height(16.dp))
+                Text("Trip Completed", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "You've arrived! Here is your trip summary.",
+                    color = AppTextSecondary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                HorizontalDivider(color = Color.White.copy(0.1f))
+                
+                DetailRow("Total Fare", "R" + "%.2f".format(summary.fare))
+                DetailRow("Distance", summary.distance)
+                DetailRow("Duration", summary.duration)
+                DetailRow("Payment", summary.paymentMethod)
+                
+                HorizontalDivider(color = Color.White.copy(0.1f))
+                
+                Text(
+                    summary.date,
+                    color = AppTextSecondary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Done", color = AppBackground, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }
