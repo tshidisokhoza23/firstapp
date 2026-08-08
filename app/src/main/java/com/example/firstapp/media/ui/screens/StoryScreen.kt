@@ -62,8 +62,10 @@ fun StoryScreen(
         mutableStateOf(stories.find { it.id == initialViewingUserId }) 
     }
     var viewingStoryIndex by remember { mutableIntStateOf(0) }
-    
-    // ... rest of the code ...
+
+    // Persistent ad counter across users
+    var totalStoriesViewedInViewer by remember { mutableIntStateOf(0) }
+    var showInViewerAd by remember { mutableStateOf(false) }
 
     var storyToMute by remember { mutableStateOf<UserStory?>(null) }
     var showSearch by remember { mutableStateOf(false) }
@@ -116,22 +118,17 @@ fun StoryScreen(
     val allViewableStories = remember(myStory, recentUpdates, viewedUpdates, viewingUserStory, initialViewingUserId) {
         val list = mutableListOf<UserStory>()
         
-        // If we are looking for a specific user first (via deep link or chat click)
-        val initialStory = if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-            stories.find { it.id == initialViewingUserId }
-        } else null
-
-        if (initialStory != null) {
-            list.add(initialStory)
-        } else if (viewingUserStory?.id == currentUserId && myStory != null) {
-            // If we explicitly clicked our own story from the main row
+        // If we explicitly clicked our own story from the main row
+        if (viewingUserStory?.id == currentUserId && myStory != null) {
             list.add(myStory)
+        } else if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+            val story = stories.find { it.id == initialViewingUserId }
+            if (story != null) list.add(story)
         }
         
         list.addAll(recentUpdates)
         list.addAll(viewedUpdates)
         
-        // Ensure no duplicates
         list.distinctBy { it.id }
     }
 
@@ -267,10 +264,16 @@ fun StoryScreen(
             userStory = viewingUserStory!!,
             isOwnStory = viewingUserStory!!.id == currentUserId,
             initialStoryIndex = viewingStoryIndex,
+            showAd = showInViewerAd,
+            onAdFinish = { showInViewerAd = false },
             onStoryViewed = { storyIndex -> 
                 val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
                 if (storyId != null) {
                     onStoryViewed(viewingUserStory!!.id, storyId)
+                    totalStoriesViewedInViewer++
+                    if (totalStoriesViewedInViewer % 4 == 0) {
+                        showInViewerAd = true
+                    }
                 }
             },
             onDeleteStory = { storyId ->
@@ -374,7 +377,7 @@ fun StoryScreen(
                     )
                 }
 
-                item {
+                item(key = "my_story_item") {
                     myStory?.let {
                         StoryListItem(it, isOwnStory = true, onClick = { 
                             viewingUserStory = it
@@ -420,7 +423,7 @@ fun StoryScreen(
                 }
 
                 if (myStory != null && myStory.stories.isNotEmpty()) {
-                    item {
+                    item(key = "posted_stories_header") {
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { showPostedStoriesList = true }.padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -435,7 +438,7 @@ fun StoryScreen(
                             Icon(Icons.Default.ArrowForwardIos, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    itemsIndexed(myStory.stories.reversed().take(3)) { idx, story ->
+                    itemsIndexed(myStory.stories.reversed().take(3), key = { _, s -> "my_posted_${s.id}" }) { idx, story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },
@@ -448,7 +451,7 @@ fun StoryScreen(
                 }
 
                 if (recentUpdates.isNotEmpty()) {
-                    item {
+                    item(key = "recent_updates_header") {
                         Text(
                             "Recent updates",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -457,7 +460,7 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    itemsIndexed(recentUpdates) { idx: Int, item: UserStory ->
+                    itemsIndexed(recentUpdates, key = { _, item -> "recent_${item.id}" }) { idx: Int, item: UserStory ->
                         StoryListItem(
                             userStory = item, 
                             isOwnStory = false,
@@ -477,7 +480,7 @@ fun StoryScreen(
                 }
 
                 if (viewedUpdates.isNotEmpty()) {
-                    item {
+                    item(key = "viewed_updates_header") {
                         Text(
                             "Viewed updates",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -486,7 +489,7 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    itemsIndexed(viewedUpdates) { idx: Int, item: UserStory ->
+                    itemsIndexed(viewedUpdates, key = { _, item -> "viewed_${item.id}" }) { idx: Int, item: UserStory ->
                         StoryListItem(
                             userStory = item, 
                             isOwnStory = false,

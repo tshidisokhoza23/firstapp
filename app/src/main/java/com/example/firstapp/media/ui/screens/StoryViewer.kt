@@ -42,6 +42,8 @@ fun StoryViewer(
     userStory: UserStory,
     isOwnStory: Boolean = false,
     initialStoryIndex: Int = 0,
+    showAd: Boolean = false,
+    onAdFinish: () -> Unit = {},
     onStoryViewed: (Int) -> Unit,
     onDeleteStory: (String) -> Unit = {},
     onFinish: () -> Unit,
@@ -51,21 +53,17 @@ fun StoryViewer(
     var currentStoryIndex by remember { mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // Ad tracking
-    var storiesViewedInSession by remember { mutableIntStateOf(0) }
-    var showInViewerAd by remember { mutableStateOf(false) }
+    if (showAd) {
+        InViewerStoryAd(
+            onFinish = onAdFinish,
+            onClose = onClose
+        )
+        return
+    }
 
     val stories = userStory.stories
     if (stories.isEmpty()) {
         onFinish()
-        return
-    }
-
-    if (showInViewerAd) {
-        InViewerStoryAd(
-            onFinish = { showInViewerAd = false },
-            onClose = onClose
-        )
         return
     }
     
@@ -114,12 +112,6 @@ fun StoryViewer(
                 )
             )
             
-            // Ad Logic
-            storiesViewedInSession++
-            if (storiesViewedInSession > 0 && storiesViewedInSession % 4 == 0) {
-                showInViewerAd = true
-            }
-
             if (currentStoryIndex < stories.size - 1) {
                 progress.snapTo(0f)
                 currentStoryIndex++
