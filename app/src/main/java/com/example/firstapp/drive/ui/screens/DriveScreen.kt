@@ -207,7 +207,8 @@ fun DriveScreen(
                 onAccept = { viewModel.acceptRideRequest() },
                 onDecline = { viewModel.declineRideRequest() },
                 onMenuClick = { scope.launch { drawerState.open() } },
-                onUploadDoc = { type, url -> viewModel.uploadDocument(type, url) }
+                onUploadDoc = { type, url -> viewModel.uploadDocument(type, url) },
+                viewModel = viewModel
             )
         } else {
             DriveMainContent(
@@ -1981,9 +1982,23 @@ fun DriverDashboard(
     onAccept: () -> Unit,
     onDecline: () -> Unit,
     onMenuClick: () -> Unit,
-    onUploadDoc: (String, String) -> Unit
+    onUploadDoc: (String, String) -> Unit,
+    viewModel: DriveViewModel
 ) {
     var showDocUpload by remember { mutableStateOf(false) }
+    var currentTab by remember { mutableIntStateOf(0) } // 0 for Map/Home, 1 for Docs/Earnings
+    
+    val pickupLocation = viewModel.pickupLocation.value ?: LatLng(-26.1076, 28.0567)
+    val driverPosition by viewModel.driverPosition.collectAsState()
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(driverPosition ?: pickupLocation, 14f)
+    }
+
+    LaunchedEffect(driverPosition) {
+        driverPosition?.let {
+            cameraPositionState.animate(com.google.android.gms.maps.CameraUpdateFactory.newLatLng(it))
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -2012,6 +2027,22 @@ fun DriverDashboard(
                     }
                 }
             )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = currentTab == 0,
+                    onClick = { currentTab = 0 },
+                    icon = { Icon(Icons.Default.Map, null) },
+                    label = { Text("Map") }
+                )
+                NavigationBarItem(
+                    selected = currentTab == 1,
+                    onClick = { currentTab = 1 },
+                    icon = { Icon(Icons.Default.AccountBalanceWallet, null) },
+                    label = { Text("Stats") }
+                )
+            }
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -2051,7 +2082,50 @@ fun DriverDashboard(
                         Text("Upload Missing Documents")
                     }
                 }
+            } else if (currentTab == 0) {
+                // Map Tab
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState,
+                    properties = MapProperties(
+                        isMyLocationEnabled = true,
+                        mapStyleOptions = MapStyleOptions(mapStyleJson)
+                    ),
+                    uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false)
+                ) {
+                    driverPosition?.let { pos ->
+                        Marker(
+                            state = rememberMarkerState(position = pos),
+                            title = "Your Position",
+                            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
+                        )
+                    }
+                }
+                
+                if (!isOnline) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(16.dp),
+                            shadowElevation = 8.dp
+                        ) {
+                            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("You are currently offline", fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(8.dp))
+                                Text("Go online to start receiving ride requests", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { onOnlineToggle(true) }) {
+                                    Text("GO ONLINE")
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
+                // Stats/Docs Tab
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(20.dp),
@@ -2097,7 +2171,7 @@ fun DriverDashboard(
             }
 
             // Incoming Request Overlay
-            if (isApproved && incomingRequest != null) {
+            if (isApproved && incomingRequest != null && isOnline) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
