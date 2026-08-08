@@ -580,7 +580,7 @@ fun ChatList(
         state = lazyListState,
         modifier = Modifier.fillMaxSize()
     ) {
-        item {
+        item(key = "stories_row_item") {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -609,7 +609,7 @@ fun ChatList(
         }
 
         if (chats.size == 0 && archivedChatsCount == 0) {
-            item {
+            item(key = "empty_chats_item") {
                 Box(
                     modifier = Modifier
                         .fillParentMaxHeight(0.6f)
@@ -635,7 +635,7 @@ fun ChatList(
         }
 
         if (archivedChatsCount > 0) {
-            item {
+            item(key = "archived_header_item") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -669,13 +669,7 @@ fun ChatList(
             
             Column(
                 modifier = Modifier.combinedClickable(
-                    onClick = { 
-                        if (hasStory && story != null) {
-                            onStoryClick(story)
-                        } else {
-                            onChatClick(chat) 
-                        }
-                    },
+                    onClick = { onChatClick(chat) },
                     onLongClick = { selectedChatForMenu = chat }
                 )
             ) {

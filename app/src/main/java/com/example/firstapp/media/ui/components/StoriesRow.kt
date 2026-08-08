@@ -77,7 +77,7 @@ fun StoriesRow(
                     )
                 }
             }
-            items(otherStories) { story ->
+            items(otherStories, key = { it.id }) { story ->
                 StoryThumbnail(story = story, onClick = { onStoryClick(story) })
             }
         }
@@ -106,7 +106,7 @@ private fun MyStoryThumbnail(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .clickable(onClick = onClick)
+                    .clickable(onClick = { showMenu = true })
                     .border(
                         width = 2.dp,
                         brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))

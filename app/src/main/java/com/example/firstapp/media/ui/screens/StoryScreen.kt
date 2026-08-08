@@ -280,7 +280,16 @@ fun StoryScreen(
             showAd = showInViewerAd,
             onAdFinish = { 
                 showInViewerAd = false
-                // No need to manually advance here, StoryViewer will resume from viewingStoryIndex
+                // Check if we need to advance to next user after ad
+                if (viewingStoryIndex == 0) {
+                    val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
+                    if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
+                        viewingUserStory = allViewableStories[currentIndex + 1]
+                        viewingStoryIndex = 0
+                    } else {
+                        viewingUserStory = null 
+                    }
+                }
             },
             onStoryViewed = { storyIndex -> 
                 val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
@@ -291,9 +300,11 @@ fun StoryScreen(
                     totalStoriesViewedInViewer++
                     
                     // Update index so we resume correctly if an ad interrupts
-                    // If it's the last story, onFinish will handle advancement
                     if (storyIndex < viewingUserStory!!.stories.size - 1) {
                         viewingStoryIndex = storyIndex + 1
+                    } else {
+                        // We are at the end, next user starts at 0
+                        viewingStoryIndex = 0
                     }
 
                     // Trigger ad logic: Every 4 stories viewed across all users
@@ -311,7 +322,7 @@ fun StoryScreen(
                     val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
                     if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
                         viewingUserStory = allViewableStories[currentIndex + 1]
-                        viewingStoryIndex = 0 // Reset index for next user
+                        viewingStoryIndex = 0
                     } else {
                         if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                             onBack()
@@ -397,7 +408,7 @@ fun StoryScreen(
                 }
 
 
-                item(key = "stories_row_main") {
+                item(key = "stories_row_main_section") {
                     com.example.firstapp.media.ui.components.StoriesRow(
                         stories = stories,
                         currentUserId = currentUserId,
@@ -412,7 +423,7 @@ fun StoryScreen(
                 }
 
                 if (myStory != null && myStory.stories.isNotEmpty()) {
-                    item(key = "posted_stories_header_row") {
+                    item(key = "posted_stories_header_section") {
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { showPostedStoriesList = true }.padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -427,13 +438,16 @@ fun StoryScreen(
                             Icon(Icons.Default.ArrowForwardIos, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    itemsIndexed(myStory.stories.reversed().take(3), key = { _, s -> "my_posted_preview_${s.id}" }) { idx, story ->
+                    itemsIndexed(myStory.stories.reversed().take(3), key = { _, s -> "preview_${s.id}" }) { idx, story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },
                             onClick = { 
-                                viewingUserStory = myStory
-                                viewingStoryIndex = myStory.stories.indexOf(story)
+                                val originalIndex = myStory.stories.indexOfFirst { it.id == story.id }
+                                if (originalIndex != -1) {
+                                    viewingUserStory = myStory
+                                    viewingStoryIndex = originalIndex
+                                }
                             }
                         )
                     }
@@ -745,11 +759,16 @@ fun PostedStoriesList(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
             ) {
-                itemsIndexed(myStory.stories.reversed()) { idx, story ->
+                itemsIndexed(myStory.stories.reversed(), key = { _, s -> "full_list_${s.id}" }) { idx, story ->
                     MyStoryListItem(
                         story = story,
                         onDelete = { onDeleteStory(story.id) },
-                        onClick = { onStoryClick(myStory.stories.indexOf(story)) }
+                        onClick = { 
+                            val originalIndex = myStory.stories.indexOfFirst { it.id == story.id }
+                            if (originalIndex != -1) {
+                                onStoryClick(originalIndex)
+                            }
+                        }
                     )
                 }
             }
