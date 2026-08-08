@@ -177,6 +177,14 @@ fun StoryScreen(
         }
     }
 
+    // Reset ad counters when closing viewer
+    LaunchedEffect(viewingUserStory) {
+        if (viewingUserStory == null) {
+            totalStoriesViewedInViewer = 0
+            showInViewerAd = false
+        }
+    }
+
     if (showComposer) {
         Scaffold(
             modifier = Modifier.statusBarsPadding(),
@@ -259,7 +267,7 @@ fun StoryScreen(
                 viewingStoryIndex = idx
             }
         )
-    } else if (viewingUserStory != null) {
+    } else if (viewingUserStory != null && viewingUserStory!!.stories.isNotEmpty()) {
         StoryViewer(
             userStory = viewingUserStory!!,
             isOwnStory = viewingUserStory!!.id == currentUserId,
@@ -377,7 +385,7 @@ fun StoryScreen(
                     )
                 }
 
-                item(key = "my_story_item") {
+                item(key = "my_story_item_main") {
                     myStory?.let {
                         StoryListItem(it, isOwnStory = true, onClick = { 
                             viewingUserStory = it
@@ -423,7 +431,7 @@ fun StoryScreen(
                 }
 
                 if (myStory != null && myStory.stories.isNotEmpty()) {
-                    item(key = "posted_stories_header") {
+                    item(key = "posted_stories_header_row") {
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { showPostedStoriesList = true }.padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -438,7 +446,7 @@ fun StoryScreen(
                             Icon(Icons.Default.ArrowForwardIos, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    itemsIndexed(myStory.stories.reversed().take(3), key = { _, s -> "my_posted_${s.id}" }) { idx, story ->
+                    itemsIndexed(myStory.stories.reversed().take(3), key = { _, s -> "my_posted_preview_${s.id}" }) { idx, story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },

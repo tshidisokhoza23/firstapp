@@ -101,7 +101,6 @@ fun StoryViewer(
 
     LaunchedEffect(currentStoryIndex, isPaused) {
         if (!isPaused) {
-            onStoryViewed(currentStoryIndex)
             val durationMs = currentStory.durationMs.toLong().coerceAtLeast(1000L)
             
             progress.animateTo(
@@ -112,6 +111,9 @@ fun StoryViewer(
                 )
             )
             
+            // Count as viewed after animation completes
+            onStoryViewed(currentStoryIndex)
+
             if (currentStoryIndex < stories.size - 1) {
                 progress.snapTo(0f)
                 currentStoryIndex++

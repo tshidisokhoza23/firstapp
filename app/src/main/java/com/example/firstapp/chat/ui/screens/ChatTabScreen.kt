@@ -651,7 +651,7 @@ fun ChatList(
             }
         }
 
-        items(chats, key = { it.id }) { chat ->
+        items(chats.distinctBy { it.id }, key = { it.id }) { chat ->
             val story = stories.find { 
                 it.id == chat.id || it.userId == chat.id || (chat.otherUserId != null && (it.id == chat.otherUserId || it.userId == chat.otherUserId))
             }

@@ -35,6 +35,8 @@ fun NativeAdCard(
     var adLoader by remember { mutableStateOf<MaxNativeAdLoader?>(null) }
 
     DisposableEffect(adUnitId) {
+        if (adUnitId.isBlank()) return@DisposableEffect onDispose {}
+
         val sdk = AppLovinSdk.getInstance(context)
         val loader = MaxNativeAdLoader(adUnitId, sdk, context)
         loader.setNativeAdListener(object : MaxNativeAdListener() {
