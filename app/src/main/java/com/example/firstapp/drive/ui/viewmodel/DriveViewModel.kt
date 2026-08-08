@@ -132,11 +132,17 @@ class DriveViewModel @Inject constructor(
     private val _driverDocuments = MutableStateFlow<List<DriverDocument>>(emptyList())
     val driverDocuments: StateFlow<List<DriverDocument>> = _driverDocuments.asStateFlow()
 
+    private val _isDriverApproved = MutableStateFlow(false)
+    val isDriverApproved: StateFlow<Boolean> = _isDriverApproved.asStateFlow()
+
     private val _incomingRideRequest = MutableStateFlow<RideRequest?>(null)
     val incomingRideRequest: StateFlow<RideRequest?> = _incomingRideRequest.asStateFlow()
 
     private val _driverEarnings = MutableStateFlow(0.0)
     val driverEarnings: StateFlow<Double> = _driverEarnings.asStateFlow()
+
+    private val _driverPosition = MutableStateFlow<LatLng?>(null)
+    val driverPosition: StateFlow<LatLng?> = _driverPosition.asStateFlow()
 
     private var searchJob: Job? = null
     private var driversJob: Job? = null
@@ -173,26 +179,51 @@ class DriveViewModel @Inject constructor(
     }
 
     private fun loadDriverState() {
-        _driverDocuments.value = listOf(
-            DriverDocument("1", "Driver's License", "APPROVED"),
-            DriverDocument("2", "Vehicle Registration", "PENDING"),
-            DriverDocument("3", "Identity Document", "APPROVED")
-        )
+        viewModelScope.launch {
+            repository.getDriverDocuments().collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    _driverDocuments.value = res.data
+                    updateApprovalStatus()
+                } else if (res is Resource.Error) {
+                    // Fallback to mock if server fails for now
+                    _driverDocuments.value = listOf(
+                        DriverDocument("1", "ID Document", "APPROVED"),
+                        DriverDocument("2", "Driver's License", "APPROVED"),
+                        DriverDocument("3", "Criminal Verification", "PENDING"),
+                        DriverDocument("4", "Roadworthy Certificate", "PENDING"),
+                        DriverDocument("5", "Car Image", "APPROVED")
+                    )
+                    updateApprovalStatus()
+                }
+            }
+        }
+    }
+
+    private fun updateApprovalStatus() {
+        val requiredTypes = listOf("ID Document", "Driver's License", "Criminal Verification", "Roadworthy Certificate", "Car Image")
+        val approvedDocs = _driverDocuments.value.filter { it.status == "APPROVED" }.map { it.type }
+        val allApproved = requiredTypes.all { it in approvedDocs }
+        _isDriverApproved.value = allApproved
     }
 
     fun toggleDriverMode(enabled: Boolean) {
         _isDriverMode.value = enabled
-        if (enabled) {
+        if (enabled && _isDriverApproved.value) {
             startDriverSimulation()
         } else {
             simulationJob?.cancel()
             _incomingRideRequest.value = null
+            setDriverOnlineStatus(false)
         }
     }
 
     fun setDriverOnlineStatus(online: Boolean) {
         _driverOnlineStatus.value = online
-        if (online) {
+        val pos = _driverPosition.value ?: _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
+        viewModelScope.launch {
+            repository.updateOnlineStatus(online, pos.latitude, pos.longitude).collect { }
+        }
+        if (online && _isDriverApproved.value) {
             startDriverSimulation()
         } else {
             _incomingRideRequest.value = null
@@ -200,19 +231,43 @@ class DriveViewModel @Inject constructor(
     }
 
     private fun startDriverSimulation() {
+        if (!_isDriverApproved.value) return
         simulationJob?.cancel()
         simulationJob = viewModelScope.launch {
+            _driverPosition.value = _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
             while(true) {
-                if (_driverOnlineStatus.value && _incomingRideRequest.value == null) {
-                    delay(8000) // Random wait for a request
-                    _incomingRideRequest.value = RideRequest(
-                        id = "req_${System.currentTimeMillis()}",
-                        passengerName = "Sarah Smith",
-                        pickupAddress = "Sandton City Mall",
-                        destinationAddress = "OR Tambo International",
-                        fare = 350.00,
-                        distance = "24 km"
-                    )
+                if (_driverOnlineStatus.value) {
+                    // 1. Simulate movement
+                    val current = _driverPosition.value
+                    if (current != null) {
+                        val newPos = LatLng(
+                            current.latitude + (Random.nextDouble() - 0.5) * 0.0005,
+                            current.longitude + (Random.nextDouble() - 0.5) * 0.0005
+                        )
+                        _driverPosition.value = newPos
+                        repository.updateOnlineStatus(true, newPos.latitude, newPos.longitude).collect { }
+                    }
+
+                    // 2. Fetch requests from server or simulate
+                    if (_incomingRideRequest.value == null) {
+                        repository.getAvailableRequests().collect { res ->
+                            if (res is Resource.Success && res.data != null && res.data.isNotEmpty()) {
+                                _incomingRideRequest.value = res.data.first()
+                            } else {
+                                // Simulation fallback
+                                if (Random.nextInt(100) < 15) { 
+                                    _incomingRideRequest.value = RideRequest(
+                                        id = "req_${System.currentTimeMillis()}",
+                                        passengerName = "Sarah Smith",
+                                        pickupAddress = "Sandton City Mall",
+                                        destinationAddress = "OR Tambo International",
+                                        fare = 350.00,
+                                        distance = "24 km"
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
                 delay(5000)
             }
@@ -222,8 +277,8 @@ class DriveViewModel @Inject constructor(
     fun acceptRideRequest() {
         viewModelScope.launch {
             val req = _incomingRideRequest.value ?: return@launch
+            // In a real app, send acceptance to server
             _incomingRideRequest.value = null
-            // In a real app, this would start the navigation/trip
             _bookingStatus.value = BookingStatus.EN_ROUTE
             _driverEarnings.value += req.fare
         }
@@ -234,13 +289,14 @@ class DriveViewModel @Inject constructor(
     }
 
     fun uploadDocument(type: String, url: String) {
-        val newDoc = DriverDocument(
-            id = System.currentTimeMillis().toString(),
-            type = type,
-            status = "PENDING",
-            url = url
-        )
-        _driverDocuments.value = _driverDocuments.value + newDoc
+        viewModelScope.launch {
+            repository.uploadDocument(type, url).collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    _driverDocuments.value = _driverDocuments.value.filter { it.type != type } + res.data
+                    updateApprovalStatus()
+                }
+            }
+        }
     }
 
     fun fetchTrips() {

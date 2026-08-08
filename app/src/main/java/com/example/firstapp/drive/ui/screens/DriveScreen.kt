@@ -149,9 +149,30 @@ fun DriveScreen(
 
     val isDriverMode by viewModel.isDriverMode.collectAsState()
     val driverOnlineStatus by viewModel.driverOnlineStatus.collectAsState()
+    val isDriverApproved by viewModel.isDriverApproved.collectAsState()
     val rideRequest by viewModel.incomingRideRequest.collectAsState()
     val driverDocuments by viewModel.driverDocuments.collectAsState()
     val driverEarnings by viewModel.driverEarnings.collectAsState()
+
+    var hasBackgroundLocationPermission by remember {
+        mutableStateOf(
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+            } else true
+        )
+    }
+
+    val bgLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        hasBackgroundLocationPermission = isGranted
+    }
+
+    LaunchedEffect(isDriverMode, hasBackgroundLocationPermission) {
+        if (isDriverMode && !hasBackgroundLocationPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            bgLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        } else if (isDriverMode && hasBackgroundLocationPermission) {
+            Toast.makeText(context, "Driver tracking active in background", Toast.LENGTH_SHORT).show()
+        }
+    }
     
     val pickupAddress by viewModel.pickupAddress
     LaunchedEffect(pickupAddress) {
@@ -164,6 +185,7 @@ fun DriveScreen(
             DriveDrawerContent(
                 user = user,
                 isDriverMode = isDriverMode,
+                isDriverApproved = isDriverApproved,
                 onDriverModeToggle = { viewModel.toggleDriverMode(it) },
                 onShowHistory = { currentSubScreen = "history"; scope.launch { drawerState.close() } },
                 onShowPayment = { currentSubScreen = "payment"; scope.launch { drawerState.close() } },
@@ -178,6 +200,7 @@ fun DriveScreen(
             DriverDashboard(
                 isOnline = driverOnlineStatus,
                 onOnlineToggle = { viewModel.setDriverOnlineStatus(it) },
+                isApproved = isDriverApproved,
                 earnings = driverEarnings,
                 documents = driverDocuments,
                 incomingRequest = rideRequest,
@@ -279,6 +302,7 @@ fun DriveScreen(
 fun DriveDrawerContent(
     user: com.example.firstapp.common.model.User?,
     isDriverMode: Boolean,
+    isDriverApproved: Boolean,
     onDriverModeToggle: (Boolean) -> Unit,
     onShowHistory: () -> Unit, 
     onShowPayment: () -> Unit, 
@@ -335,11 +359,22 @@ fun DriveDrawerContent(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )
-                        Switch(
-                            checked = isDriverMode,
-                            onCheckedChange = onDriverModeToggle,
-                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
-                        )
+                        if (isDriverApproved) {
+                            Switch(
+                                checked = isDriverMode,
+                                onCheckedChange = onDriverModeToggle,
+                                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
+                            )
+                        } else {
+                            Button(
+                                onClick = { onDriverModeToggle(true) },
+                                modifier = Modifier.height(32.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Verify", fontSize = 10.sp)
+                            }
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -432,6 +467,7 @@ fun DriveMainContent(
     val context = LocalContext.current
     
     val pickupLocation = viewModel.pickupLocation.value ?: LatLng(-26.1076, 28.0567)
+    val bookingStatus = viewModel.bookingStatus.value
 
     BackHandler(enabled = isSearchingView || step > 0) {
         if (isSearchingView) {
@@ -637,49 +673,55 @@ fun DriveMainContent(
                     )
                 }
 
-                nearbyDrivers.forEach { driver ->
-                    key(driver.id) {
-                        val markerState = rememberMarkerState(position = driver.position)
-                        LaunchedEffect(driver.position) {
-                            markerState.position = driver.position
+                // Show nearby drivers only when not in an active booking flow
+                if (step == 0) {
+                    nearbyDrivers.forEach { driver ->
+                        key(driver.id) {
+                            val markerState = rememberMarkerState(position = driver.position)
+                            LaunchedEffect(driver.position) {
+                                markerState.position = driver.position
+                            }
+                            Marker(
+                                state = markerState,
+                                rotation = driver.rotation,
+                                flat = true,
+                                icon = carIcon,
+                                anchor = Offset(0.5f, 0.5f),
+                                onClick = { onDriverProfileToggle(true); true }
+                            )
                         }
+                    }
+
+                    if (nearbyDrivers.isEmpty()) {
+                        // Force a dummy driver if simulation hasn't started or no drivers nearby
                         Marker(
-                            state = markerState,
-                            rotation = driver.rotation,
+                            state = rememberMarkerState(position = LatLng(pickupLocation.latitude + 0.002, pickupLocation.longitude + 0.002)),
+                            rotation = 45f,
                             flat = true,
                             icon = carIcon,
-                            anchor = Offset(0.5f, 0.5f),
-                            onClick = { onDriverProfileToggle(true); true }
+                            anchor = Offset(0.5f, 0.5f)
                         )
                     }
                 }
 
-                if (nearbyDrivers.isEmpty()) {
-                    // Force a dummy driver if simulation hasn't started or no drivers nearby
-                    Marker(
-                        state = rememberMarkerState(position = LatLng(pickupLocation.latitude + 0.002, pickupLocation.longitude + 0.002)),
-                        rotation = 45f,
-                        flat = true,
-                        icon = carIcon,
-                        anchor = Offset(0.5f, 0.5f)
-                    )
-                }
-
-                assignedDriver?.let { driver ->
-                    key("assigned_driver") {
-                        val markerState = rememberMarkerState(position = driver.position)
-                        LaunchedEffect(driver.position) {
-                            markerState.position = driver.position
+                // Show assigned driver ONLY when ride is accepted (EN_ROUTE, ARRIVED, etc.)
+                if (bookingStatus != DriveViewModel.BookingStatus.NONE && bookingStatus != DriveViewModel.BookingStatus.SEARCHING) {
+                    assignedDriver?.let { driver ->
+                        key("assigned_driver") {
+                            val markerState = rememberMarkerState(position = driver.position)
+                            LaunchedEffect(driver.position) {
+                                markerState.position = driver.position
+                            }
+                            Marker(
+                                state = markerState,
+                                rotation = driver.rotation,
+                                flat = true,
+                                icon = carIcon,
+                                anchor = Offset(0.5f, 0.5f),
+                                zIndex = 10f,
+                                onClick = { onDriverProfileToggle(true); true }
+                            )
                         }
-                        Marker(
-                            state = markerState,
-                            rotation = driver.rotation,
-                            flat = true,
-                            icon = carIcon,
-                            anchor = Offset(0.5f, 0.5f),
-                            zIndex = 10f,
-                            onClick = { onDriverProfileToggle(true); true }
-                        )
                     }
                 }
 
@@ -1932,6 +1974,7 @@ fun ScheduleRideDialog(onDismiss: () -> Unit, onSchedule: (String, String) -> Un
 fun DriverDashboard(
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
+    isApproved: Boolean,
     earnings: Double,
     documents: List<DriveViewModel.DriverDocument>,
     incomingRequest: DriveViewModel.RideRequest?,
@@ -1953,68 +1996,108 @@ fun DriverDashboard(
                     }
                 },
                 actions = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (isOnline) "Online" else "Offline",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (isOnline) Color(0xFF4CAF50) else Color.Gray
-                        )
-                        Switch(
-                            checked = isOnline,
-                            onCheckedChange = onOnlineToggle,
-                            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF4CAF50))
-                        )
+                    if (isApproved) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isOnline) "Online" else "Offline",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isOnline) Color(0xFF4CAF50) else Color.Gray
+                            )
+                            Switch(
+                                checked = isOnline,
+                                onCheckedChange = onOnlineToggle,
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF4CAF50))
+                            )
+                        }
                     }
                 }
             )
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                // Earnings Card
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                    ) {
-                        Column(modifier = Modifier.padding(24.dp)) {
-                            Text("Total Earnings Today", style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                "R" + "%.2f".format(earnings),
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
-                    }
-                }
-
-                // Documents Section
-                item {
-                    Text("Verification Documents", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            if (!isApproved) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.PendingActions, null, modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(24.dp))
+                    Text("Account Under Review", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Please upload all required documents. Our team will review them within 24-48 hours.",
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(32.dp))
+                    
+                    Text("Required Documents:", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        documents.forEach { doc ->
-                            DocumentItem(doc)
+                        val required = listOf("ID Document", "Driver's License", "Criminal Verification", "Roadworthy Certificate", "Car Image")
+                        required.forEach { type ->
+                            val doc = documents.find { it.type == type }
+                            DocumentItem(doc ?: DriveViewModel.DriverDocument("", type, "MISSING"))
                         }
-                        Button(
-                            onClick = { showDocUpload = true },
+                    }
+                    Spacer(Modifier.height(32.dp))
+                    Button(
+                        onClick = { showDocUpload = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.UploadFile, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Upload Missing Documents")
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    // Earnings Card
+                    item {
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                         ) {
-                            Icon(Icons.Default.UploadFile, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Upload New Document")
+                            Column(modifier = Modifier.padding(24.dp)) {
+                                Text("Total Earnings Today", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    "R" + "%.2f".format(earnings),
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+
+                    // Documents Section
+                    item {
+                        Text("My Documents", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            documents.forEach { doc ->
+                                DocumentItem(doc)
+                            }
+                            OutlinedButton(
+                                onClick = { showDocUpload = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Update Documents")
+                            }
                         }
                     }
                 }
             }
 
             // Incoming Request Overlay
-            if (incomingRequest != null) {
+            if (isApproved && incomingRequest != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2048,6 +2131,7 @@ fun DocumentItem(doc: DriveViewModel.DriverDocument) {
     val statusColor = when(doc.status) {
         "APPROVED" -> Color(0xFF4CAF50)
         "PENDING" -> Color(0xFFFFC107)
+        "MISSING" -> Color.Gray
         else -> Color(0xFFF44336)
     }
 
@@ -2063,7 +2147,9 @@ fun DocumentItem(doc: DriveViewModel.DriverDocument) {
         ) {
             Column {
                 Text(doc.type, fontWeight = FontWeight.Bold)
-                Text("ID: ${doc.id.take(8)}", style = MaterialTheme.typography.bodySmall)
+                if (doc.id.isNotEmpty()) {
+                    Text("ID: ${doc.id.take(8)}", style = MaterialTheme.typography.bodySmall)
+                }
             }
             Surface(
                 color = statusColor.copy(alpha = 0.1f),
@@ -2093,7 +2179,7 @@ fun DocumentUploadDialog(onDismiss: () -> Unit, onUpload: (String, String) -> Un
             Column {
                 Text("Select document type and upload a clear photo.")
                 Spacer(Modifier.height(16.dp))
-                listOf("ID Document", "Driver's License", "Professional Permit", "Vehicle Log").forEach { t ->
+                listOf("ID Document", "Driver's License", "Criminal Verification", "Roadworthy Certificate", "Car Image").forEach { t ->
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { type = t }.padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically

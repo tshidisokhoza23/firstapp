@@ -15,7 +15,26 @@ interface DriveApi {
 
     @POST("destinations")
     suspend fun saveDestination(@Body request: SaveDestinationRequest): Response<SaveDestinationResponse>
+
+    @GET("driver/documents")
+    suspend fun getDriverDocuments(): Response<DriverDocumentsResponse>
+
+    @POST("driver/documents")
+    suspend fun uploadDocument(@Body request: UploadDocumentRequest): Response<UploadDocumentResponse>
+
+    @GET("driver/requests")
+    suspend fun getAvailableRequests(): Response<RideRequestsResponse>
+
+    @POST("driver/status")
+    suspend fun updateOnlineStatus(@Body request: UpdateStatusRequest): Response<UpdateStatusResponse>
 }
+
+data class DriverDocumentsResponse(val documents: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>)
+data class UploadDocumentRequest(val type: String, val url: String)
+data class UploadDocumentResponse(val document: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument)
+data class RideRequestsResponse(val requests: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>)
+data class UpdateStatusRequest(val online: Boolean, val latitude: Double, val longitude: Double)
+data class UpdateStatusResponse(val success: Boolean)
 
 data class SaveDestinationRequest(
     val name: String,

@@ -91,4 +91,56 @@ class DriveRepositoryImpl @Inject constructor(
         driveDao.deleteDestination(id)
         emit(Resource.Success(true))
     }
+
+    override fun getDriverDocuments(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getDriverDocuments()
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!.documents))
+            } else {
+                emit(Resource.Error("Failed to fetch documents"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun uploadDocument(type: String, url: String): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.uploadDocument(com.example.firstapp.drive.data.api.UploadDocumentRequest(type, url))
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!.document))
+            } else {
+                emit(Resource.Error("Upload failed"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun getAvailableRequests(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getAvailableRequests()
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!.requests))
+            } else {
+                emit(Resource.Error("Failed to fetch requests"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun updateOnlineStatus(online: Boolean, latitude: Double, longitude: Double): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.updateOnlineStatus(com.example.firstapp.drive.data.api.UpdateStatusRequest(online, latitude, longitude))
+            emit(Resource.Success(res.isSuccessful))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
 }
