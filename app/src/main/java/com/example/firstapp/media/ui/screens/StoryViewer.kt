@@ -47,10 +47,10 @@ fun StoryViewer(
     userStory: UserStory,
     isOwnStory: Boolean = false,
     initialStoryIndex: Int = 0,
-    showAd: Boolean = false,
-    onAdFinish: () -> Unit = {},
     onStoryViewed: (Int) -> Unit,
     onDeleteStory: (String) -> Unit = {},
+    onAdTriggered: () -> Unit = {},
+    onReply: (String) -> Unit = {},
     onFinish: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -59,14 +59,6 @@ fun StoryViewer(
         mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) 
     }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    if (showAd) {
-        InViewerStoryAd(
-            onFinish = onAdFinish,
-            onClose = onClose
-        )
-        return
-    }
 
     val stories = userStory.stories
     if (stories.isEmpty()) {
@@ -407,7 +399,7 @@ fun StoryViewer(
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(
                         onSend = {
                             if (replyText.isNotBlank()) {
-                                // Send reply logic - usually sends a message to the user
+                                onReply(replyText)
                                 replyText = ""
                             }
                         }

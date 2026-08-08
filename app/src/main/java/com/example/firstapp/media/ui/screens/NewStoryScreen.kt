@@ -40,7 +40,7 @@ fun NewStoryScreen(
     var mediaType by remember { mutableStateOf("text") }
 
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
+        contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             selectedMediaUri = it
@@ -51,7 +51,7 @@ fun NewStoryScreen(
 
     LaunchedEffect(Unit) {
         if (selectedMediaUri == null) {
-            launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+            launcher.launch("*/*") // Allow anything, we filter by type inside
         }
     }
 

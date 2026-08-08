@@ -277,20 +277,6 @@ fun StoryScreen(
             userStory = viewingUserStory!!,
             isOwnStory = viewingUserStory!!.id == currentUserId,
             initialStoryIndex = viewingStoryIndex,
-            showAd = showInViewerAd,
-            onAdFinish = { 
-                showInViewerAd = false
-                // Check if we need to advance to next user after ad
-                if (viewingStoryIndex == 0) {
-                    val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
-                    if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
-                        viewingUserStory = allViewableStories[currentIndex + 1]
-                        viewingStoryIndex = 0
-                    } else {
-                        viewingUserStory = null 
-                    }
-                }
-            },
             onStoryViewed = { storyIndex -> 
                 val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
                 if (storyId != null) {
@@ -316,6 +302,13 @@ fun StoryScreen(
             onDeleteStory = { storyId ->
                 onDeleteStory(storyId)
             },
+            onReply = { text ->
+                Toast.makeText(context, "Reply sent: $text", Toast.LENGTH_SHORT).show()
+                // Logic to send story reply
+            },
+            onAdTriggered = {
+                showInViewerAd = true
+            },
             onFinish = { 
                 // Only advance if no ad is showing
                 if (!showInViewerAd) {
@@ -340,6 +333,32 @@ fun StoryScreen(
                 }
             }
         )
+
+        if (showInViewerAd) {
+            InViewerStoryAd(
+                onFinish = { 
+                    showInViewerAd = false
+                    // If we reached the end of a user and showed an ad, advance now
+                    if (viewingStoryIndex == 0) {
+                        val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
+                        if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
+                            viewingUserStory = allViewableStories[currentIndex + 1]
+                            viewingStoryIndex = 0
+                        } else {
+                            viewingUserStory = null 
+                        }
+                    }
+                },
+                onClose = { 
+                    showInViewerAd = false
+                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                        onBack()
+                    } else {
+                        viewingUserStory = null 
+                    }
+                }
+            )
+        }
     } else {
         Scaffold(
             modifier = Modifier.statusBarsPadding(),
@@ -755,11 +774,14 @@ fun PostedStoriesList(
                 Text("No posted stories", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
+            val uniqueStories = remember(myStory.stories) { 
+                myStory.stories.distinctBy { it.id }.reversed() 
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
             ) {
-                itemsIndexed(myStory.stories.reversed(), key = { _, s -> "full_list_${s.id}" }) { idx, story ->
+                itemsIndexed(uniqueStories, key = { _, s -> "full_list_${s.id}" }) { idx, story ->
                     MyStoryListItem(
                         story = story,
                         onDelete = { onDeleteStory(story.id) },
