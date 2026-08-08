@@ -67,6 +67,17 @@ fun StoryScreen(
     var totalStoriesViewedInViewer by remember { mutableIntStateOf(0) }
     var showInViewerAd by remember { mutableStateOf(false) }
 
+    // Logic to handle initial navigation to a story
+    LaunchedEffect(initialViewingUserId) {
+        if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+            val story = stories.find { it.id == initialViewingUserId }
+            if (story != null) {
+                viewingUserStory = story
+                viewingStoryIndex = 0
+            }
+        }
+    }
+
     var storyToMute by remember { mutableStateOf<UserStory?>(null) }
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -115,20 +126,19 @@ fun StoryScreen(
         }
     }
 
-    val allViewableStories = remember(myStory, recentUpdates, viewedUpdates, viewingUserStory, initialViewingUserId) {
+    val allViewableStories = remember(myStory, recentUpdates, viewedUpdates, viewingUserStory) {
         val list = mutableListOf<UserStory>()
         
-        // If we explicitly clicked our own story from the main row
+        // Always maintain the base list of all active/viewed contact stories
+        val baseList = (recentUpdates + viewedUpdates).distinctBy { it.id }
+
+        // Determine if we should prepend the user's own story
+        // We only do this if it's explicitly being viewed from the main screen
         if (viewingUserStory?.id == currentUserId && myStory != null) {
             list.add(myStory)
-        } else if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-            val story = stories.find { it.id == initialViewingUserId }
-            if (story != null) list.add(story)
         }
         
-        list.addAll(recentUpdates)
-        list.addAll(viewedUpdates)
-        
+        list.addAll(baseList)
         list.distinctBy { it.id }
     }
 
@@ -151,27 +161,20 @@ fun StoryScreen(
     }
 
     // Sync viewing user story with latest data to handle deletions/updates
-    LaunchedEffect(stories, initialViewingUserId) {
-        if (viewingUserStory == null && initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-            val story = stories.find { it.id == initialViewingUserId }
-            if (story != null) {
-                viewingUserStory = story
-                viewingStoryIndex = 0
-            }
-        } else {
-            viewingUserStory?.let { current ->
-                val updated = stories.find { it.id == current.id }
-                if (updated != null) {
-                    viewingUserStory = updated
-                    if (viewingStoryIndex >= updated.stories.size) {
-                        viewingStoryIndex = (updated.stories.size - 1).coerceAtLeast(0)
-                    }
-                } else if (!current.id.isNullOrBlank()) {
-                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                        onBack()
-                    } else {
-                        viewingUserStory = null
-                    }
+    LaunchedEffect(stories) {
+        viewingUserStory?.let { current ->
+            val updated = stories.find { it.id == current.id }
+            if (updated != null) {
+                viewingUserStory = updated
+                if (viewingStoryIndex >= updated.stories.size) {
+                    viewingStoryIndex = (updated.stories.size - 1).coerceAtLeast(0)
+                }
+            } else if (!current.id.isNullOrBlank()) {
+                // If it was explicitly requested from outside (chat click), and it's gone, go back
+                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                    onBack()
+                } else {
+                    viewingUserStory = null
                 }
             }
         }
@@ -273,21 +276,9 @@ fun StoryScreen(
             isOwnStory = viewingUserStory!!.id == currentUserId,
             initialStoryIndex = viewingStoryIndex,
             showAd = showInViewerAd,
-            onAdFinish = { showInViewerAd = false },
-            onStoryViewed = { storyIndex -> 
-                val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
-                if (storyId != null) {
-                    onStoryViewed(viewingUserStory!!.id, storyId)
-                    totalStoriesViewedInViewer++
-                    if (totalStoriesViewedInViewer % 4 == 0) {
-                        showInViewerAd = true
-                    }
-                }
-            },
-            onDeleteStory = { storyId ->
-                onDeleteStory(storyId)
-            },
-            onFinish = { 
+            onAdFinish = { 
+                showInViewerAd = false
+                // Manually move to next story if ad finished
                 val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
                 if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
                     viewingUserStory = allViewableStories[currentIndex + 1]
@@ -297,6 +288,39 @@ fun StoryScreen(
                         onBack()
                     } else {
                         viewingUserStory = null 
+                    }
+                }
+            },
+            onStoryViewed = { storyIndex -> 
+                val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
+                if (storyId != null) {
+                    onStoryViewed(viewingUserStory!!.id, storyId)
+                    
+                    // Increment global view counter
+                    totalStoriesViewedInViewer++
+                    
+                    // Trigger ad logic: Every 4 stories viewed across all users
+                    if (totalStoriesViewedInViewer > 0 && totalStoriesViewedInViewer % 4 == 0) {
+                        showInViewerAd = true
+                    }
+                }
+            },
+            onDeleteStory = { storyId ->
+                onDeleteStory(storyId)
+            },
+            onFinish = { 
+                // Only advance if no ad is showing
+                if (!showInViewerAd) {
+                    val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
+                    if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
+                        viewingUserStory = allViewableStories[currentIndex + 1]
+                        viewingStoryIndex = 0
+                    } else {
+                        if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                            onBack()
+                        } else {
+                            viewingUserStory = null 
+                        }
                     }
                 }
             },
