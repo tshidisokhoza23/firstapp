@@ -146,6 +146,12 @@ fun DriveScreen(
     val selectedRide by viewModel.selectedRide
     var fromLocation by remember { mutableStateOf("Current Location") }
     var toLocation by remember { mutableStateOf("") }
+
+    val isDriverMode by viewModel.isDriverMode.collectAsState()
+    val driverOnlineStatus by viewModel.driverOnlineStatus.collectAsState()
+    val rideRequest by viewModel.incomingRideRequest.collectAsState()
+    val driverDocuments by viewModel.driverDocuments.collectAsState()
+    val driverEarnings by viewModel.driverEarnings.collectAsState()
     
     val pickupAddress by viewModel.pickupAddress
     LaunchedEffect(pickupAddress) {
@@ -157,6 +163,8 @@ fun DriveScreen(
         drawerContent = { 
             DriveDrawerContent(
                 user = user,
+                isDriverMode = isDriverMode,
+                onDriverModeToggle = { viewModel.toggleDriverMode(it) },
                 onShowHistory = { currentSubScreen = "history"; scope.launch { drawerState.close() } },
                 onShowPayment = { currentSubScreen = "payment"; scope.launch { drawerState.close() } },
                 onShowSavedPlaces = { currentSubScreen = "saved_places"; scope.launch { drawerState.close() } },
@@ -166,65 +174,79 @@ fun DriveScreen(
         },
         gesturesEnabled = drawerState.isOpen
     ) {
-        DriveMainContent(
-            scaffoldState = scaffoldState,
-            hasLocationPermission = hasLocationPermission,
-            step = step,
-            onStepChange = { step = it },
-            isSearchingView = isSearching,
-            onSearchToggle = { isSearching = it },
-            selectedDestination = selectedDestination,
-            onDestinationSelected = { destination ->
-                if (destination != null) {
-                    viewModel.getPlaceDetails(context, destination) { detailedDest ->
-                        selectedDestination = detailedDest
-                        step = 1
-                        isSearching = false
-                        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
-                        
-                        val pickup = viewModel.pickupLocation.value ?: LatLng(-26.1076, 28.0567)
-                        val waypoints = additionalStops.map { LatLng(it.latitude, it.longitude) }
-                        viewModel.calculateRoute(pickup, LatLng(detailedDest.latitude, detailedDest.longitude), waypoints)
-                        
-                        viewModel.saveDestination(
-                            name = detailedDest.name,
-                            address = detailedDest.address,
-                            latitude = detailedDest.latitude,
-                            longitude = detailedDest.longitude,
-                            type = "recent"
-                        )
+        if (isDriverMode) {
+            DriverDashboard(
+                isOnline = driverOnlineStatus,
+                onOnlineToggle = { viewModel.setDriverOnlineStatus(it) },
+                earnings = driverEarnings,
+                documents = driverDocuments,
+                incomingRequest = rideRequest,
+                onAccept = { viewModel.acceptRideRequest() },
+                onDecline = { viewModel.declineRideRequest() },
+                onMenuClick = { scope.launch { drawerState.open() } },
+                onUploadDoc = { type, url -> viewModel.uploadDocument(type, url) }
+            )
+        } else {
+            DriveMainContent(
+                scaffoldState = scaffoldState,
+                hasLocationPermission = hasLocationPermission,
+                step = step,
+                onStepChange = { step = it },
+                isSearchingView = isSearching,
+                onSearchToggle = { isSearching = it },
+                selectedDestination = selectedDestination,
+                onDestinationSelected = { destination ->
+                    if (destination != null) {
+                        viewModel.getPlaceDetails(context, destination) { detailedDest ->
+                            selectedDestination = detailedDest
+                            step = 1
+                            isSearching = false
+                            scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                            
+                            val pickup = viewModel.pickupLocation.value ?: LatLng(-26.1076, 28.0567)
+                            val waypoints = additionalStops.map { LatLng(it.latitude, it.longitude) }
+                            viewModel.calculateRoute(pickup, LatLng(detailedDest.latitude, detailedDest.longitude), waypoints)
+                            
+                            viewModel.saveDestination(
+                                name = detailedDest.name,
+                                address = detailedDest.address,
+                                latitude = detailedDest.latitude,
+                                longitude = detailedDest.longitude,
+                                type = "recent"
+                            )
+                        }
+                    } else {
+                        selectedDestination = null
                     }
-                } else {
-                    selectedDestination = null
-                }
-            },
-            additionalStops = additionalStops,
-            onAddStop = { additionalStops.add(it) },
-            onRemoveStop = { additionalStops.removeAt(it) },
-            selectedRide = selectedRide,
-            onRideSelect = { viewModel.selectRide(it) },
-            fromLocation = fromLocation,
-            onFromLocationChange = {
-                fromLocation = it
-                viewModel.searchPlaces(context, it)
-            },
-            toLocation = toLocation,
-            onToLocationChange = { 
-                toLocation = it
-                viewModel.searchPlaces(context, it)
-            },
-            onMenuClick = { scope.launch { drawerState.open() } },
-            showSafetyCenter = showSafetyCenter,
-            onSafetyCenterToggle = { showSafetyCenter = it },
-            showDriverProfile = showDriverProfile,
-            onDriverProfileToggle = { showDriverProfile = it },
-            showSchedulePicker = showSchedulePicker,
-            onSchedulePickerToggle = { showSchedulePicker = it },
-            bottomPadding = bottomPadding,
-            viewModel = viewModel,
-            user = user,
-            chatViewModel = chatViewModel
-        )
+                },
+                additionalStops = additionalStops,
+                onAddStop = { additionalStops.add(it) },
+                onRemoveStop = { additionalStops.removeAt(it) },
+                selectedRide = selectedRide,
+                onRideSelect = { viewModel.selectRide(it) },
+                fromLocation = fromLocation,
+                onFromLocationChange = {
+                    fromLocation = it
+                    viewModel.searchPlaces(context, it)
+                },
+                toLocation = toLocation,
+                onToLocationChange = { 
+                    toLocation = it
+                    viewModel.searchPlaces(context, it)
+                },
+                onMenuClick = { scope.launch { drawerState.open() } },
+                showSafetyCenter = showSafetyCenter,
+                onSafetyCenterToggle = { showSafetyCenter = it },
+                showDriverProfile = showDriverProfile,
+                onDriverProfileToggle = { showDriverProfile = it },
+                showSchedulePicker = showSchedulePicker,
+                onSchedulePickerToggle = { showSchedulePicker = it },
+                bottomPadding = bottomPadding,
+                viewModel = viewModel,
+                user = user,
+                chatViewModel = chatViewModel
+            )
+        }
     }
 
     if (showSafetyCenter) {
@@ -256,6 +278,8 @@ fun DriveScreen(
 @Composable
 fun DriveDrawerContent(
     user: com.example.firstapp.common.model.User?,
+    isDriverMode: Boolean,
+    onDriverModeToggle: (Boolean) -> Unit,
     onShowHistory: () -> Unit, 
     onShowPayment: () -> Unit, 
     onShowSavedPlaces: () -> Unit,
@@ -275,26 +299,46 @@ fun DriveDrawerContent(
                 .padding(top = 40.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
         ) {
             Column {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (user?.avatarUrl != null) {
-                        coil.compose.AsyncImage(
-                            model = user.avatarUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                        )
-                    } else {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (user?.avatarUrl != null) {
+                            coil.compose.AsyncImage(
+                                model = user.avatarUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                user?.displayName?.take(1)?.uppercase() ?: "U",
+                                color = MaterialTheme.colorScheme.onPrimary, 
+                                fontWeight = FontWeight.ExtraBold, 
+                                fontSize = 28.sp
+                            )
+                        }
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            user?.displayName?.take(1)?.uppercase() ?: "U",
-                            color = MaterialTheme.colorScheme.onPrimary, 
-                            fontWeight = FontWeight.ExtraBold, 
-                            fontSize = 28.sp
+                            text = if (isDriverMode) "Driver" else "Rider",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Switch(
+                            checked = isDriverMode,
+                            onCheckedChange = onDriverModeToggle,
+                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                         )
                     }
                 }
@@ -319,12 +363,17 @@ fun DriveDrawerContent(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        DrawerItem(Icons.AutoMirrored.Filled.List, "My Trips") { onShowHistory() }
-        DrawerItem(Icons.Default.Place, "Saved Places") { onShowSavedPlaces() }
-        DrawerItem(Icons.Default.Payment, "Wallet") { onShowPayment() }
-        DrawerItem(Icons.Default.CardGiftcard, "Promotions") { onShowPayment() }
+        if (isDriverMode) {
+            DrawerItem(Icons.Default.Dashboard, "Dashboard") { }
+            DrawerItem(Icons.Default.AccountBalanceWallet, "Earnings") { onShowPayment() }
+            DrawerItem(Icons.Default.VerifiedUser, "Verification") { }
+        } else {
+            DrawerItem(Icons.AutoMirrored.Filled.List, "My Trips") { onShowHistory() }
+            DrawerItem(Icons.Default.Place, "Saved Places") { onShowSavedPlaces() }
+            DrawerItem(Icons.Default.Payment, "Wallet") { onShowPayment() }
+        }
+        
         DrawerItem(Icons.Default.SupportAgent, "Help Center") { onShowSupport() }
-        DrawerItem(Icons.Default.Info, "Legal") { Toast.makeText(context, "TJ Drive v1.2", Toast.LENGTH_SHORT).show() }
         
         Spacer(modifier = Modifier.weight(1f))
         

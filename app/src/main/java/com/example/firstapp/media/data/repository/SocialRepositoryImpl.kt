@@ -307,7 +307,7 @@ class SocialRepositoryImpl @Inject constructor(
                     
                     val finalName = if (resolvedName.isBlank() || resolvedName == apiStory.user_id) {
                          // If no name found, use phone number if we have it, else fallback to API name
-                         contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: apiStory.phone_number ?: apiStory.user_name
+                         contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: apiStory.phone_number?.takeIf { it.isNotBlank() } ?: apiStory.user_name
                     } else resolvedName
 
                     model.copy(userName = finalName)

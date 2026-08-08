@@ -112,8 +112,19 @@ fun StoryScreen(
         }
     }
 
-    val allViewableStories = remember(recentUpdates, viewedUpdates) {
-        recentUpdates + viewedUpdates
+    val allViewableStories = remember(myStory, recentUpdates, viewedUpdates, viewingUserStory, initialViewingUserId) {
+        val list = mutableListOf<UserStory>()
+        
+        // If we clicked our own story, put it at the beginning of the sequence
+        if (viewingUserStory?.id == currentUserId && myStory != null) {
+            list.add(myStory)
+        }
+        
+        list.addAll(recentUpdates)
+        list.addAll(viewedUpdates)
+        
+        // Ensure no duplicates if myStory was already in updates
+        list.distinctBy { it.id }
     }
 
     androidx.activity.compose.BackHandler(enabled = viewingUserStory != null || showComposer || showSearch) {
@@ -247,13 +258,13 @@ fun StoryScreen(
                 onDeleteStory(storyId)
             },
             onFinish = { 
-                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                    onBack()
+                val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
+                if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
+                    viewingUserStory = allViewableStories[currentIndex + 1]
+                    viewingStoryIndex = 0
                 } else {
-                    val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
-                    if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
-                        viewingUserStory = allViewableStories[currentIndex + 1]
-                        viewingStoryIndex = 0
+                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                        onBack()
                     } else {
                         viewingUserStory = null 
                     }
