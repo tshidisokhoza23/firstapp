@@ -50,9 +50,22 @@ fun StoryViewer(
     val context = LocalContext.current
     var currentStoryIndex by remember { mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    // Ad tracking
+    var storiesViewedInSession by remember { mutableIntStateOf(0) }
+    var showInViewerAd by remember { mutableStateOf(false) }
+
     val stories = userStory.stories
     if (stories.isEmpty()) {
         onFinish()
+        return
+    }
+
+    if (showInViewerAd) {
+        InViewerStoryAd(
+            onFinish = { showInViewerAd = false },
+            onClose = onClose
+        )
         return
     }
     
@@ -100,6 +113,13 @@ fun StoryViewer(
                     easing = LinearEasing
                 )
             )
+            
+            // Ad Logic
+            storiesViewedInSession++
+            if (storiesViewedInSession > 0 && storiesViewedInSession % 4 == 0) {
+                showInViewerAd = true
+            }
+
             if (currentStoryIndex < stories.size - 1) {
                 progress.snapTo(0f)
                 currentStoryIndex++
@@ -368,5 +388,57 @@ fun StoryViewer(
                 letterSpacing = 1.sp
             )
         }
+    }
+}
+
+@Composable
+fun InViewerStoryAd(onFinish: () -> Unit, onClose: () -> Unit) {
+    val progress = remember { Animatable(0f) }
+    
+    LaunchedEffect(Unit) {
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 5000, easing = LinearEasing)
+        )
+        onFinish()
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        com.example.firstapp.media.ui.components.NativeAdCard(
+            adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+            modifier = Modifier.align(Alignment.Center).padding(16.dp)
+        )
+        
+        // Progress Bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 12.dp, start = 12.dp, end = 12.dp)
+                .height(2.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.3f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress.value)
+                    .fillMaxHeight()
+                    .background(Color.White)
+            )
+        }
+
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 20.dp, end = 16.dp)
+        ) {
+            Icon(Icons.Default.Close, null, tint = Color.White)
+        }
+        
+        Text(
+            "Advertisement",
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 12.sp,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
+        )
     }
 }

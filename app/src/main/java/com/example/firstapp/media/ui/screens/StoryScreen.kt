@@ -105,6 +105,7 @@ fun StoryScreen(
     val viewedUpdates = activeStories.filter { it.allViewed }
     
     var showMutedUpdates by remember { mutableStateOf(false) }
+    var showPostedStoriesList by remember { mutableStateOf(false) }
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -134,7 +135,7 @@ fun StoryScreen(
         list.distinctBy { it.id }
     }
 
-    androidx.activity.compose.BackHandler(enabled = viewingUserStory != null || showComposer || showSearch) {
+    androidx.activity.compose.BackHandler(enabled = viewingUserStory != null || showComposer || showSearch || showPostedStoriesList) {
         when {
             viewingUserStory != null -> {
                 if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
@@ -143,6 +144,7 @@ fun StoryScreen(
                     viewingUserStory = null 
                 }
             }
+            showPostedStoriesList -> showPostedStoriesList = false
             showComposer -> showComposer = false
             showSearch -> {
                 showSearch = false
@@ -250,6 +252,16 @@ fun StoryScreen(
                 )
             }
         }
+    } else if (showPostedStoriesList) {
+        PostedStoriesList(
+            myStory = myStory,
+            onBack = { showPostedStoriesList = false },
+            onDeleteStory = onDeleteStory,
+            onStoryClick = { idx ->
+                viewingUserStory = myStory
+                viewingStoryIndex = idx
+            }
+        )
     } else if (viewingUserStory != null) {
         StoryViewer(
             userStory = viewingUserStory!!,
@@ -409,15 +421,21 @@ fun StoryScreen(
 
                 if (myStory != null && myStory.stories.isNotEmpty()) {
                     item {
-                        Text(
-                            "Posted stories",
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { showPostedStoriesList = true }.padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Posted stories",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(Icons.Default.ArrowForwardIos, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
-                    itemsIndexed(myStory.stories.reversed()) { idx, story ->
+                    itemsIndexed(myStory.stories.reversed().take(3)) { idx, story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },
@@ -426,13 +444,6 @@ fun StoryScreen(
                                 viewingStoryIndex = myStory.stories.indexOf(story)
                             }
                         )
-                        // Add native ad every 4th posted story too for consistency
-                        if ((idx + 1) % 4 == 0) {
-                            com.example.firstapp.media.ui.components.NativeAdCard(
-                                adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                            )
-                        }
                     }
                 }
 
@@ -708,6 +719,48 @@ fun StoryListItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
+        }
+    }
+}
+
+@Composable
+fun PostedStoriesList(
+    myStory: com.example.firstapp.media.model.UserStory?,
+    onBack: () -> Unit,
+    onDeleteStory: (String) -> Unit,
+    onStoryClick: (Int) -> Unit
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            @OptIn(ExperimentalMaterial3Api::class)
+            TopAppBar(
+                title = { Text("Posted stories", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        if (myStory == null || myStory.stories.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text("No posted stories", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
+            ) {
+                itemsIndexed(myStory.stories.reversed()) { idx, story ->
+                    MyStoryListItem(
+                        story = story,
+                        onDelete = { onDeleteStory(story.id) },
+                        onClick = { onStoryClick(myStory.stories.indexOf(story)) }
+                    )
+                }
+            }
         }
     }
 }
