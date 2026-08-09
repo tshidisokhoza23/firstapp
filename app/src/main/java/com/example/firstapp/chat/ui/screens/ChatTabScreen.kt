@@ -404,7 +404,14 @@ fun ChatsListScreen(
                                     onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
                                     onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
                                     onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = false)) },
-                                    onAvatarClick = { userId -> navController.navigate(Screen.UserProfile.createRoute(userId)) }
+                                    onAvatarClick = { userId -> 
+                                        val chat = sanitizedChats.find { it.id == userId }
+                                        if (chat?.avatarUrl != null) {
+                                            navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                                        } else {
+                                            navController.navigate(Screen.UserProfile.createRoute(userId))
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -677,6 +684,10 @@ fun ChatList(
                     chat = chat,
                     hasStory = hasStory,
                     allStoriesViewed = allStoriesViewed,
+                    onAvatarClick = { onAvatarClick(chat.id) },
+                    onStoryClick = { 
+                        story?.let { onStoryClick(it) }
+                    }
                 )
             }
         }

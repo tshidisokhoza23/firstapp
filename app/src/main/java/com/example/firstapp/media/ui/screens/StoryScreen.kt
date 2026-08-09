@@ -95,7 +95,13 @@ fun StoryScreen(
         }
     }
     
-    val myStory = stories.find { it.id == currentUserId }
+    val myStory = stories.find { 
+        it.id == currentUserId || 
+        it.id == "user_$currentUserId" || 
+        (currentUserId != null && it.id == currentUserId.removePrefix("user_")) ||
+        it.userName == "My Story" ||
+        it.userName == "My Number"
+    }
     val contactIds = remember(contacts) { 
         contacts.map { it.id }.toSet() + contacts.map { "user_${it.id}" }.toSet() + contacts.map { it.id.removePrefix("user_") }.toSet()
     }

@@ -47,8 +47,16 @@ fun StoriesRow(
     onTextStoryClick: () -> Unit,
     onPostedStoriesClick: () -> Unit = {}
 ) {
-    val myStory = stories.find { it.id == currentUserId }
-    val otherStories = stories.filter { it.id != currentUserId }
+    val myStory = stories.find { 
+        it.id == currentUserId || 
+        it.id == "user_$currentUserId" || 
+        (currentUserId != null && it.id == currentUserId.removePrefix("user_")) ||
+        it.userName == "My Story" ||
+        it.userName == "My Number"
+    }
+    val otherStories = stories.filter { 
+        it != myStory
+    }
 
     Column(
         modifier = Modifier

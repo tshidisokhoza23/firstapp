@@ -30,6 +30,8 @@ fun ChatItem(
     chat: ChatMessage,
     hasStory: Boolean = false,
     allStoriesViewed: Boolean = false,
+    onAvatarClick: () -> Unit = {},
+    onStoryClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -48,11 +50,13 @@ fun ChatItem(
                     color = borderColor,
                     shape = CircleShape
                 )
+                .clickable { onStoryClick() }
                 .padding(3.dp)
         } else {
             Modifier
                 .size(56.dp)
                 .clip(CircleShape)
+                .clickable { onAvatarClick() }
         }
 
         Box(

@@ -205,7 +205,18 @@ fun StoryViewer(
                         )
                     }
                 }
+                StoryType.IMAGE -> {
+                    if (!currentStory.contentUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = currentStory.contentUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
                 else -> {
+                    // Fallback for any other type
                     if (!currentStory.contentUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = currentStory.contentUrl,
