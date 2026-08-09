@@ -66,7 +66,7 @@ data class UpdateRideStatusResponse(val success: Boolean)
 data class CancelRideRequest(val ride_id: String, val reason: String, val by: String)
 data class CancelRideResponse(val success: Boolean)
 
-data class NearbyDriversResponse(val drivers: List<com.example.firstapp.drive.ui.viewmodel.DriveStatus>)
+data class NearbyDriversResponse(val drivers: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverStatus>)
 
 data class DriverDocumentsResponse(val documents: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>)
 data class UploadDocumentRequest(val type: String, val url: String)
