@@ -143,4 +143,39 @@ class DriveRepositoryImpl @Inject constructor(
             emit(Resource.Error(e.message ?: "Error"))
         }
     }
+
+    override fun createRideRequest(
+        pickup: String,
+        dest: String,
+        pLat: Double,
+        pLng: Double,
+        dLat: Double,
+        dLng: Double,
+        fare: Double,
+        type: String
+    ): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.createRideRequest(com.example.firstapp.drive.data.api.CreateRideRequest(
+                pickup, dest, pLat, pLng, dLat, dLng, fare, type
+            ))
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!.ride_id))
+            } else {
+                emit(Resource.Error("Failed to create request"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun updateRideStatus(rideId: String, status: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.updateRideStatus(com.example.firstapp.drive.data.api.UpdateRideStatusRequest(rideId, status))
+            emit(Resource.Success(res.isSuccessful))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
 }

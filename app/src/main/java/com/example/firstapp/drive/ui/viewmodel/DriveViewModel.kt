@@ -309,10 +309,14 @@ class DriveViewModel @Inject constructor(
     fun acceptRideRequest() {
         viewModelScope.launch {
             val req = _incomingRideRequest.value ?: return@launch
-            // In a real app, send acceptance to server
-            _incomingRideRequest.value = null
-            _bookingStatus.value = BookingStatus.EN_ROUTE
-            _driverEarnings.value += req.fare
+            
+            repository.updateRideStatus(req.id, "ACCEPTED").collect { res ->
+                if (res is Resource.Success) {
+                    _incomingRideRequest.value = null
+                    _bookingStatus.value = BookingStatus.EN_ROUTE
+                    _driverEarnings.value += req.fare
+                }
+            }
         }
     }
 
@@ -587,14 +591,31 @@ class DriveViewModel @Inject constructor(
     }
 
     fun startBooking() {
+        val pickup = _pickupLocation.value ?: return
+        val dest = _selectedRide.value ?: return
+        val pickupAddr = _pickupAddress.value
+        val destAddr = _suggestions.value.firstOrNull()?.address ?: "Destination"
+        
         bookingJob?.cancel()
         bookingJob = viewModelScope.launch {
             _bookingStatus.value = BookingStatus.SEARCHING
             _assignedDriver.value = null
             _safetyPin.value = (1000..9999).random().toString()
-            delay(3000)
             
-            val pickup = _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
+            // 1. Create request on server
+            repository.createRideRequest(
+                pickup = pickupAddr,
+                dest = destAddr,
+                pLat = pickup.latitude,
+                pLng = pickup.longitude,
+                dLat = 0.0,
+                dLng = 0.0,
+                fare = dest.price.toDoubleOrNull() ?: 0.0,
+                type = dest.name
+            ).collect { }
+
+            delay(4000)
+            
             val driver = _nearbyDrivers.value.firstOrNull()?.copy(id = "assigned_driver") 
                 ?: NearbyDriver(
                     id = "assigned_driver", 
@@ -645,12 +666,12 @@ class DriveViewModel @Inject constructor(
             _bookingStatus.value = BookingStatus.COMPLETED
             _remainingTime.value = "Finished"
             
-            val fare = _selectedRide.value?.price?.toDoubleOrNull() ?: 0.0
+            val fare = dest.price.toDoubleOrNull() ?: 0.0
             _completedTripSummary.value = TripSummary(
                 fare = fare,
                 distance = _routeDistance.value ?: "0 km",
                 duration = _routeDuration.value ?: "0 min",
-                passengerName = driver.name // Just for simulation
+                passengerName = driver.name
             )
 
             // Simulated wallet deduction

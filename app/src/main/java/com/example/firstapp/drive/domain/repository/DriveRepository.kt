@@ -18,4 +18,8 @@ interface DriveRepository {
     fun uploadDocument(type: String, url: String): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>>
     fun getAvailableRequests(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>>
     fun updateOnlineStatus(online: Boolean, latitude: Double, longitude: Double): Flow<Resource<Boolean>>
+    
+    // Ride Lifecycle
+    fun createRideRequest(pickup: String, dest: String, pLat: Double, pLng: Double, dLat: Double, dLng: Double, fare: Double, type: String): Flow<Resource<String>>
+    fun updateRideStatus(rideId: String, status: String): Flow<Resource<Boolean>>
 }
