@@ -364,6 +364,7 @@ fun StoryViewer(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
+                .imePadding()
                 .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

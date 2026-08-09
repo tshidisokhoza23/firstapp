@@ -58,6 +58,10 @@ import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.example.firstapp.media.ui.components.BannerAdView
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -334,137 +338,146 @@ fun DriveDrawerContent(
         modifier = Modifier.width(320.dp),
         drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
     ) {
-        // Header
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(if (isDriverMode) Color(0xFF252A31) else Color.Transparent)
-                .padding(top = 48.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (user?.avatarUrl != null) {
-                            coil.compose.AsyncImage(
-                                model = user.avatarUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        } else {
-                            Text(
-                                user?.displayName?.take(1)?.uppercase() ?: "U",
-                                color = Color.White, 
-                                fontWeight = FontWeight.Bold, 
-                                fontSize = 24.sp
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                // Header
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(if (isDriverMode) Color(0xFF252A31) else Color.Transparent)
+                        .padding(top = 48.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
+                ) {
                     Column {
-                        Text(
-                            user?.displayName ?: "Alex R.", 
-                            color = if (isDriverMode) Color.White else MaterialTheme.colorScheme.onSurface, 
-                            fontWeight = FontWeight.Bold, 
-                            fontSize = 20.sp
-                        )
-                        if (!isDriverApproved) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Passenger rating: 4.9 ", color = if (isDriverMode) Color.White.copy(0.6f) else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                                Icon(Icons.Default.Star, null, tint = NiceOrange, modifier = Modifier.size(14.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (user?.avatarUrl != null) {
+                                    coil.compose.AsyncImage(
+                                        model = user.avatarUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(
+                                        user?.displayName?.take(1)?.uppercase() ?: "U",
+                                        color = Color.White, 
+                                        fontWeight = FontWeight.Bold, 
+                                        fontSize = 24.sp
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    user?.displayName ?: "Alex R.", 
+                                    color = if (isDriverMode) Color.White else MaterialTheme.colorScheme.onSurface, 
+                                    fontWeight = FontWeight.Bold, 
+                                    fontSize = 20.sp
+                                )
+                                if (!isDriverApproved) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Passenger rating: 4.9 ", color = if (isDriverMode) Color.White.copy(0.6f) else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                        Icon(Icons.Default.Star, null, tint = NiceOrange, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                                
+                                Surface(
+                                    color = if (isDriverApproved) Color.White else Color(0xFF607D8B).copy(0.2f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isDriverApproved) "APPROVED DRIVER" else "PASSENGER",
+                                        color = if (isDriverApproved) Color.Black else Color(0xFF607D8B),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
                         }
-                        
-                        Surface(
-                            color = if (isDriverApproved) Color.White else Color(0xFF607D8B).copy(0.2f),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.padding(top = 4.dp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Role Actions
+                if (!isDriverApproved) {
+                    Button(
+                        onClick = { onDriverModeToggle(true) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E8E)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DirectionsCar, null, tint = Color.White)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("BECOME A DRIVER", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                    }
+                } else {
+                    // Approved Switch
+                    Surface(
+                        color = if (isDriverMode) Color(0xFF2D343C) else Color.Transparent,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (isDriverApproved) "APPROVED DRIVER" else "PASSENGER",
-                                color = if (isDriverApproved) Color.Black else Color(0xFF607D8B),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                "DRIVER MODE: ${if (isDriverMode) "ACTIVE" else "INACTIVE"}",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Switch(
+                                checked = isDriverMode,
+                                onCheckedChange = onDriverModeToggle,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF388E8E)
+                                )
                             )
                         }
                     }
                 }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-        // Role Actions
-        if (!isDriverApproved) {
-            Button(
-                onClick = { onDriverModeToggle(true) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E8E)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.DirectionsCar, null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("BECOME A DRIVER", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                // Menu Items
+                if (isDriverMode) {
+                    DrawerItem(Icons.Default.Dashboard, "Driver Dashboard") { scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.AccountBalanceWallet, "Earnings History") { onShowPayment(); scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.AccountBalance, "Payout Methods") { onShowPayment(); scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.Build, "Vehicle Management") { scope.launch { drawerState.close() } }
+                } else {
+                    DrawerItem(Icons.Default.Payment, "Payment Methods") { onShowPayment(); scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.LocalOffer, "Promotions") { scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.Shield, "Safety") { scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.SupportAgent, "Support") { onShowSupport(); scope.launch { drawerState.close() } }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                DrawerItem(Icons.Default.Settings, "Settings") { onShowSettings(); scope.launch { drawerState.close() } }
+                Spacer(modifier = Modifier.height(24.dp))
             }
-        } else {
-            // Approved Switch
-            Surface(
-                color = if (isDriverMode) Color(0xFF2D343C) else Color.Transparent,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "DRIVER MODE: ${if (isDriverMode) "ACTIVE" else "INACTIVE"}",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    Switch(
-                        checked = isDriverMode,
-                        onCheckedChange = onDriverModeToggle,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF388E8E)
-                        )
-                    )
-                }
-            }
+            
+            BannerAdView(
+                adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.BANNER_MAIN_ID,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Menu Items
-        if (isDriverMode) {
-            DrawerItem(Icons.Default.Dashboard, "Driver Dashboard") { scope.launch { drawerState.close() } }
-            DrawerItem(Icons.Default.AccountBalanceWallet, "Earnings History") { onShowPayment(); scope.launch { drawerState.close() } }
-            DrawerItem(Icons.Default.AccountBalance, "Payout Methods") { onShowPayment(); scope.launch { drawerState.close() } }
-            DrawerItem(Icons.Default.Build, "Vehicle Management") { scope.launch { drawerState.close() } }
-        } else {
-            DrawerItem(Icons.Default.Payment, "Payment Methods") { onShowPayment(); scope.launch { drawerState.close() } }
-            DrawerItem(Icons.Default.LocalOffer, "Promotions") { scope.launch { drawerState.close() } }
-            DrawerItem(Icons.Default.Shield, "Safety") { scope.launch { drawerState.close() } }
-            DrawerItem(Icons.Default.SupportAgent, "Support") { onShowSupport(); scope.launch { drawerState.close() } }
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-        DrawerItem(Icons.Default.Settings, "Settings") { onShowSettings(); scope.launch { drawerState.close() } }
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
