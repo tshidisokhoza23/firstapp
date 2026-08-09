@@ -36,6 +36,7 @@ import com.example.firstapp.media.model.UserStory
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
+import com.example.firstapp.media.model.StoryItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -57,7 +58,6 @@ fun StoryScreen(
     onNavigateToNewStory: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val preloadedAds by mediaViewModel.preloadedAds.collectAsState()
     
     var viewingUserStory by remember { 
         mutableStateOf(if (initialPlay) stories.find { it.id == initialViewingUserId } else null)
@@ -119,7 +119,6 @@ fun StoryScreen(
     val viewedUpdates = activeStories.filter { it.allViewed }
     
     var showMutedUpdates by remember { mutableStateOf(false) }
-    var showPostedStoriesList by remember { mutableStateOf(!initialPlay && initialViewingUserId == currentUserId) }
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -143,7 +142,7 @@ fun StoryScreen(
         list.distinctBy { it.id }
     }
 
-    androidx.activity.compose.BackHandler(enabled = viewingUserStory != null || showComposer || showSearch || showPostedStoriesList) {
+    androidx.activity.compose.BackHandler(enabled = viewingUserStory != null || showComposer || showSearch) {
         when {
             viewingUserStory != null -> {
                 if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
@@ -152,7 +151,6 @@ fun StoryScreen(
                     viewingUserStory = null 
                 }
             }
-            showPostedStoriesList -> showPostedStoriesList = false
             showComposer -> showComposer = false
             showSearch -> {
                 showSearch = false
@@ -261,17 +259,6 @@ fun StoryScreen(
                 )
             }
         }
-    } else if (showPostedStoriesList) {
-        PostedStoriesList(
-            myStory = myStory,
-            onBack = { showPostedStoriesList = false },
-            onDeleteStory = onDeleteStory,
-            onStoryClick = { idx ->
-                viewingUserStory = myStory
-                viewingStoryIndex = idx
-                showPostedStoriesList = false
-            }
-        )
     } else if (viewingUserStory != null && viewingUserStory!!.stories.isNotEmpty()) {
         StoryViewer(
             userStory = viewingUserStory!!,
@@ -437,16 +424,14 @@ fun StoryScreen(
                         },
                         onMediaStoryClick = onNavigateToNewStory,
                         onTextStoryClick = { showComposer = true },
-                        onPostedStoriesClick = { showPostedStoriesList = true }
+                        onPostedStoriesClick = { /* Handled in main list */ }
                     )
                 }
 
                 if (myStory != null && myStory.stories.isNotEmpty()) {
                     item(key = "posted_stories_header_section") {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { 
-                                showPostedStoriesList = true 
-                            }.padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -456,10 +441,9 @@ fun StoryScreen(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Icon(Icons.Default.ArrowForwardIos, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    itemsIndexed(myStory.stories.distinctBy { it.id }.reversed().take(3), key = { _, s -> "preview_${s.id}" }) { idx, story ->
+                    itemsIndexed(myStory.stories.distinctBy { it.id }.reversed().take(10), key = { _, s -> "preview_${s.id}" }) { idx, story ->
                         MyStoryListItem(
                             story = story,
                             onDelete = { onDeleteStory(story.id) },
@@ -532,9 +516,6 @@ fun StoryScreen(
                     }
                 }
                 
-                // Final Banner Ad at the end of the list (Optional, now we have bottomBar)
-                // item { com.example.firstapp.media.ui.components.BannerAdView(...) }
-                
                 item { Spacer(modifier = Modifier.height(150.dp)) }
             }
         }
@@ -571,7 +552,7 @@ fun StoryScreen(
 
 @Composable
 fun MyStoryListItem(
-    story: com.example.firstapp.media.model.StoryItem,
+    story: StoryItem,
     onDelete: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -746,56 +727,6 @@ fun StoryListItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
-        }
-    }
-}
-
-@Composable
-fun PostedStoriesList(
-    myStory: com.example.firstapp.media.model.UserStory?,
-    onBack: () -> Unit,
-    onDeleteStory: (String) -> Unit,
-    onStoryClick: (Int) -> Unit
-) {
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            @OptIn(ExperimentalMaterial3Api::class)
-            TopAppBar(
-                title = { Text("Posted stories", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        if (myStory == null || myStory.stories.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No posted stories", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            val uniqueStories = remember(myStory.stories) { 
-                myStory.stories.distinctBy { it.id }.reversed() 
-            }
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
-            ) {
-                itemsIndexed(uniqueStories, key = { _, s -> "full_list_${s.id}" }) { idx, story ->
-                    MyStoryListItem(
-                        story = story,
-                        onDelete = { onDeleteStory(story.id) },
-                        onClick = { 
-                            val originalIndex = myStory.stories.indexOfFirst { it.id == story.id }
-                            if (originalIndex != -1) {
-                                onStoryClick(originalIndex)
-                            }
-                        }
-                    )
-                }
-            }
         }
     }
 }
