@@ -216,4 +216,18 @@ class DriveRepositoryImpl @Inject constructor(
             emit(Resource.Error(e.message ?: "Error"))
         }
     }
+
+    override fun getNearbyDrivers(lat: Double, lng: Double): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverStatus>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getNearbyDrivers(lat, lng)
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!.drivers))
+            } else {
+                emit(Resource.Error("Failed to fetch nearby drivers"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
 }
