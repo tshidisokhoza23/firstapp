@@ -248,6 +248,7 @@ class DriveViewModel @Inject constructor(
         if (online && _isDriverApproved.value) {
             startDriverSimulation()
         } else {
+            simulationJob?.cancel()
             _incomingRideRequest.value = null
         }
     }
@@ -259,7 +260,7 @@ class DriveViewModel @Inject constructor(
             _driverPosition.value = _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
             while(true) {
                 if (_driverOnlineStatus.value) {
-                    // 1. Simulate movement
+                    // 1. Simulate/Update location
                     val current = _driverPosition.value
                     if (current != null) {
                         val newPos = LatLng(
@@ -267,17 +268,26 @@ class DriveViewModel @Inject constructor(
                             current.longitude + (Random.nextDouble() - 0.5) * 0.0005
                         )
                         _driverPosition.value = newPos
+                        // Update status/location on server
                         repository.updateOnlineStatus(true, newPos.latitude, newPos.longitude).collect { }
                     }
 
-                    // 2. Fetch requests from server or simulate
-                    if (_incomingRideRequest.value == null) {
+                    // 2. Refresh Driver Stats periodically
+                    if (Random.nextInt(10) == 0) { // roughly every 50s
+                         _driverStats.value = _driverStats.value.copy(
+                             onlineHours = _driverStats.value.onlineHours + 0.01,
+                             weeklyEarnings = _driverEarnings.value + 2450.0 // simulated base
+                         )
+                    }
+
+                    // 3. Fetch requests from server or simulate
+                    if (_incomingRideRequest.value == null && _bookingStatus.value == BookingStatus.NONE) {
                         repository.getAvailableRequests().collect { res ->
                             if (res is Resource.Success && res.data != null && res.data.isNotEmpty()) {
                                 _incomingRideRequest.value = res.data.first()
                             } else {
-                                // Simulation fallback
-                                if (Random.nextInt(100) < 15) { 
+                                // Simulation fallback with higher probability for testing
+                                if (Random.nextInt(100) < 20) {
                                     _incomingRideRequest.value = RideRequest(
                                         id = "req_${System.currentTimeMillis()}",
                                         passengerName = "Sarah Smith",

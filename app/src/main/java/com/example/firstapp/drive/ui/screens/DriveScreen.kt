@@ -187,6 +187,8 @@ fun DriveScreen(
                 user = user,
                 isDriverMode = isDriverMode,
                 isDriverApproved = isDriverApproved,
+                drawerState = drawerState,
+                scope = scope,
                 onDriverModeToggle = { viewModel.toggleDriverMode(it) },
                 onShowHistory = { currentSubScreen = "history"; scope.launch { drawerState.close() } },
                 onShowPayment = { currentSubScreen = "payment"; scope.launch { drawerState.close() } },
@@ -209,7 +211,8 @@ fun DriveScreen(
                 onDecline = { viewModel.declineRideRequest() },
                 onMenuClick = { scope.launch { drawerState.open() } },
                 onUploadDoc = { type, url -> viewModel.uploadDocument(type, url) },
-                viewModel = viewModel
+                viewModel = viewModel,
+                scope = scope
             )
         } else {
             DriveMainContent(
@@ -316,6 +319,8 @@ fun DriveDrawerContent(
     user: com.example.firstapp.common.model.User?,
     isDriverMode: Boolean,
     isDriverApproved: Boolean,
+    drawerState: DrawerState,
+    scope: kotlinx.coroutines.CoroutineScope,
     onDriverModeToggle: (Boolean) -> Unit,
     onShowHistory: () -> Unit, 
     onShowPayment: () -> Unit, 
@@ -412,9 +417,23 @@ fun DriveDrawerContent(
         Spacer(modifier = Modifier.height(12.dp))
         
         if (isDriverMode) {
-            DrawerItem(Icons.Default.Dashboard, "Dashboard") { }
-            DrawerItem(Icons.Default.AccountBalanceWallet, "Earnings") { onShowPayment() }
-            DrawerItem(Icons.Default.VerifiedUser, "Verification") { }
+            DrawerItem(
+                icon = Icons.Default.Dashboard, 
+                label = "Dashboard",
+                onClick = { scope.launch { drawerState.close() } }
+            )
+            DrawerItem(
+                icon = Icons.Default.AccountBalanceWallet, 
+                label = "Earnings",
+                onClick = { onShowPayment(); scope.launch { drawerState.close() } }
+            )
+            DrawerItem(
+                icon = Icons.Default.VerifiedUser, 
+                label = "Verification",
+                badge = if (isDriverApproved) "Approved" else "Pending",
+                badgeColor = if (isDriverApproved) Color(0xFF4CAF50) else Color(0xFFFFC107),
+                onClick = { scope.launch { drawerState.close() } }
+            )
         } else {
             DrawerItem(Icons.AutoMirrored.Filled.List, "My Trips") { onShowHistory() }
             DrawerItem(Icons.Default.Place, "Saved Places") { onShowSavedPlaces() }
@@ -432,9 +451,34 @@ fun DriveDrawerContent(
 }
 
 @Composable
-fun DrawerItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit = {}) {
+fun DrawerItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    label: String, 
+    badge: String? = null,
+    badgeColor: Color = MaterialTheme.colorScheme.primary,
+    onClick: () -> Unit = {}
+) {
     NavigationDrawerItem(
-        label = { Text(label, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium) },
+        label = { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                if (badge != null) {
+                    Surface(
+                        color = badgeColor.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(0.5.dp, badgeColor.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = badge,
+                            color = badgeColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        },
         selected = false,
         onClick = onClick,
         icon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -1995,8 +2039,10 @@ fun DriverDashboard(
     onDecline: () -> Unit,
     onMenuClick: () -> Unit,
     onUploadDoc: (String, String) -> Unit,
-    viewModel: DriveViewModel
+    viewModel: DriveViewModel,
+    scope: kotlinx.coroutines.CoroutineScope
 ) {
+    val context = LocalContext.current
     var showDocUpload by remember { mutableStateOf(false) }
     var currentTab by remember { mutableIntStateOf(0) } // 0 for Map/Home, 1 for Docs/Earnings
     val bookingStatus = viewModel.bookingStatus.value
@@ -2005,6 +2051,14 @@ fun DriverDashboard(
     val driverPosition by viewModel.driverPosition.collectAsState()
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(driverPosition ?: pickupLocation, 14f)
+    }
+
+    // Permission check for Go Online
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) onOnlineToggle(true)
+        else Toast.makeText(context, "Location permission required to go online", Toast.LENGTH_SHORT).show()
     }
 
     LaunchedEffect(driverPosition) {
@@ -2017,7 +2071,16 @@ fun DriverDashboard(
         topBar = {
             @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
-                title = { Text("Driver Dashboard", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Column {
+                        Text("Driver Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (isOnline) "Receiving requests" else "Currently offline",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isOnline) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, "Menu")
@@ -2025,24 +2088,29 @@ fun DriverDashboard(
                 },
                 actions = {
                     if (isApproved) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (isOnline) "Online" else "Offline",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (isOnline) Color(0xFF4CAF50) else Color.Gray
-                            )
-                            Switch(
-                                checked = isOnline,
-                                onCheckedChange = onOnlineToggle,
-                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF4CAF50))
-                            )
-                        }
+                        Switch(
+                            checked = isOnline,
+                            onCheckedChange = { 
+                                if (it) {
+                                    val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                    if (hasPermission) onOnlineToggle(true)
+                                    else locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                } else {
+                                    onOnlineToggle(false)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF4CAF50))
+                        )
+                        Spacer(Modifier.width(12.dp))
                     }
                 }
             )
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
                 NavigationBarItem(
                     selected = currentTab == 0,
                     onClick = { currentTab = 0 },
@@ -2115,23 +2183,63 @@ fun DriverDashboard(
                     }
                 }
                 
+                // Map Controls
+                Column(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp, end = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FloatingActionButton(
+                        onClick = { 
+                            scope.launch { 
+                                cameraPositionState.animate(com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(driverPosition ?: pickupLocation, 16f)) 
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        shape = CircleShape,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Default.MyLocation, null)
+                    }
+                }
+
                 if (!isOnline) {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Surface(
                             color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(16.dp),
-                            shadowElevation = 8.dp
+                            shape = RoundedCornerShape(24.dp),
+                            shadowElevation = 12.dp,
+                            modifier = Modifier.padding(32.dp)
                         ) {
                             Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("You are currently offline", fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(8.dp))
-                                Text("Go online to start receiving ride requests", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Box(
+                                    modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.primary.copy(0.1f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.CloudOff, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                                }
                                 Spacer(Modifier.height(16.dp))
-                                Button(onClick = { onOnlineToggle(true) }) {
-                                    Text("GO ONLINE")
+                                Text("You are offline", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(8.dp))
+                                Text("Go online to start earning and receiving ride requests in your area.", 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                    fontSize = 14.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(Modifier.height(24.dp))
+                                Button(
+                                    onClick = { 
+                                        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                        if (hasPermission) onOnlineToggle(true)
+                                        else locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text("GO ONLINE", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                             }
                         }
@@ -2139,36 +2247,60 @@ fun DriverDashboard(
                 }
             } else {
                 // Stats/Docs Tab
+                val stats by viewModel.driverStats.collectAsState()
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(20.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                    item {
+                        Text("Performance", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            StatCard(Modifier.weight(1f), "Trips", "${stats.totalTrips}", Icons.Default.DirectionsCar)
+                            StatCard(Modifier.weight(1f), "Rating", "4.9", Icons.Default.Star)
+                        }
+                    }
+                    
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            StatCard(Modifier.weight(1f), "Acceptance", "${stats.acceptanceRate}%", Icons.Default.CheckCircle)
+                            StatCard(Modifier.weight(1f), "Online", "${"%.1f".format(stats.onlineHours)}h", Icons.Default.Timer)
+                        }
+                    }
+
                     // Earnings Card
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            shape = RoundedCornerShape(24.dp)
                         ) {
                             Column(modifier = Modifier.padding(24.dp)) {
-                                Text("Total Earnings Today", style = MaterialTheme.typography.labelLarge)
+                                Text("Weekly Earnings", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(0.7f))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        "R" + "%.2f".format(earnings),
+                                        "R" + "%.2f".format(stats.weeklyEarnings),
                                         style = MaterialTheme.typography.headlineLarge,
-                                        fontWeight = FontWeight.Black
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     if (earnings > 0) {
                                         Button(
-                                            onClick = { viewModel.requestPayout() },
+                                            onClick = { 
+                                                viewModel.requestPayout()
+                                                Toast.makeText(context, "R${"%.2f".format(earnings)} withdrawn to wallet", Toast.LENGTH_LONG).show()
+                                            },
                                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                            shape = RoundedCornerShape(8.dp)
+                                            shape = RoundedCornerShape(12.dp)
                                         ) {
-                                            Text("Withdraw", fontSize = 12.sp)
+                                            Text("Withdraw R${"%.2f".format(earnings)}", fontSize = 12.sp)
                                         }
                                     }
                                 }
@@ -2178,21 +2310,23 @@ fun DriverDashboard(
 
                     // Documents Section
                     item {
-                        Text("My Documents", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Spacer(Modifier.height(12.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            documents.forEach { doc ->
-                                DocumentItem(doc)
-                            }
-                            OutlinedButton(
-                                onClick = { showDocUpload = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Update Documents")
-                            }
+                        Spacer(Modifier.height(8.dp))
+                        Text("My Documents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    items(documents) { doc ->
+                        DocumentItem(doc)
+                    }
+                    
+                    item {
+                        OutlinedButton(
+                            onClick = { showDocUpload = true },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Update Documents")
                         }
                     }
                 }
@@ -2203,7 +2337,7 @@ fun DriverDashboard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.6f))
+                        .background(Color.Black.copy(alpha = 0.7f))
                         .padding(24.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -2220,7 +2354,7 @@ fun DriverDashboard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.6f))
+                        .background(Color.Black.copy(alpha = 0.7f))
                         .padding(24.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -2240,6 +2374,22 @@ fun DriverDashboard(
                 showDocUpload = false
             }
         )
+    }
+}
+
+@Composable
+fun StatCard(modifier: Modifier, label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -2462,36 +2612,62 @@ fun PinVerificationCard(onVerify: (String) -> Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
-            Spacer(Modifier.height(16.dp))
+        Column(modifier = Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.primary.copy(0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+            }
+            Spacer(Modifier.height(20.dp))
             Text("Verify Passenger", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("Ask the passenger for their 4-digit PIN to start the ride.", textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = Color.Gray)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Ask the passenger for their 4-digit PIN to securely start the ride.", 
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 14.sp
+            )
             
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
             
             OutlinedTextField(
                 value = pin,
                 onValueChange = { if (it.length <= 4) { pin = it; error = false } },
                 label = { Text("4-Digit PIN") },
+                placeholder = { Text("0000") },
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 isError = error,
-                supportingText = { if (error) Text("Incorrect PIN. Please try again.") }
+                shape = RoundedCornerShape(12.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 24.sp, 
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    letterSpacing = 8.sp
+                ),
+                supportingText = { 
+                    if (error) {
+                        Text("Incorrect PIN. Please check with the passenger.", color = MaterialTheme.colorScheme.error)
+                    }
+                }
             )
             
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
             
             Button(
                 onClick = { if (!onVerify(pin)) error = true },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                enabled = pin.length == 4
+                enabled = pin.length == 4,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (pin.length == 4) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                )
             ) {
-                Text("Verify & Start Trip", fontWeight = FontWeight.Bold)
+                Text("VERIFY & START TRIP", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
