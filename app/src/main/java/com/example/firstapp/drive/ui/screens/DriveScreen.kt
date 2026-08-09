@@ -124,10 +124,17 @@ fun DriveScreen(
     }
 
     LaunchedEffect(Unit) {
+        viewModel.setDriveActive(true)
         if (!hasLocationPermission) {
             launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             viewModel.fetchCurrentLocation(context)
+        }
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.setDriveActive(false)
         }
     }
 

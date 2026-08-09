@@ -185,6 +185,13 @@ class DriveViewModel @Inject constructor(
         val updated_at: Long
     )
 
+    private val _isDriveActive = MutableStateFlow(false)
+    val isDriveActive: StateFlow<Boolean> = _isDriveActive.asStateFlow()
+
+    fun setDriveActive(active: Boolean) {
+        _isDriveActive.value = active
+    }
+
     private var searchJob: Job? = null
     private var driversJob: Job? = null
     private var bookingJob: Job? = null
@@ -445,52 +452,54 @@ class DriveViewModel @Inject constructor(
         driversJob?.cancel()
         driversJob = viewModelScope.launch {
             while(true) {
-                val center = _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
-                
-                // Fetch real nearby drivers from server
-                repository.getNearbyDrivers(center.latitude, center.longitude).collect { res ->
-                    if (res is Resource.Success && res.data != null && res.data.isNotEmpty()) {
-                        _nearbyDrivers.value = res.data.map { status ->
-                            NearbyDriver(
-                                id = status.user_id,
-                                position = LatLng(status.last_lat, status.last_lng),
-                                rotation = 0f,
-                                name = "Driver", // Ideally fetch name
-                                vehicleModel = "Active Vehicle"
-                            )
-                        }
-                    } else if (res is Resource.Error || (res is Resource.Success && res.data.isNullOrEmpty())) {
-                        // Fallback to simulation if no real drivers online
-                        val names = listOf("Thabo", "Lindiwe", "Sipho", "Sarah", "Johannes", "Tumi")
-                        val cars = listOf("Toyota Corolla", "VW Polo", "Honda Civic", "Hyundai i20", "Ford Fiesta", "Mazda 3")
-                        val colors = listOf("White", "Silver", "Black", "Grey", "Blue", "Red")
-                        
-                        if (_nearbyDrivers.value.isEmpty() || _nearbyDrivers.value.all { !it.id.startsWith("driver_") }) {
-                            _nearbyDrivers.value = List(6) { i ->
+                if (_isDriveActive.value && _bookingStatus.value == BookingStatus.NONE) {
+                    val center = _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
+                    
+                    // Fetch real nearby drivers from server
+                    repository.getNearbyDrivers(center.latitude, center.longitude).collect { res ->
+                        if (res is Resource.Success && res.data != null && res.data.isNotEmpty()) {
+                            _nearbyDrivers.value = res.data.map { status ->
                                 NearbyDriver(
-                                    id = "driver_$i",
-                                    position = LatLng(
-                                        center.latitude + (Random.nextDouble() - 0.5) * 0.015,
-                                        center.longitude + (Random.nextDouble() - 0.5) * 0.015
-                                    ),
-                                    rotation = Random.nextFloat() * 360f,
-                                    name = names[i % names.size],
-                                    vehicleModel = cars[i % cars.size],
-                                    vehicleColor = colors[i % colors.size],
-                                    licensePlate = "GP ${Random.nextInt(100, 999)} ${Random.nextInt(100, 999)}"
+                                    id = status.user_id,
+                                    position = LatLng(status.last_lat, status.last_lng),
+                                    rotation = 0f,
+                                    name = "Driver", // Ideally fetch name
+                                    vehicleModel = "Active Vehicle"
                                 )
                             }
-                        } else {
-                            _nearbyDrivers.value = _nearbyDrivers.value.map { driver ->
-                                val latMovement = (Random.nextDouble() - 0.5) * 0.0001
-                                val lngMovement = (Random.nextDouble() - 0.5) * 0.0001
-                                driver.copy(
-                                    position = LatLng(
-                                        driver.position.latitude + latMovement,
-                                        driver.position.longitude + lngMovement
-                                    ),
-                                    rotation = (driver.rotation + (Random.nextFloat() - 0.5f) * 10f) % 360f
-                                )
+                        } else if (res is Resource.Error || (res is Resource.Success && res.data.isNullOrEmpty())) {
+                            // Fallback to simulation if no real drivers online
+                            val names = listOf("Thabo", "Lindiwe", "Sipho", "Sarah", "Johannes", "Tumi")
+                            val cars = listOf("Toyota Corolla", "VW Polo", "Honda Civic", "Hyundai i20", "Ford Fiesta", "Mazda 3")
+                            val colors = listOf("White", "Silver", "Black", "Grey", "Blue", "Red")
+                            
+                            if (_nearbyDrivers.value.isEmpty() || _nearbyDrivers.value.all { !it.id.startsWith("driver_") }) {
+                                _nearbyDrivers.value = List(6) { i ->
+                                    NearbyDriver(
+                                        id = "driver_$i",
+                                        position = LatLng(
+                                            center.latitude + (Random.nextDouble() - 0.5) * 0.015,
+                                            center.longitude + (Random.nextDouble() - 0.5) * 0.015
+                                        ),
+                                        rotation = Random.nextFloat() * 360f,
+                                        name = names[i % names.size],
+                                        vehicleModel = cars[i % cars.size],
+                                        vehicleColor = colors[i % colors.size],
+                                        licensePlate = "GP ${Random.nextInt(100, 999)} ${Random.nextInt(100, 999)}"
+                                    )
+                                }
+                            } else {
+                                _nearbyDrivers.value = _nearbyDrivers.value.map { driver ->
+                                    val latMovement = (Random.nextDouble() - 0.5) * 0.0001
+                                    val lngMovement = (Random.nextDouble() - 0.5) * 0.0001
+                                    driver.copy(
+                                        position = LatLng(
+                                            driver.position.latitude + latMovement,
+                                            driver.position.longitude + lngMovement
+                                        ),
+                                        rotation = (driver.rotation + (Random.nextFloat() - 0.5f) * 10f) % 360f
+                                    )
+                                }
                             }
                         }
                     }

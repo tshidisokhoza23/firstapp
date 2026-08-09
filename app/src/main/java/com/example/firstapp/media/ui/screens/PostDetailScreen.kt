@@ -44,7 +44,8 @@ fun PostDetailScreen(
     ownProfileId: String,
     onBack: () -> Unit,
     onProfileClick: (String) -> Unit,
-    onMediaClick: (String, String, Long) -> Unit
+    onMediaClick: (String, String, Long) -> Unit,
+    onReplyDetailClick: (String) -> Unit = {}
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
     val post = uiState.selectedPost
@@ -116,6 +117,7 @@ fun PostDetailScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .imePadding(),
                 color = MaterialTheme.colorScheme.background,
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
@@ -293,8 +295,7 @@ fun PostDetailScreen(
                         showThreadLine = true,
                         isLastInThread = index == post.replies.size - 1,
                         onClick = { 
-                            mediaViewModel.selectPost(reply)
-                            // Ideally we'd navigate to self but with new postId
+                            onReplyDetailClick(reply.id)
                         },
                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
                         onRepostClick = { p -> mediaViewModel.repostPost(p.id) },

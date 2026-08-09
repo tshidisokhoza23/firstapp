@@ -308,6 +308,9 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             },
             onMediaClick = { url, type, pos ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type, pos))
+            },
+            onReplyDetailClick = { replyId ->
+                navController.navigate(Screen.PostDetail.createRoute(replyId))
             }
         )
     }

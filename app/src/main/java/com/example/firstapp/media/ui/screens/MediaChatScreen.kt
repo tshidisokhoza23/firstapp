@@ -89,6 +89,7 @@ fun MediaChatScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(8.dp)
                         .imePadding(),
                     verticalAlignment = Alignment.CenterVertically
