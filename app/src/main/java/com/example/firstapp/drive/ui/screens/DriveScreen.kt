@@ -693,7 +693,13 @@ fun DriveMainContent(
                         },
                         onShowDriverProfile = { onDriverProfileToggle(true) },
                         viewModel = viewModel,
-                        chatViewModel = chatViewModel
+                        chatViewModel = chatViewModel,
+                        onShowChat = { chatId, name ->
+                             scope.launch {
+                                 chatViewModel.fetchMessages(chatId)
+                                 Toast.makeText(context, "Opening chat with $name", Toast.LENGTH_SHORT).show()
+                             }
+                        }
                     )
                 }
             }
@@ -1694,12 +1700,14 @@ fun LiveTrackingFlow(
     onCancel: () -> Unit,
     onShowDriverProfile: () -> Unit,
     viewModel: DriveViewModel,
-    chatViewModel: com.example.firstapp.chat.ui.viewmodel.ChatViewModel
+    chatViewModel: com.example.firstapp.chat.ui.viewmodel.ChatViewModel,
+    onShowChat: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val assignedDriver = viewModel.assignedDriver.value
     val status = viewModel.bookingStatus.value
     var showRatingDialog by remember { mutableStateOf(false) }
+    var showCancelDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(status) {
         if (status == DriveViewModel.BookingStatus.COMPLETED) {
@@ -1779,7 +1787,7 @@ fun LiveTrackingFlow(
             }
             if (status != DriveViewModel.BookingStatus.IN_PROGRESS && status != DriveViewModel.BookingStatus.COMPLETED) {
                 IconButton(
-                    onClick = onCancel,
+                    onClick = { showCancelDialog = true },
                     modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.White)
@@ -1839,17 +1847,23 @@ fun LiveTrackingFlow(
                     Text("Video", color = Color.White, fontSize = 12.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val scope = rememberCoroutineScope()
                     IconButton(
                         onClick = {
-                            val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:+27100000000"))
-                            smsIntent.putExtra("sms_body", "Hi, I am at the pickup point.")
-                            context.startActivity(smsIntent)
+                            val driverId = assignedDriver.id.replace("driver_", "")
+                            scope.launch {
+                                chatViewModel.initiateDM(driverId).collect { res ->
+                                    if (res is com.example.firstapp.common.util.Resource.Success && res.data != null) {
+                                        onShowChat(res.data, assignedDriver.name)
+                                    }
+                                }
+                            }
                         },
                         modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Message", tint = Color.White)
                     }
-                    Text("Message", color = Color.White, fontSize = 12.sp)
+                    Text("Chat", color = Color.White, fontSize = 12.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     IconButton(
@@ -1914,6 +1928,17 @@ fun LiveTrackingFlow(
             onDismiss = { 
                 showRatingDialog = false
                 onCancel() // Return to search
+            }
+        )
+    }
+
+    if (showCancelDialog) {
+        CancellationDialog(
+            onDismiss = { showCancelDialog = false },
+            onConfirm = { reason ->
+                viewModel.cancelRide(reason, "PASSENGER")
+                showCancelDialog = false
+                onCancel()
             }
         )
     }
@@ -2044,6 +2069,7 @@ fun DriverDashboard(
 ) {
     val context = LocalContext.current
     var showDocUpload by remember { mutableStateOf(false) }
+    var showVehicleEdit by remember { mutableStateOf(false) }
     var currentTab by remember { mutableIntStateOf(0) } // 0 for Map/Home, 1 for Docs/Earnings
     val bookingStatus = viewModel.bookingStatus.value
     
@@ -2253,9 +2279,36 @@ fun DriverDashboard(
                     contentPadding = PaddingValues(20.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                    // Earnings Card
                     item {
-                        Text("Performance", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        val vehicle by viewModel.vehicleInfo.collectAsState()
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(0.3f))
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Vehicle Profile", fontWeight = FontWeight.Bold)
+                                    TextButton(onClick = { showVehicleEdit = true }) {
+                                        Text("Edit")
+                                    }
+                                }
+                                if (vehicle.license_plate.isEmpty()) {
+                                    Text("No vehicle registered. Please add details.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                                } else {
+                                    Text("${vehicle.make} ${vehicle.model} (${vehicle.year})", fontWeight = FontWeight.Medium)
+                                    Text(vehicle.license_plate, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
+
+                    // Performance Section
                     
                     item {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -2372,6 +2425,18 @@ fun DriverDashboard(
             onUpload = { type, url ->
                 onUploadDoc(type, url)
                 showDocUpload = false
+            }
+        )
+    }
+
+    if (showVehicleEdit) {
+        val vehicle by viewModel.vehicleInfo.collectAsState()
+        VehicleProfileDialog(
+            initialInfo = vehicle,
+            onDismiss = { showVehicleEdit = false },
+            onSave = { 
+                viewModel.updateVehicleInfo(it)
+                showVehicleEdit = false
             }
         )
     }
@@ -2671,4 +2736,84 @@ fun PinVerificationCard(onVerify: (String) -> Boolean) {
             }
         }
     }
+}
+
+@Composable
+fun VehicleProfileDialog(
+    initialInfo: DriveViewModel.VehicleInfo,
+    onDismiss: () -> Unit,
+    onSave: (DriveViewModel.VehicleInfo) -> Unit
+) {
+    var make by remember { mutableStateOf(initialInfo.make) }
+    var model by remember { mutableStateOf(initialInfo.model) }
+    var year by remember { mutableStateOf(initialInfo.year) }
+    var color by remember { mutableStateOf(initialInfo.color) }
+    var plate by remember { mutableStateOf(initialInfo.license_plate) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Vehicle Profile", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = make, onValueChange = { make = it }, label = { Text("Make") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("Model") }, modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = year, onValueChange = { year = it }, label = { Text("Year") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = color, onValueChange = { color = it }, label = { Text("Color") }, modifier = Modifier.weight(1f))
+                }
+                OutlinedTextField(value = plate, onValueChange = { plate = it }, label = { Text("License Plate") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(DriveViewModel.VehicleInfo(make, model, year, color, plate)) }) {
+                Text("Save Changes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun CancellationDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var reason by remember { mutableStateOf("") }
+    val reasons = listOf("Wait time too long", "Driver too far away", "Driver requested cash", "Changed my mind", "Other")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cancel Ride?") },
+        text = {
+            Column {
+                Text("Please select a reason for cancellation.", color = Color.Gray)
+                Spacer(Modifier.height(16.dp))
+                reasons.forEach { r ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { reason = r }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = reason == r, onClick = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(r)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(reason) },
+                enabled = reason.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Cancel Ride")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Keep Ride")
+            }
+        }
+    )
 }

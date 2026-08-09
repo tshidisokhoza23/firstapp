@@ -23,7 +23,7 @@ interface DriveApi {
     suspend fun uploadDocument(@Body request: UploadDocumentRequest): Response<UploadDocumentResponse>
 
     @GET("driver/requests")
-    suspend fun getAvailableRequests(): Response<RideRequestsResponse>
+    suspend fun getAvailableRequests(@Query("lat") lat: Double, @Query("lng") lng: Double): Response<RideRequestsResponse>
 
     @POST("driver/status")
     suspend fun updateOnlineStatus(@Body request: UpdateStatusRequest): Response<UpdateStatusResponse>
@@ -33,6 +33,15 @@ interface DriveApi {
 
     @POST("driver/ride/status")
     suspend fun updateRideStatus(@Body request: UpdateRideStatusRequest): Response<UpdateRideStatusResponse>
+
+    @POST("ride/cancel")
+    suspend fun cancelRide(@Body request: CancelRideRequest): Response<CancelRideResponse>
+
+    @GET("driver/vehicle")
+    suspend fun getVehicleInfo(): Response<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>
+
+    @POST("driver/vehicle")
+    suspend fun updateVehicleInfo(@Body request: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo): Response<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>
 }
 
 data class CreateRideRequest(
@@ -50,6 +59,9 @@ data class CreateRideResponse(val ride_id: String)
 
 data class UpdateRideStatusRequest(val ride_id: String, val status: String)
 data class UpdateRideStatusResponse(val success: Boolean)
+
+data class CancelRideRequest(val ride_id: String, val reason: String, val by: String)
+data class CancelRideResponse(val success: Boolean)
 
 data class DriverDocumentsResponse(val documents: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>)
 data class UploadDocumentRequest(val type: String, val url: String)

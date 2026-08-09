@@ -71,12 +71,12 @@ fun PaymentScreen(onBack: () -> Unit, viewModel: DriveViewModel) {
                         Text("R ${String.format(Locale.getDefault(), "%.2f", balance)}", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { /* Top up */ },
+                            onClick = { viewModel.addFunds(100.0) },
                             colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Top Up", color = AppBackground, fontWeight = FontWeight.Bold)
+                            Text("Top Up R100", color = AppBackground, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

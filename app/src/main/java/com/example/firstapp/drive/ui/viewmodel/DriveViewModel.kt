@@ -150,6 +150,9 @@ class DriveViewModel @Inject constructor(
     private val _driverPosition = MutableStateFlow<LatLng?>(null)
     val driverPosition: StateFlow<LatLng?> = _driverPosition.asStateFlow()
 
+    private val _vehicleInfo = MutableStateFlow(VehicleInfo())
+    val vehicleInfo: StateFlow<VehicleInfo> = _vehicleInfo.asStateFlow()
+
     data class DriverStats(
         val totalTrips: Int = 42,
         val onlineHours: Double = 5.5,
@@ -164,6 +167,14 @@ class DriveViewModel @Inject constructor(
         val date: String = "Today, 14:20",
         val passengerName: String,
         val paymentMethod: String = "Wallet"
+    )
+
+    data class VehicleInfo(
+        val make: String = "",
+        val model: String = "",
+        val year: String = "",
+        val color: String = "",
+        val license_plate: String = ""
     )
 
     private var searchJob: Job? = null
@@ -262,7 +273,7 @@ class DriveViewModel @Inject constructor(
                 if (_driverOnlineStatus.value) {
                     // 1. Simulate/Update location
                     val current = _driverPosition.value
-                    if (current != null) {
+                    val lastKnownPos = if (current != null) {
                         val newPos = LatLng(
                             current.latitude + (Random.nextDouble() - 0.5) * 0.0005,
                             current.longitude + (Random.nextDouble() - 0.5) * 0.0005
@@ -270,6 +281,9 @@ class DriveViewModel @Inject constructor(
                         _driverPosition.value = newPos
                         // Update status/location on server
                         repository.updateOnlineStatus(true, newPos.latitude, newPos.longitude).collect { }
+                        newPos
+                    } else {
+                        _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
                     }
 
                     // 2. Refresh Driver Stats periodically
@@ -282,7 +296,7 @@ class DriveViewModel @Inject constructor(
 
                     // 3. Fetch requests from server or simulate
                     if (_incomingRideRequest.value == null && _bookingStatus.value == BookingStatus.NONE) {
-                        repository.getAvailableRequests().collect { res ->
+                        repository.getAvailableRequests(lastKnownPos.latitude, lastKnownPos.longitude).collect { res ->
                             if (res is Resource.Success && res.data != null && res.data.isNotEmpty()) {
                                 _incomingRideRequest.value = res.data.first()
                             } else {
@@ -340,8 +354,36 @@ class DriveViewModel @Inject constructor(
         }
     }
 
+    fun addFunds(amount: Double) {
+        _walletBalance.value += amount
+        _transactions.add(0, Transaction(System.currentTimeMillis().toString(), "Wallet Top Up", amount, "Just now", false))
+    }
+
     fun declineRideRequest() {
         _incomingRideRequest.value = null
+    }
+
+    fun cancelRide(reason: String, by: String) {
+        val rideId = "simulated_id" // Ideally track the active ride ID
+        viewModelScope.launch {
+            repository.cancelRide(rideId, reason, by).collect { res ->
+                if (res is Resource.Success) {
+                    _bookingStatus.value = BookingStatus.NONE
+                    _assignedDriver.value = null
+                    clearRoute()
+                }
+            }
+        }
+    }
+
+    fun updateVehicleInfo(info: VehicleInfo) {
+        viewModelScope.launch {
+            repository.updateVehicleInfo(info).collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    _vehicleInfo.value = res.data
+                }
+            }
+        }
     }
 
     fun uploadDocument(type: String, url: String) {

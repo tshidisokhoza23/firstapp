@@ -16,10 +16,15 @@ interface DriveRepository {
     // Driver Features
     fun getDriverDocuments(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>>>
     fun uploadDocument(type: String, url: String): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>>
-    fun getAvailableRequests(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>>
+    fun getAvailableRequests(lat: Double, lng: Double): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>>
     fun updateOnlineStatus(online: Boolean, latitude: Double, longitude: Double): Flow<Resource<Boolean>>
     
     // Ride Lifecycle
     fun createRideRequest(pickup: String, dest: String, pLat: Double, pLng: Double, dLat: Double, dLng: Double, fare: Double, type: String): Flow<Resource<String>>
     fun updateRideStatus(rideId: String, status: String): Flow<Resource<Boolean>>
+    fun cancelRide(rideId: String, reason: String, by: String): Flow<Resource<Boolean>>
+
+    // Vehicle Features
+    fun getVehicleInfo(): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>>
+    fun updateVehicleInfo(vehicle: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>>
 }

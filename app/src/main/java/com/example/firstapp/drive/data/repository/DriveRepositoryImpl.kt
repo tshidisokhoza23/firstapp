@@ -120,10 +120,10 @@ class DriveRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getAvailableRequests(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>> = flow {
+    override fun getAvailableRequests(lat: Double, lng: Double): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>> = flow {
         emit(Resource.Loading())
         try {
-            val res = driveApi.getAvailableRequests()
+            val res = driveApi.getAvailableRequests(lat, lng)
             if (res.isSuccessful && res.body() != null) {
                 emit(Resource.Success(res.body()!!.requests))
             } else {
@@ -174,6 +174,44 @@ class DriveRepositoryImpl @Inject constructor(
         try {
             val res = driveApi.updateRideStatus(com.example.firstapp.drive.data.api.UpdateRideStatusRequest(rideId, status))
             emit(Resource.Success(res.isSuccessful))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun cancelRide(rideId: String, reason: String, by: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.cancelRide(com.example.firstapp.drive.data.api.CancelRideRequest(rideId, reason, by))
+            emit(Resource.Success(res.isSuccessful))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun getVehicleInfo(): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getVehicleInfo()
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!))
+            } else {
+                emit(Resource.Error("Failed to fetch vehicle info"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun updateVehicleInfo(vehicle: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.updateVehicleInfo(vehicle)
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!))
+            } else {
+                emit(Resource.Error("Failed to update vehicle info"))
+            }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))
         }
