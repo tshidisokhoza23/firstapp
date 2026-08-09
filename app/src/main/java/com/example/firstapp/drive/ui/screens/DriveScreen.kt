@@ -330,25 +330,22 @@ fun DriveDrawerContent(
 ) {
     val context = LocalContext.current
     ModalDrawerSheet(
-        drawerContainerColor = MaterialTheme.colorScheme.surface,
+        drawerContainerColor = if (isDriverMode) Color(0xFF1C2026) else MaterialTheme.colorScheme.surface,
         modifier = Modifier.width(320.dp),
         drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
     ) {
+        // Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary.copy(0.15f), Color.Transparent)))
-                .padding(top = 40.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
+                .background(if (isDriverMode) Color(0xFF252A31) else Color.Transparent)
+                .padding(top = 48.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
         ) {
             Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(64.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center
@@ -363,90 +360,111 @@ fun DriveDrawerContent(
                         } else {
                             Text(
                                 user?.displayName?.take(1)?.uppercase() ?: "U",
-                                color = MaterialTheme.colorScheme.onPrimary, 
-                                fontWeight = FontWeight.ExtraBold, 
-                                fontSize = 28.sp
+                                color = Color.White, 
+                                fontWeight = FontWeight.Bold, 
+                                fontSize = 24.sp
                             )
                         }
                     }
-
-                    Column(horizontalAlignment = Alignment.End) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
                         Text(
-                            text = if (isDriverMode) "Driver" else "Rider",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                            user?.displayName ?: "Alex R.", 
+                            color = if (isDriverMode) Color.White else MaterialTheme.colorScheme.onSurface, 
+                            fontWeight = FontWeight.Bold, 
+                            fontSize = 20.sp
                         )
-                        if (isDriverApproved) {
-                            Switch(
-                                checked = isDriverMode,
-                                onCheckedChange = onDriverModeToggle,
-                                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
-                            )
-                        } else {
-                            Button(
-                                onClick = { onDriverModeToggle(true) },
-                                modifier = Modifier.height(32.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Verify", fontSize = 10.sp)
+                        if (!isDriverApproved) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Passenger rating: 4.9 ", color = if (isDriverMode) Color.White.copy(0.6f) else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Icon(Icons.Default.Star, null, tint = NiceOrange, modifier = Modifier.size(14.dp))
                             }
+                        }
+                        
+                        Surface(
+                            color = if (isDriverApproved) Color.White else Color(0xFF607D8B).copy(0.2f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isDriverApproved) "APPROVED DRIVER" else "PASSENGER",
+                                color = if (isDriverApproved) Color.Black else Color(0xFF607D8B),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    user?.displayName ?: "Guest", 
-                    color = MaterialTheme.colorScheme.onSurface, 
-                    fontWeight = FontWeight.ExtraBold, 
-                    fontSize = 22.sp
-                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Role Actions
+        if (!isDriverApproved) {
+            Button(
+                onClick = { onDriverModeToggle(true) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E8E)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = NiceOrange, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.DirectionsCar, null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("BECOME A DRIVER", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+            }
+        } else {
+            // Approved Switch
+            Surface(
+                color = if (isDriverMode) Color(0xFF2D343C) else Color.Transparent,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        "${user?.streak ?: 0} Streak • Gold Member", 
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                        "DRIVER MODE: ${if (isDriverMode) "ACTIVE" else "INACTIVE"}",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
+                    )
+                    Switch(
+                        checked = isDriverMode,
+                        onCheckedChange = onDriverModeToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFF388E8E)
+                        )
                     )
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Menu Items
         if (isDriverMode) {
-            DrawerItem(
-                icon = Icons.Default.Dashboard, 
-                label = "Dashboard",
-                onClick = { scope.launch { drawerState.close() } }
-            )
-            DrawerItem(
-                icon = Icons.Default.AccountBalanceWallet, 
-                label = "Earnings",
-                onClick = { onShowPayment(); scope.launch { drawerState.close() } }
-            )
-            DrawerItem(
-                icon = Icons.Default.VerifiedUser, 
-                label = "Verification",
-                badge = if (isDriverApproved) "Approved" else "Pending",
-                badgeColor = if (isDriverApproved) Color(0xFF4CAF50) else Color(0xFFFFC107),
-                onClick = { scope.launch { drawerState.close() } }
-            )
+            DrawerItem(Icons.Default.Dashboard, "Driver Dashboard") { scope.launch { drawerState.close() } }
+            DrawerItem(Icons.Default.AccountBalanceWallet, "Earnings History") { onShowPayment(); scope.launch { drawerState.close() } }
+            DrawerItem(Icons.Default.AccountBalance, "Payout Methods") { onShowPayment(); scope.launch { drawerState.close() } }
+            DrawerItem(Icons.Default.Build, "Vehicle Management") { scope.launch { drawerState.close() } }
         } else {
-            DrawerItem(Icons.AutoMirrored.Filled.List, "My Trips") { onShowHistory() }
-            DrawerItem(Icons.Default.Place, "Saved Places") { onShowSavedPlaces() }
-            DrawerItem(Icons.Default.Payment, "Wallet") { onShowPayment() }
+            DrawerItem(Icons.Default.Payment, "Payment Methods") { onShowPayment(); scope.launch { drawerState.close() } }
+            DrawerItem(Icons.Default.LocalOffer, "Promotions") { scope.launch { drawerState.close() } }
+            DrawerItem(Icons.Default.Shield, "Safety") { scope.launch { drawerState.close() } }
+            DrawerItem(Icons.Default.SupportAgent, "Support") { onShowSupport(); scope.launch { drawerState.close() } }
         }
-        
-        DrawerItem(Icons.Default.SupportAgent, "Help Center") { onShowSupport() }
-        
+
         Spacer(modifier = Modifier.weight(1f))
-        
-        HorizontalDivider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(horizontal = 24.dp))
-        DrawerItem(Icons.Default.Settings, "Settings") { onShowSettings() }
-        Spacer(modifier = Modifier.height(32.dp))
+        DrawerItem(Icons.Default.Settings, "Settings") { onShowSettings(); scope.launch { drawerState.close() } }
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
