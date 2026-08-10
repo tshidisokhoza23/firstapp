@@ -77,6 +77,7 @@ sealed class Screen(val route: String) {
     }
     object Wallet : Screen("wallet")
     object PostJob : Screen("post_job")
+    object CreateChannel : Screen("create_channel")
     object MediaMessages : Screen("media_messages")
     object MediaChat : Screen("media_chat/{userId}") {
         fun createRoute(userId: String) = "media_chat/$userId"

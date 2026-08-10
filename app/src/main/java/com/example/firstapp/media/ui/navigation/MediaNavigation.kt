@@ -31,6 +31,7 @@ import com.example.firstapp.media.model.*
 import com.example.firstapp.media.ui.screens.*
 import com.example.firstapp.media.ui.viewmodel.*
 import com.example.firstapp.ui.navigation.Screen
+import com.example.firstapp.chat.channels.CreateChannelScreen
 
 fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
     composable(
@@ -117,6 +118,19 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                 storyViewModel.postStory(c, u, t)
                 navController.popBackStack(Screen.Main.route, false)
             }
+        )
+    }
+
+    composable(route = Screen.PostJob.route) {
+        // ... (assuming PostJob logic or just adding CreateChannel here)
+    }
+
+    composable(route = Screen.CreateChannel.route) {
+        val channelsViewModel: ChannelsViewModel = hiltViewModel()
+        CreateChannelScreen(
+            onBack = { navController.popBackStack() },
+            onCreated = { navController.popBackStack() },
+            viewModel = channelsViewModel
         )
     }
 

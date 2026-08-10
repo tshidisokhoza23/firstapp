@@ -100,14 +100,11 @@ fun ChatsListScreen(
     var topBarHeight by remember { mutableStateOf(0.dp) }
     var isChatInitialScrollDone by remember { mutableStateOf(false) }
     var showTopMoreSheet by remember { mutableStateOf(false) }
-    var showCreateChannelDialog by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = isSearchActive || showTopMoreSheet || showCreateChannelDialog) {
+    BackHandler(enabled = isSearchActive || showTopMoreSheet) {
         if (isSearchActive) {
             isSearchActive = false
             searchQuery = ""
-        } else if (showCreateChannelDialog) {
-            showCreateChannelDialog = false
         } else {
             showTopMoreSheet = false
         }
@@ -335,7 +332,7 @@ fun ChatsListScreen(
                                 leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
                                 modifier = Modifier.clickable { 
                                     showTopMoreSheet = false
-                                    showCreateChannelDialog = true
+                                    navController.navigate(Screen.CreateChannel.route)
                                 },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -545,14 +542,6 @@ fun ChatsListScreen(
                     }
                 }
             }
-        }
-
-        if (showCreateChannelDialog) {
-            com.example.firstapp.chat.channels.CreateChannelScreen(
-                onBack = { showCreateChannelDialog = false },
-                onCreated = { showCreateChannelDialog = false },
-                viewModel = channelsViewModel
-            )
         }
     }
 }

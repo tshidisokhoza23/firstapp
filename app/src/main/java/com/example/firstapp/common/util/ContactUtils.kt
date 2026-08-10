@@ -14,6 +14,9 @@ object ContactUtils {
     )
 
     fun getPhoneContactsWithNames(context: Context): List<ContactInfo> {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return emptyList()
+        }
         val contacts = mutableListOf<ContactInfo>()
         try {
             val contentResolver = context.contentResolver

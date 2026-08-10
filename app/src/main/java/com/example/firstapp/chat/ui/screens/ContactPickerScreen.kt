@@ -2,6 +2,10 @@ package com.example.firstapp.chat.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.ui.viewmodel.ContactPickerViewModel
 import com.example.firstapp.common.model.User
@@ -51,10 +56,26 @@ fun ContactPickerScreen(
     val selectedContacts = remember { mutableStateListOf<Contact>() }
     val contactsResource by viewModel.contacts.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.fetchContacts()
+        }
+    }
     
     // Automatically trigger a refresh when screen is opened
     LaunchedEffect(Unit) {
-        viewModel.fetchContacts()
+        if (ContextCompat.checkSelfPermission(
+                context, 
+                Manifest.permission.READ_CONTACTS
+            ) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        } else {
+            viewModel.fetchContacts()
+        }
     }
 
     val contacts = if (isSearchActive && searchQuery.isNotBlank()) searchResults else (contactsResource.data ?: emptyList())
