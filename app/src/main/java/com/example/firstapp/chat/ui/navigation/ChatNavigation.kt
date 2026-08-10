@@ -120,13 +120,13 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },
             onShowProfile = { userId, isGroup -> 
-                navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) 
+                navController.navigate(Screen.ChatProfile.createRoute(userId, isGroup)) 
             },
             onAvatarClick = { userId ->
                 if (chat.avatarUrl != null) {
                     navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
                 } else {
-                    navController.navigate(Screen.UserProfile.createRoute(userId, chat.isGroup))
+                    navController.navigate(Screen.ChatProfile.createRoute(userId, chat.isGroup))
                 }
             },
             jobId = jobId,
@@ -162,13 +162,13 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },
             onShowProfile = { userId, isGroup -> 
-                navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) 
+                navController.navigate(Screen.ChatProfile.createRoute(userId, isGroup)) 
             },
             onAvatarClick = { userId ->
                 if (chat.avatarUrl != null) {
                     navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
                 } else {
-                    navController.navigate(Screen.UserProfile.createRoute(userId, chat.isGroup))
+                    navController.navigate(Screen.ChatProfile.createRoute(userId, chat.isGroup))
                 }
             }
         )
@@ -272,6 +272,42 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             chat = chat,
             onBack = { navController.popBackStack() },
             viewModel = viewModel
+        )
+    }
+
+    composable(
+        route = Screen.ChatProfile.route,
+        arguments = listOf(
+            navArgument("userId") { type = NavType.StringType },
+            navArgument("isGroup") { type = NavType.BoolType; defaultValue = false }
+        )
+    ) { backStackEntry ->
+        val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
+        val isGroup = backStackEntry.arguments?.getBoolean("isGroup") ?: false
+        val chatViewModel: ChatViewModel = hiltViewModel()
+        
+        val chatsState by chatViewModel.chats.collectAsState()
+        val chats = chatsState.data ?: emptyList()
+        val chat = chats.find { it.id == userId } ?: ChatMessage(
+            id = userId,
+            type = if (isGroup) ConversationType.GROUP else ConversationType.DIRECT,
+            senderName = GlobalCallState.getContactName(userId) ?: userId,
+            isGroup = isGroup
+        )
+        
+        val sharedMediaResource by chatViewModel.getSharedMedia(userId).collectAsState(Resource.Loading())
+        val sharedMedia = sharedMediaResource.data ?: emptyList()
+
+        com.example.firstapp.chat.ui.screens.ChatProfileScreen(
+            chat = chat,
+            onBack = { navController.popBackStack() },
+            sharedMedia = sharedMedia,
+            onMediaClick = { url, type ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            },
+            onClearChat = { chatViewModel.clearChat(chat.id) },
+            onDeleteChat = { chatViewModel.deleteChat(chat.id); navController.popBackStack() },
+            onMuteToggle = { chatViewModel.muteChat(chat.id, it) }
         )
     }
 }

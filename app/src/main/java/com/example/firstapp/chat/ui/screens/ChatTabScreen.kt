@@ -100,11 +100,14 @@ fun ChatsListScreen(
     var topBarHeight by remember { mutableStateOf(0.dp) }
     var isChatInitialScrollDone by remember { mutableStateOf(false) }
     var showTopMoreSheet by remember { mutableStateOf(false) }
+    var showCreateChannelDialog by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = isSearchActive || showTopMoreSheet) {
+    BackHandler(enabled = isSearchActive || showTopMoreSheet || showCreateChannelDialog) {
         if (isSearchActive) {
             isSearchActive = false
             searchQuery = ""
+        } else if (showCreateChannelDialog) {
+            showCreateChannelDialog = false
         } else {
             showTopMoreSheet = false
         }
@@ -332,7 +335,7 @@ fun ChatsListScreen(
                                 leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
                                 modifier = Modifier.clickable { 
                                     showTopMoreSheet = false
-                                    onShowMore()
+                                    showCreateChannelDialog = true
                                 },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -413,7 +416,7 @@ fun ChatsListScreen(
                                         if (chat?.avatarUrl != null) {
                                             navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
                                         } else {
-                                            navController.navigate(Screen.UserProfile.createRoute(userId))
+                                            navController.navigate(Screen.ChatProfile.createRoute(userId, chat?.isGroup ?: false))
                                         }
                                     }
                                 )
@@ -542,6 +545,14 @@ fun ChatsListScreen(
                     }
                 }
             }
+        }
+
+        if (showCreateChannelDialog) {
+            com.example.firstapp.chat.channels.CreateChannelScreen(
+                onBack = { showCreateChannelDialog = false },
+                onCreated = { showCreateChannelDialog = false },
+                viewModel = channelsViewModel
+            )
         }
     }
 }

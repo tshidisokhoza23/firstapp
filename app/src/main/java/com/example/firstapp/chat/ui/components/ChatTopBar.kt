@@ -148,7 +148,14 @@ fun ChatTopBar(
                         
                         Spacer(modifier = Modifier.width(12.dp))
                         
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
+                                    onShowProfile(targetId, chat.isGroup)
+                                }
+                        ) {
                             Text(
                                 text = sanitizedName,
                                 fontSize = 16.sp,

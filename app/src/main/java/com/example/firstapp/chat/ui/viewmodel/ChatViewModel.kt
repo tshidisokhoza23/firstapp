@@ -558,6 +558,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch { repository.searchLocalMessages(chatId, query).collect { res -> _uiState.update { it.copy(chatSearchResults = res) } } }
     }
 
+    fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>> {
+        return repository.getSharedMedia(chatId)
+    }
+
     fun getCachedGroupName(groupId: String): String? {
         val cached = groupNameCache[groupId]
         if (cached != null) return cached

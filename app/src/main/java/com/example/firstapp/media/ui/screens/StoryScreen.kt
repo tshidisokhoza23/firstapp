@@ -127,7 +127,7 @@ fun StoryScreen(
     var showMutedUpdates by remember { mutableStateOf(false) }
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
+        if (uri != null) {
             onNavigateToNewStory() 
         }
     }
@@ -266,67 +266,6 @@ fun StoryScreen(
             }
         }
     } else if (viewingUserStory != null && viewingUserStory!!.stories.isNotEmpty()) {
-        StoryViewer(
-            userStory = viewingUserStory!!,
-            isOwnStory = viewingUserStory!!.id == currentUserId,
-            initialStoryIndex = viewingStoryIndex,
-            onStoryViewed = { storyIndex -> 
-                val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
-                if (storyId != null) {
-                    onStoryViewed(viewingUserStory!!.id, storyId)
-                    
-                    // Increment global view counter
-                    totalStoriesViewedInViewer++
-                    
-                    // Update index so we resume correctly if an ad interrupts
-                    if (storyIndex < viewingUserStory!!.stories.size - 1) {
-                        viewingStoryIndex = storyIndex + 1
-                    } else {
-                        // We are at the end, next user starts at 0
-                        viewingStoryIndex = 0
-                    }
-
-                    // Trigger ad logic: Every 4 stories viewed across all users
-                    if (totalStoriesViewedInViewer > 0 && totalStoriesViewedInViewer % 4 == 0) {
-                        showInViewerAd = true
-                    }
-                }
-            },
-            onDeleteStory = { storyId ->
-                onDeleteStory(storyId)
-            },
-            onReply = { text ->
-                Toast.makeText(context, "Reply sent: $text", Toast.LENGTH_SHORT).show()
-                // Logic to send story reply
-            },
-            onAdTriggered = {
-                showInViewerAd = true
-            },
-            onFinish = { 
-                // Only advance if no ad is showing
-                if (!showInViewerAd) {
-                    val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
-                    if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
-                        viewingUserStory = allViewableStories[currentIndex + 1]
-                        viewingStoryIndex = 0
-                    } else {
-                        if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                            onBack()
-                        } else {
-                            viewingUserStory = null 
-                        }
-                    }
-                }
-            },
-            onClose = { 
-                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                    onBack()
-                } else {
-                    viewingUserStory = null 
-                }
-            }
-        )
-
         if (showInViewerAd) {
             InViewerStoryAd(
                 onFinish = { 
@@ -344,6 +283,67 @@ fun StoryScreen(
                 },
                 onClose = { 
                     showInViewerAd = false
+                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                        onBack()
+                    } else {
+                        viewingUserStory = null 
+                    }
+                }
+            )
+        } else {
+            StoryViewer(
+                userStory = viewingUserStory!!,
+                isOwnStory = viewingUserStory!!.id == currentUserId,
+                initialStoryIndex = viewingStoryIndex,
+                onStoryViewed = { storyIndex -> 
+                    val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
+                    if (storyId != null) {
+                        onStoryViewed(viewingUserStory!!.id, storyId)
+                        
+                        // Increment global view counter
+                        totalStoriesViewedInViewer++
+                        
+                        // Update index so we resume correctly if an ad interrupts
+                        if (storyIndex < viewingUserStory!!.stories.size - 1) {
+                            viewingStoryIndex = storyIndex + 1
+                        } else {
+                            // We are at the end, next user starts at 0
+                            viewingStoryIndex = 0
+                        }
+
+                        // Trigger ad logic: Every 4 stories viewed across all users
+                        if (totalStoriesViewedInViewer > 0 && totalStoriesViewedInViewer % 4 == 0) {
+                            showInViewerAd = true
+                        }
+                    }
+                },
+                onDeleteStory = { storyId ->
+                    onDeleteStory(storyId)
+                },
+                onReply = { text ->
+                    Toast.makeText(context, "Reply sent: $text", Toast.LENGTH_SHORT).show()
+                    // Logic to send story reply
+                },
+                onAdTriggered = {
+                    showInViewerAd = true
+                },
+                onFinish = { 
+                    // Only advance if no ad is showing
+                    if (!showInViewerAd) {
+                        val currentIndex = allViewableStories.indexOfFirst { it.id == viewingUserStory?.id }
+                        if (currentIndex != -1 && currentIndex < allViewableStories.size - 1) {
+                            viewingUserStory = allViewableStories[currentIndex + 1]
+                            viewingStoryIndex = 0
+                        } else {
+                            if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                                onBack()
+                            } else {
+                                viewingUserStory = null 
+                            }
+                        }
+                    }
+                },
+                onClose = {
                     if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                         onBack()
                     } else {
