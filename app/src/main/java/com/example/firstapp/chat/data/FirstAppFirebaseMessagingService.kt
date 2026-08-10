@@ -17,11 +17,14 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
 @AndroidEntryPoint
 class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
@@ -37,7 +40,46 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         when (type) {
             "call_invite" -> handleIncomingCall(data)
             "new_message" -> handleNewMessage(data)
+            "new_chat" -> handleNewChat(data)
         }
+    }
+
+    private fun handleNewChat(data: Map<String, String>) {
+        val conversationId = data["conversation_id"] ?: return
+        
+        // Trigger background sync
+        val scope = kotlinx.coroutines.MainScope()
+        scope.launch {
+            chatRepository.syncChats().collect {}
+        }
+
+        val title = data["title"] ?: "New Group"
+        val body = data["body"] ?: "You were added to a new chat"
+        
+        createMessagesChannel()
+
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_chat_id", conversationId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            conversationId.hashCode(),
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(conversationId.hashCode(), notification)
     }
 
     private fun handleIncomingCall(data: Map<String, String>) {

@@ -165,6 +165,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun syncChats() {
+        viewModelScope.launch {
+            repository.syncChats().collect { }
+        }
+    }
+
     fun fetchMessages(chatId: String) {
         android.util.Log.d("ChatViewModel", "fetchMessages: chatId=$chatId, activeChatId=$activeChatId")
         val currentMessages = _uiState.value.messages.data

@@ -120,6 +120,10 @@ fun ChatsListScreen(
     val channelsState by channelsViewModel.channels.collectAsState()
     val hasRewardedAds by advertsViewModel.hasRewardedAdsAvailable.collectAsState()
 
+    LaunchedEffect(Unit) {
+        chatViewModel.syncChats()
+    }
+
     LaunchedEffect(selectedTabItem) {
         if (selectedTabItem == 1) {
             advertsViewModel.initializePool(context, AdUnitConfig.REWARDED_POINTS_ID)
