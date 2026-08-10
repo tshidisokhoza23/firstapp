@@ -278,7 +278,14 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         val userId = backStackEntry.arguments?.getString("userId") ?: ""
         MediaChatScreen(
             userId = userId,
-            onBack = { navController.popBackStack() }
+            onBack = { navController.popBackStack() },
+            onAvatarClick = { avatarUrl ->
+                if (avatarUrl != null) {
+                    navController.navigate(Screen.MediaViewer.createRoute(avatarUrl, "image", 0L))
+                } else {
+                    navController.navigate(Screen.UserProfile.createRoute(userId))
+                }
+            }
         )
     }
 

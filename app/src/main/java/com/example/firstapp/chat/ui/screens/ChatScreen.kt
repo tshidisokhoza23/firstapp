@@ -113,6 +113,7 @@ fun ChatMessagesScreen(
     chatViewModel: ChatViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onShowProfile: (String, Boolean) -> Unit,
+    onAvatarClick: (String) -> Unit = {},
     jobId: String? = null,
     jobTitle: String? = null,
     companyName: String? = null
@@ -395,7 +396,8 @@ fun ChatMessagesScreen(
                         onSearchModeChange = { isSearchMode = it },
                         onClearSearch = { chatSearchQuery = "" },
                         onShowProfile = onShowProfile,
-                            onInitiateCall = { targetId, name, type -> chatViewModel.startVoiceOrVideoCall(receiverId = targetId, callType = type, name = name) },
+                        onAvatarClick = onAvatarClick,
+                        onInitiateCall = { targetId, name, type -> chatViewModel.startVoiceOrVideoCall(receiverId = targetId, callType = type, name = name) },
                         onClearChat = { chatViewModel.clearChat(chat.id) },
                         onDeleteChat = { chatViewModel.deleteChat(chat.id); onBack() },
                         onDeleteSelectedMessages = { deleteSelectedMessages() },

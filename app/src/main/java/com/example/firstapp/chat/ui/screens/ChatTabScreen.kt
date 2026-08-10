@@ -684,10 +684,7 @@ fun ChatList(
                     chat = chat,
                     hasStory = hasStory,
                     allStoriesViewed = allStoriesViewed,
-                    onAvatarClick = { onAvatarClick(chat.id) },
-                    onStoryClick = { 
-                        story?.let { onStoryClick(it) }
-                    }
+                    onAvatarClick = { onAvatarClick(chat.id) }
                 )
             }
         }

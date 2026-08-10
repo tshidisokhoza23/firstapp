@@ -68,6 +68,10 @@ class SocialRepositoryImpl @Inject constructor(
         postDao.updateBookmarkStatus(postId, isBookmarked)
     }
 
+    override suspend fun updateAuthorFollowStatusLocally(authorId: String, isFollowed: Boolean) {
+        postDao.updateAuthorFollowStatus(authorId, isFollowed)
+    }
+
     override fun getUserPosts(userId: String, feedType: String, page: Int): Flow<Resource<List<Post>>> = flow {
         emit(Resource.Loading())
         try {
@@ -259,7 +263,8 @@ class SocialRepositoryImpl @Inject constructor(
                         isAuthenticated = true, 
                         isVerified = user.is_verified, 
                         bio = user.bio,
-                        publicKey = user.public_key
+                        publicKey = user.public_key,
+                        isFollowing = user.is_following
                     ) 
                 }
                 emit(Resource.Success(contacts)) 

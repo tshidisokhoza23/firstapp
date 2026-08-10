@@ -47,6 +47,9 @@ sealed class Screen(val route: String) {
     object UserProfile : Screen("user_profile/{userId}?isGroup={isGroup}") {
         fun createRoute(userId: String, isGroup: Boolean = false) = "user_profile/${android.net.Uri.encode(userId)}?isGroup=$isGroup"
     }
+    object FollowList : Screen("follow_list/{userId}/{type}") {
+        fun createRoute(userId: String, type: String) = "follow_list/${android.net.Uri.encode(userId)}/$type"
+    }
     object ContactPicker : Screen("contact_picker?isGroupMode={isGroupMode}") {
         fun createRoute(isGroupMode: Boolean = false) = "contact_picker?isGroupMode=$isGroupMode"
     }

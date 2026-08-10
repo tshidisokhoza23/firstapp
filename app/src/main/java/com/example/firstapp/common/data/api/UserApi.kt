@@ -37,6 +37,12 @@ interface UserApi {
     @POST("users/{userId}/unfollow")
     suspend fun unfollowUser(@Path("userId") userId: String): Response<StatusResponse>
 
+    @GET("users/{userId}/followers")
+    suspend fun getFollowers(@Path("userId") userId: String): Response<ContactsResponse>
+
+    @GET("users/{userId}/following")
+    suspend fun getFollowing(@Path("userId") userId: String): Response<ContactsResponse>
+
     @GET("users/blocked")
     suspend fun getBlockedUsers(): Response<BlockedUsersResponse>
 
@@ -111,6 +117,7 @@ data class ApiUser(
     @SerializedName("phone_number") val phone_number: String? = null,
     @SerializedName("avatar_url") val avatar_url: String? = null,
     @SerializedName("is_verified") val is_verified: Boolean = false,
+    @SerializedName("is_following") val is_following: Boolean = false,
     @SerializedName("bio") val bio: String? = null,
     @SerializedName("public_key") val public_key: String? = null
 )

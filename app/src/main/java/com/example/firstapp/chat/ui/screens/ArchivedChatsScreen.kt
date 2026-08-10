@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.ui.components.ChatItem
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
+import com.example.firstapp.common.util.GlobalNavigation
+import com.example.firstapp.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +64,20 @@ fun ArchivedChatsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(modifier = Modifier.weight(1f).clickable { onChatClick(chat) }) {
-                            ChatItem(chat)
+                            ChatItem(
+                                chat = chat,
+                                onAvatarClick = {
+                                    if (chat.avatarUrl != null) {
+                                        GlobalNavigation.navigateTo(
+                                            Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L)
+                                        )
+                                    } else {
+                                        GlobalNavigation.navigateTo(
+                                            Screen.UserProfile.createRoute(chat.id, chat.isGroup)
+                                        )
+                                    }
+                                }
+                            )
                         }
                         IconButton(onClick = { viewModel.archiveChat(chat.id, false) }) {
                             Icon(Icons.Default.Unarchive, contentDescription = "Unarchive", tint = MaterialTheme.colorScheme.onSurfaceVariant)

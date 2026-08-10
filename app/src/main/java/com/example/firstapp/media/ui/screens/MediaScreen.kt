@@ -109,7 +109,7 @@ fun MediaScreen(
     mediaViewModel: MediaViewModel,
     onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
     onVotePoll: (postId: String, optionId: String) -> Unit = { _, _ -> },
-    onFollowUser: (userId: String) -> Unit = {},
+    onFollowUser: (userId: String, isFollowed: Boolean) -> Unit = { _, _ -> },
     onCallClick: (userId: String, CallType) -> Unit = { _, _ -> },
     onDeletePost: (postId: String) -> Unit = {},
     onArtistClick: (String) -> Unit = {},
@@ -424,7 +424,7 @@ fun MainFeedSection(
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
-    onFollowUser: (String) -> Unit = {}
+    onFollowUser: (String, Boolean) -> Unit = { _, _ -> }
 ) {
     when {
         posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {

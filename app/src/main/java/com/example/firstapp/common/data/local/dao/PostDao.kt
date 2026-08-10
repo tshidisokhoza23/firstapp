@@ -33,4 +33,7 @@ interface PostDao {
 
     @Query("UPDATE posts SET isBookmarked = :isBookmarked WHERE id = :postId")
     suspend fun updateBookmarkStatus(postId: String, isBookmarked: Boolean)
+
+    @Query("UPDATE posts SET isAuthorFollowed = :isFollowed WHERE authorId = :authorId")
+    suspend fun updateAuthorFollowStatus(authorId: String, isFollowed: Boolean)
 }

@@ -23,6 +23,7 @@ import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.domain.repository.ChatRepository
 import com.example.firstapp.common.domain.repository.SystemRepository
+import com.example.firstapp.media.domain.repository.SocialRepository
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
@@ -30,6 +31,7 @@ class UserViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val chatRepository: ChatRepository,
     private val systemRepository: SystemRepository,
+    private val socialRepository: SocialRepository,
     private val sessionManager: SessionManager,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
@@ -218,11 +220,16 @@ class UserViewModel @Inject constructor(
 
     fun followUser(userId: String, onComplete: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
+            // Optimistic update for social posts
+            socialRepository.updateAuthorFollowStatusLocally(userId, true)
+            
             accountRepository.followUser(userId).collect { resource ->
                 if (resource is Resource.Success) {
                     _toastMessage.value = "Followed"
                     onComplete(true)
                 } else if (resource is Resource.Error) {
+                    // Rollback
+                    socialRepository.updateAuthorFollowStatusLocally(userId, false)
                     _toastMessage.value = resource.message ?: "Failed to follow user"
                     onComplete(false)
                 }
@@ -232,16 +239,29 @@ class UserViewModel @Inject constructor(
 
     fun unfollowUser(userId: String, onComplete: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
+            // Optimistic update for social posts
+            socialRepository.updateAuthorFollowStatusLocally(userId, false)
+            
             accountRepository.unfollowUser(userId).collect { resource ->
                 if (resource is Resource.Success) {
                     _toastMessage.value = "Unfollowed"
                     onComplete(true)
                 } else if (resource is Resource.Error) {
+                    // Rollback
+                    socialRepository.updateAuthorFollowStatusLocally(userId, true)
                     _toastMessage.value = resource.message ?: "Failed to unfollow user"
                     onComplete(false)
                 }
             }
         }
+    }
+
+    fun getFollowers(userId: String): kotlinx.coroutines.flow.Flow<Resource<List<Contact>>> {
+        return accountRepository.getFollowers(userId)
+    }
+
+    fun getFollowing(userId: String): kotlinx.coroutines.flow.Flow<Resource<List<Contact>>> {
+        return accountRepository.getFollowing(userId)
     }
 
     fun reportUser(userId: String, reason: String) {

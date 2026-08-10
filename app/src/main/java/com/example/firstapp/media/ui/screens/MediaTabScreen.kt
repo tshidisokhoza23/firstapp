@@ -68,7 +68,10 @@ fun MediaTabScreen(
             mediaViewModel = mediaViewModel,
             onPlaySong = { s, q -> musicViewModel.playSong(s, q) }, 
             onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
-            onFollowUser = { mediaViewModel.followUser(it) },
+            onFollowUser = { userId, isFollowed -> 
+                if (isFollowed) mediaViewModel.unfollowUser(userId)
+                else mediaViewModel.followUser(userId)
+            },
             onArtistClick = { artistName -> musicViewModel.requestArtist(artistName) },
             onCallClick = { userId, type -> chatViewModel.startVoiceOrVideoCall(receiverId = userId, callType = type) },
             onCreatePostClick = 0,

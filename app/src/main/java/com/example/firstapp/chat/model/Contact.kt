@@ -10,5 +10,6 @@ data class Contact(
     val isAuthenticated: Boolean = true,
     val isVerified: Boolean = false,
     val bio: String? = null,
-    val publicKey: String? = null
+    val publicKey: String? = null,
+    val isFollowing: Boolean = false
 )

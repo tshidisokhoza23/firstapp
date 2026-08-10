@@ -21,6 +21,8 @@ interface AccountRepository {
     fun unblockUser(userId: String): Flow<Resource<Boolean>>
     fun followUser(userId: String): Flow<Resource<Boolean>>
     fun unfollowUser(userId: String): Flow<Resource<Boolean>>
+    fun getFollowers(userId: String): Flow<Resource<List<Contact>>>
+    fun getFollowing(userId: String): Flow<Resource<List<Contact>>>
     fun getBlockedUsers(): Flow<Resource<List<Contact>>>
     suspend fun getPublicKey(userId: String): String?
     suspend fun setPublicKey(publicKey: String): Boolean

@@ -166,6 +166,34 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getFollowers(userId: String): Flow<Resource<List<Contact>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = userApi.getFollowers(userId)
+            if (res.isSuccessful) {
+                val contacts = res.body()?.contacts?.map { mapApiContact(it) } ?: emptyList()
+                emit(Resource.Success(contacts))
+            } else emit(Resource.Error("Fail"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Error"))
+        }
+    }
+
+    override fun getFollowing(userId: String): Flow<Resource<List<Contact>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = userApi.getFollowing(userId)
+            if (res.isSuccessful) {
+                val contacts = res.body()?.contacts?.map { mapApiContact(it) } ?: emptyList()
+                emit(Resource.Success(contacts))
+            } else emit(Resource.Error("Fail"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Error"))
+        }
+    }
+
     override fun getBlockedUsers(): Flow<Resource<List<Contact>>> = flow {
         emit(Resource.Loading())
         try {

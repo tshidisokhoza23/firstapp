@@ -67,7 +67,8 @@ fun ProfileView(
     onNavigateToEditProfile: () -> Unit = {},
     onShortClick: (Post) -> Unit = {},
     onNavigateToMediaViewer: (String, String, Long) -> Unit = { _, _, _ -> },
-    onNavigateToPostDetail: (String) -> Unit = {}
+    onNavigateToPostDetail: (String) -> Unit = {},
+    onNavigateToFollowList: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val currentUser = com.example.firstapp.LocalCurrentUser.current
@@ -282,8 +283,23 @@ fun ProfileView(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("${user?.followersCount ?: 0}", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text("Followers", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable { onNavigateToFollowList(profileOwnerId, "followers") }
+                            ) {
+                                Text("${user?.followersCount ?: 0}", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Followers", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            }
+                            Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable { onNavigateToFollowList(profileOwnerId, "following") }
+                            ) {
+                                Text("${user?.followingCount ?: 0}", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Following", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            }
                             Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
                             Text("0", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             Text("Views", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)

@@ -297,8 +297,8 @@ fun mapApiCallLog(api: ApiCallLog) = CallLog(
 
 fun CallLogEntity.toModel() = CallLog(id, sessionId, callerId, calleeId, contactId, contactName, contactAvatar, callType, status, durationSeconds, timestamp, endedAt)
 
-fun Contact.toEntity() = ContactEntity(id, username, displayName, avatarUrl, phoneNumber, isRegistered, isAuthenticated, isVerified, bio, publicKey)
-fun ContactEntity.toModel() = Contact(id, username, displayName, avatarUrl, phoneNumber, isRegistered, isAuthenticated, isVerified, bio, publicKey)
+fun Contact.toEntity() = ContactEntity(id, username, displayName, avatarUrl, phoneNumber, isRegistered, isAuthenticated, isVerified, bio, publicKey, isFollowing)
+fun ContactEntity.toModel() = Contact(id, username, displayName, avatarUrl, phoneNumber, isRegistered, isAuthenticated, isVerified, bio, publicKey, isFollowing)
 
 fun mapApiContact(api: ApiUser): Contact {
     return Contact(
@@ -309,7 +309,8 @@ fun mapApiContact(api: ApiUser): Contact {
         phoneNumber = api.phone_number ?: "",
         isVerified = api.is_verified,
         bio = api.bio,
-        publicKey = api.public_key
+        publicKey = api.public_key,
+        isFollowing = api.is_following
     )
 }
 

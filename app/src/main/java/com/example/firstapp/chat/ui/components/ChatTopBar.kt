@@ -40,6 +40,7 @@ fun ChatTopBar(
     onSearchModeChange: (Boolean) -> Unit,
     onClearSearch: () -> Unit,
     onShowProfile: (String, Boolean) -> Unit,
+    onAvatarClick: (String) -> Unit = { _ -> },
     onInitiateCall: (String, String, CallType) -> Unit,
     onClearChat: () -> Unit,
     onDeleteChat: () -> Unit,
@@ -121,6 +122,10 @@ fun ChatTopBar(
                                 .size(40.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable {
+                                    val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
+                                    onAvatarClick(targetId)
+                                }
                         ) {
                             if (chat.avatarUrl != null) {
                                 AsyncImage(

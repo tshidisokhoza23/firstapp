@@ -473,8 +473,41 @@ class MediaViewModel @Inject constructor(
             }
         }
     }
-    fun followUser(userId: String) { viewModelScope.launch { socialRepository.followUser(userId).collect { if (it is Resource.Success) fetchSuggestedUsers() } } }
-    fun unfollowUser(userId: String) { viewModelScope.launch { socialRepository.unfollowUser(userId).collect { if (it is Resource.Success) fetchSuggestedUsers() } } }
+    fun followUser(userId: String) {
+        viewModelScope.launch {
+            // Local optimistic update
+            socialRepository.updateAuthorFollowStatusLocally(userId, true)
+            
+            socialRepository.followUser(userId).collect { resource ->
+                if (resource is Resource.Success) {
+                    fetchSuggestedUsers()
+                    _toastMessage.value = "Followed user"
+                } else if (resource is Resource.Error) {
+                    // Rollback on error
+                    socialRepository.updateAuthorFollowStatusLocally(userId, false)
+                    _toastMessage.value = "Failed to follow: ${resource.message}"
+                }
+            }
+        }
+    }
+
+    fun unfollowUser(userId: String) {
+        viewModelScope.launch {
+            // Local optimistic update
+            socialRepository.updateAuthorFollowStatusLocally(userId, false)
+            
+            socialRepository.unfollowUser(userId).collect { resource ->
+                if (resource is Resource.Success) {
+                    fetchSuggestedUsers()
+                    _toastMessage.value = "Unfollowed user"
+                } else if (resource is Resource.Error) {
+                    // Rollback on error
+                    socialRepository.updateAuthorFollowStatusLocally(userId, true)
+                    _toastMessage.value = "Failed to unfollow: ${resource.message}"
+                }
+            }
+        }
+    }
     fun votePoll(postId: String, optionId: String) { viewModelScope.launch { socialRepository.votePoll(postId, optionId).collect { } } }
 
     override fun onCleared() {

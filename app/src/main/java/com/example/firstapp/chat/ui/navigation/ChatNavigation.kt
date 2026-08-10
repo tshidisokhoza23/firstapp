@@ -122,6 +122,13 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onShowProfile = { userId, isGroup -> 
                 navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) 
             },
+            onAvatarClick = { userId ->
+                if (chat.avatarUrl != null) {
+                    navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                } else {
+                    navController.navigate(Screen.UserProfile.createRoute(userId, chat.isGroup))
+                }
+            },
             jobId = jobId,
             jobTitle = jobTitle,
             companyName = companyName
@@ -156,6 +163,13 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onBack = { navController.popBackStack() },
             onShowProfile = { userId, isGroup -> 
                 navController.navigate(Screen.UserProfile.createRoute(userId, isGroup)) 
+            },
+            onAvatarClick = { userId ->
+                if (chat.avatarUrl != null) {
+                    navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                } else {
+                    navController.navigate(Screen.UserProfile.createRoute(userId, chat.isGroup))
+                }
             }
         )
     }

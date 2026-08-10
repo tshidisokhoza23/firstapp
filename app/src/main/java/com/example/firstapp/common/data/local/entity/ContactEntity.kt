@@ -14,5 +14,6 @@ data class ContactEntity(
     val isAuthenticated: Boolean,
     val isVerified: Boolean,
     val bio: String? = null,
-    val publicKey: String? = null
+    val publicKey: String? = null,
+    val isFollowing: Boolean = false
 )

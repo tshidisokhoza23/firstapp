@@ -3,6 +3,7 @@ package com.example.firstapp.media.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +34,7 @@ import com.example.firstapp.media.ui.viewmodel.MediaChatViewModel
 fun MediaChatScreen(
     userId: String,
     onBack: () -> Unit,
+    onAvatarClick: (String?) -> Unit = {},
     viewModel: MediaChatViewModel = hiltViewModel()
 ) {
     var messageText by remember { mutableStateOf("") }
@@ -54,6 +56,7 @@ fun MediaChatScreen(
                                 .size(32.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                                .clickable { onAvatarClick(receiverUser?.avatarUrl) }
                         ) {
                             val avatar = receiverUser?.avatarUrl
                             if (avatar != null) {

@@ -186,6 +186,30 @@ fun PostDetailScreen(
                             }
                             Text("@${post.authorHandle}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
+
+                        if (post.authorId != ownProfileId) {
+                            Button(
+                                onClick = { 
+                                    if (post.isAuthorFollowed) mediaViewModel.unfollowUser(post.authorId)
+                                    else mediaViewModel.followUser(post.authorId)
+                                },
+                                modifier = Modifier.height(32.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (post.isAuthorFollowed) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                                    contentColor = if (post.isAuthorFollowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface
+                                ),
+                                border = if (post.isAuthorFollowed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                                shape = RoundedCornerShape(16.dp),
+                                elevation = null
+                            ) {
+                                Text(
+                                    text = if (post.isAuthorFollowed) "Following" else "Follow",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                     
                     Text(

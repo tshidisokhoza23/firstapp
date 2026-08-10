@@ -43,6 +43,27 @@ fun NavGraphBuilder.profileNavGraph(
     }
 
     composable(
+        route = Screen.FollowList.route,
+        arguments = listOf(
+            navArgument("userId") { type = NavType.StringType },
+            navArgument("type") { type = NavType.StringType }
+        )
+    ) { backStackEntry ->
+        val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
+        val type = backStackEntry.arguments?.getString("type") ?: "followers"
+        val userViewModel: UserViewModel = hiltViewModel()
+        FollowListScreen(
+            userId = userId,
+            type = type,
+            userViewModel = userViewModel,
+            onBack = { navController.popBackStack() },
+            onUserClick = { targetUserId ->
+                navController.navigate(Screen.UserProfile.createRoute(targetUserId))
+            }
+        )
+    }
+
+    composable(
         route = Screen.UserProfile.route,
         arguments = listOf(
             navArgument("userId") { type = NavType.StringType },
@@ -96,6 +117,9 @@ fun NavGraphBuilder.profileNavGraph(
             },
             onNavigateToPostDetail = { postId ->
                 navController.navigate(Screen.PostDetail.createRoute(postId))
+            },
+            onNavigateToFollowList = { userId, type ->
+                navController.navigate(Screen.FollowList.createRoute(userId, type))
             }
         )
     }

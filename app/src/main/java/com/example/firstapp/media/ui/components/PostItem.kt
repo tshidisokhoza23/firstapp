@@ -59,7 +59,7 @@ fun PostItem(
     onVotePoll: (String, String) -> Unit = { _, _ -> },
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
-    onFollowClick: (String) -> Unit = {},
+    onFollowClick: (String, Boolean) -> Unit = { _, _ -> },
     onMoreClick: (Post) -> Unit = {}
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
@@ -78,7 +78,7 @@ fun PostItem(
             onCommentClick = { onReplyClick(post, null) },
             onRepostClick = { onRepostClick(post) },
             onShareClick = { onShareClick(post) },
-            onFollowClick = { onFollowClick(displayPost.authorId) },
+            onFollowClick = { onFollowClick(displayPost.authorId, displayPost.isAuthorFollowed) },
             onMoreClick = { onMoreClick(post) },
             onProfileClick = { onProfileClick(displayPost.authorId) },
             onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
