@@ -278,6 +278,24 @@ fun MediaScreen(
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
                     ListItem(
+                        headlineContent = { Text("View Profile", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            onProfileClick(ownProfileId)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Create Post", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            showCreatePost = true
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
                         headlineContent = { Text("Direct Messages", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Mail, null, tint = MaterialTheme.colorScheme.onSurface) },
                         modifier = Modifier.clickable {
