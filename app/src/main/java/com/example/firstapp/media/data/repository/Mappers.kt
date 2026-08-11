@@ -205,6 +205,7 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
     
     return UserStory(
         id = apiStory.user_id, 
+        userId = apiStory.user_id,
         userName = apiStory.user_name, 
         userAvatarUrl = MediaUtils.formatUrl(apiStory.avatar_url), 
         userAvatarColor = Color(0xFF455A64), 

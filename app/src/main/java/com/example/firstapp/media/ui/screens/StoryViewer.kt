@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -34,6 +35,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import com.example.firstapp.media.model.UserStory
 import com.example.firstapp.media.model.StoryType
@@ -55,7 +59,9 @@ fun StoryViewer(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
-    var currentStoryIndex by remember(userStory.id, initialStoryIndex) { 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var currentStoryIndex by remember(userStory.id, initialStoryIndex) {
         mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) 
     }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -79,6 +85,7 @@ fun StoryViewer(
         }
     }
 
+
     DisposableEffect(exoPlayer, currentStory.contentUrl) {
         onDispose {
             exoPlayer?.let { 
@@ -93,18 +100,69 @@ fun StoryViewer(
     }
     val progress = remember { Animatable(0f) }
     var isPaused by remember { mutableStateOf(false) }
+    var videoDuration by remember { mutableLongStateOf(10000L) }
     val scope = rememberCoroutineScope()
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    isPaused = true
+                    exoPlayer?.playWhenReady = false
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    isPaused = false
+                    exoPlayer?.playWhenReady = true
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     
     // For swipe to dismiss
     var offsetY by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(currentStoryIndex, isPaused) {
+    // Video duration listener
+    LaunchedEffect(exoPlayer) {
+        if (exoPlayer != null) {
+            val listener = object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == Player.STATE_READY) {
+                        videoDuration = exoPlayer.duration.coerceAtLeast(1000L)
+                    }
+                }
+            }
+            exoPlayer.addListener(listener)
+            if (exoPlayer.duration > 0) {
+                videoDuration = exoPlayer.duration
+            }
+        } else {
+            videoDuration = 10000L // Default for images/text
+        }
+    }
+
+    LaunchedEffect(currentStoryIndex, isPaused, videoDuration) {
         if (!isPaused) {
             // Count as viewed at the start of the story
             onStoryViewed(currentStoryIndex)
 
-            val durationMs = currentStory.durationMs.toLong().coerceAtLeast(1000L)
+            // Ensure duration is based on content
+            val durationMs = if (currentStory.type == StoryType.VIDEO) {
+                videoDuration
+            } else {
+                currentStory.durationMs.toLong().coerceAtLeast(10000L)
+            }
             
+            // Reset progress if we just changed stories
+            if (progress.value >= 0.99f) {
+                progress.snapTo(0f)
+            }
+
             progress.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(
@@ -181,6 +239,14 @@ fun StoryViewer(
             contentAlignment = Alignment.Center
         ) {
             when (currentStory.type) {
+                StoryType.AD -> {
+                    if (currentStory.adObject != null) {
+                        com.example.firstapp.media.ui.components.NativeAdCard(
+                            adObject = currentStory.adObject,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
                 StoryType.TEXT -> {
                     Text(
                         text = currentStory.content,
@@ -213,34 +279,6 @@ fun StoryViewer(
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )
-                    }
-                }
-                else -> {
-                    // Fallback for any other type
-                    if (!currentStory.contentUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = currentStory.contentUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                    if (!currentStory.content.isNullOrBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.6f))))
-                                .padding(bottom = 100.dp, top = 40.dp, start = 24.dp, end = 24.dp)
-                        ) {
-                            Text(
-                                text = currentStory.content,
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
                     }
                 }
             }
@@ -317,13 +355,13 @@ fun StoryViewer(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (isOwnStory) "My story" else userStory.userName,
+                        if (currentStory.type == StoryType.AD) "Sponsored" else if (isOwnStory) "My story" else userStory.userName,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
                     Text(
-                        currentStory.timestamp,
+                        if (currentStory.type == StoryType.AD) "Promoted" else currentStory.timestamp,
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 12.sp
                     )
@@ -391,9 +429,18 @@ fun StoryViewer(
             ) {
                 TextField(
                     value = replyText,
-                    onValueChange = { replyText = it },
+                    onValueChange = { 
+                        replyText = it
+                        isPaused = it.isNotEmpty()
+                    },
                     placeholder = { Text("Reply", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp) },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onFocusChanged { focusState ->
+                            if (focusState.isFocused) {
+                                isPaused = true
+                            }
+                        },
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
@@ -413,6 +460,7 @@ fun StoryViewer(
                             if (replyText.isNotBlank()) {
                                 onReply(replyText)
                                 replyText = ""
+                                isPaused = false
                             }
                         }
                     )
@@ -424,6 +472,7 @@ fun StoryViewer(
                 "😍", 
                 fontSize = 28.sp, 
                 modifier = Modifier.clickable { 
+                    onReply("😍")
                     Toast.makeText(context, "Sent 😍", Toast.LENGTH_SHORT).show()
                 }
             )
@@ -431,6 +480,7 @@ fun StoryViewer(
                 "😂", 
                 fontSize = 28.sp, 
                 modifier = Modifier.clickable { 
+                    onReply("😂")
                     Toast.makeText(context, "Sent 😂", Toast.LENGTH_SHORT).show()
                 }
             )
@@ -438,6 +488,7 @@ fun StoryViewer(
                 "😮", 
                 fontSize = 28.sp, 
                 modifier = Modifier.clickable { 
+                    onReply("😮")
                     Toast.makeText(context, "Sent 😮", Toast.LENGTH_SHORT).show()
                 }
             )
@@ -465,22 +516,35 @@ fun StoryViewer(
 }
 
 @Composable
-fun InViewerStoryAd(onFinish: () -> Unit, onClose: () -> Unit) {
+fun InViewerStoryAd(
+    adObject: Any?,
+    onFinish: () -> Unit, 
+    onClose: () -> Unit
+) {
     val progress = remember { Animatable(0f) }
     
-    LaunchedEffect(Unit) {
+    LaunchedEffect(adObject) {
+        // Ads typically show for 10-15 seconds if not interactive
+        progress.snapTo(0f)
         progress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 5000, easing = LinearEasing)
+            animationSpec = tween(durationMillis = 10000, easing = LinearEasing)
         )
         onFinish()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        com.example.firstapp.media.ui.components.NativeAdCard(
-            adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
-            modifier = Modifier.align(Alignment.Center).padding(16.dp)
-        )
+        if (adObject != null) {
+            com.example.firstapp.media.ui.components.NativeAdCard(
+                adObject = adObject,
+                modifier = Modifier.align(Alignment.Center).padding(16.dp)
+            )
+        } else {
+            // Fallback if ad disappeared
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        }
         
         // Progress Bar
         Box(
@@ -508,7 +572,7 @@ fun InViewerStoryAd(onFinish: () -> Unit, onClose: () -> Unit) {
         }
         
         Text(
-            "Advertisement",
+            "Sponsored",
             color = Color.White.copy(alpha = 0.6f),
             fontSize = 12.sp,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)

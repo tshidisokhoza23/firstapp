@@ -32,6 +32,7 @@ import com.example.firstapp.media.ui.components.*
 import com.example.firstapp.common.ui.components.DynamicAdCard
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.common.util.formatTwitterTime
 import com.example.firstapp.music.model.Song
 import java.util.Locale
 import kotlin.text.*
@@ -154,8 +155,16 @@ fun PostDetailScreen(
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
             item {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp)
+                ) {
+                    // Left sidebar with avatar and line down to replies
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(64.dp)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -171,11 +180,26 @@ fun PostDetailScreen(
                                 error = androidx.compose.ui.graphics.painter.ColorPainter(post.authorAvatarColor)
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        if (post.replies.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .width(2.dp)
+                                    .weight(1f)
+                                    .padding(top = 4.dp)
+                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            )
+                        }
+                    }
+
+                    // Content column
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 16.dp)
+                    ) {
                         Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onProfileClick(post.authorId) }
+                            modifier = Modifier.clickable { onProfileClick(post.authorId) }
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(post.authorName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -186,157 +210,121 @@ fun PostDetailScreen(
                             }
                             Text("@${post.authorHandle}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
-
-                        if (post.authorId != ownProfileId) {
-                            Button(
-                                onClick = { 
-                                    if (post.isAuthorFollowed) mediaViewModel.unfollowUser(post.authorId)
-                                    else mediaViewModel.followUser(post.authorId)
-                                },
-                                modifier = Modifier.height(32.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (post.isAuthorFollowed) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                                    contentColor = if (post.isAuthorFollowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface
-                                ),
-                                border = if (post.isAuthorFollowed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
-                                shape = RoundedCornerShape(16.dp),
-                                elevation = null
-                            ) {
-                                Text(
-                                    text = if (post.isAuthorFollowed) "Following" else "Follow",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                    
-                    Text(
-                        text = post.content, 
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 20.sp, 
-                        modifier = Modifier.padding(top = 16.dp),
-                        lineHeight = 26.sp
-                    )
-                    
-                    if (post.mediaUrls.size > 0) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        val mType = post.mediaType?.lowercase(Locale.ROOT) ?: ""
-                        val isVideo = mType == "video" || mType == "short"
                         
-                        if (isVideo && post.mediaUrls.size == 1) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(post.aspectRatio?.toFloat() ?: 0.8f)
-                                    .clip(RoundedCornerShape(12.dp))
-                            ) {
-                                VideoPlayer(
-                                    videoUrl = post.mediaUrls[0],
-                                    isPlaying = true,
-                                    modifier = Modifier.fillMaxSize(),
-                                    useController = true,
-                                    onPositionUpdate = { currentPlaybackPosition = it }
-                                )
-                                // Add a specific area or overlay that allows going full screen without blocking controls
-                                // Twitter uses a button or double tap, but let's add a small overlay icon or just make it clickable if not on controls
+                        Text(
+                            text = post.content, 
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 19.sp, 
+                            modifier = Modifier.padding(top = 12.dp),
+                            lineHeight = 24.sp
+                        )
+                        
+                        if (post.mediaUrls.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            val mType = post.mediaType?.lowercase(Locale.ROOT) ?: ""
+                            val isVideo = mType == "video" || mType == "short"
+                            
+                            if (isVideo && post.mediaUrls.size == 1) {
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(8.dp)
-                                        .size(32.dp)
-                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                                        .clickable { 
-                                            onMediaClick(post.mediaUrls[0], "video", currentPlaybackPosition) 
-                                        },
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .aspectRatio(post.aspectRatio?.toFloat() ?: 0.8f)
+                                        .clip(RoundedCornerShape(12.dp))
                                 ) {
-                                    Icon(Icons.Default.Fullscreen, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                    VideoPlayer(
+                                        videoUrl = post.mediaUrls[0],
+                                        isPlaying = true,
+                                        modifier = Modifier.fillMaxSize(),
+                                        useController = true,
+                                        onPositionUpdate = { currentPlaybackPosition = it }
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(8.dp)
+                                            .size(32.dp)
+                                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                            .clickable { 
+                                                onMediaClick(post.mediaUrls[0], "video", currentPlaybackPosition) 
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Fullscreen, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            } else {
+                                MediaGrid(post.mediaUrls) { url ->
+                                    val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
+                                    onMediaClick(url, type, 0L)
                                 }
                             }
-                        } else {
-                            MediaGrid(post.mediaUrls) { url ->
-                                val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
-                                onMediaClick(url, type, 0L)
+                        }
+                        
+                        Text(
+                            text = formatTwitterTime(post.timestamp) + " · ${post.views} Views", 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp, 
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                        
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp), 
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else MaterialTheme.colorScheme.onSurfaceVariant) { 
+                                if (!post.repliesLocked) replyingToPost = post 
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            InteractionIcon(
+                                icon = Icons.Default.Repeat, 
+                                count = post.shares, 
+                                color = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurfaceVariant, 
+                                onClick = { showRepostOptions = true }
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            InteractionIcon(
+                                icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
+                                count = post.likes, 
+                                color = if (post.isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant, 
+                                onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
+                            )
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, post) }) {
+                                Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
-                    
-                    Text(
-                        text = "15:51 · 22 Jul 26 · ${post.views} Views", 
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp, 
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
-                    
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 16.dp))
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(), 
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        InteractionIcon(Icons.Default.ChatBubbleOutline, post.repliesCount, if (post.repliesLocked) Color.Gray else MaterialTheme.colorScheme.onSurfaceVariant) { 
-                            if (!post.repliesLocked) replyingToPost = post 
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        InteractionIcon(
-                            icon = Icons.Default.Repeat, 
-                            count = post.shares, 
-                            color = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurfaceVariant, 
-                            onClick = { showRepostOptions = true }
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        InteractionIcon(
-                            icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
-                            count = post.likes, 
-                            color = if (post.isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant, 
-                            onClick = { mediaViewModel.likePost(post.id, post.likes, post.isLiked) }
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        InteractionIcon(
-                            icon = Icons.Default.BarChart,
-                            count = post.views,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            onClick = { /* View stats */ }
-                        )
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, post) }) {
-                            Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                    
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(top = 16.dp))
                 }
+                
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
             }
             
             itemsIndexed(post.replies, key = { index, r -> "${r.id}_$index" }) { index, reply ->
-                Column {
-                    PostItem(
-                        adManager = adManager,
-                        post = reply,
-                        isOwnPost = reply.authorId == ownProfileId || (reply.authorHandle.isNotEmpty() && reply.authorHandle == post.authorHandle && post.authorId == ownProfileId),
-                        showThreadLine = true,
-                        isLastInThread = index == post.replies.size - 1,
-                        onClick = { 
-                            onReplyDetailClick(reply.id)
-                        },
-                        onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                        onRepostClick = { p -> mediaViewModel.repostPost(p.id) },
-                        onBookmark = { id -> mediaViewModel.bookmarkPost(id) },
-                        onDelete = { id -> mediaViewModel.deletePost(id) },
-                        onReplyClick = { p, r -> 
-                            replyingToPost = p
-                            replyingToReply = r
-                        },
-                        onProfileClick = { id -> onProfileClick(id) },
-                        onPlaySong = { _, _ -> },
-                        onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
-                        onMediaClick = onMediaClick,
-                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, p) }
-                    )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                }
+                PostItem(
+                    adManager = adManager,
+                    post = reply,
+                    isOwnPost = reply.authorId == ownProfileId || (reply.authorHandle.isNotEmpty() && reply.authorHandle == post.authorHandle && post.authorId == ownProfileId),
+                    showThreadLine = true,
+                    isLastInThread = index == post.replies.size - 1,
+                    onClick = { 
+                        onReplyDetailClick(reply.id)
+                    },
+                    onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                    onRepostClick = { p -> mediaViewModel.repostPost(p.id) },
+                    onBookmark = { id -> mediaViewModel.bookmarkPost(id) },
+                    onDelete = { id -> mediaViewModel.deletePost(id) },
+                    onReplyClick = { p, r -> 
+                        replyingToPost = p
+                        replyingToReply = r
+                    },
+                    onProfileClick = { id -> onProfileClick(id) },
+                    onPlaySong = { _, _ -> },
+                    onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
+                    onMediaClick = onMediaClick,
+                    onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, p) }
+                )
             }
         }
     }

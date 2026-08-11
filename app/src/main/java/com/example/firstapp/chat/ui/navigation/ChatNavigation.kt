@@ -297,17 +297,36 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         
         val sharedMediaResource by chatViewModel.getSharedMedia(userId).collectAsState(Resource.Loading())
         val sharedMedia = sharedMediaResource.data ?: emptyList()
+        val groupInfo by chatViewModel.uiState.collectAsState()
+        val contactsState by chatViewModel.contacts.collectAsState()
+        val contacts = contactsState.data ?: emptyList()
+
+        LaunchedEffect(userId, isGroup) {
+            if (isGroup) {
+                chatViewModel.fetchGroupInfo(userId)
+            }
+        }
 
         com.example.firstapp.chat.ui.screens.ChatProfileScreen(
             chat = chat,
             onBack = { navController.popBackStack() },
             sharedMedia = sharedMedia,
+            groupInfo = if (isGroup) groupInfo.groupInfo else Resource.Loading(),
+            contacts = contacts,
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
             },
             onClearChat = { chatViewModel.clearChat(chat.id) },
             onDeleteChat = { chatViewModel.deleteChat(chat.id); navController.popBackStack() },
-            onMuteToggle = { chatViewModel.muteChat(chat.id, it) }
+            onMuteToggle = { chatViewModel.muteChat(chat.id, it) },
+            onAddMember = { memberId -> chatViewModel.addGroupMember(chat.id, memberId) },
+            onRemoveMember = { memberId -> chatViewModel.removeGroupMember(chat.id, memberId) },
+            onPromoteAdmin = { memberId -> chatViewModel.promoteToAdmin(chat.id, memberId) },
+            onLeaveGroup = { 
+                chatViewModel.leaveGroup(chat.id) {
+                    navController.popBackStack(Screen.Main.route, false)
+                }
+            }
         )
     }
 }

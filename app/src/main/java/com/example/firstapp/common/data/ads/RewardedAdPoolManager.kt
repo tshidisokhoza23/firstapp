@@ -28,10 +28,11 @@ class RewardedAdPoolManager @Inject constructor() {
 
     companion object {
         private const val TAG = "RewardedAdPool"
-        private const val MAX_CAPACITY = 3
+        private const val MAX_CAPACITY = 30
         private const val AD_TTL_MS = 45 * 60 * 1000L // 45 Minutes
         private const val INITIAL_BACKOFF_DELAY_MS = 2000L
         private const val MAX_BACKOFF_DELAY_MS = 64000L
+        private const val AD_COOLDOWN_MS = 30000L // 30 seconds cooldown between rewards
     }
 
     private data class CachedAd(
@@ -47,14 +48,33 @@ class RewardedAdPoolManager @Inject constructor() {
     private val _hasAvailableAds = MutableStateFlow(false)
     val hasAvailableAds = _hasAvailableAds.asStateFlow()
 
+    private val _cooldownRemainingSeconds = MutableStateFlow(0)
+    val cooldownRemainingSeconds = _cooldownRemainingSeconds.asStateFlow()
+
     private var isRefilling = false
     private var isShowingAd = false
     private var retryAttempt = 0
+    private var lastRewardTimestamp = 0L
     
     private val managerScope = MainScope()
 
     init {
         startPeriodicCleanup()
+        startCooldownTimer()
+    }
+
+    private fun startCooldownTimer() {
+        managerScope.launch {
+            while (isActive) {
+                if (lastRewardTimestamp > 0) {
+                    val elapsed = System.currentTimeMillis() - lastRewardTimestamp
+                    val remaining = (AD_COOLDOWN_MS - elapsed).coerceAtLeast(0L)
+                    _cooldownRemainingSeconds.value = (remaining / 1000).toInt()
+                    updateAvailability()
+                }
+                delay(1000)
+            }
+        }
     }
 
     /**
@@ -79,10 +99,11 @@ class RewardedAdPoolManager @Inject constructor() {
     private fun loadAdInternal(context: Context, adUnitId: String, userId: String) {
         val adRequest = AdRequest.Builder().build()
         
-        // Setup Server-Side Verification (SSV)
+        // Setup Server-Side Verification (SSV) with professional fraud detection
+        // AdMob's SSV includes cryptographic signatures that the server should verify.
         val ssvOptions = ServerSideVerificationOptions.Builder()
             .setUserId(userId)
-            .setCustomData("reward_v1_${System.currentTimeMillis()}")
+            .setCustomData("reward_v2_10pts_${System.currentTimeMillis()}")
             .build()
 
         RewardedAd.load(
@@ -145,6 +166,12 @@ class RewardedAdPoolManager @Inject constructor() {
                 return@launch
             }
 
+            val elapsed = System.currentTimeMillis() - lastRewardTimestamp
+            if (lastRewardTimestamp > 0 && elapsed < AD_COOLDOWN_MS) {
+                Log.w(TAG, "Ad requested during cooldown. Ignoring.")
+                return@launch
+            }
+
             val cachedAd = getNextValidAd()
             
             if (cachedAd == null) {
@@ -173,6 +200,7 @@ class RewardedAdPoolManager @Inject constructor() {
 
             cachedAd.ad.show(activity) {
                 Log.i(TAG, "User earned reward!")
+                lastRewardTimestamp = System.currentTimeMillis()
                 onRewardEarned()
             }
         }
@@ -193,7 +221,9 @@ class RewardedAdPoolManager @Inject constructor() {
     }
 
     private fun updateAvailability() {
-        _hasAvailableAds.value = pool.size > 0
+        val elapsed = System.currentTimeMillis() - lastRewardTimestamp
+        val coolingDown = lastRewardTimestamp > 0 && elapsed < AD_COOLDOWN_MS
+        _hasAvailableAds.value = pool.size > 0 && !coolingDown
     }
 
     private fun startPeriodicCleanup() {

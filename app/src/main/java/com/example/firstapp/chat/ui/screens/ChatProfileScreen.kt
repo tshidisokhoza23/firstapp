@@ -5,7 +5,7 @@ package com.example.firstapp.chat.ui.screens
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +25,7 @@ import coil.compose.AsyncImage
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.MessageType
+import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.common.ui.theme.SecondaryText
 import com.example.firstapp.common.util.MediaUtils
@@ -36,11 +37,19 @@ fun ChatProfileScreen(
     onBack: () -> Unit,
     onMediaClick: (String, String) -> Unit,
     sharedMedia: List<Message> = emptyList(),
+    groupInfo: Resource<com.example.firstapp.chat.data.api.GroupInfoResponse> = Resource.Loading(),
+    contacts: List<Contact> = emptyList(),
     onClearChat: () -> Unit = {},
     onDeleteChat: () -> Unit = {},
-    onMuteToggle: (Boolean) -> Unit = {}
+    onMuteToggle: (Boolean) -> Unit = {},
+    onAddMember: (String) -> Unit = {},
+    onRemoveMember: (String) -> Unit = {},
+    onPromoteAdmin: (String) -> Unit = {},
+    onLeaveGroup: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
+    var showAddMemberDialog by remember { mutableStateOf(false) }
+    val currentUserId = com.example.firstapp.LocalCurrentUser.current.id
 
     Scaffold(
         topBar = {
@@ -134,7 +143,7 @@ fun ChatProfileScreen(
                         fontSize = 14.sp
                     )
                     Text(
-                        text = "This is a chat group", // Fallback or use real description
+                        text = "This is a chat group", 
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
@@ -160,6 +169,117 @@ fun ChatProfileScreen(
             }
 
             HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f), thickness = 8.dp)
+
+            // Participants Section
+            if (chat.isGroup) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val memberCount = (groupInfo as? Resource.Success)?.data?.member_ids?.size ?: 0
+                        Text(
+                            text = "$memberCount participants",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search participants",
+                            tint = AppAccent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    if (chat.isAdmin) {
+                        ListItem(
+                            headlineContent = { Text("Add members", color = AppAccent) },
+                            leadingContent = { 
+                                Box(
+                                    modifier = Modifier.size(40.dp).clip(CircleShape).background(AppAccent),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.PersonAdd, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable { showAddMemberDialog = true }
+                        )
+                    }
+
+                    when (groupInfo) {
+                        is Resource.Loading -> {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp).align(Alignment.CenterHorizontally))
+                        }
+                        is Resource.Success -> {
+                            groupInfo.data?.member_ids?.forEach { memberId ->
+                                val memberContact = contacts.find { it.id == memberId }
+                                val name = memberContact?.displayName ?: memberId
+                                
+                                var showMemberMenu by remember { mutableStateOf(false) }
+
+                                ListItem(
+                                    headlineContent = { Text(if (memberId == currentUserId) "You" else name) },
+                                    supportingContent = { 
+                                        val isAdmin = (groupInfo as Resource.Success).data?.admin_ids?.contains(memberId) == true
+                                        if (isAdmin) {
+                                            Text("Group Admin", color = AppAccent, fontSize = 12.sp)
+                                        }
+                                    },
+                                    leadingContent = {
+                                        Box(
+                                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.Gray),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (memberContact?.avatarUrl != null) {
+                                                AsyncImage(
+                                                    model = memberContact.avatarUrl,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            } else {
+                                                Text(name.take(1).uppercase(), color = Color.White)
+                                            }
+                                        }
+                                    },
+                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                    modifier = Modifier.clickable {
+                                        if (memberId != currentUserId && chat.isAdmin) {
+                                            showMemberMenu = true
+                                        }
+                                    }
+                                )
+
+                                if (showMemberMenu) {
+                                    DropdownMenu(
+                                        expanded = showMemberMenu,
+                                        onDismissRequest = { showMemberMenu = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Message $name") },
+                                            onClick = { /* Message user */ showMemberMenu = false }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Make Group Admin") },
+                                            onClick = { onPromoteAdmin(memberId); showMemberMenu = false }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Remove $name", color = Color.Red) },
+                                            onClick = { onRemoveMember(memberId); showMemberMenu = false }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        is Resource.Error -> {
+                            Text("Failed to load members: ${groupInfo.message}", color = Color.Red)
+                        }
+                    }
+                }
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f), thickness = 8.dp)
+            }
 
             // Media, Links, and Docs
             Column(modifier = Modifier.padding(16.dp)) {
@@ -235,6 +355,14 @@ fun ChatProfileScreen(
                     trailingContent = { Switch(checked = chat.isMuted, onCheckedChange = onMuteToggle) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
+                if (chat.isGroup) {
+                    ListItem(
+                        headlineContent = { Text("Group Settings") },
+                        leadingContent = { Icon(Icons.Default.Settings, null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { }
+                    )
+                }
                 ListItem(
                     headlineContent = { Text("Custom notifications") },
                     leadingContent = { Icon(Icons.Default.MusicNote, null) },
@@ -263,15 +391,29 @@ fun ChatProfileScreen(
             HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f), thickness = 8.dp)
 
             // Actions
-            TextButton(
-                onClick = onClearChat,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.DeleteSweep, null)
-                    Spacer(Modifier.width(16.dp))
-                    Text("Clear Chat", fontWeight = FontWeight.Bold)
+            if (chat.isGroup) {
+                TextButton(
+                    onClick = onLeaveGroup,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, null)
+                        Spacer(Modifier.width(16.dp))
+                        Text("Exit group", fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
+                TextButton(
+                    onClick = onClearChat,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.DeleteSweep, null)
+                        Spacer(Modifier.width(16.dp))
+                        Text("Clear Chat", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
             
@@ -283,23 +425,83 @@ fun ChatProfileScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Delete, null)
                     Spacer(Modifier.width(16.dp))
-                    Text("Delete Chat", fontWeight = FontWeight.Bold)
+                    Text(if (chat.isGroup) "Delete group" else "Delete Chat", fontWeight = FontWeight.Bold)
                 }
             }
             
-            TextButton(
-                onClick = { },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.Report, null)
-                    Spacer(Modifier.width(16.dp))
-                    Text("Report Contact", fontWeight = FontWeight.Bold)
+            if (!chat.isGroup) {
+                TextButton(
+                    onClick = { },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Report, null)
+                        Spacer(Modifier.width(16.dp))
+                        Text("Report Contact", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
             
             Spacer(Modifier.height(50.dp))
         }
+    }
+
+    if (showAddMemberDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddMemberDialog = false },
+            title = { Text("Add members") },
+            text = {
+                val memberIds = (groupInfo as? Resource.Success)?.data?.member_ids ?: emptyList()
+                val availableContacts = contacts.filter { contact ->
+                    !memberIds.contains(contact.id) && contact.isRegistered
+                }
+                
+                if (availableContacts.isEmpty()) {
+                    Text("No more contacts to add.")
+                } else {
+                    Box(modifier = Modifier.height(300.dp)) {
+                        LazyColumn {
+                            items(availableContacts) { contact ->
+                                ListItem(
+                                    headlineContent = { Text(contact.displayName) },
+                                    leadingContent = {
+                                        Box(
+                                            modifier = Modifier.size(40.dp).clip(CircleShape)
+                                                .background(Color.Gray),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (contact.avatarUrl != null) {
+                                                AsyncImage(
+                                                    model = contact.avatarUrl,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            } else {
+                                                Text(
+                                                    contact.displayName.take(1).uppercase(),
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.clickable { 
+                                        onAddMember(contact.id)
+                                        showAddMemberDialog = false 
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAddMemberDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

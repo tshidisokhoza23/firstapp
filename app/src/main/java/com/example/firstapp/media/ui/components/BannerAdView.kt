@@ -31,14 +31,14 @@ fun BannerAdView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 60.dp)
+            .heightIn(min = 50.dp)
             .background(if (BuildConfig.DEBUG && !adLoaded) Color.Red.copy(alpha = 0.05f) else Color.Transparent),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp), // Height of the banner area
+                .height(50.dp), // Height matching standard banner
             contentAlignment = Alignment.Center
         ) {
             if (!adLoaded && BuildConfig.DEBUG) {

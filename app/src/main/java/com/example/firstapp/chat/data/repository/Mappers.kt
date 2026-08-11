@@ -52,6 +52,7 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         isMuted = chat.is_muted,
         isPinned = chat.is_pinned,
         isGroup = type == ConversationType.GROUP,
+        isAdmin = chat.is_admin,
         otherUserId = chat.contact_id
     )
 }

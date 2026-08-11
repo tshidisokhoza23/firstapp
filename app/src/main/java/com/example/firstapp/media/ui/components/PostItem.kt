@@ -74,6 +74,8 @@ fun PostItem(
             post = post,
             isOwnPost = isOwnPost,
             activePostId = activePostId,
+            showThreadLine = showThreadLine,
+            isLastInThread = isLastInThread,
             onLikeClick = { onLike(post.id, post.likes, post.isLiked) },
             onCommentClick = { onReplyClick(post, null) },
             onRepostClick = { onRepostClick(post) },
@@ -93,6 +95,8 @@ fun VerticalFeedPostCard(
     post: Post,
     isOwnPost: Boolean = false,
     activePostId: String? = null,
+    showThreadLine: Boolean = false,
+    isLastInThread: Boolean = false,
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onRepostClick: () -> Unit,
@@ -112,311 +116,302 @@ fun VerticalFeedPostCard(
         activePostId == post.id
     }
 
-    Column(
+    val displayPost = if (post.repostOfId != null && post.originalPost != null) post.originalPost!! else post
+
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
             .padding(vertical = 4.dp)
     ) {
-        // Repost Header (Optional)
-        if (post.repostOfId != null && post.originalPost != null) {
+        if (showThreadLine) {
+            PostSideBar(
+                avatarUrl = displayPost.authorAvatarUrl,
+                avatarColor = displayPost.authorAvatarColor,
+                showThreadLine = true,
+                isLastInThread = isLastInThread,
+                onProfileClick = { onProfileClick(displayPost.authorId) }
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 12.dp)
+        ) {
+            // Repost Header (Optional)
+            if (post.repostOfId != null && post.originalPost != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = if (showThreadLine) 0.dp else 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Repeat, 
+                        null, 
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "${post.authorName} reposted",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            // 1. TOP ROW: PROFILE HEADER & FOLLOW BUTTON
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(vertical = 8.dp, horizontal = if (showThreadLine) 0.dp else 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Repeat, 
-                    null, 
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "${post.authorName} reposted",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        val displayPost = if (post.repostOfId != null && post.originalPost != null) post.originalPost!! else post
-
-        // 1. TOP ROW: PROFILE HEADER & FOLLOW BUTTON
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Profile picture
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(displayPost.authorAvatarColor)
-                    .clickable { 
-                        onProfileClick(displayPost.authorId)
+                if (!showThreadLine) {
+                    // Profile picture only if not using sidebar
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(displayPost.authorAvatarColor)
+                            .clickable { 
+                                onProfileClick(displayPost.authorId)
+                            }
+                    ) {
+                        AsyncImage(
+                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = androidx.compose.ui.graphics.painter.ColorPainter(displayPost.authorAvatarColor)
+                        )
                     }
-            ) {
-                AsyncImage(
-                    model = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    error = androidx.compose.ui.graphics.painter.ColorPainter(displayPost.authorAvatarColor)
-                )
-            }
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // User details
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { 
-                        if (displayPost.authorId.length > 0) {
-                            onProfileClick(displayPost.authorId)
+                // User details
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { 
+                            if (displayPost.authorId.length > 0) {
+                                onProfileClick(displayPost.authorId)
+                            }
+                        }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val name = if (displayPost.authorName.length > 0) displayPost.authorName else "User"
+                        Text(
+                            text = name,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (displayPost.isVerifiedAuthor) {
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                tint = TwitterBlue,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        val timestamp = formatTwitterTime(displayPost.timestamp)
+                        if (timestamp.length > 0) {
+                            Text(
+                                text = " · $timestamp",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp,
+                                maxLines = 1
+                            )
                         }
                     }
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val name = if (displayPost.authorName.length > 0) displayPost.authorName else "User"
+                    val handle = if (displayPost.authorHandle.length > 0) displayPost.authorHandle else "user"
                     Text(
-                        text = name,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (displayPost.isVerifiedAuthor) {
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = "Verified",
-                            tint = TwitterBlue,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                    val timestamp = formatTwitterTime(displayPost.timestamp)
-                    if (timestamp.length > 0) {
-                        Text(
-                            text = " · $timestamp",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp,
-                            maxLines = 1
-                        )
-                    }
-                }
-                val handle = if (displayPost.authorHandle.length > 0) displayPost.authorHandle else "user"
-                Text(
-                    text = "@$handle",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Follow Button
-            if (!isOwnPost) {
-                Button(
-                    onClick = onFollowClick,
-                    modifier = Modifier.height(32.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (post.isAuthorFollowed) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                        contentColor = if (post.isAuthorFollowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface
-                    ),
-                    border = if (post.isAuthorFollowed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = null
-                ) {
-                    Text(
-                        text = if (post.isAuthorFollowed) "Following" else "Follow",
+                        text = "@$handle",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
 
-            IconButton(onClick = onMoreClick) {
-                Icon(Icons.Default.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        // 2. MIDDLE ROW: EXPANDABLE CAPTION TEXT
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .animateContentSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = displayPost.content,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 15.sp,
-                lineHeight = 20.sp,
-                maxLines = if (isExpanded) Int.MAX_VALUE else 5,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            if (!isExpanded && displayPost.content.length > 200) {
-                Text(
-                    text = "Show More",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true }
-                )
-            }
-        }
-
-        // 3. MAIN MEDIA AREA
-        if (displayPost.mediaUrls.size > 0) {
-            Spacer(modifier = Modifier.height(8.dp))
-            val mType = (displayPost.mediaType ?: "").uppercase(Locale.ROOT)
-            var hasVideoInUrls = false
-            for (u in displayPost.mediaUrls) {
-                if (com.example.firstapp.common.util.MediaUtils.isVideo(u)) {
-                    hasVideoInUrls = true
-                    break
-                }
-            }
-            val isVideo = (mType == "VIDEO") || (mType == "SHORT") || hasVideoInUrls
-            
-            if (isVideo && displayPost.mediaUrls.size == 1) {
-                val videoUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.mediaUrls[0]) ?: ""
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 0.8f)
-                        .background(Color.Black.copy(alpha = 0.1f))
-                        .clickable { onMediaClick(videoUrl, "video", currentPlaybackPosition) }
-                ) {
-                    VideoPlayer(
-                        videoUrl = videoUrl,
-                        isPlaying = isVideoPlaying, 
-                        modifier = Modifier.fillMaxSize(),
-                        useController = false,
-                        isMuted = isMuted,
-                        onPositionUpdate = { currentPlaybackPosition = it }
-                    )
-                    
-                    if (!isVideoPlaying) {
-                        Icon(
-                            Icons.Default.PlayCircle,
-                            null,
-                            modifier = Modifier.size(48.dp).align(Alignment.Center),
-                            tint = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
-
-                    // Floating Mute Button
-                    IconButton(
-                        onClick = { isMuted = !isMuted },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(8.dp)
-                            .size(32.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                // Follow Button
+                if (!isOwnPost) {
+                    Button(
+                        onClick = onFollowClick,
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (post.isAuthorFollowed) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                            contentColor = if (post.isAuthorFollowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface
+                        ),
+                        border = if (post.isAuthorFollowed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = null
                     ) {
-                        Icon(
-                            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "Mute",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                        Text(
+                            text = if (post.isAuthorFollowed) "Following" else "Follow",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
-            } else {
-                MediaGrid(urls = displayPost.mediaUrls) { url ->
-                    val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(url) ?: url
-                    val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
-                    onMediaClick(formattedUrl, type, 0L)
+
+                IconButton(onClick = onMoreClick) {
+                    Icon(Icons.Default.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        } else if (displayPost.mediaType != null && displayPost.mediaType != "TEXT" && (displayPost.mediaType ?: "").length > 0) {
-            // Diagnostic for development
-            Box(
+
+            // 2. MIDDLE ROW: EXPANDABLE CAPTION TEXT
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
-                    .background(Color.Red.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
+                    .animateContentSize()
+                    .padding(horizontal = if (showThreadLine) 0.dp else 12.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "Post data error: media_type is ${displayPost.mediaType} but media_urls is empty",
-                    color = Color.Red,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    text = displayPost.content,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp,
+                    lineHeight = 20.sp,
+                    maxLines = if (isExpanded) Int.MAX_VALUE else 5,
+                    overflow = TextOverflow.Ellipsis
                 )
+                
+                if (!isExpanded && displayPost.content.length > 200) {
+                    Text(
+                        text = "Show More",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true }
+                    )
+                }
             }
-        }
 
-        // Poll Support
-        if (displayPost.poll != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            PollView(displayPost.poll) { optionId ->
-                onVotePoll(displayPost.id, optionId)
+            // 3. MAIN MEDIA AREA
+            if (displayPost.mediaUrls.size > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val mType = (displayPost.mediaType ?: "").uppercase(Locale.ROOT)
+                var hasVideoInUrls = false
+                for (u in displayPost.mediaUrls) {
+                    if (com.example.firstapp.common.util.MediaUtils.isVideo(u)) {
+                        hasVideoInUrls = true
+                        break
+                    }
+                }
+                val isVideo = (mType == "VIDEO") || (mType == "SHORT") || hasVideoInUrls
+                
+                if (isVideo && displayPost.mediaUrls.size == 1) {
+                    val videoUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.mediaUrls[0]) ?: ""
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 0.8f)
+                            .background(Color.Black.copy(alpha = 0.1f))
+                            .clickable { onMediaClick(videoUrl, "video", currentPlaybackPosition) }
+                    ) {
+                        VideoPlayer(
+                            videoUrl = videoUrl,
+                            isPlaying = isVideoPlaying, 
+                            modifier = Modifier.fillMaxSize(),
+                            useController = false,
+                            isMuted = isMuted,
+                            onPositionUpdate = { currentPlaybackPosition = it }
+                        )
+                        
+                        if (!isVideoPlaying) {
+                            Icon(
+                                Icons.Default.PlayCircle,
+                                null,
+                                modifier = Modifier.size(48.dp).align(Alignment.Center),
+                                tint = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+
+                        // Floating Mute Button
+                        IconButton(
+                            onClick = { isMuted = !isMuted },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                                .size(32.dp)
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = "Mute",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                } else {
+                    MediaGrid(urls = displayPost.mediaUrls) { url ->
+                        val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(url) ?: url
+                        val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
+                        onMediaClick(formattedUrl, type, 0L)
+                    }
+                }
             }
-        }
 
-        // 4. BOTTOM ROW: INTERACTION BAR
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            InteractionIcon(
-                icon = Icons.Outlined.ChatBubbleOutline,
-                count = displayPost.repliesCount,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onCommentClick
-            )
+            // Poll Support
+            if (displayPost.poll != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                PollView(displayPost.poll) { optionId ->
+                    onVotePoll(displayPost.id, optionId)
+                }
+            }
 
-            Spacer(Modifier.width(2.dp))
-
-            InteractionIcon(
-                icon = Icons.Default.Repeat,
-                count = post.shares,
-                color = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onRepostClick
-            )
-
-            Spacer(Modifier.width(2.dp))
-
-            InteractionIcon(
-                icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                count = post.likes,
-                color = if (post.isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onLikeClick
-            )
-
-            Spacer(Modifier.width(2.dp))
-
-            InteractionIcon(
-                icon = Icons.Default.BarChart,
-                count = displayPost.views,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = { /* View stats? */ }
-            )
-            
-            Spacer(modifier = Modifier.weight(1f))
-
-            IconButton(onClick = onShareClick) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Shortcut,
-                    null, 
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
-                    modifier = Modifier.size(20.dp)
+            // 4. BOTTOM ROW: INTERACTION BAR
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                InteractionIcon(
+                    icon = Icons.Outlined.ChatBubbleOutline,
+                    count = displayPost.repliesCount,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onCommentClick
                 )
+
+                Spacer(Modifier.width(2.dp))
+
+                InteractionIcon(
+                    icon = Icons.Default.Repeat,
+                    count = post.shares,
+                    color = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onRepostClick
+                )
+
+                Spacer(Modifier.width(2.dp))
+
+                InteractionIcon(
+                    icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    count = post.likes,
+                    color = if (post.isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onLikeClick
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                IconButton(onClick = onShareClick) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Shortcut,
+                        null, 
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -432,7 +427,7 @@ fun PostSideBar(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(52.dp)
+        modifier = Modifier.width(64.dp)
     ) {
         Box(
             modifier = Modifier
@@ -457,7 +452,7 @@ fun PostSideBar(
                     .width(2.dp)
                     .weight(1f)
                     .padding(top = 4.dp)
-                    .background(Color.White.copy(alpha = 0.15f))
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             )
         }
     }

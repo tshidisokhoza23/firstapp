@@ -265,7 +265,7 @@ fun LoginScreen(
                 .size(120.dp)
                 .shadow(elevation = 12.dp, shape = RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
-            color = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White,
+            color = MaterialTheme.colorScheme.surface,
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 com.example.firstapp.home.ui.components.AppLogo(size = 90.dp)
@@ -330,14 +330,14 @@ fun LoginScreen(
                 isError = fieldErrors.containsKey("username"),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = LogoBlueDark,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    focusedLabelColor = LogoBlueDark,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
                     unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                    focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
                 keyboardOptions = if (!isSignUp) {
                     androidx.compose.foundation.text.KeyboardOptions(
@@ -373,10 +373,10 @@ fun LoginScreen(
                     isError = fieldErrors.containsKey("email"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LogoBlueDark,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                        focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
                 ValidationText(fieldErrors["email"])
@@ -401,10 +401,10 @@ fun LoginScreen(
                     isError = fieldErrors.containsKey("displayName"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LogoBlueDark,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                        focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
                 ValidationText(fieldErrors["displayName"])
@@ -532,10 +532,10 @@ fun LoginScreen(
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LogoBlueDark,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                        focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
                 ValidationText(fieldErrors["confirmPassword"])
@@ -547,7 +547,7 @@ fun LoginScreen(
                 TextButton(onClick = { showForgotPassword = true }) {
                     Text(
                         "Forgot Password?", 
-                        color = LogoBlueDark, 
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )

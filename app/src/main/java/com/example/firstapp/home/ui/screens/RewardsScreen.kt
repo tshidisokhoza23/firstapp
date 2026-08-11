@@ -31,17 +31,34 @@ fun RewardsScreen(
     viewedAdverts: List<Advert> = emptyList(),
     points: Double = 0.0,
     hasAvailableAds: Boolean = false,
+    cooldownSeconds: Int = 0,
     topBarHeight: androidx.compose.ui.unit.Dp = 0.dp,
     onAdvertClick: (Advert) -> Unit = { _ -> },
     onRefresh: () -> Unit = {},
 ) {
-    var cooldownSeconds by remember { mutableIntStateOf(0) }
-    
-    LaunchedEffect(cooldownSeconds) {
-        if (cooldownSeconds > 0) {
-            kotlinx.coroutines.delay(1000)
-            cooldownSeconds -= 1
-        }
+
+    var showInfoDialog by remember { mutableStateOf(false) }
+
+    if (showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            title = { Text("What are these rewards?", color = MaterialTheme.colorScheme.onSurface) },
+            text = {
+                Text(
+                    "You can earn points by watching short video ads. " +
+                    "These points can be redeemed for various in-app benefits, " +
+                    "exclusive content, or wallet top-ups depending on available offers.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) {
+                    Text("Got it", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 
     LazyColumn(
@@ -76,8 +93,8 @@ fun RewardsScreen(
                         )
                     }
                 }
-                IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
+                IconButton(onClick = { showInfoDialog = true }) {
+                    Icon(Icons.Default.Info, contentDescription = "Info", tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }

@@ -13,30 +13,30 @@ val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 private val DarkColorScheme = darkColorScheme(
     primary = AppPrimary,
-    secondary = AppSecondaryDark,
+    secondary = GreyDark,
     tertiary = AppAccent,
-    background = AppBackgroundDarkTop, // Deep navy as base background
-    surface = AppSecondaryDark,
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White,
-    outline = DividerColor,
-    surfaceVariant = SurfaceColor
+    background = Black, 
+    surface = GreyDark,
+    onPrimary = White,
+    onSecondary = White,
+    onBackground = White,
+    onSurface = White,
+    outline = GreyMedium,
+    surfaceVariant = Black
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = AppPrimary,
-    secondary = Color(0xFFE5E5EA),
+    secondary = Color(0xFFF2F2F7),
     tertiary = AppAccent,
-    background = AppBackgroundLight,
-    surface = Color.White,
-    onPrimary = Color.White,
-    onSecondary = Color.Black,
-    onBackground = Color.Black,
-    onSurface = Color.Black,
-    outline = Color(0xFFC7C7CC),
-    surfaceVariant = Color(0xFFF2F2F7)
+    background = White,
+    surface = White,
+    onPrimary = White,
+    onSecondary = Black,
+    onBackground = Black,
+    onSurface = Black,
+    outline = GreyMedium,
+    surfaceVariant = GreyLight
 )
 
 @Composable

@@ -430,15 +430,74 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getGroupInfo(groupId: String): Flow<Resource<GroupInfoResponse>> = flow {
-        // Mocked
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.getGroupInfo(groupId)
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!))
+            } else {
+                emit(Resource.Error("Failed to fetch group info"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
     }
 
-    override fun addGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun removeGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun promoteToAdmin(groupId: String, userId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
+    override fun addGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.addGroupMember(groupId, AddMemberRequest(userId))
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to add member"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun removeGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.removeGroupMember(groupId, userId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to remove member"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun promoteToAdmin(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.promoteToAdmin(groupId, userId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to promote to admin"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
     override fun leaveGroup(groupId: String): Flow<Resource<Boolean>> = flow { 
-        chatDao.deleteChat(groupId)
-        emit(Resource.Success(true)) 
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.leaveGroup(groupId)
+            if (response.isSuccessful) {
+                chatDao.deleteChat(groupId)
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to leave group"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
     }
 
     override fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>> = 
@@ -539,10 +598,23 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun createGroup(name: String, contactIds: List<String>): Flow<Resource<ChatMessage>> = flow {
         emit(Resource.Loading())
         try {
-            val response = chatApi.createGroup(CreateGroupRequest(name, contactIds))
+            val myUserId = sessionManager.getUserId() ?: ""
+            val allMemberIds = (contactIds + myUserId).filter { it.isNotBlank() }.distinct()
+
+            Log.d("ChatRepositoryImpl", "Creating group '$name' with ${allMemberIds.size} members")
+            val response = chatApi.createGroup(CreateGroupRequest(name, allMemberIds))
+            
             if (response.isSuccessful && response.body() != null) {
                 val conversationId = response.body()!!.conversation_id
-                val newChat = ChatMessage(
+                Log.d("ChatRepositoryImpl", "Group created successfully. ID: $conversationId")
+                
+                // Trigger a full sync to get the proper group metadata from server
+                syncChats().collect {}
+                
+                // Try to find the newly created group in the synced list
+                val syncedChat = chatDao.getChatById(conversationId).first()?.toModel()
+                
+                val resultChat = syncedChat ?: ChatMessage(
                     id = conversationId,
                     type = com.example.firstapp.common.model.ConversationType.GROUP,
                     senderName = name,
@@ -550,14 +622,22 @@ class ChatRepositoryImpl @Inject constructor(
                     timestamp = System.currentTimeMillis(),
                     unreadCount = 0,
                     isGroup = true,
-                    isAdmin = true // Assuming creator is admin
+                    isAdmin = true,
+                    createdBy = myUserId
                 )
-                chatDao.insertChats(listOf(newChat.toEntity()))
-                emit(Resource.Success(newChat))
+                
+                if (syncedChat == null) {
+                    chatDao.insertChats(listOf(resultChat.toEntity()))
+                }
+                
+                emit(Resource.Success(resultChat))
             } else {
-                emit(Resource.Error("Failed to create group"))
+                val errorMsg = parseServerError(response.errorBody())
+                Log.e("ChatRepositoryImpl", "Group creation failed: $errorMsg")
+                emit(Resource.Error(errorMsg.ifBlank { "Failed to create group" }))
             }
         } catch (e: Exception) {
+            Log.e("ChatRepositoryImpl", "Group creation exception", e)
             emit(Resource.Error(e.message ?: "Error"))
         }
     }

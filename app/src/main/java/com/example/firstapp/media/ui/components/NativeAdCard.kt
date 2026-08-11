@@ -31,6 +31,36 @@ import com.example.firstapp.R
 
 @Composable
 fun NativeAdCard(
+    adObject: Any?,
+    modifier: Modifier = Modifier
+) {
+    val nativeAd = adObject as? NativeAd
+
+    if (nativeAd != null) {
+        Card(
+            modifier = modifier
+                .fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                factory = { ctx ->
+                    val adView = LayoutInflater.from(ctx).inflate(R.layout.item_media_native_ad, null) as NativeAdView
+                    populateNativeAdView(nativeAd, adView)
+                    adView
+                },
+                update = { adView ->
+                    populateNativeAdView(nativeAd, adView)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun NativeAdCard(
     adUnitId: String,
     modifier: Modifier = Modifier
 ) {

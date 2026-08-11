@@ -2,7 +2,7 @@ package com.example.firstapp.media.model
 
 import androidx.compose.ui.graphics.Color
 
-enum class StoryType { TEXT, IMAGE, VIDEO }
+enum class StoryType { TEXT, IMAGE, VIDEO, AD }
 
 data class UserStory(
     val id: String,
@@ -27,7 +27,8 @@ data class StoryItem(
     val backgroundColor: Color = Color.DarkGray,
     val isViewed: Boolean = false,
     val durationMs: Int = 5000,
-    val expiresAt: String = ""
+    val expiresAt: String = "",
+    val adObject: Any? = null
 )
 
 data class ApiViewer(

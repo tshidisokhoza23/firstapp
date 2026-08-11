@@ -30,8 +30,16 @@ class AdvertsViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        mockkObject(com.example.firstapp.chat.rewards.data.RewardsManager)
+        every { com.example.firstapp.chat.rewards.data.RewardsManager.addOptimisticReward(any()) } just Runs
+        coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance() } returns true
+        coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(any(), any(), any()) } returns true
+
         every { adRepository.getAdverts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.media.model.Advert>()))
+        every { adRepository.getViewedAdverts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.media.model.Advert>()))
         every { userRepository.observeCurrentUser() } returns flowOf(null)
+        every { poolManager.hasAvailableAds } returns kotlinx.coroutines.flow.MutableStateFlow(false)
+        every { poolManager.cooldownRemainingSeconds } returns kotlinx.coroutines.flow.MutableStateFlow(0)
         viewModel = AdvertsViewModel(adRepository, userRepository, adManager, poolManager)
     }
 
@@ -46,10 +54,6 @@ class AdvertsViewModelTest {
         val advertId = "ad1"
         coEvery { userRepository.getCurrentUser() } returns flowOf(Resource.Success(mockk(relaxed = true)))
         coEvery { adRepository.markAdvertViewed(advertId) } returns flowOf(Resource.Success(true))
-        
-        // Mock RewardsManager object to avoid it trying to access Hilt EntryPoints in unit test
-        mockkObject(com.example.firstapp.chat.rewards.data.RewardsManager)
-        coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance() } returns true
         
         viewModel.markAdvertAsViewed(advertId)
         

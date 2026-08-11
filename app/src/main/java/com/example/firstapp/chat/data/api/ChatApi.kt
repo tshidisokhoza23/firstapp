@@ -32,9 +32,26 @@ interface ChatApi {
     @POST("chats/{conversationID}/read")
     suspend fun markAsRead(@Path("conversationID") conversationID: String): Response<StatusResponse>
 
+    @GET("chats/group/{groupId}")
+    suspend fun getGroupInfo(@Path("groupId") groupId: String): Response<GroupInfoResponse>
+
+    @POST("chats/group/{groupId}/members")
+    suspend fun addGroupMember(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
+
+    @DELETE("chats/group/{groupId}/members/{userId}")
+    suspend fun removeGroupMember(@Path("groupId") groupId: String, @Path("userId") userId: String): Response<StatusResponse>
+
+    @POST("chats/group/{groupId}/admin/{userId}")
+    suspend fun promoteToAdmin(@Path("groupId") groupId: String, @Path("userId") userId: String): Response<StatusResponse>
+
+    @POST("chats/group/{groupId}/leave")
+    suspend fun leaveGroup(@Path("groupId") groupId: String): Response<StatusResponse>
+
     @GET("calls/ice_servers")
     suspend fun getICEServers(): Response<IceServersResponse>
 }
+
+data class AddMemberRequest(val user_id: String)
 
 data class IceServerConfig(
     val urls: List<String>,
@@ -55,6 +72,7 @@ data class ChatSummary(
     val unread_count: Int,
     val is_muted: Boolean,
     val is_pinned: Boolean,
+    val is_admin: Boolean = false,
     val contact_id: String? = null,
     val avatar_url: String? = null
 )
@@ -127,6 +145,7 @@ data class GroupInfoResponse(
     val id: String,
     val title: String,
     val member_ids: List<String>,
+    val admin_ids: List<String> = emptyList(),
     val created_at: Long
 )
 

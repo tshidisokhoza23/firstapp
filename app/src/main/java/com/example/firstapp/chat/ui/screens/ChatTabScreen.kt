@@ -119,6 +119,7 @@ fun ChatsListScreen(
     val viewedAdvertsState by advertsViewModel.viewedAdverts.collectAsState()
     val channelsState by channelsViewModel.channels.collectAsState()
     val hasRewardedAds by advertsViewModel.hasRewardedAdsAvailable.collectAsState()
+    val adCooldownSeconds by advertsViewModel.cooldownRemainingSeconds.collectAsState()
 
     LaunchedEffect(Unit) {
         chatViewModel.syncChats()
@@ -263,6 +264,11 @@ fun ChatsListScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
                 }
+            }
+        },
+        bottomBar = {
+            if (selectedTabItem != 0) {
+                BannerAdView()
             }
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -433,6 +439,7 @@ fun ChatsListScreen(
                                             adverts = emptyList(),
                                             viewedAdverts = viewedAds,
                                             points = points,
+                                            cooldownSeconds = adCooldownSeconds,
                                             topBarHeight = 0.dp,
                                             onAdvertClick = { ad -> 
                                                 val activity = context as? android.app.Activity
@@ -466,6 +473,7 @@ fun ChatsListScreen(
                                         viewedAdverts = viewedAds,
                                         points = points,
                                         hasAvailableAds = hasRewardedAds,
+                                        cooldownSeconds = adCooldownSeconds,
                                         topBarHeight = 0.dp,
                                         onAdvertClick = { ad -> 
                                             val activity = context as? android.app.Activity
@@ -481,11 +489,6 @@ fun ChatsListScreen(
                                     )
                                 }
                             }
-                            
-                            // Banner Ad only on Rewards tab
-                            BannerAdView(
-                                modifier = Modifier.navigationBarsPadding()
-                            )
                         }
                     }
                     2 -> {
@@ -509,9 +512,6 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            BannerAdView(
-                                modifier = Modifier.navigationBarsPadding()
-                            )
                         }
                     }
                     3 -> {
@@ -535,9 +535,6 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
-                            BannerAdView(
-                                modifier = Modifier.navigationBarsPadding()
-                            )
                         }
                     }
                 }
@@ -789,7 +786,7 @@ fun SearchResultsView(
             items(items = contacts, key = { "contact_" + it.id }) { contactItem: Contact ->
                 Column(modifier = Modifier.clickable { onContactClick(contactItem) }) {
                     ContactSearchItem(contactItem)
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
@@ -799,7 +796,7 @@ fun SearchResultsView(
             items(jobs, key = { "job_" + it.id }) { job ->
                 Column(modifier = Modifier.clickable { onJobClick(job) }) {
                     JobItem(job = job, onClick = { onJobClick(job) })
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
@@ -809,7 +806,7 @@ fun SearchResultsView(
             items(channels, key = { "channel_" + it.id }) { channel ->
                 Column(modifier = Modifier.clickable { onChannelClick(channel) }) {
                     com.example.firstapp.media.ui.components.ChannelItem(channel = channel, onClick = { onChannelClick(channel) })
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
@@ -819,7 +816,7 @@ fun SearchResultsView(
             items(allChats, key = { "chat_" + it.id }) { chat ->
                 Column(modifier = Modifier.clickable { onChatClick(chat) }) {
                     ChatItem(chat)
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
@@ -829,7 +826,7 @@ fun SearchResultsView(
             items(messages, key = { "message_" + it.id }) { message ->
                 Column(modifier = Modifier.clickable { onMessageClick(message) }) {
                     MessageSearchItem(message)
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = Color(0xFF233138))
+                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }

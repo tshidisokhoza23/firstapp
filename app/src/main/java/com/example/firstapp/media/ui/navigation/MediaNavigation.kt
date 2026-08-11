@@ -83,6 +83,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onDeleteStory = { storyId -> storyViewModel.deleteStory(storyId) },
             onStoryViewed = { userId, storyId -> storyViewModel.markStoryAsViewed(userId, storyId) },
             onMuteStory = { userId, isMuted -> storyViewModel.muteStory(userId, isMuted) },
+            onReply = { userId, storyId, text -> storyViewModel.sendStoryReply(userId, storyId, text) },
             onNavigateToNewStory = { navController.navigate(Screen.NewStory.route) }
         )
     }

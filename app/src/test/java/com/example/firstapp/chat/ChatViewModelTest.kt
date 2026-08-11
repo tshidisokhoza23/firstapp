@@ -35,6 +35,7 @@ class ChatViewModelTest {
     private val callTonePlayer: CallTonePlayer = mockk(relaxed = true)
     private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient = mockk(relaxed = true)
     private val callWebSocketClient: com.example.firstapp.chat.data.CallWebSocketClient = mockk(relaxed = true)
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
@@ -43,7 +44,9 @@ class ChatViewModelTest {
         every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<Contact>()))
         every { chatWebSocketClient.messageFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
         every { chatWebSocketClient.eventFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
-        viewModel = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer, chatWebSocketClient, callWebSocketClient)
+        every { sessionManager.authState } returns kotlinx.coroutines.flow.MutableStateFlow(false)
+        every { sessionManager.currentUser } returns kotlinx.coroutines.flow.MutableStateFlow(null)
+        viewModel = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer, chatWebSocketClient, callWebSocketClient, sessionManager)
     }
 
     @After
@@ -73,7 +76,7 @@ class ChatViewModelTest {
         // In ChatViewModel, contacts is a val stateIn with WhileSubscribed.
         every { chatWebSocketClient.messageFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
         every { chatWebSocketClient.eventFlow } returns kotlinx.coroutines.flow.MutableSharedFlow()
-        val vm = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer, chatWebSocketClient, callWebSocketClient)
+        val vm = ChatViewModel(chatRepository, userRepository, accountRepository, settingsRepository, webRtcCallManager, callTonePlayer, chatWebSocketClient, callWebSocketClient, sessionManager)
         
         // Start a collector to trigger the flow
         val collectJob = launch(testDispatcher) {

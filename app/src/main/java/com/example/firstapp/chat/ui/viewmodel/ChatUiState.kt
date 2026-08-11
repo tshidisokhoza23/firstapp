@@ -17,6 +17,7 @@ data class ChatUiState(
     val selectedContactsForGroup: List<Contact> = emptyList(),
     val closedConversationIds: Set<String> = emptySet(),
     val typingStatus: Map<String, Boolean> = kotlin.collections.emptyMap(),
+    val groupInfo: Resource<com.example.firstapp.chat.data.api.GroupInfoResponse> = Resource.Loading(),
     val isLoading: Boolean = false,
     val error: String? = null
 )

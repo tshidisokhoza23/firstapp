@@ -16,8 +16,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
@@ -33,7 +36,8 @@ fun MediaViewerScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -42,6 +46,24 @@ fun MediaViewerScreen(
         if (type == "video") {
             val exoPlayer = remember(url) {
                 androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
+            }
+
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    when (event) {
+                        Lifecycle.Event.ON_PAUSE -> {
+                            exoPlayer.playWhenReady = false
+                        }
+                        Lifecycle.Event.ON_RESUME -> {
+                            exoPlayer.playWhenReady = true
+                        }
+                        else -> {}
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
             }
 
             LaunchedEffect(url) {

@@ -269,6 +269,9 @@ class ChatViewModel @Inject constructor(
                             repository.updateMessageStatus(mid, MessageStatus.READ)
                         }
                     }
+                    "CONVERSATION_UPDATE", "CONVERSATION_CREATE" -> {
+                        fetchChats()
+                    }
                 }
             }
         }
@@ -560,6 +563,54 @@ class ChatViewModel @Inject constructor(
 
     fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>> {
         return repository.getSharedMedia(chatId)
+    }
+
+    fun fetchGroupInfo(groupId: String) {
+        viewModelScope.launch {
+            repository.getGroupInfo(groupId).collect { res ->
+                _uiState.update { it.copy(groupInfo = res) }
+            }
+        }
+    }
+
+    fun addGroupMember(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.addGroupMember(groupId, userId).collect { res ->
+                if (res is Resource.Success) fetchGroupInfo(groupId)
+                else if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+            }
+        }
+    }
+
+    fun removeGroupMember(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.removeGroupMember(groupId, userId).collect { res ->
+                if (res is Resource.Success) fetchGroupInfo(groupId)
+                else if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+            }
+        }
+    }
+
+    fun promoteToAdmin(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.promoteToAdmin(groupId, userId).collect { res ->
+                if (res is Resource.Success) fetchGroupInfo(groupId)
+                else if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+            }
+        }
+    }
+
+    fun leaveGroup(groupId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.leaveGroup(groupId).collect { res ->
+                if (res is Resource.Success) {
+                    onSuccess()
+                    fetchChats()
+                } else if (res is Resource.Error) {
+                    _uiState.update { it.copy(error = res.message) }
+                }
+            }
+        }
     }
 
     fun getCachedGroupName(groupId: String): String? {

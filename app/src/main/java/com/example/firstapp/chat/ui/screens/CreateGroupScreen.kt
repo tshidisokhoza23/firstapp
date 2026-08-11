@@ -38,11 +38,18 @@ fun CreateGroupScreen(
     var groupName by remember { mutableStateOf("") }
     val createResult by viewModel.createResult.collectAsState()
     val isCreating = createResult is Resource.Loading
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(createResult) {
-        if (createResult is Resource.Success) {
-            createResult?.data?.let { onCreated(it) }
-            viewModel.resetState()
+        when (createResult) {
+            is Resource.Success -> {
+                createResult?.data?.let { onCreated(it) }
+                viewModel.resetState()
+            }
+            is Resource.Error -> {
+                android.widget.Toast.makeText(context, createResult?.message ?: "Failed to create group", android.widget.Toast.LENGTH_LONG).show()
+            }
+            else -> {}
         }
     }
 
@@ -152,7 +159,11 @@ fun CreateGroupScreen(
             ) {
                 Button(
                     onClick = { 
-                        viewModel.createGroup(groupName, selectedContacts.map { it.id })
+                        if (selectedContacts.isNotEmpty()) {
+                            viewModel.createGroup(groupName, selectedContacts.map { it.id })
+                        } else {
+                            android.widget.Toast.makeText(context, "Please select at least one participant", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     },
                     enabled = groupName.isNotBlank() && !isCreating,
                     modifier = Modifier.fillMaxWidth(),
@@ -161,8 +172,11 @@ fun CreateGroupScreen(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    if (isCreating) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
-                    else Text("CREATE GROUP", fontWeight = FontWeight.Bold)
+                    if (isCreating) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text("CREATE GROUP", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

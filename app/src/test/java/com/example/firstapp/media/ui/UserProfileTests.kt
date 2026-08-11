@@ -26,6 +26,7 @@ class UserProfileTests {
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val chatRepository: ChatRepository = mockk(relaxed = true)
     private val systemRepository: SystemRepository = mockk(relaxed = true)
+    private val socialRepository: com.example.firstapp.media.domain.repository.SocialRepository = mockk(relaxed = true)
     private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
     private val context: Context = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -42,7 +43,7 @@ class UserProfileTests {
         every { android.util.Base64.decode(any<String>(), any()) } answers {
             java.util.Base64.getDecoder().decode(firstArg<String>())
         }
-        viewModel = UserViewModel(userRepository, accountRepository, chatRepository, systemRepository, sessionManager, context)
+        viewModel = UserViewModel(userRepository, accountRepository, chatRepository, systemRepository, socialRepository, sessionManager, context)
     }
 
     @After

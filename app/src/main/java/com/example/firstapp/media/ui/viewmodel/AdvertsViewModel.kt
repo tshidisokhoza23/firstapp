@@ -31,18 +31,42 @@ class AdvertsViewModel @Inject constructor(
     val toastMessage = _toastMessage.asStateFlow()
 
     val hasRewardedAdsAvailable: StateFlow<Boolean> = poolManager.hasAvailableAds
+    val cooldownRemainingSeconds: StateFlow<Int> = poolManager.cooldownRemainingSeconds
 
-    val adverts: StateFlow<Resource<List<Advert>>> = refreshTrigger
-        .onStart { emit(Unit) }
-        .flatMapLatest { 
-            repository.getAdverts() 
-        }
-        .onEach { res -> 
-            if (res is Resource.Error) {
-                _toastMessage.value = res.message ?: "Failed to fetch ads"
+    val adverts: StateFlow<Resource<List<Advert>>> = combine(
+        refreshTrigger.onStart { emit(Unit) }.flatMapLatest { repository.getAdverts() },
+        refreshTrigger.onStart { emit(Unit) }.flatMapLatest { repository.getViewedAdverts() }
+    ) { availableRes, viewedRes ->
+        val available = availableRes.data ?: emptyList()
+        val viewed = viewedRes.data ?: emptyList()
+        val totalExisting = available.size + viewed.size
+        
+        val resultList = available.toMutableList()
+        
+        // If total (available + viewed) < 30, add virtual slots
+        if (totalExisting < 30) {
+            val needed = 30 - totalExisting
+            for (i in 1..needed) {
+                resultList.add(
+                    Advert(
+                        id = "virtual_ad_$i", // Stable ID to prevent list flickering
+                        advertiserName = "Rewards",
+                        title = "Extra Reward Slot #${totalExisting + i}",
+                        actionText = "Watch",
+                        avatarColor = 0xFFCCCCCC.toInt(),
+                        contentColor = 0xFFEEEEEE.toInt(),
+                        isViewed = false
+                    )
+                )
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+
+        when (availableRes) {
+            is Resource.Success -> Resource.Success(resultList)
+            is Resource.Error -> Resource.Error(availableRes.message ?: "Error", resultList)
+            is Resource.Loading -> Resource.Loading(resultList)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
 
     val viewedAdverts: StateFlow<Resource<List<Advert>>> = refreshTrigger
         .onStart { emit(Unit) }
@@ -101,18 +125,39 @@ class AdvertsViewModel @Inject constructor(
 
     fun markAdvertAsViewed(advertId: String) {
         viewModelScope.launch {
-            repository.markAdvertViewed(advertId).collect { result ->
-                if (result is Resource.Success && (result.data == true)) {
-                    // Give the backend SSV callback a moment to process (usually < 2s)
-                    kotlinx.coroutines.delay(2000)
-                    
-                    // Authoritatively refresh balance from server
-                    com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance()
-                    
-                    // Also refresh user profile
-                    userRepository.getCurrentUser().collectLatest { }
+            // Optimistically award points for better UX
+            com.example.firstapp.chat.rewards.data.RewardsManager.addOptimisticReward(10.0)
+
+            val isVirtual = advertId.startsWith("virtual_ad_")
+            
+            if (isVirtual) {
+                // For virtual ads, we skip repository tracking but still award points authoritatively
+                awardPointsAuthoritatively(advertId)
+            } else {
+                repository.markAdvertViewed(advertId).collect { result ->
+                    if (result is Resource.Success && result.data == true) {
+                        awardPointsAuthoritatively(advertId)
+                    }
                 }
             }
         }
+    }
+
+    private suspend fun awardPointsAuthoritatively(advertId: String) {
+        // Try to award points authoritatively via backend
+        com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(
+            amount = 10.0,
+            source = "REWARDED_AD",
+            description = "Viewed rewarded ad $advertId"
+        )
+        
+        // Give the backend a moment to sync with AdMob SSV (if applicable)
+        kotlinx.coroutines.delay(2000)
+        
+        // Authoritatively refresh balance from server
+        com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance()
+        
+        // Also refresh user profile to update wallet balance in UI
+        userRepository.getCurrentUser().collectLatest { }
     }
 }
