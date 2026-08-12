@@ -126,22 +126,22 @@ interface SocialApi {
     @GET("chats/stories/{storyId}/viewers")
     suspend fun getStoryViewers(@Path("storyId") storyId: String): Response<ViewersResponse>
 
-    @GET("channels")
+    @GET("chats/channels")
     suspend fun getChannels(): Response<ChannelsResponse>
 
-    @POST("channels-create")
-    suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiPost>
+    @POST("chats/channels")
+    suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiChannel>
 
-    @POST("channels/{channelId}/subscribe")
+    @POST("chats/channels/{channelId}/subscribe")
     suspend fun subscribeToChannel(@Path("channelId") channelId: String): Response<StatusResponse>
 
-    @POST("channels/{channelId}/mute")
+    @POST("chats/channels/{channelId}/mute")
     suspend fun muteChannel(@Path("channelId") channelId: String, @Body request: MuteRequest): Response<StatusResponse>
 
-    @POST("channels/{channelId}/admins")
+    @POST("chats/channels/{channelId}/admins")
     suspend fun addChannelAdmin(@Path("channelId") channelId: String, @Body request: UserIdRequest): Response<StatusResponse>
 
-    @HTTP(method = "DELETE", path = "channels/{channelId}/admins", hasBody = true)
+    @HTTP(method = "DELETE", path = "chats/channels/{channelId}/admins", hasBody = true)
     suspend fun removeChannelAdmin(@Path("channelId") channelId: String, @Body request: UserIdRequest): Response<StatusResponse>
 }
 

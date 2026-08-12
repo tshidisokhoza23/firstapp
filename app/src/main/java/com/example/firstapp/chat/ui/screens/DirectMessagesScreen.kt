@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.firstapp.chat.model.CallLog
 import com.example.firstapp.chat.model.ChatMessage
+import com.example.firstapp.chat.ui.components.ChatAvatar
 import com.example.firstapp.chat.ui.viewmodel.DirectMessagesViewModel
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.ui.theme.*
@@ -187,19 +188,14 @@ fun DMItem(chat: ChatMessage, onClick: () -> Unit) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(50.dp)
-                .clip(CircleShape)
-                .background(chat.avatarColor),
-            contentAlignment = Alignment.Center
-        ) {
-            if (chat.avatarUrl != null) {
-                AsyncImage(model = chat.avatarUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            } else {
-                Text(resolvedName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            }
-        }
+        ChatAvatar(
+            imageUrl = chat.avatarUrl,
+            name = resolvedName,
+            size = 50.dp,
+            fontSize = 20.sp,
+            backgroundColor = if (chat.avatarColor != Color.Transparent) chat.avatarColor else MaterialTheme.colorScheme.surfaceVariant,
+            textColor = Color.White
+        )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -220,19 +216,14 @@ fun CallItem(call: CallLog, onClick: () -> Unit) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(50.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (call.contactAvatar != null) {
-                AsyncImage(model = call.contactAvatar, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            } else {
-                Text(call.contactName.take(1).uppercase(), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            }
-        }
+        ChatAvatar(
+            imageUrl = call.contactAvatar,
+            name = call.contactName,
+            size = 50.dp,
+            fontSize = 20.sp,
+            backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+            textColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(call.contactName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)

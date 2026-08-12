@@ -41,7 +41,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             navArgument("companyName") { type = NavType.StringType; nullable = true; defaultValue = "" }
         )
     ) { backStackEntry ->
-        val chatViewModel: ChatViewModel = hiltViewModel()
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         val typeStr = backStackEntry.arguments?.getString("type") ?: "direct"
         val jobId = backStackEntry.arguments?.getString("jobId")?.takeIf { it.isNotBlank() }
@@ -139,7 +140,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         route = Screen.DirectChat.route,
         arguments = kotlin.collections.listOf(navArgument("chatId") { type = NavType.StringType })
     ) { backStackEntry ->
-        val chatViewModel: ChatViewModel = hiltViewModel()
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         
         val chatsState by chatViewModel.chats.collectAsState()
@@ -174,8 +176,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         )
     }
 
-    composable(Screen.ArchivedChats.route) {
-        val chatViewModel: ChatViewModel = hiltViewModel()
+    composable(Screen.ArchivedChats.route) { backStackEntry ->
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         ArchivedChatsScreen(
             onBack = { navController.popBackStack() },
             onChatClick = { chat -> 
@@ -190,8 +193,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         )
     }
 
-    composable(Screen.StarredMessages.route) {
-        val chatViewModel: ChatViewModel = hiltViewModel()
+    composable(Screen.StarredMessages.route) { backStackEntry ->
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val starredMessages by chatViewModel.starredMessages.collectAsState()
         StarredMessagesScreen(
             messagesState = starredMessages,
@@ -199,7 +203,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onMessageClick = { msg ->
                 navController.navigate(Screen.Chat.createRoute(msg.conversationId))
             },
-            viewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            viewModel = hiltViewModel()
         )
     }
 
@@ -208,7 +212,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         arguments = kotlin.collections.listOf(navArgument("isGroupMode") { type = NavType.BoolType; defaultValue = false })
     ) { backStackEntry ->
         val isGroupMode = backStackEntry.arguments?.getBoolean("isGroupMode") ?: false
-        val chatViewModel: ChatViewModel = hiltViewModel()
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val contactPickerViewModel: ContactPickerViewModel = hiltViewModel()
         ContactPickerScreen(
             viewModel = contactPickerViewModel,
@@ -228,10 +233,13 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         )
     }
     
-    composable(Screen.CreateGroup.route) {
-        val chatViewModel: ChatViewModel = hiltViewModel()
+    composable(Screen.CreateGroup.route) { backStackEntry ->
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val createGroupViewModel: CreateGroupViewModel = hiltViewModel()
-        val selectedContacts = chatViewModel.selectedContactsForGroup.collectAsState().value
+        
+        val uiState by chatViewModel.uiState.collectAsState()
+        val selectedContacts = uiState.selectedContactsForGroup
         
         CreateGroupScreen(
             selectedContacts = selectedContacts,
@@ -254,7 +262,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         arguments = kotlin.collections.listOf(navArgument("chatId") { type = NavType.StringType })
     ) { backStackEntry ->
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
-        val chatViewModel: ChatViewModel = hiltViewModel()
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val viewModel: SharedMediaViewModel = hiltViewModel()
         
         val chatsState by chatViewModel.chats.collectAsState()
@@ -284,7 +293,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     ) { backStackEntry ->
         val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
         val isGroup = backStackEntry.arguments?.getBoolean("isGroup") ?: false
-        val chatViewModel: ChatViewModel = hiltViewModel()
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         
         val chatsState by chatViewModel.chats.collectAsState()
         val chats = chatsState.data ?: emptyList()

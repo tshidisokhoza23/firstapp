@@ -47,6 +47,9 @@ interface ChatApi {
     @POST("chats/group/{groupId}/leave")
     suspend fun leaveGroup(@Path("groupId") groupId: String): Response<StatusResponse>
 
+    @DELETE("chats/messages/{messageId}")
+    suspend fun deleteMessage(@Path("messageId") messageId: String): Response<StatusResponse>
+
     @GET("calls/ice_servers")
     suspend fun getICEServers(): Response<IceServersResponse>
 }

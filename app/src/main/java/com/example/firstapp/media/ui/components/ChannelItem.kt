@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.media.model.Channel
+import com.example.firstapp.chat.ui.components.ChatAvatar
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
@@ -47,29 +48,14 @@ fun ChannelItem(channel: Channel, onClick: () -> Unit = {}) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Avatar
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(channel.avatarColor),
-            contentAlignment = Alignment.Center
-        ) {
-            if (!channel.avatarUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = channel.avatarUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Text(
-                    text = channel.name.take(1).uppercase(),
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-        }
+        ChatAvatar(
+            imageUrl = channel.avatarUrl,
+            name = channel.name,
+            size = 56.dp,
+            fontSize = 22.sp,
+            backgroundColor = channel.avatarColor,
+            textColor = Color.White
+        )
 
         Spacer(modifier = Modifier.width(16.dp))
 

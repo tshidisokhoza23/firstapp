@@ -49,6 +49,42 @@ import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.util.formatWhatsAppTime
 import kotlin.collections.*
 
+@Composable
+fun ChatAvatar(
+    imageUrl: String?,
+    name: String,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 40.dp,
+    fontSize: androidx.compose.ui.unit.TextUnit = 16.sp,
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    textColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(backgroundColor),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!imageUrl.isNullOrEmpty()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            val initial = if (name.isNotEmpty()) name.trim().take(1).uppercase() else "?"
+            Text(
+                text = initial,
+                color = textColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = fontSize
+            )
+        }
+    }
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MessageItem(

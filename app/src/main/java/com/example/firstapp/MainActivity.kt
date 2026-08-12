@@ -234,11 +234,18 @@ class MainActivity : FragmentActivity() {
                         }
                         lifecycleScope.launch {
                             try {
+                                // 1. Sync Chats first to establish history
+                                chatRepository.syncChats().collect {}
+
+                                // 2. Trigger background contact sync immediately
+                                ContactsObserver.triggerSyncWorker(this@MainActivity)
+
+                                // 3. Sync Contacts (merges history + account + device)
                                 val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
                                 chatRepository.syncContacts(phoneNumbers).collect {}
                                 chatRepository.refreshLocalChatNames()
                                 
-                                // Populate GlobalCallState names from local chats
+                                // 3. Populate GlobalCallState names from local chats
                                 chatRepository.getChats().collect { res ->
                                     if (res is Resource.Success) {
                                         res.data?.forEach { chat ->

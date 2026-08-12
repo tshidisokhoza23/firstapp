@@ -71,13 +71,19 @@ class ChannelRepositoryImpl @Inject constructor(
     }
 
     override fun createChannel(name: String, description: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
         try {
-            if (socialApi.createChannel(CreateChannelRequest(name, description)).isSuccessful) {
+            val response = socialApi.createChannel(CreateChannelRequest(name, description))
+            if (response.isSuccessful) {
                 emit(Resource.Success(true))
             } else {
-                emit(Resource.Error("Fail"))
+                val errorMsg = response.errorBody()?.string() ?: "Failed to create channel"
+                emit(Resource.Error(errorMsg))
             }
-        } catch (e: Exception) { emit(Resource.Error("Offline")) }
+        } catch (e: Exception) { 
+            Log.e("ChannelRepo", "createChannel exception", e)
+            emit(Resource.Error(e.message ?: "Connection error")) 
+        }
     }
 
     override fun searchChannels(query: String): Flow<List<Channel>> = 

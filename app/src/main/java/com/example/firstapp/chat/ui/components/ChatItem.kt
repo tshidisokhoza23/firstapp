@@ -62,29 +62,22 @@ fun ChatItem(
             modifier = avatarModifier,
             contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                if (chat.avatarUrl != null) {
-                    AsyncImage(
-                        model = chat.avatarUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(
-                        text = chat.senderName.take(1).uppercase(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                }
-            }
+            val backgroundColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray) 
+                chat.avatarColor 
+            else MaterialTheme.colorScheme.surfaceVariant
+            
+            val textColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray)
+                Color.White
+            else MaterialTheme.colorScheme.onSurfaceVariant
+
+            ChatAvatar(
+                imageUrl = chat.avatarUrl,
+                name = chat.senderName,
+                size = 56.dp,
+                fontSize = 20.sp,
+                backgroundColor = backgroundColor,
+                textColor = textColor
+            )
         }
 
         Spacer(modifier = Modifier.width(16.dp))

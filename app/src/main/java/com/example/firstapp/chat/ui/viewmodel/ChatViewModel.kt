@@ -76,6 +76,7 @@ class ChatViewModel @Inject constructor(
     private val exhaustedCursorByChat = mutableMapOf<String, Long>()
 
     init {
+        android.util.Log.d("ChatViewModel", "Initializing ChatViewModel: ${this.hashCode()}")
         handleIntent(ChatIntent.FetchChats)
         fetchCurrentUser()
         
@@ -491,6 +492,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun updateSelectedContacts(contacts: List<Contact>) {
+        android.util.Log.d("ChatViewModel", "Updating selected contacts: ${contacts.size}")
         _uiState.update { it.copy(selectedContactsForGroup = contacts) }
     }
 

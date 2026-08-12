@@ -63,6 +63,12 @@ interface UserApi {
 
     @POST("users/sync-contacts")
     suspend fun syncContacts(@Body request: SyncContactsRequest): Response<ContactsResponse>
+
+    @POST("users/persistent-contacts")
+    suspend fun syncAccountContacts(@Body request: SyncAccountContactsRequest): Response<StatusResponse>
+
+    @GET("users/persistent-contacts")
+    suspend fun getSavedContacts(): Response<List<AccountContactDTO>>
     
     @GET("search")
     suspend fun search(@Query("query") query: String, @Query("type") type: String? = null): Response<SearchResponse>
@@ -123,6 +129,13 @@ data class ApiUser(
 )
 
 data class SyncContactsRequest(val phone_numbers: List<String>)
+
+data class SyncAccountContactsRequest(val contacts: List<AccountContactDTO>)
+
+data class AccountContactDTO(
+    val name: String,
+    val phone_number: String
+)
 
 data class SearchResponse(
     val chats: List<ChatSummary>,

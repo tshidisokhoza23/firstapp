@@ -36,9 +36,14 @@ class ContactPickerViewModel @Inject constructor(
         fetchJob = viewModelScope.launch {
             _contacts.value = Resource.Loading()
             try {
-                // Wait for sync to complete before starting to collect from DB
+                // 1. Sync Chats first - this recovers people you've talked to 
+                // but aren't in this phone's address book
+                repository.syncChats().collect { }
+
+                // 2. Sync Phone Contacts
                 syncContacts()
                 
+                // 3. Update UI from local DB
                 repository.getContacts().collect { resource ->
                     _contacts.value = resource
                 }

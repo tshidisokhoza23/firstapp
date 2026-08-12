@@ -26,6 +26,7 @@ import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.MessageType
 import com.example.firstapp.chat.model.Contact
+import com.example.firstapp.chat.ui.components.ChatAvatar
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.common.ui.theme.SecondaryText
 import com.example.firstapp.common.util.MediaUtils
@@ -86,26 +87,15 @@ fun ChatProfileScreen(
                     .height(350.dp)
                     .background(Color.DarkGray)
             ) {
-                if (chat.avatarUrl != null) {
-                    AsyncImage(
-                        model = chat.avatarUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(120.dp)
-                        )
-                    }
-                }
+                ChatAvatar(
+                    imageUrl = chat.avatarUrl,
+                    name = chat.senderName,
+                    size = 350.dp,
+                    fontSize = 120.sp,
+                    backgroundColor = Color.DarkGray,
+                    textColor = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                )
                 
                 // Name Overlay
                 Box(
@@ -228,21 +218,13 @@ fun ChatProfileScreen(
                                         }
                                     },
                                     leadingContent = {
-                                        Box(
-                                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.Gray),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (memberContact?.avatarUrl != null) {
-                                                AsyncImage(
-                                                    model = memberContact.avatarUrl,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = ContentScale.Crop
-                                                )
-                                            } else {
-                                                Text(name.take(1).uppercase(), color = Color.White)
-                                            }
-                                        }
+                                        ChatAvatar(
+                                            imageUrl = memberContact?.avatarUrl,
+                                            name = name,
+                                            size = 40.dp,
+                                            backgroundColor = if (memberId == currentUserId) AppAccent else Color.Gray,
+                                            textColor = Color.White
+                                        )
                                     },
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                     modifier = Modifier.clickable {
@@ -274,7 +256,10 @@ fun ChatProfileScreen(
                             }
                         }
                         is Resource.Error -> {
-                            Text("Failed to load members: ${groupInfo.message}", color = Color.Red)
+                            // If it's a group, we might have partial info from the chat itself
+                            if (!chat.isGroup) {
+                                Text("Failed to load profile: ${groupInfo.message}", color = Color.Red)
+                            }
                         }
                     }
                 }

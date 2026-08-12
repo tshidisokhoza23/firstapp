@@ -117,34 +117,20 @@ fun ChatTopBar(
                             .padding(horizontal = 4.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable {
-                                    val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
-                                    onAvatarClick(targetId)
-                                }
-                        ) {
-                            if (chat.avatarUrl != null) {
-                                AsyncImage(
-                                    model = chat.avatarUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = "?",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp
-                                    )
-                                }
+                        ChatAvatar(
+                            imageUrl = chat.avatarUrl,
+                            name = sanitizedName,
+                            size = 40.dp,
+                            fontSize = 18.sp,
+                            backgroundColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray) 
+                                chat.avatarColor else MaterialTheme.colorScheme.surfaceVariant,
+                            textColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray) 
+                                Color.White else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
+                                onAvatarClick(targetId)
                             }
-                        }
+                        )
                         
                         Spacer(modifier = Modifier.width(12.dp))
                         

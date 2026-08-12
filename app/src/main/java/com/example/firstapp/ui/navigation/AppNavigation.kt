@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.auth.ui.navigation.authNavGraph
@@ -40,7 +41,7 @@ fun AppNavigation(
     adManager: com.example.firstapp.common.data.ads.AdManager,
     onLogout: () -> Unit
 ) {
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(navController = navController, startDestination = startDestination, route = "app_root") {
         authNavGraph(navController)
         
         composable(

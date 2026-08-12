@@ -75,6 +75,8 @@ fun PostItem(
             isOwnPost = isOwnPost,
             activePostId = activePostId,
             showThreadLine = showThreadLine,
+            showLineAbove = showThreadLine && !isLastInThread, // Defaults for feed
+            showLineBelow = showThreadLine && !isLastInThread,
             isLastInThread = isLastInThread,
             onLikeClick = { onLike(post.id, post.likes, post.isLiked) },
             onCommentClick = { onReplyClick(post, null) },
@@ -96,7 +98,9 @@ fun VerticalFeedPostCard(
     isOwnPost: Boolean = false,
     activePostId: String? = null,
     showThreadLine: Boolean = false,
-    isLastInThread: Boolean = false,
+    showLineAbove: Boolean = true,
+    showLineBelow: Boolean = true,
+    isLastInThread: Boolean = false, // Kept for compatibility but we'll use flags
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onRepostClick: () -> Unit,
@@ -121,6 +125,7 @@ fun VerticalFeedPostCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .background(MaterialTheme.colorScheme.surface)
             .padding(vertical = 4.dp)
     ) {
@@ -128,8 +133,8 @@ fun VerticalFeedPostCard(
             PostSideBar(
                 avatarUrl = displayPost.authorAvatarUrl,
                 avatarColor = displayPost.authorAvatarColor,
-                showThreadLine = true,
-                isLastInThread = isLastInThread,
+                showLineAbove = showLineAbove,
+                showLineBelow = showLineBelow,
                 onProfileClick = { onProfileClick(displayPost.authorId) }
             )
         }
@@ -421,14 +426,26 @@ fun VerticalFeedPostCard(
 fun PostSideBar(
     avatarUrl: String?,
     avatarColor: Color,
-    showThreadLine: Boolean,
-    isLastInThread: Boolean,
+    showLineAbove: Boolean = false,
+    showLineBelow: Boolean = false,
     onProfileClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(64.dp)
+        modifier = Modifier
+            .width(64.dp)
+            .fillMaxHeight()
     ) {
+        // Line above avatar
+        if (showLineAbove) {
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(8.dp)
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            )
+        }
+
         Box(
             modifier = Modifier
                 .size(48.dp)
@@ -446,12 +463,13 @@ fun PostSideBar(
             )
         }
 
-        if (showThreadLine && !isLastInThread) {
+        // Line below avatar
+        if (showLineBelow) {
             Box(
                 modifier = Modifier
                     .width(2.dp)
                     .weight(1f)
-                    .padding(top = 4.dp)
+                    .padding(top = 2.dp)
                     .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             )
         }

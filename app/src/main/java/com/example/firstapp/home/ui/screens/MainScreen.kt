@@ -30,19 +30,31 @@ import com.example.firstapp.media.ui.screens.shorts.ShortsTabScreen
 import com.example.firstapp.music.ui.screens.MusicTabScreen
 import com.example.firstapp.drive.ui.screens.DriveTabScreen
 
+import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
     musicViewModel: MusicViewModel,
     navController: NavController,
     adManager: com.example.firstapp.common.data.ads.AdManager,
-    userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = hiltViewModel(),
     onLogout: () -> Unit,
     initialShortId: String? = null
 ) {
     val selectedIndex by viewModel.selectedBottomItem.collectAsState()
     val currentTab = BottomNavItem.fromIndex(selectedIndex)
     val currentUser = com.example.firstapp.LocalCurrentUser.current
+
+    // Scoped ChatViewModel to sync state across the app flow
+    val navHostController = navController as? androidx.navigation.NavHostController
+    val chatViewModel: ChatViewModel = if (navHostController != null) {
+        val entry = remember(navHostController) { navHostController.getBackStackEntry("app_root") }
+        hiltViewModel(entry)
+    } else {
+        hiltViewModel()
+    }
 
     LaunchedEffect(Unit) {
         userViewModel.fetchCurrentUser()
@@ -140,11 +152,13 @@ fun MainScreen(
                             BottomNavItem.Chat -> ChatsListScreen(
                                 navController = navController,
                                 adManager = adManager,
-                                onLogout = onLogout
+                                onLogout = onLogout,
+                                chatViewModel = chatViewModel
                             )
                             BottomNavItem.Media -> MediaTabScreen(
                                 navController = navController,
-                                adManager = adManager
+                                adManager = adManager,
+                                chatViewModel = chatViewModel
                             )
                             BottomNavItem.Shorts -> ShortsTabScreen(
                                 navController = navController,
@@ -156,12 +170,14 @@ fun MainScreen(
                                 navController = navController
                             )
                             BottomNavItem.Drive -> DriveTabScreen(
-                                navController = navController
+                                navController = navController,
+                                chatViewModel = chatViewModel
                             )
                             else -> ChatsListScreen(
                                 navController = navController,
                                 adManager = adManager,
-                                onLogout = onLogout
+                                onLogout = onLogout,
+                                chatViewModel = chatViewModel
                             )
                         }
                     }
