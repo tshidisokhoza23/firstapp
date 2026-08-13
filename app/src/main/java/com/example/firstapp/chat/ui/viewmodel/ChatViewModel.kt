@@ -157,9 +157,9 @@ class ChatViewModel @Inject constructor(
                 // Collect local chats and update UI state
                 repository.getChats().collect { resource ->
                     android.util.Log.d("ChatViewModel", "fetchChats: received ${resource.data?.size ?: 0} chats")
-                    _uiState.update { it.copy(chats = resource) }
                     
                     if (resource is Resource.Success) {
+                        _uiState.update { it.copy(chats = resource, error = null) }
                         resource.data?.forEach { chat ->
                             val currentName = GlobalCallState.getContactName(chat.id)
                             val newName = chat.senderName
@@ -277,7 +277,7 @@ class ChatViewModel @Inject constructor(
                             repository.updateMessageStatus(mid, MessageStatus.READ)
                         }
                     }
-                    "CONVERSATION_UPDATE", "CONVERSATION_CREATE" -> {
+                    "CONVERSATION_UPDATE", "CONVERSATION_CREATE", "NEW_CHAT" -> {
                         fetchChats()
                     }
                 }
