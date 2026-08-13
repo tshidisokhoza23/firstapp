@@ -173,6 +173,8 @@ class ChatViewModel @Inject constructor(
                                 groupNameCache[chat.id] = chat.senderName
                             }
                         }
+                    } else if (resource is Resource.Loading && _uiState.value.chats.data.isNullOrEmpty()) {
+                        _uiState.update { it.copy(chats = resource) }
                     }
                 }
             } finally {

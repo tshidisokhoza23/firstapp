@@ -56,6 +56,9 @@ interface ChatApi {
     @DELETE("chats/messages/{messageId}")
     suspend fun deleteMessage(@Path("messageId") messageId: String): Response<StatusResponse>
 
+    @POST("calls/initiate")
+    suspend fun initiateCall(@Body request: InitiateCallRequest): Response<InitiateCallResponse>
+
     @GET("calls/ice_servers")
     suspend fun getICEServers(): Response<IceServersResponse>
 }
@@ -134,6 +137,9 @@ data class MessageResponse(val message: ApiMessage)
 data class InitiateDMRequest(val contact_id: String)
 data class CreateGroupRequest(val title: String, val member_ids: List<String>)
 data class ConversationResponse(val conversation_id: String)
+
+data class InitiateCallRequest(val receiver_id: String, val call_type: String)
+data class InitiateCallResponse(val session_id: String)
 
 data class SendMessageRequest(
     val client_uuid: String,

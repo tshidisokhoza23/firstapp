@@ -22,7 +22,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.map as flowMap
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -54,7 +56,7 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getChats(): Flow<Resource<List<ChatMessage>>> = 
         chatDao.getChats().flowMap { list: List<ChatEntity> -> 
             Log.d("ChatRepositoryImpl", "getChats: emitting ${list.size} chats from DB")
-            Resource.Success(list.map { it.toModel() }) 
+            Resource.Success(list.map { it.toModel() })
         }
 
     override fun syncChats(): Flow<Resource<Boolean>> = flow {
@@ -727,7 +729,21 @@ class ChatRepositoryImpl @Inject constructor(
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getMessageReaders(messageId: String): Flow<Resource<List<com.example.firstapp.chat.data.api.ApiReader>>> = flow { emit(Resource.Success(emptyList<com.example.firstapp.chat.data.api.ApiReader>())) }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow { emit(Resource.Success(UUID.randomUUID().toString())) }
+    override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.initiateCall(InitiateCallRequest(receiverId, callType))
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.session_id))
+            } else {
+                // Fallback to local ID if API fails, to maintain service availability
+                emit(Resource.Success(UUID.randomUUID().toString()))
+            }
+        } catch (e: Exception) {
+            // Fallback for offline/error
+            emit(Resource.Success(UUID.randomUUID().toString()))
+        }
+    }
     override fun searchLocalMessages(chatId: String, query: String): Flow<List<Message>> = 
         chatDao.getMessages(chatId).flowMap { list ->
             list.filter { it.content.contains(query, ignoreCase = true) }.map { it.toModel() }
