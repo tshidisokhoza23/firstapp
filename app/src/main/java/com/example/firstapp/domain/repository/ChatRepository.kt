@@ -13,6 +13,7 @@ interface ChatRepository {
     fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
     fun getArchivedChats(): Flow<Resource<List<ChatMessage>>>
     fun getCallLogs(): Flow<Resource<List<CallLog>>>
+    fun getMessagesPaged(chatId: String): Flow<androidx.paging.PagingData<Message>>
     fun getMessages(chatId: String, page: Int = 1): Flow<Resource<List<Message>>>
     fun fetchOlderMessages(chatId: String, beforeTs: Long, limit: Int = 50): Flow<Resource<Boolean>>
     fun markAsRead(chatId: String): Flow<Resource<Boolean>>

@@ -8,6 +8,7 @@ appcompat = "1.6.1"
 lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 kotlin = "2.1.0"
+kotlinxSerialization = "1.6.3"
 composeBom = "2024.10.00"
 mapsCompose = "6.1.2"
 playServicesMaps = "20.0.0"
@@ -84,6 +85,7 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 applovin-sdk = { group = "com.applovin", name = "applovin-sdk", version.ref = "applovin" }
 applovin-google-adapter = { group = "com.applovin.mediation", name = "google-adapter", version.ref = "applovin-google-adapter" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -93,3 +95,4 @@ google-services = { id = "com.google.gms.google-services", version.ref = "google
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version = "2.3.7" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

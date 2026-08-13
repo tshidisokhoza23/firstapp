@@ -31,6 +31,9 @@ interface ChatDao {
     @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp ASC")
     fun getMessages(chatId: String): Flow<List<MessageEntity>>
 
+    @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp DESC")
+    fun getMessagesPaging(chatId: String): androidx.paging.PagingSource<Int, MessageEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessages(messages: List<MessageEntity>)
 
