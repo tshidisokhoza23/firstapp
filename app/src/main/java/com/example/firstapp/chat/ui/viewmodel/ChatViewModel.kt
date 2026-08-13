@@ -134,7 +134,18 @@ class ChatViewModel @Inject constructor(
             try {
                 // Sync from network
                 launch {
-                    repository.syncChats().collect { }
+                    repository.syncChats().collect { resource ->
+                        if (resource is Resource.Error) {
+                            _uiState.update { state ->
+                                state.copy(
+                                    error = resource.message,
+                                    chats = if (state.chats.data.isNullOrEmpty()) {
+                                        Resource.Error(resource.message ?: "Sync failed", state.chats.data)
+                                    } else state.chats
+                                )
+                            }
+                        }
+                    }
                 }
 
                 launch {
@@ -142,8 +153,12 @@ class ChatViewModel @Inject constructor(
                         _uiState.update { it.copy(archivedChats = res) }
                     }
                 }
+                
+                // Collect local chats and update UI state
                 repository.getChats().collect { resource ->
+                    android.util.Log.d("ChatViewModel", "fetchChats: received ${resource.data?.size ?: 0} chats")
                     _uiState.update { it.copy(chats = resource) }
+                    
                     if (resource is Resource.Success) {
                         resource.data?.forEach { chat ->
                             val currentName = GlobalCallState.getContactName(chat.id)
@@ -161,6 +176,8 @@ class ChatViewModel @Inject constructor(
                     }
                 }
             } finally {
+                // This will still probably not be reached if getChats() flow stays open,
+                // which is why we might want to launch getChats collection in its own job too.
                 _uiState.update { it.copy(isChatsFetching = false) }
             }
         }

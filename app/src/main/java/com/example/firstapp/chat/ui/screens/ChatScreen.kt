@@ -437,7 +437,7 @@ fun ChatMessagesScreen(
                         val myUserId = uiState.currentUser?.id
                         val isConversationClosed = uiState.closedConversationIds.contains(chat.id)
                         val canPost = when (chat.type) {
-                            ConversationType.DIRECT, ConversationType.GROUP -> true
+                            ConversationType.DIRECT, ConversationType.GROUP, ConversationType.JOB_CHAT -> true
                             ConversationType.CHANNEL -> {
                                 val isAdm = chat.isAdmin || (chat.createdBy != null && chat.createdBy == myUserId)
                                 if (!isAdm) {

@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.ads.AdLoader
 import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.nativead.MediaView
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdView
@@ -45,10 +44,6 @@ fun VocabAdBlock(
             nativeAd?.destroy()
             nativeAd = null
         }
-    }
-
-    LaunchedEffect(Unit) {
-        MobileAds.initialize(context)
     }
 
     Surface(

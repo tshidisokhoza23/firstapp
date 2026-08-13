@@ -1,7 +1,8 @@
 package com.example.firstapp.media
 
-import com.example.firstapp.media.ui.viewmodel.StoryViewModel
-import com.example.firstapp.media.domain.repository.SocialRepository
+import com.example.firstapp.chat.ui.viewmodel.StoryViewModel
+import com.example.firstapp.chat.domain.repository.StoryRepository
+import com.example.firstapp.chat.model.UserStory
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.common.util.Resource
 import io.mockk.*
@@ -19,7 +20,7 @@ import kotlin.collections.*
 class StoryViewModelTest {
 
     private lateinit var viewModel: StoryViewModel
-    private val socialRepository: SocialRepository = mockk(relaxed = true)
+    private val repository: StoryRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val chatRepository: com.example.firstapp.domain.repository.ChatRepository = mockk(relaxed = true)
     private val postWebSocketClient: com.example.firstapp.media.data.realtime.PostWebSocketClient = mockk(relaxed = true)
@@ -28,8 +29,8 @@ class StoryViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        every { socialRepository.getStories() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.media.model.UserStory>()))
-        viewModel = StoryViewModel(socialRepository, accountRepository, chatRepository, postWebSocketClient)
+        every { repository.getStories() } returns flowOf(Resource.Success(emptyList<UserStory>()))
+        viewModel = StoryViewModel(repository, accountRepository, chatRepository, postWebSocketClient)
     }
 
     @After
@@ -42,21 +43,21 @@ class StoryViewModelTest {
     fun `viewing a story ad awards reward points`() = runTest {
         val userId = "user1"
         val storyId = "ad_123"
-        coEvery { socialRepository.markStoryAsViewed(userId, storyId) } returns flowOf(Resource.Success(true))
+        coEvery { repository.markStoryAsViewed(userId, storyId) } returns flowOf(Resource.Success(true))
         
         viewModel.markStoryAsViewed(userId, storyId)
         
-        coVerify { socialRepository.markStoryAsViewed(userId, storyId) }
+        coVerify { repository.markStoryAsViewed(userId, storyId) }
         // Repository handles the +0.1 reward logic.
     }
 
     @Test
     fun `posting story success updates post result`() = runTest {
-        coEvery { socialRepository.createStory("hello", null, "text") } returns flowOf(Resource.Success(true))
+        coEvery { repository.createStory("hello", null, "text") } returns flowOf(Resource.Success(true))
 
         viewModel.postStory("hello", null, "text")
 
         assertTrue(viewModel.postResult.value is Resource.Success)
-        coVerify { socialRepository.createStory("hello", null, "text") }
+        coVerify { repository.createStory("hello", null, "text") }
     }
 }

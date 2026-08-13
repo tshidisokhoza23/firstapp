@@ -95,6 +95,7 @@ fun ChatsListScreen(
     }
     
     val sanitizedChats = remember(chatsState) {
+        android.util.Log.d("ChatTabScreen", "Recomposing sanitizedChats: state=${chatsState::class.simpleName}, count=${chatsState.data?.size ?: 0}")
         chatsState.data ?: emptyList()
     }
 
@@ -418,6 +419,7 @@ fun ChatsListScreen(
                                         archivedChatsCount = archivedChatsState.data?.size ?: 0,
                                         stories = storiesState.data ?: emptyList<UserStory>(),
                                         chatViewModel = chatViewModel,
+                                        navController = navController,
                                         topBarHeight = 0.dp, // No spacer inside list
                                         currentUserId = currentUser?.id,
                                         initialScrollDone = isChatInitialScrollDone,
@@ -426,6 +428,7 @@ fun ChatsListScreen(
                                             val typeStr = when (chat.type) {
                                                 ConversationType.CHANNEL -> "channel"
                                                 ConversationType.GROUP -> "group"
+                                                ConversationType.JOB_CHAT -> "job_chat"
                                                 else -> "direct"
                                             }
                                             navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
@@ -566,7 +569,7 @@ fun ChatsListScreen(
 }
 
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 
 @Composable
 fun ChatList(
@@ -574,6 +577,7 @@ fun ChatList(
     archivedChatsCount: Int,
     stories: List<UserStory>,
     chatViewModel: ChatViewModel,
+    navController: NavController,
     topBarHeight: Dp = 0.dp,
     currentUserId: String? = null,
     initialScrollDone: Boolean = false,
@@ -589,6 +593,8 @@ fun ChatList(
     var selectedChatForMenu by remember { mutableStateOf<ChatMessage?>(null) }
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
+    
+    val uiState by chatViewModel.uiState.collectAsState()
 
     LaunchedEffect(chats, stories, archivedChatsCount, topBarHeight) {
         if (!initialScrollDone && (chats.size > 0 || archivedChatsCount > 0) && topBarHeight.value > 0f) {
@@ -606,10 +612,14 @@ fun ChatList(
         }
     }
 
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize()
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = uiState.isChatsFetching,
+        onRefresh = { chatViewModel.fetchChats() }
     ) {
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize()
+        ) {
         item(key = "stories_row_item") {
             Box(
                 modifier = Modifier
@@ -659,6 +669,21 @@ fun ChatList(
                             color = Color.Gray,
                             fontSize = 16.sp
                         )
+                        Spacer(Modifier.height(24.dp))
+                        Button(
+                            onClick = { chatViewModel.fetchChats() },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Refresh")
+                        }
+                        TextButton(
+                            onClick = { navController.navigate(Screen.ContactPicker.route) },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Text("Find Friends")
+                        }
                     }
                 }
             }
@@ -711,6 +736,7 @@ fun ChatList(
                 )
             }
         }
+    }
     }
 
     if (selectedChatForMenu != null) {

@@ -1,7 +1,7 @@
 package com.example.firstapp.media
 
-import com.example.firstapp.media.ui.viewmodel.ChannelsViewModel
-import com.example.firstapp.media.domain.repository.ChannelRepository
+import com.example.firstapp.chat.ui.viewmodel.ChannelsViewModel
+import com.example.firstapp.chat.domain.repository.ChannelRepository
 import com.example.firstapp.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers

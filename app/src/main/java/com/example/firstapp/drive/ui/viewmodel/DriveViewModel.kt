@@ -196,7 +196,7 @@ class DriveViewModel @Inject constructor(
     private var driversJob: Job? = null
     private var bookingJob: Job? = null
     private var simulationJob: Job? = null
-    private val apiKey = "AIzaSyAcwjsoRCNMFsX5ayuuYC1CoNqj8NVP3Kw"
+    private val apiKey = "AIzaSyDvArA2Ykp3Q6EsQMVSre4piq9SvARF7H4"
 
     enum class BookingStatus {
         NONE, SEARCHING, EN_ROUTE, ARRIVED, IN_PROGRESS, COMPLETED

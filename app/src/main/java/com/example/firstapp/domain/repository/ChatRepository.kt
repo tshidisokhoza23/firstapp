@@ -78,5 +78,7 @@ interface ChatRepository {
     fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter = com.example.firstapp.search.model.SearchFilter.ALL): Flow<List<Message>>
     fun getAllFiles(): Flow<Resource<List<Message>>>
     suspend fun refreshLocalChatNames()
+    fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>>
+    fun getConversationMembers(chatId: String): Flow<Resource<List<com.example.firstapp.common.data.api.ApiUser>>>
     suspend fun getICEServers(): Resource<List<com.example.firstapp.chat.data.api.IceServerConfig>>
 }

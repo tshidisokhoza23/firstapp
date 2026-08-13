@@ -37,6 +37,7 @@ import com.google.android.libraries.places.api.Places
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.FragmentActivity
 import com.example.firstapp.common.util.BiometricHelper
 import com.example.firstapp.common.util.RootUtils
@@ -65,6 +66,28 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var adManager: com.example.firstapp.common.data.ads.AdManager
     @Inject lateinit var sessionManager: com.example.firstapp.common.domain.auth.SessionManager
     private var contactsObserver: ContactsObserver? = null
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val contactsGranted = permissions[Manifest.permission.READ_CONTACTS] ?: false
+        if (contactsGranted) {
+            setupContactsObserver()
+            lifecycleScope.launch {
+                try {
+                    val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
+                    chatRepository.syncContacts(phoneNumbers).collect {}
+                    chatRepository.refreshLocalChatNames()
+                } catch (_: Exception) {}
+            }
+        }
+        
+        val notificationsGranted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
+        } else true
+        
+        android.util.Log.d("MainActivity", "Permissions result: contacts=$contactsGranted, notifications=$notificationsGranted")
+    }
 
     private fun consumeIncomingCallIntent(intent: Intent?) {
         intent ?: return
@@ -120,26 +143,31 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun requestAppPermissions() {
-        if (
-            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2001)
+        val permissions = mutableListOf<String>()
+        
+        // 1. Notification permission (Android 13+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
-
-        // Request calling permissions early if possible
-        val permissionsToRequest = ArrayList<String>()
+        
+        // 2. Contacts permission (Crucial for Chat Hub)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.READ_CONTACTS)
+        }
+        
+        // 3. Audio & Camera (For Calling features)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+            permissions.add(Manifest.permission.RECORD_AUDIO)
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.CAMERA)
+            permissions.add(Manifest.permission.CAMERA)
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
-        }
-        if (permissionsToRequest.isNotEmpty()) {
-            requestPermissions(permissionsToRequest.toArray(arrayOfNulls<String>(0)), 2002)
+
+        if (permissions.isNotEmpty()) {
+            android.util.Log.d("MainActivity", "Requesting permissions: $permissions")
+            permissionLauncher.launch(permissions.toTypedArray())
         }
     }
 
@@ -156,10 +184,8 @@ class MainActivity : FragmentActivity() {
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
 
-        adManager.initialize(this)
-
         if (!Places.isInitialized() && isGooglePlayServicesReady()) {
-            Places.initialize(applicationContext, "AIzaSyAcwjsoRCNMFsX5ayuuYC1CoNqj8NVP3Kw")
+            Places.initialize(applicationContext, "AIzaSyDvArA2Ykp3Q6EsQMVSre4piq9SvARF7H4")
         } else if (!isGooglePlayServicesReady()) {
             android.util.Log.w("MainActivity", "Skipping Places init: Google Play services unavailable")
         }
@@ -210,10 +236,14 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                     
-                    // 2. Handle Biometric Lock
+                    // 2. Handle Features (Permissions and Services)
                     if (isLoggedIn) {
                         requestAppPermissions()
-                        setupContactsObserver()
+                        
+                        // Setup observer if permission exists; otherwise launcher handles it later
+                        if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                            setupContactsObserver()
+                        }
 
                         if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {
                             BiometricHelper.showBiometricPrompt(
@@ -395,19 +425,30 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun setupContactsObserver() {
-        contactsObserver = ContactsObserver(this) {
-            displayNameResolver.clearCache()
-            if (sessionManager.isLoggedIn()) {
-                lifecycleScope.launch {
-                    try {
-                        chatRepository.refreshLocalChatNames()
-                        val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
-                        chatRepository.syncContacts(phoneNumbers).collect {}
-                    } catch (_: Exception) {}
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            android.util.Log.w("MainActivity", "Skipping ContactsObserver: READ_CONTACTS not granted")
+            return
+        }
+
+        try {
+            contactsObserver?.unregister()
+            contactsObserver = ContactsObserver(this) {
+                displayNameResolver.clearCache()
+                if (sessionManager.isLoggedIn()) {
+                    lifecycleScope.launch {
+                        try {
+                            chatRepository.refreshLocalChatNames()
+                            val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
+                            chatRepository.syncContacts(phoneNumbers).collect {}
+                        } catch (_: Exception) {}
+                    }
                 }
             }
+            contactsObserver?.register()
+            android.util.Log.d("MainActivity", "ContactsObserver registered successfully")
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Failed to setup ContactsObserver", e)
         }
-        contactsObserver?.register()
     }
 
     private fun isGooglePlayServicesReady(): Boolean {

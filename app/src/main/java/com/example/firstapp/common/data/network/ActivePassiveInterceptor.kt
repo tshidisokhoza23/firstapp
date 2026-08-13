@@ -25,6 +25,7 @@ class ActivePassiveInterceptor @Inject constructor(
             .url(newUrl)
             .build()
             
+        android.util.Log.d("NetworkInterceptor", "Request: ${request.method} ${request.url}")
         return chain.proceed(request)
     }
 }

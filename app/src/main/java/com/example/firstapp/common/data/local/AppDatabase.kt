@@ -43,7 +43,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         PostRemoteKeys::class,
         MessageFtsEntity::class
     ], 
-    version = 55,
+    version = 57,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

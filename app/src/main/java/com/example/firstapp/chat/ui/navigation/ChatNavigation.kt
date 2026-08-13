@@ -270,6 +270,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         
         val type = if (typeStr == "group") ConversationType.GROUP 
                    else if (typeStr == "channel") ConversationType.CHANNEL 
+                   else if (typeStr == "job_chat") ConversationType.JOB_CHAT
                    else ConversationType.DIRECT
         
         var resolvedChatId by remember { mutableStateOf<String?>(if (typeStr == "initiate") null else chatId) }
@@ -404,6 +405,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 val typeStr = when (chat.type) {
                     ConversationType.CHANNEL -> "channel"
                     ConversationType.GROUP -> "group"
+                    ConversationType.JOB_CHAT -> "job_chat"
                     else -> "direct"
                 }
                 navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 

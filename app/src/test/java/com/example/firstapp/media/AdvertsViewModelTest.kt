@@ -1,8 +1,9 @@
 package com.example.firstapp.media
 
 import com.example.firstapp.common.data.ads.AdManager
-import com.example.firstapp.media.domain.repository.AdRepository
-import com.example.firstapp.media.ui.viewmodel.AdvertsViewModel
+import com.example.firstapp.chat.domain.repository.AdRepository
+import com.example.firstapp.chat.ui.viewmodel.AdvertsViewModel
+import com.example.firstapp.chat.model.Advert
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.common.util.Resource
 import io.mockk.*
@@ -35,8 +36,8 @@ class AdvertsViewModelTest {
         coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance() } returns true
         coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(any(), any(), any()) } returns true
 
-        every { adRepository.getAdverts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.media.model.Advert>()))
-        every { adRepository.getViewedAdverts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.media.model.Advert>()))
+        every { adRepository.getAdverts() } returns flowOf(Resource.Success(emptyList<Advert>()))
+        every { adRepository.getViewedAdverts() } returns flowOf(Resource.Success(emptyList<Advert>()))
         every { userRepository.observeCurrentUser() } returns flowOf(null)
         every { poolManager.hasAvailableAds } returns kotlinx.coroutines.flow.MutableStateFlow(false)
         every { poolManager.cooldownRemainingSeconds } returns kotlinx.coroutines.flow.MutableStateFlow(0)

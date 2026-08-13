@@ -31,6 +31,7 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     val type = when (chat.type) {
         "GROUP" -> ConversationType.GROUP
         "CHANNEL" -> ConversationType.CHANNEL
+        "JOB_CHAT" -> ConversationType.JOB_CHAT
         else -> ConversationType.DIRECT
     }
 
@@ -153,37 +154,40 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
     )
 }
 
-fun ChatMessage.toEntity() = ChatEntity(
-    id = id,
-    type = type,
-    senderName = senderName,
-    lastMessage = lastMessage,
-    timestamp = timestamp,
-    unreadCount = unreadCount,
-    lastSeen = lastSeen,
-    avatarUrl = avatarUrl,
-    isOnline = isOnline,
-    isMuted = isMuted,
-    isPinned = isPinned,
-    isTyping = isTyping,
-    isGroup = isGroup,
-    isArchived = isArchived,
-    isAdmin = isAdmin,
-    isVerified = isVerified,
-    isSubscribed = isSubscribed,
-    createdBy = createdBy,
-    followers = followers,
-    category = category,
-    wallpaperUrl = wallpaperUrl,
-    customNotificationTone = customNotificationTone,
-    mediaVisibility = mediaVisibility,
-    disappearingMessagesDuration = disappearingMessagesDuration,
-    lastMessageIsFromMe = lastMessageIsFromMe,
-    lastMessageRead = lastMessageRead,
-    publicKey = publicKey,
-    phoneNumber = phoneNumber,
-    otherUserId = otherUserId
-)
+fun ChatMessage.toEntity(): ChatEntity {
+    Log.d("Mappers", "Mapping ChatMessage to ChatEntity: id=$id, type=$type")
+    return ChatEntity(
+        id = id,
+        type = type,
+        senderName = senderName,
+        lastMessage = lastMessage,
+        timestamp = timestamp,
+        unreadCount = unreadCount,
+        lastSeen = lastSeen,
+        avatarUrl = avatarUrl,
+        isOnline = isOnline,
+        isMuted = isMuted,
+        isPinned = isPinned,
+        isTyping = isTyping,
+        isGroup = isGroup,
+        isArchived = isArchived,
+        isAdmin = isAdmin,
+        isVerified = isVerified,
+        isSubscribed = isSubscribed,
+        createdBy = createdBy,
+        followers = followers,
+        category = category,
+        wallpaperUrl = wallpaperUrl,
+        customNotificationTone = customNotificationTone,
+        mediaVisibility = mediaVisibility,
+        disappearingMessagesDuration = disappearingMessagesDuration,
+        lastMessageIsFromMe = lastMessageIsFromMe,
+        lastMessageRead = lastMessageRead,
+        publicKey = publicKey,
+        phoneNumber = phoneNumber,
+        otherUserId = otherUserId
+    )
+}
 
 fun ChatEntity.toModel() = ChatMessage(
     id = id,

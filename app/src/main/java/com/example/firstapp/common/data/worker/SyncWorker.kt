@@ -19,6 +19,7 @@ class SyncWorker @AssistedInject constructor(
     override suspend fun doWork(): ListenableWorker.Result {
         return try {
             chatRepository.syncPendingMessages()
+            chatRepository.syncChats().collect {}
             ListenableWorker.Result.success()
         } catch (e: Exception) {
             ListenableWorker.Result.retry()

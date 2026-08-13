@@ -23,6 +23,15 @@ class ContactSyncWorker @AssistedInject constructor(
             return Result.success()
         }
 
+        // Check permission before attempting to fetch contacts
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                applicationContext, 
+                android.Manifest.permission.READ_CONTACTS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.w("ContactSyncWorker", "READ_CONTACTS permission missing, background sync deferred")
+            return Result.success()
+        }
+
         Log.d("ContactSyncWorker", "Starting background contact sync")
         val fetcher = ContactsFetcher(applicationContext)
         val contactList = fetcher.fetchAll()

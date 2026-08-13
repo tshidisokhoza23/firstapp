@@ -1,51 +1,57 @@
 package com.example.firstapp.chat.data.api
 
 import com.example.firstapp.common.data.api.StatusResponse
+import com.example.firstapp.common.data.api.ApiUser
 import retrofit2.Response
 import retrofit2.http.*
 import kotlin.collections.emptyList
 
 interface ChatApi {
-    @GET("chats")
+    @GET("conversations")
     suspend fun getChats(): Response<ChatSummaryResponse>
+
+    @GET("conversations/{id}")
+    suspend fun getChatDetails(@Path("id") id: String): Response<ChatSummary>
+
+    @GET("conversations/{conversationID}/messages")
+    suspend fun getMessages(
+        @Path("conversationID") conversationID: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int? = 50
+    ): Response<MessagesResponse>
+
+    @POST("conversations/{conversationID}/messages")
+    suspend fun sendMessage(
+        @Path("conversationID") conversationID: String,
+        @Body request: SendMessageRequest
+    ): Response<MessageResponse>
+
+    @POST("conversations/{conversationID}/read")
+    suspend fun markAsRead(@Path("conversationID") conversationID: String, @Body request: ReadReceiptRequest): Response<StatusResponse>
+
+    @GET("conversations/{conversationID}/members")
+    suspend fun getMembers(@Path("conversationID") conversationID: String): Response<List<ApiUser>>
+
+    @PATCH("conversations/{conversationID}/application-status")
+    suspend fun updateApplicationStatus(@Path("conversationID") conversationID: String, @Body request: StatusUpdateRequest): Response<StatusResponse>
+
+    @POST("conversations/{groupId}/members")
+    suspend fun addGroupMember(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
+
+    @DELETE("conversations/{groupId}/members/{userId}")
+    suspend fun removeGroupMember(@Path("groupId") groupId: String, @Path("userId") userId: String): Response<StatusResponse>
+
+    @POST("conversations/{groupId}/admin/{userId}")
+    suspend fun promoteToAdmin(@Path("groupId") groupId: String, @Path("userId") userId: String): Response<StatusResponse>
+
+    @POST("conversations/{groupId}/leave")
+    suspend fun leaveGroup(@Path("groupId") groupId: String): Response<StatusResponse>
 
     @POST("chats/dm")
     suspend fun initiateDM(@Body request: InitiateDMRequest): Response<ConversationResponse>
 
     @POST("chats/group")
     suspend fun createGroup(@Body request: CreateGroupRequest): Response<ConversationResponse>
-
-    @GET("chats/{conversationID}/messages")
-    suspend fun getMessages(
-        @Path("conversationID") conversationID: String,
-        @Query("page") page: Int = 1,
-        @Query("before_ts") beforeTs: Long? = null,
-        @Query("limit") limit: Int? = null
-    ): Response<MessagesResponse>
-
-    @POST("chats/{conversationID}/messages")
-    suspend fun sendMessage(
-        @Path("conversationID") conversationID: String,
-        @Body request: SendMessageRequest
-    ): Response<MessageResponse>
-
-    @POST("chats/{conversationID}/read")
-    suspend fun markAsRead(@Path("conversationID") conversationID: String): Response<StatusResponse>
-
-    @GET("chats/group/{groupId}")
-    suspend fun getGroupInfo(@Path("groupId") groupId: String): Response<GroupInfoResponse>
-
-    @POST("chats/group/{groupId}/members")
-    suspend fun addGroupMember(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
-
-    @DELETE("chats/group/{groupId}/members/{userId}")
-    suspend fun removeGroupMember(@Path("groupId") groupId: String, @Path("userId") userId: String): Response<StatusResponse>
-
-    @POST("chats/group/{groupId}/admin/{userId}")
-    suspend fun promoteToAdmin(@Path("groupId") groupId: String, @Path("userId") userId: String): Response<StatusResponse>
-
-    @POST("chats/group/{groupId}/leave")
-    suspend fun leaveGroup(@Path("groupId") groupId: String): Response<StatusResponse>
 
     @DELETE("chats/messages/{messageId}")
     suspend fun deleteMessage(@Path("messageId") messageId: String): Response<StatusResponse>
@@ -55,6 +61,8 @@ interface ChatApi {
 }
 
 data class AddMemberRequest(val user_id: String)
+data class ReadReceiptRequest(val last_read_message_id: String)
+data class StatusUpdateRequest(val status: String)
 
 data class IceServerConfig(
     val urls: List<String>,
