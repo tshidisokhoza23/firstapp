@@ -1,6 +1,6 @@
 package com.example.firstapp.common
 
-import com.example.firstapp.common.data.local.dao.ChatDao
+import com.example.firstapp.chat.data.local.dao.ChatDao
 import com.example.firstapp.chat.data.repository.ChatRepositoryImpl
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.common.util.Resource
@@ -19,8 +19,8 @@ class CachingTest {
     private val chatApi: com.example.firstapp.chat.data.api.ChatApi = mockk(relaxed = true)
     private val socialApi: com.example.firstapp.media.data.api.SocialApi = mockk(relaxed = true)
     private val userApi: com.example.firstapp.common.data.api.UserApi = mockk(relaxed = true)
-    private val contactDao: com.example.firstapp.common.data.local.dao.ContactDao = mockk(relaxed = true)
-    private val callLogDao: com.example.firstapp.common.data.local.dao.CallLogDao = mockk(relaxed = true)
+    private val contactDao: com.example.firstapp.chat.data.local.dao.ContactDao = mockk(relaxed = true)
+    private val callLogDao: com.example.firstapp.chat.data.local.dao.CallLogDao = mockk(relaxed = true)
     private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver = mockk(relaxed = true)
     private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
     private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient = mockk(relaxed = true)

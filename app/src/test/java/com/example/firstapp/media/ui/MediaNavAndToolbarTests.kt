@@ -28,7 +28,7 @@ class MediaNavAndToolbarTests {
     private val socialRepository: SocialRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val adManager: AdManager = mockk(relaxed = true)
-    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient = mockk(relaxed = true)
+    private val postWebSocketClient: com.example.firstapp.media.data.realtime.PostWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before

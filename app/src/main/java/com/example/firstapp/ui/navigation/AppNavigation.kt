@@ -21,9 +21,9 @@ import com.example.firstapp.home.ui.viewmodel.SearchViewModel
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.example.firstapp.media.ui.viewmodel.AdvertsViewModel
-import com.example.firstapp.media.ui.viewmodel.ChannelsViewModel
-import com.example.firstapp.media.ui.viewmodel.StoryViewModel
+import com.example.firstapp.chat.ui.viewmodel.AdvertsViewModel
+import com.example.firstapp.chat.ui.viewmodel.ChannelsViewModel
+import com.example.firstapp.chat.ui.viewmodel.StoryViewModel
 import com.example.firstapp.chat.jobs.ui.viewmodel.JobViewModel
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.common.ui.viewmodel.FilesViewModel

@@ -5,7 +5,7 @@ import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.chat.jobs.model.Job
-import com.example.firstapp.media.model.Channel
+import com.example.firstapp.chat.model.Channel
 
 data class SearchResult(
     val chats: List<ChatMessage> = emptyList(),

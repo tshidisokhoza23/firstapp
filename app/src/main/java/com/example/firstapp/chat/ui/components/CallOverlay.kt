@@ -61,7 +61,7 @@ fun CallOverlay(
 
             // Banner Ad (only before connection is established)
             if (!isConnectionEstablished) {
-                com.example.firstapp.media.ui.components.BannerAdView(
+                com.example.firstapp.common.ui.components.BannerAdView(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()

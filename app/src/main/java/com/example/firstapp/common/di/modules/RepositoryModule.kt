@@ -3,13 +3,17 @@ package com.example.firstapp.common.di.modules
 import com.example.firstapp.account.data.repository.AccountRepositoryImpl
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.chat.data.repository.ChatRepositoryImpl
+import com.example.firstapp.chat.data.repository.StoryRepositoryImpl
+import com.example.firstapp.chat.data.repository.ChannelRepositoryImpl
+import com.example.firstapp.chat.data.repository.AdRepositoryImpl
+import com.example.firstapp.chat.domain.repository.StoryRepository
+import com.example.firstapp.chat.domain.repository.ChannelRepository
+import com.example.firstapp.chat.domain.repository.AdRepository
 import com.example.firstapp.settings.data.repository.SettingsRepositoryImpl
 import com.example.firstapp.domain.repository.SettingsRepository
 import com.example.firstapp.common.data.api.SystemApi
 import com.example.firstapp.common.data.api.UserApi
 
-import com.example.firstapp.common.data.local.AppDatabase
-import com.example.firstapp.common.data.local.dao.*
 import com.example.firstapp.common.data.repository.SystemRepositoryImpl
 import com.example.firstapp.common.domain.repository.SystemRepository
 import com.example.firstapp.domain.repository.ChatRepository
@@ -66,6 +70,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSocialRepository(impl: SocialRepositoryImpl): SocialRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindStoryRepository(impl: StoryRepositoryImpl): StoryRepository
 
     @Binds
     @Singleton

@@ -32,11 +32,6 @@ interface SocialRepository {
     fun unfollowUser(userId: String): Flow<Resource<Boolean>>
     fun getTrendingTopics(): Flow<Resource<List<TrendingTopic>>>
     fun getSuggestedUsers(): Flow<Resource<List<Contact>>>
-    fun getStories(): Flow<Resource<List<UserStory>>>
-    fun createStory(content: String, contentUrl: String? = null, type: String = "text"): Flow<Resource<Boolean>>
-    fun markStoryAsViewed(userId: String, storyId: String): Flow<Resource<Boolean>>
-    fun deleteStory(storyId: String): Flow<Resource<Boolean>>
-    fun muteStory(userId: String, isMuted: Boolean): Flow<Resource<Boolean>>
     fun viewPost(postId: String): Flow<Resource<Boolean>>
     fun trackAdRevenue(postId: String, revenue: Double, adUnitId: String): Flow<Resource<Boolean>>
     fun trackEngagement(
@@ -47,6 +42,5 @@ interface SocialRepository {
         completed: Boolean? = null
     ): Flow<Resource<Boolean>>
     fun deletePost(postId: String): Flow<Resource<Boolean>>
-    fun getStoryViewers(storyId: String): Flow<Resource<List<ApiViewer>>>
     fun getPostById(postId: String): Flow<Resource<Post>>
 }

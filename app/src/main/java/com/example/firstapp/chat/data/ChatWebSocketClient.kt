@@ -65,6 +65,7 @@ class ChatWebSocketClient @Inject constructor(
             .addHeader("Authorization", "Bearer " + token)
             .build()
 
+        Log.d("ChatWS", "Connecting to Chat WS: $wsUrl")
         webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 reconnectAttempts = 0

@@ -419,7 +419,7 @@ fun ChatMessagesScreen(
                         
                         // Banner Ad (at the bottom of Jobs or Channel chats)
                         if (jobId != null || chat.type == ConversationType.CHANNEL) {
-                            com.example.firstapp.media.ui.components.BannerAdView(
+                            com.example.firstapp.common.ui.components.BannerAdView(
                                 modifier = Modifier.navigationBarsPadding()
                             )
                         }

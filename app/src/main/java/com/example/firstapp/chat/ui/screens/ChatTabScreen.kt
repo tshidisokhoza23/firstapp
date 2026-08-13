@@ -27,7 +27,10 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.ui.components.*
-import com.example.firstapp.chat.ui.viewmodel.*
+import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
+import com.example.firstapp.chat.ui.viewmodel.AdvertsViewModel
+import com.example.firstapp.chat.ui.viewmodel.ChannelsViewModel
+import com.example.firstapp.chat.ui.viewmodel.StoryViewModel
 import com.example.firstapp.common.model.*
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.ui.viewmodel.*
@@ -38,7 +41,6 @@ import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.chat.jobs.ui.components.JobItem
 import com.example.firstapp.chat.jobs.ui.viewmodel.JobViewModel
 import com.example.firstapp.media.model.*
-import com.example.firstapp.media.ui.viewmodel.*
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.search.model.SearchType
@@ -47,13 +49,14 @@ import com.example.firstapp.common.ui.components.*
 import java.util.*
 import kotlin.collections.*
 import kotlin.text.*
-import com.example.firstapp.media.ui.components.StoriesRow
-import com.example.firstapp.home.ui.screens.RewardsScreen
+import com.example.firstapp.chat.ui.components.StoriesRow
+import com.example.firstapp.chat.ui.channels.ChannelList
+import com.example.firstapp.chat.ui.channels.ChannelItem
+import com.example.firstapp.chat.ui.rewards.RewardsScreen
 import com.example.firstapp.chat.jobs.ui.screens.JobList
-import com.example.firstapp.chat.channels.ChannelList
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.ui.components.DynamicAdCard
-import com.example.firstapp.media.ui.components.BannerAdView
+import com.example.firstapp.common.ui.components.BannerAdView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -387,42 +390,61 @@ fun ChatsListScreen(
                                 onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                             )
                         } else {
-                            if (chatsState is Resource.Loading && sanitizedChats.isEmpty()) {
-                                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                    items(10) { ChatItemShimmer() }
+                            when {
+                                chatsState is Resource.Loading && sanitizedChats.isEmpty() -> {
+                                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                        items(10) { ChatItemShimmer() }
+                                    }
                                 }
-                            } else {
-                                ChatList(
-                                    chats = sanitizedChats,
-                                    archivedChatsCount = archivedChatsState.data?.size ?: 0,
-                                    stories = storiesState.data ?: emptyList<UserStory>(),
-                                    chatViewModel = chatViewModel,
-                                    topBarHeight = 0.dp, // No spacer inside list
-                                    currentUserId = currentUser?.id,
-                                    initialScrollDone = isChatInitialScrollDone,
-                                    onInitialScrollDone = { isChatInitialScrollDone = it },
-                                    onChatClick = { chat -> 
-                                        val typeStr = when (chat.type) {
-                                            ConversationType.CHANNEL -> "channel"
-                                            ConversationType.GROUP -> "group"
-                                            else -> "direct"
-                                        }
-                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
-                                    },
-                                    onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
-                                    onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
-                                    onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
-                                    onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
-                                    onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = false)) },
-                                    onAvatarClick = { userId -> 
-                                        val chat = sanitizedChats.find { it.id == userId }
-                                        if (chat?.avatarUrl != null) {
-                                            navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
-                                        } else {
-                                            navController.navigate(Screen.ChatProfile.createRoute(userId, chat?.isGroup ?: false))
+                                chatsState is Resource.Error && sanitizedChats.isEmpty() -> {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(64.dp))
+                                        Spacer(Modifier.height(16.dp))
+                                        Text("Could not load chats", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                        Text(chatsState.message ?: "Unknown error", color = Color.Gray, fontSize = 14.sp, textAlign = TextAlign.Center)
+                                        Spacer(Modifier.height(24.dp))
+                                        Button(onClick = { chatViewModel.fetchChats() }) {
+                                            Text("Retry")
                                         }
                                     }
-                                )
+                                }
+                                else -> {
+                                    ChatList(
+                                        chats = sanitizedChats,
+                                        archivedChatsCount = archivedChatsState.data?.size ?: 0,
+                                        stories = storiesState.data ?: emptyList<UserStory>(),
+                                        chatViewModel = chatViewModel,
+                                        topBarHeight = 0.dp, // No spacer inside list
+                                        currentUserId = currentUser?.id,
+                                        initialScrollDone = isChatInitialScrollDone,
+                                        onInitialScrollDone = { isChatInitialScrollDone = it },
+                                        onChatClick = { chat -> 
+                                            val typeStr = when (chat.type) {
+                                                ConversationType.CHANNEL -> "channel"
+                                                ConversationType.GROUP -> "group"
+                                                else -> "direct"
+                                            }
+                                            navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
+                                        },
+                                        onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
+                                        onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
+                                        onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
+                                        onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
+                                        onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = false)) },
+                                        onAvatarClick = { userId -> 
+                                            val chat = sanitizedChats.find { it.id == userId }
+                                            if (chat?.avatarUrl != null) {
+                                                navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                                            } else {
+                                                navController.navigate(Screen.ChatProfile.createRoute(userId, chat?.isGroup ?: false))
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -524,13 +546,13 @@ fun ChatsListScreen(
                                         type = SearchType.CHANNELS,
                                         onChatClick = {},
                                         onMessageClick = {},
-                                        onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.id, type = "channel")) },
+                                        onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel")) },
                                         onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                                     )
                                 } else {
                                     DataStateHandler(channelsState) { channels -> 
                                         ChannelList(channels, topBarHeight = 0.dp) {
-                                            navController.navigate(Screen.Chat.createRoute(it.id, type = "channel"))
+                                            navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel"))
                                         } 
                                     }
                                 }
@@ -805,7 +827,7 @@ fun SearchResultsView(
             item { SearchSectionHeader("Channels") }
             items(channels, key = { "channel_" + it.id }) { channel ->
                 Column(modifier = Modifier.clickable { onChannelClick(channel) }) {
-                    com.example.firstapp.media.ui.components.ChannelItem(channel = channel, onClick = { onChannelClick(channel) })
+                    ChannelItem(channel = channel, onClick = { onChannelClick(channel) })
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }

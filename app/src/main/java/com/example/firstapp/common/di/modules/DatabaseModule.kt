@@ -2,6 +2,12 @@ package com.example.firstapp.common.di.modules
 
 import android.content.Context
 import com.example.firstapp.common.data.local.AppDatabase
+import com.example.firstapp.chat.data.local.dao.*
+import com.example.firstapp.media.data.local.dao.*
+import com.example.firstapp.chat.jobs.data.local.dao.*
+import com.example.firstapp.drive.data.local.dao.*
+import com.example.firstapp.music.data.local.dao.*
+import com.example.firstapp.vocab.data.local.dao.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,47 +29,47 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideChatDao(database: AppDatabase) = database.chatDao()
+    fun provideChatDao(database: AppDatabase): ChatDao = database.chatDao()
 
     @Provides
-    fun provideSongDao(database: AppDatabase) = database.songDao()
+    fun provideSongDao(database: AppDatabase): SongDao = database.songDao()
 
     @Provides
-    fun provideJobDao(database: AppDatabase) = database.jobDao()
+    fun provideJobDao(database: AppDatabase): JobDao = database.jobDao()
 
     @Provides
-    fun provideAdvertDao(database: AppDatabase) = database.advertDao()
+    fun provideAdvertDao(database: AppDatabase): AdvertDao = database.advertDao()
 
     @Provides
-    fun provideChannelDao(database: AppDatabase) = database.channelDao()
+    fun provideChannelDao(database: AppDatabase): ChannelDao = database.channelDao()
 
     @Provides
-    fun providePostDao(database: AppDatabase) = database.postDao()
+    fun providePostDao(database: AppDatabase): PostDao = database.postDao()
 
     @Provides
-    fun provideStoryDao(database: AppDatabase) = database.storyDao()
+    fun provideStoryDao(database: AppDatabase): StoryDao = database.storyDao()
 
     @Provides
-    fun provideCallLogDao(database: AppDatabase) = database.callLogDao()
+    fun provideCallLogDao(database: AppDatabase): CallLogDao = database.callLogDao()
 
     @Provides
-    fun provideContactDao(database: AppDatabase) = database.contactDao()
+    fun provideContactDao(database: AppDatabase): ContactDao = database.contactDao()
 
     @Provides
-    fun provideJobApplicationDao(database: AppDatabase) = database.jobApplicationDao()
+    fun provideJobApplicationDao(database: AppDatabase): JobApplicationDao = database.jobApplicationDao()
 
     @Provides
-    fun provideDriveDao(database: AppDatabase) = database.driveDao()
+    fun provideDriveDao(database: AppDatabase): DriveDao = database.driveDao()
 
     @Provides
-    fun provideUserDao(database: AppDatabase) = database.userDao()
+    fun provideUserDao(database: AppDatabase): UserDao = database.userDao()
 
     @Provides
-    fun provideLessonProgressDao(database: AppDatabase) = database.lessonProgressDao()
+    fun provideLessonProgressDao(database: AppDatabase): LessonProgressDao = database.lessonProgressDao()
 
     @Provides
-    fun providePlaylistDao(database: AppDatabase) = database.playlistDao()
+    fun providePlaylistDao(database: AppDatabase): PlaylistDao = database.playlistDao()
 
     @Provides
-    fun providePostRemoteKeysDao(database: AppDatabase) = database.postRemoteKeysDao()
+    fun providePostRemoteKeysDao(database: AppDatabase): PostRemoteKeysDao = database.postRemoteKeysDao()
 }

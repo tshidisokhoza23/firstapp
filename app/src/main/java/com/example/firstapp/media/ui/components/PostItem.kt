@@ -63,7 +63,7 @@ fun PostItem(
     onMoreClick: (Post) -> Unit = {}
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
-        NativeAdCard(
+        FeedNativeAdCard(
             adManager = adManager,
             adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
             post = post
@@ -609,7 +609,7 @@ fun PostActions(
 }
 
 @Composable
-fun NativeAdCard(
+fun FeedNativeAdCard(
     adManager: AdManager,
     adUnitId: String,
     post: Post

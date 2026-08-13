@@ -51,7 +51,7 @@ fun StorageSettingsScreen(
             )
         },
         bottomBar = {
-            com.example.firstapp.media.ui.components.BannerAdView(
+            com.example.firstapp.common.ui.components.BannerAdView(
                 modifier = Modifier.navigationBarsPadding()
             )
         },

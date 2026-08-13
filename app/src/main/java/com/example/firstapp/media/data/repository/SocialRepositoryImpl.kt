@@ -8,9 +8,8 @@ import androidx.paging.PagingData
 import androidx.paging.map as pagingMap
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.common.data.local.AppDatabase
-import com.example.firstapp.common.data.local.dao.PostDao
-import com.example.firstapp.common.data.local.dao.StoryDao
-import com.example.firstapp.common.data.local.entity.StoryEntity
+import com.example.firstapp.media.data.local.dao.PostDao
+import com.example.firstapp.media.data.local.entity.PostEntity
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.paging.PostRemoteMediator
@@ -28,8 +27,7 @@ import kotlin.collections.*
 class SocialRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
     private val postDao: PostDao,
-    private val storyDao: StoryDao,
-    private val contactDao: com.example.firstapp.common.data.local.dao.ContactDao,
+    private val contactDao: com.example.firstapp.chat.data.local.dao.ContactDao,
     private val appDatabase: AppDatabase,
     private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver
 ) : SocialRepository {
@@ -277,136 +275,6 @@ class SocialRepositoryImpl @Inject constructor(
         } 
     }
 
-    override fun getStories(): Flow<Resource<List<UserStory>>> = flow {
-        val cachedEntities = storyDao.getStories().first()
-        val cached = cachedEntities.map { it.toUserStory() }
-        if (cached.isNotEmpty()) {
-            emit(Resource.Loading(cached))
-        } else {
-            emit(Resource.Loading())
-        }
-
-        try {
-            val response = socialApi.getStories()
-            if (response.isSuccessful) {
-                val apiStories = response.body()?.stories ?: emptyList<com.example.firstapp.media.data.api.ApiStoryResponse>()
-                Log.d("SocialRepo", "Fetched ${apiStories.size} story sets")
-                
-                // Pre-fetch contacts for name resolution
-                val localContacts = contactDao.getContacts().first().associateBy { it.id }
-
-                val stories = apiStories.map { apiStory: com.example.firstapp.media.data.api.ApiStoryResponse -> 
-                    val contact = localContacts[apiStory.user_id] ?: localContacts[apiStory.user_id.removePrefix("user_")]
-                    val model = mapApiStory(apiStory)
-                    
-                    // User Requirement: Saved Name > Profile Name > Phone Number (NEVER Username)
-                    // We pass an empty username to force DisplayNameResolver to skip that level.
-                    val resolvedName = displayNameResolver.resolve(
-                        com.example.firstapp.common.model.User(
-                            id = apiStory.user_id,
-                            displayName = contact?.displayName ?: apiStory.user_name,
-                            username = "" 
-                        ),
-                        contact?.phoneNumber ?: apiStory.phone_number ?: ""
-                    )
-                    
-                    val finalName = if (resolvedName.isBlank() || resolvedName == apiStory.user_id) {
-                         // If no name found, use phone number if we have it, else fallback to API name
-                         contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: apiStory.phone_number?.takeIf { it.isNotBlank() } ?: apiStory.user_name
-                    } else resolvedName
-
-                    model.copy(userName = finalName)
-                }
-                storyDao.clearStories()
-                storyDao.insertStories(stories.map { it.toStoryEntity() })
-            } else {
-                Log.e("SocialRepo", "getStories network failed: ${response.code()} ${response.errorBody()?.string()}")
-            }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            Log.e("SocialRepo", "getStories failed with exception", e)
-        }
-        
-        emitAll(storyDao.getStories().flowMap { entities ->
-            val models = entities.map { it.toUserStory() }.toMutableList()
-            // Sort models: most recent story first
-            models.sortByDescending { us: UserStory -> us.stories.maxByOrNull { s: StoryItem -> s.createdAt }?.createdAt ?: 0L }
-            Resource.Success<List<UserStory>>(models)
-        })
-    }
-
-    override fun createStory(content: String, contentUrl: String?, type: String): Flow<Resource<Boolean>> = flow {
-        try {
-            emit(Resource.Loading())
-            val response = socialApi.createStory(com.example.firstapp.media.data.api.CreateStoryRequest(content, contentUrl, type))
-            if (response.isSuccessful) {
-                emit(Resource.Success(true))
-            } else {
-                emit(Resource.Error("Server error: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error: ${e.localizedMessage ?: "Connection failed"}"))
-        }
-    }
-
-    override fun deleteStory(storyId: String): Flow<Resource<Boolean>> = flow {
-        try {
-            emit(Resource.Loading())
-            if (socialApi.deleteStory(storyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error"))
-        }
-    }
-
-    override fun markStoryAsViewed(userId: String, storyId: String): Flow<Resource<Boolean>> = flow {
-        try {
-            emit(Resource.Loading())
-            val storiesList = storyDao.getStories().first()
-            val entity = storiesList.find { it.id == userId }
-            if (entity != null) {
-                var awardPoints = false
-                val updatedItems = entity.stories.map { item: StoryItem -> 
-                    if (item.id == storyId) {
-                        val sid = item.id
-                        if (sid.length >= 3 && sid[0] == 'a' && sid[1] == 'd' && sid[2] == '_') {
-                            awardPoints = true
-                        }
-                        item.copy(isViewed = true) 
-                    } else item 
-                }
-                if (awardPoints) {
-                    try {
-                        RewardsManager.awardPoints(0.10, "STORY_AD", "Viewed ad story $storyId")
-                    } catch (_: Exception) {}
-                }
-                storyDao.insertStories(listOf(entity.copy(stories = updatedItems)))
-            }
-            socialApi.markStoryViewed(storyId)
-            emit(Resource.Success(true))
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error"))
-        }
-    }
-
-    override fun muteStory(userId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow {
-        try {
-            emit(Resource.Loading())
-            val storiesList = storyDao.getStories().first()
-            val entity = storiesList.find { it.id == userId }
-            if (entity != null) {
-                storyDao.insertStories(listOf(entity.copy(isMuted = isMuted)))
-            }
-            socialApi.muteUser(userId, com.example.firstapp.common.data.api.MuteRequest(isMuted))
-            emit(Resource.Success(true))
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error"))
-        }
-    }
-
     override fun viewPost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.viewPost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
 
     override fun trackEngagement(
@@ -438,8 +306,6 @@ class SocialRepositoryImpl @Inject constructor(
     }
 
     override fun deletePost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.deletePost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
-
-    override fun getStoryViewers(storyId: String): Flow<Resource<List<com.example.firstapp.media.data.api.ApiViewer>>> = flow { emit(Resource.Loading()); try { val res = socialApi.getStoryViewers(storyId); if (res.isSuccessful) emit(Resource.Success(res.body()?.viewers ?: emptyList())) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Error")) } }
 
     override fun getPostById(postId: String): Flow<Resource<Post>> = flow {
         emit(Resource.Loading())

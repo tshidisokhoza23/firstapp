@@ -3,8 +3,14 @@ package com.example.firstapp.common.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.example.firstapp.common.data.local.dao.*
-import com.example.firstapp.common.data.local.entity.*
+import com.example.firstapp.chat.data.local.dao.*
+import com.example.firstapp.chat.data.local.entity.*
+import com.example.firstapp.media.data.local.dao.*
+import com.example.firstapp.media.data.local.entity.*
+import com.example.firstapp.chat.jobs.data.local.dao.*
+import com.example.firstapp.chat.jobs.data.local.entity.*
+import com.example.firstapp.drive.data.local.dao.*
+import com.example.firstapp.drive.data.local.entity.*
 import com.example.firstapp.music.data.local.dao.SongDao
 import com.example.firstapp.music.data.local.dao.PlaylistDao
 import com.example.firstapp.music.data.local.entity.*
@@ -37,7 +43,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         PostRemoteKeys::class,
         MessageFtsEntity::class
     ], 
-    version = 54,
+    version = 55,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

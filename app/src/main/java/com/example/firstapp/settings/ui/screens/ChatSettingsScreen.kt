@@ -43,7 +43,7 @@ fun ChatSettingsScreen(onBack: () -> Unit, viewModel: ChatSettingsViewModel = hi
             )
         },
         bottomBar = {
-            com.example.firstapp.media.ui.components.BannerAdView(
+            com.example.firstapp.common.ui.components.BannerAdView(
                 modifier = Modifier.navigationBarsPadding()
             )
         },

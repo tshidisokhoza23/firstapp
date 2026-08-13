@@ -3,8 +3,8 @@ package com.example.firstapp.media.data
 import com.example.firstapp.media.data.repository.SocialRepositoryImpl
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.common.data.local.AppDatabase
-import com.example.firstapp.common.data.local.dao.PostDao
-import com.example.firstapp.common.data.local.dao.StoryDao
+import com.example.firstapp.media.data.local.dao.PostDao
+import com.example.firstapp.media.data.local.dao.StoryDao
 import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -21,7 +21,7 @@ class MediaCacheVerificationTests {
     private val socialApi: SocialApi = mockk(relaxed = true)
     private val postDao: PostDao = mockk(relaxed = true)
     private val storyDao: StoryDao = mockk(relaxed = true)
-    private val contactDao: com.example.firstapp.common.data.local.dao.ContactDao = mockk(relaxed = true)
+    private val contactDao: com.example.firstapp.chat.data.local.dao.ContactDao = mockk(relaxed = true)
     private val appDatabase: AppDatabase = mockk(relaxed = true)
     private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver = mockk(relaxed = true)
 
@@ -33,7 +33,7 @@ class MediaCacheVerificationTests {
     @Test
     fun `getPosts returns cached data first before network call`() = runTest {
         // Mock cached data
-        val mockEntities = java.util.ArrayList<com.example.firstapp.common.data.local.entity.PostEntity>()
+        val mockEntities = java.util.ArrayList<com.example.firstapp.media.data.local.entity.PostEntity>()
         mockEntities.add(mockk(relaxed = true))
         every { postDao.getPosts(any()) } returns flowOf(mockEntities)
         

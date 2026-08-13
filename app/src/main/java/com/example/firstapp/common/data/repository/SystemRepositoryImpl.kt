@@ -3,7 +3,10 @@ package com.example.firstapp.common.data.repository
 import com.example.firstapp.common.data.api.SystemApi
 import com.example.firstapp.common.data.api.DevResetRequest
 import com.example.firstapp.common.data.api.DevResetResponse
-import com.example.firstapp.common.data.local.dao.*
+import com.example.firstapp.chat.data.local.dao.*
+import com.example.firstapp.media.data.local.dao.*
+import com.example.firstapp.chat.jobs.data.local.dao.*
+import com.example.firstapp.drive.data.local.dao.*
 import com.example.firstapp.music.data.local.dao.*
 import com.example.firstapp.common.domain.repository.SystemRepository
 import com.example.firstapp.common.util.ContactUtils

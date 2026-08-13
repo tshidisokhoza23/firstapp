@@ -1,6 +1,6 @@
 package com.example.firstapp.chat.model
 
-import com.example.firstapp.media.model.UserStory
+import com.example.firstapp.chat.model.UserStory
 import com.google.android.gms.ads.nativead.NativeAd
 
 /**

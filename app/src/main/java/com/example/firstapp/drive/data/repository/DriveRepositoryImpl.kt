@@ -3,16 +3,14 @@ package com.example.firstapp.drive.data.repository
 import androidx.compose.ui.graphics.Color
 import com.example.firstapp.drive.data.api.DriveApi
 import com.example.firstapp.drive.data.api.SaveDestinationRequest
-import com.example.firstapp.common.data.local.dao.DriveDao
+import com.example.firstapp.drive.data.local.dao.DriveDao
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.drive.domain.repository.DriveRepository
 import com.example.firstapp.drive.model.Destination
 import com.example.firstapp.drive.model.DestinationType
 import com.example.firstapp.drive.model.RideOption
 import com.example.firstapp.drive.model.Trip
-import com.example.firstapp.common.data.repository.*
 import kotlinx.coroutines.flow.*
-
 import javax.inject.Inject
 
 class DriveRepositoryImpl @Inject constructor(

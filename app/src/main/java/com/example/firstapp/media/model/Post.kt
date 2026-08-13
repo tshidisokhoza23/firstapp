@@ -1,6 +1,7 @@
 package com.example.firstapp.media.model
 
 import androidx.compose.ui.graphics.Color
+import com.example.firstapp.chat.model.Advert
 
 enum class PostType {
     POST,

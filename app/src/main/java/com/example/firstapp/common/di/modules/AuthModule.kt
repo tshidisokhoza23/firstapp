@@ -48,7 +48,8 @@ abstract class AuthModule {
         @Singleton
         fun providePostWebSocketClient(
             sessionManager: SessionManager,
-            httpClient: OkHttpClient
-        ): com.example.firstapp.common.data.realtime.PostWebSocketClient = com.example.firstapp.common.data.realtime.PostWebSocketClient(sessionManager, httpClient)
+            httpClient: OkHttpClient,
+            envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
+        ): com.example.firstapp.media.data.realtime.PostWebSocketClient = com.example.firstapp.media.data.realtime.PostWebSocketClient(sessionManager, httpClient, envManager)
     }
 }

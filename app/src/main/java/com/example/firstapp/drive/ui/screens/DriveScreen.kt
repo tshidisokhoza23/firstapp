@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import com.example.firstapp.media.ui.components.BannerAdView
+import com.example.firstapp.common.ui.components.BannerAdView
 
 
 @OptIn(ExperimentalMaterial3Api::class)

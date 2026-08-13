@@ -3,8 +3,8 @@ package com.example.firstapp.media.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.firstapp.common.util.Resource
-import com.example.firstapp.media.model.Advert
-import com.example.firstapp.media.domain.repository.AdRepository
+import com.example.firstapp.chat.model.Advert
+import com.example.firstapp.chat.domain.repository.AdRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

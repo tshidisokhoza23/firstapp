@@ -84,4 +84,21 @@ object MediaUtils {
                s.contains(".webm") || s.contains(".mkv") || s.contains(".3gp") ||
                s.contains("video") || s.contains("/shorts/") || s.contains(".tmp")
     }
+
+    fun copyUriToTempFile(context: Context, uri: Uri): File? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val mimeType = context.contentResolver.getType(uri)
+            val extension = if (mimeType != null) {
+                android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "tmp"
+            } else {
+                "tmp"
+            }
+            
+            val tempFile = File.createTempFile("upload_", ".$extension", context.cacheDir)
+            val outputStream = FileOutputStream(tempFile)
+            inputStream.use { input -> outputStream.use { output -> input.copyTo(output) } }
+            tempFile
+        } catch (e: Exception) { null }
+    }
 }

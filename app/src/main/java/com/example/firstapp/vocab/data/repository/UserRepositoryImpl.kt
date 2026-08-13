@@ -470,7 +470,7 @@ class UserRepositoryImpl @Inject constructor(
                 auth.user?.let { user -> syncUserLocally(user) }
                 // Award R0.10 for logging in
                 try {
-                    com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(0.10, "LOGIN", "Daily login reward")
+                    RewardsManager.awardPoints(0.10, "LOGIN", "Daily login reward")
                 } catch (_: Exception) {}
 
                 emit(Resource.Success(auth))

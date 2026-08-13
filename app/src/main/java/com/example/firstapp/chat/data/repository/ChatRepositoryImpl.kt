@@ -8,9 +8,10 @@ import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.chat.data.api.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.data.api.*
-import com.example.firstapp.common.data.local.dao.*
-import com.example.firstapp.common.data.local.entity.MessageEntity
-import com.example.firstapp.common.data.local.entity.ChatEntity
+import com.example.firstapp.chat.data.local.dao.*
+import com.example.firstapp.chat.data.local.entity.MessageEntity
+import com.example.firstapp.chat.data.local.entity.ChatEntity
+import com.example.firstapp.chat.data.local.entity.ContactEntity
 import com.example.firstapp.chat.data.repository.mapApiChatSummary
 import com.example.firstapp.chat.data.repository.mapApiMessage
 import com.example.firstapp.chat.data.repository.toEntity
@@ -40,7 +41,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver,
     private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager,
     private val chatWebSocketClient: com.example.firstapp.chat.data.ChatWebSocketClient,
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : ChatRepository {
 
     private val dedupManager = ChatWebSocketDedupManager()
@@ -51,7 +52,7 @@ class ChatRepositoryImpl @Inject constructor(
     fun clearDedupForConversation(conversationId: String) = dedupManager.clearConversationState(conversationId)
 
     override fun getChats(): Flow<Resource<List<ChatMessage>>> = 
-        chatDao.getChats().flowMap { list -> Resource.Success(list.map { it.toModel() }) }
+        chatDao.getChats().flowMap { list: List<ChatEntity> -> Resource.Success(list.map { it.toModel() }) }
 
     override fun syncChats(): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
@@ -65,36 +66,20 @@ class ChatRepositoryImpl @Inject constructor(
                 val localChats = chatDao.getChats().first().associateBy { it.id }
                 val localContacts = contactDao.getContacts().first().associateBy { it.id }
                 
-                val contactsToInsert = java.util.ArrayList<com.example.firstapp.common.data.local.entity.ContactEntity>()
+                val contactsToInsert = java.util.ArrayList<ContactEntity>()
 
                 val finalEntities = apiChats.map { cs: ChatSummary -> 
-                    val chatModel = mapApiChatSummary(cs)
+                    val chatModel: ChatMessage = mapApiChatSummary(cs)
                     val entity = chatModel.toEntity()
                     
-                    val targetId = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) (entity.otherUserId ?: entity.id) else entity.id
+                    val targetId = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+                        entity.otherUserId ?: cs.contact_id ?: entity.id
+                    } else entity.id
+
                     val contact = localContacts[targetId] ?: localContacts[targetId.removePrefix("user_")]
 
-                    // AUTO-RESTORE CONTACTS FROM CHATS:
-                    // If you have a chat with someone, they MUST be in your contacts list.
-                    // This fixes the issue where contacts are missing on a new device.
-                    if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT || !entity.otherUserId.isNullOrBlank()) {
-                        val cid = entity.otherUserId ?: targetId
-                        if (contact == null && contactsToInsert.none { it.id == cid }) {
-                            contactsToInsert.add(com.example.firstapp.common.data.local.entity.ContactEntity(
-                                id = cid,
-                                username = "", 
-                                displayName = cs.title.ifBlank { cid },
-                                avatarUrl = formatUrl(cs.avatar_url),
-                                phoneNumber = entity.phoneNumber ?: "",
-                                isRegistered = true,
-                                isAuthenticated = true,
-                                isVerified = false
-                            ))
-                        }
-                    }
-
                     val resolvedName = if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
-                        val name = displayNameResolver.resolve(
+                        displayNameResolver.resolve(
                             com.example.firstapp.common.model.User(
                                 id = targetId, 
                                 displayName = cs.title, 
@@ -102,10 +87,6 @@ class ChatRepositoryImpl @Inject constructor(
                             ),
                             contact?.phoneNumber ?: entity.phoneNumber ?: ""
                         )
-                        
-                        if (name.isBlank() || name == targetId) {
-                             contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: entity.phoneNumber ?: cs.title.ifBlank { targetId }
-                        } else name
                     } else {
                         entity.senderName.ifBlank { cs.title.ifBlank { entity.id } }
                     }
@@ -115,6 +96,9 @@ class ChatRepositoryImpl @Inject constructor(
                         senderName = resolvedName,
                         avatarUrl = contact?.avatarUrl ?: entity.avatarUrl,
                         phoneNumber = contact?.phoneNumber ?: entity.phoneNumber,
+                        isArchived = existing?.isArchived ?: entity.isArchived,
+                        isPinned = existing?.isPinned ?: entity.isPinned,
+                        isMuted = existing?.isMuted ?: entity.isMuted,
                         wallpaperUrl = existing?.wallpaperUrl,
                         customNotificationTone = existing?.customNotificationTone,
                         mediaVisibility = existing?.mediaVisibility ?: true,
@@ -122,20 +106,12 @@ class ChatRepositoryImpl @Inject constructor(
                     )
                 }
                 
-                val apiChatIds = finalEntities.map { it.id }.toSet()
-                val localIds = chatDao.getAllChatIds()
-                for (id in localIds) {
-                    if (!apiChatIds.contains(id)) {
-                        chatDao.deleteChat(id)
-                        chatDao.clearMessages(id)
-                    }
-                }
-                
                 if (contactsToInsert.isNotEmpty()) {
                     Log.d("ChatRepositoryImpl", "syncChats: Inserting ${contactsToInsert.size} recovered contacts")
                     contactDao.insertContacts(contactsToInsert)
                 }
                 
+                Log.d("ChatRepositoryImpl", "syncChats: Inserting ${finalEntities.size} chats")
                 chatDao.insertChats(finalEntities)
                 emit(Resource.Success(true))
             } else {
@@ -158,10 +134,6 @@ class ChatRepositoryImpl @Inject constructor(
                     existing = chat
                     break
                 }
-            }
-            if (existing != null) {
-                emit(Resource.Success(existing.id))
-                return@flow
             }
             if (existing != null) {
                 emit(Resource.Success(existing.id))
@@ -232,7 +204,21 @@ class ChatRepositoryImpl @Inject constructor(
                 val apiMessages = response.body()!!.messages
                 val privKey = sessionManager.getPrivateKey()
                 val myUserId = sessionManager.getUserId()
-                val messages = apiMessages.map { am: com.example.firstapp.chat.data.api.ApiMessage -> mapApiMessage(am, privKey, myUserId) }
+                
+                // CRITICAL: Fetch existing messages to preserve mediaUrls if server returns null
+                val localEntities = chatDao.getMessages(chatId).first().associateBy { it.id }
+
+                val messages = apiMessages.map { am: com.example.firstapp.chat.data.api.ApiMessage -> 
+                    val mapped = mapApiMessage(am, privKey, myUserId)
+                    val local = localEntities[mapped.id]
+                    
+                    // If server returns no media but local has some, preserve it
+                    if (mapped.mediaUrls.isEmpty() && local != null && local.mediaUrls.isNotEmpty()) {
+                        mapped.copy(mediaUrls = local.mediaUrls)
+                    } else {
+                        mapped
+                    }
+                }
                 
                 // Cleanup logic: If we have local messages that match the client_uuid of incoming server messages,
                 // we must delete the local (pending) one to avoid duplicates in the UI.
@@ -541,7 +527,7 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>> = 
-        chatDao.getMessages(chatId).flowMap { entities ->
+        chatDao.getMessages(chatId).flowMap { entities: List<MessageEntity> ->
             val media = entities.filter { me: MessageEntity -> me.type == MessageType.IMAGE || me.type == MessageType.VIDEO }.map { me: MessageEntity -> me.toModel() }
             Resource.Success(media)
         }
@@ -558,13 +544,26 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun saveMessage(chatId: String, message: Message) {
         // ID Consistency Check: Ensure we use the same chatId throughout the message lifecycle
         val finalChatId = message.conversationId.ifBlank { chatId }
-        chatDao.insertMessages(listOf(message.toEntity(finalChatId)))
+        
+        // Preserve media if server sends null/empty on a message we already know about
+        val existing = chatDao.getMessageById(message.id)
+        val finalMessage = if (message.mediaUrls.isEmpty() && existing != null && existing.mediaUrls.isNotEmpty()) {
+            message.copy(mediaUrls = existing.mediaUrls)
+        } else message
+
+        chatDao.insertMessages(listOf(finalMessage.toEntity(finalChatId)))
         chatDao.pruneMessages(finalChatId, 50)
     }
 
     override suspend fun updateMessageInCache(chatId: String, message: Message) {
         val finalChatId = message.conversationId.ifBlank { chatId }
-        chatDao.insertMessages(listOf(message.toEntity(finalChatId)))
+        
+        val existing = chatDao.getMessageById(message.id)
+        val finalMessage = if (message.mediaUrls.isEmpty() && existing != null && existing.mediaUrls.isNotEmpty()) {
+            message.copy(mediaUrls = existing.mediaUrls)
+        } else message
+
+        chatDao.insertMessages(listOf(finalMessage.toEntity(finalChatId)))
         chatDao.pruneMessages(finalChatId, 50)
     }
 
@@ -771,8 +770,8 @@ class ChatRepositoryImpl @Inject constructor(
     }
     
     override fun getContacts(): Flow<Resource<List<Contact>>> = 
-        contactDao.getContacts().flowMap { list -> 
-            Resource.Success(list.map { ce: com.example.firstapp.common.data.local.entity.ContactEntity -> ce.toModel() })
+        contactDao.getContacts().flowMap { list: List<ContactEntity> -> 
+            Resource.Success(list.map { ce: ContactEntity -> ce.toModel() })
         }
 
     override fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>> = flow {
@@ -937,12 +936,12 @@ class ChatRepositoryImpl @Inject constructor(
     }
     
     override fun getArchivedChats(): Flow<Resource<List<ChatMessage>>> = 
-        chatDao.getArchivedChats().flowMap { list -> 
+        chatDao.getArchivedChats().flowMap { list: List<ChatEntity> -> 
             Resource.Success(list.map { ce: ChatEntity -> ce.toModel() })
         }
 
     override fun getCallLogs(): Flow<Resource<List<CallLog>>> = 
-        callLogDao.getCallLogs().flowMap { list -> 
-            Resource.Success(list.map { cle: com.example.firstapp.common.data.local.entity.CallLogEntity -> cle.toModel() })
+        callLogDao.getCallLogs().flowMap { list: List<com.example.firstapp.chat.data.local.entity.CallLogEntity> ->
+            Resource.Success(list.map { cle: com.example.firstapp.chat.data.local.entity.CallLogEntity -> cle.toModel() })
         }
 }

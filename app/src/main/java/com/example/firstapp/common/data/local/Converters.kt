@@ -7,6 +7,7 @@ import com.example.firstapp.chat.model.MessageType
 import com.example.firstapp.drive.model.DestinationType
 import com.example.firstapp.chat.jobs.model.ApplicationStatus
 import com.example.firstapp.media.model.*
+import com.example.firstapp.chat.model.*
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlin.collections.*

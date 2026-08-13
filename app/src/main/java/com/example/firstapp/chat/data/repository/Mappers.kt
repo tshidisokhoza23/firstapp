@@ -3,10 +3,10 @@ package com.example.firstapp.chat.data.repository
 import com.example.firstapp.chat.data.api.ChatSummary
 import com.example.firstapp.chat.data.api.ApiMessage
 import com.example.firstapp.chat.data.api.ApiCallLog
-import com.example.firstapp.common.data.local.entity.ChatEntity
-import com.example.firstapp.common.data.local.entity.MessageEntity
-import com.example.firstapp.common.data.local.entity.CallLogEntity
-import com.example.firstapp.common.data.local.entity.ContactEntity
+import com.example.firstapp.chat.data.local.entity.ChatEntity
+import com.example.firstapp.chat.data.local.entity.MessageEntity
+import com.example.firstapp.chat.data.local.entity.CallLogEntity
+import com.example.firstapp.chat.data.local.entity.ContactEntity
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.common.util.CryptoUtils
@@ -21,7 +21,7 @@ import com.example.firstapp.BuildConfig
 import com.example.firstapp.common.model.ConversationType
 import com.example.firstapp.common.data.api.ApiUser
 import com.example.firstapp.chat.jobs.model.Job
-import com.example.firstapp.common.data.local.entity.JobEntity
+import com.example.firstapp.chat.jobs.data.local.entity.JobEntity
 import androidx.compose.ui.graphics.Color
 
 fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
@@ -114,7 +114,20 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
             "job_post" -> MessageType.JOB_POST
             else -> MessageType.TEXT
         },
-        mediaUrls = apiMessage.media_urls?.map { formatUrl(it) } ?: emptyList(),
+        mediaUrls = if (apiMessage.media_urls != null && apiMessage.media_urls.isNotEmpty()) {
+            apiMessage.media_urls.map { formatUrl(it) }
+        } else if (!apiMessage.file_name.isNullOrBlank() && apiMessage.media_type.lowercase() != "text") {
+            // Heuristic: reconstruct URL if media_urls is missing but file_name is present
+            val folder = when (apiMessage.media_type.lowercase()) {
+                "image" -> "chat/images"
+                "video", "short_video" -> "chat/videos"
+                "audio", "audio_message" -> "chat/voice"
+                else -> "chat/files"
+            }
+            listOf(formatUrl("$folder/${apiMessage.file_name}"))
+        } else {
+            emptyList()
+        },
         isRead = false,
         isDelivered = true,
         status = MessageStatus.SENT,
@@ -314,9 +327,6 @@ fun mapApiContact(api: ApiUser): Contact {
         isFollowing = api.is_following
     )
 }
-
-fun Job.toEntity() = JobEntity(id, title, companyName, companyLogoUrl, location, salaryRange, jobType, postedTime, description, requirements, isVerified, isApplied, isSaved)
-fun JobEntity.toModel() = Job(id, title, companyName, companyLogoUrl, location, Color.Gray, salaryRange, jobType, postedTime, description, requirements, isVerified, isApplied, isSaved)
 
 fun formatUrl(url: String?): String {
     if (url == null || url.isBlank()) return ""

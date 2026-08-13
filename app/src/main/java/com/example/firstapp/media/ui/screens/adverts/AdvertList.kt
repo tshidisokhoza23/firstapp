@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.firstapp.media.model.Advert
+import com.example.firstapp.chat.model.Advert
 import com.example.firstapp.media.ui.components.AdvertItem
 import com.example.firstapp.common.ui.theme.AppAccent
 

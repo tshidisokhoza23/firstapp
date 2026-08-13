@@ -1,7 +1,7 @@
 package com.example.firstapp.chat.jobs.data.repository
 
-import com.example.firstapp.common.data.local.entity.JobEntity
-import com.example.firstapp.common.data.local.entity.JobApplicationEntity
+import com.example.firstapp.chat.jobs.data.local.entity.JobEntity
+import com.example.firstapp.chat.jobs.data.local.entity.JobApplicationEntity
 import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.chat.jobs.model.JobApplication
 import com.example.firstapp.common.ui.theme.AppPrimary

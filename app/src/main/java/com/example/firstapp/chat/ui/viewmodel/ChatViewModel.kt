@@ -190,16 +190,6 @@ class ChatViewModel @Inject constructor(
         
         messagesFetchJob?.cancel()
         messagesFetchJob = viewModelScope.launch {
-            // Step 1: Check cache immediately and update UI if data exists
-            repository.getMessages(chatId).first().let { resource ->
-                if (resource is Resource.Success && resource.data?.isNotEmpty() == true) {
-                    _uiState.update { it.copy(messages = resource) }
-                } else {
-                    _uiState.update { it.copy(messages = Resource.Loading()) }
-                }
-            }
-            
-            // Step 2: Observe for all future updates (network sync results + real-time)
             repository.getMessages(chatId).collect { resource ->
                 _uiState.update { it.copy(messages = resource) }
             }
@@ -480,10 +470,10 @@ class ChatViewModel @Inject constructor(
     }
 
     fun createGroup(name: String, contactIds: List<String>, onSuccess: (ChatMessage) -> Unit) {
-        _uiState.update { it.copy(selectedContactsForGroup = emptyList()) }
         viewModelScope.launch {
             repository.createGroup(name, contactIds).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
+                    _uiState.update { it.copy(selectedContactsForGroup = emptyList()) }
                     onSuccess(resource.data)
                     fetchChats()
                 }

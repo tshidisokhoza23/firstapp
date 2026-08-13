@@ -132,6 +132,7 @@ class CallWebSocketClient @Inject constructor(
                 .addHeader("Authorization", "Bearer " + token)
                 .build()
 
+            Log.d("CallWebSocket", "Connecting to Call WS: $url")
             webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     notifyOpen()

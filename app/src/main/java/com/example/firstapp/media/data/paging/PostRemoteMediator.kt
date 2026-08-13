@@ -6,8 +6,8 @@ import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import androidx.room.withTransaction
 import com.example.firstapp.common.data.local.AppDatabase
-import com.example.firstapp.common.data.local.entity.PostEntity
-import com.example.firstapp.common.data.local.entity.PostRemoteKeys
+import com.example.firstapp.media.data.local.entity.PostEntity
+import com.example.firstapp.media.data.local.entity.PostRemoteKeys
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.repository.toPostEntity
 import com.example.firstapp.media.data.repository.mapApiPost

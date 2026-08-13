@@ -1,21 +1,18 @@
 package com.example.firstapp.chat.jobs.data.repository
 
 import com.example.firstapp.chat.jobs.data.api.*
-import com.example.firstapp.common.data.local.dao.JobDao
+import com.example.firstapp.chat.jobs.data.local.dao.JobDao
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.domain.repository.JobRepository
 import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.chat.jobs.model.JobApplication
 import com.example.firstapp.chat.jobs.model.JobProfileData
-import com.example.firstapp.common.data.repository.*
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map as flowMap
-import android.util.Log
-import kotlin.collections.*
-import kotlin.text.*
 import javax.inject.Inject
 
 class JobRepositoryImpl @Inject constructor(

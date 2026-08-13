@@ -5,10 +5,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.example.firstapp.media.data.api.TrendingTopic
-import com.example.firstapp.common.data.realtime.PostSocketListener
-import com.example.firstapp.common.data.realtime.PostWebSocketClient
+import com.example.firstapp.media.data.realtime.PostSocketListener
+import com.example.firstapp.media.data.realtime.PostWebSocketClient
 import com.example.firstapp.media.model.*
 import com.example.firstapp.chat.model.Contact
+import com.example.firstapp.common.util.MediaUtils
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.domain.repository.SocialRepository
 import com.example.firstapp.account.domain.repository.AccountRepository
@@ -27,7 +28,7 @@ class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
     private val accountRepository: AccountRepository,
     private val adManager: com.example.firstapp.common.data.ads.AdManager,
-    private val postWebSocketClient: com.example.firstapp.common.data.realtime.PostWebSocketClient
+    private val postWebSocketClient: com.example.firstapp.media.data.realtime.PostWebSocketClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
@@ -113,7 +114,7 @@ class MediaViewModel @Inject constructor(
     private var lastRealtimePostRefreshMs: Long = 0L
 
     private fun connectPostRealtime() {
-        postWebSocketClient.connect(object : com.example.firstapp.common.data.realtime.PostSocketListener {
+        postWebSocketClient.connect(object : com.example.firstapp.media.data.realtime.PostSocketListener {
             override fun onOpen() {}
             override fun onPostsEvent(action: String, postId: String?) {
                 val now = System.currentTimeMillis()
@@ -231,7 +232,7 @@ class MediaViewModel @Inject constructor(
                              android.net.Uri.parse(uriStr)
                         }
                         val context = com.example.firstapp.common.util.ContextProvider.context
-                        val file = com.example.firstapp.media.ui.screens.copyUriToTempFile(context, uri)
+                        val file = MediaUtils.copyUriToTempFile(context, uri)
                         if (file != null) {
                             android.util.Log.d("MediaViewModel", "File copied to temp: ${file.absolutePath}, size: ${file.length()}")
                             // Synchronously wait for each upload to complete and get the public URL

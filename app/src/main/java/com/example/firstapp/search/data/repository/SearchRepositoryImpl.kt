@@ -3,6 +3,7 @@ package com.example.firstapp.search.data.repository
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.model.Message
+import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.data.api.UserApi
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.search.domain.repository.SearchRepository
@@ -11,7 +12,7 @@ import com.example.firstapp.search.model.SearchResult
 import com.example.firstapp.search.model.SearchType
 import com.example.firstapp.domain.repository.ChatRepository
 import com.example.firstapp.domain.repository.JobRepository
-import com.example.firstapp.media.domain.repository.ChannelRepository
+import com.example.firstapp.chat.domain.repository.ChannelRepository
 import com.example.firstapp.music.domain.repository.MusicRepository
 import com.example.firstapp.common.data.repository.*
 import com.example.firstapp.chat.data.repository.*
