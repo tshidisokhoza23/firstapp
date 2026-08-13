@@ -180,6 +180,14 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val body = data["body"] ?: ""
         val chatId = data["contact_id"] ?: "0"
         
+        // Expert Fix: Trigger background sync on new message FCM
+        val scope = kotlinx.coroutines.MainScope()
+        scope.launch {
+            chatRepository.syncChats().collect {}
+            // Optionally fetch just this conversation's messages
+            // chatRepository.getMessages(chatId, 1).collect {}
+        }
+
         createMessagesChannel()
 
         val launchIntent = Intent(this, MainActivity::class.java).apply {

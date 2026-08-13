@@ -44,6 +44,7 @@ import com.example.firstapp.common.util.RootUtils
 import android.widget.Toast
 import com.example.firstapp.common.util.ContactsObserver
 import com.example.firstapp.common.util.DisplayNameResolver
+import com.example.firstapp.common.util.UserScopedStorage
 import javax.inject.Inject
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -322,8 +323,14 @@ class MainActivity : FragmentActivity() {
                                 adManager = adManager,
                                 onLogout = {
                                     lifecycleScope.launch {
+                                        val userId = sessionManager.getUserId() ?: ""
                                         systemRepository.clearAllData()
                                         sessionManager.clearSession()
+                                        
+                                        // Expert Fix: Clear user-scoped storage on logout
+                                        if (userId.isNotEmpty()) {
+                                            UserScopedStorage(applicationContext, userId).clearUserData()
+                                        }
                                     }
                                 }
                             )

@@ -69,25 +69,35 @@ abstract class AppDatabase : RoomDatabase() {
     }
 
     companion object {
-        const val DATABASE_NAME = "firstapp_v8_encrypted.db"
+        private const val BASE_DATABASE_NAME = "firstapp_v9_encrypted"
 
         @Volatile
         private var instance: AppDatabase? = null
+        private var currentUserId: String? = null
 
         fun getInstance(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager): AppDatabase {
-            return instance ?: synchronized(this) {
+            val userId = sessionManager.getUserId() ?: "anonymous"
+            
+            return if (instance != null && currentUserId == userId) {
+                instance!!
+            } else synchronized(this) {
+                // If switching users, close old instance
+                if (currentUserId != userId) {
+                    instance?.close()
+                    instance = null
+                }
+                
+                val dbName = "${BASE_DATABASE_NAME}_${userId}.db"
+                currentUserId = userId
+
                 val db = try {
-                    val d = buildDatabase(context, sessionManager)
-                    // Trigger a database open to catch encryption/corruption errors early
+                    val d = buildDatabase(context, sessionManager, dbName)
                     d.openHelper.writableDatabase
                     d
                 } catch (e: Exception) {
-                    android.util.Log.e("AppDatabase", "Database open failed, deleting and recreating...", e)
-                    // If it's a SQLCipher key mismatch or corruption, delete the file and try again
-                    try {
-                        context.deleteDatabase(DATABASE_NAME)
-                    } catch (_: Exception) {}
-                    val d = buildDatabase(context, sessionManager)
+                    android.util.Log.e("AppDatabase", "Database open failed ($dbName), deleting and recreating...", e)
+                    try { context.deleteDatabase(dbName) } catch (_: Exception) {}
+                    val d = buildDatabase(context, sessionManager, dbName)
                     d.openHelper.writableDatabase
                     d
                 }
@@ -96,17 +106,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private fun buildDatabase(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager): AppDatabase {
-            // Initialize SQLCipher
+        private fun buildDatabase(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager, dbName: String): AppDatabase {
             System.loadLibrary("sqlcipher")
-            
             val passphrase = sessionManager.getDbPassphrase().toByteArray()
             val factory = SupportOpenHelperFactory(passphrase)
 
             return androidx.room.Room.databaseBuilder(
                 context.applicationContext,
                 AppDatabase::class.java,
-                DATABASE_NAME
+                dbName
             )
             .openHelperFactory(factory)
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
