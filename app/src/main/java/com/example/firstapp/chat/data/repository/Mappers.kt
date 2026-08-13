@@ -28,10 +28,13 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     val timestamp = chat.time
     val id = chat.conversation_id
              
-    val type = when (chat.type) {
-        "GROUP" -> ConversationType.GROUP
-        "CHANNEL" -> ConversationType.CHANNEL
-        "JOB_CHAT" -> ConversationType.JOB_CHAT
+    val rawType = chat.type.trim().uppercase()
+    Log.d("Mappers", "mapApiChatSummary: id=$id, rawType='$rawType', title='${chat.title}'")
+    
+    val type = when {
+        rawType.contains("GROUP") -> ConversationType.GROUP
+        rawType.contains("CHANNEL") -> ConversationType.CHANNEL
+        rawType.contains("JOB") -> ConversationType.JOB_CHAT
         else -> ConversationType.DIRECT
     }
 

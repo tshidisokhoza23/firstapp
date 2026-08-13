@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.map as flowMap
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,6 +59,10 @@ class ChatRepositoryImpl @Inject constructor(
         chatDao.getChats().flowMap { list: List<ChatEntity> -> 
             Log.d("ChatRepositoryImpl", "getChats: emitting ${list.size} chats from DB")
             Resource.Success(list.map { it.toModel() })
+        }.onStart {
+            // Immediately emit Success if we want to break shimmer early, 
+            // but the Room Flow should already do this if it works.
+            // Log.d("ChatRepositoryImpl", "getChats: flow started")
         }
 
     override fun syncChats(): Flow<Resource<Boolean>> = flow {
@@ -77,7 +83,9 @@ class ChatRepositoryImpl @Inject constructor(
                 if (filteredChats.isNotEmpty()) {
                     Log.i("ChatRepositoryImpl", "syncChats: Successfully recovered ${filteredChats.size} chats via search fallback")
                     val entities = filteredChats.map { mapApiChatSummary(it).toEntity() }
-                    chatDao.insertChats(entities)
+                    withContext(NonCancellable) {
+                        chatDao.insertChats(entities)
+                    }
                     syncSuccess = true
                 }
             }
@@ -97,7 +105,9 @@ class ChatRepositoryImpl @Inject constructor(
                     .map { mapApiChatSummary(it).toEntity() }
                 
                 if (chatOnlyEntities.isNotEmpty()) {
-                    chatDao.insertChats(chatOnlyEntities)
+                    withContext(NonCancellable) {
+                        chatDao.insertChats(chatOnlyEntities)
+                    }
                     syncSuccess = true
                 }
             } else {

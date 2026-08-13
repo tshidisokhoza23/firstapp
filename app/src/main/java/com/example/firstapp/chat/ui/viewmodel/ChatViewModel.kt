@@ -4,6 +4,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import com.example.firstapp.chat.data.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.model.*
@@ -77,10 +78,27 @@ class ChatViewModel @Inject constructor(
 
     init {
         android.util.Log.d("ChatViewModel", "Initializing ChatViewModel: ${this.hashCode()}")
-        handleIntent(ChatIntent.FetchChats)
+        
         fetchCurrentUser()
         
-        // Connect and observe auth state for reconnection
+        // 1. Observe Local Database immediately and continuously
+        viewModelScope.launch {
+            repository.getChats().collect { resource ->
+                Log.d("ChatViewModel", "Local DB Emit: ${resource.data?.size ?: 0} chats")
+                _uiState.update { it.copy(chats = resource) }
+            }
+        }
+
+        viewModelScope.launch {
+            repository.getArchivedChats().collect { res ->
+                _uiState.update { it.copy(archivedChats = res) }
+            }
+        }
+
+        // 2. Fetch/Sync from network
+        fetchChats()
+        
+        // 3. Connect and observe auth state for reconnection
         viewModelScope.launch {
             sessionManager.authState.collect { isLoggedIn ->
                 if (isLoggedIn) {
@@ -128,58 +146,27 @@ class ChatViewModel @Inject constructor(
     }
 
     fun fetchChats() {
-        if (_uiState.value.isChatsFetching) return
+        // Use a separate job for network sync to avoid cancelling local DB collection
         viewModelScope.launch {
+            if (_uiState.value.isChatsFetching) {
+                Log.d("ChatViewModel", "fetchChats: already syncing, skipping")
+                return@launch
+            }
+            
             _uiState.update { it.copy(isChatsFetching = true) }
             try {
-                // Sync from network
-                launch {
-                    repository.syncChats().collect { resource ->
-                        if (resource is Resource.Error) {
-                            _uiState.update { state ->
-                                state.copy(
-                                    error = resource.message,
-                                    chats = if (state.chats.data.isNullOrEmpty()) {
-                                        Resource.Error(resource.message ?: "Sync failed", state.chats.data)
-                                    } else state.chats
-                                )
-                            }
-                        }
+                Log.d("ChatViewModel", "fetchChats: Starting network sync")
+                repository.syncChats().collect { resource ->
+                    if (resource is Resource.Error) {
+                        Log.e("ChatViewModel", "fetchChats: Sync error: ${resource.message}")
+                        _uiState.update { it.copy(error = resource.message) }
+                    } else if (resource is Resource.Success) {
+                        Log.d("ChatViewModel", "fetchChats: Sync success")
                     }
                 }
-
-                launch {
-                    repository.getArchivedChats().collect { res ->
-                        _uiState.update { it.copy(archivedChats = res) }
-                    }
-                }
-                
-                // Collect local chats and update UI state
-                repository.getChats().collect { resource ->
-                    android.util.Log.d("ChatViewModel", "fetchChats: received ${resource.data?.size ?: 0} chats")
-                    
-                    if (resource is Resource.Success) {
-                        _uiState.update { it.copy(chats = resource, error = null) }
-                        resource.data?.forEach { chat ->
-                            val currentName = GlobalCallState.getContactName(chat.id)
-                            val newName = chat.senderName
-                            if (newName.isNotBlank() && newName.lowercase() != "unknown") {
-                                GlobalCallState.updateContactInfo(chat.id, newName, null)
-                            } else if (currentName == null && newName.isNotBlank()) {
-                                GlobalCallState.updateContactInfo(chat.id, newName, null)
-                            }
-
-                            if (chat.isGroup && chat.senderName.isNotBlank()) {
-                                groupNameCache[chat.id] = chat.senderName
-                            }
-                        }
-                    } else if (resource is Resource.Loading && _uiState.value.chats.data.isNullOrEmpty()) {
-                        _uiState.update { it.copy(chats = resource) }
-                    }
-                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "fetchChats: Exception during sync", e)
             } finally {
-                // This will still probably not be reached if getChats() flow stays open,
-                // which is why we might want to launch getChats collection in its own job too.
                 _uiState.update { it.copy(isChatsFetching = false) }
             }
         }

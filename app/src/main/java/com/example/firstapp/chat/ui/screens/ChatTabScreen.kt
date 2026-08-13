@@ -125,9 +125,10 @@ fun ChatsListScreen(
     val hasRewardedAds by advertsViewModel.hasRewardedAdsAvailable.collectAsState()
     val adCooldownSeconds by advertsViewModel.cooldownRemainingSeconds.collectAsState()
 
-    LaunchedEffect(Unit) {
-        chatViewModel.syncChats()
-    }
+    // Network sync is now handled by ChatViewModel init
+    // LaunchedEffect(Unit) {
+    //    chatViewModel.syncChats()
+    // }
 
     LaunchedEffect(selectedTabItem) {
         if (selectedTabItem == 1) {

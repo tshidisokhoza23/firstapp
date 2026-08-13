@@ -275,18 +275,6 @@ class MainActivity : FragmentActivity() {
                                 val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
                                 chatRepository.syncContacts(phoneNumbers).collect {}
                                 chatRepository.refreshLocalChatNames()
-                                
-                                // 3. Populate GlobalCallState names from local chats
-                                chatRepository.getChats().collect { res ->
-                                    if (res is Resource.Success) {
-                                        res.data?.forEach { chat ->
-                                            if (chat.senderName.isNotBlank() && chat.senderName.lowercase() != "unknown") {
-                                                GlobalCallState.updateContactInfo(chat.id, chat.senderName, chat.phoneNumber)
-                                                chat.otherUserId?.let { GlobalCallState.updateContactInfo(it, chat.senderName, chat.phoneNumber) }
-                                            }
-                                        }
-                                    }
-                                }
                             } catch (e: Exception) {
                                 android.util.Log.e("MainActivity", "Failed to sync contacts", e)
                             }
