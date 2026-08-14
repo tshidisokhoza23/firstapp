@@ -18,11 +18,17 @@ class ContactsObserver(
 ) : ContentObserver(Handler(Looper.getMainLooper())) {
 
     fun register() {
-        context.contentResolver.registerContentObserver(
-            ContactsContract.Contacts.CONTENT_URI,
-            true,
-            this
-        )
+        try {
+            context.contentResolver.registerContentObserver(
+                ContactsContract.Contacts.CONTENT_URI,
+                true,
+                this
+            )
+        } catch (e: SecurityException) {
+            android.util.Log.e("ContactsObserver", "SecurityException registering observer: ${e.message}")
+        } catch (e: Exception) {
+            android.util.Log.e("ContactsObserver", "Error registering observer: ${e.message}")
+        }
     }
 
     fun unregister() {

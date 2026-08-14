@@ -88,7 +88,13 @@ class ChatViewModel @Inject constructor(
 
     private fun observeLocalDatabase() {
         repository.getChats()
-            .onEach { res -> _uiState.update { it.copy(chats = res) } }
+            .onEach { res -> 
+                Log.d("ChatViewModel", "Observe: chats list updated, count=${res.data?.size ?: 0}")
+                _uiState.update { it.copy(
+                    chats = if (it.chats is Resource.Loading && res.data?.isEmpty() == true) it.chats else res, 
+                    isChatsFetching = false
+                ) }
+            }
             .launchIn(viewModelScope)
 
         repository.getArchivedChats()
@@ -100,7 +106,11 @@ class ChatViewModel @Inject constructor(
         webSocketManager.events
             .onEach { envelope ->
                 if (envelope.topic == "chat") {
-                    fetchChats()
+                    if (envelope.event == "message") {
+                        // When a message comes in, we don't necessarily need a full sync,
+                        // but it helps ensure counts and status are perfect.
+                        fetchChats()
+                    }
                     if (envelope.event == "typing") {
                         val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
                         val state = envelope.payload?.get("is_typing")?.toString()?.toBoolean() ?: false
@@ -144,8 +154,14 @@ class ChatViewModel @Inject constructor(
 
     fun fetchChats() {
         viewModelScope.launch {
+            _uiState.update { it.copy(isChatsFetching = true) }
             repository.syncChats().collect { res ->
-                if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+                Log.d("ChatViewModel", "SyncChats result: ${res::class.simpleName}")
+                if (res is Resource.Error) {
+                    _uiState.update { it.copy(error = res.message, isChatsFetching = false) }
+                } else if (res is Resource.Success) {
+                    _uiState.update { it.copy(isChatsFetching = false) }
+                }
             }
         }
     }

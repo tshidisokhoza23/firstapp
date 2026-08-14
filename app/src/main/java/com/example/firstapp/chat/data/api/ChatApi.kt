@@ -91,6 +91,7 @@ data class ChatSummary(
     val is_pinned: Boolean,
     val is_admin: Boolean = false,
     val contact_id: String? = null,
+    val phone_number: String? = null,
     val avatar_url: String? = null
 )
 

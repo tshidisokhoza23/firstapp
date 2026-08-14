@@ -183,6 +183,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to fetch user data"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Connection error"))
         }
     }
@@ -437,6 +438,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to update profile"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -447,7 +449,10 @@ class UserRepositoryImpl @Inject constructor(
             val response = authApi.forgotPassword(ForgotPasswordRequest(emailOrUsername))
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("User not found or request failed"))
-        } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
     }
 
     override fun deleteAccount(): Flow<Resource<Boolean>> = flow {
@@ -456,7 +461,10 @@ class UserRepositoryImpl @Inject constructor(
             val response = apiService.deleteAccount()
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Failed to delete account"))
-        } catch (e: Exception) { emit(Resource.Error(e.toUserMessage())) }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
     }
 
     override fun login(username: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>> = flow {
@@ -479,6 +487,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error(errorMsg))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -498,6 +507,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error(errorMsg))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -527,6 +537,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to fetch experiences"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -541,6 +552,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to add experience"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -555,6 +567,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to update experience"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -569,6 +582,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to delete experience"))
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }

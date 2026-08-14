@@ -9,6 +9,7 @@ data class StoryEntity(
     @PrimaryKey val id: String,
     val userId: String,
     val userName: String,
+    val phoneNumber: String? = null,
     val userAvatarUrl: String?,
     val userAvatarColor: Int,
     val stories: List<StoryItem>,

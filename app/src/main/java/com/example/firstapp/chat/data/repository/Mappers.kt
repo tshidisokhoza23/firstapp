@@ -97,8 +97,8 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
     val sName = if (apiMessage.sender_name != "" && apiMessage.sender_name != "unknown" && apiMessage.sender_name != "Unknown" && apiMessage.sender_name != "null") {
         apiMessage.sender_name
     } else {
-        // Fallback to phone number or ID if name is missing (skip username as requested)
-        apiMessage.contact_phone ?: senderId
+        // Requirement 1: Fallback to phone number (STRICT BAN on username/IDs)
+        apiMessage.contact_phone ?: "Unknown"
     }
 
     return Message(

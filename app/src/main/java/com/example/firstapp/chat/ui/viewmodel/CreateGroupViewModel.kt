@@ -22,8 +22,20 @@ class CreateGroupViewModel @Inject constructor(
     val createResult: StateFlow<Resource<ChatMessage>?> = _createResult.asStateFlow()
 
     fun createGroup(name: String, contactIds: List<String>) {
+        val sanitizedName = name.trim()
+        if (sanitizedName.isEmpty()) {
+            _createResult.value = Resource.Error("Group name is required")
+            return
+        }
+        
+        if (contactIds.isEmpty()) {
+            _createResult.value = Resource.Error("Please select at least one participant")
+            return
+        }
+
         viewModelScope.launch {
-            repository.createGroup(name, contactIds).collect {
+            _createResult.value = Resource.Loading()
+            repository.createGroup(sanitizedName, contactIds).collect {
                 _createResult.value = it
             }
         }

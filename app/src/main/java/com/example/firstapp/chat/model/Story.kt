@@ -8,6 +8,7 @@ data class UserStory(
     val id: String,
     val userId: String = "",
     val userName: String,
+    val phoneNumber: String? = null,
     val userAvatarUrl: String? = null,
     val userAvatarColor: Color,
     val stories: List<StoryItem>,

@@ -22,16 +22,32 @@ class StoryViewModel @Inject constructor(
     private val repository: StoryRepository,
     private val accountRepository: AccountRepository,
     private val chatRepository: ChatRepository,
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager,
     private val postWebSocketClient: PostWebSocketClient
 ) : ViewModel() {
 
     private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val stories: StateFlow<Resource<List<UserStory>>> = refreshTrigger
-        .onStart { emit(Unit) }
-        .flatMapLatest { repository.getStories() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+    val stories: StateFlow<Resource<List<UserStory>>> = combine(
+        refreshTrigger.onStart { emit(Unit) }.flatMapLatest { repository.getStories() },
+        chatRepository.getContacts()
+    ) { storiesRes, contactsRes ->
+        if (storiesRes is Resource.Success && contactsRes is Resource.Success) {
+            val contactPhones = contactsRes.data?.map { it.phoneNumber.trim() }?.toSet() ?: emptySet()
+            val filteredStories = storiesRes.data?.filter { userStory ->
+                // Requirement 3: Strictly filter to matched/synced contacts
+                // Always include own stories
+                userStory.userId == sessionManager.getUserId() || 
+                contactPhones.contains(userStory.phoneNumber?.trim())
+            }
+            Resource.Success(filteredStories ?: emptyList())
+        } else if (storiesRes is Resource.Error) {
+            Resource.Error(storiesRes.message ?: "Error loading stories")
+        } else {
+            storiesRes
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
 
     val contacts: StateFlow<Resource<List<com.example.firstapp.chat.model.Contact>>> = chatRepository.getContacts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())

@@ -70,7 +70,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthenticator(baseUrl: String, sessionManager: SessionManager): Authenticator {
+    fun provideAuthenticator(
+        sessionManager: SessionManager,
+        envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
+    ): Authenticator {
         val refreshLock = Any()
         return Authenticator { _, response ->
             val path = response.request.url.encodedPath
@@ -95,14 +98,16 @@ object NetworkModule {
                 val refreshToken = sessionManager.getRefreshToken()
                 if (refreshToken == null || refreshToken.length == 0) return@Authenticator null
 
+                val currentBaseUrl = envManager.currentUrl
+
                 return@Authenticator try {
                     val authApi = Retrofit.Builder()
-                        .baseUrl(baseUrl)
+                        .baseUrl(currentBaseUrl)
                         .addConverterFactory(GsonConverterFactory.create())
                         .build()
                         .create(AuthApi::class.java)
 
-                    android.util.Log.d("NetworkModule", "Attempting token refresh...")
+                    android.util.Log.d("NetworkModule", "Attempting token refresh on $currentBaseUrl...")
                     val refreshResponse = runBlocking {
                         authApi.refresh(com.example.firstapp.common.data.api.TokenRefreshRequest(refreshToken))
                     }

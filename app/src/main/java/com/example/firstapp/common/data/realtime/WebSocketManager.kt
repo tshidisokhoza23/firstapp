@@ -26,9 +26,10 @@ import kotlin.random.Random
  */
 @Serializable
 data class WSEnvelope(
-    val topic: String,
-    val event: String,
-    val payload: JsonObject? = null
+    val topic: String? = null,
+    val event: String? = null,
+    val payload: JsonObject? = null,
+    val op: String? = null
 )
 
 @Singleton
@@ -41,6 +42,7 @@ class WebSocketManager @Inject constructor(
         ignoreUnknownKeys = true
         coerceInputValues = true
         encodeDefaults = true
+        isLenient = true
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

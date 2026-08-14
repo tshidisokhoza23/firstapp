@@ -81,17 +81,31 @@ class ChatRepositoryImpl @Inject constructor(
                                 val privKey = sessionManager.getPrivateKey()
                                 val message = mapApiMessage(apiMsg, privKey, myUserId)
                                 Log.d("ChatRepository", "Incoming message from WS: ${message.id}, saving to DB")
+                                
+                                // Step 1: Save the message itself
                                 saveMessage(message.conversationId, message)
                                 
-                                updateLastMessage(
+                                // Step 2: Update the chat summary (Rule 1: Name resolved via phone)
+                                val phone = apiMsg.contact_phone ?: ""
+                                val resolvedName = displayNameResolver.resolve(null, phone)
+
+                                chatDao.updateLastMessage(
                                     message.conversationId, 
                                     message.content, 
                                     message.timestamp, 
                                     message.isFromMe, 
                                     message.isRead
                                 )
+                                
                                 if (!message.isFromMe) {
                                     chatDao.incrementUnreadCount(message.conversationId)
+                                }
+
+                                // Expert: Verify if chat exists, if not, trigger a full sync to fetch metadata
+                                val exists = chatDao.searchChatsById(message.conversationId) != null
+                                if (!exists) {
+                                    Log.i("ChatRepository", "New conversation detected via WS: ${message.conversationId}, syncing...")
+                                    syncChats().collect {}
                                 }
                             } catch (e: Exception) {
                                 Log.e("ChatRepository", "Failed to decode WS message", e)
@@ -226,7 +240,10 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getChats(): Flow<Resource<List<ChatMessage>>> = 
-        chatDao.getChats().map { list -> Resource.Success(list.map { it.toModel() }) }
+        chatDao.getChats().map { list ->
+            Log.d("ChatRepository", "getChats: emitting ${list.size} chats from local DB")
+            Resource.Success(list.map { it.toModel() }) 
+        }
 
     override fun syncChats(): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
@@ -235,48 +252,45 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val apiChats = response.body()!!.chats
                 val localContacts = contactDao.getContacts().first().associateBy { it.id }
-                val existingChats = chatDao.getChats().first().associateBy { it.id }
                 
                 val entities = apiChats.map { chat ->
                     val mapped = mapApiChatSummary(chat)
-                    val existing = existingChats[chat.conversation_id]
-                    var finalName = mapped.senderName
+                    var finalName = ""
                     
-                    if (finalName.isBlank() || finalName.lowercase() == "unknown" || finalName == chat.conversation_id) {
-                        if (mapped.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
-                            val targetId = mapped.otherUserId
-                            if (!targetId.isNullOrBlank()) {
-                                val contact = localContacts[targetId]
-                                finalName = displayNameResolver.resolve(
-                                    com.example.firstapp.common.model.User(id = targetId, displayName = ""),
-                                    contact?.phoneNumber ?: mapped.phoneNumber ?: ""
-                                )
-                            } else {
-                                finalName = "Unknown User"
-                            }
-                        } else if (mapped.type == com.example.firstapp.common.model.ConversationType.GROUP || 
-                                   mapped.type == com.example.firstapp.common.model.ConversationType.CHANNEL) {
-                            // Expert Fix: Use existing local name if available and valid
-                            val existingName = existing?.senderName
-                            if (!existingName.isNullOrBlank() && existingName.lowercase() != "unknown" && existingName != chat.conversation_id) {
-                                finalName = existingName
-                            } else {
-                                // Try to use title from API if it's not a UUID
-                                finalName = chat.title.takeIf { 
-                                    it.isNotBlank() && it.lowercase() != "unknown" && it != chat.conversation_id 
-                                } ?: "Group"
-                            }
+                    if (mapped.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+                        // Requirement 1: Resolve strictly via Local Contacts or Raw Phone
+                        val phone = chat.phone_number ?: ""
+                        finalName = displayNameResolver.resolve(null, phone)
+                    } else {
+                        // For Groups/Channels, use the provided title or fallback
+                        finalName = if (chat.title.isNotBlank() && chat.title.lowercase() != "unknown") {
+                             chat.title
+                        } else {
+                             "Group"
                         }
                     }
                     
                     Log.d("ChatRepository", "Sync: chat ${chat.conversation_id} resolved name to '$finalName'")
-                    mapped.copy(senderName = finalName).toEntity()
+                    mapped.copy(senderName = finalName, phoneNumber = chat.phone_number).toEntity()
                 }
                 
-                chatDao.insertChats(entities)
+                db.withTransaction {
+                    // Update only current chats, don't delete everything to avoid UI flicker
+                    chatDao.insertChats(entities)
+                }
                 emit(Resource.Success(true))
-            } else emit(Resource.Error("Sync failed: ${response.code()}"))
-        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error syncing chats")) }
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e("ChatRepository", "Sync failed: ${response.code()} $errorBody")
+                if (response.code() == 401) {
+                    Log.w("ChatRepository", "Received 401. This means Authenticator failed to refresh or token is invalid.")
+                }
+                emit(Resource.Error("Sync failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error syncing chats", e)
+            emit(Resource.Error(e.message ?: "Error syncing chats")) 
+        }
     }
 
     override suspend fun refreshLocalChatNames() {
@@ -307,11 +321,16 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val conversationId = response.body()!!.conversation_id
                 val contact = contactDao.getContactById(contactId)
+                
+                // Requirement 1: Strict resolution for new DM
+                val resolvedName = displayNameResolver.resolve(null, contact?.phoneNumber ?: "")
+                
                 val newChat = ChatEntity(
                     id = conversationId, type = com.example.firstapp.common.model.ConversationType.DIRECT,
-                    senderName = contact?.displayName ?: "User", lastMessage = "",
+                    senderName = resolvedName, lastMessage = "",
                     timestamp = System.currentTimeMillis(), unreadCount = 0, avatarUrl = contact?.avatarUrl,
-                    otherUserId = contactId, isOnline = false, isMuted = false, isPinned = false, isTyping = false
+                    otherUserId = contactId, isOnline = false, isMuted = false, isPinned = false, isTyping = false,
+                    phoneNumber = contact?.phoneNumber
                 )
                 chatDao.insertChats(listOf(newChat))
                 emit(Resource.Success(conversationId))

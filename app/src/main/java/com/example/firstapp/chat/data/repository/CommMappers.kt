@@ -10,8 +10,8 @@ import com.example.firstapp.media.data.api.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.ui.theme.AppPrimary
 
-fun UserStory.toStoryEntity() = StoryEntity(id, userId, userName, userAvatarUrl, userAvatarColor.toArgb(), stories, lastUpdated, isMuted)
-fun StoryEntity.toUserStory() = UserStory(id, userId, userName, userAvatarUrl, Color(userAvatarColor), stories, lastUpdated, isMuted)
+fun UserStory.toStoryEntity() = StoryEntity(id, userId, userName, phoneNumber, userAvatarUrl, userAvatarColor.toArgb(), stories, lastUpdated, isMuted)
+fun StoryEntity.toUserStory() = UserStory(id, userId, userName, phoneNumber, userAvatarUrl, Color(userAvatarColor), stories, lastUpdated, isMuted)
 
 fun Channel.toEntity() = ChannelEntity(
     id = id,
@@ -102,6 +102,7 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
         id = apiStory.user_id, 
         userId = apiStory.user_id,
         userName = apiStory.user_name, 
+        phoneNumber = apiStory.phone_number,
         userAvatarUrl = MediaUtils.formatUrl(apiStory.avatar_url), 
         userAvatarColor = Color(0xFF455A64), 
         stories = stories, 

@@ -8,9 +8,9 @@ import com.example.firstapp.common.util.Resource
 
 data class ChatUiState(
     val currentUser: User? = null,
-    val chats: Resource<List<ChatMessage>> = Resource.Loading(),
-    val archivedChats: Resource<List<ChatMessage>> = Resource.Loading(),
-    val messages: Resource<List<Message>> = Resource.Loading(),
+    val chats: Resource<List<ChatMessage>> = Resource.Loading(emptyList()),
+    val archivedChats: Resource<List<ChatMessage>> = Resource.Loading(emptyList()),
+    val messages: Resource<List<Message>> = Resource.Loading(emptyList()),
     val isChatsFetching: Boolean = false,
     val starredMessages: Resource<List<Message>> = Resource.Loading(),
     val chatSearchResults: List<Message> = emptyList(),
