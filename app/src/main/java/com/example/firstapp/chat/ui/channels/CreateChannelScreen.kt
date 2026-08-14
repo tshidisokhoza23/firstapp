@@ -29,10 +29,15 @@ fun CreateChannelScreen(
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(toastMessage) {
-        if (toastMessage == "Channel created successfully") {
-            onCreated()
+        toastMessage?.let {
+            if (it == "Channel created successfully") {
+                onCreated()
+            } else {
+                android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+            }
             viewModel.clearToast()
         }
     }

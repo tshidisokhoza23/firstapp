@@ -94,6 +94,9 @@ interface ChatDao {
     @Query("SELECT * FROM messages WHERE id = :messageId")
     suspend fun getMessageById(messageId: String): MessageEntity?
 
+    @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp ASC LIMIT 1")
+    suspend fun getOldestMessage(chatId: String): MessageEntity?
+
     @androidx.room.Transaction
     suspend fun confirmSentMessage(clientId: String, serverMsg: MessageEntity) {
         deleteMessage(clientId)

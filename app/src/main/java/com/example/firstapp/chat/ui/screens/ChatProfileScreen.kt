@@ -168,7 +168,7 @@ fun ChatProfileScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val memberCount = (groupInfo as? Resource.Success)?.data?.member_ids?.size ?: 0
+                        val memberCount = (groupInfo as? Resource.Success<com.example.firstapp.chat.data.api.GroupInfoResponse>)?.data?.member_ids?.size ?: 0
                         Text(
                             text = "$memberCount participants",
                             color = MaterialTheme.colorScheme.onSurface,
@@ -212,7 +212,7 @@ fun ChatProfileScreen(
                                 ListItem(
                                     headlineContent = { Text(if (memberId == currentUserId) "You" else name) },
                                     supportingContent = { 
-                                        val isAdmin = (groupInfo as Resource.Success).data?.admin_ids?.contains(memberId) == true
+                                        val isAdmin = (groupInfo as Resource.Success<com.example.firstapp.chat.data.api.GroupInfoResponse>).data?.admin_ids?.contains(memberId) == true
                                         if (isAdmin) {
                                             Text("Group Admin", color = AppAccent, fontSize = 12.sp)
                                         }
@@ -437,7 +437,7 @@ fun ChatProfileScreen(
             onDismissRequest = { showAddMemberDialog = false },
             title = { Text("Add members") },
             text = {
-                val memberIds = (groupInfo as? Resource.Success)?.data?.member_ids ?: emptyList()
+                val memberIds = (groupInfo as? Resource.Success<com.example.firstapp.chat.data.api.GroupInfoResponse>)?.data?.member_ids ?: emptyList()
                 val availableContacts = contacts.filter { contact ->
                     !memberIds.contains(contact.id) && contact.isRegistered
                 }

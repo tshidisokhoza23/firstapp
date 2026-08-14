@@ -28,7 +28,7 @@ class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
     private val accountRepository: AccountRepository,
     private val adManager: com.example.firstapp.common.data.ads.AdManager,
-    private val postWebSocketClient: com.example.firstapp.media.data.realtime.PostWebSocketClient
+    private val webSocketManager: com.example.firstapp.common.data.realtime.WebSocketManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
@@ -114,21 +114,20 @@ class MediaViewModel @Inject constructor(
     private var lastRealtimePostRefreshMs: Long = 0L
 
     private fun connectPostRealtime() {
-        postWebSocketClient.connect(object : com.example.firstapp.media.data.realtime.PostSocketListener {
-            override fun onOpen() {}
-            override fun onPostsEvent(action: String, postId: String?) {
+        webSocketManager.subscribe("feed")
+            .onEach { envelope ->
                 val now = System.currentTimeMillis()
-                if (now - lastRealtimePostRefreshMs < 1500) return
+                if (now - lastRealtimePostRefreshMs < 1500) return@onEach
                 lastRealtimePostRefreshMs = now
                 _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
             }
-            override fun onShortsEvent(action: String, shortId: String?) {
-            }
-            override fun onStoriesEvent(action: String, storyId: String?) {
+            .launchIn(viewModelScope)
+            
+        webSocketManager.subscribe("stories")
+            .onEach {
                 _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
             }
-            override fun onError(error: String) {}
-        })
+            .launchIn(viewModelScope)
     }
 
     fun refreshAll() {

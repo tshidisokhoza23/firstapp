@@ -8,7 +8,6 @@ import com.example.firstapp.BuildConfig
 import com.example.firstapp.common.domain.auth.SessionManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -24,7 +23,6 @@ import kotlin.random.Random
 /**
  * Multiplexed WebSocket Manager
  * Handles real-time communication for Chat, Feed, Presence, and Job events.
- * Features: Automatic reconnect with jitter, heartbeats, lifecycle awareness, and topic routing.
  */
 @Serializable
 data class WSEnvelope(
@@ -56,7 +54,6 @@ class WebSocketManager @Inject constructor(
     private var heartbeatJob: Job? = null
 
     init {
-        // Observe app lifecycle to connect/disconnect automatically
         scope.launch(Dispatchers.Main) {
             ProcessLifecycleOwner.get().lifecycle.addObserver(this@WebSocketManager)
         }
@@ -77,7 +74,7 @@ class WebSocketManager @Inject constructor(
         val token = sessionManager.getToken() ?: return
         
         val wsBaseUrl = BuildConfig.WS_BASE_URL.removeSuffix("/")
-        val url = "$wsBaseUrl/ws?token=$token"
+        val url = "$wsBaseUrl/ws/chat?token=$token"
         
         val request = Request.Builder()
             .url(url)
@@ -121,11 +118,10 @@ class WebSocketManager @Inject constructor(
     }
 
     private fun handleReconnect() {
-        // Only reconnect if the app is in the foreground
         if (!ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return
         
         val delayMs = (2.0.pow(retryCount.toDouble()) * 1000).toLong()
-            .coerceAtMost(30000L) + Random.nextLong(1000, 3000) // Base delay + jitter
+            .coerceAtMost(30000L) + Random.nextLong(1000, 3000)
         
         retryCount++
         
@@ -140,7 +136,7 @@ class WebSocketManager @Inject constructor(
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
             while (isActive && isConnected) {
-                delay(30000) // 30s heartbeat
+                delay(30000)
                 send("system", "ping")
             }
         }
@@ -161,9 +157,6 @@ class WebSocketManager @Inject constructor(
         isConnected = false
     }
     
-    /**
-     * Subscribe to a specific topic
-     */
     fun subscribe(topic: String): Flow<WSEnvelope> = events
         .filter { it.topic == topic }
 }

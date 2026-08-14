@@ -287,7 +287,7 @@ fun ChatMessagesScreen(
 
     var systemMessageSent by remember { mutableStateOf(false) }
     LaunchedEffect(messagesResource, jobTitle, companyName) {
-        if (!systemMessageSent && messagesResource is Resource.Success && (messagesResource.data?.isEmpty() == true) && jobTitle != null && companyName != null) {
+        if (!systemMessageSent && messagesResource is Resource.Success<List<Message>> && (messagesResource.data?.isEmpty() == true) && jobTitle != null && companyName != null) {
             systemMessageSent = true
             val systemMessage = "Hi, I would like to apply for the position of $jobTitle at $companyName. Attached is my profile summary."
             sendToServer(body = systemMessage, messageType = "application_link")

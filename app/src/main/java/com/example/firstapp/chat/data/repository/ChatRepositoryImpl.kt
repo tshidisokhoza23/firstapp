@@ -31,6 +31,7 @@ import kotlinx.serialization.json.buildJsonObject
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import okhttp3.ResponseBody
 
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
@@ -42,6 +43,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val sessionManager: SessionManager,
     private val db: AppDatabase,
     private val webSocketManager: WebSocketManager,
+    private val displayNameResolver: DisplayNameResolver,
     @ApplicationContext private val context: Context
 ) : ChatRepository {
 
@@ -78,6 +80,7 @@ class ChatRepositoryImpl @Inject constructor(
                                 val myUserId = sessionManager.getUserId()
                                 val privKey = sessionManager.getPrivateKey()
                                 val message = mapApiMessage(apiMsg, privKey, myUserId)
+                                Log.d("ChatRepository", "Incoming message from WS: ${message.id}, saving to DB")
                                 saveMessage(message.conversationId, message)
                                 
                                 updateLastMessage(
@@ -109,6 +112,23 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                 }
             }
+            "presence" -> {
+                val payload = envelope.payload
+                if (payload != null) {
+                    try {
+                        val userId = payload["user_id"]?.toString()?.trim('"')
+                        val isOnline = payload["is_online"]?.toString()?.toBoolean() ?: false
+                        val lastSeen = payload["last_seen"]?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
+                        userId?.let { chatDao.updatePresence(it, isOnline, lastSeen) }
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "Failed to decode presence event", e)
+                    }
+                }
+            }
+            "jobs" -> {
+                // Trigger job list refresh if needed, or handle specific job events
+                Log.d("ChatRepository", "Received jobs event: ${envelope.event}")
+            }
         }
     }
 
@@ -120,6 +140,35 @@ class ChatRepositoryImpl @Inject constructor(
             pagingSourceFactory = { chatDao.getMessagesPaging(chatId) }
         ).flow.map { pagingData ->
             pagingData.map { it.toModel() }
+        }
+    }
+
+    override fun getMessages(chatId: String, page: Int): Flow<Resource<List<Message>>> = 
+        chatDao.getMessages(chatId).map { list ->
+            Resource.Success(list.map { it.toModel() })
+        }
+
+    override fun fetchMessages(chatId: String, page: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.getMessages(chatId, cursor = null, limit = 50)
+            if (response.isSuccessful && response.body() != null) {
+                val apiMessages = response.body()!!.messages
+                val myUserId = sessionManager.getUserId()
+                val privKey = sessionManager.getPrivateKey()
+                val entities = apiMessages.map { mapApiMessage(it, privKey, myUserId).toEntity(chatId) }
+                
+                Log.d("ChatRepository", "Syncing ${entities.size} messages for chat $chatId")
+                db.withTransaction {
+                    chatDao.insertMessages(entities)
+                }
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to fetch: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error syncing messages", e)
+            emit(Resource.Error(e.message ?: "Sync error"))
         }
     }
 
@@ -185,11 +234,70 @@ class ChatRepositoryImpl @Inject constructor(
             val response = chatApi.getChats()
             if (response.isSuccessful && response.body() != null) {
                 val apiChats = response.body()!!.chats
-                val entities = apiChats.map { mapApiChatSummary(it).toEntity() }
+                val localContacts = contactDao.getContacts().first().associateBy { it.id }
+                val existingChats = chatDao.getChats().first().associateBy { it.id }
+                
+                val entities = apiChats.map { chat ->
+                    val mapped = mapApiChatSummary(chat)
+                    val existing = existingChats[chat.conversation_id]
+                    var finalName = mapped.senderName
+                    
+                    if (finalName.isBlank() || finalName.lowercase() == "unknown" || finalName == chat.conversation_id) {
+                        if (mapped.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+                            val targetId = mapped.otherUserId
+                            if (!targetId.isNullOrBlank()) {
+                                val contact = localContacts[targetId]
+                                finalName = displayNameResolver.resolve(
+                                    com.example.firstapp.common.model.User(id = targetId, displayName = ""),
+                                    contact?.phoneNumber ?: mapped.phoneNumber ?: ""
+                                )
+                            } else {
+                                finalName = "Unknown User"
+                            }
+                        } else if (mapped.type == com.example.firstapp.common.model.ConversationType.GROUP || 
+                                   mapped.type == com.example.firstapp.common.model.ConversationType.CHANNEL) {
+                            // Expert Fix: Use existing local name if available and valid
+                            val existingName = existing?.senderName
+                            if (!existingName.isNullOrBlank() && existingName.lowercase() != "unknown" && existingName != chat.conversation_id) {
+                                finalName = existingName
+                            } else {
+                                // Try to use title from API if it's not a UUID
+                                finalName = chat.title.takeIf { 
+                                    it.isNotBlank() && it.lowercase() != "unknown" && it != chat.conversation_id 
+                                } ?: "Group"
+                            }
+                        }
+                    }
+                    
+                    Log.d("ChatRepository", "Sync: chat ${chat.conversation_id} resolved name to '$finalName'")
+                    mapped.copy(senderName = finalName).toEntity()
+                }
+                
                 chatDao.insertChats(entities)
                 emit(Resource.Success(true))
             } else emit(Resource.Error("Sync failed: ${response.code()}"))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error syncing chats")) }
+    }
+
+    override suspend fun refreshLocalChatNames() {
+        val allChats = chatDao.getChats().first()
+        val localContacts = contactDao.getContacts().first().associateBy { it.id }
+        val updated = java.util.ArrayList<ChatEntity>()
+        
+        for (entity in allChats) {
+            if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+                val targetId = entity.otherUserId ?: entity.id
+                val contact = localContacts[targetId]
+                val name = displayNameResolver.resolve(
+                    com.example.firstapp.common.model.User(id = targetId, displayName = ""),
+                    contact?.phoneNumber ?: entity.phoneNumber ?: ""
+                )
+                if (name.isNotBlank() && name != entity.senderName) {
+                    updated.add(entity.copy(senderName = name))
+                }
+            }
+        }
+        if (updated.isNotEmpty()) chatDao.insertChats(updated)
     }
 
     override suspend fun initiateDM(contactId: String): Flow<Resource<String>> = flow {
@@ -243,13 +351,13 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getCallLogs(): Flow<Resource<List<CallLog>>> = 
         callLogDao.getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }
 
-    override fun getMessages(chatId: String, page: Int): Flow<Resource<List<Message>>> = 
-        chatDao.getMessages(chatId).map { list -> Resource.Success(list.map { it.toModel() }) }
-
     override fun fetchOlderMessages(chatId: String, beforeTs: Long, limit: Int): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            val response = chatApi.getMessages(chatId, cursor = null, limit = limit)
+            val oldestMsg = chatDao.getOldestMessage(chatId)
+            val cursor = oldestMsg?.id
+            
+            val response = chatApi.getMessages(chatId, cursor = cursor, limit = limit)
             if (response.isSuccessful && response.body() != null) {
                 val apiMessages = response.body()!!.messages
                 val myUserId = sessionManager.getUserId()
@@ -284,10 +392,16 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getGroupInfo(groupId: String): Flow<Resource<GroupInfoResponse>> = flow {
         emit(Resource.Loading())
         try {
-            val response = chatApi.getMembers(groupId)
+            val response = chatApi.getGroupInfo(groupId)
             if (response.isSuccessful && response.body() != null) {
-                emit(Resource.Success(GroupInfoResponse(groupId, "Group", response.body()!!.map { it.id }, emptyList(), 0)))
-            } else emit(Resource.Error("Failed"))
+                emit(Resource.Success(response.body()!!))
+            } else {
+                // Fallback to members only if info fails
+                val membersResp = chatApi.getMembers(groupId)
+                if (membersResp.isSuccessful && membersResp.body() != null) {
+                    emit(Resource.Success(GroupInfoResponse(groupId, "Group", membersResp.body()!!.map { it.id }, emptyList(), 0)))
+                } else emit(Resource.Error("Failed to load group info"))
+            }
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
@@ -367,7 +481,6 @@ class ChatRepositoryImpl @Inject constructor(
     override fun searchLocalContacts(query: String): Flow<List<Contact>> = contactDao.searchContacts(query).map { list -> list.map { it.toModel() } }
     override fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter): Flow<List<Message>> = chatDao.searchMessagesAcrossAll(query).map { it.map { e -> e.toModel() } }
     override fun getAllFiles(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList())) }
-    override suspend fun refreshLocalChatNames() { /* Implement */ }
     override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow { emit(Resource.Success(emptyList())) }
     override suspend fun getICEServers(): Resource<List<IceServerConfig>> = Resource.Success(emptyList())

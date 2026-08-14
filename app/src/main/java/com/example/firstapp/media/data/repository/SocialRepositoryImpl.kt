@@ -34,23 +34,20 @@ class SocialRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalPagingApi::class)
     override fun getPostsPaging(following: Boolean, authorId: String, feedType: String): Flow<PagingData<Post>> {
-        val pagingSourceFactory = { postDao.getPostsPaging(feedType) }
+        val finalFeedType = when {
+            authorId.isNotBlank() -> "user_$authorId"
+            following -> "following"
+            else -> feedType
+        }
         
-        return if (authorId == "") {
-            Pager(
-                config = PagingConfig(pageSize = 20, enablePlaceholders = false),
-                remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, "", feedType),
-                pagingSourceFactory = pagingSourceFactory
-            ).flow.flowMap { pagingData ->
-                pagingData.pagingMap { entity -> entity.toPost() }
-            }
-        } else {
-            Pager(
-                config = PagingConfig(pageSize = 20, enablePlaceholders = false),
-                pagingSourceFactory = { 
-                    com.example.firstapp.media.data.paging.PostPagingSource(socialApi, following = false, authorId = authorId, feedType = feedType)
-                }
-            ).flow
+        val pagingSourceFactory = { postDao.getPostsPaging(finalFeedType) }
+        
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+            remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, authorId, finalFeedType),
+            pagingSourceFactory = pagingSourceFactory
+        ).flow.flowMap { pagingData ->
+            pagingData.pagingMap { entity -> entity.toPost() }
         }
     }
 
@@ -70,94 +67,80 @@ class SocialRepositoryImpl @Inject constructor(
         postDao.updateAuthorFollowStatus(authorId, isFollowed)
     }
 
-    override fun getUserPosts(userId: String, feedType: String, page: Int): Flow<Resource<List<Post>>> = flow {
-        emit(Resource.Loading())
+    private suspend fun syncPostsInternal(
+        page: Int,
+        feedType: String,
+        following: Boolean = false,
+        authorId: String = "",
+        channelId: String? = null
+    ) {
         try {
-            val response = socialApi.getPosts(page = page, following = false, authorId = userId, feedType = feedType)
+            val response = socialApi.getPosts(
+                page = page,
+                following = following,
+                authorId = authorId,
+                channelId = channelId,
+                feedType = feedType
+            )
             if (response.isSuccessful) {
-                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
-                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
-                emit(Resource.Success(posts))
-            } else {
-                emit(Resource.Error("Fail"))
-            }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error: ${e.localizedMessage}"))
-        }
-    }
-
-    override fun getPosts(page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
-        val cachedEntities = postDao.getPosts(feedType).first()
-        val cached = cachedEntities.map { it.toPost() }
-        if (cached.isNotEmpty()) {
-            emit(Resource.Loading(cached))
-        } else {
-            emit(Resource.Loading())
-        }
-        
-        try {
-            val response = socialApi.getPosts(page = page, following = false, authorId = "", feedType = feedType)
-            if (response.isSuccessful) {
-                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
-                Log.d("SocialRepo", "Fetched " + apiPosts.size + " posts for page " + page)
-                if (apiPosts.size > 0) {
-                    val first = apiPosts[0]
-                    Log.d("SocialRepo", "Sample Post ID: " + first.id)
-                    Log.d("SocialRepo", "Sample Media URLs: " + first.media_urls)
-                }
-                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
-                // Avoid wiping media feed cache when legacy /posts returns empty.
+                val apiPosts = response.body() ?: emptyList()
+                val posts = apiPosts.map { mapApiPost(it) }
                 if (posts.isNotEmpty()) {
                     if (page == 1) postDao.clearPosts(feedType)
                     postDao.insertPosts(posts.map { it.toPostEntity(feedType) })
                 }
             } else {
-                Log.e("SocialRepo", "getPosts failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("SocialRepo", "syncPostsInternal failed: ${response.code()}")
             }
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            Log.e("SocialRepositoryImpl", "getPosts failed with exception", e)
+            if (e !is kotlinx.coroutines.CancellationException) {
+                Log.e("SocialRepo", "syncPostsInternal exception", e)
+            }
         }
-        
-        emitAll(postDao.getPosts(feedType).flowMap { entities ->
-            val models = entities.map { it.toPost() }
-            Resource.Success<List<Post>>(models)
-        })
+    }
+
+    private fun getPostsFlowInternal(feedType: String): Flow<Resource<List<Post>>> = 
+        postDao.getPosts(feedType).flowMap { entities ->
+            Resource.Success(entities.map { it.toPost() })
+        }
+
+    override fun getUserPosts(userId: String, feedType: String, page: Int): Flow<Resource<List<Post>>> = flow {
+        val type = if (feedType.startsWith("user_")) feedType else "user_$userId"
+        val cached = postDao.getPosts(type).first()
+        if (cached.isNotEmpty()) emit(Resource.Loading(cached.map { it.toPost() }))
+        else emit(Resource.Loading())
+
+        syncPostsInternal(page, type, authorId = userId)
+        emitAll(getPostsFlowInternal(type))
+    }
+
+    override fun getPosts(page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
+        val cached = postDao.getPosts(feedType).first()
+        if (cached.isNotEmpty()) emit(Resource.Loading(cached.map { it.toPost() }))
+        else emit(Resource.Loading())
+
+        syncPostsInternal(page, feedType)
+        emitAll(getPostsFlowInternal(feedType))
     }
 
     override fun getFollowingPosts(page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
-        emit(Resource.Loading())
-        try {
-            val response = socialApi.getPosts(page = page, following = true, authorId = "", feedType = feedType)
-            if (response.isSuccessful) {
-                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
-                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
-                emit(Resource.Success(posts))
-            } else {
-                emit(Resource.Error("Fail"))
-            }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error"))
-        }
+        val type = if (feedType == "following") feedType else "following"
+        val cached = postDao.getPosts(type).first()
+        if (cached.isNotEmpty()) emit(Resource.Loading(cached.map { it.toPost() }))
+        else emit(Resource.Loading())
+
+        syncPostsInternal(page, type, following = true)
+        emitAll(getPostsFlowInternal(type))
     }
 
     override fun getChannelPosts(channelId: String, page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
-        emit(Resource.Loading())
-        try {
-            val response = socialApi.getPosts(page = page, following = false, channelId = channelId, authorId = "", feedType = feedType)
-            if (response.isSuccessful) {
-                val apiPosts = response.body() ?: emptyList<com.example.firstapp.media.data.api.ApiPost>()
-                val posts = apiPosts.map { apiPost: com.example.firstapp.media.data.api.ApiPost -> mapApiPost(apiPost) }
-                emit(Resource.Success(posts))
-            } else {
-                emit(Resource.Error("Fail"))
-            }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error"))
-        }
+        val type = "channel_$channelId"
+        val cached = postDao.getPosts(type).first()
+        if (cached.isNotEmpty()) emit(Resource.Loading(cached.map { it.toPost() }))
+        else emit(Resource.Loading())
+
+        syncPostsInternal(page, type, channelId = channelId)
+        emitAll(getPostsFlowInternal(type))
     }
 
     override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?): Flow<Resource<Boolean>> = flow {

@@ -15,6 +15,7 @@ interface ChatRepository {
     fun getCallLogs(): Flow<Resource<List<CallLog>>>
     fun getMessagesPaged(chatId: String): Flow<androidx.paging.PagingData<Message>>
     fun getMessages(chatId: String, page: Int = 1): Flow<Resource<List<Message>>>
+    fun fetchMessages(chatId: String, page: Int = 1): Flow<Resource<Boolean>>
     fun fetchOlderMessages(chatId: String, beforeTs: Long, limit: Int = 50): Flow<Resource<Boolean>>
     fun markAsRead(chatId: String): Flow<Resource<Boolean>>
     fun deleteMessage(messageId: String, deleteForEveryone: Boolean = false): Flow<Resource<Boolean>>

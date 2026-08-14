@@ -40,6 +40,8 @@ class ChatViewModel @Inject constructor(
     private val _activeChatId = MutableStateFlow<String?>(null)
     val activeChatId: StateFlow<String?> = _activeChatId.asStateFlow()
 
+    private val groupNameCache = mutableMapOf<String, String>()
+
     // Settings flows
     val fontSize = settingsRepository.fontSize.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 16f)
     val enterIsSend = settingsRepository.enterIsSend.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -49,7 +51,7 @@ class ChatViewModel @Inject constructor(
         .map { it.data?.show_read_receipts ?: true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    // Paging 3 Messages Flow - Modern high-performance observation
+    // Paging 3 Messages Flow
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val messagesPaged: Flow<PagingData<Message>> = _activeChatId
         .flatMapLatest { id ->
@@ -58,18 +60,20 @@ class ChatViewModel @Inject constructor(
         }
         .cachedIn(viewModelScope)
 
-    // Legacy StateFlows for UI compatibility
+    // UI Compatibility flows
     val chats = uiState.map { it.chats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val messages = uiState.map { it.messages }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val contacts = repository.getContacts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val archivedChats = uiState.map { it.archivedChats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+    val starredMessages = uiState.map { it.starredMessages }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val chatSearchResults = uiState.map { it.chatSearchResults }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val selectedContactsForGroup = uiState.map { it.selectedContactsForGroup }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         fetchCurrentUser()
         observeLocalDatabase()
         observeRealtimeEvents()
-        syncChats()
+        fetchChats()
     }
 
     private fun fetchCurrentUser() {
@@ -95,20 +99,16 @@ class ChatViewModel @Inject constructor(
     private fun observeRealtimeEvents() {
         webSocketManager.events
             .onEach { envelope ->
-                when (envelope.topic) {
-                    "chat" -> {
-                        when (envelope.event) {
-                            "message", "CONVERSATION_UPDATE", "CONVERSATION_CREATE", "NEW_CHAT" -> syncChats()
-                            "typing" -> {
-                                val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
-                                val state = envelope.payload?.get("is_typing")?.toString()?.toBoolean() ?: false
-                                if (cid != null) {
-                                    _uiState.update { s ->
-                                        val updated = s.typingStatus.toMutableMap()
-                                        updated[cid] = state
-                                        s.copy(typingStatus = updated)
-                                    }
-                                }
+                if (envelope.topic == "chat") {
+                    fetchChats()
+                    if (envelope.event == "typing") {
+                        val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
+                        val state = envelope.payload?.get("is_typing")?.toString()?.toBoolean() ?: false
+                        if (cid != null) {
+                            _uiState.update { s ->
+                                val updated = s.typingStatus.toMutableMap()
+                                updated[cid] = state
+                                s.copy(typingStatus = updated)
                             }
                         }
                     }
@@ -119,8 +119,8 @@ class ChatViewModel @Inject constructor(
 
     fun handleIntent(intent: ChatIntent) {
         when (intent) {
-            is ChatIntent.FetchChats -> syncChats()
-            is ChatIntent.FetchMessages -> selectChat(intent.chatId)
+            is ChatIntent.FetchChats -> fetchChats()
+            is ChatIntent.FetchMessages -> fetchMessages(intent.chatId)
             is ChatIntent.SendMessage -> sendMessage(
                 intent.chatId, intent.body, intent.messageType, intent.mediaUrls, 
                 intent.duration, intent.fileName, intent.fileSize, 
@@ -132,7 +132,7 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.EditMessage -> editMessage(intent.messageId, intent.newBody)
             is ChatIntent.ReactToMessage -> reactToMessage(intent.messageId, intent.emoji)
             is ChatIntent.SearchInChat -> searchInChat(intent.chatId, intent.query)
-            is ChatIntent.SetSelectedContactsForGroup -> _uiState.update { it.copy(selectedContactsForGroup = intent.contacts) }
+            is ChatIntent.SetSelectedContactsForGroup -> updateSelectedContacts(intent.contacts)
             is ChatIntent.CreateGroup -> createGroup(intent.name, intent.contactIds, intent.onSuccess)
             is ChatIntent.ArchiveChat -> archiveChat(intent.chatId, intent.isArchived)
             is ChatIntent.PinChat -> pinChat(intent.chatId, intent.isPinned)
@@ -142,7 +142,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun syncChats() {
+    fun fetchChats() {
         viewModelScope.launch {
             repository.syncChats().collect { res ->
                 if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
@@ -150,13 +150,24 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun selectChat(chatId: String) {
+    private var messagesJob: kotlinx.coroutines.Job? = null
+
+    fun fetchMessages(chatId: String) {
+        if (_activeChatId.value == chatId && messagesJob != null) return // Already collecting
+
         _activeChatId.value = chatId
-        viewModelScope.launch {
+        messagesJob?.cancel()
+        messagesJob = viewModelScope.launch {
             repository.getMessages(chatId).collect { res ->
                 _uiState.update { it.copy(messages = res) }
             }
         }
+        
+        // Trigger network sync
+        viewModelScope.launch {
+            repository.fetchMessages(chatId).collect { }
+        }
+
         markAsRead(chatId)
     }
 
@@ -193,7 +204,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun startCall(receiverId: String, callType: com.example.firstapp.chat.data.CallType, name: String? = null) {
+    fun startVoiceOrVideoCall(receiverId: String, callType: com.example.firstapp.chat.data.CallType, name: String? = null) {
         viewModelScope.launch {
             name?.let { GlobalCallState.updateContactInfo(receiverId, it, null) }
             repository.initiateCall(receiverId, callType.wireValue()).collect { resource ->
@@ -236,7 +247,7 @@ class ChatViewModel @Inject constructor(
             repository.createGroup(name, contactIds).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     onSuccess(resource.data)
-                    syncChats()
+                    fetchChats()
                 } else if (resource is Resource.Error) {
                     _uiState.update { it.copy(error = resource.message) }
                 }
@@ -244,21 +255,101 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun pinChat(chatId: String, isPinned: Boolean) { viewModelScope.launch { repository.pinChat(chatId, isPinned).collect { syncChats() } } }
-    fun muteChat(chatId: String, isMuted: Boolean) { viewModelScope.launch { repository.muteChat(chatId, isMuted).collect { syncChats() } } }
-    fun archiveChat(chatId: String, isArchived: Boolean) { viewModelScope.launch { repository.archiveChat(chatId, isArchived).collect { syncChats() } } }
-    fun clearChat(chatId: String) { viewModelScope.launch { repository.clearMessages(chatId); selectChat(chatId) } }
-    fun clearAllChats() { viewModelScope.launch { repository.clearAllChats(); syncChats() } }
+    fun pinChat(chatId: String, isPinned: Boolean) { viewModelScope.launch { repository.pinChat(chatId, isPinned).collect { fetchChats() } } }
+    fun muteChat(chatId: String, isMuted: Boolean) { viewModelScope.launch { repository.muteChat(chatId, isMuted).collect { fetchChats() } } }
+    fun archiveChat(chatId: String, isArchived: Boolean) { viewModelScope.launch { repository.archiveChat(chatId, isArchived).collect { fetchChats() } } }
+    fun clearChat(chatId: String) { viewModelScope.launch { repository.clearMessages(chatId); fetchMessages(chatId) } }
+    fun clearAllChats() { viewModelScope.launch { repository.clearAllChats(); fetchChats() } }
 
     fun sendTyping(isTyping: Boolean) {
         val chatId = _activeChatId.value ?: return
         viewModelScope.launch { repository.updateTyping(chatId, isTyping) }
     }
 
+    fun updateSelectedContacts(contacts: List<Contact>) {
+        _uiState.update { it.copy(selectedContactsForGroup = contacts) }
+    }
+
+    suspend fun initiateDM(contactId: String): Flow<Resource<String>> {
+        return repository.initiateDM(contactId)
+    }
+
+    fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>> {
+        return repository.getSharedMedia(chatId)
+    }
+
+    fun addGroupMember(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.addGroupMember(groupId, userId).collect { res ->
+                if (res is Resource.Success) fetchGroupInfo(groupId)
+                else if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+            }
+        }
+    }
+
+    fun removeGroupMember(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.removeGroupMember(groupId, userId).collect { res ->
+                if (res is Resource.Success) fetchGroupInfo(groupId)
+                else if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+            }
+        }
+    }
+
+    fun promoteToAdmin(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.promoteToAdmin(groupId, userId).collect { res ->
+                if (res is Resource.Success) fetchGroupInfo(groupId)
+                else if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+            }
+        }
+    }
+
+    fun leaveGroup(groupId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.leaveGroup(groupId).collect { res ->
+                if (res is Resource.Success) {
+                    onSuccess()
+                    fetchChats()
+                } else if (res is Resource.Error) {
+                    _uiState.update { it.copy(error = res.message) }
+                }
+            }
+        }
+    }
+
     fun fetchGroupInfo(groupId: String) {
         viewModelScope.launch {
             repository.getGroupInfo(groupId).collect { res ->
                 _uiState.update { it.copy(groupInfo = res) }
+            }
+        }
+    }
+
+    fun getCachedGroupName(groupId: String): String? {
+        val cached = groupNameCache[groupId]
+        if (cached != null) return cached
+        val chatsState = _uiState.value.chats
+        if (chatsState is Resource.Success) {
+            val chat = chatsState.data?.find { it.id == groupId }
+            if (chat != null && chat.isGroup && chat.senderName.isNotBlank()) {
+                groupNameCache[groupId] = chat.senderName
+                return chat.senderName
+            }
+        }
+        return null
+    }
+
+    fun loadMoreMessages(chatId: String, beforeTs: Long) {
+        viewModelScope.launch {
+            repository.fetchOlderMessages(chatId, beforeTs).collect { }
+        }
+    }
+
+    fun deleteChat(chatId: String) {
+        viewModelScope.launch {
+            repository.deleteChat(chatId).collect { res ->
+                if (res is Resource.Success) fetchChats()
             }
         }
     }

@@ -16,7 +16,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.firstapp.chat.model.ChatMessage
+import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.ui.screens.*
 import com.example.firstapp.chat.ui.stories.*
 import com.example.firstapp.chat.ui.channels.*
@@ -167,7 +167,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 onDismissRequest = { showAddAdminDialog = false },
                 title = { Text("Select Admin", color = MaterialTheme.colorScheme.onSurface) },
                 text = {
-                    val contacts = (contactsState as? Resource.Success<List<com.example.firstapp.chat.model.Contact>>)?.data ?: emptyList()
+                    val contacts = (contactsState as? Resource.Success<List<Contact>>)?.data ?: emptyList()
                     LazyColumn(modifier = Modifier.height(300.dp)) {
                         items(contacts) { contact ->
                             Row(
@@ -279,7 +279,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         LaunchedEffect(chatId, typeStr) {
             if (typeStr == "initiate") {
                 chatViewModel.initiateDM(chatId).collect { resource ->
-                    if (resource is Resource.Success && resource.data != null) {
+                    if (resource is Resource.Success<String> && resource.data != null) {
                         resolvedChatId = resource.data
                         targetUserId = chatId
                     }
@@ -331,10 +331,6 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             isAdmin = false,
             otherUserId = targetUserId
         )).copy(type = type)
-        
-        LaunchedEffect(resolvedChatId) {
-            chatViewModel.fetchMessages(resolvedChatId!!)
-        }
 
         ChatMessagesScreen(
             chat = chat,
@@ -526,8 +522,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             isGroup = isGroup
         )
         
-        val sharedMediaResource by chatViewModel.getSharedMedia(userId).collectAsState(Resource.Loading())
-        val sharedMedia = sharedMediaResource.data ?: emptyList()
+        val sharedMediaResource by chatViewModel.getSharedMedia(userId).collectAsState(Resource.Loading<List<Message>>())
+        val sharedMedia: List<Message> = sharedMediaResource.data ?: emptyList()
         val groupInfo by chatViewModel.uiState.collectAsState()
         val contactsState by chatViewModel.contacts.collectAsState()
         val contacts = contactsState.data ?: emptyList()

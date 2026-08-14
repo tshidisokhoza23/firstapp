@@ -327,7 +327,7 @@ data class ApiChannel(
     val category: String? = null,
     val last_post_text: String? = null,
     val last_post_image_url: String? = null,
-    val last_post_time: String? = null,
+    val last_post_time: Long? = null,
     val conversation_id: String? = null
 )
 

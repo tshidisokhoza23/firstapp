@@ -53,6 +53,9 @@ interface ChatApi {
     @POST("chats/group")
     suspend fun createGroup(@Body request: CreateGroupRequest): Response<ConversationResponse>
 
+    @GET("chats/groups/{groupId}")
+    suspend fun getGroupInfo(@Path("groupId") groupId: String): Response<GroupInfoResponse>
+
     @DELETE("chats/messages/{messageId}")
     suspend fun deleteMessage(@Path("messageId") messageId: String): Response<StatusResponse>
 

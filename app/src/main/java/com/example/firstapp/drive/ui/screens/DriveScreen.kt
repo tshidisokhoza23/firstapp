@@ -1891,7 +1891,7 @@ fun LiveTrackingFlow(
                             val driverId = assignedDriver.id.replace("driver_", "")
                             scope.launch {
                                 chatViewModel.initiateDM(driverId).collect { res ->
-                                    if (res is com.example.firstapp.common.util.Resource.Success && res.data != null) {
+                                    if (res is com.example.firstapp.common.util.Resource.Success<String> && res.data != null) {
                                         onShowChat(res.data, assignedDriver.name)
                                     }
                                 }
