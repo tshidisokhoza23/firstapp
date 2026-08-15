@@ -76,9 +76,15 @@ class ChatWebSocketClient @Inject constructor(
                 try {
                     Log.d("ChatWS", "Received Chat WS message: $text")
                     val frame = gson.fromJson(text, WSFrame::class.java)
-                    _eventFlow.tryEmit(frame)
+                    
+                    // Normalize event/op for processing
+                    val op = frame.op ?: frame.event
+                    if (op == null) return
 
-                    if (frame.op == "INCOMING_MSG") {
+                    val normalizedFrame = frame.copy(op = op)
+                    _eventFlow.tryEmit(normalizedFrame)
+
+                    if (op == "INCOMING_MSG" || op == "message") {
                         val payload = frame.payload
                         if (payload != null) {
                             try {
@@ -155,6 +161,7 @@ class ChatWebSocketClient @Inject constructor(
 }
 
 data class WSFrame(
-    @SerializedName("op") val op: String,
+    @SerializedName("op") val op: String? = null,
+    @SerializedName("event") val event: String? = null,
     @SerializedName("payload") val payload: JsonElement? = null
 )

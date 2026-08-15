@@ -251,7 +251,6 @@ class ChatRepositoryImpl @Inject constructor(
             val response = chatApi.getChats()
             if (response.isSuccessful && response.body() != null) {
                 val apiChats = response.body()!!.chats
-                val localContacts = contactDao.getContacts().first().associateBy { it.id }
                 
                 val entities = apiChats.map { chat ->
                     val mapped = mapApiChatSummary(chat)
@@ -282,9 +281,6 @@ class ChatRepositoryImpl @Inject constructor(
             } else {
                 val errorBody = response.errorBody()?.string()
                 Log.e("ChatRepository", "Sync failed: ${response.code()} $errorBody")
-                if (response.code() == 401) {
-                    Log.w("ChatRepository", "Received 401. This means Authenticator failed to refresh or token is invalid.")
-                }
                 emit(Resource.Error("Sync failed: ${response.code()}"))
             }
         } catch (e: Exception) {

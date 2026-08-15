@@ -90,10 +90,15 @@ class ChatViewModel @Inject constructor(
         repository.getChats()
             .onEach { res -> 
                 Log.d("ChatViewModel", "Observe: chats list updated, count=${res.data?.size ?: 0}")
-                _uiState.update { it.copy(
-                    chats = if (it.chats is Resource.Loading && res.data?.isEmpty() == true) it.chats else res, 
-                    isChatsFetching = false
-                ) }
+                _uiState.update { current ->
+                    // Logic fix: If we are currently "Loading" but the DB just gave us data (even empty), 
+                    // we should switch to Success so the spinner stops.
+                    val updatedChats = if (res.data != null) Resource.Success(res.data!!) else res
+                    current.copy(
+                        chats = updatedChats,
+                        isChatsFetching = false
+                    ) 
+                }
             }
             .launchIn(viewModelScope)
 
