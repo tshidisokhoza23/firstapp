@@ -108,8 +108,10 @@ class RewardViewModel @Inject constructor(
     }
 
     fun watchAd(activity: Activity, adUnitId: String, taskId: String) {
+        android.util.Log.d("RewardViewModel", "watchAd called for task: $taskId")
         viewModelScope.launch {
-            val user = userRepository.observeCurrentUser().firstOrNull() ?: return@launch
+            val user = userRepository.observeCurrentUser().filterNotNull().first()
+            android.util.Log.d("RewardViewModel", "User found for watchAd: ${user.id}. Showing ad...")
             
             poolManager.showAd(
                 activity = activity,
@@ -117,7 +119,11 @@ class RewardViewModel @Inject constructor(
                 userId = user.id,
                 taskId = taskId,
                 onRewardEarned = {
+                    android.util.Log.i("RewardViewModel", "Reward earned for task: $taskId")
                     handleAdCompleted(taskId)
+                },
+                onAdClosed = {
+                    android.util.Log.d("RewardViewModel", "Ad closed for task: $taskId")
                 }
             )
         }

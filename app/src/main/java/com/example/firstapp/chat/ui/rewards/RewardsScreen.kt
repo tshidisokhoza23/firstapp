@@ -64,78 +64,102 @@ fun RewardsScreen(
             }
             is RewardUiState.Success -> {
                 val dash = state.dashboard
-                
-                // Header
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
-                    shape = RoundedCornerShape(16.dp)
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(20.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("Total Points", color = Color.Gray, fontSize = 14.sp)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.MonetizationOn, 
-                                    contentDescription = null, 
-                                    tint = Color(0xFFFF9800), 
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "${dash.total_points}", 
-                                    color = Color.White, 
-                                    fontSize = 32.sp, 
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Today", color = Color.Gray, fontSize = 14.sp)
-                            Text(
-                                "${dash.ads_watched_today}/${dash.max_daily_ads}", 
-                                color = Color.White, 
-                                fontSize = 18.sp, 
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-
-                // Tasks List
-                Text(
-                    "Daily Tasks", 
-                    color = Color.White, 
-                    fontSize = 18.sp, 
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-
-                if (dash.tasks.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No tasks available right now.", color = Color.Gray)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(dash.tasks) { task ->
-                            TaskRow(
-                                task = task,
-                                dailyLimitReached = dash.ads_watched_today >= dash.max_daily_ads,
-                                cooldownSeconds = cooldownSeconds,
-                                onWatchClick = {
-                                    if (activity != null) {
-                                        viewModel.watchAd(activity, AdUnitConfig.REWARDED_POINTS_ID, task.id)
+                    item {
+                        // Header
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("Total Points", color = Color.Gray, fontSize = 14.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.MonetizationOn,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFF9800),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "${dash.total_points}",
+                                            color = Color.White,
+                                            fontSize = 32.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
-                            )
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Today", color = Color.Gray, fontSize = 14.sp)
+                                    Text(
+                                        "${dash.ads_watched_today}/${dash.max_daily_ads}",
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        // Tasks List Title
+                        Text(
+                            "Daily Tasks",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+
+                    if (dash.tasks.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No tasks available right now.", color = Color.Gray)
+                            }
+                        }
+                    } else {
+                        items(dash.tasks) { task ->
+                            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                TaskRow(
+                                    task = task,
+                                    dailyLimitReached = dash.ads_watched_today >= dash.max_daily_ads,
+                                    cooldownSeconds = cooldownSeconds,
+                                    onWatchClick = {
+                                        android.util.Log.d("RewardsScreen", "Watch clicked for task: ${task.id}")
+                                        if (activity != null) {
+                                            viewModel.watchAd(
+                                                activity,
+                                                AdUnitConfig.REWARDED_POINTS_ID,
+                                                task.id
+                                            )
+                                        } else {
+                                            android.util.Log.e("RewardsScreen", "Activity is null, cannot show ad")
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
