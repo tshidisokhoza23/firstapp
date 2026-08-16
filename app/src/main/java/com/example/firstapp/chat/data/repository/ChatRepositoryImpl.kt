@@ -305,7 +305,7 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                     
                     mapped.copy(senderName = finalName, phoneNumber = chat.phone_number).toEntity()
-                }
+                }.distinctBy { it.id }
                 
                 try {
                     val db = dbProvider.get()

@@ -34,7 +34,7 @@ class ChannelRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val apiChannels = response.body()!!.channels
                 Log.d("ChannelRepo", "Fetched ${apiChannels.size} channels")
-                val channels = apiChannels.map { apiChannel: com.example.firstapp.media.data.api.ApiChannel -> mapApiChannel(apiChannel) }
+                val channels = apiChannels.map { apiChannel: com.example.firstapp.media.data.api.ApiChannel -> mapApiChannel(apiChannel) }.distinctBy { it.id }
                 channelDao.clearChannels()
                 channelDao.insertChannels(channels.map { it.toEntity() })
             } else {

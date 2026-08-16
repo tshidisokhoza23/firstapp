@@ -262,16 +262,8 @@ class MainActivity : FragmentActivity() {
                             setupContactsObserver()
                         }
 
-                        if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {
-                            BiometricHelper.showBiometricPrompt(
-                                activity = this@MainActivity,
-                                onSuccess = { isAppLocked = false },
-                                onError = { _, _ -> isAppLocked = false },
-                                onFailed = { /* Handle failure, let them retry manually via button */ }
-                            )
-                        } else {
-                            isAppLocked = false
-                        }
+                        // DISABLED: Biometric lock screen removed as per user request
+                        isAppLocked = false
 
                         // 3. Global Sync on Login/Resume
                         try {
