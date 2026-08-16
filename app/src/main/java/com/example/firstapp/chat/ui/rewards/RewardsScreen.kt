@@ -87,6 +87,7 @@ fun RewardsScreen(
             }
             is RewardUiState.Success -> {
                 val dash = state.dashboard
+                val (completedTasks, availableTasks) = dash.tasks.partition { it.is_completed }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -154,15 +155,67 @@ fun RewardsScreen(
                         }
                     }
 
-                    item {
-                        // Tasks List Title
-                        Text(
-                            "Daily Tasks",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
+                    if (availableTasks.isNotEmpty()) {
+                        item {
+                            Text(
+                                "Daily Tasks",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+
+                        items(availableTasks.indices.toList()) { index ->
+                            val task = availableTasks[index]
+                            val isNext = index == 0
+                            val canWatch = isNext && cooldownSeconds <= 0 && dash.ads_watched_today < dash.max_daily_ads
+
+                            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                TaskRow(
+                                    task = task,
+                                    dailyLimitReached = dash.ads_watched_today >= dash.max_daily_ads,
+                                    cooldownSeconds = if (isNext) cooldownSeconds else 0,
+                                    isLocked = !isNext,
+                                    onWatchClick = {
+                                        if (canWatch) {
+                                            android.util.Log.d("RewardsScreen", "Watch clicked for task: ${task.id}")
+                                            if (activity != null) {
+                                                viewModel.watchAd(
+                                                    activity,
+                                                    AdUnitConfig.REWARDED_POINTS_ID,
+                                                    task.id
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if (completedTasks.isNotEmpty()) {
+                        item {
+                            Text(
+                                "Watched",
+                                color = Color.Gray,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+
+                        items(completedTasks) { task ->
+                            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                TaskRow(
+                                    task = task,
+                                    dailyLimitReached = false,
+                                    cooldownSeconds = 0,
+                                    isLocked = false,
+                                    onWatchClick = {}
+                                )
+                            }
+                        }
                     }
 
                     if (dash.tasks.isEmpty()) {
@@ -174,28 +227,6 @@ fun RewardsScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text("No tasks available right now.", color = Color.Gray)
-                            }
-                        }
-                    } else {
-                        items(dash.tasks) { task ->
-                            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                TaskRow(
-                                    task = task,
-                                    dailyLimitReached = dash.ads_watched_today >= dash.max_daily_ads,
-                                    cooldownSeconds = cooldownSeconds,
-                                    onWatchClick = {
-                                        android.util.Log.d("RewardsScreen", "Watch clicked for task: ${task.id}")
-                                        if (activity != null) {
-                                            viewModel.watchAd(
-                                                activity,
-                                                AdUnitConfig.REWARDED_POINTS_ID,
-                                                task.id
-                                            )
-                                        } else {
-                                            android.util.Log.e("RewardsScreen", "Activity is null, cannot show ad")
-                                        }
-                                    }
-                                )
                             }
                         }
                     }
@@ -215,6 +246,7 @@ fun TaskRow(
     task: RewardTask,
     dailyLimitReached: Boolean,
     cooldownSeconds: Int,
+    isLocked: Boolean = false,
     onWatchClick: () -> Unit
 ) {
     Surface(
@@ -230,7 +262,13 @@ fun TaskRow(
                 modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF1A1A1A)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color(0xFFFF9800))
+                val icon = when {
+                    task.is_completed -> Icons.Default.CheckCircle
+                    isLocked -> Icons.Default.Lock
+                    else -> Icons.Default.PlayCircle
+                }
+                val iconTint = if (task.is_completed) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                Icon(icon, contentDescription = null, tint = iconTint)
             }
             
             Spacer(modifier = Modifier.width(16.dp))
@@ -250,6 +288,12 @@ fun TaskRow(
                     buttonColor = Color(0xFF333333)
                     textColor = Color.Gray
                     buttonText = "Done"
+                    enabled = false
+                }
+                isLocked -> {
+                    buttonColor = Color(0xFF222222)
+                    textColor = Color.DarkGray
+                    buttonText = "Locked"
                     enabled = false
                 }
                 dailyLimitReached -> {
@@ -274,18 +318,22 @@ fun TaskRow(
                 }
             }
 
-            Button(
-                onClick = onWatchClick,
-                enabled = enabled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = buttonColor,
-                    disabledContainerColor = buttonColor
-                ),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                modifier = Modifier.height(36.dp)
-            ) {
-                Text(buttonText, color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            if (!task.is_completed && !isLocked) {
+                Button(
+                    onClick = onWatchClick,
+                    enabled = enabled,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = buttonColor,
+                        disabledContainerColor = buttonColor
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text(buttonText, color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            } else if (task.is_completed) {
+                Text("Done", color = Color.Gray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
