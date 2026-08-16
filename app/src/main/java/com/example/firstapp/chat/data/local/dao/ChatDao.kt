@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChatDao {
-    @Query("SELECT * FROM chats WHERE isArchived = 0 ORDER BY isPinned DESC, timestamp DESC")
+    @Query("SELECT * FROM chats WHERE isArchived = 0 AND type IN ('DIRECT', 'GROUP') ORDER BY isPinned DESC, timestamp DESC")
     fun getChats(): Flow<List<ChatEntity>>
 
-    @Query("SELECT * FROM chats WHERE isArchived = 1 ORDER BY timestamp DESC")
+    @Query("SELECT * FROM chats WHERE isArchived = 1 AND type IN ('DIRECT', 'GROUP') ORDER BY timestamp DESC")
     fun getArchivedChats(): Flow<List<ChatEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
