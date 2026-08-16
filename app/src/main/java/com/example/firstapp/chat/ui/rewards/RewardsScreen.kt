@@ -34,6 +34,29 @@ fun RewardsScreen(
     val cooldownSeconds by viewModel.cooldownSeconds.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
+    var showInfoDialog by remember { mutableStateOf(false) }
+
+    if (showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            title = { Text("What are these rewards?", color = Color.White) },
+            text = {
+                Text(
+                    "You can earn points by watching short video ads. " +
+                            "These points can be redeemed for various in-app benefits, " +
+                            "exclusive content, or wallet top-ups depending on available offers.",
+                    color = Color.LightGray
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) {
+                    Text("Got it", color = Color(0xFF0056D2))
+                }
+            },
+            containerColor = Color(0xFF1A1A1A),
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -59,6 +82,11 @@ fun RewardsScreen(
                         ) {
                             Text("Retry")
                         }
+                    }
+
+                    item {
+                        // Extra scroll space at the bottom (Principal Requirement)
+                        Spacer(modifier = Modifier.height(100.dp))
                     }
                 }
             }
@@ -87,7 +115,21 @@ fun RewardsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column {
-                                    Text("Total Points", color = Color.Gray, fontSize = 14.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Total Points", color = Color.Gray, fontSize = 14.sp)
+                                        Spacer(Modifier.width(4.dp))
+                                        IconButton(
+                                            onClick = { showInfoDialog = true },
+                                            modifier = Modifier.size(16.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Info,
+                                                contentDescription = null,
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.MonetizationOn,
@@ -161,6 +203,11 @@ fun RewardsScreen(
                                 )
                             }
                         }
+                    }
+
+                    item {
+                        // Extra scroll space at the bottom (Principal Requirement)
+                        Spacer(modifier = Modifier.height(100.dp))
                     }
                 }
             }
