@@ -83,11 +83,6 @@ fun RewardsScreen(
                             Text("Retry")
                         }
                     }
-
-                    item {
-                        // Extra scroll space at the bottom (Principal Requirement)
-                        Spacer(modifier = Modifier.height(100.dp))
-                    }
                 }
             }
             is RewardUiState.Success -> {
