@@ -13,6 +13,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -25,6 +26,11 @@ object DatabaseModule {
     ): AppDatabase {
         return AppDatabase.getInstance(context, sessionManager)
     }
+
+    // DAOs should NOT be singletons themselves if they are provided directly.
+    // However, since they are obtained from a Database instance that IS managed by our own singleton logic,
+    // we must ensure that repositories using them can get fresh instances if the DB is recreated.
+    // Using @Provides without @Singleton here is correct for Dagger if the consumer uses Provider<DAO>.
 
     @Provides
     fun provideChatDao(database: AppDatabase): ChatDao = database.chatDao()

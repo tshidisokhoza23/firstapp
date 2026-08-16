@@ -3,100 +3,117 @@ package com.example.firstapp.media.data.worker
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
-import java.util.UUID
+import java.io.FileInputStream
+import java.io.IOException
+import javax.inject.Inject
 
-/**
- * DriveUploadWorker
- * Handles chunked, resumable file uploads to the Cloud Drive.
- * Features: Background execution, retry logic, progress reporting, and network constraints.
- */
-@HiltWorker
-class DriveUploadWorker @AssistedInject constructor(
-    @Assisted context: Context,
-    @Assisted params: WorkerParameters,
+class DriveUploadWorker(
+    context: Context,
+    params: WorkerParameters,
     private val okHttpClient: OkHttpClient
 ) : CoroutineWorker(context, params) {
 
     companion object {
-        const val KEY_FILE_URI = "key_file_uri"
-        const val KEY_REMOTE_PATH = "key_remote_path"
-        const val KEY_PROGRESS = "key_progress"
-        const val CHUNK_SIZE = 5 * 1024 * 1024 // 5 MB chunks
+        const val KEY_FILE_URI = "file_uri"
+        const val KEY_REMOTE_PATH = "remote_path"
+        const val KEY_PROGRESS = "progress"
+        private const val CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
     }
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        val fileUri = inputData.getString(KEY_FILE_URI) ?: return@withContext Result.failure()
-        val remotePath = inputData.getString(KEY_REMOTE_PATH) ?: "uploads/${UUID.randomUUID()}"
+    override suspend fun doWork(): Result {
+        val fileUriStr = inputData.getString(KEY_FILE_URI) ?: return Result.failure()
+        val remotePath = inputData.getString(KEY_REMOTE_PATH) ?: "uploads"
         
+        val fileUri = Uri.parse(fileUriStr)
+        val file = getFileFromUri(fileUri) ?: return Result.failure()
+        
+        val totalSize = file.length()
+        var uploadedSize = 0L
+        val uploadId = java.util.UUID.randomUUID().toString()
+
         try {
-            val file = getFileFromUri(Uri.parse(fileUri)) ?: return@withContext Result.failure()
-            val totalSize = file.length()
-            
-            // In a production resumable upload, we would first call the server to get an upload ID
-            // and find out where we left off. For this implementation, we simulate chunked transfer.
-            
-            var bytesUploaded = 0L
-            val buffer = ByteArray(CHUNK_SIZE)
-            file.inputStream().use { inputStream ->
+            FileInputStream(file).use { inputStream ->
+                val buffer = ByteArray(CHUNK_SIZE)
                 var bytesRead: Int
+                var chunkIndex = 0
+
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    val chunk = buffer.sliceArray(0 until bytesRead)
+                    val chunk = if (bytesRead < CHUNK_SIZE) buffer.copyOf(bytesRead) else buffer
                     
-                    // Upload chunk (Simulation of a chunked API call)
-                    val success = uploadChunk(chunk, remotePath, bytesUploaded, totalSize)
-                    if (!success) return@withContext Result.retry()
+                    val success = uploadChunk(
+                        chunk = chunk,
+                        uploadId = uploadId,
+                        offset = uploadedSize,
+                        totalSize = totalSize,
+                        remotePath = remotePath
+                    )
+
+                    if (!success) {
+                        return Result.retry()
+                    }
+
+                    uploadedSize += bytesRead
+                    chunkIndex++
                     
-                    bytesUploaded += bytesRead
-                    val progress = (bytesUploaded.toFloat() / totalSize * 100).toInt()
-                    
-                    // Report progress
+                    val progress = (uploadedSize * 100 / totalSize).toInt()
                     setProgress(workDataOf(KEY_PROGRESS to progress))
-                    Log.d("DriveUploadWorker", "Progress: $progress%")
+                    Log.d("DriveUploadWorker", "Upload progress: $progress%")
                 }
             }
-
-            Result.success(workDataOf("remote_url" to remotePath))
+            
+            return Result.success(workDataOf("url" to "https://api.example.com/files/$uploadId"))
         } catch (e: Exception) {
             Log.e("DriveUploadWorker", "Upload failed", e)
-            if (runAttemptCount < 3) Result.retry() else Result.failure()
+            return Result.retry()
         }
     }
 
-    private suspend fun uploadChunk(chunk: ByteArray, path: String, offset: Long, totalSize: Long): Boolean {
-        // Implementation would use OkHttp to send bytes with Content-Range header
-        // For now, this is a placeholder for the network logic
-        delay(500) // Simulate network latency
-        return true
+    private suspend fun uploadChunk(
+        chunk: ByteArray,
+        uploadId: String,
+        offset: Long,
+        totalSize: Long,
+        remotePath: String
+    ): Boolean {
+        val requestBody = chunk.toRequestBody("application/octet-stream".toMediaTypeOrNull())
+        
+        val request = Request.Builder()
+            .url("https://firstapp-backend.fly.dev/api/v1/drive/upload/chunk")
+            .header("X-Upload-ID", uploadId)
+            .header("X-Content-Offset", offset.toString())
+            .header("X-Content-Length", totalSize.toString())
+            .header("X-Remote-Path", remotePath)
+            .post(requestBody)
+            .build()
+
+        return try {
+            okHttpClient.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
+        } catch (e: IOException) {
+            false
+        }
     }
 
     private fun getFileFromUri(uri: Uri): File? {
-        val context = applicationContext
-        val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-        val file = File(context.cacheDir, "upload_temp_${UUID.randomUUID()}")
-        inputStream?.use { input ->
-            FileOutputStream(file).use { output ->
-                input.copyTo(output)
+        return try {
+            val context = applicationContext
+            val file = File(context.cacheDir, "upload_tmp_${System.currentTimeMillis()}")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                file.outputStream().use { output ->
+                    input.copyTo(output)
+                }
             }
+            file
+        } catch (e: Exception) {
+            null
         }
-        return if (file.exists()) file else null
     }
-    
-    private suspend fun delay(time: Long) = kotlinx.coroutines.delay(time)
 }

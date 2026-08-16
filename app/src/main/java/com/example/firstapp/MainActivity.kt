@@ -66,6 +66,7 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
     @Inject lateinit var adManager: com.example.firstapp.common.data.ads.AdManager
     @Inject lateinit var sessionManager: com.example.firstapp.common.domain.auth.SessionManager
+    @Inject lateinit var userRepository: com.example.firstapp.vocab.domain.repository.UserRepository
     private var contactsObserver: ContactsObserver? = null
 
     private val permissionLauncher = registerForActivityResult(
@@ -223,9 +224,24 @@ class MainActivity : FragmentActivity() {
                 var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }
                 var wasLoggedIn by remember { mutableStateOf(isLoggedIn) }
 
-                LaunchedEffect(isLoggedIn) {
-                    android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn, wasLoggedIn: $wasLoggedIn")
+                LaunchedEffect(isLoggedIn, currentUser) {
+                    android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn, currentUser: ${currentUser?.id}")
                     
+                    if (isLoggedIn && currentUser == null) {
+                        // FIX: Proactively fetch current user to break "loading forever" splash screen deadlock
+                        lifecycleScope.launch {
+                            try {
+                                userRepository.getCurrentUser().collect { res ->
+                                    if (res is Resource.Success && res.data != null) {
+                                        sessionManager.updateCurrentUser(res.data)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "Initial user fetch failed", e)
+                            }
+                        }
+                    }
+
                     // 1. Handle Navigation Transitions (Login/Logout)
                     if (wasLoggedIn && !isLoggedIn) {
                         navController.navigate(Screen.Login.route) {
@@ -263,10 +279,12 @@ class MainActivity : FragmentActivity() {
                         } catch (e: Exception) {
                             android.util.Log.e("MainActivity", "Failed to refresh balance", e)
                         }
-                        lifecycleScope.launch {
+                        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             try {
                                 // 1. Sync Chats first to establish history
-                                chatRepository.syncChats().collect {}
+                                launch {
+                                    chatRepository.syncChats().collect {}
+                                }
 
                                 // 2. Trigger background contact sync immediately
                                 ContactsObserver.triggerSyncWorker(this@MainActivity)
@@ -312,7 +330,12 @@ class MainActivity : FragmentActivity() {
                                 onLogout = {
                                     lifecycleScope.launch {
                                         val userId = sessionManager.getUserId() ?: ""
-                                        systemRepository.clearAllData()
+                                        // Synchronize clearing to avoid race conditions with background syncs
+                                        try {
+                                            systemRepository.clearAllData()
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("MainActivity", "Error clearing data on logout", e)
+                                        }
                                         sessionManager.clearSession()
                                         
                                         // Expert Fix: Clear user-scoped storage on logout

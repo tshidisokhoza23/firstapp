@@ -71,6 +71,7 @@ fun ChatsListScreen(
     onShowMore: () -> Unit = {}, 
     chatViewModel: ChatViewModel = hiltViewModel(),
     advertsViewModel: AdvertsViewModel = hiltViewModel(),
+    rewardViewModel: com.example.firstapp.chat.ui.viewmodel.RewardViewModel = hiltViewModel(),
     channelsViewModel: ChannelsViewModel = hiltViewModel(),
     searchViewModel: SearchViewModel = hiltViewModel(),
     jobViewModel: JobViewModel = hiltViewModel(),
@@ -81,9 +82,9 @@ fun ChatsListScreen(
     var selectedTabItem by remember { mutableIntStateOf(0) }
     val chatsState by chatViewModel.chats.collectAsState()
     val context = LocalContext.current
-    val density = LocalDensity.current
     
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    // FIX: Optimized scroll behavior for vendor ROMs
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     
     val unreadChatsCount = remember(chatsState) {
         val data = chatsState.data
@@ -453,69 +454,10 @@ fun ChatsListScreen(
                         }
                     }
                     1 -> {
-                        val ads = advertsState.data ?: emptyList<Advert>()
-                        val viewedAds = viewedAdvertsState.data ?: emptyList<Advert>()
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                DataStateHandler(
-                                    resource = advertsState,
-                                    onLoading = { SkeletonLoader() },
-                                    onEmpty = {
-                                        RewardsScreen(
-                                            adverts = emptyList(),
-                                            viewedAdverts = viewedAds,
-                                            points = points,
-                                            cooldownSeconds = adCooldownSeconds,
-                                            topBarHeight = 0.dp,
-                                            onAdvertClick = { ad -> 
-                                                val activity = context as? android.app.Activity
-                                                if (activity != null) {
-                                                    advertsViewModel.adManager.loadRewardedAd(
-                                                        context = context,
-                                                        adUnitId = AdUnitConfig.REWARDED_POINTS_ID,
-                                                        onAdLoaded = { adObject ->
-                                                            advertsViewModel.adManager.showRewardedAd(
-                                                                activity = activity,
-                                                                adObject = adObject,
-                                                                onRewardEarned = {
-                                                                    advertsViewModel.markAdvertAsViewed(ad.id)
-                                                                    Toast.makeText(context, "Reward Earned!", Toast.LENGTH_SHORT).show()
-                                                                },
-                                                                onAdClosed = { }
-                                                            )
-                                                        },
-                                                        onAdFailed = { error ->
-                                                            Toast.makeText(context, "Ad Failed: $error", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    )
-                                                }
-                                            },
-                                            onRefresh = { advertsViewModel.fetchAdverts() }
-                                        )
-                                    }
-                                ) {
-                                     RewardsScreen(
-                                        adverts = ads,
-                                        viewedAdverts = viewedAds,
-                                        points = points,
-                                        hasAvailableAds = hasRewardedAds,
-                                        cooldownSeconds = adCooldownSeconds,
-                                        topBarHeight = 0.dp,
-                                        onAdvertClick = { ad -> 
-                                            val activity = context as? android.app.Activity
-                                            if (activity != null) {
-                                                advertsViewModel.showRewardedAd(
-                                                    activity = activity,
-                                                    adUnitId = AdUnitConfig.REWARDED_POINTS_ID,
-                                                    advertId = ad.id
-                                                )
-                                            }
-                                        },
-                                        onRefresh = { advertsViewModel.fetchAdverts() }
-                                    )
-                                }
-                            }
-                        }
+                        RewardsScreen(
+                            viewModel = rewardViewModel,
+                            topBarHeight = 0.dp
+                        )
                     }
                     2 -> {
                         val searchResults by searchViewModel.searchResults.collectAsState()

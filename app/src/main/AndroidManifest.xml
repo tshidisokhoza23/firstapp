@@ -46,6 +46,8 @@
     <application
         android:name=".FirstApp"
         android:allowBackup="false"
+        android:hasFragileUserData="true"
+        tools:targetApi="29"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

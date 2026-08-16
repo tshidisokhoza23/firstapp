@@ -30,6 +30,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonObject
 import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 import okhttp3.ResponseBody
 
@@ -37,11 +38,11 @@ import okhttp3.ResponseBody
 class ChatRepositoryImpl @Inject constructor(
     private val chatApi: ChatApi,
     private val userApi: UserApi,
-    private val chatDao: ChatDao,
-    private val contactDao: ContactDao,
-    private val callLogDao: CallLogDao,
+    private val chatDaoProvider: Provider<ChatDao>,
+    private val contactDaoProvider: Provider<ContactDao>,
+    private val callLogDaoProvider: Provider<CallLogDao>,
     private val sessionManager: SessionManager,
-    private val db: AppDatabase,
+    private val dbProvider: Provider<AppDatabase>,
     private val webSocketManager: WebSocketManager,
     private val displayNameResolver: DisplayNameResolver,
     @ApplicationContext private val context: Context
@@ -69,6 +70,13 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     private suspend fun handleIncomingEvent(envelope: WSEnvelope) {
+        val db = try { dbProvider.get() } catch (e: Exception) { return }
+        if (!db.isOpen) {
+            Log.w("ChatRepository", "DB is closed, ignoring incoming event topic=${envelope.topic} event=${envelope.event}")
+            return
+        }
+        val chatDao = chatDaoProvider.get()
+        
         when (envelope.topic) {
             "chat" -> {
                 when (envelope.event) {
@@ -85,9 +93,13 @@ class ChatRepositoryImpl @Inject constructor(
                                 // Step 1: Save the message itself
                                 saveMessage(message.conversationId, message)
                                 
-                                // Step 2: Update the chat summary (Rule 1: Name resolved via phone)
+                                // Step 2: Update the chat summary
                                 val phone = apiMsg.contact_phone ?: ""
-                                val resolvedName = displayNameResolver.resolve(null, phone)
+                                val senderName = apiMsg.sender_name ?: ""
+                                val resolvedName = displayNameResolver.resolve(
+                                    com.example.firstapp.common.model.User(id = apiMsg.sender_id, displayName = senderName),
+                                    phone
+                                )
 
                                 chatDao.updateLastMessage(
                                     message.conversationId, 
@@ -96,6 +108,14 @@ class ChatRepositoryImpl @Inject constructor(
                                     message.isFromMe, 
                                     message.isRead
                                 )
+                                
+                                // Update name if it's a DIRECT chat and name was resolved
+                                val chat = chatDao.searchChatsById(message.conversationId)
+                                if (chat != null && chat.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
+                                    if (chat.senderName != resolvedName) {
+                                        chatDao.insertChats(listOf(chat.copy(senderName = resolvedName)))
+                                    }
+                                }
                                 
                                 if (!message.isFromMe) {
                                     chatDao.incrementUnreadCount(message.conversationId)
@@ -148,6 +168,8 @@ class ChatRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalPagingApi::class)
     override fun getMessagesPaged(chatId: String): Flow<PagingData<Message>> {
+        val db = dbProvider.get()
+        val chatDao = chatDaoProvider.get()
         return Pager(
             config = PagingConfig(pageSize = 50, enablePlaceholders = false),
             remoteMediator = MessageRemoteMediator(chatId, chatApi, db, sessionManager),
@@ -158,7 +180,7 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getMessages(chatId: String, page: Int): Flow<Resource<List<Message>>> = 
-        chatDao.getMessages(chatId).map { list ->
+        chatDaoProvider.get().getMessages(chatId).map { list ->
             Resource.Success(list.map { it.toModel() })
         }
 
@@ -173,10 +195,16 @@ class ChatRepositoryImpl @Inject constructor(
                 val entities = apiMessages.map { mapApiMessage(it, privKey, myUserId).toEntity(chatId) }
                 
                 Log.d("ChatRepository", "Syncing ${entities.size} messages for chat $chatId")
-                db.withTransaction {
-                    chatDao.insertMessages(entities)
+                try {
+                    val db = dbProvider.get()
+                    db.withTransaction {
+                        chatDaoProvider.get().insertMessages(entities)
+                    }
+                    emit(Resource.Success(true))
+                } catch (e: Exception) {
+                    Log.e("ChatRepository", "DB error during message sync", e)
+                    emit(Resource.Error("Database unavailable"))
                 }
-                emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Failed to fetch: ${response.code()}"))
             }
@@ -205,6 +233,7 @@ class ChatRepositoryImpl @Inject constructor(
             replyToId = replyToId, replyToText = replyToText, replyToSenderName = replyToSenderName
         )
         
+        val chatDao = chatDaoProvider.get()
         chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
         updateLastMessage(chatId, body, pendingMsg.timestamp, true, false)
         emit(Resource.Success(pendingMsg))
@@ -223,6 +252,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val privKey = sessionManager.getPrivateKey()
                 val serverMsg = mapApiMessage(response.body()!!.message, privKey, myUserId)
+                val db = dbProvider.get()
                 db.withTransaction {
                     chatDao.deleteMessage(clientUuid)
                     chatDao.insertMessages(listOf(serverMsg.toEntity(chatId)))
@@ -240,7 +270,7 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getChats(): Flow<Resource<List<ChatMessage>>> = 
-        chatDao.getChats().map { list ->
+        chatDaoProvider.get().getChats().map { list ->
             Log.d("ChatRepository", "getChats: emitting ${list.size} chats from local DB")
             Resource.Success(list.map { it.toModel() }) 
         }
@@ -248,7 +278,9 @@ class ChatRepositoryImpl @Inject constructor(
     override fun syncChats(): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            val response = chatApi.getChats()
+            val response = withTimeout(30000) {
+                chatApi.getChats()
+            }
             if (response.isSuccessful && response.body() != null) {
                 val apiChats = response.body()!!.chats
                 
@@ -257,11 +289,14 @@ class ChatRepositoryImpl @Inject constructor(
                     var finalName = ""
                     
                     if (mapped.type == com.example.firstapp.common.model.ConversationType.DIRECT) {
-                        // Requirement 1: Resolve strictly via Local Contacts or Raw Phone
                         val phone = chat.phone_number ?: ""
-                        finalName = displayNameResolver.resolve(null, phone)
+                        val title = chat.title ?: ""
+                        val otherId = chat.contact_id ?: ""
+                        finalName = displayNameResolver.resolve(
+                            com.example.firstapp.common.model.User(id = otherId, displayName = title),
+                            phone
+                        )
                     } else {
-                        // For Groups/Channels, use the provided title or fallback
                         finalName = if (chat.title.isNotBlank() && chat.title.lowercase() != "unknown") {
                              chat.title
                         } else {
@@ -269,18 +304,21 @@ class ChatRepositoryImpl @Inject constructor(
                         }
                     }
                     
-                    Log.d("ChatRepository", "Sync: chat ${chat.conversation_id} resolved name to '$finalName'")
                     mapped.copy(senderName = finalName, phoneNumber = chat.phone_number).toEntity()
                 }
                 
-                db.withTransaction {
-                    // Update only current chats, don't delete everything to avoid UI flicker
-                    chatDao.insertChats(entities)
+                try {
+                    val db = dbProvider.get()
+                    val chatDao = chatDaoProvider.get()
+                    db.withTransaction {
+                        chatDao.insertChats(entities)
+                    }
+                    emit(Resource.Success(true))
+                } catch (e: Exception) {
+                    Log.e("ChatRepository", "DB closed or error during chat sync", e)
+                    emit(Resource.Error("Database unavailable"))
                 }
-                emit(Resource.Success(true))
             } else {
-                val errorBody = response.errorBody()?.string()
-                Log.e("ChatRepository", "Sync failed: ${response.code()} $errorBody")
                 emit(Resource.Error("Sync failed: ${response.code()}"))
             }
         } catch (e: Exception) {
@@ -290,6 +328,9 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshLocalChatNames() {
+        val chatDao = chatDaoProvider.get()
+        val contactDao = contactDaoProvider.get()
+        
         val allChats = chatDao.getChats().first()
         val localContacts = contactDao.getContacts().first().associateBy { it.id }
         val updated = java.util.ArrayList<ChatEntity>()
@@ -316,10 +357,13 @@ class ChatRepositoryImpl @Inject constructor(
             val response = chatApi.initiateDM(InitiateDMRequest(contactId))
             if (response.isSuccessful && response.body() != null) {
                 val conversationId = response.body()!!.conversation_id
+                val contactDao = contactDaoProvider.get()
                 val contact = contactDao.getContactById(contactId)
                 
-                // Requirement 1: Strict resolution for new DM
-                val resolvedName = displayNameResolver.resolve(null, contact?.phoneNumber ?: "")
+                val resolvedName = displayNameResolver.resolve(
+                    com.example.firstapp.common.model.User(id = contactId, displayName = contact?.displayName ?: ""),
+                    contact?.phoneNumber ?: ""
+                )
                 
                 val newChat = ChatEntity(
                     id = conversationId, type = com.example.firstapp.common.model.ConversationType.DIRECT,
@@ -328,14 +372,14 @@ class ChatRepositoryImpl @Inject constructor(
                     otherUserId = contactId, isOnline = false, isMuted = false, isPinned = false, isTyping = false,
                     phoneNumber = contact?.phoneNumber
                 )
-                chatDao.insertChats(listOf(newChat))
+                chatDaoProvider.get().insertChats(listOf(newChat))
                 emit(Resource.Success(conversationId))
             } else emit(Resource.Error("Failed to initiate DM"))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
     override fun getContacts(): Flow<Resource<List<Contact>>> = 
-        contactDao.getContacts().map { list -> Resource.Success(list.map { it.toModel() }) }
+        contactDaoProvider.get().getContacts().map { list -> Resource.Success(list.map { it.toModel() }) }
 
     override fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>> = flow {
         emit(Resource.Loading())
@@ -354,21 +398,22 @@ class ChatRepositoryImpl @Inject constructor(
                         isRegistered = true
                     )
                 }
-                contactDao.insertContacts(contacts.map { it.toEntity() })
+                contactDaoProvider.get().insertContacts(contacts.map { it.toEntity() })
                 emit(Resource.Success(contacts))
             } else emit(Resource.Error("Sync failed"))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error syncing contacts")) }
     }
 
     override fun getArchivedChats(): Flow<Resource<List<ChatMessage>>> = 
-        chatDao.getArchivedChats().map { list -> Resource.Success(list.map { it.toModel() }) }
+        chatDaoProvider.get().getArchivedChats().map { list -> Resource.Success(list.map { it.toModel() }) }
 
     override fun getCallLogs(): Flow<Resource<List<CallLog>>> = 
-        callLogDao.getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }
+        callLogDaoProvider.get().getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }
 
     override fun fetchOlderMessages(chatId: String, beforeTs: Long, limit: Int): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
+            val chatDao = chatDaoProvider.get()
             val oldestMsg = chatDao.getOldestMessage(chatId)
             val cursor = oldestMsg?.id
             
@@ -386,6 +431,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun markAsRead(chatId: String): Flow<Resource<Boolean>> = flow {
         try {
+            val chatDao = chatDaoProvider.get()
             chatDao.markIncomingAsRead(chatId)
             chatDao.updateUnreadCount(chatId, 0)
             chatApi.markAsRead(chatId, ReadReceiptRequest(""))
@@ -395,14 +441,14 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun deleteMessage(messageId: String, deleteForEveryone: Boolean): Flow<Resource<Boolean>> = flow {
         try {
-            chatDao.deleteMessage(messageId)
+            chatDaoProvider.get().deleteMessage(messageId)
             if (deleteForEveryone) chatApi.deleteMessage(messageId)
             emit(Resource.Success(true))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
     override fun forwardMessage(messageId: String, receiverIds: List<String>, groupIds: List<String>): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun archiveChat(chatId: String, isArchived: Boolean): Flow<Resource<Boolean>> = flow { chatDao.updateArchived(chatId, isArchived); emit(Resource.Success(true)) }
+    override fun archiveChat(chatId: String, isArchived: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateArchived(chatId, isArchived); emit(Resource.Success(true)) }
 
     override fun getGroupInfo(groupId: String): Flow<Resource<GroupInfoResponse>> = flow {
         emit(Resource.Loading())
@@ -411,7 +457,6 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!))
             } else {
-                // Fallback to members only if info fails
                 val membersResp = chatApi.getMembers(groupId)
                 if (membersResp.isSuccessful && membersResp.body() != null) {
                     emit(Resource.Success(GroupInfoResponse(groupId, "Group", membersResp.body()!!.map { it.id }, emptyList(), 0)))
@@ -433,34 +478,34 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun leaveGroup(groupId: String): Flow<Resource<Boolean>> = flow {
-        try { chatApi.leaveGroup(groupId); chatDao.deleteChat(groupId); emit(Resource.Success(true)) } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+        try { chatApi.leaveGroup(groupId); chatDaoProvider.get().deleteChat(groupId); emit(Resource.Success(true)) } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
     override fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>> = 
-        chatDao.getMessages(chatId).map { list ->
+        chatDaoProvider.get().getMessages(chatId).map { list ->
             Resource.Success(list.filter { it.type == MessageType.IMAGE || it.type == MessageType.VIDEO }.map { it.toModel() })
         }
 
     override fun editMessage(messageId: String, newBody: String): Flow<Resource<Message>> = flow { /* Implement */ }
-    override fun reactToMessage(messageId: String, emoji: String): Flow<Resource<Boolean>> = flow { chatDao.updateMessageReactions(messageId, mapOf(emoji to 1)); emit(Resource.Success(true)) }
+    override fun reactToMessage(messageId: String, emoji: String): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateMessageReactions(messageId, mapOf(emoji to 1)); emit(Resource.Success(true)) }
 
-    override suspend fun saveMessage(chatId: String, message: Message) { chatDao.insertMessages(listOf(message.toEntity(chatId))) }
-    override suspend fun updateMessageInCache(chatId: String, message: Message) { chatDao.insertMessages(listOf(message.toEntity(chatId))) }
-    override suspend fun updateMessageReactions(messageId: String, reactions: Map<String, Int>) { chatDao.updateMessageReactions(messageId, reactions) }
-    override suspend fun deleteMessageLocal(messageId: String) { chatDao.deleteMessage(messageId) }
-    override suspend fun saveChat(chat: ChatMessage) { chatDao.insertChats(listOf(chat.toEntity())) }
+    override suspend fun saveMessage(chatId: String, message: Message) { chatDaoProvider.get().insertMessages(listOf(message.toEntity(chatId))) }
+    override suspend fun updateMessageInCache(chatId: String, message: Message) { chatDaoProvider.get().insertMessages(listOf(message.toEntity(chatId))) }
+    override suspend fun updateMessageReactions(messageId: String, reactions: Map<String, Int>) { chatDaoProvider.get().updateMessageReactions(messageId, reactions) }
+    override suspend fun deleteMessageLocal(messageId: String) { chatDaoProvider.get().deleteMessage(messageId) }
+    override suspend fun saveChat(chat: ChatMessage) { chatDaoProvider.get().insertChats(listOf(chat.toEntity())) }
     override suspend fun updateMessageStatus(messageId: String, status: MessageStatus) { /* Implement */ }
-    override suspend fun markChatAsReadLocal(chatId: String) { chatDao.markIncomingAsRead(chatId) }
-    override suspend fun updatePresence(chatId: String, isOnline: Boolean, lastSeen: Long) { chatDao.updatePresence(chatId, isOnline, lastSeen) }
+    override suspend fun markChatAsReadLocal(chatId: String) { chatDaoProvider.get().markIncomingAsRead(chatId) }
+    override suspend fun updatePresence(chatId: String, isOnline: Boolean, lastSeen: Long) { chatDaoProvider.get().updatePresence(chatId, isOnline, lastSeen) }
     override suspend fun updateTyping(chatId: String, isTyping: Boolean) { 
-        chatDao.updateTyping(chatId, isTyping)
+        chatDaoProvider.get().updateTyping(chatId, isTyping)
         webSocketManager.send("chat", "typing", buildJsonObject { 
             put("conversation_id", chatId)
             put("is_typing", isTyping)
         })
     }
-    override suspend fun incrementUnreadCount(chatId: String) { chatDao.incrementUnreadCount(chatId) }
-    override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) { chatDao.updateLastMessage(chatId, lastMessage, time, isFromMe, isRead) }
+    override suspend fun incrementUnreadCount(chatId: String) { chatDaoProvider.get().incrementUnreadCount(chatId) }
+    override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) { chatDaoProvider.get().updateLastMessage(chatId, lastMessage, time, isFromMe, isRead) }
 
     override suspend fun createGroup(name: String, contactIds: List<String>): Flow<Resource<ChatMessage>> = flow {
         emit(Resource.Loading())
@@ -469,32 +514,32 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val conversationId = response.body()!!.conversation_id
                 val group = ChatMessage(conversationId, com.example.firstapp.common.model.ConversationType.GROUP, name, isGroup = true)
-                chatDao.insertChats(listOf(group.toEntity()))
+                chatDaoProvider.get().insertChats(listOf(group.toEntity()))
                 emit(Resource.Success(group))
             } else emit(Resource.Error("Failed to create group"))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
-    override fun pinChat(chatId: String, isPinned: Boolean): Flow<Resource<Boolean>> = flow { chatDao.updatePinned(chatId, isPinned); emit(Resource.Success(true)) }
-    override fun muteChat(chatId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow { chatDao.updateMuted(chatId, isMuted); emit(Resource.Success(true)) }
-    override fun deleteChat(chatId: String): Flow<Resource<Boolean>> = flow { chatDao.deleteChat(chatId); emit(Resource.Success(true)) }
-    override suspend fun clearMessages(chatId: String) { chatDao.clearMessages(chatId) }
-    override suspend fun clearAllChats() { chatDao.clearChats(); chatDao.clearAllMessages() }
+    override fun pinChat(chatId: String, isPinned: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updatePinned(chatId, isPinned); emit(Resource.Success(true)) }
+    override fun muteChat(chatId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateMuted(chatId, isMuted); emit(Resource.Success(true)) }
+    override fun deleteChat(chatId: String): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().deleteChat(chatId); emit(Resource.Success(true)) }
+    override suspend fun clearMessages(chatId: String) { chatDaoProvider.get().clearMessages(chatId) }
+    override suspend fun clearAllChats() { val chatDao = chatDaoProvider.get(); chatDao.clearChats(); chatDao.clearAllMessages() }
     override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getStarredMessages(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList())) }
-    override suspend fun updateWallpaper(chatId: String, wallpaperUrl: String?) { chatDao.updateWallpaper(chatId, wallpaperUrl) }
-    override suspend fun updateCustomNotificationTone(chatId: String, tone: String?) { chatDao.updateCustomNotificationTone(chatId, tone) }
-    override suspend fun updateMediaVisibility(chatId: String, visible: Boolean) { chatDao.updateMediaVisibility(chatId, visible) }
-    override suspend fun updateDisappearingMessages(chatId: String, duration: Int) { chatDao.updateDisappearingMessages(chatId, duration) }
+    override suspend fun updateWallpaper(chatId: String, wallpaperUrl: String?) { chatDaoProvider.get().updateWallpaper(chatId, wallpaperUrl) }
+    override suspend fun updateCustomNotificationTone(chatId: String, tone: String?) { chatDaoProvider.get().updateCustomNotificationTone(chatId, tone) }
+    override suspend fun updateMediaVisibility(chatId: String, visible: Boolean) { chatDaoProvider.get().updateMediaVisibility(chatId, visible) }
+    override suspend fun updateDisappearingMessages(chatId: String, duration: Int) { chatDaoProvider.get().updateDisappearingMessages(chatId, duration) }
     override suspend fun syncPendingMessages() {}
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList())) }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow { emit(Resource.Success(UUID.randomUUID().toString())) }
-    override fun searchLocalMessages(chatId: String, query: String): Flow<List<Message>> = chatDao.getMessages(chatId).map { it.filter { m -> m.content.contains(query, true) }.map { e -> e.toModel() } }
-    override fun searchLocalChats(query: String): Flow<List<ChatMessage>> = chatDao.getChats().map { it.filter { c -> c.senderName.contains(query, true) }.map { e -> e.toModel() } }
-    override fun searchLocalContacts(query: String): Flow<List<Contact>> = contactDao.searchContacts(query).map { list -> list.map { it.toModel() } }
-    override fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter): Flow<List<Message>> = chatDao.searchMessagesAcrossAll(query).map { it.map { e -> e.toModel() } }
+    override fun searchLocalMessages(chatId: String, query: String): Flow<List<Message>> = chatDaoProvider.get().getMessages(chatId).map { it.filter { m -> m.content.contains(query, true) }.map { e -> e.toModel() } }
+    override fun searchLocalChats(query: String): Flow<List<ChatMessage>> = chatDaoProvider.get().getChats().map { it.filter { c -> c.senderName.contains(query, true) }.map { e -> e.toModel() } }
+    override fun searchLocalContacts(query: String): Flow<List<Contact>> = contactDaoProvider.get().searchContacts(query).map { list -> list.map { it.toModel() } }
+    override fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter): Flow<List<Message>> = chatDaoProvider.get().searchMessagesAcrossAll(query).map { it.map { e -> e.toModel() } }
     override fun getAllFiles(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList())) }
     override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow { emit(Resource.Success(emptyList())) }

@@ -39,11 +39,7 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     }
 
     val name = if (chat.title != "" && chat.title != "unknown" && chat.title != "Unknown" && chat.title != "null") {
-        if (chat.title == id || chat.title.length > 30 && chat.title.contains("-")) {
-            "" // Looks like a UUID or ID, leave empty for Repository resolution
-        } else {
-            chat.title
-        }
+        chat.title
     } else {
         "" // Leave empty so Repository can resolve it better
     }
@@ -97,8 +93,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
     val sName = if (apiMessage.sender_name != "" && apiMessage.sender_name != "unknown" && apiMessage.sender_name != "Unknown" && apiMessage.sender_name != "null") {
         apiMessage.sender_name
     } else {
-        // Requirement 1: Fallback to phone number (STRICT BAN on username/IDs)
-        apiMessage.contact_phone ?: "Unknown"
+        apiMessage.contact_phone ?: ""
     }
 
     return Message(

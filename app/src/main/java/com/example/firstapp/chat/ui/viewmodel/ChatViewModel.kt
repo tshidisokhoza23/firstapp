@@ -5,6 +5,7 @@ import javax.inject.Inject
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.util.Log
+import kotlinx.coroutines.*
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.example.firstapp.chat.data.*
@@ -61,7 +62,7 @@ class ChatViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     // UI Compatibility flows
-    val chats = uiState.map { it.chats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+    val chats = uiState.map { it.chats }.stateIn(viewModelScope, SharingStarted.Eagerly, Resource.Loading())
     val messages = uiState.map { it.messages }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val contacts = repository.getContacts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val archivedChats = uiState.map { it.archivedChats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
@@ -91,9 +92,16 @@ class ChatViewModel @Inject constructor(
             .onEach { res -> 
                 Log.d("ChatViewModel", "Observe: chats list updated, count=${res.data?.size ?: 0}")
                 _uiState.update { current ->
-                    // Logic fix: If we are currently "Loading" but the DB just gave us data (even empty), 
-                    // we should switch to Success so the spinner stops.
-                    val updatedChats = if (res.data != null) Resource.Success(res.data!!) else res
+                    // FIX: Ensure Success state is emitted even for empty lists to stop loading spinner
+                    val updatedChats = if (res is Resource.Loading && res.data != null) {
+                         Resource.Success(res.data!!)
+                    } else if (res is Resource.Success) {
+                         res
+                    } else {
+                         // If we have data in a Loading or Error state, prefer showing it as Success
+                         res.data?.let { Resource.Success(it) } ?: res
+                    }
+
                     current.copy(
                         chats = updatedChats,
                         isChatsFetching = false
@@ -160,13 +168,23 @@ class ChatViewModel @Inject constructor(
     fun fetchChats() {
         viewModelScope.launch {
             _uiState.update { it.copy(isChatsFetching = true) }
-            repository.syncChats().collect { res ->
-                Log.d("ChatViewModel", "SyncChats result: ${res::class.simpleName}")
-                if (res is Resource.Error) {
-                    _uiState.update { it.copy(error = res.message, isChatsFetching = false) }
-                } else if (res is Resource.Success) {
-                    _uiState.update { it.copy(isChatsFetching = false) }
+            
+            val syncJob = launch {
+                repository.syncChats().collect { res ->
+                    Log.d("ChatViewModel", "SyncChats result: ${res::class.simpleName}")
+                    if (res is Resource.Error) {
+                        _uiState.update { it.copy(error = res.message, isChatsFetching = false) }
+                    } else if (res is Resource.Success) {
+                        _uiState.update { it.copy(isChatsFetching = false) }
+                    }
                 }
+            }
+            
+            // Safety timeout: 15s limit for the spinner
+            delay(15000)
+            if (syncJob.isActive) {
+                Log.w("ChatViewModel", "Sync timeout reached, hiding spinner")
+                _uiState.update { it.copy(isChatsFetching = false) }
             }
         }
     }

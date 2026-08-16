@@ -75,35 +75,43 @@ abstract class AppDatabase : RoomDatabase() {
         private var instance: AppDatabase? = null
         private var currentUserId: String? = null
 
+        @Synchronized
         fun getInstance(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager): AppDatabase {
             val userId = sessionManager.getUserId() ?: "anonymous"
             
-            return if (instance != null && currentUserId == userId) {
-                instance!!
-            } else synchronized(this) {
-                // If switching users, close old instance
-                if (currentUserId != userId) {
+            // If switching users or instance is closed, close and reset
+            if (instance != null && (currentUserId != userId || instance?.isOpen != true)) {
+                try {
+                    android.util.Log.d("AppDatabase", "Closing old database instance for user $currentUserId (switching to $userId)")
                     instance?.close()
-                    instance = null
-                }
-                
-                val dbName = "${BASE_DATABASE_NAME}_${userId}.db"
-                currentUserId = userId
-
-                val db = try {
-                    val d = buildDatabase(context, sessionManager, dbName)
-                    d.openHelper.writableDatabase
-                    d
                 } catch (e: Exception) {
-                    android.util.Log.e("AppDatabase", "Database open failed ($dbName), deleting and recreating...", e)
-                    try { context.deleteDatabase(dbName) } catch (_: Exception) {}
-                    val d = buildDatabase(context, sessionManager, dbName)
-                    d.openHelper.writableDatabase
-                    d
+                    android.util.Log.e("AppDatabase", "Error closing old instance", e)
                 }
-                instance = db
-                db
+                instance = null
             }
+
+            val current = instance
+            if (current != null && current.isOpen) {
+                return current
+            }
+            
+            val dbName = "${BASE_DATABASE_NAME}_${userId}.db"
+            currentUserId = userId
+
+            val db = try {
+                val d = buildDatabase(context, sessionManager, dbName)
+                // Force open
+                d.openHelper.writableDatabase
+                d
+            } catch (e: Exception) {
+                android.util.Log.e("AppDatabase", "Database open failed ($dbName), deleting and recreating...", e)
+                try { context.deleteDatabase(dbName) } catch (_: Exception) {}
+                val d = buildDatabase(context, sessionManager, dbName)
+                d.openHelper.writableDatabase
+                d
+            }
+            instance = db
+            return db
         }
 
         private fun buildDatabase(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager, dbName: String): AppDatabase {
@@ -117,7 +125,7 @@ abstract class AppDatabase : RoomDatabase() {
                 dbName
             )
             .openHelperFactory(factory)
-            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+            .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
             .fallbackToDestructiveMigration()
             .build()
         }

@@ -221,6 +221,10 @@ class CallListenerService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            // FIX: Use CHANNEL_INCOMING_CALLS (High Importance) for ACTIVE calls
+            // Posting CATEGORY_CALL to a MIN/LOW importance channel triggers vendor OS strategy errors.
+            val channelId = CHANNEL_INCOMING_CALLS
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
                 
@@ -230,7 +234,7 @@ class CallListenerService : Service() {
                 if (hasMic) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 if (hasCam) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
                 
-                val n = NotificationCompat.Builder(this, CHANNEL_CALL_SERVICE)
+                val n = NotificationCompat.Builder(this, channelId)
                     .setSmallIcon(R.mipmap.ic_launcher)
                     .setContentTitle("Ongoing Call with $participantName")
                     .setContentText("Tap to return to call")
@@ -244,6 +248,7 @@ class CallListenerService : Service() {
                 try {
                     startForeground(ONGOING_NOTIFICATION_ID, n, type)
                 } catch (e: Exception) {
+                    Log.e("CallListenerService", "Failed to start ongoing call foreground: ${e.message}")
                     try {
                         startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
                     } catch (_: Exception) {
@@ -251,7 +256,7 @@ class CallListenerService : Service() {
                     }
                 }
             } else {
-                val n = NotificationCompat.Builder(this, CHANNEL_CALL_SERVICE)
+                val n = NotificationCompat.Builder(this, channelId)
                     .setSmallIcon(R.mipmap.ic_launcher)
                     .setContentTitle("Ongoing Call with $participantName")
                     .setContentText("Tap to return to call")
@@ -273,7 +278,7 @@ class CallListenerService : Service() {
                     startForeground(ONGOING_NOTIFICATION_ID, n)
                 }
             } catch (e: Exception) {
-                Log.e("CallListenerService", "Failed to start foreground service", e)
+                Log.e("CallListenerService", "Failed to start idle foreground service", e)
             }
         }
     }
@@ -302,7 +307,7 @@ class CallListenerService : Service() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("TJ call service")
             .setContentText("Listening for incoming calls")
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setPriority(NotificationCompat.PRIORITY_LOW) // Changed from MIN for vendor stability
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .build()
@@ -392,10 +397,11 @@ class CallListenerService : Service() {
 
         val manager = getSystemService(NotificationManager::class.java) ?: return
 
+        // FIX: Use IMPORTANCE_LOW. Vendor OSes (Huawei/Xiaomi) often reject Foreground Services with MIN priority.
         val serviceChannel = NotificationChannel(
             CHANNEL_CALL_SERVICE,
             "System Service",
-            NotificationManager.IMPORTANCE_MIN
+            NotificationManager.IMPORTANCE_LOW
         )
         serviceChannel.description = "Background connectivity"
         serviceChannel.setShowBadge(false)

@@ -32,7 +32,7 @@ class RewardedAdPoolManager @Inject constructor() {
         private const val AD_TTL_MS = 45 * 60 * 1000L // 45 Minutes
         private const val INITIAL_BACKOFF_DELAY_MS = 2000L
         private const val MAX_BACKOFF_DELAY_MS = 64000L
-        private const val AD_COOLDOWN_MS = 30000L // 30 seconds cooldown between rewards
+        private const val AD_COOLDOWN_MS = 120000L // 120 seconds cooldown (Principal Requirement)
     }
 
     private data class CachedAd(
@@ -157,6 +157,7 @@ class RewardedAdPoolManager @Inject constructor() {
         activity: Activity,
         adUnitId: String,
         userId: String,
+        taskId: String = "generic_task",
         onRewardEarned: () -> Unit,
         onAdClosed: () -> Unit = {}
     ) {
@@ -180,6 +181,13 @@ class RewardedAdPoolManager @Inject constructor() {
                 onAdClosed()
                 return@launch
             }
+
+            // Update SSV options with specific taskId before showing
+            val ssvOptions = ServerSideVerificationOptions.Builder()
+                .setUserId(userId)
+                .setCustomData(taskId)
+                .build()
+            cachedAd.ad.setServerSideVerificationOptions(ssvOptions)
 
             isShowingAd = true
             cachedAd.ad.fullScreenContentCallback = object : FullScreenContentCallback() {

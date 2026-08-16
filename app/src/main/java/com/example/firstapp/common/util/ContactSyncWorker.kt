@@ -41,6 +41,9 @@ class ContactSyncWorker @AssistedInject constructor(
             repository.syncContacts(contactList.map { it.phone_number }).collect { }
             Log.d("ContactSyncWorker", "Contact sync successful")
             Result.success()
+        } catch (e: IllegalStateException) {
+            Log.e("ContactSyncWorker", "Database closed during contact sync", e)
+            Result.failure()
         } catch (e: Exception) {
             Log.e("ContactSyncWorker", "Contact sync error", e)
             Result.retry()
