@@ -1,4 +1,4 @@
-cccccpackage com.example.firstapp.chat.ui.rewards
+package com.example.firstapp.chat.ui.rewards
 
 import android.app.Activity
 import androidx.compose.foundation.background
