@@ -80,7 +80,7 @@ class ChatRepositoryImpl @Inject constructor(
         when (envelope.topic) {
             "chat" -> {
                 when (envelope.event) {
-                    "message" -> {
+                    "message", "INCOMING_MSG" -> {
                         val payload = envelope.payload
                         if (payload != null) {
                             try {
@@ -597,7 +597,20 @@ class ChatRepositoryImpl @Inject constructor(
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList())) }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow { emit(Resource.Success(UUID.randomUUID().toString())) }
+    override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.initiateCall(InitiateCallRequest(receiverId, callType))
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.session_id))
+            } else {
+                emit(Resource.Error("Failed to initiate call: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error initiating call", e)
+            emit(Resource.Error(e.message ?: "Network error"))
+        }
+    }
     override fun searchLocalMessages(chatId: String, query: String): Flow<List<Message>> = chatDaoProvider.get().getMessages(chatId).map { it.filter { m -> m.content.contains(query, true) }.map { e -> e.toModel() } }
     override fun searchLocalChats(query: String): Flow<List<ChatMessage>> = chatDaoProvider.get().getChats().map { it.filter { c -> c.senderName.contains(query, true) }.map { e -> e.toModel() } }
     override fun searchLocalContacts(query: String): Flow<List<Contact>> = contactDaoProvider.get().searchContacts(query).map { list -> list.map { it.toModel() } }
