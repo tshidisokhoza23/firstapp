@@ -42,7 +42,7 @@ sealed class ChatIntent {
         val replyToSenderName: String? = null
     ) : ChatIntent()
     data class MarkAsRead(val chatId: String) : ChatIntent()
-    data class DeleteMessage(val messageId: String) : ChatIntent()
+    data class DeleteMessage(val messageId: String, val deleteForEveryone: Boolean = false) : ChatIntent()
     data class EditMessage(val messageId: String, val newBody: String) : ChatIntent()
     data class ReactToMessage(val messageId: String, val emoji: String) : ChatIntent()
     data class SearchInChat(val chatId: String, val query: String) : ChatIntent()

@@ -151,7 +151,7 @@ class ChatViewModel @Inject constructor(
                 intent.replyToId, intent.replyToText, intent.replyToSenderName
             )
             is ChatIntent.MarkAsRead -> markAsRead(intent.chatId)
-            is ChatIntent.DeleteMessage -> deleteMessage(intent.messageId)
+            is ChatIntent.DeleteMessage -> deleteMessage(intent.messageId, intent.deleteForEveryone)
             is ChatIntent.EditMessage -> editMessage(intent.messageId, intent.newBody)
             is ChatIntent.ReactToMessage -> reactToMessage(intent.messageId, intent.emoji)
             is ChatIntent.SearchInChat -> searchInChat(intent.chatId, intent.query)
@@ -264,8 +264,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch { repository.markAsRead(chatId).collect { } }
     }
 
-    fun deleteMessage(messageId: String) {
-        viewModelScope.launch { repository.deleteMessage(messageId).collect { } }
+    fun deleteMessage(messageId: String, deleteForEveryone: Boolean = false) {
+        viewModelScope.launch { repository.deleteMessage(messageId, deleteForEveryone).collect { } }
     }
 
     fun editMessage(messageId: String, newBody: String) {

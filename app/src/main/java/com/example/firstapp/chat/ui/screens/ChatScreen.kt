@@ -144,6 +144,9 @@ fun ChatMessagesScreen(
 
     var fullScreenImageUri by remember { mutableStateOf<String?>(null) }
     var fullScreenVideoUri by remember { mutableStateOf<String?>(null) }
+    
+    var showDeleteConfirmDialog by remember { mutableStateOf<String?>(null) }
+    var deleteForEveryone by remember { mutableStateOf(false) }
 
     BackHandler(enabled = fullScreenImageUri != null || fullScreenVideoUri != null || showAttachments || showEmojiPicker || selectedMessages.isNotEmpty()) {
         when {
@@ -246,7 +249,15 @@ fun ChatMessagesScreen(
     fun showToast(msg: String) { Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
 
     fun onReact(messageId: String, emoji: String) { chatViewModel.reactToMessage(messageId, emoji) }
-    fun deleteSelectedMessages() { selectedMessages.forEach { chatViewModel.deleteMessage(it) }; selectedMessages.clear() }
+    fun deleteSelectedMessages() { 
+        val canDeleteForEveryone = selectedMessages.size == 1 && (messages.find { it.id == selectedMessages.first() }?.isFromMe == true)
+        if (canDeleteForEveryone) {
+            showDeleteConfirmDialog = selectedMessages.first()
+        } else {
+            selectedMessages.forEach { chatViewModel.deleteMessage(it) }
+            selectedMessages.clear()
+        }
+    }
 
     fun startRecording() {
         try {
@@ -674,6 +685,35 @@ fun ChatMessagesScreen(
 
         fullScreenVideoUri?.let { uri ->
             FullScreenVideoPlayer(uri = uri, onBack = { fullScreenVideoUri = null })
+        }
+
+        if (showDeleteConfirmDialog != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = null },
+                title = { Text("Delete Message") },
+                text = {
+                    Column {
+                        Text("Delete this message?")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 8.dp).clickable { deleteForEveryone = !deleteForEveryone }
+                        ) {
+                            Checkbox(checked = deleteForEveryone, onCheckedChange = { deleteForEveryone = it })
+                            Text("Delete for everyone", modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeleteConfirmDialog?.let { chatViewModel.deleteMessage(it, deleteForEveryone) }
+                        showDeleteConfirmDialog = null
+                        selectedMessages.clear()
+                    }) { Text("Delete") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = null }) { Text("Cancel") }
+                }
+            )
         }
     }
 }

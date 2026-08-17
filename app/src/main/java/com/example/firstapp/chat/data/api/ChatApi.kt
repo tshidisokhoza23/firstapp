@@ -56,8 +56,14 @@ interface ChatApi {
     @GET("chats/groups/{groupId}")
     suspend fun getGroupInfo(@Path("groupId") groupId: String): Response<GroupInfoResponse>
 
-    @DELETE("chats/messages/{messageId}")
-    suspend fun deleteMessage(@Path("messageId") messageId: String): Response<StatusResponse>
+    @DELETE("conversations/{conversationID}")
+    suspend fun deleteConversation(@Path("conversationID") conversationID: String): Response<StatusResponse>
+
+    @DELETE("conversations/{conversationID}/messages/{messageID}")
+    suspend fun deleteMessage(
+        @Path("conversationID") conversationID: String,
+        @Path("messageID") messageId: String
+    ): Response<StatusResponse>
 
     @POST("calls/initiate")
     suspend fun initiateCall(@Body request: InitiateCallRequest): Response<InitiateCallResponse>

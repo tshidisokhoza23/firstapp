@@ -132,6 +132,35 @@ class ChatRepositoryImpl @Inject constructor(
                             }
                         }
                     }
+                    "DELETE_MSG" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            try {
+                                val messageId = payload["message_id"]?.toString()?.trim('"')
+                                if (messageId != null) {
+                                    Log.d("ChatRepository", "Deleting message via WS: $messageId")
+                                    chatDao.deleteMessage(messageId)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("ChatRepository", "Failed to decode DELETE_MSG event", e)
+                            }
+                        }
+                    }
+                    "DELETE_CONV" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            try {
+                                val chatId = payload["conversation_id"]?.toString()?.trim('"')
+                                if (chatId != null) {
+                                    Log.d("ChatRepository", "Deleting conversation via WS: $chatId")
+                                    chatDao.deleteChat(chatId)
+                                    chatDao.clearMessages(chatId)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("ChatRepository", "Failed to decode DELETE_CONV event", e)
+                            }
+                        }
+                    }
                     "typing" -> {
                         val payload = envelope.payload
                         if (payload != null) {
@@ -441,8 +470,13 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun deleteMessage(messageId: String, deleteForEveryone: Boolean): Flow<Resource<Boolean>> = flow {
         try {
-            chatDaoProvider.get().deleteMessage(messageId)
-            if (deleteForEveryone) chatApi.deleteMessage(messageId)
+            val chatDao = chatDaoProvider.get()
+            val chatId = chatDao.getChatIdForMessage(messageId)
+            
+            chatDao.deleteMessage(messageId)
+            if (deleteForEveryone && chatId != null) {
+                chatApi.deleteMessage(chatId, messageId)
+            }
             emit(Resource.Success(true))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
@@ -522,7 +556,14 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun pinChat(chatId: String, isPinned: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updatePinned(chatId, isPinned); emit(Resource.Success(true)) }
     override fun muteChat(chatId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateMuted(chatId, isMuted); emit(Resource.Success(true)) }
-    override fun deleteChat(chatId: String): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().deleteChat(chatId); emit(Resource.Success(true)) }
+    override fun deleteChat(chatId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            chatDaoProvider.get().deleteChat(chatId)
+            chatDaoProvider.get().clearMessages(chatId)
+            chatApi.deleteConversation(chatId)
+            emit(Resource.Success(true))
+        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+    }
     override suspend fun clearMessages(chatId: String) { chatDaoProvider.get().clearMessages(chatId) }
     override suspend fun clearAllChats() { val chatDao = chatDaoProvider.get(); chatDao.clearChats(); chatDao.clearAllMessages() }
     override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
