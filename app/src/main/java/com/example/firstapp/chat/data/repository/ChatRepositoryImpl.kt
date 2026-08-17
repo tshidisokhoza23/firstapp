@@ -121,6 +121,12 @@ class ChatRepositoryImpl @Inject constructor(
                                     chatDao.incrementUnreadCount(message.conversationId)
                                 }
 
+                                // Notify RewardViewModel via a global flow or similar
+                                if (envelope.event == "REWARD_UPDATE") {
+                                    Log.i("ChatRepository", "Reward update received via WS")
+                                    // Trigger a local UI update if needed or rely on RewardViewModel listener
+                                }
+
                                 // Expert: Verify if chat exists, if not, trigger a full sync to fetch metadata
                                 val exists = chatDao.searchChatsById(message.conversationId) != null
                                 if (!exists) {
@@ -136,6 +142,10 @@ class ChatRepositoryImpl @Inject constructor(
                         // Notify RewardViewModel via a global flow or similar
                         // For now, trigger a refresh of the dashboard
                         Log.i("ChatRepository", "Reward update received via WS")
+                    }
+                    "call_ringing", "call_invite", "call_accept", "call_end", "call_reject" -> {
+                        Log.d("ChatRepository", "Incoming call event via multiplexed WS: ${envelope.event}")
+                        // These are handled by CallListenerService which observes the same WebSocketManager
                     }
                     "DELETE_MSG" -> {
                         val payload = envelope.payload
