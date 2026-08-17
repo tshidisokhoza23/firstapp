@@ -172,13 +172,14 @@ class ChatRepositoryImpl @Inject constructor(
                             }
                         }
                     }
-                    "typing" -> {
+                    "typing", "TYPING" -> {
                         val payload = envelope.payload
                         if (payload != null) {
                             try {
                                 val chatId = payload["conversation_id"]?.toString()?.trim('"')
-                                val isTyping = payload["is_typing"]?.toString()?.toBoolean() ?: false
-                                chatId?.let { chatDao.updateTyping(it, isTyping) }
+                                val isTyping = (payload["is_typing"] ?: payload["state"])?.toString()?.trim('"')
+                                val state = isTyping == "true" || isTyping == "START"
+                                chatId?.let { chatDao.updateTyping(it, state) }
                             } catch (e: Exception) {
                                 Log.e("ChatRepository", "Failed to decode typing event", e)
                             }
