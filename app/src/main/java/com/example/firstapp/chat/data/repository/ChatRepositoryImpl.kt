@@ -139,7 +139,10 @@ class ChatRepositoryImpl @Inject constructor(
                                 val messageId = payload["message_id"]?.toString()?.trim('"')
                                 if (messageId != null) {
                                     Log.d("ChatRepository", "Deleting message via WS: $messageId")
-                                    chatDao.deleteMessage(messageId)
+                                    val db = dbProvider.get()
+                                    db.withTransaction {
+                                        chatDao.deleteMessage(messageId)
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Log.e("ChatRepository", "Failed to decode DELETE_MSG event", e)
@@ -153,8 +156,11 @@ class ChatRepositoryImpl @Inject constructor(
                                 val chatId = payload["conversation_id"]?.toString()?.trim('"')
                                 if (chatId != null) {
                                     Log.d("ChatRepository", "Deleting conversation via WS: $chatId")
-                                    chatDao.deleteChat(chatId)
-                                    chatDao.clearMessages(chatId)
+                                    val db = dbProvider.get()
+                                    db.withTransaction {
+                                        chatDao.deleteChat(chatId)
+                                        chatDao.clearMessages(chatId)
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Log.e("ChatRepository", "Failed to decode DELETE_CONV event", e)
