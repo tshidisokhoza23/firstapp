@@ -624,5 +624,18 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getAllFiles(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList())) }
     override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow { emit(Resource.Success(emptyList())) }
-    override suspend fun getICEServers(): Resource<List<IceServerConfig>> = Resource.Success(emptyList())
+    override suspend fun getICEServers(): Resource<List<IceServerConfig>> {
+        return try {
+            val response = chatApi.getICEServers()
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(response.body()!!.ice_servers)
+            } else {
+                Log.e("ChatRepository", "Failed to fetch ICE servers: ${response.code()}")
+                Resource.Success(emptyList()) // Fallback to STUN defaults in WebRtcManager
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error fetching ICE servers", e)
+            Resource.Success(emptyList())
+        }
+    }
 }
