@@ -82,8 +82,8 @@ class WebSocketManager @Inject constructor(
             return
         }
 
-        // Multiplexed endpoint - handles all topics via single connection
-        val wsUrl = "wss://firstapp-backend.fly.dev/api/v1/ws/posts?token=$token"
+        // Correct endpoint for chat and general events
+        val wsUrl = "wss://firstapp-backend.fly.dev/api/v1/ws/chat?token=$token"
         val request = Request.Builder()
             .url(wsUrl)
             .build()

@@ -13,6 +13,7 @@ import com.example.firstapp.common.data.ads.RewardedAdPoolManager
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.common.data.ads.AdUnitConfig
+import com.example.firstapp.common.data.realtime.WebSocketManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -32,6 +33,7 @@ class RewardViewModel @Inject constructor(
     private val rewardsApi: RewardsApi,
     private val userRepository: UserRepository,
     private val poolManager: RewardedAdPoolManager,
+    private val webSocketManager: WebSocketManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -48,6 +50,18 @@ class RewardViewModel @Inject constructor(
         fetchDashboard()
         checkStoredCooldown()
         initializePool()
+        observeRealtimeUpdates()
+    }
+
+    private fun observeRealtimeUpdates() {
+        webSocketManager.events
+            .filter { it.event == "REWARD_UPDATE" }
+            .onEach {
+                android.util.Log.i("RewardViewModel", "Reward update received via WS, refreshing dashboard")
+                fetchDashboard()
+                userRepository.getCurrentUser().collectLatest { }
+            }
+            .launchIn(viewModelScope)
     }
 
     private fun initializePool() {

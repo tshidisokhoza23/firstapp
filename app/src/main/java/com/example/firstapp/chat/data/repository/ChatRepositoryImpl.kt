@@ -132,6 +132,11 @@ class ChatRepositoryImpl @Inject constructor(
                             }
                         }
                     }
+                    "REWARD_UPDATE" -> {
+                        // Notify RewardViewModel via a global flow or similar
+                        // For now, trigger a refresh of the dashboard
+                        Log.i("ChatRepository", "Reward update received via WS")
+                    }
                     "DELETE_MSG" -> {
                         val payload = envelope.payload
                         if (payload != null) {
