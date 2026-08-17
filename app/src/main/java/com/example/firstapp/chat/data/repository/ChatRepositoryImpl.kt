@@ -564,11 +564,26 @@ class ChatRepositoryImpl @Inject constructor(
     override fun muteChat(chatId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateMuted(chatId, isMuted); emit(Resource.Success(true)) }
     override fun deleteChat(chatId: String): Flow<Resource<Boolean>> = flow {
         try {
-            chatDaoProvider.get().deleteChat(chatId)
-            chatDaoProvider.get().clearMessages(chatId)
-            chatApi.deleteConversation(chatId)
-            emit(Resource.Success(true))
-        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+            val chatDao = chatDaoProvider.get()
+            val db = dbProvider.get()
+            
+            // Critical: Immediate local wipe so UI reacts instantly
+            db.withTransaction {
+                chatDao.deleteChat(chatId)
+                chatDao.clearMessages(chatId)
+            }
+            
+            val response = chatApi.deleteConversation(chatId)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                // If API fails, sync back might happen, but local is gone for now
+                emit(Resource.Error("Server failed to delete: ${response.code()}"))
+            }
+        } catch (e: Exception) { 
+            Log.e("ChatRepository", "Error deleting chat locally", e)
+            emit(Resource.Error(e.message ?: "Error")) 
+        }
     }
     override suspend fun clearMessages(chatId: String) { chatDaoProvider.get().clearMessages(chatId) }
     override suspend fun clearAllChats() { val chatDao = chatDaoProvider.get(); chatDao.clearChats(); chatDao.clearAllMessages() }
