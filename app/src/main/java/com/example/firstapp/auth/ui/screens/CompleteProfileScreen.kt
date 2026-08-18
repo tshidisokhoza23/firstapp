@@ -27,7 +27,7 @@ fun CompleteProfileScreen(
     var username by remember { mutableStateOf(currentUser.username) }
     var phoneNumber by remember { mutableStateOf(currentUser.phoneNumber) }
 
-    val missingFields = currentUser.missingFields
+    val missingFields = currentUser.missingFields ?: emptyList()
 
     LaunchedEffect(authState) {
         if (authState is Resource.Success) {

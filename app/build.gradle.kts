@@ -81,6 +81,11 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            keepDebugSymbols.add("**/libandroidx.graphics.path.so")
+            keepDebugSymbols.add("**/libapplovin-native-crash-reporter.so")
+            keepDebugSymbols.add("**/libdatastore_shared_counter.so")
+            keepDebugSymbols.add("**/libjingle_peerconnection_so.so")
+            keepDebugSymbols.add("**/libsqlcipher.so")
         }
     }
     testOptions {
