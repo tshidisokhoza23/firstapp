@@ -680,7 +680,19 @@ class ChatRepositoryImpl @Inject constructor(
     override fun searchLocalContacts(query: String): Flow<List<Contact>> = contactDaoProvider.get().searchContacts(query).map { list -> list.map { it.toModel() } }
     override fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter): Flow<List<Message>> = chatDaoProvider.get().searchMessagesAcrossAll(query).map { it.map { e -> e.toModel() } }
     override fun getAllFiles(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList())) }
-    override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
+    override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.updateApplicationStatus(chatId, StatusUpdateRequest(status))
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to update status: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error"))
+        }
+    }
     override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow { emit(Resource.Success(emptyList())) }
     override suspend fun getICEServers(): Resource<List<IceServerConfig>> {
         return try {
