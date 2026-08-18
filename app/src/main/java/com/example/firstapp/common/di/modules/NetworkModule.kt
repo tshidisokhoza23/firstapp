@@ -125,12 +125,8 @@ object NetworkModule {
                             .build()
                     } else {
                         val code = refreshResponse.code()
-                        if (code == 401 || code == 403 || code == 400) {
-                            android.util.Log.e("NetworkModule", "Refresh failed with $code, clearing session")
-                            sessionManager.clearSession()
-                        } else {
-                            android.util.Log.w("NetworkModule", "Refresh failed with $code (transient?), keeping session")
-                        }
+                        android.util.Log.e("NetworkModule", "Refresh failed with $code, clearing session to stop retry loop")
+                        sessionManager.clearSession()
                         null
                     }
                 } catch (e: Exception) {
