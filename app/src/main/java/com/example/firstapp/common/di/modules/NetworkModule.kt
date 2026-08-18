@@ -47,7 +47,11 @@ object NetworkModule {
         return path.contains("/auth/login") || 
                path.contains("/auth/register") || 
                path.contains("/auth/refresh") || 
-               path.contains("/auth/logout")
+               path.contains("/auth/logout") ||
+               path.contains("/auth/google") ||
+               path.contains("/auth/request-otp") ||
+               path.contains("/auth/verify-otp") ||
+               path.contains("/auth/availability")
     }
 
     @Provides

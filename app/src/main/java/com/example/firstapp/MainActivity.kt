@@ -247,9 +247,23 @@ class MainActivity : FragmentActivity() {
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
-                    } else if (!wasLoggedIn && isLoggedIn) {
-                        navController.navigate(Screen.Main.createRoute()) {
-                            popUpTo(0) { inclusive = true }
+                    } else if (isLoggedIn && currentUser != null) {
+                        // Check if we need to redirect to CompleteProfile or Main
+                        // This handles both fresh login and app start with existing session
+                        val isAtAuthScreen = navController.currentDestination?.route == Screen.Login.route
+                        val isAtCompleteProfile = navController.currentDestination?.route == Screen.CompleteProfile.route
+                        
+                        if (!currentUser!!.isProfileComplete) {
+                            if (!isAtCompleteProfile) {
+                                navController.navigate(Screen.CompleteProfile.route) {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        } else if (isAtAuthScreen || isAtCompleteProfile || !wasLoggedIn) {
+                             // Only navigate to Main if we are coming from Auth/CompleteProfile or it's the initial load
+                             navController.navigate(Screen.Main.createRoute()) {
+                                popUpTo(0) { inclusive = true }
+                             }
                         }
                     }
                     
@@ -322,7 +336,14 @@ class MainActivity : FragmentActivity() {
                                 onLogout = {
                                     lifecycleScope.launch {
                                         val userId = sessionManager.getUserId() ?: ""
-                                        // Synchronize clearing to avoid race conditions with background syncs
+                                        // 1. Inform the server about logout
+                                        try {
+                                            userRepository.logout().collect {}
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("MainActivity", "Server logout failed", e)
+                                        }
+
+                                        // 2. Synchronize clearing to avoid race conditions with background syncs
                                         try {
                                             systemRepository.clearAllData()
                                         } catch (e: Exception) {

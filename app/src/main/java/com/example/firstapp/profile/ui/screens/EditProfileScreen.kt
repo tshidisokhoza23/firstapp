@@ -1,7 +1,9 @@
 package com.example.firstapp.profile.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -40,16 +42,13 @@ fun EditProfileScreen(
     var bio by remember(user) { mutableStateOf(user.bio ?: "") }
     var location by remember(user) { mutableStateOf(user.location ?: "") }
 
-    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            val file = MediaUtils.getFileFromUri(context, it)
-            if (file != null) {
-                userViewModel.uploadProfilePicture(file, false)
-            }
-        }
+    val pickMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: android.net.Uri? ->
+        uri?.let { userViewModel.onAvatarSelected(context, it) }
     }
 
-    val bannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val bannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let {
             val file = MediaUtils.getFileFromUri(context, it)
             if (file != null) {
@@ -99,7 +98,7 @@ fun EditProfileScreen(
                     .fillMaxWidth()
                     .height(180.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { bannerLauncher.launch("image/*") }
+                    .clickable { bannerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
             ) {
                 if (user.bannerUrl != null) {
                     AsyncImage(
@@ -130,7 +129,7 @@ fun EditProfileScreen(
                         .size(100.dp)
                         .clip(CircleShape)
                         .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)))
-                        .clickable { imageLauncher.launch("image/*") },
+                        .clickable { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     contentAlignment = Alignment.Center
                 ) {
                     if (user.avatarUrl != null) {

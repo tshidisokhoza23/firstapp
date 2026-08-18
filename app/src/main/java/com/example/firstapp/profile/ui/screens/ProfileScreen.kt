@@ -43,6 +43,9 @@ import com.example.firstapp.media.ui.components.PostItem
 import com.example.firstapp.common.util.Resource
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.paging.LoadState
 import com.example.firstapp.chat.model.Contact
 import java.util.ArrayList
@@ -73,6 +76,12 @@ fun ProfileView(
     val context = LocalContext.current
     val currentUser = com.example.firstapp.LocalCurrentUser.current
     
+    val pickMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: android.net.Uri? ->
+        uri?.let { userViewModel.onAvatarSelected(context, it) }
+    }
+
     // Single Source of Truth for ID comparison
     val isMyProfile = remember(userId, currentUser.id) { 
         val u = userId.toString()
@@ -249,7 +258,11 @@ fun ProfileView(
                                     .clip(CircleShape)
                                     .background(AppSecondary)
                                     .clickable { 
-                                        onNavigateToMediaViewer(url, "image", 0L)
+                                        if (isMyProfile) {
+                                            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                        } else {
+                                            onNavigateToMediaViewer(url, "image", 0L)
+                                        }
                                     },
                                 contentScale = ContentScale.Crop,
                                 error = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary),
@@ -260,10 +273,23 @@ fun ProfileView(
                                 modifier = Modifier
                                     .size(72.dp)
                                     .clip(CircleShape)
-                                    .background(AppSecondary),
+                                    .background(AppSecondary)
+                                    .clickable {
+                                        if (isMyProfile) {
+                                            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                        }
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(Icons.Default.Person, null, tint = Color.White)
+                                if (isMyProfile) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.1f)),
+                                        contentAlignment = Alignment.BottomEnd
+                                    ) {
+                                        Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp).padding(4.dp))
+                                    }
+                                }
                             }
                         }
                         }

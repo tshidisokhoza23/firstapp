@@ -20,13 +20,18 @@ interface UserRepository {
     suspend fun useStreakFreeze(userId: String)
     suspend fun buyStreakFreeze(userId: String)
     fun updateUser(displayName: String?, bio: String?, location: String?, avatarUrl: String?, bannerUrl: String? = null, isArtist: Boolean? = null): Flow<Resource<User>>
+    fun updateAvatar(file: java.io.File): Flow<Resource<String>>
     fun forgotPassword(emailOrUsername: String): Flow<Resource<Boolean>>
+    fun googleSignIn(idToken: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
+    fun completeProfile(displayName: String?, username: String?, phoneNumber: String?): Flow<Resource<User>>
     fun deleteAccount(): Flow<Resource<Boolean>>
     fun login(username: String, password: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
     fun register(username: String, email: String, displayName: String, phoneNumber: String, password: String, countryCode: String? = null, location: String? = null): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
     fun requestOTP(phoneNumber: String, countryCode: String? = null): Flow<Resource<String>>
 
     fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>>
+
+    fun logout(): Flow<Resource<Boolean>>
 
     // Work Experience
     fun getWorkExperiences(): Flow<Resource<List<WorkExperience>>>

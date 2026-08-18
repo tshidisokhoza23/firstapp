@@ -41,6 +41,14 @@ class ChatViewModel @Inject constructor(
     private val _activeChatId = MutableStateFlow<String?>(null)
     val activeChatId: StateFlow<String?> = _activeChatId.asStateFlow()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val activeChat: StateFlow<ChatMessage?> = _activeChatId
+        .flatMapLatest { id ->
+            if (id != null) repository.getChatById(id).map { it.data }
+            else flowOf(null)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     private val groupNameCache = mutableMapOf<String, String>()
 
     // Settings flows
@@ -118,20 +126,20 @@ class ChatViewModel @Inject constructor(
     private fun observeRealtimeEvents() {
         webSocketManager.events
             .onEach { envelope ->
-                if (envelope.topic == "chat") {
-                    if (envelope.event == "message") {
-                        // When a message comes in, we don't necessarily need a full sync,
-                        // but it helps ensure counts and status are perfect.
-                        fetchChats()
-                    }
-                    if (envelope.event == "typing") {
-                        val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
-                        val state = envelope.payload?.get("is_typing")?.toString()?.toBoolean() ?: false
-                        if (cid != null) {
-                            _uiState.update { s ->
-                                val updated = s.typingStatus.toMutableMap()
-                                updated[cid] = state
-                                s.copy(typingStatus = updated)
+                when (envelope.topic) {
+                    "chat", "chat:${_activeChatId.value}" -> {
+                        if (envelope.event == "typing" || envelope.event == "TYPING") {
+                            val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
+                                ?: envelope.topic?.substringAfter("chat:")
+                            val state = (envelope.payload?.get("is_typing") 
+                                ?: envelope.payload?.get("state"))?.toString()?.toBoolean() ?: false
+                            
+                            if (cid != null) {
+                                _uiState.update { s ->
+                                    val updated = s.typingStatus.toMutableMap()
+                                    updated[cid] = state
+                                    s.copy(typingStatus = updated)
+                                }
                             }
                         }
                     }

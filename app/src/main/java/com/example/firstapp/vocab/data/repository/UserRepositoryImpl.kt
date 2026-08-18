@@ -10,7 +10,12 @@ import com.example.firstapp.common.data.api.UserApi
 import com.example.firstapp.auth.data.api.AuthApi
 import com.example.firstapp.chat.rewards.data.RewardsManager
 
+import com.example.firstapp.common.domain.auth.SessionManager
+import com.example.firstapp.common.data.api.TokenRefreshRequest
+import com.example.firstapp.common.data.api.StatusResponse
 import com.example.firstapp.common.data.api.UpdateUserRequest
+import com.example.firstapp.common.data.api.GoogleSignInRequest
+import com.example.firstapp.common.data.api.CompleteProfileRequest
 import com.example.firstapp.common.data.api.ForgotPasswordRequest
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.profile.model.WorkExperience
@@ -21,6 +26,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map as flowMap
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.HttpException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -37,7 +45,8 @@ class UserRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
     private val lessonProgressDao: LessonProgressDao,
     private val apiService: UserApi,
-    private val authApi: AuthApi
+    private val authApi: AuthApi,
+    private val sessionManager: SessionManager
 ) : UserRepository {
 
     override fun getUserData(userId: String): Flow<User?> {
@@ -57,6 +66,7 @@ class UserRepositoryImpl @Inject constructor(
                     bio = entity.bio,
                     location = entity.location,
                     isVerified = entity.is_verified,
+                    isProfileComplete = entity.isProfileComplete,
                     xp = entity.xp,
                     level = entity.level,
                     streak = entity.streak,
@@ -105,6 +115,7 @@ class UserRepositoryImpl @Inject constructor(
                     bio = entity.bio,
                     location = entity.location,
                     isVerified = entity.is_verified,
+                    isProfileComplete = entity.isProfileComplete,
                     xp = entity.xp,
                     level = entity.level,
                     streak = entity.streak,
@@ -148,6 +159,7 @@ class UserRepositoryImpl @Inject constructor(
                 bio = cached.bio,
                 location = cached.location,
                 isVerified = cached.is_verified,
+                isProfileComplete = cached.isProfileComplete,
                 xp = cached.xp,
                 level = cached.level,
                 streak = cached.streak,
@@ -200,6 +212,7 @@ class UserRepositoryImpl @Inject constructor(
             bio = user.bio,
             location = user.location,
             is_verified = user.isVerified,
+            isProfileComplete = user.isProfileComplete,
             xp = user.xp,
             level = user.level,
             streak = user.streak,
@@ -443,6 +456,63 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun updateAvatar(file: java.io.File): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+            val body = MultipartBody.Part.createFormData("avatar", file.name, requestFile)
+            val response = apiService.updateAvatar(body)
+            if (response.isSuccessful && response.body() != null) {
+                val url = response.body()!!.avatar_url
+                // Update local user with new avatar URL
+                val currentUser = userDao.getCurrentUser().firstOrNull()
+                if (currentUser != null) {
+                    userDao.updateUser(currentUser.copy(avatar_url = url))
+                }
+                emit(Resource.Success(url))
+            } else {
+                emit(Resource.Error("Failed to upload avatar"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun googleSignIn(idToken: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.googleSignIn(GoogleSignInRequest(idToken))
+            if (response.isSuccessful && response.body() != null) {
+                val auth = response.body()!!
+                auth.user?.let { user -> syncUserLocally(user) }
+                emit(Resource.Success(auth))
+            } else {
+                emit(Resource.Error(response.errorBody()?.string() ?: "Google Sign-In failed"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun completeProfile(displayName: String?, username: String?, phoneNumber: String?): Flow<Resource<User>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.completeProfile(CompleteProfileRequest(displayName, username, phoneNumber))
+            if (response.isSuccessful && response.body() != null) {
+                val user = response.body()!!.user
+                syncUserLocally(user)
+                emit(Resource.Success(user))
+            } else {
+                emit(Resource.Error(response.errorBody()?.string() ?: "Failed to complete profile"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
     override fun forgotPassword(emailOrUsername: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
@@ -525,6 +595,20 @@ class UserRepositoryImpl @Inject constructor(
         
         // GLOBAL TEST BYPASS: Accept ANY code
         emit(Resource.Success(true))
+    }
+
+    override fun logout(): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val refreshToken = sessionManager.getRefreshToken() ?: ""
+            if (refreshToken.isNotEmpty()) {
+                authApi.logout(TokenRefreshRequest(refreshToken))
+            }
+            emit(Resource.Success(true))
+        } catch (e: Exception) {
+            // Even if network fails, we want to clear local state (handled in ViewModel/Activity)
+            emit(Resource.Success(true))
+        }
     }
 
     override fun getWorkExperiences(): Flow<Resource<List<WorkExperience>>> = flow {

@@ -10,6 +10,7 @@ sealed class Screen(val route: String) {
         fun createRoute(phoneNumber: String, username: String, email: String, displayName: String, password: String, countryCode: String? = null) = 
             "otp_verification/${android.net.Uri.encode(phoneNumber)}/${android.net.Uri.encode(username)}/${android.net.Uri.encode(email)}/${android.net.Uri.encode(displayName)}/${android.net.Uri.encode(password)}?countryCode=${android.net.Uri.encode(countryCode ?: "")}"
     }
+    object CompleteProfile : Screen("complete_profile")
 
     object Chat : Screen("chat/{chatId}?type={type}&jobId={jobId}&jobTitle={jobTitle}&companyName={companyName}") {
         fun createRoute(chatId: String, type: String = "direct", jobId: String? = null, jobTitle: String? = null, companyName: String? = null) = 

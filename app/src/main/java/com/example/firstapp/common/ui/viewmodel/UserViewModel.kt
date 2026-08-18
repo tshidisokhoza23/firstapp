@@ -24,6 +24,9 @@ import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.domain.repository.ChatRepository
 import com.example.firstapp.common.domain.repository.SystemRepository
 import com.example.firstapp.media.domain.repository.SocialRepository
+import com.example.firstapp.common.util.MediaUtils
+import android.content.Context
+import android.net.Uri
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
@@ -146,6 +149,30 @@ class UserViewModel @Inject constructor(
                     }
                 } else if (resource is Resource.Error) {
                     _toastMessage.value = "Failed to upload image: ${resource.message}"
+                }
+            }
+        }
+    }
+
+    fun onAvatarSelected(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _toastMessage.value = "Updating avatar..."
+            val file = MediaUtils.processImageForAvatar(context, uri)
+            if (file == null) {
+                _toastMessage.value = "Failed to process image"
+                return@launch
+            }
+
+            userRepository.updateAvatar(file).collect { resource ->
+                if (resource is Resource.Success && resource.data != null) {
+                    val url = resource.data!!
+                    val current = currentUser.value
+                    if (current != null) {
+                        sessionManager.updateCurrentUser(current.copy(avatarUrl = url))
+                    }
+                    _toastMessage.value = "Avatar updated"
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to upload avatar"
                 }
             }
         }

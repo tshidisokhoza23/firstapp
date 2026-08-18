@@ -15,6 +15,7 @@ data class UserEntity(
     val bio: String? = null,
     val location: String? = null,
     val is_verified: Boolean = false,
+    val isProfileComplete: Boolean = true,
     
     // Vocab specific fields
     val xp: Int = 0,

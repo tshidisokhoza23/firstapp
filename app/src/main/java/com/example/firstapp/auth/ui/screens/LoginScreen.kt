@@ -59,11 +59,17 @@ import com.example.firstapp.common.util.Country
 import com.example.firstapp.common.util.AppSignatureHelper
 import com.google.android.gms.auth.api.phone.SmsRetriever
 import android.content.IntentFilter
+import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import androidx.credentials.exceptions.GetCredentialException
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (com.example.firstapp.common.data.api.AuthResponse?) -> Unit,
     onNavigateToOtp: (String, String?, String?, String?, String?, String?) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
@@ -93,8 +99,9 @@ fun LoginScreen(
     }
 
     LaunchedEffect(authState) {
-        if (authState is Resource.Success) {
-            onLoginSuccess()
+        val state = authState
+        if (state is Resource.Success) {
+            onLoginSuccess(state.data)
         }
     }
 
@@ -591,6 +598,52 @@ fun LoginScreen(
                     val buttonText = if (!isSignUp) "Login" else "Sign Up"
                     Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Google Sign In Button
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    val credentialManager = CredentialManager.create(context)
+                    val googleIdOption = GetGoogleIdOption.Builder()
+                        .setFilterByAuthorizedAccounts(false)
+                        .setServerClientId(context.getString(R.string.default_web_client_id))
+                        .setAutoSelectEnabled(true)
+                        .build()
+
+                    val request = GetCredentialRequest.Builder()
+                        .addCredentialOption(googleIdOption)
+                        .build()
+
+                    try {
+                        val result = credentialManager.getCredential(context, request)
+                        val credential = result.credential
+                        if (credential is GoogleIdTokenCredential) {
+                            viewModel.googleSignIn(credential.idToken)
+                        }
+                    } catch (e: GetCredentialException) {
+                        Log.e("LoginScreen", "Google Sign In Failed", e)
+                        Toast.makeText(context, "Google Sign In Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            enabled = !isLoading
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_google),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Continue with Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
 

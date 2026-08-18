@@ -161,6 +161,9 @@ dependencies {
     // Security & Biometrics
     implementation("androidx.security:security-crypto:1.1.0")
     implementation("androidx.biometric:biometric-ktx:1.2.0-alpha05")
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

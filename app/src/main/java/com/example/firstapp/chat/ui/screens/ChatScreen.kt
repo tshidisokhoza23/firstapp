@@ -123,6 +123,9 @@ fun ChatMessagesScreen(
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     
     val uiState by chatViewModel.uiState.collectAsState()
+    val activeChat by chatViewModel.activeChat.collectAsState()
+    val currentChat = activeChat ?: chat
+
     val fontSize by chatViewModel.fontSize.collectAsState()
     val enterIsSend by chatViewModel.enterIsSend.collectAsState()
     val animationsEnabled by chatViewModel.animationsEnabled.collectAsState()
@@ -381,14 +384,14 @@ fun ChatMessagesScreen(
         }
     }
 
-    val sanitizedName = remember(chat.senderName) {
-        val cachedName = GlobalCallState.getContactName(chat.id)
-        chat.senderName.takeIf { 
+    val sanitizedName = remember(currentChat.senderName) {
+        val cachedName = GlobalCallState.getContactName(currentChat.id)
+        currentChat.senderName.takeIf { 
             it.isNotBlank() && 
             it.lowercase() != "unknown" && 
             it.lowercase() != "null" && 
             it.lowercase() != "undefined" 
-        } ?: cachedName ?: chat.id
+        } ?: cachedName ?: currentChat.id
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -396,12 +399,12 @@ fun ChatMessagesScreen(
             topBar = {
                 Column {
                     ChatTopBar(
-                        chat = chat,
+                        chat = currentChat,
                         sanitizedName = sanitizedName,
                         isSearchMode = isSearchMode,
                         chatSearchQuery = chatSearchQuery,
                         selectedMessagesCount = selectedMessages.size,
-                        isTyping = uiState.typingStatus[chat.id] ?: false,
+                        isTyping = uiState.typingStatus[currentChat.id] ?: false,
                         onBack = { if (selectedMessages.isNotEmpty()) selectedMessages.clear() else onBack() },
                         onSearchQueryChange = { chatSearchQuery = it },
                         onSearchModeChange = { isSearchMode = it },
@@ -409,8 +412,8 @@ fun ChatMessagesScreen(
                         onShowProfile = onShowProfile,
                         onAvatarClick = onAvatarClick,
                         onInitiateCall = { targetId, name, type -> chatViewModel.startVoiceOrVideoCall(receiverId = targetId, callType = type, name = name) },
-                        onClearChat = { chatViewModel.clearChat(chat.id) },
-                        onDeleteChat = { chatViewModel.deleteChat(chat.id); onBack() },
+                        onClearChat = { chatViewModel.clearChat(currentChat.id) },
+                        onDeleteChat = { chatViewModel.deleteChat(currentChat.id); onBack() },
                         onDeleteSelectedMessages = { deleteSelectedMessages() },
                         onForwardSelectedMessages = { /* Forward */ },
                         onClearSelectedMessages = { selectedMessages.clear() }
@@ -429,13 +432,13 @@ fun ChatMessagesScreen(
                     Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding().imePadding()) {
                         
                         // Banner Ad (at the bottom of Jobs or Channel chats)
-                        if (jobId != null || chat.type == ConversationType.CHANNEL) {
+                        if (jobId != null || currentChat.type == ConversationType.CHANNEL) {
                             com.example.firstapp.common.ui.components.BannerAdView(
                                 modifier = Modifier.navigationBarsPadding()
                             )
                         }
 
-                        if (chat.isTyping) {
+                        if (currentChat.isTyping) {
                             Text(
                                 text = stringResource(R.string.typing),
                                 modifier = Modifier.padding(start = 16.dp, bottom = 4.dp, top = 4.dp),
@@ -446,13 +449,13 @@ fun ChatMessagesScreen(
                         }
                         
                         val myUserId = uiState.currentUser?.id
-                        val isConversationClosed = uiState.closedConversationIds.contains(chat.id)
-                        val canPost = when (chat.type) {
+                        val isConversationClosed = uiState.closedConversationIds.contains(currentChat.id)
+                        val canPost = when (currentChat.type) {
                             ConversationType.DIRECT, ConversationType.GROUP, ConversationType.JOB_CHAT -> true
                             ConversationType.CHANNEL -> {
-                                val isAdm = chat.isAdmin || (chat.createdBy != null && chat.createdBy == myUserId)
+                                val isAdm = currentChat.isAdmin || (currentChat.createdBy != null && currentChat.createdBy == myUserId)
                                 if (!isAdm) {
-                                    android.util.Log.d("ChatMessagesScreen", "Post Denied: chat.isAdmin=${chat.isAdmin}, chat.createdBy=${chat.createdBy}, myUserId=$myUserId")
+                                    android.util.Log.d("ChatMessagesScreen", "Post Denied: chat.isAdmin=${currentChat.isAdmin}, chat.createdBy=${currentChat.createdBy}, myUserId=$myUserId")
                                 }
                                 isAdm
                             }
@@ -554,7 +557,7 @@ fun ChatMessagesScreen(
                 groupedMessages = groupedMessages,
                 messages = messages, // Pass the flat list too
                 selectedMessages = selectedMessages,
-                chat = chat,
+                chat = currentChat,
                 fontSize = fontSize,
                 showReadReceipts = showReadReceipts,
                 animationsEnabled = animationsEnabled,

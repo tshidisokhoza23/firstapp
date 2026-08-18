@@ -6,6 +6,7 @@ import com.example.firstapp.chat.data.api.ChatSummary
 import com.example.firstapp.chat.data.api.ApiMessage
 import com.example.firstapp.music.data.api.ApiSong
 import com.google.gson.annotations.SerializedName
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -21,6 +22,15 @@ interface UserApi {
 
     @DELETE("users/me")
     suspend fun deleteAccount(): Response<StatusResponse>
+
+    @POST("auth/google")
+    suspend fun googleSignIn(@Body request: GoogleSignInRequest): Response<AuthResponse>
+
+    @POST("auth/refresh")
+    suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<AuthResponse>
+
+    @POST("users/complete-profile")
+    suspend fun completeProfile(@Body request: CompleteProfileRequest): Response<UserResponse>
 
     @POST("devices/push-token")
     suspend fun upsertPushToken(@Body request: PushTokenRequest): Response<StatusResponse>
@@ -51,6 +61,10 @@ interface UserApi {
 
     @PUT("users/privacy")
     suspend fun updatePrivacySettings(@Body request: PrivacySettings): Response<StatusResponse>
+
+    @Multipart
+    @PUT("users/avatar")
+    suspend fun updateAvatar(@Part avatar: MultipartBody.Part): Response<AvatarResponse>
 
     @GET("users/{userId}/public-key")
     suspend fun getPublicKey(@Path("userId") userId: String): Response<PublicKeyResponse>
@@ -95,6 +109,8 @@ data class ContactsResponse(val contacts: List<ApiUser>)
 
 data class ExperienceIdResponse(val id: String)
 
+data class AvatarResponse(val avatar_url: String)
+
 data class UpdateUserRequest(
     val display_name: String? = null,
     val bio: String? = null,
@@ -113,6 +129,14 @@ data class UpdateUserRequest(
     val target_language: String? = null,
     val streak_freezes: Int? = null,
     val last_streak_activity: Long? = null
+)
+
+data class GoogleSignInRequest(val id_token: String)
+data class RefreshTokenRequest(val refresh_token: String)
+data class CompleteProfileRequest(
+    val display_name: String? = null,
+    val username: String? = null,
+    val phone_number: String? = null
 )
 
 data class ApiUser(

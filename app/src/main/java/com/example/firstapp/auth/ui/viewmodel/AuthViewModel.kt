@@ -97,6 +97,37 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun googleSignIn(idToken: String) {
+        viewModelScope.launch {
+            _authState.value = Resource.Loading()
+            userRepository.googleSignIn(idToken).collect { resource ->
+                if (resource is Resource.Success) {
+                    saveToken(resource.data)
+                }
+                _authState.value = resource
+            }
+        }
+    }
+
+    fun completeProfile(displayName: String?, username: String?, phoneNumber: String?) {
+        viewModelScope.launch {
+            _authState.value = Resource.Loading()
+            userRepository.completeProfile(displayName, username, phoneNumber).collect { resource ->
+                if (resource is Resource.Success && resource.data != null) {
+                    val user = resource.data!!
+                    sessionManager.updateCurrentUser(user)
+                    _authState.value = Resource.Success(AuthResponse(
+                        token = sessionManager.getToken() ?: "",
+                        refreshToken = sessionManager.getRefreshToken() ?: "",
+                        user = user
+                    ))
+                } else if (resource is Resource.Error) {
+                    _authState.value = Resource.Error(resource.message ?: "Failed to complete profile")
+                }
+            }
+        }
+    }
+
 
     fun forgotPassword(emailOrUsername: String) {
         viewModelScope.launch {

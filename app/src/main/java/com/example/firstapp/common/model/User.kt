@@ -16,6 +16,8 @@ data class User(
     @SerializedName("is_verified") val isVerified: Boolean = false,
     @SerializedName("is_artist") val isArtist: Boolean = false,
     @SerializedName("is_driver") val isDriver: Boolean = false,
+    @SerializedName("is_profile_complete") val isProfileComplete: Boolean = true,
+    @SerializedName("missing_fields") val missingFields: List<String> = emptyList(),
 
     @SerializedName("followers_count") val followersCount: Int = 0,
     @SerializedName("following_count") val followingCount: Int = 0,

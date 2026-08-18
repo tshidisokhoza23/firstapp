@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import okhttp3.*
@@ -49,6 +51,10 @@ class WebSocketManager @Inject constructor(
     )
     val events: SharedFlow<WSEnvelope> = _events.asSharedFlow()
 
+    enum class ConnectionState { CONNECTING, CONNECTED, DISCONNECTED }
+    private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
+    val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+
     private val webSocketRef = AtomicReference<WebSocket?>(null)
     private var isConnected = false
     private var retryCount = 0
@@ -57,7 +63,6 @@ class WebSocketManager @Inject constructor(
 
     init {
         // Observe process lifecycle to manage connection automatically
-        // Use GlobalScope or similar to ensure the observer is added on Main thread once
         CoroutineScope(Dispatchers.Main).launch {
             ProcessLifecycleOwner.get().lifecycle.addObserver(this@WebSocketManager)
         }
@@ -79,8 +84,11 @@ class WebSocketManager @Inject constructor(
         val token = sessionManager.getToken()
         if (token.isNullOrEmpty()) {
             Log.w("WebSocketManager", "No token available, skipping connection")
+            _connectionState.value = ConnectionState.DISCONNECTED
             return
         }
+
+        _connectionState.value = ConnectionState.CONNECTING
 
         // Correct endpoint for chat and general events
         val wsUrl = "wss://firstapp-backend.fly.dev/api/v1/ws/chat?token=$token"
@@ -95,6 +103,7 @@ class WebSocketManager @Inject constructor(
                 webSocketRef.set(webSocket)
                 isConnected = true
                 retryCount = 0
+                _connectionState.value = ConnectionState.CONNECTED
                 startHeartbeat()
             }
 
@@ -112,15 +121,18 @@ class WebSocketManager @Inject constructor(
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 Log.w("WebSocketManager", "WebSocket Closing: $code / $reason")
                 webSocket.close(1000, null)
+                _connectionState.value = ConnectionState.DISCONNECTED
                 handleReconnect()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e("WebSocketManager", "WebSocket Failure", t)
+                _connectionState.value = ConnectionState.DISCONNECTED
                 handleReconnect()
             }
         })
     }
+
 
     private fun handleReconnect() {
         isConnected = false
@@ -150,22 +162,27 @@ class WebSocketManager @Inject constructor(
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
             while (isActive && isConnected) {
-                delay(30000) // 30s ping
-                send("system", "ping", null)
+                delay(30000) // 30s heartbeat
+                // Send heartbeat on presence topic to keep user online
+                send("presence", "heartbeat", buildJsonObject {
+                    put("status", "online")
+                    put("timestamp", System.currentTimeMillis())
+                })
             }
         }
     }
 
-    fun send(topic: String, event: String, payload: JsonObject?) {
+    fun send(topic: String, event: String, payload: JsonObject? = null, op: String? = null) {
         val webSocket = webSocketRef.get()
         if (webSocket != null && isConnected) {
-            val envelope = WSEnvelope(topic, event, payload)
+            val envelope = WSEnvelope(topic, event, payload, op)
             val jsonStr = json.encodeToString(WSEnvelope.serializer(), envelope)
             webSocket.send(jsonStr)
         } else {
             Log.w("WebSocketManager", "Cannot send, socket not connected: $topic/$event")
         }
     }
+
 
     fun disconnect() {
         isManualDisconnect = true

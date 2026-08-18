@@ -22,6 +22,45 @@ object MediaUtils {
         return outFile
     }
 
+    fun processImageForAvatar(context: Context, uri: Uri): File? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val originalBitmap = BitmapFactory.decodeStream(inputStream) ?: return null
+            
+            // 1. Calculate dimensions for 512x512 with aspect ratio preserved (crop to square)
+            val size = Math.min(originalBitmap.width, originalBitmap.height)
+            val x = (originalBitmap.width - size) / 2
+            val y = (originalBitmap.height - size) / 2
+            
+            val squareBitmap = Bitmap.createBitmap(originalBitmap, x, y, size, size)
+            val scaledBitmap = Bitmap.createScaledBitmap(squareBitmap, 512, 512, true)
+            
+            val outFile = File(context.cacheDir, "avatar_${System.currentTimeMillis()}.webp")
+            val outStream = FileOutputStream(outFile)
+            
+            val format = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+            
+            scaledBitmap.compress(format, 85, outStream)
+            outStream.flush()
+            outStream.close()
+            
+            if (originalBitmap != squareBitmap) originalBitmap.recycle()
+            // Note: createScaledBitmap might return the same bitmap if dimensions match
+            if (squareBitmap != scaledBitmap) squareBitmap.recycle()
+            scaledBitmap.recycle()
+            
+            outFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     fun getFileFromUri(context: Context, uri: Uri): File? {
         if (uri.scheme == "file") {
             return uri.path?.let { File(it) }

@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.firstapp.auth.ui.screens.LoginScreen
 import com.example.firstapp.auth.ui.screens.OtpVerificationScreen
+import com.example.firstapp.auth.ui.screens.CompleteProfileScreen
 import com.example.firstapp.auth.ui.viewmodel.AuthViewModel
 import com.example.firstapp.ui.navigation.Screen
 
@@ -16,10 +17,16 @@ fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
     composable(Screen.Login.route) {
         val authViewModel: AuthViewModel = hiltViewModel()
         LoginScreen(
-            onLoginSuccess = {
-                navController.navigate(Screen.Main.createRoute()) {
-                    popUpTo(0) { inclusive = true }
-                    launchSingleTop = true
+            onLoginSuccess = { auth ->
+                if (auth?.user?.isProfileComplete == false) {
+                    navController.navigate(Screen.CompleteProfile.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                } else {
+                    navController.navigate(Screen.Main.createRoute()) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             },
             onNavigateToOtp = { phone, user, email, name, pass, countryCode ->
@@ -93,6 +100,18 @@ fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
                 }
             },
             onBack = { navController.popBackStack() },
+            viewModel = authViewModel
+        )
+    }
+
+    composable(Screen.CompleteProfile.route) {
+        val authViewModel: AuthViewModel = hiltViewModel()
+        CompleteProfileScreen(
+            onCompleteSuccess = {
+                navController.navigate(Screen.Main.createRoute()) {
+                    popUpTo(0) { inclusive = true }
+                }
+            },
             viewModel = authViewModel
         )
     }

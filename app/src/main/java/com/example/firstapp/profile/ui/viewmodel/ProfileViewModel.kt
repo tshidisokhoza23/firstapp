@@ -17,6 +17,9 @@ import javax.inject.Inject
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import com.example.firstapp.media.domain.repository.SocialRepository
 import com.example.firstapp.profile.model.WorkExperience
+import com.example.firstapp.common.util.MediaUtils
+import android.content.Context
+import android.net.Uri
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
@@ -115,6 +118,28 @@ class ProfileViewModel @Inject constructor(
             userRepository.updateUser(displayName, bio, location, null).collect { resource ->
                 if (resource is Resource.Success) {
                     _profileUser.value = resource
+                }
+            }
+        }
+    }
+
+    fun onAvatarSelected(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _updateState.value = Resource.Loading()
+            
+            val file = MediaUtils.processImageForAvatar(context, uri)
+            if (file == null) {
+                _updateState.value = Resource.Error("Failed to process image")
+                return@launch
+            }
+
+            userRepository.updateAvatar(file).collect { resource ->
+                _updateState.value = resource
+                if (resource is Resource.Success) {
+                    val current = (_profileUser.value as? Resource.Success)?.data
+                    if (current != null) {
+                        _profileUser.value = Resource.Success(current.copy(avatarUrl = resource.data))
+                    }
                 }
             }
         }

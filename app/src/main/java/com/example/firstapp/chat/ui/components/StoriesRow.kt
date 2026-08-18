@@ -82,7 +82,16 @@ fun StoriesRow(
                     )
                 }
             }
-            // Removed otherStories from here as requested - they show vertically on ChatList
+
+            items(stories.filter { 
+                it.id != currentUserId && 
+                it.id != "user_$currentUserId" && 
+                (currentUserId == null || it.id != currentUserId.removePrefix("user_")) &&
+                it.userName != "My Story" && 
+                it.userName != "My Number"
+            }, key = { it.id }) { story ->
+                StoryThumbnail(story = story, onClick = { onStoryClick(story) })
+            }
         }
     }
 }

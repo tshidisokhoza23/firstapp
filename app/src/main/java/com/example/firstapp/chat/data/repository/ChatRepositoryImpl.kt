@@ -58,6 +58,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     init {
         observeWebSocketEvents()
+        observeConnectionState()
     }
 
     private fun observeWebSocketEvents() {
@@ -67,6 +68,35 @@ class ChatRepositoryImpl @Inject constructor(
             }
             .catch { e -> Log.e("ChatRepository", "WS Flow Error", e) }
             .launchIn(scope)
+    }
+
+    private fun observeConnectionState() {
+        webSocketManager.connectionState
+            .onEach { state ->
+                if (state == WebSocketManager.ConnectionState.CONNECTED) {
+                    subscribeToTopics()
+                }
+            }
+            .launchIn(scope)
+    }
+
+    private suspend fun subscribeToTopics() {
+        Log.d("ChatRepository", "WebSocket Connected: Re-subscribing to topics")
+        
+        // Subscribe to global presence events
+        webSocketManager.send("presence", "subscribe", op = "subscribe")
+        
+        // Subscribe to all chat rooms to receive real-time messages
+        try {
+            val chatDao = chatDaoProvider.get()
+            val chatIds = chatDao.getAllChatIds()
+            chatIds.forEach { id ->
+                webSocketManager.send("chat:$id", "join", op = "subscribe")
+            }
+            Log.d("ChatRepository", "Subscribed to ${chatIds.size} chat topics")
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Failed to get chat IDs for re-subscription", e)
+        }
     }
 
     private suspend fun handleIncomingEvent(envelope: WSEnvelope) {
@@ -202,9 +232,21 @@ class ChatRepositoryImpl @Inject constructor(
                 if (payload != null) {
                     try {
                         val userId = payload["user_id"]?.toString()?.trim('"')
-                        val isOnline = payload["is_online"]?.toString()?.toBoolean() ?: false
+                        val eventType = envelope.event ?: ""
+                        
+                        // Support multiple event formats for presence
+                        val isOnline = when (eventType.uppercase()) {
+                            "ONLINE" -> true
+                            "OFFLINE" -> false
+                            else -> payload["is_online"]?.toString()?.toBoolean() ?: false
+                        }
+                        
                         val lastSeen = payload["last_seen"]?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
-                        userId?.let { chatDao.updatePresence(it, isOnline, lastSeen) }
+                        
+                        if (userId != null) {
+                            Log.d("ChatRepository", "Presence event: user=$userId, online=$isOnline, event=$eventType")
+                            chatDao.updatePresence(userId, isOnline, lastSeen)
+                        }
                     } catch (e: Exception) {
                         Log.e("ChatRepository", "Failed to decode presence event", e)
                     }
@@ -324,6 +366,12 @@ class ChatRepositoryImpl @Inject constructor(
         chatDaoProvider.get().getChats().map { list ->
             Log.d("ChatRepository", "getChats: emitting ${list.size} chats from local DB")
             Resource.Success(list.map { it.toModel() }) 
+        }
+
+    override fun getChatById(chatId: String): Flow<Resource<ChatMessage>> =
+        chatDaoProvider.get().getChatById(chatId).map { entity ->
+            if (entity != null) Resource.Success(entity.toModel())
+            else Resource.Error("Chat not found")
         }
 
     override fun syncChats(): Flow<Resource<Boolean>> = flow {
