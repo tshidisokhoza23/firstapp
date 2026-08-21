@@ -2,6 +2,7 @@ package com.example.firstapp.media.ui.components
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,7 +19,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -101,6 +104,7 @@ fun VerticalFeedPostCard(
     showLineAbove: Boolean = true,
     showLineBelow: Boolean = true,
     isLastInThread: Boolean = false, // Kept for compatibility but we'll use flags
+    depth: Int = 0,
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onRepostClick: () -> Unit,
@@ -127,12 +131,13 @@ fun VerticalFeedPostCard(
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 4.dp)
+            .padding(start = (16 * depth.coerceAtMost(4)).dp, top = 4.dp, bottom = 4.dp)
     ) {
         if (showThreadLine) {
             PostSideBar(
                 avatarUrl = displayPost.authorAvatarUrl,
                 avatarColor = displayPost.authorAvatarColor,
+                depth = depth,
                 showLineAbove = showLineAbove,
                 showLineBelow = showLineBelow,
                 onProfileClick = { onProfileClick(displayPost.authorId) }
@@ -426,29 +431,49 @@ fun VerticalFeedPostCard(
 fun PostSideBar(
     avatarUrl: String?,
     avatarColor: Color,
+    depth: Int = 0,
     showLineAbove: Boolean = false,
     showLineBelow: Boolean = false,
     onProfileClick: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val avatarSize = if (depth == 0) 48.dp else 32.dp
+    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+
+    Box(
         modifier = Modifier
             .width(64.dp)
-            .fillMaxHeight()
+            .fillMaxHeight(),
+        contentAlignment = Alignment.TopCenter
     ) {
-        // Line above avatar
-        if (showLineAbove) {
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .height(8.dp)
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            )
+        // Continuous connector line drawn behind the avatar, anchored to its center.
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerX = size.width / 2f
+            val strokeWidth = 2.dp.toPx()
+            val avatarCenterY = avatarSize.toPx() / 2f
+
+            if (showLineAbove) {
+                drawLine(
+                    color = lineColor,
+                    start = Offset(centerX, 0f),
+                    end = Offset(centerX, avatarCenterY),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+            if (showLineBelow) {
+                drawLine(
+                    color = lineColor,
+                    start = Offset(centerX, avatarCenterY),
+                    end = Offset(centerX, size.height),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
         }
 
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(avatarSize)
                 .clip(CircleShape)
                 .background(avatarColor)
                 .clickable { onProfileClick() }
@@ -460,17 +485,6 @@ fun PostSideBar(
                 contentScale = ContentScale.Crop,
                 error = androidx.compose.ui.graphics.painter.ColorPainter(avatarColor),
                 fallback = androidx.compose.ui.graphics.painter.ColorPainter(avatarColor)
-            )
-        }
-
-        // Line below avatar
-        if (showLineBelow) {
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .weight(1f)
-                    .padding(top = 2.dp)
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             )
         }
     }

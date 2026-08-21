@@ -10,6 +10,9 @@ interface ChatApi {
     @GET("conversations")
     suspend fun getChats(): Response<ChatSummaryResponse>
 
+    @GET("sync/delta")
+    suspend fun syncDelta(@Query("since") since: Long): Response<SyncDeltaResponse>
+
     @GET("conversations/{id}")
     suspend fun getChatDetails(@Path("id") id: String): Response<ChatSummary>
 
@@ -143,6 +146,11 @@ data class ApiJobDetails(
 
 data class MessagesResponse(val messages: List<ApiMessage>, val page: Int)
 data class MessageResponse(val message: ApiMessage)
+
+data class SyncDeltaResponse(
+    @com.google.gson.annotations.SerializedName("latest_sequence") val latestSequence: Long = 0,
+    @com.google.gson.annotations.SerializedName("messages") val messages: List<com.google.gson.JsonElement> = emptyList()
+)
 
 data class InitiateDMRequest(val contact_id: String)
 data class CreateGroupRequest(val title: String, val member_ids: List<String>)

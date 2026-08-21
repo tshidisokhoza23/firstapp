@@ -242,7 +242,8 @@ data class CreatePostRequest(
     val poll: CreatePollRequest? = null,
     val channel_id: String? = null,
     @SerializedName("parent_post_id") val parent_post_id: String? = null,
-    @SerializedName("root_post_id") val root_post_id: String? = null
+    @SerializedName("root_post_id") val root_post_id: String? = null,
+    @SerializedName("category_id") val category_id: String? = null
 )
 
 data class CreatePollRequest(

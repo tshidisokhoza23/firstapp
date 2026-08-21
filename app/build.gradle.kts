@@ -43,18 +43,26 @@ android {
         }
         create("beta") {
             dimension = "environment"
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "ACTIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "PASSIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "API_BASE_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "WS_BASE_URL", "\"wss://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"http://192.168.100.7:5000/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"http://192.168.100.7:5000/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.7:5000/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"ws://192.168.100.7:5000/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
         }
         create("prod") {
             dimension = "environment"
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "ACTIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "PASSIVE_API_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "API_BASE_URL", "\"https://firstapp-backend.fly.dev/api/v1/\"")
+            // buildConfigField("String", "WS_BASE_URL", "\"wss://firstapp-backend.fly.dev/api/v1/\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"http://192.168.100.7:5000/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"http://192.168.100.7:5000/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.7:5000/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"ws://192.168.100.7:5000/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "false")
         }
     }

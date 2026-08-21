@@ -18,7 +18,7 @@ interface SocialRepository {
     suspend fun updatePostRepostLocally(postId: String, shares: Long, isReposted: Boolean)
     suspend fun updatePostBookmarkLocally(postId: String, isBookmarked: Boolean)
     suspend fun updateAuthorFollowStatusLocally(authorId: String, isFollowed: Boolean)
-    fun createPost(content: String, mediaUrls: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: String? = null, pollOptions: List<String>? = null, location: String? = null, mediaType: String? = null, parentPostId: String? = null, rootPostId: String? = null): Flow<Resource<Boolean>>
+    fun createPost(content: String, mediaUrls: List<String> = emptyList(), postType: String? = null, tags: List<String> = emptyList(), channelId: String? = null, pollOptions: List<String>? = null, location: String? = null, mediaType: String? = null, parentPostId: String? = null, rootPostId: String? = null, categoryId: String? = null): Flow<Resource<Boolean>>
     fun likePost(postId: String): Flow<Resource<Boolean>>
     fun repostPost(postId: String): Flow<Resource<Boolean>>
     fun bookmarkPost(postId: String): Flow<Resource<Boolean>>

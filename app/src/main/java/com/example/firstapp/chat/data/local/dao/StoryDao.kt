@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.example.firstapp.chat.data.local.entity.StoryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -20,4 +21,15 @@ interface StoryDao {
 
     @Query("DELETE FROM stories")
     suspend fun clearStories()
+
+    /**
+     * Atomically replace all cached stories so the Room flow never observes an
+     * empty intermediate state (which caused stories to "show then disappear"
+     * when a re-fetch was cancelled between clear and insert).
+     */
+    @Transaction
+    suspend fun replaceStories(stories: List<StoryEntity>) {
+        clearStories()
+        insertStories(stories)
+    }
 }

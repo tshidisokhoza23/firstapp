@@ -65,7 +65,10 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import androidx.credentials.CustomCredential
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.GetCredentialCancellationException
 
 @Composable
 fun LoginScreen(
@@ -93,6 +96,7 @@ fun LoginScreen(
     val otpState by viewModel.otpState.collectAsState()
     val fieldErrors by viewModel.fieldErrors.collectAsState()
     val scrollState = rememberScrollState()
+    val credentialManager = remember { CredentialManager.create(context) }
 
     LaunchedEffect(Unit) {
         selectedCountry = CountryUtils.getDefaultCountry(context)
@@ -147,12 +151,10 @@ fun LoginScreen(
 
         var hasError = false
         if (rawIdentity.isBlank()) {
-            val field = if (isSignUp) "username" else "phone"
-            viewModel.setFieldError(field, "${if (isSignUp) "Username" else "Phone number"} is required")
+            viewModel.setFieldError("username", "${if (isSignUp) "Username" else "Phone number"} is required")
             hasError = true
         }
 
-        
         if (cleanPassword.isBlank()) {
             viewModel.setFieldError("password", "Password is required")
             hasError = true
@@ -458,8 +460,8 @@ fun LoginScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = LogoBlueDark,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                            focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                            unfocusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                            focusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                         ),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
@@ -510,8 +512,8 @@ fun LoginScreen(
                     unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                    focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                    unfocusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                    focusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                 )
             )
             ValidationText(fieldErrors["password"])
@@ -607,10 +609,9 @@ fun LoginScreen(
         OutlinedButton(
             onClick = {
                 scope.launch {
-                    val credentialManager = CredentialManager.create(context)
                     val googleIdOption = GetGoogleIdOption.Builder()
                         .setFilterByAuthorizedAccounts(false)
-                        .setServerClientId(context.getString(R.string.default_web_client_id))
+                        .setServerClientId("303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com")
                         .setAutoSelectEnabled(false)
                         .build()
 
@@ -619,11 +620,27 @@ fun LoginScreen(
                         .build()
 
                     try {
+                        Log.d("LoginScreen", "Starting GetCredentialRequest...")
                         val result = credentialManager.getCredential(context, request)
                         val credential = result.credential
+                        Log.d("LoginScreen", "Received credential type: ${credential::class.java.simpleName}")
+                        
                         if (credential is GoogleIdTokenCredential) {
+                            Log.d("LoginScreen", "Calling viewModel.googleSignIn...")
                             viewModel.googleSignIn(credential.idToken)
+                        } else if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                            try {
+                                val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                                Log.d("LoginScreen", "Parsed GoogleIdTokenCredential from CustomCredential")
+                                viewModel.googleSignIn(googleIdTokenCredential.idToken)
+                            } catch (e: GoogleIdTokenParsingException) {
+                                Log.e("LoginScreen", "Received invalid google id token response", e)
+                            }
+                        } else {
+                            Log.w("LoginScreen", "Received unexpected credential type: ${credential.type}")
                         }
+                    } catch (e: GetCredentialCancellationException) {
+                        Log.d("LoginScreen", "Google Sign In Cancelled")
                     } catch (e: GetCredentialException) {
                         Log.e("LoginScreen", "Google Sign In Failed", e)
                         Toast.makeText(context, "Google Sign In Failed: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -634,16 +651,31 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            enabled = !isLoading
+            enabled = !isLoading,
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+            )
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_google),
                     contentDescription = null,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Text("Continue with Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (isSignUp) "Sign up with Google" else "Continue with Google",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 

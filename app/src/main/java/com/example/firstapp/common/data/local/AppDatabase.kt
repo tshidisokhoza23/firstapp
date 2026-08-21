@@ -41,9 +41,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         PlaylistSongCrossRef::class,
         RecentlyPlayedEntity::class,
         PostRemoteKeys::class,
-        MessageFtsEntity::class
+        MessageFtsEntity::class,
+        SyncCursorEntity::class
     ], 
-    version = 57,
+    version = 58,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -63,6 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun lessonProgressDao(): LessonProgressDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun postRemoteKeysDao(): PostRemoteKeysDao
+    abstract fun syncCursorDao(): SyncCursorDao
 
     fun clearDatabase() {
         clearAllTables()

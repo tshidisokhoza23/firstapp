@@ -32,10 +32,12 @@ class StoryRepositoryImpl @Inject constructor(
             emit(Resource.Loading())
         }
 
+        var fetchFailed = false
         try {
             val response = socialApi.getStories()
             if (response.isSuccessful) {
                 val apiStories = response.body()?.stories ?: emptyList<ApiStoryResponse>()
+                android.util.Log.d("StoryRepository", "getStories: fetched ${apiStories.size} story sets")
                 
                 val localContacts = contactDao.getContacts().first().associateBy { it.id }
 
@@ -58,13 +60,33 @@ class StoryRepositoryImpl @Inject constructor(
 
                     model.copy(userName = finalName)
                 }
-                storyDao.clearStories()
-                storyDao.insertStories(stories.map { it.toStoryEntity() })
+                if (stories.isNotEmpty()) {
+                    storyDao.replaceStories(stories.map { it.toStoryEntity() })
+                    android.util.Log.d("StoryRepository", "getStories: inserted ${stories.size} stories")
+                } else {
+                    // A 2xx with an empty list can happen transiently (e.g. while
+                    // contacts are re-syncing). Don't wipe the cache in that case,
+                    // or valid stories will "disappear" from the scroller.
+                    android.util.Log.d("StoryRepository", "getStories: empty response, keeping cache")
+                }
+            } else {
+                android.util.Log.w(
+                    "StoryRepository",
+                    "getStories: HTTP ${response.code()} - ${response.errorBody()?.string() ?: "no error body"}"
+                )
+                fetchFailed = true
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
+            android.util.Log.e("StoryRepository", "getStories failed", e)
+            fetchFailed = true
         }
         
+        if (fetchFailed && storyDao.getStories().first().isEmpty()) {
+            emit(Resource.Error<List<UserStory>>("Could not load stories"))
+            return@flow
+        }
+
         emitAll(storyDao.getStories().flowMap { entities: List<StoryEntity> ->
             val models = entities.map { it.toUserStory() }.toMutableList()
             models.sortByDescending { us: UserStory -> us.stories.maxByOrNull { s: StoryItem -> s.createdAt }?.createdAt ?: 0L }

@@ -8,6 +8,7 @@ import com.example.firstapp.chat.data.*
 import com.example.firstapp.chat.data.api.*
 import com.example.firstapp.chat.data.local.dao.*
 import com.example.firstapp.chat.data.local.entity.ChatEntity
+import com.example.firstapp.chat.data.local.entity.SyncCursorEntity
 import com.example.firstapp.chat.data.paging.MessageRemoteMediator
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.data.local.AppDatabase
@@ -40,6 +41,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val userApi: UserApi,
     private val chatDaoProvider: Provider<ChatDao>,
     private val contactDaoProvider: Provider<ContactDao>,
+    private val syncCursorDaoProvider: Provider<SyncCursorDao>,
     private val callLogDaoProvider: Provider<CallLogDao>,
     private val sessionManager: SessionManager,
     private val dbProvider: Provider<AppDatabase>,
@@ -488,19 +490,60 @@ class ChatRepositoryImpl @Inject constructor(
             val response = userApi.syncContacts(SyncContactsRequest(numbersToSync))
             if (response.isSuccessful && response.body() != null) {
                 val apiUsers = response.body()!!.contacts
-                val contacts = apiUsers.map { apiUser ->
+                val registeredContacts = apiUsers.map { apiUser ->
                     val localMatch = deviceContacts.find { it.phoneNumber == apiUser.phone_number }
                     Contact(
-                        id = apiUser.id, username = apiUser.username, 
+                        id = apiUser.id, username = apiUser.username,
                         displayName = localMatch?.displayName ?: apiUser.display_name,
                         avatarUrl = apiUser.avatar_url, phoneNumber = apiUser.phone_number ?: "",
                         isRegistered = true
                     )
                 }
+                // Also keep non-registered device contacts so the full address book is shown
+                // (the UI renders them with an "Invite" action for people not on the app yet).
+                val registeredPhones = apiUsers.mapNotNull { it.phone_number }.toSet()
+                val nonRegisteredContacts = deviceContacts
+                    .filter { it.phoneNumber.isNotBlank() && it.phoneNumber !in registeredPhones }
+                    .map { deviceContact ->
+                        Contact(
+                            id = "phone:${deviceContact.phoneNumber}",
+                            username = deviceContact.phoneNumber,
+                            displayName = deviceContact.displayName,
+                            avatarUrl = null,
+                            phoneNumber = deviceContact.phoneNumber,
+                            isRegistered = false
+                        )
+                    }
+                val contacts = registeredContacts + nonRegisteredContacts
                 contactDaoProvider.get().insertContacts(contacts.map { it.toEntity() })
                 emit(Resource.Success(contacts))
             } else emit(Resource.Error("Sync failed"))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error syncing contacts")) }
+    }
+
+    override fun syncDelta(): Flow<Resource<Long>> = flow {
+        emit(Resource.Loading())
+        try {
+            val dao = syncCursorDaoProvider.get()
+            val since = dao.getCursor("messages")?.lastSyncedSequence ?: 0L
+            val response = chatApi.syncDelta(since)
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                dao.upsertCursor(
+                    SyncCursorEntity(
+                        entityType = "messages",
+                        lastSyncedSequence = body.latestSequence,
+                        lastSyncedAt = System.currentTimeMillis()
+                    )
+                )
+                emit(Resource.Success(body.latestSequence))
+            } else {
+                emit(Resource.Error("Delta sync failed"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Delta sync error"))
+        }
     }
 
     override fun getArchivedChats(): Flow<Resource<List<ChatMessage>>> = 

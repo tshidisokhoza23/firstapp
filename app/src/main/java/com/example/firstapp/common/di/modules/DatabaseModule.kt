@@ -76,4 +76,7 @@ object DatabaseModule {
 
     @Provides
     fun providePostRemoteKeysDao(database: AppDatabase): PostRemoteKeysDao = database.postRemoteKeysDao()
+
+    @Provides
+    fun provideSyncCursorDao(database: AppDatabase): SyncCursorDao = database.syncCursorDao()
 }

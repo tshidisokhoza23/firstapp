@@ -10,6 +10,7 @@ interface ChatRepository {
     fun getChats(): Flow<Resource<List<ChatMessage>>>
     fun getChatById(chatId: String): Flow<Resource<ChatMessage>>
     fun syncChats(): Flow<Resource<Boolean>>
+    fun syncDelta(): Flow<Resource<Long>>
     fun getContacts(): Flow<Resource<List<Contact>>>
     fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>>
     fun getArchivedChats(): Flow<Resource<List<ChatMessage>>>

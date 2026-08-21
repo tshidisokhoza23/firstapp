@@ -23,8 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.ui.theme.*
@@ -195,49 +193,14 @@ fun PostDetailScreen(
                         verticalAlignment = Alignment.Top
                     ) {
                         // Avatar column matches PostSideBar width (64dp)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.width(64.dp)
-                        ) {
-                            // Line snippet above to connect from ancestor
-                            if (post.originalPost != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(2.dp)
-                                        .height(12.dp)
-                                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(post.authorAvatarColor)
-                                    .clickable { onProfileClick(post.authorId) }
-                            ) {
-                                AsyncImage(
-                                    model = com.example.firstapp.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                    error = androidx.compose.ui.graphics.painter.ColorPainter(post.authorAvatarColor)
-                                )
-                            }
-                            
-                            // Line snippet below to connect to replies
-                            if (post.replies.isNotEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(2.dp)
-                                        .weight(1f)
-                                        .padding(top = 2.dp)
-                                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                                )
-                            }
-                        }
+                        PostSideBar(
+                            avatarUrl = post.authorAvatarUrl,
+                            avatarColor = post.authorAvatarColor,
+                            depth = 0,
+                            showLineAbove = post.originalPost != null,
+                            showLineBelow = post.replies.isNotEmpty(),
+                            onProfileClick = { onProfileClick(post.authorId) }
+                        )
                         
                         Column(
                             modifier = Modifier
@@ -437,21 +400,6 @@ fun PostDetailScreen(
 }
 
 /**
- * Component to draw the vertical thread line connecting avatars.
- */
-@Composable
-fun VerticalThreadLine(
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .width(2.dp)
-            .fillMaxHeight()
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-    )
-}
-
-/**
  * A threaded reply component that supports recursive nesting and expansion.
  */
 @Composable
@@ -480,6 +428,7 @@ fun ThreadedReplyItem(
         VerticalFeedPostCard(
             post = post,
             isOwnPost = post.authorId == ownProfileId,
+            depth = depth,
             showThreadLine = true,
             showLineAbove = true,
             showLineBelow = !isLastInParent || isExpanded || post.replies.isNotEmpty(),

@@ -143,7 +143,7 @@ class SocialRepositoryImpl @Inject constructor(
         emitAll(getPostsFlowInternal(type))
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?): Flow<Resource<Boolean>> = flow {
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             val pollRequest = if (pollOptions != null && pollOptions.size > 0) {
@@ -160,7 +160,8 @@ class SocialRepositoryImpl @Inject constructor(
                 channel_id = channelId,
                 poll = pollRequest,
                 parent_post_id = parentPostId,
-                root_post_id = rootPostId
+                root_post_id = rootPostId,
+                category_id = categoryId
             )
             if (socialApi.createPost(request).isSuccessful) {
                 emit(Resource.Success(true))

@@ -23,6 +23,7 @@ class StoryViewModelTest {
     private val repository: StoryRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val chatRepository: com.example.firstapp.domain.repository.ChatRepository = mockk(relaxed = true)
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
     private val postWebSocketClient: com.example.firstapp.media.data.realtime.PostWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -30,7 +31,8 @@ class StoryViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { repository.getStories() } returns flowOf(Resource.Success(emptyList<UserStory>()))
-        viewModel = StoryViewModel(repository, accountRepository, chatRepository, postWebSocketClient)
+        every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.chat.model.Contact>()))
+        viewModel = StoryViewModel(repository, accountRepository, chatRepository, sessionManager, postWebSocketClient)
     }
 
     @After

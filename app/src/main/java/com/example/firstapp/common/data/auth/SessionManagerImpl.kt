@@ -129,23 +129,38 @@ class SessionManagerImpl @Inject constructor(
     override fun isLoggedIn(): Boolean = _authState.value
 
     override fun saveSession(token: String, refreshToken: String, user: User?) {
-        val p = getPrefs()
-        val editor = p.edit()
-        editor.putString(KEY_TOKEN, token)
-        editor.putString(KEY_REFRESH_TOKEN, refreshToken)
-        
+        // Update in-memory state immediately so navigation never blocks on
+        // (potentially slow) encrypted-preferences / Keystore initialization.
+        _authState.value = true
         if (user != null) {
-            editor.putString(KEY_USER_DATA, gson.toJson(user))
             _currentUser.value = user
         }
-        
-        _authState.value = true
-        editor.apply()
+
+        // Persist off the main thread; encrypted prefs can hang on first run.
+        scope.launch {
+            try {
+                val p = getPrefs()
+                val editor = p.edit()
+                editor.putString(KEY_TOKEN, token)
+                editor.putString(KEY_REFRESH_TOKEN, refreshToken)
+                if (user != null) {
+                    editor.putString(KEY_USER_DATA, gson.toJson(user))
+                }
+                editor.apply()
+            } catch (e: Exception) {
+                Log.e("SessionManager", "Failed to persist session", e)
+            }
+        }
     }
 
     override fun updateCurrentUser(user: User) {
-        getPrefs().edit().putString(KEY_USER_DATA, gson.toJson(user)).apply()
+        // Update the in-memory state first so navigation never depends on persistence.
         _currentUser.value = user
+        try {
+            getPrefs().edit().putString(KEY_USER_DATA, gson.toJson(user)).apply()
+        } catch (e: Exception) {
+            Log.e("SessionManager", "Failed to persist updated user", e)
+        }
     }
 
     override fun clearSession() {

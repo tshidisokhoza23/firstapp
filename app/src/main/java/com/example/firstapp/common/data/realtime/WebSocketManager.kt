@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.example.firstapp.BuildConfig
 import com.example.firstapp.common.domain.auth.SessionManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -90,8 +91,10 @@ class WebSocketManager @Inject constructor(
 
         _connectionState.value = ConnectionState.CONNECTING
 
-        // Correct endpoint for chat and general events
-        val wsUrl = "wss://firstapp-backend.fly.dev/api/v1/ws/chat?token=$token"
+        // Use the configured WS base URL so the socket targets the same backend
+        // as the REST API (e.g. the local dev server) instead of a hardcoded host.
+        val base = BuildConfig.WS_BASE_URL.trimEnd('/')
+        val wsUrl = "$base/ws/chat?token=$token"
         val request = Request.Builder()
             .url(wsUrl)
             .build()
@@ -162,7 +165,7 @@ class WebSocketManager @Inject constructor(
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
             while (isActive && isConnected) {
-                delay(30000) // 30s heartbeat
+                delay(15000) // 15s heartbeat (presence contract)
                 // Send heartbeat on presence topic to keep user online
                 send("presence", "heartbeat", buildJsonObject {
                     put("status", "online")

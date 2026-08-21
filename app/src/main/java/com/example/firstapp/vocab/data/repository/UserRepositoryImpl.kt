@@ -482,16 +482,26 @@ class UserRepositoryImpl @Inject constructor(
     override fun googleSignIn(idToken: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>> = flow {
         emit(Resource.Loading())
         try {
-            val response = apiService.googleSignIn(GoogleSignInRequest(idToken))
+            val response = withTimeout(15000) {
+                apiService.googleSignIn(GoogleSignInRequest(idToken))
+            }
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
-                auth.user?.let { user -> syncUserLocally(user) }
+                auth.user?.let { user ->
+                    // Best-effort local cache: the server is the source of truth, and a
+                    // Room/SQLCipher failure here must not block or fail the sign-in.
+                    try {
+                        syncUserLocally(user)
+                    } catch (e: Exception) {
+                        android.util.Log.e("UserRepositoryImpl", "Local user cache sync failed (non-fatal)", e)
+                    }
+                }
                 emit(Resource.Success(auth))
             } else {
                 emit(Resource.Error(response.errorBody()?.string() ?: "Google Sign-In failed"))
             }
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
+            if (e is kotlinx.coroutines.CancellationException && e !is kotlinx.coroutines.TimeoutCancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -502,7 +512,13 @@ class UserRepositoryImpl @Inject constructor(
             val response = apiService.completeProfile(CompleteProfileRequest(displayName, username, phoneNumber))
             if (response.isSuccessful && response.body() != null) {
                 val user = response.body()!!.user
-                syncUserLocally(user)
+                // Local cache sync is best-effort: the server is the source of truth, and a
+                // Room/SQLCipher failure here must not block or fail the profile completion.
+                try {
+                    syncUserLocally(user)
+                } catch (e: Exception) {
+                    android.util.Log.e("UserRepositoryImpl", "Local user cache sync failed (non-fatal)", e)
+                }
                 emit(Resource.Success(user))
             } else {
                 emit(Resource.Error(response.errorBody()?.string() ?: "Failed to complete profile"))
@@ -557,7 +573,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error(errorMsg))
             }
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
+            if (e is kotlinx.coroutines.CancellationException && e !is kotlinx.coroutines.TimeoutCancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }
@@ -577,7 +593,7 @@ class UserRepositoryImpl @Inject constructor(
                 emit(Resource.Error(errorMsg))
             }
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
+            if (e is kotlinx.coroutines.CancellationException && e !is kotlinx.coroutines.TimeoutCancellationException) throw e
             emit(Resource.Error(e.toUserMessage()))
         }
     }

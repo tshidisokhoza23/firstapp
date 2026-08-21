@@ -115,7 +115,11 @@ class AuthViewModel @Inject constructor(
             userRepository.completeProfile(displayName, username, phoneNumber).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val user = resource.data!!
-                    sessionManager.updateCurrentUser(user)
+                    try {
+                        sessionManager.updateCurrentUser(user)
+                    } catch (e: Exception) {
+                        android.util.Log.e("AuthViewModel", "Failed to persist updated user", e)
+                    }
                     _authState.value = Resource.Success(AuthResponse(
                         token = sessionManager.getToken() ?: "",
                         refreshToken = sessionManager.getRefreshToken() ?: "",
