@@ -10,11 +10,20 @@ data class SongEntity(
     val artist: String,
     val artistId: String,
     val albumName: String,
-    val albumArtUrl: String?,
-    val audioUrl: String,
+    val albumId: String,
+    val durationMs: Long,
+    val artworkUrl: String?,
+    val streamUrl: String,
+    val localUri: String?,
+    val sourceType: String,
+    val isExplicit: Boolean,
+    val isDownloaded: Boolean,
+    val downloadQuality: String?,
+    val lyricsSyncedUrl: String?,
     val duration: String,
     val category: String,
     val playCount: String,
     val isLiked: Boolean,
-    val isExplicit: Boolean
+    val lyrics: String?,
+    val releaseDate: String
 )

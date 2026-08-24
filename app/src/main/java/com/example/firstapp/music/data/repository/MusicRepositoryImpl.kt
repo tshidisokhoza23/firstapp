@@ -23,25 +23,7 @@ class MusicRepositoryImpl @Inject constructor(
             val response = musicApi.getSongs()
             if (response.isSuccessful && response.body() != null) {
                 val apiSongs = response.body()?.songs ?: emptyList()
-                val mappedSongs = apiSongs.map { apiSong -> 
-                    Song(
-                        id = apiSong.id, 
-                        title = apiSong.title, 
-                        artist = apiSong.artist, 
-                        artistId = apiSong.artist_id ?: "", 
-                        albumName = apiSong.album_name ?: "", 
-                        albumArtUrl = apiSong.album_art_url ?: "", 
-                        albumArtColor = androidx.compose.ui.graphics.Color(0xFF6A1B9A), 
-                        audioUrl = apiSong.audio_url ?: "",
-                        duration = apiSong.duration ?: "", 
-                        category = apiSong.category ?: "", 
-                        lyrics = apiSong.lyrics ?: "", 
-                        releaseDate = apiSong.release_date ?: "", 
-                        playCount = apiSong.play_count.toString(), 
-                        isLiked = apiSong.is_liked, 
-                        isExplicit = apiSong.is_explicit
-                    )
-                }
+                val mappedSongs = apiSongs.map { it.toModel() }
                 songDao.insertSongs(mappedSongs.map { it.toEntity() })
                 emit(Resource.Success(mappedSongs))
             } else {
@@ -65,7 +47,6 @@ class MusicRepositoryImpl @Inject constructor(
         try {
             val response = musicApi.likeSong(songId)
             if (response.isSuccessful) {
-                // Assuming songDao has updateLiked or similar. If not, we might need to fetch and update.
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Failed to like song"))
@@ -111,25 +92,7 @@ class MusicRepositoryImpl @Inject constructor(
         try {
             val response = musicApi.getPlaylistSongs(playlistId)
             if (response.isSuccessful && response.body() != null) {
-                val songs = response.body()!!.songs.map { apiSong ->
-                    Song(
-                        id = apiSong.id,
-                        title = apiSong.title,
-                        artist = apiSong.artist,
-                        artistId = apiSong.artist_id ?: "",
-                        albumName = apiSong.album_name ?: "",
-                        albumArtUrl = apiSong.album_art_url ?: "",
-                        albumArtColor = androidx.compose.ui.graphics.Color(0xFF6A1B9A),
-                        audioUrl = apiSong.audio_url ?: "",
-                        duration = apiSong.duration ?: "",
-                        category = apiSong.category ?: "",
-                        lyrics = apiSong.lyrics ?: "",
-                        releaseDate = apiSong.release_date ?: "",
-                        playCount = apiSong.play_count.toString(),
-                        isLiked = apiSong.is_liked,
-                        isExplicit = apiSong.is_explicit
-                    )
-                }
+                val songs = response.body()!!.songs.map { it.toModel() }
                 emit(Resource.Success(songs))
             } else {
                 emit(Resource.Error("Failed to load playlist songs"))
@@ -167,12 +130,11 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override fun getRecentlyPlayed(): Flow<Resource<List<Song>>> = flow {
-        // songDao might have a different method for recently played
         emit(Resource.Success(emptyList()))
     }
 
     override suspend fun saveRecentlyPlayed(songId: String) {
-        // playlistDao.insertRecentlyPlayed(...)
+        // Implementation
     }
 
     override fun search(query: String): Flow<Resource<SearchResult>> = flow {
@@ -180,25 +142,7 @@ class MusicRepositoryImpl @Inject constructor(
         try {
             val response = musicApi.search(query)
             if (response.isSuccessful && response.body() != null) {
-                val songs = response.body()!!.songs.map { apiSong ->
-                    Song(
-                        id = apiSong.id,
-                        title = apiSong.title,
-                        artist = apiSong.artist,
-                        artistId = apiSong.artist_id ?: "",
-                        albumName = apiSong.album_name ?: "",
-                        albumArtUrl = apiSong.album_art_url ?: "",
-                        albumArtColor = androidx.compose.ui.graphics.Color(0xFF6A1B9A),
-                        audioUrl = apiSong.audio_url ?: "",
-                        duration = apiSong.duration ?: "",
-                        category = apiSong.category ?: "",
-                        lyrics = apiSong.lyrics ?: "",
-                        releaseDate = apiSong.release_date ?: "",
-                        playCount = apiSong.play_count.toString(),
-                        isLiked = apiSong.is_liked,
-                        isExplicit = apiSong.is_explicit
-                    )
-                }
+                val songs = response.body()!!.songs.map { it.toModel() }
                 emit(Resource.Success(SearchResult(songs = songs)))
             } else {
                 emit(Resource.Error("Search failed"))

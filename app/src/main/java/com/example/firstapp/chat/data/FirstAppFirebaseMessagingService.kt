@@ -179,13 +179,17 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val senderName = data["sender_name"] ?: "New Message"
         val body = data["body"] ?: ""
         val chatId = data["contact_id"] ?: "0"
+        val messageId = data["message_id"] ?: ""
         
         // Expert Fix: Trigger background sync on new message FCM
         val scope = kotlinx.coroutines.MainScope()
         scope.launch {
             chatRepository.syncChats().collect {}
-            // Optionally fetch just this conversation's messages
-            // chatRepository.getMessages(chatId, 1).collect {}
+            
+            // Emit Delivery ACK via repository
+            if (messageId.isNotBlank() && chatId != "0") {
+                chatRepository.sendDeliveryAck(chatId, messageId)
+            }
         }
 
         createMessagesChannel()

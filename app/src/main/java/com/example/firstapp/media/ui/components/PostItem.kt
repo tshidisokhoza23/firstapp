@@ -130,7 +130,7 @@ fun VerticalFeedPostCard(
         modifier = modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .background(MaterialTheme.colorScheme.surface)
+            .background(Color.Transparent)
             .padding(start = (16 * depth.coerceAtMost(4)).dp, top = 4.dp, bottom = 4.dp)
     ) {
         if (showThreadLine) {

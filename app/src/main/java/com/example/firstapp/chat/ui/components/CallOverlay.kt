@@ -6,6 +6,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
@@ -36,6 +37,7 @@ fun CallOverlay(
     val sessionId by GlobalCallState.activeSessionId.collectAsState()
     val isConnectionEstablished by GlobalCallState.isConnectionEstablished.collectAsState()
     val isRinging by GlobalCallState.isRinging.collectAsState()
+    val durationSeconds by GlobalCallState.callDurationSeconds.collectAsState()
 
     AnimatedVisibility(
         visible = isCallActive,
@@ -54,9 +56,9 @@ fun CallOverlay(
                 .background(Color.Black.copy(alpha = 0.95f))
         ) {
             if (activeCallType == CallType.VIDEO) {
-                VideoCallContent(participantName, isConnectionEstablished, isRinging, callManager)
+                VideoCallContent(participantName, isConnectionEstablished, isRinging, durationSeconds, callManager)
             } else {
-                VoiceCallContent(participantName, isConnectionEstablished, isRinging)
+                VoiceCallContent(participantName, isConnectionEstablished, isRinging, durationSeconds)
             }
 
             // Banner Ad (only before connection is established)
@@ -96,7 +98,7 @@ fun CallOverlay(
 }
 
 @Composable
-private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Boolean) {
+private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Boolean, durationSeconds: Int) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -115,7 +117,7 @@ private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Bool
         Text(name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(
             when {
-                isConnected -> "Voice Call"
+                isConnected -> formatDuration(durationSeconds)
                 isRinging -> "Ringing..."
                 else -> "Calling..."
             },
@@ -126,7 +128,7 @@ private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Bool
 }
 
 @Composable
-private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Boolean, callManager: WebRtcCallManager) {
+private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Boolean, durationSeconds: Int, callManager: WebRtcCallManager) {
     
     Box(modifier = Modifier.fillMaxSize()) {
         if (isConnected) {
@@ -141,6 +143,27 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
                 modifier = Modifier.fillMaxSize(),
                 onRelease = { callManager.detachRemoteRenderer() }
             )
+
+            // Duration Overlay for Video
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = formatDuration(durationSeconds),
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        fontSize = 14.sp
+                    )
+                }
+            }
             
             // NOTE: Local preview box removed as requested
         } else {
@@ -253,3 +276,10 @@ private fun CallControls(
         }
     }
 }
+
+private fun formatDuration(seconds: Int): String {
+    val mins = seconds / 60
+    val secs = seconds % 60
+    return "%02d:%02d".format(java.util.Locale.US, mins, secs)
+}
+

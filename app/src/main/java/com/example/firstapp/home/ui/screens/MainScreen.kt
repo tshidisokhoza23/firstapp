@@ -58,6 +58,13 @@ fun MainScreen(
 
     LaunchedEffect(Unit) {
         userViewModel.fetchCurrentUser()
+        com.example.firstapp.common.util.GlobalNavigation.isBottomBarVisible.value = true
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            com.example.firstapp.common.util.GlobalNavigation.isBottomBarVisible.value = false
+        }
     }
 
     // Remember the last active tab before switching to "More" overlay (index 5)
@@ -72,10 +79,10 @@ fun MainScreen(
     val navigateToTab = remember(navController) {
         { item: BottomNavItem ->
             val tabRouteName = when(item) {
-                BottomNavItem.Media -> "media"
-                BottomNavItem.Shorts -> "shorts"
-                BottomNavItem.Music -> "music"
-                BottomNavItem.Drive -> "drive"
+                BottomNavItem.Social -> "social"
+                BottomNavItem.Scroll -> "scroll"
+                BottomNavItem.Stream -> "stream"
+                BottomNavItem.Ride -> "ride"
                 else -> "home"
             }
             navController.navigate(Screen.Main.createRoute(tab = tabRouteName)) {
@@ -155,21 +162,21 @@ fun MainScreen(
                                 onLogout = onLogout,
                                 chatViewModel = chatViewModel
                             )
-                            BottomNavItem.Media -> MediaTabScreen(
+                            BottomNavItem.Social -> MediaTabScreen(
                                 navController = navController,
                                 adManager = adManager,
                                 chatViewModel = chatViewModel
                             )
-                            BottomNavItem.Shorts -> ShortsTabScreen(
+                            BottomNavItem.Scroll -> ShortsTabScreen(
                                 navController = navController,
                                 adManager = adManager,
                                 onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
                                 initialShortId = initialShortId
                             )
-                            BottomNavItem.Music -> MusicTabScreen(
+                            BottomNavItem.Stream -> MusicTabScreen(
                                 navController = navController
                             )
-                            BottomNavItem.Drive -> DriveTabScreen(
+                            BottomNavItem.Ride -> DriveTabScreen(
                                 navController = navController,
                                 chatViewModel = chatViewModel
                             )

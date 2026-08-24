@@ -11,8 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,13 +22,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.music.ui.components.*
-import com.example.firstapp.common.ui.theme.AppSecondary
-import com.example.firstapp.common.ui.theme.AppTextSecondary
-import com.example.firstapp.common.ui.theme.AppAccent
-
 import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import com.example.firstapp.LocalCurrentUser
+import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun RecommendationsScreen(
@@ -44,24 +40,75 @@ fun RecommendationsScreen(
     onArtistClick: (String) -> Unit = {}
 ) {
     val recentlyPlayedState by viewModel.recentlyPlayed.collectAsState()
+    val currentUser = LocalCurrentUser.current
     
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
     ) {
-        // ... (rest of the sections)
-        // ... (Featured, Quick Picks, Artists, Trending, New Releases, Charts, Moods)
-        // 1. Featured Card
+        // Greeting
         item {
-            FeaturedPlaylistCard(
-                name = "Weekly Mix",
-                description = "Based on your recent listening",
-                imageUrl = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800",
-                modifier = Modifier.padding(top = 8.dp)
+            val greeting = remember {
+                val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                when (hour) {
+                    in 0..11 -> "Good morning"
+                    in 12..16 -> "Good afternoon"
+                    else -> "Good evening"
+                }
+            }
+            Text(
+                text = "$greeting, ${currentUser.displayName.split(" ").firstOrNull() ?: ""}",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(16.dp)
             )
         }
 
-        // 2. Quick Picks (Grid-like)
+        // Recently Played / Jump Back In
+        val history = recentlyPlayedState.data ?: emptyList()
+        if (history.isNotEmpty()) {
+            item { MusicSectionHeader("Jump Back In") }
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(history) { song ->
+                        SongCard(
+                            song = song,
+                            isPlaying = song.id == currentlyPlaying?.id && isPlaying,
+                            onClick = { onPlay(song, history) },
+                            onArtistClick = onArtistClick
+                        )
+                    }
+                }
+            }
+        }
+
+        // Made For You (Daily Mixes)
+        item { MusicSectionHeader("Made For You") }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                val mixes = listOf("Daily Mix 1", "Daily Mix 2", "Daily Mix 3", "Discovery Weekly")
+                items(mixes) { mixName ->
+                    Box(
+                        modifier = Modifier
+                            .size(160.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(mixName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
+        // Quick Picks
         item { MusicSectionHeader("Quick Picks") }
         item {
             val quickPicks = remember(songs) { songs.shuffled().take(6) }
@@ -76,7 +123,6 @@ fun RecommendationsScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        // Fill empty space if row is not full
                         if (rowSongs.size < 3) {
                             repeat(3 - rowSongs.size) {
                                 Spacer(modifier = Modifier.weight(1f))
@@ -88,21 +134,7 @@ fun RecommendationsScreen(
             }
         }
 
-        // 3. Recommended Artists (Circles)
-        item { MusicSectionHeader("Recommended Artists") }
-        item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                val artists = songs.map { it.artist }.distinct().take(10)
-                items(artists) { artist ->
-                    ArtistCard(name = artist, imageUrl = null, color = MaterialTheme.colorScheme.surfaceVariant, onClick = { onArtistClick(artist) })
-                }
-            }
-        }
-
-        // 4. Trending Now (New Large Horizontal List)
+        // Trending Now
         item { MusicSectionHeader("Trending Now") }
         item {
             LazyRow(
@@ -120,92 +152,30 @@ fun RecommendationsScreen(
             }
         }
 
-        // 5. New Releases (Horizontal List)
-        item { MusicSectionHeader("New Releases") }
+        // Top Artists
+        item { MusicSectionHeader("Your Top Artists") }
         item {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(songs.reversed().take(8)) { song ->
-                    SongCard(
-                        song = song,
-                        isPlaying = song.id == currentlyPlaying?.id && isPlaying,
-                        onClick = { onPlay(song, songs) },
-                        onArtistClick = onArtistClick
-                    )
+                val artists = songs.map { it.artist }.distinct().take(10)
+                items(artists) { artist ->
+                    ArtistCard(name = artist, imageUrl = null, color = MaterialTheme.colorScheme.surfaceVariant, onClick = { onArtistClick(artist) })
                 }
             }
         }
 
-        // 6. Top Charts (Vertical-ish Horizontal List)
-        item { MusicSectionHeader("Top Charts") }
+        // Moods & Activity
+        item { MusicSectionHeader("Moods & Activity") }
         item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                val charts = songs.chunked(3).take(3)
-                items(charts.size) { index ->
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        charts[index].forEachIndexed { i, song ->
-                            ChartItemRow(
-                                rank = (index * 3) + i + 1,
-                                song = song,
-                                isPlaying = song.id == currentlyPlaying?.id && isPlaying,
-                                onClick = { onPlay(song, songs) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // 7. Moods & Genres (Chips)
-        item { MusicSectionHeader("Moods & Genres") }
-        item {
-            val moods = listOf("Chill", "Workout", "Party", "Focus", "Romance", "Sleep", "Energize", "Sad")
+            val moods = listOf("Chill", "Workout", "Party", "Focus", "Romance", "Sleep", "Energize", "Cooking")
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(moods) { mood ->
                     GenreChip(mood)
-                }
-            }
-        }
-
-        // 8. Recently Played (Horizontal List)
-        item {
-            val history = recentlyPlayedState.data ?: emptyList()
-            if (history.isNotEmpty()) {
-                MusicSectionHeader("Recently Played")
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(history) { song ->
-                        SongCard(
-                            song = song,
-                            isPlaying = song.id == currentlyPlaying?.id && isPlaying,
-                            onClick = { onPlay(song, history) },
-                            onArtistClick = onArtistClick
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            val history = recentlyPlayedState.data ?: emptyList()
-            if (history.isNotEmpty()) {
-                MusicSectionHeader("Add to Playlist Test")
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp)) {
-                    items(songs.take(5)) { song ->
-                        TextButton(onClick = { onAddToPlaylist(song) }) {
-                            Text("+ ${song.title}", color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
                 }
             }
         }
@@ -226,6 +196,14 @@ fun TrendingSongCard(
             .background(song.albumArtColor)
             .clickable { onClick() }
     ) {
+        if (!song.artworkUrl.isNullOrBlank()) {
+             coil.compose.AsyncImage(
+                model = song.artworkUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -241,12 +219,15 @@ fun TrendingSongCard(
                 text = song.title,
                 color = Color.White,
                 fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.artist,
                 color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                maxLines = 1
             )
         }
         if (isPlaying) {
@@ -259,58 +240,13 @@ fun TrendingSongCard(
                     .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Equalizer,
+                Icon(
+                    imageVector = Icons.Default.Equalizer,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(20.dp)
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun ChartItemRow(
-    rank: Int,
-    song: Song,
-    isPlaying: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .width(260.dp)
-            .clickable { onClick() },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = rank.toString(),
-            color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(24.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(song.albumArtColor)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(
-                text = song.title,
-                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Text(
-                text = song.artist,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                maxLines = 1
-            )
         }
     }
 }
@@ -328,10 +264,19 @@ fun CompactSongCard(
     ) {
         Box(
             modifier = Modifier
-                .size(100.dp) // Fixed size for better grid appearance
+                .size(100.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(song.albumArtColor)
-        )
+        ) {
+            if (!song.artworkUrl.isNullOrBlank()) {
+                 coil.compose.AsyncImage(
+                    model = song.artworkUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = song.title,
@@ -339,7 +284,8 @@ fun CompactSongCard(
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -350,7 +296,7 @@ fun GenreChip(name: String) {
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable { /* Filter by genre */ }
+            .clickable { /* Filter by mood */ }
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         Text(

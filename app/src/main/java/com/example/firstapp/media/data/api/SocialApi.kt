@@ -10,7 +10,8 @@ interface SocialApi {
     @GET("media/feed")
     suspend fun getFeed(
         @Query("limit") limit: Int = 20,
-        @Query("offset") offset: Int = 0
+        @Query("offset") offset: Int = 0,
+        @Query("category_id") categoryId: String? = null
     ): Response<FeedResponse>
 
     @GET("media/posts/{id}/replies")
@@ -42,14 +43,21 @@ interface SocialApi {
         @Query("following") following: Boolean,
         @Query("channel_id") channelId: String? = null,
         @Query("user_id") authorId: String,
-        @Query("type") feedType: String
+        @Query("type") feedType: String,
+        @Query("category_id") categoryId: String? = null
     ): Response<List<ApiPost>>
 
     @GET("media/feed/shorts")
-    suspend fun getShorts(@Query("page") page: Int): Response<List<ApiPost>>
+    suspend fun getShorts(
+        @Query("page") page: Int,
+        @Query("category_id") categoryId: String? = null
+    ): Response<List<ApiPost>>
 
     @GET("media/feed/media")
-    suspend fun getMediaFeed(@Query("page") page: Int): Response<List<ApiPost>>
+    suspend fun getMediaFeed(
+        @Query("page") page: Int,
+        @Query("category_id") categoryId: String? = null
+    ): Response<List<ApiPost>>
 
     @POST("media/ads/impression-revenue")
     suspend fun trackAdRevenue(@Body request: AdRevenueRequest): Response<StatusResponse>

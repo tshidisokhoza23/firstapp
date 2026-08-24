@@ -163,6 +163,14 @@ class WebRtcCallManager(context: Context) {
                             delay(3000)
                             if (peerConnection?.iceConnectionState() == PeerConnection.IceConnectionState.DISCONNECTED) {
                                 restartIce()
+                                
+                                // Final termination if recovery fails within 15 seconds of disconnect
+                                delay(12000)
+                                if (peerConnection?.iceConnectionState() == PeerConnection.IceConnectionState.DISCONNECTED || 
+                                    peerConnection?.iceConnectionState() == PeerConnection.IceConnectionState.FAILED) {
+                                    android.util.Log.w("WebRtcCallManager", "ICE recovery timed out, ending call")
+                                    onDisconnected?.invoke()
+                                }
                             }
                         }
                     }

@@ -85,4 +85,5 @@ interface ChatRepository {
     fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>>
     fun getConversationMembers(chatId: String): Flow<Resource<List<com.example.firstapp.common.data.api.ApiUser>>>
     suspend fun getICEServers(): Resource<List<com.example.firstapp.chat.data.api.IceServerConfig>>
+    fun sendDeliveryAck(chatId: String, messageId: String)
 }

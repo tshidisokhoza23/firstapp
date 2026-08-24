@@ -3,49 +3,36 @@ package com.example.firstapp.media.ui.screens.shorts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Mail
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil.compose.AsyncImage
-import com.example.firstapp.common.model.User
-import com.example.firstapp.common.ui.theme.AppBackground
-import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
-import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.example.firstapp.common.ui.components.DataStateHandler
 import com.example.firstapp.media.model.Post
-import com.example.firstapp.profile.ui.screens.ProfileView
+import com.example.firstapp.media.ui.screens.SearchTopBar
 import java.io.File
-import kotlinx.coroutines.flow.flowOf
 import kotlin.collections.*
-import kotlin.ranges.*
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,67 +47,90 @@ fun ShortsTabScreen(
     val currentUser = com.example.firstapp.LocalCurrentUser.current
     val uiState by mediaViewModel.uiState.collectAsState()
     val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
-
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val isGlobalPaused by mediaViewModel.isGlobalPlaybackPaused.collectAsState()
 
     var selectedShortId by remember { mutableStateOf(initialShortId) }
     val isUploading by mediaViewModel.isUploading.collectAsState()
     
     var showShortComments by remember { mutableStateOf(false) }
     var showShortMoreMenu by remember { mutableStateOf(false) }
-    var showTopMenu by remember { mutableStateOf(false) }
     var showUploadDialog by remember { mutableStateOf(false) }
     var activeShortIdForComments by remember { mutableStateOf<String?>(null) }
     var activeShortForMoreMenu by remember { mutableStateOf<Post?>(null) }
     val shortRepliesState by mediaViewModel.shortReplies.collectAsState()
+
+    var isSearchActive by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         mediaViewModel.loadFeed("short")
         userViewModel.fetchCurrentUser()
     }
 
-    BackHandler(enabled = showShortComments || showShortMoreMenu || showUploadDialog || showTopMenu) {
+    LaunchedEffect(isSearchActive) {
+        mediaViewModel.setGlobalPlaybackPaused(isSearchActive)
+    }
+
+    BackHandler(enabled = showShortComments || showShortMoreMenu || showUploadDialog || isSearchActive) {
         when {
-            showShortComments -> {
-                showShortComments = false
-                // activeShortIdForComments = null // Let LaunchedEffect handle this after animation
-            }
+            isSearchActive -> isSearchActive = false
+            showShortComments -> showShortComments = false
             showShortMoreMenu -> {
                 showShortMoreMenu = false
                 activeShortForMoreMenu = null
             }
             showUploadDialog -> showUploadDialog = false
-            showTopMenu -> showTopMenu = false
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).nestedScroll(scrollBehavior.nestedScrollConnection)) {
-        if (shortsPagingItems.itemCount == 0) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No videos found", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp)
-            }
-        } else {
-            ShortsList(
-                adManager = adManager,
-                shorts = shortsPagingItems,
-                shortsViewModel = mediaViewModel,
-                currentUserAvatarUrl = currentUser.avatarUrl,
-                bottomPadding = 16.dp,
-                initialShortId = selectedShortId,
-                onShortDisplayed = { selectedShortId = null },
-                onShowComments = { id ->
-                    activeShortIdForComments = id
-                    mediaViewModel.fetchShortReplies(id)
-                    showShortComments = true
-                },
-                onShowMoreMenu = { short ->
-                    activeShortForMoreMenu = short
-                    showShortMoreMenu = true
-                },
-                onCreatorClick = { creatorId ->
-                    navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(creatorId))
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (shortsPagingItems.itemCount == 0) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color.White)
                 }
-            )
+            } else {
+                ShortsList(
+                    adManager = adManager,
+                    shorts = shortsPagingItems,
+                    shortsViewModel = mediaViewModel,
+                    currentUserAvatarUrl = currentUser.avatarUrl,
+                    bottomPadding = 0.dp,
+                    initialShortId = selectedShortId,
+                    onShortDisplayed = { selectedShortId = null },
+                    onShowComments = { id ->
+                        activeShortIdForComments = id
+                        mediaViewModel.fetchShortReplies(id)
+                        showShortComments = true
+                    },
+                    onShowMoreMenu = { short ->
+                        activeShortForMoreMenu = short
+                        showShortMoreMenu = true
+                    },
+                    onCreatorClick = { creatorId ->
+                        navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(creatorId))
+                    },
+                    isGlobalPaused = isGlobalPaused
+                )
+            }
+        }
+
+        ShortsTopOverlay(
+            onBackClick = { navController.popBackStack() },
+            onSearchClick = { isSearchActive = true }
+        )
+
+        if (isSearchActive) {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                Column {
+                    SearchTopBar(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        onClose = { isSearchActive = false }
+                    )
+                    // Results would go here, optionally use shared SearchScreen logic
+                }
+            }
         }
 
         if (isUploading) {
@@ -128,55 +138,6 @@ fun ShortsTabScreen(
                 CircularProgressIndicator(color = Color.White)
             }
         }
-
-        TopAppBar(
-            title = { },
-            navigationIcon = {
-                if (initialShortId != null) {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                }
-            },
-            actions = {
-                IconButton(onClick = { showUploadDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Upload", tint = Color.White)
-                }
-                IconButton(onClick = { showTopMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
-                }
-                DropdownMenu(
-                    expanded = showTopMenu,
-                    onDismissRequest = { showTopMenu = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Direct Messages") },
-                        leadingIcon = { Icon(Icons.Default.Mail, null) },
-                        onClick = {
-                            showTopMenu = false
-                            onDirectMessagesClick()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Settings") },
-                        leadingIcon = { Icon(Icons.Default.Settings, null) },
-                        onClick = { showTopMenu = false }
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                titleContentColor = Color.White,
-                actionIconContentColor = Color.White
-            ),
-            scrollBehavior = scrollBehavior,
-            windowInsets = WindowInsets.statusBars
-        )
 
         if (showUploadDialog) {
             UploadShortDialog(
@@ -189,39 +150,24 @@ fun ShortsTabScreen(
         }
 
         val activeId = activeShortIdForComments
-        androidx.compose.animation.AnimatedVisibility(
+        AnimatedVisibility(
             visible = showShortComments && activeId != null,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
         ) {
             if (activeId != null) {
                 ShortCommentsOverlay(
                     shortId = activeId,
                     repliesState = shortRepliesState,
                     currentUserAvatarUrl = currentUser?.avatarUrl,
-                    onDismiss = {
-                        showShortComments = false
-                    },
+                    onDismiss = { showShortComments = false },
                     onSendReply = { content, parentId ->
-                        mediaViewModel.createPost(
-                            content = content,
-                            parentPostId = parentId ?: activeId,
-                            rootPostId = activeId,
-                            postType = "reply"
-                        )
+                        mediaViewModel.createPost(content, parentPostId = parentId ?: activeId, rootPostId = activeId, postType = "reply")
                     },
                     onLikeReply = { reply ->
                         mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)
                     }
                 )
-            }
-        }
-        
-        // Cleanup active ID when visibility is fully gone
-        LaunchedEffect(showShortComments) {
-            if (!showShortComments) {
-                kotlinx.coroutines.delay(500) // wait for animation
-                activeShortIdForComments = null
             }
         }
 
@@ -238,6 +184,64 @@ fun ShortsTabScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun ShortsTopOverlay(
+    modifier: Modifier = Modifier,
+    onBackClick: () -> Unit,
+    onSearchClick: () -> Unit
+) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(130.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.55f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.Black.copy(alpha = 0.2f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White
+                )
+            }
+
+            IconButton(
+                onClick = onSearchClick,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.Black.copy(alpha = 0.2f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = Color.White
+                )
+            }
         }
     }
 }
@@ -261,10 +265,7 @@ fun UploadShortDialog(
         text = {
             Column {
                 if (selectedVideoUri == null) {
-                    Button(
-                        onClick = { videoLauncher.launch("video/*") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Button(onClick = { videoLauncher.launch("video/*") }, modifier = Modifier.fillMaxWidth()) {
                         Text("Select Video")
                     }
                 } else {
@@ -282,10 +283,7 @@ fun UploadShortDialog(
                     onValueChange = { description = it },
                     label = { Text("Description") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                 )
             }
         },
@@ -295,21 +293,15 @@ fun UploadShortDialog(
                     val uri = selectedVideoUri
                     if (uri != null) {
                         val file = com.example.firstapp.common.util.MediaUtils.getFileFromUri(context, uri)
-                        if (file != null) {
-                            onUpload(file, description)
-                        }
+                        if (file != null) onUpload(file, description)
                     }
                 },
                 enabled = selectedVideoUri != null
-            ) {
-                Text("Upload")
-            }
+            ) { Text("Upload") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         },
-        containerColor = AppSecondary
+        containerColor = com.example.firstapp.common.ui.theme.AppSecondary
     )
 }

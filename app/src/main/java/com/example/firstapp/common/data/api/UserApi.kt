@@ -136,7 +136,8 @@ data class RefreshTokenRequest(val refresh_token: String)
 data class CompleteProfileRequest(
     val display_name: String? = null,
     val username: String? = null,
-    val phone_number: String? = null
+    val phone_number: String? = null,
+    val categories: List<String>? = null
 )
 
 data class ApiUser(

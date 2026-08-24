@@ -21,6 +21,9 @@ import com.example.firstapp.common.domain.auth.SessionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import android.net.ConnectivityManager
@@ -41,6 +44,36 @@ class CallListenerService : Service() {
     private val activeIncomingNotifications = ConcurrentHashMap<String, Int>()
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+    private var callTimeoutJob: Job? = null
+    private var callDurationJob: Job? = null
+
+    private val telephonyManager by lazy { getSystemService(android.telephony.TelephonyManager::class.java) }
+    
+    private val telephonyCallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        object : android.telephony.TelephonyCallback(), android.telephony.TelephonyCallback.CallStateListener {
+            override fun onCallStateChanged(state: Int) {
+                handleTelephonyState(state)
+            }
+        }
+    } else null
+
+    private fun handleTelephonyState(state: Int) {
+        if (state != android.telephony.TelephonyManager.CALL_STATE_IDLE) {
+            // GSM call active or ringing, abort WebRTC
+            if (GlobalCallState.isCallActive.value) {
+                Log.i("CallListenerService", "GSM call detected, ending WebRTC call")
+                val sessionId = GlobalCallState.activeSessionId.value
+                val participantId = GlobalCallState.activeParticipantId.value
+                val callType = GlobalCallState.activeCallType.value
+                if (sessionId != null && participantId != null && callType != null) {
+                    callWebSocketClient.end(participantId, sessionId, callType, 0, "gsm_interruption")
+                    GlobalCallState.onCallEnded(sessionId)
+                    webRtcCallManager.end()
+                    callTonePlayer.stop()
+                }
+            }
+        }
+    }
     
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -73,13 +106,34 @@ class CallListenerService : Service() {
                 "call_invite" -> {
                     if (event.receiverId == currentUserId) {
                         if (GlobalCallState.isCallActive.value) {
-                            callWebSocketClient.reject(
-                                receiverId = event.senderId,
-                                sessionId = event.sessionId,
-                                callType = event.callType,
-                                reason = "busy"
-                            )
-                            return
+                            val activeSessionId = GlobalCallState.activeSessionId.value
+                            if (activeSessionId == event.sessionId) {
+                                Log.d("CallListenerService", "Duplicate invite for active session $activeSessionId, ignoring")
+                                return
+                            }
+                            
+                            val activePid = GlobalCallState.activeParticipantId.value
+                            if (!GlobalCallState.isConnectionEstablished.value && activePid == event.senderId) {
+                                // Glare detected: both users called each other simultaneously.
+                                // Logic: smaller user ID wins (becomes the offerer).
+                                if (currentUserId < event.senderId) {
+                                    Log.d("CallListenerService", "Glare detected: I win tie-breaker. Rejecting incoming.")
+                                    callWebSocketClient.reject(event.senderId, event.sessionId, event.callType, "glare")
+                                    return
+                                } else {
+                                    Log.d("CallListenerService", "Glare detected: I lose tie-breaker. Aborting my offer.")
+                                    webRtcCallManager.end()
+                                    // Fall through to accept their invite
+                                }
+                            } else {
+                                callWebSocketClient.reject(
+                                    receiverId = event.senderId,
+                                    sessionId = event.sessionId,
+                                    callType = event.callType,
+                                    reason = "busy"
+                                )
+                                return
+                            }
                         }
 
                         // Fetch ICE servers for professional TURN support
@@ -112,7 +166,13 @@ class CallListenerService : Service() {
                     val isActiveSession = GlobalCallState.activeSessionId.value == event.sessionId
                     GlobalCallState.onCallEnded(event.sessionId)
                     dismissIncomingCallNotification(event.sessionId)
-                    callTonePlayer.stop()
+                    
+                    if (event.endReason == "busy" && isActiveSession) {
+                        callTonePlayer.playBusyTone()
+                    } else {
+                        callTonePlayer.stop()
+                    }
+                    
                     if (isActiveSession) {
                         webRtcCallManager.end()
                     }
@@ -161,6 +221,31 @@ class CallListenerService : Service() {
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
         connectivityManager?.registerDefaultNetworkCallback(networkCallback)
         
+        // Register Telephony Callback for GSM interruption handling
+        try {
+            val hasPhoneStatePermission = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            
+            if (hasPhoneStatePermission) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    telephonyCallback?.let { telephonyManager?.registerTelephonyCallback(mainExecutor, it) }
+                } else {
+                    @Suppress("DEPRECATION")
+                    telephonyManager?.listen(object : android.telephony.PhoneStateListener() {
+                        @Suppress("OVERRIDE_DEPRECATION")
+                        override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                            handleTelephonyState(state)
+                        }
+                    }, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
+                }
+            } else {
+                Log.w("CallListenerService", "READ_PHONE_STATE permission not granted, GSM interruption handling disabled")
+            }
+        } catch (e: SecurityException) {
+            Log.e("CallListenerService", "SecurityException while registering telephony callback", e)
+        } catch (e: Exception) {
+            Log.e("CallListenerService", "Error registering telephony callback", e)
+        }
+
         webRtcCallManager.onSignal = { signalType, payload ->
             val participantId = GlobalCallState.activeParticipantId.value
             val sessionId = GlobalCallState.activeSessionId.value
@@ -191,8 +276,67 @@ class CallListenerService : Service() {
         serviceScope.launch {
             GlobalCallState.isCallActive.collect { active ->
                 updateServiceNotification(active)
+                
+                if (active) {
+                    // Start timeout if call not established yet
+                    if (!GlobalCallState.isConnectionEstablished.value) {
+                        startCallTimeout()
+                    }
+                } else {
+                    cancelCallTimeout()
+                }
             }
         }
+
+        serviceScope.launch {
+            GlobalCallState.isConnectionEstablished.collect { established ->
+                if (established) {
+                    cancelCallTimeout()
+                    startCallDurationTimer()
+                } else {
+                    stopCallDurationTimer()
+                }
+            }
+        }
+    }
+
+    private fun startCallDurationTimer() {
+        callDurationJob?.cancel()
+        callDurationJob = serviceScope.launch {
+            var seconds = 0
+            while (isActive) {
+                delay(1000)
+                seconds++
+                GlobalCallState.setCallDuration(seconds)
+            }
+        }
+    }
+
+    private fun stopCallDurationTimer() {
+        callDurationJob?.cancel()
+        callDurationJob = null
+    }
+
+    private fun startCallTimeout() {
+        callTimeoutJob?.cancel()
+        callTimeoutJob = serviceScope.launch {
+            delay(30000) // 30 seconds
+            val sessionId = GlobalCallState.activeSessionId.value
+            val participantId = GlobalCallState.activeParticipantId.value
+            val callType = GlobalCallState.activeCallType.value
+            if (sessionId != null && participantId != null && callType != null) {
+                Log.w("CallListenerService", "Call timed out after 30s")
+                callWebSocketClient.end(participantId, sessionId, callType, 0, "timeout")
+                GlobalCallState.onCallEnded(sessionId)
+                webRtcCallManager.end()
+                callTonePlayer.stop()
+            }
+        }
+    }
+
+    private fun cancelCallTimeout() {
+        callTimeoutJob?.cancel()
+        callTimeoutJob = null
     }
 
     private fun updateServiceNotification(isCallActive: Boolean) {
@@ -221,9 +365,10 @@ class CallListenerService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            // FIX: Use CHANNEL_INCOMING_CALLS (High Importance) for ACTIVE calls
-            // Posting CATEGORY_CALL to a MIN/LOW importance channel triggers vendor OS strategy errors.
-            val channelId = CHANNEL_INCOMING_CALLS
+            // FIX: Use CHANNEL_ONGOING_CALLS (Low Importance) for ACTIVE calls
+            // Using a high importance channel with a ringtone (like CHANNEL_INCOMING_CALLS) 
+            // causes the device to keep ringing even after answering.
+            val channelId = CHANNEL_ONGOING_CALLS
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
@@ -425,11 +570,21 @@ class CallListenerService : Service() {
         incomingChannel.vibrationPattern = longArrayOf(0, 1000, 1000)
 
         manager.createNotificationChannel(incomingChannel)
+
+        val ongoingChannel = NotificationChannel(
+            CHANNEL_ONGOING_CALLS,
+            "Active calls",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        ongoingChannel.description = "Ongoing call status"
+        ongoingChannel.setShowBadge(false)
+        manager.createNotificationChannel(ongoingChannel)
     }
 
     companion object {
         private const val CHANNEL_CALL_SERVICE = "call_service"
         private const val CHANNEL_INCOMING_CALLS = "incoming_calls"
+        private const val CHANNEL_ONGOING_CALLS = "ongoing_calls"
         private const val ONGOING_NOTIFICATION_ID = 9001
     }
 }

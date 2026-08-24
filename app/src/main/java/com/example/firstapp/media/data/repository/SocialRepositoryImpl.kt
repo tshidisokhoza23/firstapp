@@ -33,8 +33,9 @@ class SocialRepositoryImpl @Inject constructor(
 ) : SocialRepository {
 
     @OptIn(ExperimentalPagingApi::class)
-    override fun getPostsPaging(following: Boolean, authorId: String, feedType: String): Flow<PagingData<Post>> {
+    override fun getPostsPaging(following: Boolean, authorId: String, feedType: String, categoryId: String?): Flow<PagingData<Post>> {
         val finalFeedType = when {
+            categoryId != null -> "${feedType}_cat_$categoryId"
             authorId.isNotBlank() -> "user_$authorId"
             following -> "following"
             else -> feedType
@@ -44,7 +45,15 @@ class SocialRepositoryImpl @Inject constructor(
         
         return Pager(
             config = PagingConfig(pageSize = 20, enablePlaceholders = false),
-            remoteMediator = PostRemoteMediator(socialApi, appDatabase, following, authorId, finalFeedType),
+            remoteMediator = PostRemoteMediator(
+                socialApi = socialApi,
+                appDatabase = appDatabase,
+                following = following,
+                authorId = authorId,
+                apiFeedType = feedType,
+                dbFeedType = finalFeedType,
+                categoryId = categoryId
+            ),
             pagingSourceFactory = pagingSourceFactory
         ).flow.flowMap { pagingData ->
             pagingData.pagingMap { entity -> entity.toPost() }

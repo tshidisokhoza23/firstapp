@@ -102,14 +102,31 @@ abstract class AppDatabase : RoomDatabase() {
 
             val db = try {
                 val d = buildDatabase(context, sessionManager, dbName)
-                // Force open
+                // Force open to verify encryption key
                 d.openHelper.writableDatabase
                 d
             } catch (e: Exception) {
-                android.util.Log.e("AppDatabase", "Database open failed ($dbName), deleting and recreating...", e)
-                try { context.deleteDatabase(dbName) } catch (_: Exception) {}
+                android.util.Log.e("AppDatabase", "Database open failed ($dbName). Encryption key might have changed or file is corrupted. Recreating...", e)
+                try {
+                    // Critical: Delete all database files (including -wal and -shm)
+                    val dbFile = context.getDatabasePath(dbName)
+                    if (dbFile.exists()) {
+                        androidx.room.RoomDatabase.Builder::class.java // Just to ensure Room is loaded
+                        context.deleteDatabase(dbName)
+                        // Explicitly delete -wal and -shm as context.deleteDatabase(dbName) might not be enough on all OS versions
+                        java.io.File(dbFile.absolutePath + "-wal").delete()
+                        java.io.File(dbFile.absolutePath + "-shm").delete()
+                    }
+                } catch (de: Exception) {
+                    android.util.Log.e("AppDatabase", "Failed to delete corrupted database", de)
+                }
+                
                 val d = buildDatabase(context, sessionManager, dbName)
-                d.openHelper.writableDatabase
+                try {
+                    d.openHelper.writableDatabase
+                } catch (e2: Exception) {
+                    android.util.Log.e("AppDatabase", "RECREATION FAILED. This is a fatal state.", e2)
+                }
                 d
             }
             instance = db

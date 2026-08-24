@@ -128,6 +128,13 @@ class ChatViewModel @Inject constructor(
             .onEach { envelope ->
                 when (envelope.topic) {
                     "chat", "chat:${_activeChatId.value}" -> {
+                        if (envelope.event == "message" || envelope.event == "INCOMING_MSG") {
+                            val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
+                            if (cid != null && cid == _activeChatId.value) {
+                                // If the chat is currently open, mark as read immediately
+                                markAsRead(cid)
+                            }
+                        }
                         if (envelope.event == "typing" || envelope.event == "TYPING") {
                             val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
                                 ?: envelope.topic?.substringAfter("chat:")
@@ -252,6 +259,18 @@ class ChatViewModel @Inject constructor(
     }
 
     fun startVoiceOrVideoCall(receiverId: String, callType: com.example.firstapp.chat.data.CallType, name: String? = null) {
+        // Check for Mic/Camera permissions before initiating
+        val context = com.example.firstapp.common.util.ContextProvider.context
+        val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val hasCam = if (callType == com.example.firstapp.chat.data.CallType.VIDEO) {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else true
+
+        if (!hasMic || !hasCam) {
+            _uiState.update { it.copy(error = "Microphone and Camera permissions are required for calling") }
+            return
+        }
+
         viewModelScope.launch {
             name?.let { GlobalCallState.updateContactInfo(receiverId, it, null) }
             repository.initiateCall(receiverId, callType.wireValue()).collect { resource ->

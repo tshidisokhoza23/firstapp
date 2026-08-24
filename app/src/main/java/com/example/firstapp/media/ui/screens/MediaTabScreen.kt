@@ -46,6 +46,9 @@ fun MediaTabScreen(
             ownProfileName = currentUser.displayName.ifBlank { "You" },
             ownProfileHandle = currentUser.username.ifBlank { "you" },
             ownProfileAvatarUrl = currentUser.avatarUrl,
+            categories = uiState.categories,
+            selectedCategoryId = uiState.selectedCategoryId,
+            onCategorySelected = { mediaViewModel.selectCategory(it) },
             onPostSelect = { post ->
                 if (post != null) {
                     mediaViewModel.selectPost(post)
@@ -81,7 +84,7 @@ fun MediaTabScreen(
             onAdRevenueLogged = { pid, rev, uid -> mediaViewModel.onAdRevenueLogged(pid, rev, uid) },
             onShortClick = { short ->
                 // REQUIREMENT: Universal Entry Point for shorts
-                navController.navigate(Screen.Main.createRoute(tab = "shorts", shortId = short.id))
+                navController.navigate(Screen.Main.createRoute(tab = "scroll", shortId = short.id))
             },
             onMediaClick = { url, type, pos ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type, pos))

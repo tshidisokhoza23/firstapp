@@ -609,9 +609,11 @@ fun LoginScreen(
         OutlinedButton(
             onClick = {
                 scope.launch {
+                    val nonce = java.util.UUID.randomUUID().toString()
                     val googleIdOption = GetGoogleIdOption.Builder()
                         .setFilterByAuthorizedAccounts(false)
                         .setServerClientId("303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com")
+                        .setNonce(nonce)
                         .setAutoSelectEnabled(false)
                         .build()
 

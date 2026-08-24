@@ -57,10 +57,10 @@ fun AppNavigation(
             LaunchedEffect(tabArg) {
                 if (tabArg != null && tabArg.length > 0) {
                     val tabIndex = when(tabArg) {
-                        "media" -> 1
-                        "shorts" -> 2
-                        "music" -> 3
-                        "drive" -> 4
+                        "social" -> 1
+                        "scroll" -> 2
+                        "stream" -> 3
+                        "ride" -> 4
                         else -> 0
                     }
                     viewModel.setSelectedBottomItem(tabIndex)

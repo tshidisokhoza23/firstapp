@@ -26,6 +26,16 @@ class CallTonePlayer {
         }
     }
 
+    fun playBusyTone() {
+        stop()
+        try {
+            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80)
+            toneGenerator?.startTone(ToneGenerator.TONE_SUP_BUSY, 2000)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     fun stop() {
         timer?.cancel()
         timer = null

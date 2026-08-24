@@ -286,15 +286,20 @@ class MusicViewModel @Inject constructor(
     }
 
     private fun Song.toMediaItem(): MediaItem {
+        val uri = if (sourceType == "LOCAL" && localUri != null) localUri.toUri() else streamUrl.toUri()
         return MediaItem.Builder()
             .setMediaId(id)
-            .setUri(audioUrl.toUri())
+            .setUri(uri)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)
                     .setArtist(artist)
                     .setAlbumTitle(albumName)
-                    .setArtworkUri(albumArtUrl?.toUri())
+                    .setArtworkUri(artworkUrl?.toUri())
+                    .setExtras(android.os.Bundle().apply {
+                        putBoolean("is_explicit", isExplicit)
+                        putString("source_type", sourceType)
+                    })
                     .build()
             )
             .build()

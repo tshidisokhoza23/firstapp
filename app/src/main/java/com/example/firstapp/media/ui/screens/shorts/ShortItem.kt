@@ -82,7 +82,8 @@ fun ShortItem(
     onMoreClick: (String) -> Unit,
     onCreatorClick: (String) -> Unit = {},
     onEngagement: (String, String, Int, Boolean) -> Unit = { _, _, _, _ -> },
-    onVideoEnded: (() -> Unit)? = null
+    onVideoEnded: (() -> Unit)? = null,
+    isGlobalPaused: Boolean = false
 ) {
     val context = LocalContext.current
     val rawUrl = short.mediaUrls.firstOrNull()?.takeIf { it.isNotBlank() }
@@ -172,8 +173,8 @@ fun ShortItem(
         exoPlayer?.setVolume(if (isMuted) 0f else 1f)
     }
 
-    LaunchedEffect(isPlaying, isAppInBackground, isVisible) {
-        exoPlayer?.setPlayWhenReady(isPlaying && !isAppInBackground && isVisible)
+    LaunchedEffect(isPlaying, isAppInBackground, isVisible, isGlobalPaused) {
+        exoPlayer?.setPlayWhenReady(isPlaying && !isAppInBackground && isVisible && !isGlobalPaused)
     }
 
     DisposableEffect(exoPlayer, videoUrl) {

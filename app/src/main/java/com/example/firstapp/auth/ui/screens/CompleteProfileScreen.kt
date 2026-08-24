@@ -1,11 +1,18 @@
 package com.example.firstapp.auth.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -13,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.auth.ui.viewmodel.AuthViewModel
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.media.model.DefaultCategories
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +34,7 @@ fun CompleteProfileScreen(
     var displayName by remember { mutableStateOf(currentUser.displayName) }
     var username by remember { mutableStateOf(currentUser.username) }
     var phoneNumber by remember { mutableStateOf(currentUser.phoneNumber) }
+    var selectedCategories by remember { mutableStateOf(setOf<String>()) }
 
     val missingFields = currentUser.missingFields ?: emptyList()
 
@@ -96,6 +105,49 @@ fun CompleteProfileScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            Text(
+                "Select interests for your feed (3+ recommended)",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Start)
+            )
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(DefaultCategories.filter { it.id != "all" }) { category ->
+                    val isSelected = selectedCategories.contains(category.id)
+                    Surface(
+                        modifier = Modifier
+                            .height(60.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                selectedCategories = if (isSelected) {
+                                    selectedCategories - category.id
+                                } else {
+                                    selectedCategories + category.id
+                                }
+                            },
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = category.name,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
             if (authState is Resource.Error) {
                 Text(
                     text = (authState as Resource.Error).message ?: "Error",
@@ -109,7 +161,8 @@ fun CompleteProfileScreen(
                     viewModel.completeProfile(
                         displayName.takeIf { it != currentUser.displayName },
                         username.takeIf { it != currentUser.username },
-                        phoneNumber.takeIf { it != currentUser.phoneNumber }
+                        phoneNumber.takeIf { it != currentUser.phoneNumber },
+                        selectedCategories.toList().takeIf { it.isNotEmpty() }
                     )
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),

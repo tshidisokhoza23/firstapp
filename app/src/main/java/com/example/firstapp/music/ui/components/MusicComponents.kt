@@ -4,16 +4,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,10 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.example.firstapp.common.ui.theme.AppAccent
-import com.example.firstapp.common.ui.theme.AppTextSecondary
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.music.model.Playlist
-import com.example.firstapp.common.ui.theme.AppSecondary
 
 @Composable
 fun PlaylistListItem(playlist: Playlist, onClick: () -> Unit) {
@@ -70,7 +62,6 @@ fun PlaylistListItem(playlist: Playlist, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            // Removed songCount as it's not in the model
         }
     }
 }
@@ -103,7 +94,6 @@ fun SongCard(song: Song, isPlaying: Boolean = false, onClick: () -> Unit, onArti
             .padding(start = 16.dp)
             .clickable { onClick() }
     ) {
-        // ... (Image Box code)
         Box(
             modifier = Modifier
                 .size(160.dp)
@@ -111,9 +101,9 @@ fun SongCard(song: Song, isPlaying: Boolean = false, onClick: () -> Unit, onArti
                 .background(song.albumArtColor),
             contentAlignment = Alignment.Center
         ) {
-            if (!song.albumArtUrl.isNullOrBlank()) {
+            if (!song.artworkUrl.isNullOrBlank()) {
                 Image(
-                    painter = rememberAsyncImagePainter(song.albumArtUrl),
+                    painter = rememberAsyncImagePainter(song.artworkUrl),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -173,7 +163,6 @@ fun SongListItem(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // ... (Image Box)
         Box(
             modifier = Modifier
                 .size(56.dp)
@@ -181,9 +170,9 @@ fun SongListItem(
                 .background(song.albumArtColor),
             contentAlignment = Alignment.Center
         ) {
-            if (!song.albumArtUrl.isNullOrBlank()) {
+            if (!song.artworkUrl.isNullOrBlank()) {
                 Image(
-                    painter = rememberAsyncImagePainter(song.albumArtUrl),
+                    painter = rememberAsyncImagePainter(song.artworkUrl),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -389,95 +378,5 @@ fun AlbumCard(name: String, artist: String, color: Color) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-@Composable
-fun MiniPlayer(
-    song: Song,
-    isPlaying: Boolean,
-    progress: Float,
-    onClick: () -> Unit,
-    onTogglePlay: () -> Unit,
-    onNext: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(72.dp)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable { onClick() },
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp),
-        shadowElevation = 8.dp
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(song.albumArtColor)
-                ) {
-                    if (!song.albumArtUrl.isNullOrBlank()) {
-                        Image(
-                            painter = rememberAsyncImagePainter(song.albumArtUrl),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = song.title,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = song.artist,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                
-                IconButton(onClick = onTogglePlay) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                
-                IconButton(onClick = onNext) {
-                    Icon(
-                        imageVector = Icons.Filled.SkipNext,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-            
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(2.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = Color.Transparent
-            )
-        }
     }
 }

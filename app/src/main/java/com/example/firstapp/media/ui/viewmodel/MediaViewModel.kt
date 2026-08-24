@@ -56,6 +56,9 @@ class MediaViewModel @Inject constructor(
     private val _adsLoaded = MutableStateFlow(false)
     val adsLoaded: StateFlow<Boolean> = _adsLoaded.asStateFlow()
 
+    private val _isGlobalPlaybackPaused = MutableStateFlow(false)
+    val isGlobalPlaybackPaused: StateFlow<Boolean> = _isGlobalPlaybackPaused.asStateFlow()
+
     init {
         preloadAds()
         loadFeed("standard")
@@ -96,19 +99,26 @@ class MediaViewModel @Inject constructor(
 
     private var currentFeedType: String? = null
 
-    fun loadFeed(type: String) {
-        if (currentFeedType == type) return
+    fun loadFeed(type: String, categoryId: String? = null) {
+        val currentCategory = _uiState.value.selectedCategoryId
+        if (currentFeedType == type && currentCategory == categoryId) return
         currentFeedType = type
 
         _uiState.update { 
             it.copy(
+                selectedCategoryId = categoryId,
                 posts = socialRepository.getPostsPaging(
                     following = (type == "following"),
                     authorId = "",
-                    feedType = type
+                    feedType = type,
+                    categoryId = if (categoryId == "all") null else categoryId
                 ).cachedIn(viewModelScope)
             )
         }
+    }
+
+    fun selectCategory(categoryId: String?) {
+        loadFeed(currentFeedType ?: "standard", categoryId)
     }
 
     private var lastRealtimePostRefreshMs: Long = 0L
@@ -509,6 +519,10 @@ class MediaViewModel @Inject constructor(
         }
     }
     fun votePoll(postId: String, optionId: String) { viewModelScope.launch { socialRepository.votePoll(postId, optionId).collect { } } }
+
+    fun setGlobalPlaybackPaused(paused: Boolean) {
+        _isGlobalPlaybackPaused.value = paused
+    }
 
     override fun onCleared() {
         // PostWebSocketClient.close()

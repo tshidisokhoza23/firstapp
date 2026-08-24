@@ -91,6 +91,44 @@ class MainActivity : FragmentActivity() {
         android.util.Log.d("MainActivity", "Permissions result: contacts=$contactsGranted, notifications=$notificationsGranted")
     }
 
+    private fun printSigningHash() {
+        try {
+            val info = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                packageManager.getPackageInfo(packageName, @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES)
+            }
+            
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                info.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION") info.signatures
+            }
+
+            signatures?.forEach { signature ->
+                val md = java.security.MessageDigest.getInstance("SHA-1")
+                md.update(signature.toByteArray())
+                val hash = StringBuilder()
+                for (b in md.digest()) {
+                    hash.append(String.format("%02X:", b))
+                }
+                if (hash.length > 0) hash.setLength(hash.length - 1)
+                android.util.Log.i("SIGNING_HASH", "SHA-1: $hash")
+
+                val md256 = java.security.MessageDigest.getInstance("SHA-256")
+                md256.update(signature.toByteArray())
+                val hash256 = StringBuilder()
+                for (b in md256.digest()) {
+                    hash256.append(String.format("%02X:", b))
+                }
+                if (hash256.length > 0) hash256.setLength(hash256.length - 1)
+                android.util.Log.i("SIGNING_HASH", "SHA-256: $hash256")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SIGNING_HASH", "Error getting hash", e)
+        }
+    }
+
     private fun consumeIncomingCallIntent(intent: Intent?) {
         intent ?: return
         
@@ -126,15 +164,15 @@ class MainActivity : FragmentActivity() {
                 "post" -> {
                     val shortId = data.lastPathSegment
                     val path = data.path ?: ""
-                    if (path.indexOf("short") != -1) {
-                        GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "media", shortId = shortId))
+                    if (path.indexOf("scroll") != -1 || path.indexOf("short") != -1) {
+                        GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "scroll", shortId = shortId))
                     } else {
-                        GlobalNavigation.navigateTo(Screen.Main.route + "?tab=media")
+                        GlobalNavigation.navigateTo(Screen.Main.route + "?tab=social")
                     }
                 }
                 "song" -> {
-                    // Navigate to music search or player
-                    GlobalNavigation.navigateTo(Screen.Main.route + "?tab=music")
+                    // Navigate to stream search or player
+                    GlobalNavigation.navigateTo(Screen.Main.route + "?tab=stream")
                 }
                 "advert" -> {
                     val id = data.lastPathSegment
@@ -185,6 +223,7 @@ class MainActivity : FragmentActivity() {
 
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
+        printSigningHash()
 
         if (!Places.isInitialized() && isGooglePlayServicesReady()) {
             Places.initialize(applicationContext, "AIzaSyDvArA2Ykp3Q6EsQMVSre4piq9SvARF7H4")
@@ -444,6 +483,7 @@ class MainActivity : FragmentActivity() {
         setIntent(intent)
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
+        printSigningHash()
         
         // Handle notification-specific navigation
         val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)

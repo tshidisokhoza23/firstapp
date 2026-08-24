@@ -8,14 +8,21 @@ data class Song(
     val artist: String,
     val artistId: String = "",
     val albumName: String = "",
-    val albumArtUrl: String? = null,
-    val albumArtColor: Color,
-    val audioUrl: String = "",
-    val duration: String,
+    val albumId: String = "",
+    val durationMs: Long = 0L,
+    val artworkUrl: String? = null,
+    val streamUrl: String = "",
+    val localUri: String? = null,
+    val sourceType: String = "STREAM",
+    val isExplicit: Boolean = false,
+    val isDownloaded: Boolean = false,
+    val downloadQuality: String? = null,
+    val lyricsSyncedUrl: String? = null,
+    val albumArtColor: Color = Color.Unspecified,
+    val duration: String = "",
     val lyrics: String? = null,
-    val category: String, // e.g., Pop, Rock, Synth-pop
+    val category: String = "",
     val releaseDate: String = "",
     val playCount: String = "0",
-    val isLiked: Boolean = false,
-    val isExplicit: Boolean = false
+    val isLiked: Boolean = false
 )

@@ -18,6 +18,7 @@ import com.example.firstapp.common.data.repository.*
 import com.example.firstapp.chat.data.repository.*
 import com.example.firstapp.media.data.repository.*
 import com.example.firstapp.music.model.Song
+import com.example.firstapp.music.data.repository.toModel
 import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.common.ui.theme.AppPrimary
 import kotlinx.coroutines.flow.*
@@ -115,7 +116,7 @@ class SearchRepositoryImpl @Inject constructor(
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
                         emit(Resource.Success(SearchResult(
-                            songs = body.songs.map { mapApiSongToModel(it) },
+                            songs = body.songs.map { it.toModel() },
                             artists = body.artists.map { mapApiContact(it) }
                         )))
                     }
@@ -143,7 +144,7 @@ class SearchRepositoryImpl @Inject constructor(
                             chats = (body.chats as List<com.example.firstapp.chat.data.api.ChatSummary>? ?: emptyList()).map { mapApiChatSummary(it) },
                             contacts = (body.contacts as List<com.example.firstapp.common.data.api.ApiUser>? ?: emptyList()).map { mapApiContact(it) },
                             messages = (body.messages as List<com.example.firstapp.chat.data.api.ApiMessage>? ?: emptyList()).map { mapApiMessage(it, currentUserId = myUserId) },
-                            songs = (body.songs as List<com.example.firstapp.music.data.api.ApiSong>? ?: emptyList()).map { mapApiSongToModel(it) },
+                            songs = (body.songs as List<com.example.firstapp.music.data.api.ApiSong>? ?: emptyList()).map { it.toModel() },
                             artists = (body.artists as List<com.example.firstapp.common.data.api.ApiUser>? ?: emptyList()).map { mapApiContact(it) },
                             channels = (body.channels as List<com.example.firstapp.media.data.api.ApiChannel>? ?: emptyList()).map { mapApiChannel(it) },
                             jobs = (body.jobs as List<com.example.firstapp.chat.jobs.data.api.ApiJob>? ?: emptyList()).map { mapApiJob(it) }
@@ -154,26 +155,6 @@ class SearchRepositoryImpl @Inject constructor(
                 } catch (_: Exception) {}
             }
         }
-    }
-
-    private fun mapApiSongToModel(apiSong: com.example.firstapp.music.data.api.ApiSong): Song {
-        return Song(
-            id = apiSong.id,
-            title = apiSong.title,
-            artist = apiSong.artist,
-            artistId = apiSong.artist_id ?: "",
-            albumName = apiSong.album_name ?: "",
-            albumArtUrl = formatUrl(apiSong.album_art_url),
-            albumArtColor = Color(0xFF6A1B9A),
-            audioUrl = formatUrl(apiSong.audio_url),
-            duration = apiSong.duration ?: "",
-            category = apiSong.category ?: "",
-            lyrics = apiSong.lyrics ?: "",
-            releaseDate = apiSong.release_date ?: "",
-            playCount = apiSong.play_count.toString(),
-            isLiked = apiSong.is_liked,
-            isExplicit = apiSong.is_explicit
-        )
     }
 
     private fun mapApiJob(apiJob: com.example.firstapp.chat.jobs.data.api.ApiJob): Job {

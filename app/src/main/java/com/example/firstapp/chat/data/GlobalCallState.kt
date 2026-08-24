@@ -32,6 +32,9 @@ object GlobalCallState {
     private val _isRinging = MutableStateFlow(false)
     val isRinging: StateFlow<Boolean> = _isRinging.asStateFlow()
 
+    private val _callDurationSeconds = MutableStateFlow(0)
+    val callDurationSeconds: StateFlow<Int> = _callDurationSeconds.asStateFlow()
+
     fun setCallActive(active: Boolean, sessionId: String? = null, participantId: String? = null, callType: CallType? = null) {
         _isCallActive.value = active
         _activeSessionId.value = sessionId
@@ -40,7 +43,12 @@ object GlobalCallState {
         if (!active) {
             _isConnectionEstablished.value = false
             _isRinging.value = false
+            _callDurationSeconds.value = 0
         }
+    }
+
+    fun setCallDuration(seconds: Int) {
+        _callDurationSeconds.value = seconds
     }
 
     fun setConnectionEstablished(established: Boolean) {
@@ -95,6 +103,7 @@ object GlobalCallState {
     fun acceptCall(event: CallEvent, webRtcCallManager: WebRtcCallManager, callWebSocketClient: CallWebSocketClient) {
         setCallActive(true, event.sessionId, event.senderId.toString(), event.callType)
         setConnectionEstablished(true)
+        setRinging(false)
         clearIncomingCall()
         webRtcCallManager.start(event.callType)
         callWebSocketClient.accept(event.senderId, event.sessionId, event.callType)

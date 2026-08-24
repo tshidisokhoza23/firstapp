@@ -109,10 +109,10 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun completeProfile(displayName: String?, username: String?, phoneNumber: String?) {
+    fun completeProfile(displayName: String?, username: String?, phoneNumber: String?, categories: List<String>? = null) {
         viewModelScope.launch {
             _authState.value = Resource.Loading()
-            userRepository.completeProfile(displayName, username, phoneNumber).collect { resource ->
+            userRepository.completeProfile(displayName, username, phoneNumber, categories).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val user = resource.data!!
                     try {

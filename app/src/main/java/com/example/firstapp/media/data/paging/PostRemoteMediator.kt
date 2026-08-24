@@ -22,7 +22,9 @@ class PostRemoteMediator(
     private val appDatabase: AppDatabase,
     private val following: Boolean = false,
     private val authorId: String,
-    private val feedType: String = "standard"
+    private val apiFeedType: String = "standard",
+    private val dbFeedType: String = "standard",
+    private val categoryId: String? = null
 ) : RemoteMediator<Int, PostEntity>() {
 
     override suspend fun load(
@@ -49,31 +51,30 @@ class PostRemoteMediator(
         }
 
         try {
-            android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId, feedType=$feedType")
+            android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId, apiFeedType=$apiFeedType, categoryId=$categoryId")
             
             val apiPosts = if (!following && authorId == "") {
-                // ... logic for general feeds ...
-                when (feedType) {
+                when (apiFeedType) {
                     "short" -> {
-                        val response = socialApi.getShorts(page = page)
+                        val response = socialApi.getShorts(page = page, categoryId = categoryId)
                         ensureSuccessful(response)
                         response.body()?.map { mapApiPost(it) } ?: emptyList()
                     }
                     "media" -> {
-                        val response = socialApi.getMediaFeed(page = page)
+                        val response = socialApi.getMediaFeed(page = page, categoryId = categoryId)
                         ensureSuccessful(response)
                         response.body()?.map { mapApiPost(it) } ?: emptyList()
                     }
                     else -> {
                         val limit = state.config.pageSize
                         val offset = (page - 1) * limit
-                        val response = socialApi.getFeed(limit = limit, offset = offset)
+                        val response = socialApi.getFeed(limit = limit, offset = offset, categoryId = categoryId)
                         ensureSuccessful(response)
                         mapMediaFeedItems(response.body()?.items ?: emptyList())
                     }
                 }
             } else {
-                val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = feedType)
+                val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = apiFeedType, categoryId = categoryId)
                 ensureSuccessful(response)
                 response.body()?.map { mapApiPost(it) } ?: emptyList()
             }
@@ -82,16 +83,16 @@ class PostRemoteMediator(
 
             appDatabase.withTransaction {
                 if (loadType == LoadType.REFRESH) {
-                    appDatabase.postRemoteKeysDao().clearRemoteKeys(feedType)
-                    appDatabase.postDao().clearPosts(feedType)
+                    appDatabase.postRemoteKeysDao().clearRemoteKeys(dbFeedType)
+                    appDatabase.postDao().clearPosts(dbFeedType)
                 }
                 val prevKey = if (page == 1) null else page - 1
                 val nextKey = if (endOfPaginationReached) null else page + 1
                 val keys = apiPosts.map {
-                    PostRemoteKeys(postId = it.id, feedType = feedType, prevKey = prevKey, nextKey = nextKey)
+                    PostRemoteKeys(postId = it.id, feedType = dbFeedType, prevKey = prevKey, nextKey = nextKey)
                 }
                 appDatabase.postRemoteKeysDao().insertAll(keys)
-                val entities = apiPosts.map { it.toPostEntity(feedType) }
+                val entities = apiPosts.map { it.toPostEntity(dbFeedType) }
                 appDatabase.postDao().insertPosts(entities)
             }
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
@@ -105,14 +106,14 @@ class PostRemoteMediator(
     private suspend fun getRemoteKeyForLastItem(state: PagingState<Int, PostEntity>): PostRemoteKeys? {
         return state.pages.lastOrNull { it.data.isNotEmpty() }?.data?.lastOrNull()
             ?.let { post ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, feedType)
+                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, dbFeedType)
             }
     }
 
     private suspend fun getRemoteKeyForFirstItem(state: PagingState<Int, PostEntity>): PostRemoteKeys? {
         return state.pages.firstOrNull { it.data.isNotEmpty() }?.data?.firstOrNull()
             ?.let { post ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, feedType)
+                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, dbFeedType)
             }
     }
 
@@ -121,7 +122,7 @@ class PostRemoteMediator(
     ): PostRemoteKeys? {
         return state.anchorPosition?.let { position ->
             state.closestItemToPosition(position)?.id?.let { postId ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(postId, feedType)
+                appDatabase.postRemoteKeysDao().remoteKeysPostId(postId, dbFeedType)
             }
         }
     }

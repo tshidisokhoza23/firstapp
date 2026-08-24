@@ -125,7 +125,15 @@ class ChatRepositoryImpl @Inject constructor(
                                 // Step 1: Save the message itself
                                 saveMessage(message.conversationId, message)
                                 
-                                // Step 2: Update the chat summary
+                                // Step 2: Send Delivery ACK immediately
+                                if (!message.isFromMe) {
+                                    webSocketManager.send("chat", "DELIVERY_ACK", buildJsonObject {
+                                        put("message_id", message.id)
+                                        put("conversation_id", message.conversationId)
+                                    })
+                                }
+
+                                // Step 3: Update the chat summary
                                 val phone = apiMsg.contact_phone ?: ""
                                 val senderName = apiMsg.sender_name ?: ""
                                 val resolvedName = displayNameResolver.resolve(
@@ -227,6 +235,38 @@ class ChatRepositoryImpl @Inject constructor(
                             }
                         }
                     }
+                    "MSG_ACK" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            val clientUuid = payload["client_msg_id"]?.toString()?.trim('"')
+                            val serverId = payload["message_id"]?.toString()?.trim('"')
+                            val timestamp = payload["created_at"]?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
+                            if (clientUuid != null && serverId != null) {
+                                val msg = chatDao.getMessageById(clientUuid)
+                                if (msg != null) {
+                                    chatDao.confirmSentMessage(clientUuid, msg.copy(id = serverId, timestamp = timestamp, status = MessageStatus.SENT))
+                                }
+                            }
+                        }
+                    }
+                    "DELIVERY_ACK" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            val messageId = payload["message_id"]?.toString()?.trim('"')
+                            if (messageId != null) {
+                                chatDao.markAsDelivered(messageId)
+                            }
+                        }
+                    }
+                    "READ_ACK" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            val messageId = payload["message_id"]?.toString()?.trim('"')
+                            if (messageId != null) {
+                                chatDao.markAsRead(messageId)
+                            }
+                        }
+                    }
                 }
             }
             "presence" -> {
@@ -321,7 +361,7 @@ class ChatRepositoryImpl @Inject constructor(
 
         val pendingMsg = Message(
             id = clientUuid, conversationId = chatId, content = body, senderId = myUserId,
-            timestamp = System.currentTimeMillis(), isFromMe = true, status = MessageStatus.SENDING,
+            timestamp = System.currentTimeMillis(), isFromMe = true, status = MessageStatus.PENDING,
             clientId = clientUuid, type = type, mediaUrls = mediaUrls, duration = duration,
             fileName = fileName, fileSize = fileSize, contactName = contactName,
             contactPhone = contactPhone, latitude = latitude, longitude = longitude,
@@ -356,10 +396,12 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Success(serverMsg))
             } else {
                 chatDao.insertMessages(listOf(pendingMsg.copy(status = MessageStatus.FAILED).toEntity(chatId)))
+                com.example.firstapp.common.data.worker.ChatOutboxWorker.enqueue(context)
                 emit(Resource.Error("Failed to send message"))
             }
         } catch (e: Exception) {
             chatDao.insertMessages(listOf(pendingMsg.copy(status = MessageStatus.FAILED).toEntity(chatId)))
+            com.example.firstapp.common.data.worker.ChatOutboxWorker.enqueue(context)
             emit(Resource.Error(e.message ?: "Network error"))
         }
     }
@@ -700,7 +742,32 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun updateCustomNotificationTone(chatId: String, tone: String?) { chatDaoProvider.get().updateCustomNotificationTone(chatId, tone) }
     override suspend fun updateMediaVisibility(chatId: String, visible: Boolean) { chatDaoProvider.get().updateMediaVisibility(chatId, visible) }
     override suspend fun updateDisappearingMessages(chatId: String, duration: Int) { chatDaoProvider.get().updateDisappearingMessages(chatId, duration) }
-    override suspend fun syncPendingMessages() {}
+    override suspend fun syncPendingMessages() {
+        val chatDao = chatDaoProvider.get()
+        val pending = chatDao.getPendingMessages()
+        if (pending.isEmpty()) return
+
+        Log.d("ChatRepository", "Syncing ${pending.size} pending messages")
+        for (entity in pending) {
+            val msg = entity.toModel()
+            sendMessage(
+                chatId = entity.conversationId,
+                body = entity.content,
+                messageType = entity.type.name,
+                mediaUrls = entity.mediaUrls,
+                duration = entity.duration,
+                fileName = entity.fileName,
+                fileSize = entity.fileSize,
+                contactName = entity.contactName,
+                contactPhone = entity.contactPhone,
+                latitude = entity.latitude,
+                longitude = entity.longitude,
+                replyToId = entity.replyToId,
+                replyToText = entity.replyToText,
+                replyToSenderName = entity.replyToSenderName
+            ).collect {}
+        }
+    }
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList())) }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
@@ -750,5 +817,12 @@ class ChatRepositoryImpl @Inject constructor(
             Log.e("ChatRepository", "Error fetching ICE servers", e)
             Resource.Success(emptyList())
         }
+    }
+
+    override fun sendDeliveryAck(chatId: String, messageId: String) {
+        webSocketManager.send("chat", "DELIVERY_ACK", buildJsonObject {
+            put("message_id", messageId)
+            put("conversation_id", chatId)
+        })
     }
 }

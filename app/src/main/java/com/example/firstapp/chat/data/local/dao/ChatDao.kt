@@ -132,4 +132,7 @@ interface ChatDao {
 
     @Query("SELECT * FROM chats WHERE id = :chatId")
     fun getChatById(chatId: String): Flow<ChatEntity?>
+
+    @Query("SELECT * FROM messages WHERE status = 'PENDING' OR status = 'FAILED'")
+    suspend fun getPendingMessages(): List<MessageEntity>
 }

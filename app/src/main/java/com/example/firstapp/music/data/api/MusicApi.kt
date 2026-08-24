@@ -44,15 +44,23 @@ data class ApiSong(
     val artist: String,
     val artist_id: String? = null,
     val album_name: String? = null,
-    val album_art_url: String? = null,
+    val album_id: String? = null,
+    val duration_ms: Long = 0,
+    val artwork_url: String? = null,
+    val stream_url: String? = null,
+    val local_uri: String? = null,
+    val source_type: String = "STREAM",
+    val is_explicit: Boolean = false,
+    val is_downloaded: Boolean = false,
+    val download_quality: String? = null,
+    val lyrics_synced_url: String? = null,
     val audio_url: String? = null,
     val duration: String? = null,
     val category: String? = null,
     val lyrics: String? = null,
     val release_date: String? = null,
     val play_count: Int = 0,
-    val is_liked: Boolean = false,
-    val is_explicit: Boolean = false
+    val is_liked: Boolean = false
 )
 
 data class PlaylistIdResponse(val playlist_id: String)

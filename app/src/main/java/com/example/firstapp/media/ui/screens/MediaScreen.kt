@@ -121,7 +121,10 @@ fun MediaScreen(
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
-    onProfileClick: (String) -> Unit = {}
+    onProfileClick: (String) -> Unit = {},
+    categories: List<Category> = emptyList(),
+    selectedCategoryId: String? = null,
+    onCategorySelected: (String?) -> Unit = {}
 ) {
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
     LaunchedEffect(refreshTrigger) {
@@ -264,7 +267,10 @@ fun MediaScreen(
                             onShortClick(short)
                         },
                         onMediaClick = onMediaClick,
-                        onFollowUser = onFollowUser
+                        onFollowUser = onFollowUser,
+                        categories = categories,
+                        selectedCategoryId = selectedCategoryId,
+                        onCategorySelected = onCategorySelected
                     )
                 }
             }
@@ -442,7 +448,10 @@ fun MainFeedSection(
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
-    onFollowUser: (String, Boolean) -> Unit = { _, _ -> }
+    onFollowUser: (String, Boolean) -> Unit = { _, _ -> },
+    categories: List<Category> = emptyList(),
+    selectedCategoryId: String? = null,
+    onCategorySelected: (String?) -> Unit = {}
 ) {
     when {
         posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
@@ -484,6 +493,7 @@ fun MainFeedSection(
         modifier = Modifier.fillMaxSize()
     ) {
         val listState = rememberLazyListState()
+        // ... (activePostId logic)
         val activePostId by remember {
             derivedStateOf {
                 val layoutInfo = listState.layoutInfo
@@ -515,6 +525,16 @@ fun MainFeedSection(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
+            if (categories.isNotEmpty()) {
+                item {
+                    CategoryChipBar(
+                        categories = categories,
+                        selectedCategoryId = selectedCategoryId,
+                        onCategorySelected = onCategorySelected
+                    )
+                }
+            }
+
             items(
                 count = posts.itemCount,
                 key = posts.itemKey { it?.id ?: "loading_${it.hashCode()}" },

@@ -506,10 +506,10 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun completeProfile(displayName: String?, username: String?, phoneNumber: String?): Flow<Resource<User>> = flow {
+    override fun completeProfile(displayName: String?, username: String?, phoneNumber: String?, categories: List<String>?): Flow<Resource<User>> = flow {
         emit(Resource.Loading())
         try {
-            val response = apiService.completeProfile(CompleteProfileRequest(displayName, username, phoneNumber))
+            val response = apiService.completeProfile(CompleteProfileRequest(displayName, username, phoneNumber, categories))
             if (response.isSuccessful && response.body() != null) {
                 val user = response.body()!!.user
                 // Local cache sync is best-effort: the server is the source of truth, and a

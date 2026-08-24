@@ -4,17 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +28,7 @@ import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.common.ui.components.DataStateHandler
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     songs: List<Song>,
@@ -44,181 +41,161 @@ fun LibraryScreen(
     onAddToPlaylist: (Song) -> Unit = {},
     onArtistClick: (String) -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf("Songs") }
-    val tabs = java.util.Arrays.asList("Songs", "Playlists", "Artists", "Albums")
-    var sortBy by remember { mutableStateOf("Recently Played") }
+    var selectedFilter by remember { mutableStateOf("Songs") }
+    val filters = listOf("Playlists", "Artists", "Albums", "Songs", "Downloaded")
     
     val playlistsRes by viewModel.playlists.collectAsState()
-    val playlistSongs by viewModel.playlistSongs.collectAsState()
+    val likedSongs by viewModel.likedSongs.collectAsState()
 
     var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
-    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedPlaylist) {
-        val p = selectedPlaylist
-        if (p != null) {
-            viewModel.fetchPlaylistSongs(p.id)
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Your Library", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { if (selectedPlaylist != null) selectedPlaylist = null }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showCreatePlaylistDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Create Playlist")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background, 
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(bottom = bottomPadding)) {
-            if (selectedPlaylist == null) {
-                ScrollableTabRow(
-                    selectedTabIndex = tabs.indexOf(selectedTab),
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    edgePadding = 16.dp,
-                    divider = {}
-                ) {
-                    for (tab in tabs) {
-                        Tab(
-                            selected = selectedTab == tab,
-                            onClick = { selectedTab = tab },
-                            text = { 
-                                Text(
-                                    tab, 
-                                    color = if (selectedTab == tab) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal
-                                ) 
-                            }
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(bottom = bottomPadding)) {
+        if (selectedPlaylist == null) {
+            // Sticky Filter Chips
+            LazyRow(
+                modifier = Modifier.padding(vertical = 12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filters) { filter ->
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = { selectedFilter = filter },
+                        label = { Text(filter) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
                         )
-                    }
+                    )
                 }
+            }
 
-                when (selectedTab) {
+            // Library Content
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                when (selectedFilter) {
                     "Songs" -> {
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(songs) { song ->
-                                SongListItem(
-                                    song = song,
-                                    isPlaying = song.id == currentlyPlaying?.id,
-                                    onClick = { onPlay(song, songs) },
-                                    onShare = { onShare(song) },
-                                    onAddToPlaylist = { onAddToPlaylist(song) },
-                                    onArtistClick = onArtistClick
-                                )
-                            }
+                        // Liked Songs Shortcut
+                        item {
+                            LibraryActionItem(
+                                title = "Liked Songs",
+                                subtitle = "${likedSongs.size} songs",
+                                icon = Icons.Default.Favorite,
+                                iconColor = Color.Red,
+                                onClick = { /* Navigate to Liked Songs */ }
+                            )
+                        }
+                        items(songs) { song ->
+                            SongListItem(
+                                song = song,
+                                isPlaying = song.id == currentlyPlaying?.id,
+                                onClick = { onPlay(song, songs) },
+                                onArtistClick = onArtistClick
+                            )
                         }
                     }
                     "Playlists" -> {
-                        val playlists = playlistsRes.data ?: java.util.Collections.emptyList()
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(playlists) { playlist ->
-                                PlaylistListItem(
-                                    playlist = playlist,
-                                    onClick = { selectedPlaylist = playlist }
-                                )
-                            }
+                        item {
+                            LibraryActionItem(
+                                title = "Create playlist",
+                                icon = Icons.Default.Add,
+                                onClick = { /* Show create dialog */ }
+                            )
+                        }
+                        val playlists = (playlistsRes as? Resource.Success)?.data ?: emptyList()
+                        items(playlists) { playlist ->
+                            PlaylistListItem(
+                                playlist = playlist,
+                                onClick = { selectedPlaylist = playlist }
+                            )
                         }
                     }
                     "Artists" -> {
-                        val artistsList = java.util.ArrayList<String>()
-                        for (song in songs) {
-                            if (!artistsList.contains(song.artist)) {
-                                artistsList.add(song.artist)
-                            }
-                        }
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(artistsList) { artist ->
-                                ArtistListItem(name = artist)
-                            }
-                        }
-                    }
-                    "Albums" -> {
-                        val albumsList = java.util.ArrayList<Song>()
-                        val seenAlbums = java.util.HashSet<String>()
-                        for (song in songs) {
-                            if (song.albumName.length > 0 && !seenAlbums.contains(song.albumName)) {
-                                albumsList.add(song)
-                                seenAlbums.add(song.albumName)
-                            }
-                        }
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(albumsList) { album ->
-                                AlbumCard(name = album.albumName, artist = album.artist, color = album.albumArtColor)
-                            }
+                        val artists = songs.map { it.artist }.distinct()
+                        items(artists) { artist ->
+                            ArtistListItem(name = artist)
                         }
                     }
                 }
-            } else {
-                // Playlist detail view
-                val playlist = selectedPlaylist!!
-                val songsRes = playlistSongs[playlist.id] ?: Resource.Loading()
-                
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val coverUrl = playlist.coverArtUrl
-                        if (coverUrl != null && coverUrl.length > 0) {
-                            androidx.compose.foundation.Image(
-                                painter = coil.compose.rememberAsyncImagePainter(coverUrl),
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        } else {
-                            Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(80.dp))
-                        }
-                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
-                        Column(
-                            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
-                        ) {
-                            Text(playlist.name, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                            Text("Playlist", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-                        }
-                    }
+            }
+        } else {
+            // Playlist Detail (Existing logic refined)
+            PlaylistDetailView(
+                playlist = selectedPlaylist!!,
+                onBack = { selectedPlaylist = null },
+                viewModel = viewModel,
+                currentlyPlaying = currentlyPlaying,
+                onPlay = onPlay,
+                onArtistClick = onArtistClick
+            )
+        }
+    }
+}
 
-                    DataStateHandler(
-                        resource = songsRes
-                    ) { songsList: List<Song> ->
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(songsList) { song ->
-                                SongListItem(
-                                    song = song,
-                                    isPlaying = song.id == currentlyPlaying?.id,
-                                    onClick = { onPlay(song, songsList) },
-                                    onShare = { onShare(song) },
-                                    onAddToPlaylist = { onAddToPlaylist(song) },
-                                    onArtistClick = onArtistClick
-                                )
-                            }
-                        }
-                    }
+@Composable
+fun LibraryActionItem(
+    title: String,
+    subtitle: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color = MaterialTheme.colorScheme.primary,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(iconColor.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = iconColor)
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            if (subtitle != null) {
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun PlaylistDetailView(
+    playlist: Playlist,
+    onBack: () -> Unit,
+    viewModel: MusicViewModel,
+    currentlyPlaying: Song?,
+    onPlay: (Song, List<Song>) -> Unit,
+    onArtistClick: (String) -> Unit
+) {
+    val playlistSongs by viewModel.playlistSongs.collectAsState()
+    val songsRes = playlistSongs[playlist.id] ?: Resource.Loading()
+
+    LaunchedEffect(playlist.id) {
+        viewModel.fetchPlaylistSongs(playlist.id)
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.padding(8.dp).statusBarsPadding(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+            Text(playlist.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+
+        DataStateHandler(resource = songsRes) { songs ->
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(songs) { song ->
+                    SongListItem(
+                        song = song,
+                        isPlaying = song.id == currentlyPlaying?.id,
+                        onClick = { onPlay(song, songs) },
+                        onArtistClick = onArtistClick
+                    )
                 }
             }
         }

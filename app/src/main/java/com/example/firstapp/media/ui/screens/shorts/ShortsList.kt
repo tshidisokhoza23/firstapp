@@ -36,7 +36,8 @@ fun ShortsList(
     onShortDisplayed: () -> Unit = {},
     onShowComments: (String) -> Unit,
     onShowMoreMenu: (com.example.firstapp.media.model.Post) -> Unit,
-    onCreatorClick: (String) -> Unit = {}
+    onCreatorClick: (String) -> Unit = {},
+    isGlobalPaused: Boolean = false
 ) {
     if (shorts.itemCount == 0) return
 
@@ -116,7 +117,8 @@ fun ShortsList(
                 onCreatorClick = onCreatorClick,
                 onEngagement = { pid, type, time, comp -> 
                     shortsViewModel.trackEngagement(pid, type, currentShort.category, time, comp)
-                }
+                },
+                isGlobalPaused = isGlobalPaused
             )
         }
     }

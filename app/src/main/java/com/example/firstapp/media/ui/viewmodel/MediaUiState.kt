@@ -1,6 +1,8 @@
 package com.example.firstapp.media.ui.viewmodel
 
 import androidx.paging.PagingData
+import com.example.firstapp.media.model.Category
+import com.example.firstapp.media.model.DefaultCategories
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.media.data.api.TrendingTopic
 import com.example.firstapp.chat.model.Contact
@@ -20,5 +22,7 @@ data class MediaUiState(
     val refreshTrigger: Int = 0,
     val shortReplies: Resource<List<Post>> = Resource.Success(emptyList()),
     val isUploading: Boolean = false,
-    val activePostId: String? = null
+    val activePostId: String? = null,
+    val categories: List<Category> = DefaultCategories,
+    val selectedCategoryId: String? = null
 )
