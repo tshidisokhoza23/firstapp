@@ -39,6 +39,7 @@ import kotlin.collections.*
 fun ShortsTabScreen(
     navController: NavController,
     adManager: com.example.firstapp.common.data.ads.AdManager,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     mediaViewModel: MediaViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
     onDirectMessagesClick: () -> Unit = {},
@@ -48,6 +49,9 @@ fun ShortsTabScreen(
     val uiState by mediaViewModel.uiState.collectAsState()
     val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
     val isGlobalPaused by mediaViewModel.isGlobalPlaybackPaused.collectAsState()
+    val searchResults by mediaViewModel.searchResults.collectAsState()
+    val autoplayEnabled by hiltViewModel<com.example.firstapp.home.ui.viewmodel.MainViewModel>().autoplayVideos.collectAsState()
+    val autoplayGifsEnabled by hiltViewModel<com.example.firstapp.home.ui.viewmodel.MainViewModel>().autoplayGifs.collectAsState()
 
     var selectedShortId by remember { mutableStateOf(initialShortId) }
     val isUploading by mediaViewModel.isUploading.collectAsState()
@@ -63,6 +67,7 @@ fun ShortsTabScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
+        android.util.Log.d("ShortsTabScreen", "Launched: initialShortId=$initialShortId")
         mediaViewModel.loadFeed("short")
         userViewModel.fetchCurrentUser()
     }
@@ -86,8 +91,26 @@ fun ShortsTabScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (shortsPagingItems.itemCount == 0) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
+                val loadState = shortsPagingItems.loadState
+                if (loadState.refresh is androidx.paging.LoadState.Loading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color.White)
+                    }
+                } else {
+                    Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.VideoLibrary, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(64.dp))
+                            Spacer(Modifier.height(16.dp))
+                            Text("No shorts found", color = Color.White.copy(alpha = 0.7f), fontSize = 16.sp)
+                            if (loadState.refresh is androidx.paging.LoadState.Error) {
+                                Text((loadState.refresh as androidx.paging.LoadState.Error).error.localizedMessage ?: "Network error", color = Color.Red.copy(alpha = 0.5f), fontSize = 12.sp)
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = { shortsPagingItems.retry() }) {
+                                Text("Retry")
+                            }
+                        }
+                    }
                 }
             } else {
                 ShortsList(
@@ -95,7 +118,8 @@ fun ShortsTabScreen(
                     shorts = shortsPagingItems,
                     shortsViewModel = mediaViewModel,
                     currentUserAvatarUrl = currentUser.avatarUrl,
-                    bottomPadding = 0.dp,
+                    ownUserId = currentUser.id,
+                    bottomPadding = bottomPadding,
                     initialShortId = selectedShortId,
                     onShortDisplayed = { selectedShortId = null },
                     onShowComments = { id ->
@@ -117,18 +141,46 @@ fun ShortsTabScreen(
 
         ShortsTopOverlay(
             onBackClick = { navController.popBackStack() },
-            onSearchClick = { isSearchActive = true }
+            onSearchClick = { isSearchActive = true },
+            showBack = initialShortId != null
         )
 
         if (isSearchActive) {
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                Column {
-                    SearchTopBar(
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.9f))
+                    .statusBarsPadding()
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    com.example.firstapp.media.ui.screens.SearchTopBar(
                         query = searchQuery,
-                        onQueryChange = { searchQuery = it },
-                        onClose = { isSearchActive = false }
+                        onQueryChange = { 
+                            searchQuery = it 
+                            mediaViewModel.search(it, true)
+                        },
+                        onClose = { 
+                            isSearchActive = false
+                            searchQuery = ""
+                        }
                     )
-                    // Results would go here, optionally use shared SearchScreen logic
+                    
+                    com.example.firstapp.media.ui.screens.SearchResultsList(
+                        results = searchResults,
+                        autoplayEnabled = autoplayEnabled,
+                        autoplayGifsEnabled = autoplayGifsEnabled,
+                        onPostClick = { post ->
+                            if (post.type == com.example.firstapp.media.model.PostType.SHORT) {
+                                isSearchActive = false
+                                selectedShortId = post.id
+                            } else {
+                                navController.navigate(com.example.firstapp.ui.navigation.Screen.PostDetail.createRoute(post.id))
+                            }
+                        },
+                        onProfileClick = { creatorId ->
+                            navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(creatorId))
+                        }
+                    )
                 }
             }
         }
@@ -160,6 +212,7 @@ fun ShortsTabScreen(
                     shortId = activeId,
                     repliesState = shortRepliesState,
                     currentUserAvatarUrl = currentUser?.avatarUrl,
+                    bottomPadding = bottomPadding,
                     onDismiss = { showShortComments = false },
                     onSendReply = { content, parentId ->
                         mediaViewModel.createPost(content, parentPostId = parentId ?: activeId, rootPostId = activeId, postType = "reply")
@@ -181,6 +234,8 @@ fun ShortsTabScreen(
                 onAction = { action ->
                     if (action == "message") {
                         navController.navigate(com.example.firstapp.ui.navigation.Screen.MediaChat.createRoute(activeShortForMoreMenu!!.authorId))
+                    } else if (action == "add_short") {
+                        showUploadDialog = true
                     }
                 }
             )
@@ -192,7 +247,8 @@ fun ShortsTabScreen(
 fun ShortsTopOverlay(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    showBack: Boolean = true
 ) {
     Box(modifier = modifier.fillMaxWidth()) {
         Box(
@@ -217,17 +273,21 @@ fun ShortsTopOverlay(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.2f), CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
-                )
+            if (showBack) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.Black.copy(alpha = 0.2f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+            } else {
+                Spacer(Modifier.size(48.dp))
             }
 
             IconButton(

@@ -39,6 +39,7 @@ fun DeveloperDiagnosticsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding() // FIX: Adds padding so the sheet is above the bottom navigation bar
                 .padding(24.dp)
         ) {
             Text("Developer Diagnostics", color = Color.White, fontSize = 20.sp, style = MaterialTheme.typography.headlineSmall)

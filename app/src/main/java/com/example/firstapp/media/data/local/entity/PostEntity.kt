@@ -24,6 +24,7 @@ data class PostEntity(
     val timestamp: String,
     val likes: Long,
     val repliesCount: Long,
+    val repostCount: Long,
     val shares: Long,
     val views: Long,
     val quoteCount: Long = 0,
@@ -53,5 +54,6 @@ data class PostEntity(
     val location: String?,
     val tags: List<String>,
     val ad: Advert? = null,
+    val originalPost: Post? = null,
     val updatedAt: String? = null
 )

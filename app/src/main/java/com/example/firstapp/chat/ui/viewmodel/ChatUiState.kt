@@ -52,5 +52,6 @@ sealed class ChatIntent {
     data class PinChat(val chatId: String, val isPinned: Boolean) : ChatIntent()
     data class MuteChat(val chatId: String, val isMuted: Boolean) : ChatIntent()
     data class ClearChat(val chatId: String) : ChatIntent()
+    data class StarMessage(val messageId: String, val isStarred: Boolean) : ChatIntent()
     object ClearAllChats : ChatIntent()
 }

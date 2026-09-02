@@ -11,11 +11,20 @@ import androidx.compose.ui.unit.dp
 import com.example.firstapp.chat.model.Channel
 
 @Composable
-fun ChannelList(channels: List<Channel>, topBarHeight: Dp = 0.dp, onChannelClick: (Channel) -> Unit) {
+fun ChannelList(
+    channels: List<Channel>, 
+    topBarHeight: Dp = 0.dp, 
+    onChannelClick: (Channel) -> Unit,
+    onSubscribe: (String) -> Unit = {}
+) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(channels, key = { it.id }) { ch -> 
-            ChannelItem(channel = ch, onClick = { onChannelClick(ch) })
+            ChannelItem(
+                channel = ch, 
+                onClick = { onChannelClick(ch) },
+                onSubscribe = onSubscribe
+            )
         }
     }
 }

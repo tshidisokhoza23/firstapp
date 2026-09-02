@@ -70,7 +70,7 @@ fun MediaChatScreen(
                         }
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = receiverUser?.displayName ?: "User $userId",
+                            text = receiverUser?.displayName?.takeIf { it.isNotBlank() } ?: receiverUser?.phoneNumber ?: "",
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 18.sp
                         )

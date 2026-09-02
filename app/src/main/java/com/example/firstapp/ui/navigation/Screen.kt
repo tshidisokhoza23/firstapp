@@ -2,9 +2,9 @@ package com.example.firstapp.ui.navigation
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
-    object Main : Screen("main?tab={tab}&shortId={shortId}") {
-        fun createRoute(tab: String = "home", shortId: String? = null) = 
-            "main?tab=$tab&shortId=${shortId ?: ""}"
+    object Main : Screen("main?tab={tab}&subTab={subTab}&shortId={shortId}") {
+        fun createRoute(tab: String = "home", subTab: String? = null, shortId: String? = null) = 
+            "main?tab=$tab&subTab=${subTab ?: ""}&shortId=${shortId ?: ""}"
     }
     object OtpVerification : Screen("otp_verification/{phoneNumber}/{username}/{email}/{displayName}/{password}?countryCode={countryCode}") {
         fun createRoute(phoneNumber: String, username: String, email: String, displayName: String, password: String, countryCode: String? = null) = 
@@ -89,5 +89,8 @@ sealed class Screen(val route: String) {
     object MediaViewer : Screen("media_viewer?url={url}&type={type}&position={position}") {
         fun createRoute(url: String, type: String = "image", position: Long = 0L) = 
             "media_viewer?url=${android.net.Uri.encode(url)}&type=$type&position=$position"
+    }
+    object MessageInfo : Screen("message_info/{messageId}") {
+        fun createRoute(messageId: String) = "message_info/$messageId"
     }
 }

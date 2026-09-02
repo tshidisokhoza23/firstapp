@@ -40,14 +40,18 @@ import java.net.UnknownHostException
 import java.util.Calendar
 
 import javax.inject.Inject
+import javax.inject.Provider
 
 class UserRepositoryImpl @Inject constructor(
-    private val userDao: UserDao,
-    private val lessonProgressDao: LessonProgressDao,
+    private val userDaoProvider: Provider<UserDao>,
+    private val lessonProgressDaoProvider: Provider<LessonProgressDao>,
     private val apiService: UserApi,
     private val authApi: AuthApi,
     private val sessionManager: SessionManager
 ) : UserRepository {
+
+    private val userDao get() = userDaoProvider.get()
+    private val lessonProgressDao get() = lessonProgressDaoProvider.get()
 
     override fun getUserData(userId: String): Flow<User?> {
         val userFlow = userDao.getUser(userId)
@@ -198,6 +202,10 @@ class UserRepositoryImpl @Inject constructor(
             if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Connection error"))
         }
+    }
+
+    override suspend fun updateUserLocally(user: User) {
+        syncUserLocally(user)
     }
 
     private suspend fun syncUserLocally(user: User) {

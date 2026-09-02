@@ -49,6 +49,27 @@ class Converters {
     }
 
     @TypeConverter
+    fun fromIntList(value: List<Int>?): String = gson.toJson(value)
+
+    @TypeConverter
+    fun toIntList(value: String): List<Int>? {
+        val type = object : TypeToken<List<Int>>() {}.type
+        return gson.fromJson(value, type)
+    }
+
+    @TypeConverter
+    fun fromPost(value: Post?): String? = gson.toJson(value)
+
+    @TypeConverter
+    fun toPost(value: String?): Post? {
+        return try {
+            gson.fromJson(value, Post::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    @TypeConverter
     fun fromPostList(value: List<Post>?): String = gson.toJson(value)
 
     @TypeConverter

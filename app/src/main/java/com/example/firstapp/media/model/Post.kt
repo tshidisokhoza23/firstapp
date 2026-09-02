@@ -28,6 +28,7 @@ data class Post(
     val timestamp: String,
     val likes: Long = 0,
     val repliesCount: Long = 0,
+    val repostCount: Long = 0,
     val shares: Long = 0,
     val views: Long = 0,
     val quoteCount: Long = 0,

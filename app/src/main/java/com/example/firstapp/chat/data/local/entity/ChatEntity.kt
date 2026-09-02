@@ -22,6 +22,7 @@ data class ChatEntity(
     val isArchived: Boolean = false,
     val isVerified: Boolean = false,
     val isAdmin: Boolean = false,
+    val adminsCanPost: Boolean = false,
     val isGroup: Boolean = false,
     val isSubscribed: Boolean = false,
     val createdBy: String? = null,

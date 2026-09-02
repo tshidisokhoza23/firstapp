@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,8 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.firstapp.ui.navigation.AppNavigation
 import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.common.ui.theme.*
@@ -30,7 +29,6 @@ import com.example.firstapp.chat.ui.components.CallOverlay
 import com.example.firstapp.common.util.GlobalNavigation
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.chat.rewards.data.RewardsManager
-import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.libraries.places.api.Places
@@ -39,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import com.example.firstapp.common.util.BiometricHelper
 import com.example.firstapp.common.util.RootUtils
 import android.widget.Toast
@@ -48,17 +48,22 @@ import com.example.firstapp.common.util.UserScopedStorage
 import javax.inject.Inject
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.util.ArrayList
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.example.firstapp.common.model.User as AppUser
 
 val LocalCurrentUser = staticCompositionLocalOf<AppUser> {
     error("No current user provided")
 }
 
- @dagger.hilt.android.AndroidEntryPoint
+@dagger.hilt.android.AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
     @Inject lateinit var displayNameResolver: DisplayNameResolver
@@ -67,7 +72,14 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var adManager: com.example.firstapp.common.data.ads.AdManager
     @Inject lateinit var sessionManager: com.example.firstapp.common.domain.auth.SessionManager
     @Inject lateinit var userRepository: com.example.firstapp.vocab.domain.repository.UserRepository
+    @Inject lateinit var settingsRepository: com.example.firstapp.domain.repository.SettingsRepository
     private var contactsObserver: ContactsObserver? = null
+
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val prefs = newBase.getSharedPreferences("chat_settings", android.content.Context.MODE_PRIVATE)
+        val lang = prefs.getString("selected_language", "English") ?: "English"
+        super.attachBaseContext(com.example.firstapp.common.util.LocaleHelper.applyLocale(newBase, lang))
+    }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -154,30 +166,39 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun handleDeepLink(intent: Intent?) {
-        val data: android.net.Uri? = intent?.data
-        if (data != null && (data.scheme == "firstapp")) {
+        val data: android.net.Uri? = intent?.data ?: return
+        
+        // 1. Legacy Scheme (firstapp://)
+        if (data?.scheme == "firstapp") {
             when (data.host) {
                 "chat" -> {
                     val id = data.lastPathSegment
                     if (id != null) { GlobalNavigation.navigateTo(Screen.Chat.createRoute(id)) }
                 }
                 "post" -> {
-                    val shortId = data.lastPathSegment
-                    val path = data.path ?: ""
-                    if (path.indexOf("scroll") != -1 || path.indexOf("short") != -1) {
-                        GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "scroll", shortId = shortId))
-                    } else {
-                        GlobalNavigation.navigateTo(Screen.Main.route + "?tab=social")
-                    }
+                    val id = data.lastPathSegment
+                    if (id != null) { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(id)) }
                 }
                 "song" -> {
-                    // Navigate to stream search or player
                     GlobalNavigation.navigateTo(Screen.Main.route + "?tab=stream")
                 }
                 "advert" -> {
                     val id = data.lastPathSegment
                     if (id != null) { GlobalNavigation.navigateTo(Screen.AdvertDetail.createRoute(id)) }
                 }
+                "channel" -> {
+                    val id = data.lastPathSegment
+                    if (id != null) { GlobalNavigation.navigateTo(Screen.Chat.createRoute(id, type = "channel")) }
+                }
+            }
+        }
+        
+        // 2. Universal Links (https://firstapp.com/post/...)
+        if (data?.scheme == "https" && data.host == "firstapp.com") {
+            val path = data.path ?: ""
+            if (path.startsWith("/post/")) {
+                val id = data.lastPathSegment
+                if (id != null) { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(id)) }
             }
         }
     }
@@ -218,17 +239,15 @@ class MainActivity : FragmentActivity() {
             Toast.makeText(this, "Security Warning: Device appears to be rooted. App integrity cannot be guaranteed.", Toast.LENGTH_LONG).show()
         }
 
-        // Prevent screenshots and screen recording for high security
-        // window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
-
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
         printSigningHash()
 
+        // Initialize AdManager (Rule 1: Always init AdMob/MAX before usage)
+        adManager.initialize(this)
+
         if (!Places.isInitialized() && isGooglePlayServicesReady()) {
             Places.initialize(applicationContext, "AIzaSyDvArA2Ykp3Q6EsQMVSre4piq9SvARF7H4")
-        } else if (!isGooglePlayServicesReady()) {
-            android.util.Log.w("MainActivity", "Skipping Places init: Google Play services unavailable")
         }
         
         val isSystemDark = android.content.res.Configuration.UI_MODE_NIGHT_YES == (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)
@@ -239,12 +258,50 @@ class MainActivity : FragmentActivity() {
         )
 
         setContent {
-            val viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val viewModel: MainViewModel = hiltViewModel()
             val autoNightMode by viewModel.autoNightMode.collectAsState()
             val isDarkModePref by viewModel.isDarkMode.collectAsState()
-            
-            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val darkTheme = if (autoNightMode) isSystemDark else isDarkModePref
+            val selectedLanguage by viewModel.selectedLanguage.collectAsState()
+
+            LaunchedEffect(selectedLanguage) {
+                val localeCode = when (selectedLanguage) {
+                    "Afrikaans" -> "af"
+                    "isiZulu" -> "zu"
+                    "isiXhosa" -> "xh"
+                    "Sepedi" -> "nso"
+                    "Setswana" -> "tn"
+                    "Sesotho" -> "st"
+                    "Xitsonga" -> "ts"
+                    "siSwati" -> "ss"
+                    "Tshivenda" -> "ve"
+                    "isiNdebele" -> "nr"
+                    else -> "en"
+                }
+                val appLocales = LocaleListCompat.forLanguageTags(localeCode)
+                if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != localeCode) {
+                    AppCompatDelegate.setApplicationLocales(appLocales)
+                }
+            }
+
+            val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val darkTheme = if (autoNightMode) systemInDark else isDarkModePref
+
+            val pinLockEnabled by viewModel.pinLockEnabled.collectAsState()
+            val biometricLockEnabled by viewModel.biometricLockEnabled.collectAsState()
+            val appPin by viewModel.appPin.collectAsState()
+            var isAppUnlocked by rememberSaveable { mutableStateOf(!pinLockEnabled && !biometricLockEnabled) }
+
+            // Handle Biometric Prompt on Startup
+            LaunchedEffect(biometricLockEnabled, isAppUnlocked) {
+                if (biometricLockEnabled && !isAppUnlocked) {
+                    com.example.firstapp.common.util.BiometricHelper.showBiometricPrompt(
+                        activity = this@MainActivity,
+                        onSuccess = { isAppUnlocked = true },
+                        onError = { _, _ -> /* Fallback to PIN if needed or show error */ },
+                        onFailed = { /* Handle failure */ }
+                    )
+                }
+            }
 
             DisposableEffect(darkTheme) {
                 enableEdgeToEdge(
@@ -255,202 +312,193 @@ class MainActivity : FragmentActivity() {
             }
 
             TJTheme(darkTheme = darkTheme) {
+                if (!isAppUnlocked && pinLockEnabled && appPin != null) {
+                    PinLockScreen(
+                        correctPin = appPin!!,
+                        onUnlocked = { isAppUnlocked = true }
+                    )
+                } else {
+                    val navController = rememberNavController()
+                    val musicViewModel: MusicViewModel = hiltViewModel()
+                    val isLoggedIn by sessionManager.authState.collectAsState()
+                    val currentUser by sessionManager.currentUser.collectAsState()
+                    var isAppLocked by remember(isLoggedIn) { mutableStateOf(false) }
+                    var wasLoggedIn by remember { mutableStateOf(isLoggedIn) }
 
-                val navController = rememberNavController()
-                val musicViewModel: MusicViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-                val isLoggedIn by sessionManager.authState.collectAsState()
-                val currentUser by sessionManager.currentUser.collectAsState()
-                var isAppLocked by remember(isLoggedIn) { mutableStateOf(isLoggedIn) }
-                var wasLoggedIn by remember { mutableStateOf(isLoggedIn) }
-
-                LaunchedEffect(isLoggedIn, currentUser) {
-                    android.util.Log.d("MainActivity", "isLoggedIn: $isLoggedIn, currentUser: ${currentUser?.id}")
-                    
-                    if (isLoggedIn && currentUser == null) {
-                        // FIX: Proactively fetch current user to break "loading forever" splash screen deadlock
-                        lifecycleScope.launch {
-                            try {
-                                userRepository.getCurrentUser().collect { res ->
-                                    if (res is Resource.Success && res.data != null) {
-                                        sessionManager.updateCurrentUser(res.data)
+                    LaunchedEffect(isLoggedIn, currentUser) {
+                        if (isLoggedIn && currentUser == null) {
+                            val fetchJob = lifecycleScope.launch {
+                                try {
+                                    userRepository.getCurrentUser().collect { res ->
+                                        if (res.data != null) {
+                                            // Expert Fix: Update session manager with cached data immediately
+                                            sessionManager.updateCurrentUser(res.data!!)
+                                        }
                                     }
-                                }
-                            } catch (e: Exception) {
-                                android.util.Log.e("MainActivity", "Initial user fetch failed", e)
+                                } catch (e: Exception) {}
+                            }
+                            
+                            // Expert Fix: Safety timeout to break splash deadlock if server is down
+                            delay(5000)
+                            if (fetchJob.isActive && sessionManager.getToken() != null) {
+                                android.util.Log.w("MainActivity", "User fetch taking too long, proceeding with available token")
                             }
                         }
-                    }
 
-                    // 1. Handle Navigation Transitions (Login/Logout)
-                    if (wasLoggedIn && !isLoggedIn) {
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    } else if (isLoggedIn && currentUser != null) {
-                        // Check if we need to redirect to CompleteProfile or Main
-                        // This handles both fresh login and app start with existing session
-                        val isAtAuthScreen = navController.currentDestination?.route == Screen.Login.route
-                        val isAtCompleteProfile = navController.currentDestination?.route == Screen.CompleteProfile.route
-                        
-                        if (!currentUser!!.isProfileComplete) {
-                            if (!isAtCompleteProfile) {
-                                navController.navigate(Screen.CompleteProfile.route) {
-                                    popUpTo(0) { inclusive = true }
-                                }
-                            }
-                        } else if (isAtAuthScreen || isAtCompleteProfile || !wasLoggedIn) {
-                             // Only navigate to Main if we are coming from Auth/CompleteProfile or it's the initial load
-                             navController.navigate(Screen.Main.createRoute()) {
+                        if (wasLoggedIn && !isLoggedIn) {
+                            navController.navigate(Screen.Login.route) {
                                 popUpTo(0) { inclusive = true }
-                             }
-                        }
-                    }
-                    
-                    // 2. Handle Features (Permissions and Services)
-                    if (isLoggedIn) {
-                        requestAppPermissions()
-                        
-                        // Setup observer if permission exists; otherwise launcher handles it later
-                        if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-                            setupContactsObserver()
-                        }
-
-                        // DISABLED: Biometric lock screen removed as per user request
-                        isAppLocked = false
-
-                        // 3. Global Sync on Login/Resume
-                        try {
-                            RewardsManager.refreshBalance()
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "Failed to refresh balance", e)
-                        }
-                        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                            try {
-                                // 1. Sync Chats first to establish history
-                                launch {
-                                    chatRepository.syncChats().collect {}
+                            }
+                        } else if (isLoggedIn && (currentUser != null || sessionManager.getToken() != null)) {
+                            val isAtAuthScreen = navController.currentDestination?.route == Screen.Login.route
+                            val isAtCompleteProfile = navController.currentDestination?.route == Screen.CompleteProfile.route
+                            
+                            if (currentUser != null && !currentUser!!.isProfileComplete) {
+                                if (!isAtCompleteProfile) {
+                                    navController.navigate(Screen.CompleteProfile.route) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
                                 }
-
-                                // 2. Trigger background contact sync immediately
-                                ContactsObserver.triggerSyncWorker(this@MainActivity)
-
-                                // 3. Sync Contacts (merges history + account + device)
-                                val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
-                                chatRepository.syncContacts(phoneNumbers).collect {}
-                                chatRepository.refreshLocalChatNames()
-                            } catch (e: Exception) {
-                                android.util.Log.e("MainActivity", "Failed to sync contacts", e)
+                            } else if (isAtAuthScreen || isAtCompleteProfile || !wasLoggedIn) {
+                                 navController.navigate(Screen.Main.createRoute()) {
+                                    popUpTo(0) { inclusive = true }
+                                 }
                             }
                         }
                         
-                        try {
-                            val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
-                            ContextCompat.startForegroundService(applicationContext, serviceIntent)
-                            PushTokenRegistrar.syncCurrentToken(applicationContext, sessionManager)
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "Failed to start services", e)
+                        if (isLoggedIn) {
+                            requestAppPermissions()
+                            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                                setupContactsObserver()
+                            }
+                            isAppLocked = false
+                            try {
+                                RewardsManager.refreshBalance()
+                            } catch (e: Exception) {}
+                            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    launch { chatRepository.syncChats().collect {} }
+                                    ContactsObserver.triggerSyncWorker(this@MainActivity)
+                                    val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
+                                    chatRepository.syncContacts(phoneNumbers).collect {}
+                                    chatRepository.refreshLocalChatNames()
+                                } catch (e: Exception) {}
+                            }
+                            try {
+                                val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
+                                ContextCompat.startForegroundService(applicationContext, serviceIntent)
+                                PushTokenRegistrar.syncCurrentToken(applicationContext, sessionManager)
+                            } catch (e: Exception) {}
+                        } else {
+                            isAppLocked = false
+                            applicationContext.stopService(Intent(applicationContext, CallListenerService::class.java))
                         }
-                    } else {
-                        isAppLocked = false
-                        applicationContext.stopService(Intent(applicationContext, CallListenerService::class.java))
+                        wasLoggedIn = isLoggedIn
                     }
-                    
-                    wasLoggedIn = isLoggedIn
-                }
 
-                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                    if (isLoggedIn && currentUser == null) {
-                        // Splash/Loading while session user is being restored from storage
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = androidx.compose.ui.graphics.Color(0xFF2196F3))
-                        }
-                    } else {
-                        val content = @Composable {
-                            AppNavigation(
-                                navController = navController,
-                                startDestination = if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route,
-                                viewModel = viewModel,
-                                musicViewModel = musicViewModel,
-                                adManager = adManager,
-                                onLogout = {
-                                    lifecycleScope.launch {
-                                        val userId = sessionManager.getUserId() ?: ""
-                                        // 1. Inform the server about logout
-                                        try {
-                                            userRepository.logout().collect {}
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("MainActivity", "Server logout failed", e)
-                                        }
-
-                                        // 2. Synchronize clearing to avoid race conditions with background syncs
-                                        try {
-                                            systemRepository.clearAllData()
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("MainActivity", "Error clearing data on logout", e)
-                                        }
-                                        sessionManager.clearSession()
-                                        
-                                        // Expert Fix: Clear user-scoped storage on logout
-                                        if (userId.isNotEmpty()) {
-                                            UserScopedStorage(applicationContext, userId).clearUserData()
+                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                        val hasToken = remember(isLoggedIn) { sessionManager.getToken() != null }
+                        if (isLoggedIn && currentUser == null && !hasToken) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = Color(0xFF2196F3))
+                            }
+                        } else if (isLoggedIn && currentUser == null) {
+                            // If we have a token but no user yet, show loading but allow a "Try Offline" button after a few seconds
+                            var showOfflineButton by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) {
+                                delay(8000)
+                                showOfflineButton = true
+                            }
+                            
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = Color(0xFF2196F3))
+                                    if (showOfflineButton) {
+                                        Spacer(Modifier.height(24.dp))
+                                        Text("Connecting to server...", color = Color.Gray, fontSize = 14.sp)
+                                        TextButton(onClick = { 
+                                            navController.navigate(Screen.Main.createRoute()) {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        }) {
+                                            Text("Continue Offline")
                                         }
                                     }
                                 }
-                            )
-                        }
-
-                        if (isLoggedIn && currentUser != null) {
-                            CompositionLocalProvider(LocalCurrentUser provides currentUser!!) {
-                                content()
                             }
                         } else {
-                            content()
-                        }
-                    }
-                    
-                    if (isAppLocked) {
-                        // Show a placeholder or lock screen overlay
-                        Column(
-                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("App Locked", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp)
-                            Button(
-                                onClick = {
-                                    if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {
-                                        BiometricHelper.showBiometricPrompt(
-                                            activity = this@MainActivity,
-                                            onSuccess = { isAppLocked = false },
-                                            onError = { _, _ -> isAppLocked = false },
-                                            onFailed = { }
-                                        )
+                            val content = @Composable {
+                                AppNavigation(
+                                    navController = navController,
+                                    startDestination = if (isLoggedIn) Screen.Main.createRoute() else Screen.Login.route,
+                                    viewModel = viewModel,
+                                    musicViewModel = musicViewModel,
+                                    adManager = adManager,
+                                    onLogout = {
+                                        lifecycleScope.launch {
+                                            val userId = sessionManager.getUserId() ?: ""
+                                            try { userRepository.logout().collect {} } catch (e: Exception) {}
+                                            try { systemRepository.clearAllData() } catch (e: Exception) {}
+                                            sessionManager.clearSession()
+                                            if (userId.isNotEmpty()) {
+                                                UserScopedStorage(applicationContext, userId).clearUserData()
+                                            }
+                                        }
                                     }
-                                },
-                                modifier = Modifier.padding(top = 16.dp)
-                            ) {
-                                Text("Unlock")
+                                )
+                            }
+
+                            if (isLoggedIn && currentUser != null) {
+                                CompositionLocalProvider(LocalCurrentUser provides currentUser!!) {
+                                    content()
+                                }
+                            } else {
+                                content()
                             }
                         }
+                        
+                        if (isAppLocked) {
+                            Column(
+                                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("App Locked", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp)
+                                Button(
+                                    onClick = {
+                                        if (BiometricHelper.isBiometricAvailable(this@MainActivity)) {
+                                            BiometricHelper.showBiometricPrompt(
+                                                activity = this@MainActivity,
+                                                onSuccess = { isAppLocked = false },
+                                                onError = { _, _ -> isAppLocked = false },
+                                                onFailed = { }
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.padding(top = 16.dp)
+                                ) {
+                                    Text("Unlock")
+                                }
+                            }
+                        }
+                        CallOverlay()
                     }
 
-                    CallOverlay()
-                }
-
-                LaunchedEffect(Unit) {
-                    GlobalNavigation.navigationEvents.collect { route ->
-                        navController.navigate(route)
+                    LaunchedEffect(Unit) {
+                        GlobalNavigation.navigationEvents.collect { route ->
+                            navController.navigate(route)
+                        }
                     }
-                }
 
-                LaunchedEffect(Unit) {
-                    val openChatId = intent?.getStringExtra("open_chat_id")
-                    val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
-                    if (isLoggedIn) {
-                        if (openChatId != null) { 
-                            navController.navigate(Screen.Chat.createRoute(openChatId)) 
-                        } else if (senderId != null) { 
-                            navController.navigate(Screen.Chat.createRoute(senderId))
+                    LaunchedEffect(Unit) {
+                        val openChatId = intent?.getStringExtra("open_chat_id")
+                        val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
+                        if (isLoggedIn) {
+                            if (openChatId != null) { 
+                                navController.navigate(Screen.Chat.createRoute(openChatId)) 
+                            } else if (senderId != null) { 
+                                navController.navigate(Screen.Chat.createRoute(senderId))
+                            }
                         }
                     }
                 }
@@ -464,11 +512,7 @@ class MainActivity : FragmentActivity() {
             val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
             try {
                 ContextCompat.startForegroundService(applicationContext, serviceIntent)
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Failed to start service on resume", e)
-            }
-            
-            // Sync contacts when app comes to foreground
+            } catch (e: Exception) {}
             lifecycleScope.launch {
                 try {
                     val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
@@ -485,19 +529,16 @@ class MainActivity : FragmentActivity() {
         handleDeepLink(intent)
         printSigningHash()
         
-        // Handle notification-specific navigation
         val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
         val isOngoingCallReturn = intent.getBooleanExtra("is_ongoing_call_return", false)
 
         if (senderId != null && sessionManager.isLoggedIn() && !isOngoingCallReturn) {
-            // Only navigate if it's NOT just returning to an ongoing call from the app itself
             GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId, type = "initiate"))
         }
     }
 
     private fun setupContactsObserver() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            android.util.Log.w("MainActivity", "Skipping ContactsObserver: READ_CONTACTS not granted")
             return
         }
 
@@ -516,10 +557,7 @@ class MainActivity : FragmentActivity() {
                 }
             }
             contactsObserver?.register()
-            android.util.Log.d("MainActivity", "ContactsObserver registered successfully")
-        } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Failed to setup ContactsObserver", e)
-        }
+        } catch (e: Exception) {}
     }
 
     private fun isGooglePlayServicesReady(): Boolean {
@@ -530,5 +568,82 @@ class MainActivity : FragmentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         contactsObserver?.unregister()
+    }
+}
+
+@Composable
+fun PinLockScreen(correctPin: String, onUnlocked: () -> Unit) {
+    var enteredPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            "Enter PIN",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(32.dp))
+        
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            repeat(4) { index ->
+                val filled = index < enteredPin.length
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                )
+            }
+        }
+        
+        if (error) {
+            Text("Incorrect PIN", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 16.dp))
+        }
+        
+        Spacer(Modifier.height(48.dp))
+        
+        val numbers = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "OK")
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.width(280.dp)
+        ) {
+            items(numbers.size) { index ->
+                val label = numbers[index]
+                Surface(
+                    onClick = {
+                        when (label) {
+                            "C" -> if (enteredPin.isNotEmpty()) enteredPin = enteredPin.dropLast(1)
+                            "OK" -> {
+                                if (enteredPin == correctPin) onUnlocked()
+                                else {
+                                    error = true
+                                    enteredPin = ""
+                                }
+                            }
+                            else -> if (enteredPin.length < 4) {
+                                enteredPin += label
+                                error = false
+                            }
+                        }
+                    },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(label, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }

@@ -36,10 +36,10 @@ fun NotificationSettingsScreen(onBack: () -> Unit, viewModel: NotificationSettin
                 title = { Text("Notifications", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppBackground, titleContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background, titleContentColor = MaterialTheme.colorScheme.onBackground)
             )
         },
         bottomBar = {
@@ -47,7 +47,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit, viewModel: NotificationSettin
                 modifier = Modifier.navigationBarsPadding()
             )
         },
-        containerColor = AppBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
@@ -97,8 +97,8 @@ fun NotificationSwitch(title: String, subtitle: String, checked: Boolean, onChec
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp)
-            Text(subtitle, color = AppTextSecondary, fontSize = 14.sp)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
         Switch(
             checked = checked,

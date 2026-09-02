@@ -85,7 +85,7 @@ class DriveUploadWorker(
         val requestBody = chunk.toRequestBody("application/octet-stream".toMediaTypeOrNull())
         
         val request = Request.Builder()
-            .url("https://firstapp-backend.fly.dev/api/v1/drive/upload/chunk")
+            .url("${com.example.firstapp.common.data.network.NetworkConstants.BASE_URL}drive/upload/chunk")
             .header("X-Upload-ID", uploadId)
             .header("X-Content-Offset", offset.toString())
             .header("X-Content-Length", totalSize.toString())

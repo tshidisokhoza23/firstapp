@@ -20,6 +20,7 @@ import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.ui.screens.*
 import com.example.firstapp.chat.ui.stories.*
 import com.example.firstapp.chat.ui.channels.*
+import com.example.firstapp.chat.ui.screens.*
 import com.example.firstapp.chat.ui.viewmodel.*
 import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.media.ui.screens.SharedMediaScreen
@@ -79,7 +80,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             initialShowComposer = showComposer,
             initialPlay = play,
             onBack = { navController.popBackStack() },
-            onPostStory = { content, url, type -> storyViewModel.postStory(content, url, type) },
+            onPostStory = { content, url, type -> 
+                navController.navigate(Screen.ShareStory.createRoute(content, url ?: "", type))
+            },
             onDeleteStory = { storyId -> storyViewModel.deleteStory(storyId) },
             onStoryViewed = { userId, storyId -> storyViewModel.markStoryAsViewed(userId, storyId) },
             onMuteStory = { userId, isMuted -> storyViewModel.muteStory(userId, isMuted) },
@@ -116,7 +119,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             type = type,
             onBack = { navController.popBackStack() },
             onPost = { c, u, t ->
-                storyViewModel.postStory(c, u, t)
+                storyViewModel.postStory(c, u.takeIf { it.isNotBlank() }, t)
                 navController.popBackStack(Screen.Main.route, false)
             }
         )
@@ -131,124 +134,6 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         )
     }
 
-    composable(
-        route = Screen.ChannelDetail.route,
-        arguments = listOf(navArgument("channelId") { type = NavType.StringType })
-    ) { backStackEntry ->
-        val channelDetailViewModel: ChannelDetailViewModel = hiltViewModel()
-        val channelId = backStackEntry.arguments?.getString("channelId") ?: return@composable
-        val context = LocalContext.current
-        
-        LaunchedEffect(channelId) { channelDetailViewModel.loadChannel(channelId) }
-        
-        val channelState by channelDetailViewModel.channel.collectAsState()
-        val postsState by channelDetailViewModel.posts.collectAsState()
-        
-        var showAddAdminDialog by remember { mutableStateOf(false) }
-        var showCreatePostDialog by remember { mutableStateOf(false) }
-
-        channelState.data?.let { channel ->
-            ChannelDetailScreen(
-                channel = channel,
-                posts = postsState.data ?: emptyList(),
-                onBack = { navController.popBackStack() },
-                onSubscribe = { id: String -> channelDetailViewModel.subscribe(id) },
-                onMute = { id: String, muted: Boolean -> channelDetailViewModel.mute(id, muted) },
-                onCreatePost = { showCreatePostDialog = true },
-                onAddAdmin = { showAddAdminDialog = true }
-            )
-        }
-
-        if (showAddAdminDialog) {
-            val chatViewModel: ChatViewModel = hiltViewModel()
-            val contactsState by chatViewModel.contacts.collectAsState()
-            
-            AlertDialog(
-                onDismissRequest = { showAddAdminDialog = false },
-                title = { Text("Select Admin", color = MaterialTheme.colorScheme.onSurface) },
-                text = {
-                    val contacts = (contactsState as? Resource.Success<List<Contact>>)?.data ?: emptyList()
-                    LazyColumn(modifier = Modifier.height(300.dp)) {
-                        items(contacts) { contact ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { 
-                                        channelDetailViewModel.addAdmin(channelId, contact.id)
-                                        showAddAdminDialog = false
-                                        Toast.makeText(context, "${contact.displayName} added as admin", Toast.LENGTH_SHORT).show()
-                                    }
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val initial = if (contact.displayName.isNotEmpty()) contact.displayName.substring(0, 1) else ""
-                                    Text(initial, color = MaterialTheme.colorScheme.onSurface)
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Text(contact.displayName, color = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                    }
-                },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = { showAddAdminDialog = false }) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        }
-
-        if (showCreatePostDialog) {
-            var postContent by remember { mutableStateOf("") }
-            AlertDialog(
-                onDismissRequest = { showCreatePostDialog = false },
-                title = { Text("Post to Channel", color = MaterialTheme.colorScheme.onSurface) },
-                text = {
-                    TextField(
-                        value = postContent,
-                        onValueChange = { postContent = it },
-                        placeholder = { Text("What's happening?") },
-                        modifier = Modifier.fillMaxWidth().height(120.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            if (postContent.isNotBlank()) {
-                                showCreatePostDialog = false
-                                postContent = ""
-                                Toast.makeText(context, "Post shared to channel", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text("Post")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showCreatePostDialog = false }) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        }
-    }
 
     composable(
         route = Screen.Chat.route,
@@ -262,6 +147,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     ) { backStackEntry ->
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         val typeStr = backStackEntry.arguments?.getString("type") ?: "direct"
         val jobId = backStackEntry.arguments?.getString("jobId")?.takeIf { it.isNotBlank() }
@@ -300,37 +186,57 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chats = chatsState.data ?: emptyList<ChatMessage>()
         val existingChat = chats.firstOrNull { it.id == resolvedChatId && it.type == type }
         
+        val channelsState by channelsViewModel.channels.collectAsState()
+        val channelFromRepo = channelsState.data?.find { it.id == resolvedChatId || it.conversationId == resolvedChatId }
+
+        // Use conversationId as the primary key for the chat screen if it's a channel
+        val effectiveChatId = if (type == ConversationType.CHANNEL) {
+            channelFromRepo?.conversationId ?: resolvedChatId!!
+        } else {
+            resolvedChatId!!
+        }
+
         val baseName = if (type == ConversationType.GROUP) {
-            existingChat?.senderName ?: chatViewModel.getCachedGroupName(resolvedChatId!!) ?: ""
+            existingChat?.senderName ?: chatViewModel.getCachedGroupName(effectiveChatId) ?: ""
         } else if (type == ConversationType.CHANNEL) {
-            existingChat?.senderName ?: ""
+            existingChat?.senderName ?: channelFromRepo?.name ?: ""
         } else {
             // Priority: Local DB Name > Contact Cache Name > Phone Number
-            existingChat?.senderName?.takeIf { it.isNotBlank() && it != resolvedChatId }
-                ?: GlobalCallState.getContactName(resolvedChatId!!)
-                ?: GlobalCallState.getContactPhone(resolvedChatId!!) 
+            existingChat?.senderName?.takeIf { it.isNotBlank() && it != effectiveChatId }
+                ?: GlobalCallState.getContactName(effectiveChatId)
+                ?: GlobalCallState.getContactPhone(effectiveChatId) 
                 ?: existingChat?.phoneNumber
                 ?: ""
         }
         
         val sanitizedName = if (baseName == "" || baseName.lowercase() == "unknown" || baseName.lowercase() == "null") {
-            resolvedChatId!!
+            effectiveChatId
         } else {
             baseName
         }
 
         val chat = (existingChat ?: ChatMessage(
-            id = resolvedChatId!!,
+            id = effectiveChatId,
             type = type,
             senderName = sanitizedName,
             lastMessage = "",
             timestamp = 0L,
-            avatarUrl = null,
+            avatarUrl = channelFromRepo?.avatarUrl,
             avatarColor = BoyishPurple,
             isGroup = type == ConversationType.GROUP,
-            isAdmin = false,
+            isAdmin = channelFromRepo?.isAdmin ?: false,
+            isSubscribed = channelFromRepo?.isSubscribed ?: false,
+            adminsCanPost = channelFromRepo?.adminsCanPost ?: false,
+            followers = channelFromRepo?.followers ?: "0",
+            createdBy = channelFromRepo?.createdBy,
             otherUserId = targetUserId
-        )).copy(type = type)
+        )).copy(
+            type = type,
+            isAdmin = existingChat?.isAdmin ?: channelFromRepo?.isAdmin ?: false,
+            isSubscribed = existingChat?.isSubscribed ?: channelFromRepo?.isSubscribed ?: false,
+            adminsCanPost = existingChat?.adminsCanPost ?: channelFromRepo?.adminsCanPost ?: false,
+            createdBy = existingChat?.createdBy ?: channelFromRepo?.createdBy
+        )
 
         ChatMessagesScreen(
             chat = chat,
@@ -395,6 +301,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     composable(Screen.ArchivedChats.route) { backStackEntry ->
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
         ArchivedChatsScreen(
             onBack = { navController.popBackStack() },
             onChatClick = { chat -> 
@@ -413,6 +320,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     composable(Screen.StarredMessages.route) { backStackEntry ->
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
         val starredMessages by chatViewModel.starredMessages.collectAsState()
         StarredMessagesScreen(
             messagesState = starredMessages,
@@ -431,6 +339,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val isGroupMode = backStackEntry.arguments?.getBoolean("isGroupMode") ?: false
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
         val contactPickerViewModel: ContactPickerViewModel = hiltViewModel()
         ContactPickerScreen(
             viewModel = contactPickerViewModel,
@@ -453,6 +362,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     composable(Screen.CreateGroup.route) { backStackEntry ->
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
         val createGroupViewModel: CreateGroupViewModel = hiltViewModel()
         
         val uiState by chatViewModel.uiState.collectAsState()
@@ -481,6 +391,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
         val viewModel: SharedMediaViewModel = hiltViewModel()
         
         val chatsState by chatViewModel.chats.collectAsState()
@@ -512,14 +423,27 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val isGroup = backStackEntry.arguments?.getBoolean("isGroup") ?: false
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
+        
+        val channelsState by channelsViewModel.channels.collectAsState()
+        val channelFromRepo = channelsState.data?.find { it.id == userId || it.conversationId == userId }
         
         val chatsState by chatViewModel.chats.collectAsState()
         val chats = chatsState.data ?: emptyList()
+        
         val chat = chats.find { it.id == userId } ?: ChatMessage(
             id = userId,
-            type = if (isGroup) ConversationType.GROUP else ConversationType.DIRECT,
-            senderName = GlobalCallState.getContactName(userId) ?: userId,
-            isGroup = isGroup
+            type = when {
+                channelFromRepo != null -> ConversationType.CHANNEL
+                isGroup -> ConversationType.GROUP
+                else -> ConversationType.DIRECT
+            },
+            senderName = channelFromRepo?.name ?: GlobalCallState.getContactName(userId) ?: GlobalCallState.getContactPhone(userId) ?: "",
+            isGroup = isGroup || channelFromRepo != null,
+            createdBy = channelFromRepo?.createdBy,
+            followers = channelFromRepo?.followers ?: "0",
+            isAdmin = channelFromRepo?.isAdmin ?: false,
+            adminsCanPost = channelFromRepo?.adminsCanPost ?: false
         )
         
         val sharedMediaResource by chatViewModel.getSharedMedia(userId).collectAsState(Resource.Loading<List<Message>>())
@@ -537,12 +461,15 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         com.example.firstapp.chat.ui.screens.ChatProfileScreen(
             chat = chat,
             onBack = { navController.popBackStack() },
-            sharedMedia = sharedMedia,
-            groupInfo = if (isGroup) groupInfo.groupInfo else Resource.Loading(),
-            contacts = contacts,
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
             },
+            onNavigateToSharedMedia = { chatId ->
+                navController.navigate(Screen.SharedMedia.createRoute(chatId))
+            },
+            sharedMedia = sharedMedia,
+            groupInfo = if (isGroup) groupInfo.groupInfo else Resource.Loading(),
+            contacts = contacts,
             onClearChat = { chatViewModel.clearChat(chat.id) },
             onDeleteChat = { chatViewModel.deleteChat(chat.id); navController.popBackStack() },
             onMuteToggle = { chatViewModel.muteChat(chat.id, it) },
@@ -553,7 +480,33 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 chatViewModel.leaveGroup(chat.id) {
                     navController.popBackStack(Screen.Main.route, false)
                 }
+            },
+            onToggleAdminPosting = { allowed ->
+                val realChannelId = channelFromRepo?.id ?: chat.id
+                channelsViewModel.toggleAdminPosting(realChannelId, allowed)
+            },
+            onSubscribe = { id ->
+                val realChannelId = channelFromRepo?.id ?: id
+                channelsViewModel.subscribeToChannel(realChannelId)
+            },
+            onAvatarSelected = { uri ->
+                chatViewModel.updateChatAvatar(chat.id, uri)
             }
+        )
+    }
+
+    composable(
+        route = Screen.MessageInfo.route,
+        arguments = listOf(navArgument("messageId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val messageId = backStackEntry.arguments?.getString("messageId") ?: return@composable
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        
+        MessageInfoScreen(
+            messageId = messageId,
+            viewModel = chatViewModel,
+            onBack = { navController.popBackStack() }
         )
     }
 }

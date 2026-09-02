@@ -14,5 +14,6 @@ data class StoryEntity(
     val userAvatarColor: Int,
     val stories: List<StoryItem>,
     val lastUpdated: String,
+    val lastUpdatedMillis: Long = 0L,
     val isMuted: Boolean
 )

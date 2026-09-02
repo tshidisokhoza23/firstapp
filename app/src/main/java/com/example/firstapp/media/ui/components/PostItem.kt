@@ -1,10 +1,13 @@
 package com.example.firstapp.media.ui.components
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import coil.compose.AsyncImage
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.model.User
@@ -43,21 +48,38 @@ import kotlin.collections.*
 
 import com.example.firstapp.common.data.ads.AdUnitConfig
 
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntSize
+import com.example.firstapp.media.model.PostType
+import com.example.firstapp.media.model.PostPoll
+import com.example.firstapp.media.model.PollOption
+
+enum class PostDisplayMode {
+    FEED, GRID, IMMERSIVE
+}
+
 @Composable
 fun PostItem(
     adManager: AdManager,
     post: Post,
     isOwnPost: Boolean = false,
     showThreadLine: Boolean = false,
+    showLineAbove: Boolean = true,
+    showLineBelow: Boolean = true,
     isLastInThread: Boolean = false,
+    depth: Int = 0,
     activePostId: String? = null,
+    autoplayEnabled: Boolean = true,
+    autoplayGifsEnabled: Boolean = true,
+    displayMode: PostDisplayMode = PostDisplayMode.FEED,
     onClick: () -> Unit,
-    onLike: (String, Long, Boolean) -> Unit,
-    onRepostClick: (Post) -> Unit,
+    onLike: (String, Long, Boolean) -> Unit = { _, _, _ -> },
+    onRepostClick: (Post) -> Unit = {},
     onBookmark: (String) -> Unit = {},
     onDelete: (String) -> Unit = {},
-    onReplyClick: (Post, Post?) -> Unit,
-    onProfileClick: (String) -> Unit,
+    onReplyClick: (Post, Post?) -> Unit = { _, _ -> },
+    onProfileClick: (String) -> Unit = {},
     onPlaySong: (Song, List<Song>) -> Unit = { _, _ -> },
     onVotePoll: (String, String) -> Unit = { _, _ -> },
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
@@ -66,35 +88,101 @@ fun PostItem(
     onMoreClick: (Post) -> Unit = {}
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
-        FeedNativeAdCard(
-            adManager = adManager,
-            adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
-            post = post
-        )
+        if (displayMode == PostDisplayMode.FEED) {
+            FeedNativeAdCard(
+                adManager = adManager,
+                adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
+                post = post
+            )
+        }
     } else {
-        val displayPost = if (post.repostOfId != null && post.originalPost != null) post.originalPost!! else post
-        VerticalFeedPostCard(
-            post = post,
-            isOwnPost = isOwnPost,
-            activePostId = activePostId,
-            showThreadLine = showThreadLine,
-            showLineAbove = showThreadLine && !isLastInThread, // Defaults for feed
-            showLineBelow = showThreadLine && !isLastInThread,
-            isLastInThread = isLastInThread,
-            onLikeClick = { onLike(post.id, post.likes, post.isLiked) },
-            onCommentClick = { onReplyClick(post, null) },
-            onRepostClick = { onRepostClick(post) },
-            onShareClick = { onShareClick(post) },
-            onFollowClick = { onFollowClick(displayPost.authorId, displayPost.isAuthorFollowed) },
-            onMoreClick = { onMoreClick(post) },
-            onProfileClick = { onProfileClick(displayPost.authorId) },
-            onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
-            onVotePoll = onVotePoll,
-            modifier = Modifier.clickable(onClick = onClick)
+        when (displayMode) {
+            PostDisplayMode.GRID -> {
+                ShortGridItem(post = post, onClick = onClick)
+            }
+            PostDisplayMode.FEED -> {
+                val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.isBlank()
+                val displayPost = if (isSimpleRepost) post.originalPost!! else post
+                
+                VerticalFeedPostCard(
+                    post = post,
+                    isOwnPost = isOwnPost,
+                    activePostId = activePostId,
+                    showThreadLine = showThreadLine,
+                    showLineAbove = showLineAbove,
+                    showLineBelow = showLineBelow,
+                    isLastInThread = isLastInThread,
+                    depth = depth,
+                    autoplayEnabled = autoplayEnabled,
+                    autoplayGifsEnabled = autoplayGifsEnabled,
+                    onLikeClick = { onLike(post.id, post.likes, post.isLiked) },
+                    onCommentClick = { onReplyClick(post, null) },
+                    onRepostClick = { onRepostClick(post) },
+                    onShareClick = { onShareClick(post) },
+                    onBookmarkClick = { onBookmark(post.id) },
+                    onFollowClick = { onFollowClick(displayPost.authorId, displayPost.isAuthorFollowed) },
+                    onMoreClick = { onMoreClick(post) },
+                    onProfileClick = { onProfileClick(displayPost.authorId) },
+                    onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
+                    onVotePoll = onVotePoll,
+                    modifier = Modifier.clickable(onClick = onClick)
+                )
+            }
+            PostDisplayMode.IMMERSIVE -> {
+                // This would be the logic from ShortItem.kt
+            }
+        }
+    }
+}
+
+@Composable
+fun ShortGridItem(post: Post, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(9f / 16f)
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color.Black)
+            .clickable { onClick() }
+    ) {
+        val rawModel = if (post.thumbnailUrl?.isNotEmpty() == true) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
+        val model = com.example.firstapp.common.util.MediaUtils.formatUrl(rawModel)
+
+        AsyncImage(
+            model = model,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
+                    )
+                )
+        )
+
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.align(Alignment.Center).size(24.dp)
+        )
+        
+        Text(
+            text = "${post.views}",
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
         )
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VerticalFeedPostCard(
     post: Post,
@@ -103,12 +191,15 @@ fun VerticalFeedPostCard(
     showThreadLine: Boolean = false,
     showLineAbove: Boolean = true,
     showLineBelow: Boolean = true,
-    isLastInThread: Boolean = false, // Kept for compatibility but we'll use flags
+    isLastInThread: Boolean = false,
     depth: Int = 0,
+    autoplayEnabled: Boolean = true,
+    autoplayGifsEnabled: Boolean = true,
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onRepostClick: () -> Unit,
     onShareClick: () -> Unit,
+    onBookmarkClick: () -> Unit,
     onFollowClick: () -> Unit,
     onMoreClick: () -> Unit,
     onProfileClick: (String) -> Unit,
@@ -124,14 +215,22 @@ fun VerticalFeedPostCard(
         activePostId == post.id
     }
 
-    val displayPost = if (post.repostOfId != null && post.originalPost != null) post.originalPost!! else post
+    val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.isBlank()
+    val displayPost = if (isSimpleRepost) post.originalPost!! else post
+    val quotedPost = if (!isSimpleRepost) post.originalPost else null
 
+    val haptic = LocalHapticFeedback.current
+    
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .background(Color.Transparent)
-            .padding(start = (16 * depth.coerceAtMost(4)).dp, top = 4.dp, bottom = 4.dp)
+            .padding(
+                start = if (showThreadLine) (20 * depth.coerceAtMost(4)).dp else 0.dp,
+                top = 4.dp,
+                bottom = 4.dp
+            )
     ) {
         if (showThreadLine) {
             PostSideBar(
@@ -147,14 +246,16 @@ fun VerticalFeedPostCard(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(end = 12.dp)
+                .padding(end = 12.dp) // Restore standard end padding
         ) {
-            // Repost Header (Optional)
+            val contentPadding = if (showThreadLine) 0.dp else 12.dp
+
+            // Repost Header
             if (post.repostOfId != null && post.originalPost != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = if (showThreadLine) 0.dp else 12.dp, vertical = 6.dp),
+                        .padding(start = contentPadding, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -177,19 +278,16 @@ fun VerticalFeedPostCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp, horizontal = if (showThreadLine) 0.dp else 12.dp),
+                    .padding(top = 8.dp, bottom = 8.dp, start = contentPadding),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!showThreadLine) {
-                    // Profile picture only if not using sidebar
                     Box(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
                             .background(displayPost.authorAvatarColor)
-                            .clickable { 
-                                onProfileClick(displayPost.authorId)
-                            }
+                            .clickable { onProfileClick(displayPost.authorId) }
                     ) {
                         AsyncImage(
                             model = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl),
@@ -202,20 +300,14 @@ fun VerticalFeedPostCard(
                     Spacer(modifier = Modifier.width(12.dp))
                 }
 
-                // User details
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { 
-                            if (displayPost.authorId.length > 0) {
-                                onProfileClick(displayPost.authorId)
-                            }
-                        }
+                        .clickable { onProfileClick(displayPost.authorId) }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val name = if (displayPost.authorName.length > 0) displayPost.authorName else "User"
                         Text(
-                            text = name,
+                            text = displayPost.authorName.ifBlank { "User" },
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
@@ -225,107 +317,69 @@ fun VerticalFeedPostCard(
                         )
                         if (displayPost.isVerifiedAuthor) {
                             Spacer(Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Default.Verified,
-                                contentDescription = "Verified",
-                                tint = TwitterBlue,
-                                modifier = Modifier.size(14.dp)
-                            )
+                            Icon(Icons.Default.Verified, "Verified", tint = TwitterBlue, modifier = Modifier.size(14.dp))
                         }
-                        val timestamp = formatTwitterTime(displayPost.timestamp)
-                        if (timestamp.length > 0) {
-                            Text(
-                                text = " · $timestamp",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 13.sp,
-                                maxLines = 1
-                            )
+                        val ts = formatTwitterTime(displayPost.timestamp)
+                        if (ts.isNotBlank()) {
+                            Text(" · $ts", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
                         }
                     }
-                    val handle = if (displayPost.authorHandle.length > 0) displayPost.authorHandle else "user"
-                    Text(
-                        text = "@$handle",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text("@${displayPost.authorHandle.ifBlank { "user" }}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
 
-                // Follow Button
-                if (!isOwnPost) {
+                if (!isOwnPost && !displayPost.isAuthorFollowed) {
                     Button(
                         onClick = onFollowClick,
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (post.isAuthorFollowed) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                            contentColor = if (post.isAuthorFollowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface
-                        ),
-                        border = if (post.isAuthorFollowed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = null
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface, contentColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text(
-                            text = if (post.isAuthorFollowed) "Following" else "Follow",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Follow", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-
                 IconButton(onClick = onMoreClick) {
                     Icon(Icons.Default.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            // 2. MIDDLE ROW: EXPANDABLE CAPTION TEXT
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize()
-                    .padding(horizontal = if (showThreadLine) 0.dp else 12.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = displayPost.content,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 15.sp,
-                    lineHeight = 20.sp,
-                    maxLines = if (isExpanded) Int.MAX_VALUE else 5,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                if (!isExpanded && displayPost.content.length > 200) {
+            // 2. MIDDLE ROW: CAPTION
+            if (displayPost.content.isNotBlank()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize()
+                        .padding(start = contentPadding, top = 4.dp, bottom = 4.dp)
+                ) {
                     Text(
-                        text = "Show More",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true }
+                        text = displayPost.content,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp,
+                        maxLines = if (isExpanded) Int.MAX_VALUE else 5,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    if (!isExpanded && displayPost.content.length > 200) {
+                        Text("Show More", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true } )
+                    }
                 }
             }
 
             // 3. MAIN MEDIA AREA
-            if (displayPost.mediaUrls.size > 0) {
+            if (displayPost.mediaUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                val mType = (displayPost.mediaType ?: "").uppercase(Locale.ROOT)
-                var hasVideoInUrls = false
-                for (u in displayPost.mediaUrls) {
-                    if (com.example.firstapp.common.util.MediaUtils.isVideo(u)) {
-                        hasVideoInUrls = true
-                        break
-                    }
-                }
-                val isVideo = (mType == "VIDEO") || (mType == "SHORT") || hasVideoInUrls
+                val isVideo = com.example.firstapp.common.util.MediaUtils.isVideo(displayPost.mediaUrls[0]) && displayPost.mediaUrls.size == 1
                 
-                if (isVideo && displayPost.mediaUrls.size == 1) {
+                if (isVideo) {
                     val videoUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(displayPost.mediaUrls[0]) ?: ""
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 0.8f)
-                            .background(Color.Black.copy(alpha = 0.1f))
+                            .padding(start = contentPadding) // Avoid overlap with sidebar
+                            .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 1.0f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                            .background(Color.Black)
                             .clickable { onMediaClick(videoUrl, "video", currentPlaybackPosition) }
                     ) {
                         VideoPlayer(
@@ -334,96 +388,149 @@ fun VerticalFeedPostCard(
                             modifier = Modifier.fillMaxSize(),
                             useController = false,
                             isMuted = isMuted,
+                            autoplayEnabled = autoplayEnabled,
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT, // Don't crop videos in standard feed
                             onPositionUpdate = { currentPlaybackPosition = it }
                         )
-                        
                         if (!isVideoPlaying) {
-                            Icon(
-                                Icons.Default.PlayCircle,
-                                null,
-                                modifier = Modifier.size(48.dp).align(Alignment.Center),
-                                tint = Color.White.copy(alpha = 0.8f)
-                            )
+                            Icon(Icons.Default.PlayCircle, null, modifier = Modifier.size(48.dp).align(Alignment.Center), tint = Color.White.copy(alpha = 0.8f))
                         }
-
-                        // Floating Mute Button
                         IconButton(
                             onClick = { isMuted = !isMuted },
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(8.dp)
-                                .size(32.dp)
-                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(32.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
                         ) {
-                            Icon(
-                                imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Mute",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Icon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, "Mute", tint = Color.White, modifier = Modifier.size(16.dp))
                         }
                     }
                 } else {
-                    MediaGrid(urls = displayPost.mediaUrls) { url ->
-                        val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(url) ?: url
-                        val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
-                        onMediaClick(formattedUrl, type, 0L)
+                    Box(modifier = Modifier.padding(start = contentPadding)) {
+                        MediaGrid(
+                            urls = displayPost.mediaUrls,
+                            autoplayEnabled = autoplayEnabled,
+                            autoplayGifsEnabled = autoplayGifsEnabled
+                        ) { url ->
+                            val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(url) ?: url
+                            val type = if (com.example.firstapp.common.util.MediaUtils.isVideo(url)) "video" else "image"
+                            onMediaClick(formattedUrl, type, 0L)
+                        }
                     }
                 }
             }
 
-            // Poll Support
+            // Polls & Quoted Posts (Padded)
             if (displayPost.poll != null) {
                 Spacer(modifier = Modifier.height(8.dp))
-                PollView(displayPost.poll) { optionId ->
-                    onVotePoll(displayPost.id, optionId)
+                Box(modifier = Modifier.padding(start = contentPadding)) {
+                    PollView(displayPost.poll) { optionId -> onVotePoll(displayPost.id, optionId) }
+                }
+            }
+            if (quotedPost != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(modifier = Modifier.padding(start = contentPadding)) {
+                    QuotedPostCard(post = quotedPost, onProfileClick = onProfileClick, onMediaClick = onMediaClick)
                 }
             }
 
-            // 4. BOTTOM ROW: INTERACTION BAR
-            Row(
+            // 4. BOTTOM ROW: INTERACTIONS (ADAPTIVE TEXT PILLS)
+            val isDark = isSystemInDarkTheme()
+            val barBgColor = if (isDark) Color(0xFF0B101B) else MaterialTheme.colorScheme.surface
+            val pillBgColor = if (isDark) Color(0xFF1A2232) else Color(0xFFF3F4F6)
+            val pillTextColor = if (isDark) Color(0xFFD1D5DB) else Color(0xFF4B5563)
+
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 4.dp),
+                color = barBgColor
             ) {
-                InteractionIcon(
-                    icon = Icons.Outlined.ChatBubbleOutline,
-                    count = displayPost.repliesCount,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = onCommentClick
-                )
-
-                Spacer(Modifier.width(2.dp))
-
-                InteractionIcon(
-                    icon = Icons.Default.Repeat,
-                    count = post.shares,
-                    color = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = onRepostClick
-                )
-
-                Spacer(Modifier.width(2.dp))
-
-                InteractionIcon(
-                    icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    count = post.likes,
-                    color = if (post.isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = onLikeClick
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                IconButton(onClick = onShareClick) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Shortcut,
-                        null, 
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant, 
-                        modifier = Modifier.size(20.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = contentPadding)
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PostPill(
+                        text = "Reply ${formatCount(displayPost.repliesCount)}", 
+                        onClick = onCommentClick,
+                        backgroundColor = pillBgColor,
+                        textColor = pillTextColor
+                    )
+                    PostPill(
+                        text = "Repost ${formatCount(post.repostCount)}", 
+                        onClick = onRepostClick,
+                        isSelected = post.isReposted,
+                        selectedColor = Color(0xFF00BA7C),
+                        backgroundColor = pillBgColor,
+                        textColor = pillTextColor
+                    )
+                    PostPill(
+                        text = "Like ${formatCount(post.likes)}", 
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLikeClick()
+                        },
+                        isSelected = post.isLiked,
+                        selectedColor = Color(0xFFF91880),
+                        backgroundColor = pillBgColor,
+                        textColor = pillTextColor
+                    )
+                    PostPill(
+                        text = "Views ${formatCount(post.views)}", 
+                        onClick = {},
+                        backgroundColor = pillBgColor,
+                        textColor = pillTextColor
+                    )
+                    PostPill(
+                        text = if (post.isBookmarked) "Saved" else "Save", 
+                        onClick = onBookmarkClick,
+                        isSelected = post.isBookmarked,
+                        selectedColor = Color(0xFF1D9BF0),
+                        backgroundColor = pillBgColor,
+                        textColor = pillTextColor
+                    )
+                    PostPill(
+                        text = "Share", 
+                        onClick = onShareClick,
+                        backgroundColor = pillBgColor,
+                        textColor = pillTextColor
                     )
                 }
             }
         }
+    }
+}
+
+private fun formatCount(count: Long): String {
+    return when {
+        count >= 1_000_000 -> String.format(Locale.US, "%.1fM", count / 1_000_000f)
+        count >= 1_000 -> String.format(Locale.US, "%.1fK", count / 1_000f)
+        else -> count.toString()
+    }
+}
+
+@Composable
+private fun PostPill(
+    text: String,
+    onClick: () -> Unit,
+    isSelected: Boolean = false,
+    selectedColor: Color = Color.Unspecified,
+    backgroundColor: Color = Color(0xFF1A2232),
+    textColor: Color = Color(0xFFD1D5DB)
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = backgroundColor
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            maxLines = 1
+        )
     }
 }
 
@@ -436,26 +543,27 @@ fun PostSideBar(
     showLineBelow: Boolean = false,
     onProfileClick: () -> Unit
 ) {
-    val avatarSize = if (depth == 0) 48.dp else 32.dp
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val avatarSize = if (depth == 0) 42.dp else 32.dp
+    val columnWidth = if (depth == 0) 64.dp else 48.dp
+    val lineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
 
     Box(
         modifier = Modifier
-            .width(64.dp)
+            .width(columnWidth)
             .fillMaxHeight(),
         contentAlignment = Alignment.TopCenter
     ) {
-        // Continuous connector line drawn behind the avatar, anchored to its center.
         Canvas(modifier = Modifier.fillMaxSize()) {
             val centerX = size.width / 2f
             val strokeWidth = 2.dp.toPx()
-            val avatarCenterY = avatarSize.toPx() / 2f
+            val avatarRadiusPx = avatarSize.toPx() / 2f
+            val avatarCenterY = avatarRadiusPx
 
             if (showLineAbove) {
                 drawLine(
                     color = lineColor,
                     start = Offset(centerX, 0f),
-                    end = Offset(centerX, avatarCenterY),
+                    end = Offset(centerX, avatarCenterY - avatarRadiusPx - 2.dp.toPx()),
                     strokeWidth = strokeWidth,
                     cap = StrokeCap.Round
                 )
@@ -463,7 +571,7 @@ fun PostSideBar(
             if (showLineBelow) {
                 drawLine(
                     color = lineColor,
-                    start = Offset(centerX, avatarCenterY),
+                    start = Offset(centerX, avatarCenterY + avatarRadiusPx + 4.dp.toPx()),
                     end = Offset(centerX, size.height),
                     strokeWidth = strokeWidth,
                     cap = StrokeCap.Round
@@ -491,200 +599,11 @@ fun PostSideBar(
 }
 
 @Composable
-fun PostHeaderExtras(post: Post, isOwnPost: Boolean) {
-    if (post.type == PostType.POST && post.repostOfId != null && post.originalPost != null) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 4.dp)
-        ) {
-            Icon(Icons.Default.Repeat, null, tint = SecondaryText, modifier = Modifier.size(14.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (isOwnPost) "You reposted" else "${post.authorName} reposted",
-                color = SecondaryText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-
-    if (post.type == PostType.INTERNAL_AD || post.type == PostType.NATIVE_AD) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
-            Icon(Icons.Default.TrendingUp, null, tint = AppAccent, modifier = Modifier.size(12.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Promoted", color = AppAccent, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-        }
-    }
-}
-
-@Composable
-fun PostMainHeader(
-    displayPost: Post,
-    isOwnPost: Boolean,
-    onProfileClick: (String) -> Unit,
-    onDelete: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = displayPost.authorName,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .clickable { onProfileClick(displayPost.authorId) }
-        )
-        if (displayPost.isVerifiedAuthor) {
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(Icons.Default.Verified, null, tint = TwitterBlue, modifier = Modifier.size(14.dp))
-        }
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "@${displayPost.authorHandle} · ${formatTwitterTime(displayPost.timestamp)}",
-            color = SecondaryText,
-            fontSize = 13.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f)
-                .clickable { onProfileClick(displayPost.authorId) }
-        )
-
-        if (isOwnPost) {
-            var showMenu by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.MoreHoriz, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    containerColor = AppSecondary
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Delete Post", color = Color.Red) },
-                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
-                        onClick = {
-                            showMenu = false
-                            onDelete()
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PostActions(
-    post: Post,
-    onLike: (String, Long, Boolean) -> Unit,
-    onReplyClick: () -> Unit,
-    onRepostClick: () -> Unit,
-    onBookmark: () -> Unit,
-    onShareClick: () -> Unit = {}
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        InteractionIcon(
-            icon = Icons.Outlined.ChatBubbleOutline,
-            count = post.repliesCount,
-            color = SecondaryText,
-            onClick = onReplyClick
-        )
-        Spacer(Modifier.width(8.dp))
-        InteractionIcon(
-            icon = Icons.Default.Repeat,
-            count = post.shares,
-            color = if (post.isReposted) Color.Green else SecondaryText,
-            onClick = onRepostClick
-        )
-        Spacer(Modifier.width(8.dp))
-        InteractionIcon(
-            icon = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-            count = post.likes,
-            color = if (post.isLiked) Color.Red else SecondaryText,
-            onClick = { onLike(post.id, post.likes, post.isLiked) }
-        )
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = onShareClick, modifier = Modifier.size(20.dp)) {
-            Icon(Icons.AutoMirrored.Filled.Shortcut, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
-        }
-    }
-}
-
-@Composable
-fun FeedNativeAdCard(
-    adManager: AdManager,
-    adUnitId: String,
-    post: Post
-) {
+fun FeedNativeAdCard(adManager: AdManager, adUnitId: String, post: Post) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        com.example.firstapp.common.ui.components.DynamicAdCard(
-            adManager = adManager,
-            adUnitId = adUnitId
-        )
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp),
-            color = Color.Black.copy(alpha = 0.6f),
-            shape = RoundedCornerShape(4.dp)
-        ) {
-            Text(
-                text = "Ad",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-            )
+        com.example.firstapp.common.ui.components.DynamicAdCard(adManager = adManager, adUnitId = adUnitId)
+        Surface(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp), color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(4.dp)) {
+            Text("Ad", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
         }
     }
-}
-
-fun Post.authorToUser(): User = User(
-    id = authorId,
-    username = authorHandle,
-    displayName = authorName,
-    avatarUrl = authorAvatarUrl
-)
-
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF1C1C1E)
-@Composable
-fun VerticalFeedPostCardPreview() {
-    val samplePost = Post(
-        id = "1",
-        authorName = "LatteArtPro",
-        authorHandle = "barista_bex",
-        authorAvatarColor = Color.Magenta,
-        content = "Just perfected my classic rosette! It was easier than I thought, so satisfying! #coffee #art #rosette #barista",
-        mediaUrls = listOf("https://images.unsplash.com/photo-1541167760496-1628856ab772"),
-        likes = 1250,
-        repliesCount = 45,
-        shares = 88,
-        isLiked = true,
-        isAuthorFollowed = false,
-        timestamp = "2023-10-27T10:00:00Z"
-    )
-    
-    VerticalFeedPostCard(
-        post = samplePost,
-        onLikeClick = {},
-        onCommentClick = {},
-        onRepostClick = {},
-        onShareClick = {},
-        onFollowClick = {},
-        onMoreClick = {},
-        onProfileClick = {},
-        onMediaClick = { _, _, _ -> }
-    )
 }

@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChannelDao {
-    @Query("SELECT * FROM channels ORDER BY CAST(followers AS INTEGER) DESC")
+    @Query("SELECT * FROM channels ORDER BY followers DESC")
     fun getChannels(): Flow<List<ChannelEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -21,12 +21,24 @@ interface ChannelDao {
     @Query("DELETE FROM channels")
     suspend fun clearChannels()
 
+    @androidx.room.Transaction
+    suspend fun replaceChannels(channels: List<ChannelEntity>) {
+        clearChannels()
+        insertChannels(channels)
+    }
+
     @Query("UPDATE channels SET isSubscribed = :isSubscribed WHERE id = :channelId")
     suspend fun updateSubscription(channelId: String, isSubscribed: Boolean)
+
+    @Query("UPDATE channels SET conversationId = :conversationId, isSubscribed = 1 WHERE id = :channelId")
+    suspend fun updateConversationMetadata(channelId: String, conversationId: String)
 
     @Query("UPDATE channels SET isMuted = :isMuted WHERE id = :channelId")
     suspend fun updateMuted(channelId: String, isMuted: Boolean)
 
-    @Query("SELECT * FROM channels WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%' OR LOWER(description) LIKE '%' || LOWER(:query) || '%' ORDER BY CAST(followers AS INTEGER) DESC")
+    @Query("SELECT id FROM channels WHERE isSubscribed = 1")
+    suspend fun getSubscribedChannelIds(): List<String>
+
+    @Query("SELECT * FROM channels WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%' OR LOWER(description) LIKE '%' || LOWER(:query) || '%' ORDER BY followers DESC")
     fun searchChannels(query: String): Flow<List<ChannelEntity>>
 }

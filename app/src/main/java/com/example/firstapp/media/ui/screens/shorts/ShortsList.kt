@@ -2,6 +2,7 @@ package com.example.firstapp.media.ui.screens.shorts
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ fun ShortsList(
     shorts: LazyPagingItems<com.example.firstapp.media.model.Post>,
     shortsViewModel: com.example.firstapp.media.ui.viewmodel.MediaViewModel,
     currentUserAvatarUrl: String? = null,
+    ownUserId: String? = null,
     bottomPadding: Dp,
     initialShortId: String? = null,
     onShortDisplayed: () -> Unit = {},
@@ -42,35 +44,54 @@ fun ShortsList(
     if (shorts.itemCount == 0) return
 
     val context = LocalContext.current
-    val pagerState = rememberPagerState(pageCount = { shorts.itemCount })
+    val adFrequency = 4
+    val totalPageCount = if (shorts.itemCount > 0) {
+        shorts.itemCount + (shorts.itemCount / (adFrequency - 1))
+    } else 0
+
+    val pagerState = rememberPagerState(pageCount = { totalPageCount })
     
+    fun getShortIndex(page: Int): Int {
+        val adsBefore = page / adFrequency
+        return page - adsBefore
+    }
+
+    fun isAdPage(page: Int): Boolean = (page + 1) % adFrequency == 0
+
     LaunchedEffect(initialShortId) {
         if (initialShortId != null && shorts.itemCount > 0) {
-            var foundIndex = -1
+            var foundShortIndex = -1
             val count = shorts.itemCount
-            for (i in 0..count - 1) {
+            for (i in 0 until count) {
                 if (shorts[i]?.id == initialShortId) {
-                    foundIndex = i
+                    foundShortIndex = i
                     break
                 }
             }
-            if (foundIndex != -1 && foundIndex < pagerState.pageCount) {
-                pagerState.scrollToPage(foundIndex)
-                onShortDisplayed()
+            if (foundShortIndex != -1) {
+                // Map short index back to page index
+                val pageIndex = foundShortIndex + (foundShortIndex / (adFrequency - 1))
+                if (pageIndex < totalPageCount) {
+                    pagerState.scrollToPage(pageIndex)
+                    onShortDisplayed()
+                }
             }
         }
     }
     
     LaunchedEffect(pagerState.currentPage, shorts.itemCount) {
         val urls = ArrayList<String>()
-        val start = pagerState.currentPage + 1
-        val end = pagerState.currentPage + 3
-        val count = shorts.itemCount
-        for (i in start..end) {
-            if (i >= 0 && i < count) {
-                val post = shorts[i]
-                if (post != null && post.mediaUrls.size > 0) {
-                    urls.add(post.mediaUrls[0])
+        val startPage = pagerState.currentPage + 1
+        val endPage = pagerState.currentPage + 3
+        
+        for (p in startPage..endPage) {
+            if (p >= 0 && p < totalPageCount && !isAdPage(p)) {
+                val shortIndex = getShortIndex(p)
+                if (shortIndex < shorts.itemCount) {
+                    val post = shorts[shortIndex]
+                    if (post != null && post.mediaUrls.isNotEmpty()) {
+                        urls.add(post.mediaUrls[0])
+                    }
                 }
             }
         }
@@ -80,16 +101,21 @@ fun ShortsList(
     VerticalPager(
         state = pagerState, 
         modifier = Modifier.fillMaxSize(),
-        key = { index -> 
-            if (index < shorts.itemCount) shorts[index]?.id ?: index.toString() else index.toString() 
+        key = { page -> 
+            if (isAdPage(page)) "ad_$page"
+            else {
+                val idx = getShortIndex(page)
+                if (idx < shorts.itemCount) shorts[idx]?.id ?: "short_$page"
+                else "empty_$page"
+            }
         }
     ) { page ->
-        val currentShort = shorts[page] ?: return@VerticalPager
-        
-        // Show an ad every 4 content posts
-        if ((page + 1) % 4 == 0) {
+        if (isAdPage(page)) {
             Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .padding(bottom = bottomPadding) // REQUIREMENT: Avoid nav bar clipping
             ) {
                 com.example.firstapp.common.ui.components.DynamicAdCard(
                     adManager = adManager,
@@ -99,27 +125,45 @@ fun ShortsList(
                 )
             }
         } else {
-            // Allow interaction for all types that are rendered as ShortItem
-            val isInteractiveShort = currentShort.type != com.example.firstapp.media.model.PostType.AD_UNIT && currentShort.type != com.example.firstapp.media.model.PostType.EXTERNAL_AD_PLACEHOLDER
+            val shortIndex = getShortIndex(page)
+            val currentShort = if (shortIndex < shorts.itemCount) shorts[shortIndex] else null
             
-            ShortItem(
-                adManager = adManager,
-                short = currentShort,
-                currentUserAvatarUrl = currentUserAvatarUrl,
-                isVisible = pagerState.currentPage == page, 
-                bottomInset = bottomPadding, 
-                onLikeClick = { if (isInteractiveShort) shortsViewModel.likePost(it, currentShort.likes, currentShort.isLiked) }, 
-                onSubscribeClick = { /* id -> shortsViewModel.subscribeToShortCreator(id) */ }, 
-                onCommentClick = { if (isInteractiveShort) onShowComments(it) }, 
-                onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkPost(it) }, 
-                onShareClick = { shortsViewModel.repostPost(it) },
-                onMoreClick = { onShowMoreMenu(currentShort) }, 
-                onCreatorClick = onCreatorClick,
-                onEngagement = { pid, type, time, comp -> 
-                    shortsViewModel.trackEngagement(pid, type, currentShort.category, time, comp)
-                },
-                isGlobalPaused = isGlobalPaused
-            )
+            if (currentShort != null) {
+                // Allow interaction for all types that are rendered as ShortItem
+                val isInteractiveShort = currentShort.type != com.example.firstapp.media.model.PostType.AD_UNIT && currentShort.type != com.example.firstapp.media.model.PostType.EXTERNAL_AD_PLACEHOLDER
+                
+                val isOwn = currentShort.authorId == ownUserId
+                android.util.Log.d("ShortsList", "Page $page: authorId=${currentShort.authorId}, ownUserId=$ownUserId, isOwn=$isOwn")
+
+                ShortItem(
+                    adManager = adManager,
+                    short = currentShort,
+                    currentUserAvatarUrl = currentUserAvatarUrl,
+                    isOwnPost = isOwn,
+                    isVisible = pagerState.currentPage == page, 
+                    bottomInset = bottomPadding, 
+                    onLikeClick = { if (isInteractiveShort) shortsViewModel.likePost(it, currentShort.likes, currentShort.isLiked) }, 
+                    onSubscribeClick = { id -> shortsViewModel.followUser(id) }, 
+                    onCommentClick = { if (isInteractiveShort) onShowComments(it) }, 
+                    onBookmarkClick = { if (isInteractiveShort) shortsViewModel.bookmarkPost(it) }, 
+                    onShareClick = { id, count, liked -> 
+                        shortsViewModel.repostPost(id, count, liked)
+                    },
+                    onExternalShareClick = { id, count ->
+                        shortsViewModel.sharePost(id, count)
+                    },
+                    onMoreClick = { onShowMoreMenu(currentShort) }, 
+                    onCreatorClick = onCreatorClick,
+                    onEngagement = { pid, type, time, comp -> 
+                        if (type == "view") {
+                            shortsViewModel.viewPost(pid)
+                        } else {
+                            shortsViewModel.trackEngagement(pid, type, currentShort.category, time, comp)
+                        }
+                    },
+                    isGlobalPaused = isGlobalPaused
+                )
+            }
         }
     }
 }

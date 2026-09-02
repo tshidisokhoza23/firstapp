@@ -15,13 +15,14 @@ import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 @Composable
 fun DriveTabScreen(
     navController: NavController,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     driveViewModel: DriveViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
     chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         DriveScreen(
-            bottomPadding = 0.dp,
+            bottomPadding = bottomPadding,
             viewModel = driveViewModel,
             userViewModel = userViewModel,
             chatViewModel = chatViewModel,

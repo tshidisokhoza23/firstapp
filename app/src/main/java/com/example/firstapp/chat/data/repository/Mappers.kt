@@ -38,10 +38,10 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         else -> ConversationType.DIRECT
     }
 
-    val name = if (chat.title != "" && chat.title != "unknown" && chat.title != "Unknown" && chat.title != "null") {
+    val name = if (chat.title.isNotBlank() && chat.title.lowercase() != "unknown" && chat.title != "null" && chat.title != chat.contact_id) {
         chat.title
     } else {
-        "" // Leave empty so Repository can resolve it better
+        ""
     }
 
     return ChatMessage(
@@ -55,9 +55,13 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         avatarColor = BoyishPurple,
         isMuted = chat.is_muted,
         isPinned = chat.is_pinned,
+        isSubscribed = chat.is_subscribed || chat.is_following,
         isGroup = type == ConversationType.GROUP,
         isAdmin = chat.is_admin,
-        otherUserId = chat.contact_id
+        adminsCanPost = chat.admins_can_post,
+        otherUserId = chat.contact_id,
+        phoneNumber = chat.phone_number, // Ensure this is mapped
+        createdBy = chat.created_by
     )
 }
 
@@ -90,7 +94,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         apiMessage.direction == "outgoing"
     }
 
-    val sName = if (apiMessage.sender_name != "" && apiMessage.sender_name != "unknown" && apiMessage.sender_name != "Unknown" && apiMessage.sender_name != "null") {
+    val sName = if (apiMessage.sender_name.isNotBlank() && apiMessage.sender_name.lowercase() != "unknown" && apiMessage.sender_name != "null" && apiMessage.sender_name != apiMessage.sender_id) {
         apiMessage.sender_name
     } else {
         apiMessage.contact_phone ?: ""
@@ -121,18 +125,14 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
             apiMessage.media_urls.map { formatUrl(it) }
         } else if (!apiMessage.file_name.isNullOrBlank() && apiMessage.media_type.lowercase() != "text") {
             // Heuristic: reconstruct URL if media_urls is missing but file_name is present
-            val folder = when (apiMessage.media_type.lowercase()) {
-                "image" -> "chat/images"
-                "video", "short_video" -> "chat/videos"
-                "audio", "audio_message" -> "chat/voice"
-                else -> "chat/files"
-            }
-            listOf(formatUrl("$folder/${apiMessage.file_name}"))
+            // Server structure: /uploads/chat/FILENAME
+            listOf(formatUrl("chat/${apiMessage.file_name}"))
         } else {
             emptyList()
         },
         isRead = false,
         isDelivered = true,
+        isStarred = apiMessage.is_starred ?: false,
         status = MessageStatus.SENT,
         reactions = apiMessage.reactions ?: emptyMap(),
         isEncrypted = isEncrypted,
@@ -152,7 +152,10 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         },
         jobDetails = apiMessage.job_details?.let { 
             JobDetails(it.title) 
-        }
+        },
+        linkPreview = apiMessage.link_preview,
+        audioAmplitudes = apiMessage.audio_amplitudes,
+        scheduledAt = apiMessage.scheduled_at
     )
 }
 
@@ -174,6 +177,7 @@ fun ChatMessage.toEntity(): ChatEntity {
         isGroup = isGroup,
         isArchived = isArchived,
         isAdmin = isAdmin,
+        adminsCanPost = adminsCanPost,
         isVerified = isVerified,
         isSubscribed = isSubscribed,
         createdBy = createdBy,
@@ -208,6 +212,7 @@ fun ChatEntity.toModel() = ChatMessage(
     isGroup = isGroup,
     isArchived = isArchived,
     isAdmin = isAdmin,
+    adminsCanPost = adminsCanPost,
     isVerified = isVerified,
     isSubscribed = isSubscribed,
     createdBy = createdBy,
@@ -237,6 +242,7 @@ fun Message.toEntity(chatId: String) = MessageEntity(
     mediaUrls = mediaUrls,
     isRead = isRead,
     isDelivered = isDelivered,
+    isStarred = isStarred,
     replyToId = replyToId,
     status = status,
     reactions = reactions,
@@ -252,7 +258,9 @@ fun Message.toEntity(chatId: String) = MessageEntity(
     replyToSenderName = replyToSenderName,
     applicantName = applicantProfile?.full_name,
     applicantBio = applicantProfile?.bio,
-    jobTitle = jobDetails?.title
+    jobTitle = jobDetails?.title,
+    linkPreview = linkPreview,
+    audioAmplitudes = audioAmplitudes
 )
 
 fun MessageEntity.toModel() = Message(
@@ -268,6 +276,7 @@ fun MessageEntity.toModel() = Message(
     mediaUrls = mediaUrls,
     isRead = isRead,
     isDelivered = isDelivered,
+    isStarred = isStarred,
     replyToId = replyToId,
     status = status,
     reactions = reactions,
@@ -282,7 +291,9 @@ fun MessageEntity.toModel() = Message(
     replyToText = replyToText,
     replyToSenderName = replyToSenderName,
     applicantProfile = if (applicantName != null) ApplicantProfile(applicantName, applicantBio, null) else null,
-    jobDetails = if (jobTitle != null) JobDetails(jobTitle) else null
+    jobDetails = if (jobTitle != null) JobDetails(jobTitle) else null,
+    linkPreview = linkPreview,
+    audioAmplitudes = audioAmplitudes
 )
 
 fun CallLog.toEntity() = CallLogEntity(
@@ -336,9 +347,22 @@ fun mapApiContact(api: ApiUser): Contact {
 
 fun formatUrl(url: String?): String {
     if (url == null || url.isBlank()) return ""
-    if (url.startsWith("http") || url.startsWith("https") || url.startsWith("data:") || url.startsWith("local://") || url.startsWith("file://")) {
+    
+    val baseUrl = BuildConfig.API_BASE_URL.removeSuffix("/api/v1/").removeSuffix("/")
+    val baseUri = try { android.net.Uri.parse(baseUrl) } catch (e: Exception) { null }
+    val targetHost = baseUri?.host ?: "192.168.100.7"
+
+    if (url.startsWith("http") || url.startsWith("https") || url.startsWith("data:") || url.startsWith("local:") || url.startsWith("file:")) {
+        if (url.contains("://localhost") || url.contains("://127.0.0.1")) {
+            return url.replace("localhost", targetHost).replace("127.0.0.1", targetHost)
+        }
         return url
     }
-    val baseUrl = BuildConfig.API_BASE_URL.removeSuffix("/api/v1/").removeSuffix("/")
-    return if (url.startsWith("/")) "$baseUrl$url" else "$baseUrl/$url"
+    
+    var cleanUrl = if (url.startsWith("/")) url.substring(1) else url
+    if (!cleanUrl.startsWith("uploads/")) {
+        cleanUrl = "uploads/$cleanUrl"
+    }
+    
+    return "$baseUrl/$cleanUrl"
 }

@@ -169,7 +169,8 @@ data class SearchResponse(
     val songs: List<ApiSong> = emptyList(),
     val artists: List<ApiUser> = emptyList(),
     val channels: List<com.example.firstapp.media.data.api.ApiChannel> = emptyList(),
-    val jobs: List<com.example.firstapp.chat.jobs.data.api.ApiJob> = emptyList()
+    val jobs: List<com.example.firstapp.chat.jobs.data.api.ApiJob> = emptyList(),
+    val posts: List<com.example.firstapp.media.data.api.ApiPost> = emptyList()
 )
 
 data class PublicKeyResponse(val public_key: String)

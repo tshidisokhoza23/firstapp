@@ -248,12 +248,15 @@ class CallWebSocketClient @Inject constructor(
 
     private fun send(event: OutgoingCallEvent) {
         val ws = webSocket
-        if (ws != null) {
-            ws.send(gson.toJson(event))
+        val json = gson.toJson(event)
+        if (ws != null && ws.send(json)) {
+            // Sent successfully
         } else {
-            Log.d("CallWebSocket", "WebSocket not connected, queuing message: ${event.type}")
+            Log.d("CallWebSocket", "WebSocket not connected or send failed, queuing message: ${event.type}")
             pendingMessages.offer(event)
-            scope.launch { ensureConnected() }
+            if (ws == null) {
+                scope.launch { ensureConnected() }
+            }
         }
     }
 

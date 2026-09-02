@@ -86,6 +86,9 @@ interface SocialApi {
     @POST("posts/{postId}/view")
     suspend fun viewPost(@Path("postId") postId: String): Response<StatusResponse>
 
+    @POST("posts/{postId}/share")
+    suspend fun sharePost(@Path("postId") postId: String): Response<StatusResponse>
+
     @POST("posts/{postId}/replies")
     suspend fun createPostReply(
         @Path("postId") postId: String,
@@ -137,10 +140,10 @@ interface SocialApi {
     @GET("channels")
     suspend fun getChannels(): Response<ChannelsResponse>
 
-    @POST("channels-create")
+    @POST("chats/channels")
     suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiPost>
 
-    @POST("channels/{channelId}/subscribe")
+    @POST("chats/channels/{channelId}/subscribe")
     suspend fun subscribeToChannel(@Path("channelId") channelId: String): Response<StatusResponse>
 
     @POST("channels/{channelId}/mute")
@@ -148,6 +151,9 @@ interface SocialApi {
 
     @POST("channels/{channelId}/admins")
     suspend fun addChannelAdmin(@Path("channelId") channelId: String, @Body request: UserIdRequest): Response<StatusResponse>
+
+    @POST("channels/{channelId}/admin-posting")
+    suspend fun toggleAdminPosting(@Path("channelId") channelId: String, @Body request: ToggleAdminPostingRequest): Response<StatusResponse>
 
     @HTTP(method = "DELETE", path = "channels/{channelId}/admins", hasBody = true)
     suspend fun removeChannelAdmin(@Path("channelId") channelId: String, @Body request: UserIdRequest): Response<StatusResponse>
@@ -203,6 +209,7 @@ data class ApiPost(
     @SerializedName("reply_count") val reply_count: Long = 0,
     val shares: Long = 0,
     @SerializedName("repost_count") val repost_count: Long = 0,
+    @SerializedName("actual_shares") val actual_shares: Long = 0,
     val views: Long = 0,
     @SerializedName("view_count") val view_count: Long = 0,
     @SerializedName("quote_count") val quote_count: Long = 0,
@@ -229,6 +236,7 @@ data class ApiPost(
     val tags: List<String>? = null,
     val author: ApiPostAuthor? = null,
     val replies: List<ApiPost>? = null,
+    @SerializedName("original_post") val original_post: ApiPost? = null,
     val poll: ApiPostPoll? = null,
     val ad: ApiAdvert? = null
 )
@@ -238,6 +246,10 @@ data class UserIdRequest(val user_id: String)
 data class CreateChannelRequest(
     val name: String,
     val description: String
+)
+
+data class ToggleAdminPostingRequest(
+    val admins_can_post: Boolean
 )
 
 data class CreatePostRequest(
@@ -251,7 +263,9 @@ data class CreatePostRequest(
     val channel_id: String? = null,
     @SerializedName("parent_post_id") val parent_post_id: String? = null,
     @SerializedName("root_post_id") val root_post_id: String? = null,
-    @SerializedName("category_id") val category_id: String? = null
+    @SerializedName("category_id") val category_id: String? = null,
+    @SerializedName("repost_of_id") val repost_of_id: String? = null,
+    @SerializedName("thumbnail_url") val thumbnail_url: String? = null
 )
 
 data class CreatePollRequest(
@@ -332,6 +346,7 @@ data class ApiChannel(
     val is_verified: Boolean,
     val is_subscribed: Boolean,
     val is_admin: Boolean = false,
+    @SerializedName("admins_can_post") val admins_can_post: Boolean = false,
     val created_by: String? = null,
     val category: String? = null,
     val last_post_text: String? = null,

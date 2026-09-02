@@ -39,7 +39,7 @@ class StoryViewModel @Inject constructor(
 
     private val socketListener = object : PostSocketListener {
         override fun onOpen() {}
-        override fun onPostsEvent(action: String, postId: String?) {}
+        override fun onPostsEvent(action: String, postId: String?, likes: Long?, reposts: Long?, shares: Long?, views: Long?) {}
         override fun onShortsEvent(action: String, shortId: String?) {}
         override fun onStoriesEvent(action: String, storyId: String?) {
             refreshStories()

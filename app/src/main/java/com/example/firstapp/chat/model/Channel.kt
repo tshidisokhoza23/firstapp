@@ -13,6 +13,7 @@ data class Channel(
     val isSubscribed: Boolean = false,
     val isMuted: Boolean = false,
     val isAdmin: Boolean = false,
+    val adminsCanPost: Boolean = false,
     val category: String = "Community",
     val createdBy: String? = null,
     val lastPostText: String = "",

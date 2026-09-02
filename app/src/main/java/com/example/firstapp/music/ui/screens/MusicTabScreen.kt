@@ -25,6 +25,7 @@ import com.example.firstapp.music.ui.viewmodel.MusicViewModel
 @Composable
 fun MusicTabScreen(
     navController: NavController,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     musicViewModel: MusicViewModel = hiltViewModel()
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -34,7 +35,11 @@ fun MusicTabScreen(
     val currentlyPlaying by musicViewModel.currentlyPlaying.collectAsState()
     val isPlaying by musicViewModel.isPlaying.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         // Top App Bar
         CenterAlignedTopAppBar(
             title = {
@@ -89,7 +94,7 @@ fun MusicTabScreen(
         }
 
         // Content
-        Crossfade(targetState = selectedTabIndex, modifier = Modifier.weight(1f)) { target ->
+        Crossfade(targetState = selectedTabIndex, modifier = Modifier.weight(1f).padding(bottom = bottomPadding)) { target ->
             when (target) {
                 0 -> RecommendationsScreen(
                     songs = songsState.data ?: emptyList(),

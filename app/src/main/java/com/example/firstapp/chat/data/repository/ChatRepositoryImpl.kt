@@ -22,11 +22,14 @@ import com.example.firstapp.common.data.realtime.WSEnvelope
 import com.example.firstapp.common.data.api.UserApi
 import com.example.firstapp.common.data.api.ApiUser
 import com.example.firstapp.common.data.api.SyncContactsRequest
+import com.example.firstapp.media.data.api.SocialApi
+import com.example.firstapp.chat.rewards.data.RewardsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonObject
 import java.util.UUID
@@ -39,7 +42,9 @@ import okhttp3.ResponseBody
 class ChatRepositoryImpl @Inject constructor(
     private val chatApi: ChatApi,
     private val userApi: UserApi,
+    private val socialApi: SocialApi,
     private val chatDaoProvider: Provider<ChatDao>,
+    private val channelDaoProvider: Provider<ChannelDao>,
     private val contactDaoProvider: Provider<ContactDao>,
     private val syncCursorDaoProvider: Provider<SyncCursorDao>,
     private val callLogDaoProvider: Provider<CallLogDao>,
@@ -47,7 +52,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val dbProvider: Provider<AppDatabase>,
     private val webSocketManager: WebSocketManager,
     private val displayNameResolver: DisplayNameResolver,
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : ChatRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -61,6 +66,27 @@ class ChatRepositoryImpl @Inject constructor(
     init {
         observeWebSocketEvents()
         observeConnectionState()
+        startDisappearingMessagesWorker()
+    }
+
+    private fun startDisappearingMessagesWorker() {
+        scope.launch {
+            while (isActive) {
+                try {
+                    val chatDao = chatDaoProvider.get()
+                    val chats = chatDao.getChatsWithDisappearingMessages()
+                    val now = System.currentTimeMillis()
+                    
+                    chats.forEach { chat ->
+                        val expiryTime = now - (chat.disappearingMessagesDuration * 1000L)
+                        chatDao.deleteMessagesBefore(chat.id, expiryTime)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatRepository", "Error pruning disappearing messages", e)
+                }
+                delay(60_000) // Every minute
+            }
+        }
     }
 
     private fun observeWebSocketEvents() {
@@ -77,6 +103,8 @@ class ChatRepositoryImpl @Inject constructor(
             .onEach { state ->
                 if (state == WebSocketManager.ConnectionState.CONNECTED) {
                     subscribeToTopics()
+                    // Automatic catch-up on reconnect
+                    scope.launch { syncDelta().collect {} }
                 }
             }
             .launchIn(scope)
@@ -88,16 +116,32 @@ class ChatRepositoryImpl @Inject constructor(
         // Subscribe to global presence events
         webSocketManager.send("presence", "subscribe", op = "subscribe")
         
-        // Subscribe to all chat rooms to receive real-time messages
+        // Subscribe to personal user events (Redis Pub/Sub alignment)
+        sessionManager.getUserId()?.let { userId ->
+            webSocketManager.send("user:$userId", "subscribe", op = "subscribe")
+        }
+        
+        // Subscribe to all chat rooms and channels to receive real-time messages
         try {
             val chatDao = chatDaoProvider.get()
+            val channelDao = channelDaoProvider.get()
+            
+            // DMs and Groups
             val chatIds = chatDao.getAllChatIds()
-            chatIds.forEach { id ->
+            
+            // Channels use their conversationId for real-time messages
+            val channelConvIds = channelDao.getChannels().first()
+                .filter { it.isSubscribed }
+                .mapNotNull { it.conversationId ?: it.id }
+            
+            val allIds = (chatIds + channelConvIds).distinct()
+            
+            allIds.forEach { id ->
                 webSocketManager.send("chat:$id", "join", op = "subscribe")
             }
-            Log.d("ChatRepository", "Subscribed to ${chatIds.size} chat topics")
+            Log.d("ChatRepository", "Subscribed to ${allIds.size} topics (${chatIds.size} chats, ${channelConvIds.size} channels)")
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Failed to get chat IDs for re-subscription", e)
+            Log.e("ChatRepository", "Failed to get IDs for re-subscription", e)
         }
     }
 
@@ -108,9 +152,11 @@ class ChatRepositoryImpl @Inject constructor(
             return
         }
         val chatDao = chatDaoProvider.get()
+        val topic = envelope.topic ?: ""
         
-        when (envelope.topic) {
-            "chat" -> {
+        when {
+            topic == "chat" || topic.startsWith("chat:") -> {
+                Log.v("ChatRepository", "Handling chat event: ${envelope.event} on topic: $topic")
                 when (envelope.event) {
                     "message", "INCOMING_MSG" -> {
                         val payload = envelope.payload
@@ -161,15 +207,12 @@ class ChatRepositoryImpl @Inject constructor(
                                     chatDao.incrementUnreadCount(message.conversationId)
                                 }
 
-                                // Notify RewardViewModel via a global flow or similar
-                                if (envelope.event == "REWARD_UPDATE") {
-                                    Log.i("ChatRepository", "Reward update received via WS")
-                                    // Trigger a local UI update if needed or rely on RewardViewModel listener
-                                }
-
-                                // Expert: Verify if chat exists, if not, trigger a full sync to fetch metadata
-                                val exists = chatDao.searchChatsById(message.conversationId) != null
-                                if (!exists) {
+                                // Expert: Verify if chat exists in either Chats or Channels (checking both ID and ConversationID)
+                                val existsInChats = chatDao.searchChatsById(message.conversationId) != null
+                                val channels = channelDaoProvider.get().getChannels().first()
+                                val existsInChannels = channels.any { it.id == message.conversationId || it.conversationId == message.conversationId }
+                                
+                                if (!existsInChats && !existsInChannels) {
                                     Log.i("ChatRepository", "New conversation detected via WS: ${message.conversationId}, syncing...")
                                     syncChats().collect {}
                                 }
@@ -180,8 +223,7 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                     "REWARD_UPDATE" -> {
                         // Notify RewardViewModel via a global flow or similar
-                        // For now, trigger a refresh of the dashboard
-                        Log.i("ChatRepository", "Reward update received via WS")
+                        Log.i("ChatRepository", "Reward update received via WS topic=chat")
                     }
                     "call_ringing", "call_invite", "call_accept", "call_end", "call_reject" -> {
                         Log.d("ChatRepository", "Incoming call event via multiplexed WS: ${envelope.event}")
@@ -269,7 +311,7 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                 }
             }
-            "presence" -> {
+            topic == "presence" -> {
                 val payload = envelope.payload
                 if (payload != null) {
                     try {
@@ -294,9 +336,24 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                 }
             }
-            "jobs" -> {
+            topic == "jobs" -> {
                 // Trigger job list refresh if needed, or handle specific job events
                 Log.d("ChatRepository", "Received jobs event: ${envelope.event}")
+            }
+            topic.startsWith("user:") -> {
+                when (envelope.event) {
+                    "balance_update" -> {
+                        val newBalance = envelope.payload?.get("balance")?.toString()?.trim('"')?.toDoubleOrNull()
+                        if (newBalance != null) {
+                            Log.i("ChatRepository", "Received balance update via personal WS topic: $newBalance")
+                            RewardsManager.onBalanceUpdate(newBalance)
+                        }
+                    }
+                    "REWARD_UPDATE" -> {
+                        Log.i("ChatRepository", "Received reward update via personal WS topic")
+                        // General notification handling
+                    }
+                }
             }
         }
     }
@@ -317,7 +374,7 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getMessages(chatId: String, page: Int): Flow<Resource<List<Message>>> = 
         chatDaoProvider.get().getMessages(chatId).map { list ->
             Resource.Success(list.map { it.toModel() })
-        }
+        }.distinctUntilChanged()
 
     override fun fetchMessages(chatId: String, page: Int): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
@@ -353,9 +410,10 @@ class ChatRepositoryImpl @Inject constructor(
         chatId: String, body: String, messageType: String, mediaUrls: List<String>,
         duration: String?, fileName: String?, fileSize: String?,
         contactName: String?, contactPhone: String?, latitude: Double?, longitude: Double?,
-        replyToId: String?, replyToText: String?, replyToSenderName: String?
+        replyToId: String?, replyToText: String?, replyToSenderName: String?,
+        clientId: String?, scheduledAt: Long?
     ): Flow<Resource<Message>> = flow {
-        val clientUuid = UUID.randomUUID().toString()
+        val clientUuid = clientId ?: UUID.randomUUID().toString()
         val myUserId = sessionManager.getUserId() ?: "0"
         val type = try { MessageType.valueOf(messageType.uppercase()) } catch(_: Exception) { MessageType.TEXT }
 
@@ -369,9 +427,11 @@ class ChatRepositoryImpl @Inject constructor(
         )
         
         val chatDao = chatDaoProvider.get()
-        chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
-        updateLastMessage(chatId, body, pendingMsg.timestamp, true, false)
-        emit(Resource.Success(pendingMsg))
+        if (scheduledAt == null) {
+            chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
+            updateLastMessage(chatId, body, pendingMsg.timestamp, true, false)
+            emit(Resource.Success(pendingMsg))
+        }
 
         try {
             val response = chatApi.sendMessage(
@@ -380,28 +440,48 @@ class ChatRepositoryImpl @Inject constructor(
                     client_uuid = clientUuid, message_text = body, media_type = messageType.uppercase(),
                     media_urls = mediaUrls, duration = duration, file_name = fileName, file_size = fileSize,
                     contact_name = contactName, contact_phone = contactPhone, latitude = latitude,
-                    longitude = longitude, reply_to_id = replyToId
+                    longitude = longitude, reply_to_id = replyToId, scheduled_at = scheduledAt,
+                    link_preview = pendingMsg.linkPreview, audio_amplitudes = pendingMsg.audioAmplitudes
                 )
             )
 
             if (response.isSuccessful && response.body() != null) {
-                val privKey = sessionManager.getPrivateKey()
-                val serverMsg = mapApiMessage(response.body()!!.message, privKey, myUserId)
-                val db = dbProvider.get()
-                db.withTransaction {
-                    chatDao.deleteMessage(clientUuid)
-                    chatDao.insertMessages(listOf(serverMsg.toEntity(chatId)))
+                if (scheduledAt == null) {
+                    val privKey = sessionManager.getPrivateKey()
+                    var serverMsg = mapApiMessage(response.body()!!.message, privKey, myUserId)
+                    
+                    // Preserve mediaUrls if server response doesn't echo them
+                    if (serverMsg.mediaUrls.isEmpty() && pendingMsg.mediaUrls.isNotEmpty()) {
+                        serverMsg = serverMsg.copy(mediaUrls = pendingMsg.mediaUrls)
+                    }
+
+                    val db = dbProvider.get()
+                    db.withTransaction {
+                        chatDao.deleteMessage(clientUuid)
+                        chatDao.insertMessages(listOf(serverMsg.toEntity(chatId)))
+                    }
+                    updateLastMessage(chatId, serverMsg.content, serverMsg.timestamp, true, true)
+                    emit(Resource.Success(serverMsg))
+                } else {
+                    emit(Resource.Success(pendingMsg))
                 }
-                updateLastMessage(chatId, serverMsg.content, serverMsg.timestamp, true, true)
-                emit(Resource.Success(serverMsg))
             } else {
-                chatDao.insertMessages(listOf(pendingMsg.copy(status = MessageStatus.FAILED).toEntity(chatId)))
-                com.example.firstapp.common.data.worker.ChatOutboxWorker.enqueue(context)
-                emit(Resource.Error("Failed to send message"))
+                if (scheduledAt == null) {
+                    chatDao.insertMessages(listOf(pendingMsg.copy(status = MessageStatus.FAILED).toEntity(chatId)))
+                    // Only enqueue if NOT currently syncing to avoid loops
+                    if (clientId == null) { 
+                        com.example.firstapp.common.data.worker.ChatOutboxWorker.enqueue(context)
+                    }
+                }
+                emit(Resource.Error("Failed to send message: ${response.code()}"))
             }
         } catch (e: Exception) {
-            chatDao.insertMessages(listOf(pendingMsg.copy(status = MessageStatus.FAILED).toEntity(chatId)))
-            com.example.firstapp.common.data.worker.ChatOutboxWorker.enqueue(context)
+            if (scheduledAt == null) {
+                chatDao.insertMessages(listOf(pendingMsg.copy(status = MessageStatus.FAILED).toEntity(chatId)))
+                if (clientId == null) {
+                    com.example.firstapp.common.data.worker.ChatOutboxWorker.enqueue(context)
+                }
+            }
             emit(Resource.Error(e.message ?: "Network error"))
         }
     }
@@ -410,13 +490,13 @@ class ChatRepositoryImpl @Inject constructor(
         chatDaoProvider.get().getChats().map { list ->
             Log.d("ChatRepository", "getChats: emitting ${list.size} chats from local DB")
             Resource.Success(list.map { it.toModel() }) 
-        }
+        }.distinctUntilChanged()
 
     override fun getChatById(chatId: String): Flow<Resource<ChatMessage>> =
         chatDaoProvider.get().getChatById(chatId).map { entity ->
             if (entity != null) Resource.Success(entity.toModel())
             else Resource.Error("Chat not found")
-        }
+        }.distinctUntilChanged()
 
     override fun syncChats(): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
@@ -440,21 +520,56 @@ class ChatRepositoryImpl @Inject constructor(
                             phone
                         )
                     } else {
-                        finalName = if (chat.title.isNotBlank() && chat.title.lowercase() != "unknown") {
+                        val fallback = if (mapped.type == com.example.firstapp.common.model.ConversationType.CHANNEL) "Channel" else "Group"
+                        finalName = if (chat.title.isNotBlank() && 
+                            chat.title.lowercase() != "unknown" &&
+                            !chat.title.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
+                        ) {
                              chat.title
                         } else {
-                             "Group"
+                             fallback
                         }
                     }
                     
                     mapped.copy(senderName = finalName, phoneNumber = chat.phone_number).toEntity()
                 }.distinctBy { it.id }
                 
+                val db = dbProvider.get()
+                val chatDao = chatDaoProvider.get()
+                
+                // Expert Fix: Preserve local state like isSubscribed if server doesn't provide it
+                val localChats = chatDao.getChats().first().associateBy { it.id }
+                
+                val finalEntities = entities.map { serverEntity ->
+                    val local = localChats[serverEntity.id]
+                    if (local != null && serverEntity.type == com.example.firstapp.common.model.ConversationType.CHANNEL) {
+                        // Preserve local truth for subscription and admin status (backend field names might vary or be missing)
+                        serverEntity.copy(
+                            isSubscribed = local.isSubscribed || serverEntity.isSubscribed,
+                            isAdmin = local.isAdmin || serverEntity.isAdmin,
+                            isMuted = local.isMuted,
+                            adminsCanPost = local.adminsCanPost || serverEntity.adminsCanPost,
+                            createdBy = serverEntity.createdBy ?: local.createdBy
+                        )
+                    } else {
+                        serverEntity
+                    }
+                }
+
                 try {
-                    val db = dbProvider.get()
-                    val chatDao = chatDaoProvider.get()
                     db.withTransaction {
-                        chatDao.insertChats(entities)
+                        chatDao.insertChats(finalEntities)
+                        
+                        // Expert: Also update ChannelDao with conversation metadata for followed channels
+                        val channelDao = channelDaoProvider.get()
+                        apiChats.forEach { apiChat ->
+                            if (apiChat.type.trim().uppercase().contains("CHANNEL")) {
+                                val channelId = apiChat.channel_id
+                                if (channelId != null) {
+                                    channelDao.updateConversationMetadata(channelId, apiChat.conversation_id)
+                                }
+                            }
+                        }
                     }
                     emit(Resource.Success(true))
                 } catch (e: Exception) {
@@ -528,6 +643,17 @@ class ChatRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         try {
             val deviceContacts = ContactUtils.getPhoneContactsWithNames(context)
+            
+            // Huawei/Privacy Safety: If we have permission but the list is empty, don't clear remote list.
+            // An empty list here usually means system restriction or transient error, 
+            // and syncing it would hide all stories for the user.
+            if (deviceContacts.isEmpty() && phoneNumbers.isEmpty()) {
+                Log.w("ChatRepository", "Skipping contact sync: No local contacts found (Safety Trigger)")
+                val existing = contactDaoProvider.get().getContacts().first()
+                emit(Resource.Success(existing.map { it.toModel() }))
+                return@flow
+            }
+
             val numbersToSync = (phoneNumbers + deviceContacts.map { it.phoneNumber }).distinct()
             val response = userApi.syncContacts(SyncContactsRequest(numbersToSync))
             if (response.isSuccessful && response.body() != null) {
@@ -571,6 +697,17 @@ class ChatRepositoryImpl @Inject constructor(
             val response = chatApi.syncDelta(since)
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
+                
+                // Process missed events
+                for (jsonEl in body.messages) {
+                    try {
+                        val envelope = json.decodeFromString<WSEnvelope>(jsonEl.toString())
+                        handleIncomingEvent(envelope)
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "Failed to process delta event", e)
+                    }
+                }
+
                 dao.upsertCursor(
                     SyncCursorEntity(
                         entityType = "messages",
@@ -618,6 +755,13 @@ class ChatRepositoryImpl @Inject constructor(
             val chatDao = chatDaoProvider.get()
             chatDao.markIncomingAsRead(chatId)
             chatDao.updateUnreadCount(chatId, 0)
+            
+            // WS Ack for real-time visibility
+            webSocketManager.send("chat", "READ_ACK", buildJsonObject {
+                put("conversation_id", chatId)
+                put("timestamp", System.currentTimeMillis())
+            })
+
             chatApi.markAsRead(chatId, ReadReceiptRequest(""))
             emit(Resource.Success(true))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
@@ -655,15 +799,44 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun addGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
-        try { chatApi.addGroupMember(groupId, AddMemberRequest(userId)); emit(Resource.Success(true)) } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+        emit(Resource.Loading())
+        try { 
+            val response = chatApi.addGroupMember(groupId, AddMemberRequest(userId))
+            if (response.isSuccessful) {
+                // Refresh group info to update local state/UI
+                getGroupInfo(groupId).collect {}
+                emit(Resource.Success(true))
+            } else {
+                val error = response.errorBody()?.string() ?: "Failed to add member"
+                emit(Resource.Error(error))
+            }
+        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
     override fun removeGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
-        try { chatApi.removeGroupMember(groupId, userId); emit(Resource.Success(true)) } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+        emit(Resource.Loading())
+        try { 
+            val response = chatApi.removeGroupMember(groupId, userId)
+            if (response.isSuccessful) {
+                getGroupInfo(groupId).collect {}
+                emit(Resource.Success(true)) 
+            } else {
+                emit(Resource.Error("Failed to remove member"))
+            }
+        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
     override fun promoteToAdmin(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
-        try { chatApi.promoteToAdmin(groupId, userId); emit(Resource.Success(true)) } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+        emit(Resource.Loading())
+        try { 
+            val response = chatApi.promoteToAdmin(groupId, userId)
+            if (response.isSuccessful) {
+                getGroupInfo(groupId).collect {}
+                emit(Resource.Success(true)) 
+            } else {
+                emit(Resource.Error("Failed to promote member"))
+            }
+        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
     }
 
     override fun leaveGroup(groupId: String): Flow<Resource<Boolean>> = flow {
@@ -675,10 +848,55 @@ class ChatRepositoryImpl @Inject constructor(
             Resource.Success(list.filter { it.type == MessageType.IMAGE || it.type == MessageType.VIDEO }.map { it.toModel() })
         }
 
-    override fun editMessage(messageId: String, newBody: String): Flow<Resource<Message>> = flow { /* Implement */ }
+    override fun editMessage(messageId: String, newBody: String): Flow<Resource<Message>> = flow {
+        emit(Resource.Loading())
+        try {
+            val chatDao = chatDaoProvider.get()
+            val chatId = chatDao.getChatIdForMessage(messageId) ?: ""
+            
+            // 1. Local Update
+            chatDao.updateMessageContent(messageId, newBody)
+            
+            // 2. Server Update
+            val response = chatApi.editMessage(chatId, messageId, EditMessageRequest(newBody))
+            if (response.isSuccessful && response.body() != null) {
+                val privKey = sessionManager.getPrivateKey()
+                val myUserId = sessionManager.getUserId()
+                val serverMsg = mapApiMessage(response.body()!!.message, privKey, myUserId)
+                emit(Resource.Success(serverMsg))
+            } else {
+                emit(Resource.Error("Failed to edit on server"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Edit error"))
+        }
+    }
     override fun reactToMessage(messageId: String, emoji: String): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateMessageReactions(messageId, mapOf(emoji to 1)); emit(Resource.Success(true)) }
 
-    override suspend fun saveMessage(chatId: String, message: Message) { chatDaoProvider.get().insertMessages(listOf(message.toEntity(chatId))) }
+    override suspend fun saveMessage(chatId: String, message: Message) {
+        val chatDao = chatDaoProvider.get()
+        val entity = message.toEntity(chatId)
+        
+        // Expert Fix: Check for duplicate/pending message using clientId
+        val clientId = entity.clientId
+        if (clientId != null && entity.id != clientId) {
+            val pending = chatDao.getMessageById(clientId)
+            if (pending != null) {
+                Log.d("ChatRepository", "Detected pending message for clientId=$clientId, confirming with serverId=${entity.id}")
+                
+                // Preserve local media URLs if the server didn't provide any (optimistic UI persistence)
+                var finalEntity = entity
+                if (finalEntity.mediaUrls.isEmpty() && pending.mediaUrls.isNotEmpty()) {
+                    finalEntity = finalEntity.copy(mediaUrls = pending.mediaUrls)
+                }
+                
+                chatDao.confirmSentMessage(clientId, finalEntity)
+                return
+            }
+        }
+        
+        chatDao.insertMessages(listOf(entity)) 
+    }
     override suspend fun updateMessageInCache(chatId: String, message: Message) { chatDaoProvider.get().insertMessages(listOf(message.toEntity(chatId))) }
     override suspend fun updateMessageReactions(messageId: String, reactions: Map<String, Int>) { chatDaoProvider.get().updateMessageReactions(messageId, reactions) }
     override suspend fun deleteMessageLocal(messageId: String) { chatDaoProvider.get().deleteMessage(messageId) }
@@ -736,12 +954,23 @@ class ChatRepositoryImpl @Inject constructor(
     }
     override suspend fun clearMessages(chatId: String) { chatDaoProvider.get().clearMessages(chatId) }
     override suspend fun clearAllChats() { val chatDao = chatDaoProvider.get(); chatDao.clearChats(); chatDao.clearAllMessages() }
-    override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun getStarredMessages(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList())) }
+    override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow {
+        try {
+            chatDaoProvider.get().updateMessageStarred(messageId, isStarred)
+            emit(Resource.Success(true))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+    override fun getStarredMessages(): Flow<Resource<List<Message>>> = 
+        chatDaoProvider.get().getStarredMessages().map { list ->
+            Resource.Success(list.map { it.toModel() })
+        }
     override suspend fun updateWallpaper(chatId: String, wallpaperUrl: String?) { chatDaoProvider.get().updateWallpaper(chatId, wallpaperUrl) }
     override suspend fun updateCustomNotificationTone(chatId: String, tone: String?) { chatDaoProvider.get().updateCustomNotificationTone(chatId, tone) }
     override suspend fun updateMediaVisibility(chatId: String, visible: Boolean) { chatDaoProvider.get().updateMediaVisibility(chatId, visible) }
     override suspend fun updateDisappearingMessages(chatId: String, duration: Int) { chatDaoProvider.get().updateDisappearingMessages(chatId, duration) }
+    override suspend fun updateChatAvatar(chatId: String, avatarUrl: String?) { chatDaoProvider.get().updateAvatar(chatId, avatarUrl) }
     override suspend fun syncPendingMessages() {
         val chatDao = chatDaoProvider.get()
         val pending = chatDao.getPendingMessages()
@@ -764,12 +993,22 @@ class ChatRepositoryImpl @Inject constructor(
                 longitude = entity.longitude,
                 replyToId = entity.replyToId,
                 replyToText = entity.replyToText,
-                replyToSenderName = entity.replyToSenderName
+                replyToSenderName = entity.replyToSenderName,
+                clientId = entity.clientId
             ).collect {}
         }
     }
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList())) }
+    override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow {
+        emit(Resource.Loading())
+        try {
+            // This would normally call an endpoint like GET conversations/{cid}/messages/{mid}/readers
+            // For now, we return empty list if not implemented on backend, or we can add it to ChatApi
+            emit(Resource.Success(emptyList()))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
@@ -789,7 +1028,10 @@ class ChatRepositoryImpl @Inject constructor(
     override fun searchLocalChats(query: String): Flow<List<ChatMessage>> = chatDaoProvider.get().getChats().map { it.filter { c -> c.senderName.contains(query, true) }.map { e -> e.toModel() } }
     override fun searchLocalContacts(query: String): Flow<List<Contact>> = contactDaoProvider.get().searchContacts(query).map { list -> list.map { it.toModel() } }
     override fun searchMessagesAcrossAll(query: String, filter: com.example.firstapp.search.model.SearchFilter): Flow<List<Message>> = chatDaoProvider.get().searchMessagesAcrossAll(query).map { it.map { e -> e.toModel() } }
-    override fun getAllFiles(): Flow<Resource<List<Message>>> = flow { emit(Resource.Success(emptyList())) }
+    override fun getAllFiles(): Flow<Resource<List<Message>>> = 
+        chatDaoProvider.get().getAllFiles().map { list ->
+            Resource.Success(list.map { it.toModel() })
+        }
     override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
@@ -816,6 +1058,45 @@ class ChatRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e("ChatRepository", "Error fetching ICE servers", e)
             Resource.Success(emptyList())
+        }
+    }
+
+    override fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.subscribeToChannel(channelId)
+            if (response.isSuccessful) {
+                // 1. Join WebSocket topic immediately for real-time messages
+                webSocketManager.send("chat:$channelId", "join", op = "subscribe")
+
+                // 2. Update local ChatEntity subscription status
+                val chatDao = chatDaoProvider.get()
+                val chat = chatDao.searchChatsById(channelId)
+                if (chat != null) {
+                    // Endpoint is typically a toggle
+                    chatDao.insertChats(listOf(chat.copy(isSubscribed = true)))
+                } else {
+                    // 3. If chat entity doesn't exist, fetch details from server
+                    try {
+                        val detailsResp = chatApi.getChatDetails(channelId)
+                        if (detailsResp.isSuccessful && detailsResp.body() != null) {
+                            val newChat = mapApiChatSummary(detailsResp.body()!!).toEntity()
+                            // Force subscribed to true since we just succeeded
+                            chatDao.insertChats(listOf(newChat.copy(isSubscribed = true)))
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "Failed to fetch chat details after subscribe", e)
+                    }
+                }
+                
+                // Background sync chats to reflect membership
+                syncChats().collect {}
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to follow channel"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Offline"))
         }
     }
 

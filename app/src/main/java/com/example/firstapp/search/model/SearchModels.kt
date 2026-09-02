@@ -7,6 +7,8 @@ import com.example.firstapp.music.model.Song
 import com.example.firstapp.chat.jobs.model.Job
 import com.example.firstapp.chat.model.Channel
 
+import com.example.firstapp.media.model.Post
+
 data class SearchResult(
     val chats: List<ChatMessage> = emptyList(),
     val contacts: List<Contact> = emptyList(),
@@ -14,7 +16,8 @@ data class SearchResult(
     val songs: List<Song> = emptyList(),
     val artists: List<Contact> = emptyList(),
     val jobs: List<Job> = emptyList(),
-    val channels: List<Channel> = emptyList()
+    val channels: List<Channel> = emptyList(),
+    val posts: List<Post> = emptyList()
 )
 
 enum class SearchType {

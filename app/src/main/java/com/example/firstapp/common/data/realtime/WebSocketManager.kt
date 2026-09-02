@@ -111,6 +111,7 @@ class WebSocketManager @Inject constructor(
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
+                Log.v("WebSocketManager", "Received: $text")
                 scope.launch {
                     try {
                         val envelope = json.decodeFromString<WSEnvelope>(text)

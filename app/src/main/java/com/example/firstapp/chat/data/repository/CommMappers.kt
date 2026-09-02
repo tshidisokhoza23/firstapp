@@ -10,28 +10,38 @@ import com.example.firstapp.media.data.api.*
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.common.ui.theme.AppPrimary
 
-fun UserStory.toStoryEntity() = StoryEntity(id, userId, userName, phoneNumber, userAvatarUrl, userAvatarColor.toArgb(), stories, lastUpdated, isMuted)
+fun UserStory.toStoryEntity() = StoryEntity(id, userId, userName, phoneNumber, userAvatarUrl, userAvatarColor.toArgb(), stories, lastUpdated, stories.maxByOrNull { it.createdAt }?.createdAt ?: 0L, isMuted)
 fun StoryEntity.toUserStory() = UserStory(id, userId, userName, phoneNumber, userAvatarUrl, Color(userAvatarColor), stories, lastUpdated, isMuted)
 
 fun Channel.toEntity() = ChannelEntity(
     id = id,
     name = name,
     description = description,
-    followers = followers,
+    followers = followers.toLongOrNull() ?: 0L,
     avatarUrl = avatarUrl,
     avatarColor = avatarColor.toArgb(),
     isVerified = isVerified,
     isSubscribed = isSubscribed,
     isAdmin = isAdmin,
     isMuted = isMuted,
+    adminsCanPost = adminsCanPost,
     category = category,
     createdBy = createdBy,
+    conversationId = conversationId,
     lastPostText = lastPostText,
     lastPostImageUrl = lastPostImageUrl,
     lastPostImageColor = lastPostImageColor.toArgb(),
     lastPostTime = lastPostTime
 )
-fun ChannelEntity.toModel() = Channel(id, name, description, followers, avatarUrl, Color(avatarColor), isVerified, isSubscribed, isMuted, isAdmin, category, createdBy, lastPostText, lastPostImageUrl, Color(lastPostImageColor), lastPostTime)
+fun ChannelEntity.toModel() = Channel(
+    id = id, name = name, description = description, followers = followers.toString(), 
+    avatarUrl = avatarUrl, avatarColor = Color(avatarColor), isVerified = isVerified, 
+    isSubscribed = isSubscribed, isMuted = isMuted, isAdmin = isAdmin, 
+    adminsCanPost = adminsCanPost, category = category, createdBy = createdBy, 
+    lastPostText = lastPostText, lastPostImageUrl = lastPostImageUrl, 
+    lastPostImageColor = Color(lastPostImageColor), lastPostTime = lastPostTime,
+    conversationId = conversationId
+)
 
 fun Advert.toEntity() = AdvertEntity(id, advertiserName, advertiserId, title, time, avatarUrl, avatarColor, contentUrl, contentColor, contentText, actionText, targetUrl, isSponsored, impressions, clicks, isNativeAd, isViewed)
 fun AdvertEntity.toModel() = Advert(id, advertiserName, advertiserId, title, time, avatarUrl, avatarColor, contentUrl, contentColor, contentText, actionText, targetUrl, isSponsored, impressions, clicks, isNativeAd, isViewed)
@@ -65,7 +75,9 @@ fun mapApiChannel(api: ApiChannel): Channel = Channel(
     isVerified = api.is_verified,
     isSubscribed = api.is_subscribed,
     isAdmin = api.is_admin,
+    adminsCanPost = api.admins_can_post,
     category = api.category ?: "Community",
+    createdBy = api.created_by,
     lastPostText = api.last_post_text ?: "",
     lastPostImageUrl = MediaUtils.formatUrl(api.last_post_image_url),
     lastPostTime = api.last_post_time?.toString() ?: "",

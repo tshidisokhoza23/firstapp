@@ -39,7 +39,6 @@ fun EditProfileScreen(
     val context = LocalContext.current
     
     var displayName by remember(user) { mutableStateOf(user.displayName) }
-    var bio by remember(user) { mutableStateOf(user.bio ?: "") }
     var location by remember(user) { mutableStateOf(user.location ?: "") }
 
     val pickMedia = rememberLauncherForActivityResult(
@@ -70,7 +69,7 @@ fun EditProfileScreen(
                     TextButton(onClick = {
                         userViewModel.updateProfile(
                             displayName = displayName,
-                            bio = bio,
+                            bio = null,
                             location = location,
                             avatarUrl = null,
                             bannerUrl = null,
@@ -168,22 +167,6 @@ fun EditProfileScreen(
                     )
                 )
                 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = bio,
-                    onValueChange = { bio = it },
-                    label = { Text("Bio") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                    )
-                )
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(

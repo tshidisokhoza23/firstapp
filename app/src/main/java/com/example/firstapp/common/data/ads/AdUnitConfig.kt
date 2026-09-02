@@ -20,13 +20,31 @@ object AdUnitConfig {
     }
 
     /**
-     * Common Banner Ad Unit ID (Used in Jobs, Channels, Calling, Rewards)
+     * Common Banner Ad Unit ID (Used in Calling)
      */
     val BANNER_MAIN_ID: String = when (currentEnvironment) {
         Environment.PROD -> "ca-app-pub-3940256099942544/6300978111" // TODO: Replace with real PROD ID
-        Environment.BETA -> "ca-app-pub-3940256099942544/6300978111" // TODO: Replace with real BETA ID
-        Environment.UAT -> "ca-app-pub-3940256099942544/6300978111" // Test ID
-        Environment.SIT -> "ca-app-pub-3940256099942544/6300978111" // Test ID
+        else -> "ca-app-pub-3940256099942544/6300978111" // Test ID
+    }
+
+    val BANNER_REWARDS_ID: String = when (currentEnvironment) {
+        Environment.PROD -> "ca-app-pub-3940256099942544/6300978111"
+        else -> "ca-app-pub-3940256099942544/6300978111"
+    }
+
+    val BANNER_JOBS_ID: String = when (currentEnvironment) {
+        Environment.PROD -> "ca-app-pub-3940256099942544/6300978111"
+        else -> "ca-app-pub-3940256099942544/6300978111"
+    }
+
+    val BANNER_CHANNELS_ID: String = when (currentEnvironment) {
+        Environment.PROD -> "ca-app-pub-3940256099942544/6300978111"
+        else -> "ca-app-pub-3940256099942544/6300978111"
+    }
+
+    val BANNER_DRIVE_ID: String = when (currentEnvironment) {
+        Environment.PROD -> "ca-app-pub-3940256099942544/6300978111"
+        else -> "ca-app-pub-3940256099942544/6300978111"
     }
 
     /**

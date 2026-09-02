@@ -147,7 +147,8 @@ class SearchRepositoryImpl @Inject constructor(
                             songs = (body.songs as List<com.example.firstapp.music.data.api.ApiSong>? ?: emptyList()).map { it.toModel() },
                             artists = (body.artists as List<com.example.firstapp.common.data.api.ApiUser>? ?: emptyList()).map { mapApiContact(it) },
                             channels = (body.channels as List<com.example.firstapp.media.data.api.ApiChannel>? ?: emptyList()).map { mapApiChannel(it) },
-                            jobs = (body.jobs as List<com.example.firstapp.chat.jobs.data.api.ApiJob>? ?: emptyList()).map { mapApiJob(it) }
+                            jobs = (body.jobs as List<com.example.firstapp.chat.jobs.data.api.ApiJob>? ?: emptyList()).map { mapApiJob(it) },
+                            posts = (body.posts as List<com.example.firstapp.media.data.api.ApiPost>? ?: emptyList()).map { mapApiPost(it) }
                         )))
 
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.media.model.Post
@@ -36,6 +37,7 @@ import kotlin.text.*
 @Composable
 fun PostComposerDialog(
     replyingTo: Post? = null,
+    quotingPost: Post? = null,
     avatarUrl: String? = null,
     avatarColor: Color = Color.Gray,
     onDismiss: () -> Unit,
@@ -82,11 +84,10 @@ fun PostComposerDialog(
                                 for (u in selectedMediaUris) mediaList.add(u.toString())
                                 for (u in selectedAudioUris) mediaList.add(u.toString())
                                 
-                                val isSingleVideo = selectedMediaUris.size == 1 && context.contentResolver.getType(selectedMediaUris[0])?.startsWith("video") == true
                                 val postType = when { 
                                     showPoll -> "poll"
-                                    isSingleVideo -> "short"
                                     replyingTo != null -> "reply"
+                                    quotingPost != null -> "repost"
                                     else -> "standard"
                                 }
 
@@ -203,6 +204,34 @@ fun PostComposerDialog(
                                             ), 
                                             shape = RoundedCornerShape(8.dp)
                                         )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (quotingPost != null) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(quotingPost.authorAvatarColor)) {
+                                            AsyncImage(model = quotingPost.authorAvatarUrl, null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(quotingPost.authorName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(" @${quotingPost.authorHandle}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(quotingPost.content, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                    if (quotingPost.mediaUrls.isNotEmpty()) {
+                                        Spacer(Modifier.height(8.dp))
+                                        Box(modifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                                            AsyncImage(model = quotingPost.mediaUrls[0], null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                        }
                                     }
                                 }
                             }

@@ -48,6 +48,9 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
     }
     android.util.Log.d("Mapper", "Post ${apiPost.id} mapped with ${mediaUrlsList.size} media URLs. Type: ${apiPost.media_type}")
 
+    val viewsValue = Math.max(apiPost.views, apiPost.view_count)
+    android.util.Log.d("Mapper", "Post ${apiPost.id} counts: Likes=${apiPost.likes}/${apiPost.like_count}, Reposts=${apiPost.shares}/${apiPost.repost_count}, Views=${apiPost.views}/${apiPost.view_count} -> Final Views=$viewsValue")
+
     return Post(
         id = apiPost.id ?: "",
         authorId = authorId,
@@ -67,17 +70,22 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         },
         altText = apiPost.alt_text,
         timestamp = timestampFormatted,
-        likes = if (apiPost.likes > 0) apiPost.likes else apiPost.like_count,
-        repliesCount = if (apiPost.replies_count > 0) apiPost.replies_count else apiPost.reply_count,
-        shares = if (apiPost.shares > 0) apiPost.shares else apiPost.repost_count,
-        views = if (apiPost.views > 0) apiPost.views else apiPost.view_count,
+        likes = if (apiPost.is_liked) Math.max(apiPost.likes, apiPost.like_count) else apiPost.likes,
+        repliesCount = Math.max(apiPost.replies_count, apiPost.reply_count),
+        repostCount = if (apiPost.is_reposted) Math.max(apiPost.shares, apiPost.repost_count) else apiPost.repost_count,
+        shares = apiPost.actual_shares,
+        views = viewsValue,
         quoteCount = apiPost.quote_count,
-        type = when (itemType ?: apiPost.post_type ?: apiPost.media_type) {
-            "INTERNAL_AD" -> PostType.INTERNAL_AD
-            "NATIVE_AD" -> PostType.NATIVE_AD
-            "AD_UNIT" -> PostType.AD_UNIT
-            "short", "SHORT", "video", "VIDEO" -> PostType.SHORT
-            "repost", "REPOST" -> PostType.REPOST
+        type = when {
+            itemType == "INTERNAL_AD" || apiPost.post_type == "INTERNAL_AD" -> PostType.INTERNAL_AD
+            itemType == "NATIVE_AD" || apiPost.post_type == "NATIVE_AD" -> PostType.NATIVE_AD
+            itemType == "AD_UNIT" || apiPost.post_type == "AD_UNIT" -> PostType.AD_UNIT
+            apiPost.post_type?.lowercase() == "short" -> PostType.SHORT
+            apiPost.post_type?.lowercase() == "repost" -> PostType.REPOST
+            apiPost.post_type?.lowercase() == "standard" -> PostType.POST
+            // Heuristic: if post_type is missing but it's a video on its own, it might be a short
+            // but we should be careful not to catch standard video posts.
+            // For now, only trust explicit "short" type.
             else -> PostType.POST
         },
         repliesLocked = apiPost.replies_locked,
@@ -96,6 +104,7 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         location = apiPost.location,
         tags = apiPost.tags ?: emptyList(),
         ad = apiPost.ad?.let { mapApiAdvert(it) },
+        originalPost = apiPost.original_post?.let { mapApiPost(it) },
         thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url),
         aspectRatio = apiPost.aspect_ratio,
         durationSec = apiPost.duration_sec,
@@ -140,8 +149,15 @@ private fun mapAdUnitPlaceholder(item: ApiFeedItem): Post = Post(
     type = PostType.AD_UNIT
 )
 
-fun mapMediaReplyItems(items: List<ApiReplyItem>): List<Post> = items.mapNotNull { item ->
-    item.reply?.let { mapApiPost(it) }
+fun mapMediaReplyItems(items: List<ApiReplyItem>): List<Post> {
+    android.util.Log.d("Mapper", "Mapping ${items.size} reply items")
+    return items.mapNotNull { item ->
+        item.reply?.let { 
+            val mapped = mapApiPost(it)
+            android.util.Log.d("Mapper", "Mapped reply: ${mapped.id}, content=${mapped.content.take(20)}")
+            mapped
+        }
+    }
 }
 
 fun Post.toPostEntity(feedType: String = "standard") = PostEntity(
@@ -160,6 +176,7 @@ fun Post.toPostEntity(feedType: String = "standard") = PostEntity(
     timestamp = timestamp,
     likes = likes,
     repliesCount = repliesCount,
+    repostCount = repostCount,
     shares = shares,
     views = views,
     quoteCount = quoteCount,
@@ -188,6 +205,7 @@ fun Post.toPostEntity(feedType: String = "standard") = PostEntity(
     location = location,
     tags = tags,
     ad = ad,
+    originalPost = originalPost,
     updatedAt = updatedAt
 )
 
@@ -206,6 +224,7 @@ fun PostEntity.toPost() = Post(
     timestamp = timestamp,
     likes = likes,
     repliesCount = repliesCount,
+    repostCount = repostCount,
     shares = shares,
     views = views,
     quoteCount = quoteCount,
@@ -234,6 +253,6 @@ fun PostEntity.toPost() = Post(
     location = location,
     tags = tags,
     ad = ad,
-    originalPost = null,
+    originalPost = originalPost,
     updatedAt = updatedAt
 )

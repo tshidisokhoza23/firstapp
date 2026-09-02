@@ -11,7 +11,7 @@ object DisplayNameManager {
      * 3. Fallback to Raw Phone Number.
      */
     fun resolve(context: Context, phoneNumber: String?, serverName: String?): String {
-        if (phoneNumber == null) return serverName ?: "Unknown"
+        if (phoneNumber == null) return serverName ?: ""
 
         // 1. Local Phone Contacts check
         val localName = ContactUtils.getContactNameByNumber(context, phoneNumber)

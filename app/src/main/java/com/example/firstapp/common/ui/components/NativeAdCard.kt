@@ -32,7 +32,8 @@ import com.example.firstapp.R
 @Composable
 fun NativeAdCard(
     adObject: Any?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutResId: Int = R.layout.item_media_native_ad
 ) {
     val nativeAd = adObject as? NativeAd
 
@@ -47,7 +48,7 @@ fun NativeAdCard(
                     .fillMaxWidth()
                     .padding(8.dp),
                 factory = { ctx ->
-                    val adView = LayoutInflater.from(ctx).inflate(R.layout.item_media_native_ad, null) as NativeAdView
+                    val adView = LayoutInflater.from(ctx).inflate(layoutResId, null) as NativeAdView
                     populateNativeAdView(nativeAd, adView)
                     adView
                 },
@@ -62,7 +63,8 @@ fun NativeAdCard(
 @Composable
 fun NativeAdCard(
     adUnitId: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutResId: Int = R.layout.item_media_native_ad
 ) {
     val context = LocalContext.current
     var nativeAd by remember { mutableStateOf<NativeAd?>(null) }
@@ -100,7 +102,7 @@ fun NativeAdCard(
                     .fillMaxWidth()
                     .padding(8.dp),
                 factory = { ctx ->
-                    val adView = LayoutInflater.from(ctx).inflate(R.layout.item_media_native_ad, null) as NativeAdView
+                    val adView = LayoutInflater.from(ctx).inflate(layoutResId, null) as NativeAdView
                     populateNativeAdView(nativeAd!!, adView)
                     adView
                 },

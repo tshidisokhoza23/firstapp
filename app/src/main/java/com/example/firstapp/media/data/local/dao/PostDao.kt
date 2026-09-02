@@ -28,12 +28,27 @@ interface PostDao {
     @Query("UPDATE posts SET likes = :likes, isLiked = :isLiked WHERE id = :postId")
     suspend fun updateLikeStatus(postId: String, likes: Long, isLiked: Boolean)
 
-    @Query("UPDATE posts SET isReposted = :isReposted, shares = :shares WHERE id = :postId")
-    suspend fun updateRepostStatus(postId: String, shares: Long, isReposted: Boolean)
+    @Query("UPDATE posts SET likes = :likes WHERE id = :postId")
+    suspend fun updateLikeCountOnly(postId: String, likes: Long)
+
+    @Query("UPDATE posts SET isReposted = :isReposted, repostCount = :repostCount WHERE id = :postId")
+    suspend fun updateRepostStatus(postId: String, repostCount: Long, isReposted: Boolean)
+
+    @Query("UPDATE posts SET repostCount = :repostCount WHERE id = :postId")
+    suspend fun updateRepostCountOnly(postId: String, repostCount: Long)
+
+    @Query("UPDATE posts SET shares = :shares WHERE id = :postId")
+    suspend fun updateShareStatus(postId: String, shares: Long)
 
     @Query("UPDATE posts SET isBookmarked = :isBookmarked WHERE id = :postId")
     suspend fun updateBookmarkStatus(postId: String, isBookmarked: Boolean)
 
     @Query("UPDATE posts SET isAuthorFollowed = :isFollowed WHERE authorId = :authorId")
     suspend fun updateAuthorFollowStatus(authorId: String, isFollowed: Boolean)
+
+    @Query("UPDATE posts SET views = views + 1 WHERE id = :postId")
+    suspend fun incrementViewCount(postId: String)
+
+    @Query("SELECT * FROM posts WHERE content LIKE :query OR authorName LIKE :query ORDER BY timestamp DESC")
+    fun searchPostsInCache(query: String): Flow<List<PostEntity>>
 }

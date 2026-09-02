@@ -45,8 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.firstapp.drive.model.Destination
-import com.example.firstapp.drive.model.RideOption
+import com.example.firstapp.drive.model.*
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.drive.ui.viewmodel.DriveViewModel
 import com.example.firstapp.common.ui.viewmodel.UserViewModel
@@ -152,7 +151,8 @@ fun DriveScreen(
     var showSafetyCenter by remember { mutableStateOf(false) }
     var showDriverProfile by remember { mutableStateOf(false) }
     var showSchedulePicker by remember { mutableStateOf(false) }
-    var selectedDestination by remember { mutableStateOf<Destination?>(null) }
+    var showBgLocationRationale by remember { mutableStateOf(false) }
+    val selectedDestination by viewModel.selectedDestination
     val additionalStops = remember { mutableStateListOf<Destination>() }
     val selectedRide by viewModel.selectedRide
     var fromLocation by remember { mutableStateOf("Current Location") }
@@ -180,9 +180,9 @@ fun DriveScreen(
 
     LaunchedEffect(isDriverMode, hasBackgroundLocationPermission) {
         if (isDriverMode && !hasBackgroundLocationPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            bgLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            showBgLocationRationale = true
         } else if (isDriverMode && hasBackgroundLocationPermission) {
-            Toast.makeText(context, "Driver tracking active in background", Toast.LENGTH_SHORT).show()
+            // Toast.makeText(context, "Driver tracking active in background", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -205,7 +205,8 @@ fun DriveScreen(
                 onShowPayment = { currentSubScreen = "payment"; scope.launch { drawerState.close() } },
                 onShowSavedPlaces = { currentSubScreen = "saved_places"; scope.launch { drawerState.close() } },
                 onShowSupport = { currentSubScreen = "support"; scope.launch { drawerState.close() } },
-                onShowSettings = { onShowSettings(); scope.launch { drawerState.close() } }
+                onShowSettings = { onShowSettings(); scope.launch { drawerState.close() } },
+                bottomPadding = bottomPadding
             )
         },
         gesturesEnabled = drawerState.isOpen
@@ -223,7 +224,8 @@ fun DriveScreen(
                 onMenuClick = { scope.launch { drawerState.open() } },
                 onUploadDoc = { type, url -> viewModel.uploadDocument(type, url) },
                 viewModel = viewModel,
-                scope = scope
+                scope = scope,
+                bottomPadding = bottomPadding
             )
         } else {
             DriveMainContent(
@@ -237,7 +239,7 @@ fun DriveScreen(
                 onDestinationSelected = { destination ->
                     if (destination != null) {
                         viewModel.getPlaceDetails(context, destination) { detailedDest ->
-                            selectedDestination = detailedDest
+                            viewModel.updateSelectedDestination(detailedDest)
                             step = 1
                             isSearching = false
                             scope.launch { scaffoldState.bottomSheetState.partialExpand() }
@@ -255,7 +257,7 @@ fun DriveScreen(
                             )
                         }
                     } else {
-                        selectedDestination = null
+                        viewModel.updateSelectedDestination(null)
                     }
                 },
                 additionalStops = additionalStops,
@@ -319,10 +321,53 @@ fun DriveScreen(
             onDismiss = { 
                 viewModel.clearTripSummary()
                 step = 0
-                selectedDestination = null
+                viewModel.updateSelectedDestination(null)
             }
         )
     }
+
+    val isSwitchingMode by viewModel.isSwitchingMode.collectAsState()
+    if (isSwitchingMode) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(color = AppAccent)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Switching roles...", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    if (showBgLocationRationale) {
+        BackgroundLocationRationaleDialog(
+            onDismiss = { showBgLocationRationale = false },
+            onGrant = {
+                showBgLocationRationale = false
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    bgLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun BackgroundLocationRationaleDialog(onDismiss: () -> Unit, onGrant: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Background Location Access") },
+        text = {
+            Text("TJ Drive needs access to your location even when the app is in the background to provide seamless ride tracking and dispatching. Please select 'Allow all the time' in the next screen.")
+        },
+        confirmButton = {
+            Button(onClick = onGrant) { Text("Allow in Settings") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Not Now") }
+        }
+    )
 }
 
 @Composable
@@ -337,7 +382,8 @@ fun DriveDrawerContent(
     onShowPayment: () -> Unit, 
     onShowSavedPlaces: () -> Unit,
     onShowSupport: () -> Unit, 
-    onShowSettings: () -> Unit
+    onShowSettings: () -> Unit,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     val context = LocalContext.current
     ModalDrawerSheet(
@@ -432,29 +478,29 @@ fun DriveDrawerContent(
                         }
                     }
                 } else {
-                    // Approved Switch
-                    Surface(
-                        color = if (isDriverMode) Color(0xFF2D343C) else Color.Transparent,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    // Approved Switch - Button based on mode
+                    Button(
+                        onClick = { onDriverModeToggle(!isDriverMode) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isDriverMode) MaterialTheme.colorScheme.secondary else Color(0xFF388E8E)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "DRIVER MODE: ${if (isDriverMode) "ACTIVE" else "INACTIVE"}",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                if (isDriverMode) Icons.Default.Person else Icons.Default.DirectionsCar, 
+                                null, 
+                                tint = Color.White
                             )
-                            Switch(
-                                checked = isDriverMode,
-                                onCheckedChange = onDriverModeToggle,
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = Color(0xFF388E8E)
-                                )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                if (isDriverMode) "SWITCH TO PASSENGER" else "SWITCH TO DRIVER", 
+                                fontWeight = FontWeight.Black, 
+                                fontSize = 16.sp
                             )
                         }
                     }
@@ -481,8 +527,10 @@ fun DriveDrawerContent(
             }
             
             BannerAdView(
-                adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.BANNER_MAIN_ID,
-                modifier = Modifier.fillMaxWidth()
+                adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.BANNER_DRIVE_ID,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = bottomPadding)
             )
         }
     }
@@ -594,7 +642,7 @@ fun DriveMainContent(
     val currentPeekHeight = remember(step, isSearchingView, bottomPadding) {
         when {
             step == 2 -> 360.dp + bottomPadding
-            else -> 140.dp + bottomPadding
+            else -> 220.dp + bottomPadding // Increased for a more "pro" look and better visibility
         }
     }
 
@@ -603,6 +651,13 @@ fun DriveMainContent(
     }
 
     val mapPadding = with(LocalDensity.current) { sheetHeight.toPx().toInt() }
+
+    val assignedDriver = viewModel.assignedDriver.value
+    LaunchedEffect(assignedDriver?.position) {
+        if (assignedDriver != null && (bookingStatus == BookingStatus.EN_ROUTE || bookingStatus == BookingStatus.IN_PROGRESS)) {
+            cameraPositionState.animate(com.google.android.gms.maps.CameraUpdateFactory.newLatLng(assignedDriver.position))
+        }
+    }
 
     LaunchedEffect(pickupLocation) {
         if (selectedDestination == null) {
@@ -664,7 +719,7 @@ fun DriveMainContent(
                     .fillMaxWidth()
                     .then(if (isSearchingView || step == 1) Modifier.fillMaxHeight() else Modifier.wrapContentHeight())
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 8.dp + bottomPadding)
+                    .padding(bottom = 24.dp + bottomPadding) // Increased padding to clear the bottom nav completely
                     .animateContentSize()
             ) {
                 when {
@@ -696,9 +751,9 @@ fun DriveMainContent(
                             viewModel.getPlaceDetails(context, dest) { detailed ->
                                 onFromLocationChange(detailed.name)
                                 viewModel.updatePickupLocation(LatLng(detailed.latitude, detailed.longitude), detailed.name)
-                                selectedDestination?.let {
+                                selectedDestination?.let { destObj ->
                                     val waypoints = additionalStops.map { LatLng(it.latitude, it.longitude) }
-                                    viewModel.calculateRoute(LatLng(detailed.latitude, detailed.longitude), LatLng(it.latitude, it.longitude), waypoints)
+                                    viewModel.calculateRoute(LatLng(detailed.latitude, detailed.longitude), LatLng(destObj.latitude, destObj.longitude), waypoints)
                                 }
                             }
                         },
@@ -724,7 +779,7 @@ fun DriveMainContent(
                     step == 2 -> LiveTrackingFlow(
                         onCancel = { 
                             onStepChange(0)
-                            onDestinationSelected(null)
+                            viewModel.updateSelectedDestination(null)
                             onRideSelect(null)
                             viewModel.clearRoute()
                             viewModel.cancelBooking()
@@ -806,7 +861,7 @@ fun DriveMainContent(
                 }
 
                 // Show assigned driver ONLY when ride is accepted (EN_ROUTE, ARRIVED, etc.)
-                if (bookingStatus != DriveViewModel.BookingStatus.NONE && bookingStatus != DriveViewModel.BookingStatus.SEARCHING) {
+                if (bookingStatus != BookingStatus.NONE && bookingStatus != BookingStatus.SEARCHING) {
                     assignedDriver?.let { driver ->
                         key("assigned_driver") {
                             val markerState = rememberMarkerState(position = driver.position)
@@ -932,7 +987,7 @@ fun DriveMainContent(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(bottom = 16.dp, end = 16.dp),
+                        .padding(bottom = 16.dp + bottomPadding, end = 16.dp),
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     shape = CircleShape
@@ -1070,7 +1125,7 @@ fun SafetyActionItem(
 }
 
 @Composable
-fun DriverProfileDialog(onDismiss: () -> Unit, driver: com.example.firstapp.drive.ui.viewmodel.NearbyDriver?) {
+fun DriverProfileDialog(onDismiss: () -> Unit, driver: NearbyDriver?) {
     if (driver == null) return
     
     AlertDialog(
@@ -1748,7 +1803,7 @@ fun LiveTrackingFlow(
     var showCancelDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(status) {
-        if (status == DriveViewModel.BookingStatus.COMPLETED) {
+        if (status == BookingStatus.COMPLETED) {
             showRatingDialog = true
         }
     }
@@ -1759,7 +1814,7 @@ fun LiveTrackingFlow(
                 .fillMaxWidth()
                 .height(4.dp)
                 .clip(CircleShape),
-            color = if (status == DriveViewModel.BookingStatus.IN_PROGRESS) NiceOrange else MaterialTheme.colorScheme.primary,
+            color = if (status == BookingStatus.IN_PROGRESS) NiceOrange else MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
         )
         
@@ -1797,11 +1852,11 @@ fun LiveTrackingFlow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = when(status) {
-                        DriveViewModel.BookingStatus.SEARCHING -> "Finding your driver..."
-                        DriveViewModel.BookingStatus.EN_ROUTE -> "Driver on the way"
-                        DriveViewModel.BookingStatus.ARRIVED -> "Driver has arrived"
-                        DriveViewModel.BookingStatus.IN_PROGRESS -> "Heading to destination"
-                        DriveViewModel.BookingStatus.COMPLETED -> "Arrived at destination"
+                        BookingStatus.SEARCHING -> "Finding your driver..."
+                        BookingStatus.EN_ROUTE -> "Driver on the way"
+                        BookingStatus.ARRIVED -> "Driver has arrived"
+                        BookingStatus.IN_PROGRESS -> "Heading to destination"
+                        BookingStatus.COMPLETED -> "Arrived at destination"
                         else -> "Processing..."
                     },
                     color = MaterialTheme.colorScheme.onSurface, 
@@ -1823,14 +1878,14 @@ fun LiveTrackingFlow(
                     )
                 }
             }
-            if (status != DriveViewModel.BookingStatus.IN_PROGRESS && status != DriveViewModel.BookingStatus.COMPLETED) {
+            if (status != BookingStatus.IN_PROGRESS && status != BookingStatus.COMPLETED) {
                 IconButton(
                     onClick = { showCancelDialog = true },
                     modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.White)
                 }
-            } else if (status == DriveViewModel.BookingStatus.IN_PROGRESS) {
+            } else if (status == BookingStatus.IN_PROGRESS) {
                 // SOS Button during trip
                 Button(
                     onClick = {
@@ -1854,7 +1909,7 @@ fun LiveTrackingFlow(
             }
         }
         
-        if (assignedDriver != null && status != DriveViewModel.BookingStatus.COMPLETED) {
+        if (assignedDriver != null && status != BookingStatus.COMPLETED) {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1934,18 +1989,18 @@ fun LiveTrackingFlow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (status == DriveViewModel.BookingStatus.IN_PROGRESS) Icons.Default.Lock else Icons.Default.Shield, 
+                    imageVector = if (status == BookingStatus.IN_PROGRESS) Icons.Default.Lock else Icons.Default.Shield, 
                     contentDescription = null, 
                     tint = AppAccent
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (status == DriveViewModel.BookingStatus.IN_PROGRESS) "Ride is PIN protected" else "Your safety is our priority", 
+                        text = if (status == BookingStatus.IN_PROGRESS) "Ride is PIN protected" else "Your safety is our priority", 
                         color = Color.White, 
                         fontSize = 14.sp
                     )
-                    if (status != DriveViewModel.BookingStatus.IN_PROGRESS && status != DriveViewModel.BookingStatus.COMPLETED) {
+                    if (status != BookingStatus.IN_PROGRESS && status != BookingStatus.COMPLETED) {
                         viewModel.safetyPin.value?.let { pin ->
                             Text(
                                 text = "Verify with PIN: $pin",
@@ -2096,14 +2151,15 @@ fun DriverDashboard(
     onOnlineToggle: (Boolean) -> Unit,
     isApproved: Boolean,
     earnings: Double,
-    documents: List<DriveViewModel.DriverDocument>,
-    incomingRequest: DriveViewModel.RideRequest?,
+    documents: List<DriverDocument>,
+    incomingRequest: RideRequest?,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
     onMenuClick: () -> Unit,
     onUploadDoc: (String, String) -> Unit,
     viewModel: DriveViewModel,
-    scope: kotlinx.coroutines.CoroutineScope
+    scope: kotlinx.coroutines.CoroutineScope,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     val context = LocalContext.current
     var showDocUpload by remember { mutableStateOf(false) }
@@ -2212,8 +2268,8 @@ fun DriverDashboard(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         val required = listOf("ID Document", "Driver's License", "Criminal Verification", "Roadworthy Certificate", "Car Image")
                         required.forEach { type ->
-                            val doc = documents.find { it.type == type }
-                            DocumentItem(doc ?: DriveViewModel.DriverDocument("", type, "MISSING"))
+                            val doc = documents.firstOrNull { it.type == type }
+                            DocumentItem(doc ?: DriverDocument("", type, "MISSING"))
                         }
                     }
                     Spacer(Modifier.height(32.dp))
@@ -2249,7 +2305,7 @@ fun DriverDashboard(
                 
                 // Map Controls
                 Column(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp, end = 16.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp + bottomPadding, end = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FloatingActionButton(
@@ -2441,7 +2497,7 @@ fun DriverDashboard(
             }
 
             // PIN Verification Overlay
-            if (isApproved && isOnline && bookingStatus == DriveViewModel.BookingStatus.ARRIVED) {
+            if (isApproved && isOnline && bookingStatus == BookingStatus.ARRIVED) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2497,7 +2553,7 @@ fun StatCard(modifier: Modifier, label: String, value: String, icon: androidx.co
 }
 
 @Composable
-fun DocumentItem(doc: DriveViewModel.DriverDocument) {
+fun DocumentItem(doc: DriverDocument) {
     val statusColor = when(doc.status) {
         "APPROVED" -> Color(0xFF4CAF50)
         "PENDING" -> Color(0xFFFFC107)
@@ -2576,7 +2632,7 @@ fun DocumentUploadDialog(onDismiss: () -> Unit, onUpload: (String, String) -> Un
 
 @Composable
 fun RideRequestCard(
-    request: DriveViewModel.RideRequest,
+    request: RideRequest,
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
@@ -2656,7 +2712,7 @@ fun RideRequestCard(
 }
 
 @Composable
-fun TripSummaryDialog(summary: DriveViewModel.TripSummary, onDismiss: () -> Unit) {
+fun TripSummaryDialog(summary: TripSummary, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = AppSecondary,
@@ -2778,9 +2834,9 @@ fun PinVerificationCard(onVerify: (String) -> Boolean) {
 
 @Composable
 fun VehicleProfileDialog(
-    initialInfo: DriveViewModel.VehicleInfo,
+    initialInfo: VehicleInfo,
     onDismiss: () -> Unit,
-    onSave: (DriveViewModel.VehicleInfo) -> Unit
+    onSave: (VehicleInfo) -> Unit
 ) {
     var make by remember { mutableStateOf(initialInfo.make) }
     var model by remember { mutableStateOf(initialInfo.model) }
@@ -2803,7 +2859,7 @@ fun VehicleProfileDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(DriveViewModel.VehicleInfo(make, model, year, color, plate)) }) {
+            Button(onClick = { onSave(VehicleInfo(make, model, year, color, plate)) }) {
                 Text("Save Changes")
             }
         },

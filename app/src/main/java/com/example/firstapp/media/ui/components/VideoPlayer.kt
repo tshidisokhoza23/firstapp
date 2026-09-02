@@ -29,6 +29,8 @@ fun VideoPlayer(
     useController: Boolean = true,
     isMuted: Boolean = false,
     initialPosition: Long = 0L,
+    autoplayEnabled: Boolean = true,
+    resizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
     onPositionUpdate: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -53,7 +55,7 @@ fun VideoPlayer(
                     playerInstance.playWhenReady = false
                 }
                 Lifecycle.Event.ON_RESUME -> {
-                    if (isPlaying) {
+                    if (isPlaying && autoplayEnabled) {
                         playerInstance.playWhenReady = true
                     }
                 }
@@ -74,12 +76,12 @@ fun VideoPlayer(
                 playerInstance.seekTo(initialPosition)
             }
             playerInstance.prepare()
-            playerInstance.playWhenReady = isPlaying
+            playerInstance.playWhenReady = isPlaying && autoplayEnabled
         }
     }
 
-    LaunchedEffect(isPlaying) {
-        playerInstance.playWhenReady = isPlaying
+    LaunchedEffect(isPlaying, autoplayEnabled) {
+        playerInstance.playWhenReady = isPlaying && autoplayEnabled
     }
 
     LaunchedEffect(isMuted) {
@@ -108,6 +110,7 @@ fun VideoPlayer(
                 PlayerView(ctx).apply {
                     player = playerInstance
                     this.useController = useController
+                    this.resizeMode = resizeMode
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -120,6 +123,7 @@ fun VideoPlayer(
             },
             update = { view ->
                 view.useController = useController
+                view.resizeMode = resizeMode
             },
             modifier = Modifier.fillMaxSize()
         )

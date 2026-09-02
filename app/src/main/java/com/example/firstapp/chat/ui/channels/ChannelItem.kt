@@ -39,7 +39,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.clickable
 
 @Composable
-fun ChannelItem(channel: Channel, onClick: () -> Unit = {}) {
+fun ChannelItem(channel: Channel, onClick: () -> Unit = {}, onSubscribe: (String) -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -86,7 +86,7 @@ fun ChannelItem(channel: Channel, onClick: () -> Unit = {}) {
         
         if (!channel.isSubscribed) {
             Button(
-                onClick = { /* Subscribe */ },
+                onClick = { onSubscribe(channel.id) },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), 
                     contentColor = MaterialTheme.colorScheme.primary

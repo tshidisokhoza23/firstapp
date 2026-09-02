@@ -44,14 +44,14 @@ fun LanguageSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("App language", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("App language", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBackground
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
@@ -60,7 +60,7 @@ fun LanguageSettingsScreen(
                 modifier = Modifier.navigationBarsPadding()
             )
         },
-        containerColor = AppBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
@@ -92,12 +92,12 @@ fun LanguageItem(name: String, nativeName: String, isSelected: Boolean, onClick:
         RadioButton(
             selected = isSelected,
             onClick = onClick,
-            colors = RadioButtonDefaults.colors(selectedColor = AppAccent, unselectedColor = AppTextSecondary)
+            colors = RadioButtonDefaults.colors(selectedColor = AppAccent, unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column {
-            Text(name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(nativeName, color = AppTextSecondary, fontSize = 13.sp)
+            Text(name, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(nativeName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
     }
 }

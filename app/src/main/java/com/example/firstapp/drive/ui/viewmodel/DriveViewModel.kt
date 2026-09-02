@@ -5,7 +5,11 @@ package com.example.firstapp.drive.ui.viewmodel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.firstapp.drive.domain.repository.DriveRepository
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -15,6 +19,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.firstapp.common.model.*
 import com.example.firstapp.drive.model.*
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.drive.data.network.RideEvent
+import com.example.firstapp.drive.data.service.DriverLocationService
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
@@ -35,16 +41,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class NearbyDriver(
-    val id: String,
-    val position: LatLng,
-    val rotation: Float,
-    val name: String = "Mpho",
-    val rating: Double = 4.8,
-    val vehicleModel: String = "BMW 3 Series",
-    val vehicleColor: String = "White",
-    val licensePlate: String = "GP 123 456"
-)
+
 
 @HiltViewModel
 class DriveViewModel @Inject constructor(
@@ -89,6 +86,9 @@ class DriveViewModel @Inject constructor(
 
     private val _selectedRide = mutableStateOf<RideOption?>(null)
     val selectedRide: State<RideOption?> = _selectedRide
+
+    private val _selectedDestination = mutableStateOf<Destination?>(null)
+    val selectedDestination: State<Destination?> = _selectedDestination
 
     private val _nearbyDrivers = mutableStateOf<List<NearbyDriver>>(emptyList())
     val nearbyDrivers: State<List<NearbyDriver>> = _nearbyDrivers
@@ -153,37 +153,24 @@ class DriveViewModel @Inject constructor(
     private val _vehicleInfo = MutableStateFlow(VehicleInfo())
     val vehicleInfo: StateFlow<VehicleInfo> = _vehicleInfo.asStateFlow()
 
-    data class DriverStats(
-        val totalTrips: Int = 42,
-        val onlineHours: Double = 5.5,
-        val acceptanceRate: Double = 98.0,
-        val weeklyEarnings: Double = 2450.0
-    )
+    private val _activeTripId = MutableStateFlow<String?>(null)
+    val activeTripId: StateFlow<String?> = _activeTripId.asStateFlow()
 
-    data class TripSummary(
-        val fare: Double,
-        val distance: String,
-        val duration: String,
-        val date: String = "Today, 14:20",
-        val passengerName: String,
-        val paymentMethod: String = "Wallet"
-    )
+    private var locationService: DriverLocationService? = null
+    private var isServiceBound = false
 
-    data class VehicleInfo(
-        val make: String = "",
-        val model: String = "",
-        val year: String = "",
-        val color: String = "",
-        val license_plate: String = ""
-    )
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as DriverLocationService.LocalBinder
+            locationService = binder.getService()
+            isServiceBound = true
+        }
 
-    data class DriverStatus(
-        val user_id: String,
-        val is_online: Boolean,
-        val last_lat: Double,
-        val last_lng: Double,
-        val updated_at: Long
-    )
+        override fun onServiceDisconnected(name: ComponentName?) {
+            locationService = null
+            isServiceBound = false
+        }
+    }
 
     private val _isDriveActive = MutableStateFlow(false)
     val isDriveActive: StateFlow<Boolean> = _isDriveActive.asStateFlow()
@@ -192,38 +179,110 @@ class DriveViewModel @Inject constructor(
         _isDriveActive.value = active
     }
 
-    private var searchJob: Job? = null
-    private var driversJob: Job? = null
-    private var bookingJob: Job? = null
-    private var simulationJob: Job? = null
     private val apiKey = "AIzaSyDvArA2Ykp3Q6EsQMVSre4piq9SvARF7H4"
 
-    enum class BookingStatus {
-        NONE, SEARCHING, EN_ROUTE, ARRIVED, IN_PROGRESS, COMPLETED
-    }
-
-    data class DriverDocument(
-        val id: String,
-        val type: String,
-        val status: String, // "PENDING", "APPROVED", "REJECTED"
-        val url: String? = null
-    )
-
-    data class RideRequest(
-        val id: String,
-        val passengerName: String,
-        val pickupAddress: String,
-        val destinationAddress: String,
-        val fare: Double,
-        val distance: String,
-        val passengerRating: Double = 4.9
-    )
+    private var searchJob: Job? = null
 
     init {
         fetchDestinations()
         fetchTrips()
-        startSimulatingDrivers()
+        fetchRideOptions()
         loadDriverState()
+        observeRideEvents()
+        loadActiveSession()
+    }
+
+    private fun observeRideEvents() {
+        viewModelScope.launch {
+            repository.getRideEvents().collect { event ->
+                when (event) {
+                    is RideEvent.RequestReceived -> {
+                        if (_isDriverMode.value && _driverOnlineStatus.value) {
+                            val myPos = _driverPosition.value ?: _pickupLocation.value
+                            val distanceLabel = if (myPos != null) {
+                                val results = FloatArray(1)
+                                android.location.Location.distanceBetween(myPos.latitude, myPos.longitude, event.pickupLat, event.pickupLng, results)
+                                String.format(Locale.getDefault(), "%.1f km", results[0] / 1000.0)
+                            } else {
+                                "New request"
+                            }
+
+                            _incomingRideRequest.value = RideRequest(
+                                id = event.tripId,
+                                passengerName = event.passengerName,
+                                pickupAddress = event.pickup,
+                                destinationAddress = event.dest,
+                                fare = event.fare,
+                                distance = distanceLabel,
+                                pickupLat = event.pickupLat,
+                                pickupLng = event.pickupLng,
+                                destLat = event.destLat,
+                                destLng = event.destLng
+                            )
+                        }
+                    }
+                    is RideEvent.RequestAccepted -> {
+                        _bookingStatus.value = BookingStatus.EN_ROUTE
+                        _assignedDriver.value = NearbyDriver(
+                            id = "assigned",
+                            position = LatLng(0.0, 0.0), // Will be updated by location event
+                            rotation = 0f,
+                            name = event.driverName,
+                            vehicleModel = event.vehicle,
+                            licensePlate = event.plate
+                        )
+                    }
+                    is RideEvent.DriverArrived -> {
+                        _bookingStatus.value = BookingStatus.ARRIVED
+                        _remainingTime.value = "Arrived"
+                    }
+                    is RideEvent.TripStarted -> {
+                        _bookingStatus.value = BookingStatus.IN_PROGRESS
+                    }
+                    is RideEvent.TripCompleted -> {
+                        val currentDriver = _assignedDriver.value
+                        _completedTripSummary.value = TripSummary(
+                            fare = event.fare,
+                            distance = _routeDistance.value ?: "0 km",
+                            duration = _routeDuration.value ?: "0 min",
+                            passengerName = currentDriver?.name ?: "Driver"
+                        )
+                        _bookingStatus.value = BookingStatus.COMPLETED
+                        _assignedDriver.value = null
+                        _activeTripId.value = null
+                    }
+                    is RideEvent.LocationUpdated -> {
+                        _assignedDriver.value = _assignedDriver.value?.copy(
+                            position = LatLng(event.lat, event.lng),
+                            rotation = event.rotation
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadActiveSession() {
+        viewModelScope.launch {
+            repository.getActiveSession().collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    val session = res.data
+                    _isDriverMode.value = session.mode == "DRIVER"
+                    _driverOnlineStatus.value = session.is_online
+                    _activeTripId.value = session.ride_id
+                    _bookingStatus.value = session.status
+                    _assignedDriver.value = session.assigned_driver
+                    _selectedDestination.value = session.destination
+                    
+                    if (session.is_online && session.mode == "DRIVER") {
+                        repository.connectRideSocket()
+                        startLocationService()
+                    } else if (session.status != BookingStatus.NONE && session.status != BookingStatus.COMPLETED) {
+                        repository.connectRideSocket()
+                    }
+                }
+            }
+        }
     }
 
     private fun loadDriverState() {
@@ -233,15 +292,8 @@ class DriveViewModel @Inject constructor(
                     _driverDocuments.value = res.data
                     updateApprovalStatus()
                 } else if (res is Resource.Error) {
-                    // Fallback to mock if server fails for now
-                    _driverDocuments.value = listOf(
-                        DriverDocument("1", "ID Document", "APPROVED"),
-                        DriverDocument("2", "Driver's License", "APPROVED"),
-                        DriverDocument("3", "Criminal Verification", "PENDING"),
-                        DriverDocument("4", "Roadworthy Certificate", "PENDING"),
-                        DriverDocument("5", "Car Image", "APPROVED")
-                    )
-                    updateApprovalStatus()
+                    _driverDocuments.value = emptyList()
+                    _isDriverApproved.value = false
                 }
             }
         }
@@ -254,96 +306,86 @@ class DriveViewModel @Inject constructor(
         _isDriverApproved.value = allApproved
     }
 
+    private val _isSwitchingMode = MutableStateFlow(false)
+    val isSwitchingMode: StateFlow<Boolean> = _isSwitchingMode.asStateFlow()
+
     fun toggleDriverMode(enabled: Boolean) {
-        _isDriverMode.value = enabled
-        if (enabled && _isDriverApproved.value) {
-            startDriverSimulation()
-        } else {
-            simulationJob?.cancel()
-            _incomingRideRequest.value = null
-            setDriverOnlineStatus(false)
+        // Hard Guard: Cannot switch modes while a trip is active
+        if (_bookingStatus.value != BookingStatus.NONE && _bookingStatus.value != BookingStatus.COMPLETED) {
+            return
+        }
+
+        viewModelScope.launch {
+            _isSwitchingMode.value = true
+            
+            // Re-validate against backend
+            repository.updateOnlineStatus(false, 0.0, 0.0).collect { } 
+            delay(1000L) 
+
+            if (!enabled && _driverOnlineStatus.value) {
+                setDriverOnlineStatus(false)
+            }
+
+            _isDriverMode.value = enabled
+            if (enabled) {
+                repository.connectRideSocket()
+            } else {
+                repository.disconnectRideSocket()
+                stopLocationService()
+            }
+            
+            _isSwitchingMode.value = false
         }
     }
 
     fun setDriverOnlineStatus(online: Boolean) {
         _driverOnlineStatus.value = online
         val pos = _driverPosition.value ?: _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
+        
         viewModelScope.launch {
             repository.updateOnlineStatus(online, pos.latitude, pos.longitude).collect { }
-        }
-        if (online && _isDriverApproved.value) {
-            startDriverSimulation()
-        } else {
-            simulationJob?.cancel()
-            _incomingRideRequest.value = null
-        }
-    }
-
-    private fun startDriverSimulation() {
-        if (!_isDriverApproved.value) return
-        simulationJob?.cancel()
-        simulationJob = viewModelScope.launch {
-            _driverPosition.value = _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
-            while(true) {
-                if (_driverOnlineStatus.value) {
-                    // 1. Simulate/Update location
-                    val current = _driverPosition.value
-                    val lastKnownPos = if (current != null) {
-                        val newPos = LatLng(
-                            current.latitude + (Random.nextDouble() - 0.5) * 0.0005,
-                            current.longitude + (Random.nextDouble() - 0.5) * 0.0005
-                        )
-                        _driverPosition.value = newPos
-                        // Update status/location on server
-                        repository.updateOnlineStatus(true, newPos.latitude, newPos.longitude).collect { }
-                        newPos
-                    } else {
-                        _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
-                    }
-
-                    // 2. Refresh Driver Stats periodically
-                    if (Random.nextInt(10) == 0) { // roughly every 50s
-                         _driverStats.value = _driverStats.value.copy(
-                             onlineHours = _driverStats.value.onlineHours + 0.01,
-                             weeklyEarnings = _driverEarnings.value + 2450.0 // simulated base
-                         )
-                    }
-
-                    // 3. Fetch requests from server or simulate
-                    if (_incomingRideRequest.value == null && _bookingStatus.value == BookingStatus.NONE) {
-                        repository.getAvailableRequests(lastKnownPos.latitude, lastKnownPos.longitude).collect { res ->
-                            if (res is Resource.Success && res.data != null && res.data.isNotEmpty()) {
-                                _incomingRideRequest.value = res.data.first()
-                            } else {
-                                // Simulation fallback with higher probability for testing
-                                if (Random.nextInt(100) < 20) {
-                                    _incomingRideRequest.value = RideRequest(
-                                        id = "req_${System.currentTimeMillis()}",
-                                        passengerName = "Sarah Smith",
-                                        pickupAddress = "Sandton City Mall",
-                                        destinationAddress = "OR Tambo International",
-                                        fare = 350.00,
-                                        distance = "24 km"
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                delay(5000)
+            if (online) {
+                repository.connectRideSocket()
+                startLocationService()
+            } else {
+                stopLocationService()
+                _incomingRideRequest.value = null
             }
         }
     }
 
+    private fun startLocationService() {
+        val context = com.example.firstapp.common.util.ContextProvider.context
+        val intent = Intent(context, DriverLocationService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
+        context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    private fun stopLocationService() {
+        val context = com.example.firstapp.common.util.ContextProvider.context
+        if (isServiceBound) {
+            context.unbindService(serviceConnection)
+            isServiceBound = false
+        }
+        val intent = Intent(context, DriverLocationService::class.java).apply {
+            action = DriverLocationService.ACTION_STOP_SERVICE
+        }
+        context.startService(intent)
+    }
+
+
+
     fun acceptRideRequest() {
         viewModelScope.launch {
             val req = _incomingRideRequest.value ?: return@launch
-            
             repository.updateRideStatus(req.id, "ACCEPTED").collect { res ->
                 if (res is Resource.Success) {
                     _incomingRideRequest.value = null
                     _bookingStatus.value = BookingStatus.EN_ROUTE
-                    _driverEarnings.value += req.fare
                 }
             }
         }
@@ -448,66 +490,7 @@ class DriveViewModel @Inject constructor(
         _selectedRide.value = option
     }
 
-    private fun startSimulatingDrivers() {
-        driversJob?.cancel()
-        driversJob = viewModelScope.launch {
-            while(true) {
-                if (_isDriveActive.value && _bookingStatus.value == BookingStatus.NONE) {
-                    val center = _pickupLocation.value ?: LatLng(-26.1076, 28.0567)
-                    
-                    // Fetch real nearby drivers from server
-                    repository.getNearbyDrivers(center.latitude, center.longitude).collect { res ->
-                        if (res is Resource.Success && res.data != null && res.data.isNotEmpty()) {
-                            _nearbyDrivers.value = res.data.map { status ->
-                                NearbyDriver(
-                                    id = status.user_id,
-                                    position = LatLng(status.last_lat, status.last_lng),
-                                    rotation = 0f,
-                                    name = "Driver", // Ideally fetch name
-                                    vehicleModel = "Active Vehicle"
-                                )
-                            }
-                        } else if (res is Resource.Error || (res is Resource.Success && res.data.isNullOrEmpty())) {
-                            // Fallback to simulation if no real drivers online
-                            val names = listOf("Thabo", "Lindiwe", "Sipho", "Sarah", "Johannes", "Tumi")
-                            val cars = listOf("Toyota Corolla", "VW Polo", "Honda Civic", "Hyundai i20", "Ford Fiesta", "Mazda 3")
-                            val colors = listOf("White", "Silver", "Black", "Grey", "Blue", "Red")
-                            
-                            if (_nearbyDrivers.value.isEmpty() || _nearbyDrivers.value.all { !it.id.startsWith("driver_") }) {
-                                _nearbyDrivers.value = List(6) { i ->
-                                    NearbyDriver(
-                                        id = "driver_$i",
-                                        position = LatLng(
-                                            center.latitude + (Random.nextDouble() - 0.5) * 0.015,
-                                            center.longitude + (Random.nextDouble() - 0.5) * 0.015
-                                        ),
-                                        rotation = Random.nextFloat() * 360f,
-                                        name = names[i % names.size],
-                                        vehicleModel = cars[i % cars.size],
-                                        vehicleColor = colors[i % colors.size],
-                                        licensePlate = "GP ${Random.nextInt(100, 999)} ${Random.nextInt(100, 999)}"
-                                    )
-                                }
-                            } else {
-                                _nearbyDrivers.value = _nearbyDrivers.value.map { driver ->
-                                    val latMovement = (Random.nextDouble() - 0.5) * 0.0001
-                                    val lngMovement = (Random.nextDouble() - 0.5) * 0.0001
-                                    driver.copy(
-                                        position = LatLng(
-                                            driver.position.latitude + latMovement,
-                                            driver.position.longitude + lngMovement
-                                        ),
-                                        rotation = (driver.rotation + (Random.nextFloat() - 0.5f) * 10f) % 360f
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                delay(10000) // Poll every 10s for nearby drivers
-            }
-        }
-    }
+
 
     fun searchPlaces(context: Context, query: String) {
         searchJob?.cancel()
@@ -538,6 +521,10 @@ class DriveViewModel @Inject constructor(
     fun updatePickupLocation(latLng: LatLng, address: String = "Current Location") {
         _pickupLocation.value = latLng
         _pickupAddress.value = address
+    }
+
+    fun updateSelectedDestination(destination: Destination?) {
+        _selectedDestination.value = destination
     }
 
     fun reverseGeocode(context: Context, latLng: LatLng) {
@@ -633,8 +620,25 @@ class DriveViewModel @Inject constructor(
                             calculateRideOptions(distanceMeters)
                         }
                     }
+                } else {
+                    throw Exception("No routes found")
                 }
-            } catch (e: Exception) { } finally { geoApiContext.shutdown() }
+            } catch (e: Exception) {
+                // Fallback: Estimate distance if Directions API fails (e.g. API key issue)
+                val results = FloatArray(1)
+                android.location.Location.distanceBetween(origin.latitude, origin.longitude, destination.latitude, destination.longitude, results)
+                val directDistanceMeters = results[0].toLong()
+                // Driving distance is usually ~30% longer than straight line
+                val estimatedDrivingDistanceMeters = (directDistanceMeters * 1.3).toLong()
+                val estimatedKm = estimatedDrivingDistanceMeters / 1000.0
+                
+                withContext(Dispatchers.Main) {
+                    _outOfServiceArea.value = estimatedKm > 100.0
+                    _routeDistance.value = String.format(Locale.getDefault(), "%.1f km", estimatedKm)
+                    _routeDuration.value = String.format(Locale.getDefault(), "%d min", (estimatedKm * 2).toInt() + 2)
+                    calculateRideOptions(estimatedDrivingDistanceMeters)
+                }
+            } finally { geoApiContext.shutdown() }
         }
     }
 
@@ -670,88 +674,33 @@ class DriveViewModel @Inject constructor(
         val pickup = _pickupLocation.value ?: return
         val dest = _selectedRide.value ?: return
         val pickupAddr = _pickupAddress.value
-        val destAddr = _suggestions.value.firstOrNull()?.address ?: "Destination"
+        val destAddr = _selectedDestination.value?.address ?: "Destination"
+        val dLat = _selectedDestination.value?.latitude ?: 0.0
+        val dLng = _selectedDestination.value?.longitude ?: 0.0
+        val distance = _routeDistance.value ?: "Calculated"
         
-        bookingJob?.cancel()
-        bookingJob = viewModelScope.launch {
+        viewModelScope.launch {
             _bookingStatus.value = BookingStatus.SEARCHING
             _assignedDriver.value = null
-            _safetyPin.value = (1000..9999).random().toString()
+            _safetyPin.value = null
             
-            // 1. Create request on server
             repository.createRideRequest(
                 pickup = pickupAddr,
                 dest = destAddr,
                 pLat = pickup.latitude,
                 pLng = pickup.longitude,
-                dLat = 0.0,
-                dLng = 0.0,
+                dLat = dLat,
+                dLng = dLng,
                 fare = dest.price.toDoubleOrNull() ?: 0.0,
+                distance = distance,
                 type = dest.name
-            ).collect { }
-
-            delay(4000)
-            
-            val driver = _nearbyDrivers.value.firstOrNull()?.copy(id = "assigned_driver") 
-                ?: NearbyDriver(
-                    id = "assigned_driver", 
-                    position = LatLng(pickup.latitude + 0.005, pickup.longitude + 0.005), 
-                    rotation = 0f,
-                    name = "Mpho",
-                    vehicleModel = "BMW 3 Series",
-                    licensePlate = "GP 123 456"
-                )
-            
-            _assignedDriver.value = driver
-            _nearbyDrivers.value = _nearbyDrivers.value.filter { it.id != driver.id }
-            _bookingStatus.value = BookingStatus.EN_ROUTE
-            
-            // Move to pickup
-            val startPos = driver.position
-            val pickupSteps = 20
-            for (i in 1..pickupSteps) {
-                delay(1000)
-                val progress = i.toFloat() / pickupSteps
-                _remainingTime.value = "${((pickupSteps - i) * 1).coerceAtLeast(1)} min"
-                val currentLat = startPos.latitude + (pickup.latitude - startPos.latitude) * progress
-                val currentLng = startPos.longitude + (pickup.longitude - startPos.longitude) * progress
-                val rotation = Math.toDegrees(Math.atan2(pickup.longitude - startPos.longitude, pickup.latitude - startPos.latitude)).toFloat()
-                _assignedDriver.value = _assignedDriver.value?.copy(position = LatLng(currentLat, currentLng), rotation = rotation)
-            }
-            
-            _bookingStatus.value = BookingStatus.ARRIVED
-            _remainingTime.value = "Arrived"
-            delay(5000) // Wait for user to get in
-            
-            _bookingStatus.value = BookingStatus.IN_PROGRESS
-            // Simulation of trip to destination if we have route points
-            val points = _routePoints.value
-            if (points.isNotEmpty()) {
-                val totalPoints = points.size
-                points.forEachIndexed { index, point ->
-                    if (index % 5 == 0) { // Move in chunks to avoid too many updates
-                        delay(1000)
-                        _remainingTime.value = "${((totalPoints - index) / 10).coerceAtLeast(1)} min"
-                        val prevPoint = if (index > 0) points[index - 1] else pickup
-                        val rotation = Math.toDegrees(Math.atan2(point.longitude - prevPoint.longitude, point.latitude - prevPoint.latitude)).toFloat()
-                        _assignedDriver.value = _assignedDriver.value?.copy(position = point, rotation = rotation)
-                    }
+            ).collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    _activeTripId.value = res.data
+                } else if (res is Resource.Error) {
+                    _bookingStatus.value = BookingStatus.NONE
                 }
             }
-            
-            _bookingStatus.value = BookingStatus.COMPLETED
-            _remainingTime.value = "Finished"
-            
-            val fare = dest.price.toDoubleOrNull() ?: 0.0
-            _completedTripSummary.value = TripSummary(
-                fare = fare,
-                distance = _routeDistance.value ?: "0 km",
-                duration = _routeDuration.value ?: "0 min",
-                passengerName = driver.name
-            )
-
-            // Simulated wallet deduction
-            _walletBalance.value = (_walletBalance.value - fare).coerceAtLeast(0.0)
         }
     }
 
@@ -761,20 +710,45 @@ class DriveViewModel @Inject constructor(
     }
 
     fun cancelBooking() {
-        bookingJob?.cancel()
-        _assignedDriver.value = null
-        _bookingStatus.value = BookingStatus.NONE
+        val tripId = _activeTripId.value ?: "current"
+        viewModelScope.launch {
+            repository.cancelRide(tripId, "User cancelled", "PASSENGER").collect { res ->
+                if (res is Resource.Success) {
+                    _assignedDriver.value = null
+                    _bookingStatus.value = BookingStatus.NONE
+                    _activeTripId.value = null
+                }
+            }
+        }
     }
 
     private fun calculateRideOptions(meters: Long) {
         val km = meters / 1000.0
         val baseFare = 20.0
-        _rideOptions.value = listOf(
-            RideOption("1", "TJ Go", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 7.0)), arrivalTime = "3 min", description = "Standard, compact rides", iconColor = androidx.compose.ui.graphics.Color(0xFF4CAF50)),
-            RideOption("2", "TJ Comfort", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 10.0)), arrivalTime = "5 min", description = "Newer cars, extra legroom", iconColor = androidx.compose.ui.graphics.Color(0xFF2196F3)),
-            RideOption("3", "TJ Premium", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 18.0)), arrivalTime = "4 min", description = "Luxury & top drivers", iconColor = androidx.compose.ui.graphics.Color(0xFF9C27B0)),
-            RideOption("4", "TJ XL", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 12.0)), arrivalTime = "7 min", description = "SUVs for groups up to 6", iconColor = androidx.compose.ui.graphics.Color(0xFFFF9800))
-        )
+        
+        val currentOptions = _rideOptions.value
+        if (currentOptions.isNotEmpty()) {
+            _rideOptions.value = currentOptions.map { option ->
+                val multiplier = when (option.name) {
+                    "TJ Go" -> 7.0
+                    "TJ Comfort" -> 10.0
+                    "TJ Premium" -> 18.0
+                    "TJ XL" -> 12.0
+                    else -> 8.5
+                }
+                option.copy(
+                    price = String.format(Locale.getDefault(), "%.2f", baseFare + (km * multiplier)),
+                    arrivalTime = "${Random.nextInt(2, 8)} min"
+                )
+            }
+        } else {
+            _rideOptions.value = listOf(
+                RideOption("1", "TJ Go", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 7.0)), arrivalTime = "3 min", description = "Standard, compact rides", iconColor = androidx.compose.ui.graphics.Color(0xFF4CAF50)),
+                RideOption("2", "TJ Comfort", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 10.0)), arrivalTime = "5 min", description = "Newer cars, extra legroom", iconColor = androidx.compose.ui.graphics.Color(0xFF2196F3)),
+                RideOption("3", "TJ Premium", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 18.0)), arrivalTime = "4 min", description = "Luxury & top drivers", iconColor = androidx.compose.ui.graphics.Color(0xFF9C27B0)),
+                RideOption("4", "TJ XL", String.format(Locale.getDefault(), "%.2f", baseFare + (km * 12.0)), arrivalTime = "7 min", description = "SUVs for groups up to 6", iconColor = androidx.compose.ui.graphics.Color(0xFFFF9800))
+            )
+        }
     }
 
     fun getPlaceDetails(context: Context, destination: Destination, onComplete: (Destination) -> Unit) {

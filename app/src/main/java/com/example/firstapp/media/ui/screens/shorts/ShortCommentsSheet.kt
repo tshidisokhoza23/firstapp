@@ -35,6 +35,7 @@ fun ShortCommentsOverlay(
     shortId: String,
     repliesState: Resource<List<Post>>,
     currentUserAvatarUrl: String? = null,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     onDismiss: () -> Unit,
     onSendReply: (String, String?) -> Unit,
     onLikeReply: (Post) -> Unit = {}
@@ -124,7 +125,11 @@ fun ShortCommentsOverlay(
             // Input field
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.fillMaxWidth().imePadding()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = bottomPadding) // FIX: Pushes input above app's bottom nav
+                    .navigationBarsPadding()
+                    .imePadding()
             ) {
                 Column {
                     if (replyingTo != null) {
@@ -196,6 +201,9 @@ fun CommentItem(
     onLike: () -> Unit,
     onReplyClick: () -> Unit
 ) {
+    LaunchedEffect(comment.id) {
+        android.util.Log.d("ShortCommentsSheet", "Rendering comment: ${comment.id} by ${comment.authorHandle}")
+    }
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))) {
             AsyncImage(

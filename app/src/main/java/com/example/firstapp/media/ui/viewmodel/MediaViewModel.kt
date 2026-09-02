@@ -59,6 +59,12 @@ class MediaViewModel @Inject constructor(
     private val _isGlobalPlaybackPaused = MutableStateFlow(false)
     val isGlobalPlaybackPaused: StateFlow<Boolean> = _isGlobalPlaybackPaused.asStateFlow()
 
+    private val _isMuted = MutableStateFlow(false)
+    val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
+
+    // Session-based unique view tracking to avoid redundant API calls
+    private val viewedPostsThisSession = HashSet<String>()
+
     init {
         preloadAds()
         loadFeed("standard")
@@ -175,15 +181,16 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    fun search(query: String) {
+    fun search(query: String, isGlobal: Boolean = false) {
         currentSearchJob?.cancel()
         if (query.isBlank()) {
             _searchResults.value = Resource.Success(emptyList())
             return
         }
 
+        val cacheKey = "${query}_$isGlobal"
         val now = System.currentTimeMillis()
-        val cached = searchCache.get(query)
+        val cached = searchCache.get(cacheKey)
         if (cached != null) {
             val ts = cached.second
             if ((now - ts) < searchTtlMs) {
@@ -194,22 +201,10 @@ class MediaViewModel @Inject constructor(
 
         currentSearchJob = viewModelScope.launch {
             _searchResults.value = Resource.Loading()
-            socialRepository.getPosts(1, "standard").collect { res ->
+            socialRepository.searchPosts(query, isGlobal).collect { res ->
+                _searchResults.value = res
                 if (res is Resource.Success) {
-                    val posts = res.data ?: emptyList()
-                    val filtered = ArrayList<Post>()
-                    val q = query.lowercase(Locale.getDefault())
-                    for (p in posts) {
-                        val content = p.content.lowercase(Locale.getDefault())
-                        val author = p.authorName.lowercase(Locale.getDefault())
-                        if (content.indexOf(q) >= 0 || author.indexOf(q) >= 0) {
-                            filtered.add(p)
-                        }
-                    }
-                    _searchResults.value = Resource.Success(filtered)
-                    searchCache.put(query, Pair(filtered, System.currentTimeMillis()))
-                } else if (res is Resource.Error) {
-                    _searchResults.value = Resource.Error(res.message ?: "Search failed")
+                    searchCache.put(cacheKey, Pair(res.data ?: emptyList(), System.currentTimeMillis()))
                 }
             }
         }
@@ -225,38 +220,56 @@ class MediaViewModel @Inject constructor(
         pollOptions: List<String>? = null, 
         location: String? = null,
         parentPostId: String? = null,
-        rootPostId: String? = null
+        rootPostId: String? = null,
+        repostOfId: String? = null
     ) {
-        if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty())) return
+        if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty()) && repostOfId == null) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = ArrayList<String>()
+            var thumbnailUrl: String? = null
+            
+            val context = com.example.firstapp.common.util.ContextProvider.context
+
             for (uriStr in mediaUris) {
                 android.util.Log.d("MediaViewModel", "Processing media URI: $uriStr")
+                val uri = if (uriStr.startsWith("/")) {
+                     android.net.Uri.fromFile(java.io.File(uriStr))
+                } else {
+                     android.net.Uri.parse(uriStr)
+                }
+
+                // Expert Logic: If it's a video, generate a thumbnail
+                if (thumbnailUrl == null && MediaUtils.isVideo(uriStr)) {
+                    val thumbFile = MediaUtils.getVideoThumbnail(context, uri)
+                    if (thumbFile != null) {
+                        accountRepository.uploadFile(thumbFile, "thumbnails").collect { res ->
+                            if (res is Resource.Success && res.data != null) {
+                                thumbnailUrl = res.data.url
+                                thumbFile.delete()
+                            }
+                        }
+                    }
+                }
+
                 if (uriStr.startsWith("content://") || uriStr.startsWith("file://") || uriStr.startsWith("/")) {
                     try {
-                        val uri = if (uriStr.startsWith("/")) {
-                             android.net.Uri.fromFile(java.io.File(uriStr))
-                        } else {
-                             android.net.Uri.parse(uriStr)
-                        }
-                        val context = com.example.firstapp.common.util.ContextProvider.context
                         val file = MediaUtils.copyUriToTempFile(context, uri)
                         if (file != null) {
-                            android.util.Log.d("MediaViewModel", "File copied to temp: ${file.absolutePath}, size: ${file.length()}")
-                            // Synchronously wait for each upload to complete and get the public URL
+                            var uploadSuccess = false
                             accountRepository.uploadFile(file, "posts").collect { res ->
                                 if (res is Resource.Success && res.data != null) {
-                                    android.util.Log.d("MediaViewModel", "Upload success: ${res.data.url}")
                                     finalUrls.add(res.data.url)
                                     file.delete()
+                                    uploadSuccess = true
                                 } else if (res is Resource.Error) {
-                                    android.util.Log.e("MediaViewModel", "Upload failed for ${file.name}: ${res.message}")
                                     _toastMessage.value = "Upload failed: ${res.message}"
                                 }
                             }
-                        } else {
-                            android.util.Log.e("MediaViewModel", "Failed to copy URI to temp file: $uri")
+                            if (!uploadSuccess) {
+                                _uiState.update { it.copy(isLoading = false) }
+                                return@launch // Fail early if upload failed
+                            }
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("MediaViewModel", "File error: ${e.message}")
@@ -266,31 +279,28 @@ class MediaViewModel @Inject constructor(
                 }
             }
             
-            // Auto-detect media type if not provided
             val finalMediaType = if (postType == "short") "VIDEO" else (mediaType ?: if (finalUrls.size > 0) {
                 if (com.example.firstapp.common.util.MediaUtils.isVideo(finalUrls[0])) "VIDEO" else "IMAGE"
             } else "TEXT")
-            
-            android.util.Log.d("MediaViewModel", "READY TO CREATE POST: mediaCount=" + finalUrls.size + ", type=" + finalMediaType)
-            var idx = 0
-            while (idx < finalUrls.size) {
-                android.util.Log.d("MediaViewModel", "  URL[" + idx + "]: " + finalUrls[idx])
-                idx++
-            }
 
-            if (finalUrls.size == 0 && content.length == 0 && (pollOptions == null || pollOptions.size == 0)) {
-                android.util.Log.w("MediaViewModel", "Aborting createPost: No content and no media")
+            if (finalUrls.size == 0 && content.length == 0 && (pollOptions == null || pollOptions.size == 0) && repostOfId == null) {
                 _uiState.update { it.copy(isLoading = false) }
                 return@launch
             }
 
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId).collect { res ->
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId, repostOfId = repostOfId, thumbnailUrl = thumbnailUrl).collect { res ->
                 if (res is Resource.Success) {
-                    android.util.Log.d("MediaViewModel", "Post created SUCCESS. Data: ${res.data}")
                     _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+                    
+                    // REQUIREMENT: Refresh thread immediately after replying
+                    if (parentPostId != null || rootPostId != null) {
+                        val currentSelectedId = _uiState.value.selectedPost?.id
+                        if (currentSelectedId != null) {
+                            fetchReplies(currentSelectedId)
+                        }
+                    }
                 } else if (res is Resource.Error) {
-                    android.util.Log.e("MediaViewModel", "Post creation FAILED: ${res.message}")
                     _toastMessage.value = "Failed to post: ${res.message}"
                 }
             }
@@ -340,22 +350,61 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    fun repostPost(postId: String) {
+    fun repostPost(postId: String, currentReposts: Long, isReposted: Boolean) {
         viewModelScope.launch {
-            // ... logic ...
+            val nextReposted = !isReposted
+            val nextRepostsCount = if (nextReposted) currentReposts + 1 else if (currentReposts > 0) currentReposts - 1 else 0L
+            
+            socialRepository.updatePostRepostLocally(postId, nextRepostsCount, nextReposted)
+            
+            val selected = _uiState.value.selectedPost
+            if (selected != null && selected.id == postId) {
+                _uiState.update { it.copy(selectedPost = selected.copy(isReposted = nextReposted, repostCount = nextRepostsCount)) }
+            }
+
             socialRepository.repostPost(postId).collect { resource ->
-                if (resource is Resource.Success) {
-                    _toastMessage.value = "Reposted successfully"
-                    _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-                    trackEngagement(postId, "share", "entertainment")
-                } else if (resource is Resource.Error) {
+                if (resource is Resource.Error) {
+                    socialRepository.updatePostRepostLocally(postId, currentReposts, isReposted)
+                    if (selected != null && selected.id == postId) {
+                        _uiState.update { it.copy(selectedPost = selected) }
+                    }
                     _toastMessage.value = "Failed to repost: ${resource.message}"
+                } else if (resource is Resource.Success) {
+                    _toastMessage.value = if (nextReposted) "Reposted successfully" else "Repost removed"
+                    if (nextReposted) trackEngagement(postId, "share", "entertainment")
+                }
+            }
+        }
+    }
+
+    fun sharePost(postId: String, currentShares: Long) {
+        viewModelScope.launch {
+            val nextSharesCount = currentShares + 1
+            
+            socialRepository.updatePostShareLocally(postId, nextSharesCount)
+            
+            val selected = _uiState.value.selectedPost
+            if (selected != null && selected.id == postId) {
+                _uiState.update { it.copy(selectedPost = selected.copy(shares = nextSharesCount)) }
+            }
+
+            socialRepository.sharePost(postId).collect { resource ->
+                if (resource is Resource.Error) {
+                    socialRepository.updatePostShareLocally(postId, currentShares)
+                    if (selected != null && selected.id == postId) {
+                        _uiState.update { it.copy(selectedPost = selected) }
+                    }
+                } else if (resource is Resource.Success) {
+                    trackEngagement(postId, "share", "entertainment")
                 }
             }
         }
     }
 
     fun viewPost(postId: String) {
+        if (viewedPostsThisSession.contains(postId)) return
+        viewedPostsThisSession.add(postId)
+        
         viewModelScope.launch {
             socialRepository.viewPost(postId).collect { }
             trackEngagement(postId, "view", "entertainment")
@@ -461,9 +510,11 @@ class MediaViewModel @Inject constructor(
     }
 
     fun fetchShortReplies(postId: String) {
+        android.util.Log.d("MediaViewModel", "fetchShortReplies called for post: $postId")
         viewModelScope.launch {
             _shortReplies.value = Resource.Loading()
             socialRepository.getReplies(postId).collect { resource ->
+                android.util.Log.d("MediaViewModel", "fetchShortReplies received resource: ${resource::class.simpleName}, count=${resource.data?.size ?: 0}")
                 _shortReplies.value = resource
             }
         }
@@ -484,6 +535,15 @@ class MediaViewModel @Inject constructor(
         }
     }
     fun followUser(userId: String) {
+        val currentUserId = try { 
+            com.example.firstapp.common.util.ContextProvider.context.getSharedPreferences("session", android.content.Context.MODE_PRIVATE).getString("user_id", "")
+        } catch(_: Exception) { "" }
+        
+        if (userId == currentUserId) {
+            android.util.Log.w("MediaViewModel", "Attempted to follow self: $userId")
+            return
+        }
+
         viewModelScope.launch {
             // Local optimistic update
             socialRepository.updateAuthorFollowStatusLocally(userId, true)
@@ -522,6 +582,10 @@ class MediaViewModel @Inject constructor(
 
     fun setGlobalPlaybackPaused(paused: Boolean) {
         _isGlobalPlaybackPaused.value = paused
+    }
+
+    fun toggleMute() {
+        _isMuted.value = !_isMuted.value
     }
 
     override fun onCleared() {

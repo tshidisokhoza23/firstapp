@@ -78,19 +78,18 @@ object GlobalCallState {
     }
 
     fun getContactName(id: String): String? {
-        // Try direct lookup
-        contactNames[id]?.let { return it }
+        val name = contactNames[id]
+        if (name != null) return name
         
-        // Try finding by ID if it's a known phone number or secondary ID
-        // (This part is simplified, usually we'd have a more robust lookup)
+        // If id is a phone number, it might be the key itself
         return null
     }
     fun getContactPhone(userId: String): String? = contactPhones[userId]
 
     fun onCallInvite(event: CallEvent) {
         val senderIdStr = event.senderId
-        val enriched = if (event.senderName.isBlank()) {
-            val name = contactNames[senderIdStr] ?: contactPhones[senderIdStr] ?: senderIdStr
+        val enriched = if (event.senderName.isBlank() || event.senderName == senderIdStr) {
+            val name = contactNames[senderIdStr] ?: contactPhones[senderIdStr] ?: ""
             event.copy(senderName = name)
         } else event
         _incomingCall.value = enriched

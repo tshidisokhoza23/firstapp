@@ -22,6 +22,9 @@ fun ShortMoreMenuSheet(
     onDismiss: () -> Unit,
     onAction: (String) -> Unit
 ) {
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
+    val isOwner = short.authorId == currentUser.id
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF1A1C1E),
@@ -30,6 +33,7 @@ fun ShortMoreMenuSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(bottom = 32.dp)
         ) {
             // Header
@@ -41,7 +45,7 @@ fun ShortMoreMenuSheet(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "More Options",
+                    text = "Options",
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -54,31 +58,44 @@ fun ShortMoreMenuSheet(
             HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
             MoreMenuItem(
-                icon = Icons.Default.Mail,
-                text = "Message ${short.authorName}",
-                onClick = { onAction("message"); onDismiss() }
+                icon = Icons.Default.AddCircleOutline,
+                text = "Add Short",
+                onClick = { onAction("add_short"); onDismiss() }
             )
+
+            if (!isOwner) {
+                MoreMenuItem(
+                    icon = Icons.Default.Mail,
+                    text = "Message ${short.authorName}",
+                    onClick = { onAction("message"); onDismiss() }
+                )
+            }
+            
             MoreMenuItem(
-                icon = Icons.Default.Block,
-                text = "Not interested",
-                onClick = { onAction("not_interested"); onDismiss() }
+                icon = Icons.Default.Download,
+                text = "Save video",
+                onClick = { onAction("save"); onDismiss() }
             )
-            MoreMenuItem(
-                icon = Icons.Default.Report,
-                text = "Report",
-                onClick = { onAction("report"); onDismiss() },
-                contentColor = Color.Red
-            )
+
             MoreMenuItem(
                 icon = Icons.Default.ContentCopy,
                 text = "Copy link",
                 onClick = { onAction("copy_link"); onDismiss() }
             )
-            MoreMenuItem(
-                icon = Icons.Default.ClosedCaption,
-                text = "Captions",
-                onClick = { onAction("captions"); onDismiss() }
-            )
+
+            if (!isOwner) {
+                MoreMenuItem(
+                    icon = Icons.Default.Block,
+                    text = "Not interested",
+                    onClick = { onAction("not_interested"); onDismiss() }
+                )
+                MoreMenuItem(
+                    icon = Icons.Default.Report,
+                    text = "Report",
+                    onClick = { onAction("report"); onDismiss() },
+                    contentColor = Color.Red
+                )
+            }
         }
     }
 }

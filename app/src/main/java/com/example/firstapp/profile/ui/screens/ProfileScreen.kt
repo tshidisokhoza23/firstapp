@@ -214,6 +214,10 @@ fun ProfileView(
                 }
             }
 
+            LaunchedEffect(activePostId) {
+                activePostId?.let { mediaViewModel.viewPost(it) }
+            }
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -292,16 +296,6 @@ fun ProfileView(
                                 }
                             }
                         }
-                        }
-
-                        if (user?.bio != null && user.bio!!.isNotEmpty()) {
-                            Text(
-                                text = user.bio!!,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontSize = 15.sp,
-                                modifier = Modifier.padding(top = 16.dp),
-                                lineHeight = 20.sp
-                            )
                         }
 
                         Row(
@@ -496,19 +490,26 @@ fun ProfileView(
                                         activePostId = activePostId,
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                                        onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                        onRepostClick = { p -> mediaViewModel.repostPost(p.id, p.repostCount, p.isReposted) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetId ->
                                             if (targetId != userId) {
-                                                // Navigate if it's a different user
+                                                onBack() // Or navigate to that profile
                                             }
                                         },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
-                                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
+                                        onShareClick = { p -> 
+                                            mediaViewModel.sharePost(p.id, p.shares)
+                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p) 
+                                        },
+                                        onFollowClick = { id, followed ->
+                                            if (followed) mediaViewModel.unfollowUser(id)
+                                            else mediaViewModel.followUser(id)
+                                        }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -536,7 +537,7 @@ fun ProfileView(
                                         activePostId = activePostId,
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                                        onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                        onRepostClick = { p -> mediaViewModel.repostPost(p.id, p.repostCount, p.isReposted) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
@@ -547,7 +548,10 @@ fun ProfileView(
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
-                                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
+                                        onShareClick = { p -> 
+                                            mediaViewModel.sharePost(p.id, p.shares)
+                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p) 
+                                        }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -575,7 +579,7 @@ fun ProfileView(
                                         activePostId = activePostId,
                                         onClick = { onNavigateToPostDetail(post.id) },
                                         onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                                        onRepostClick = { mediaViewModel.repostPost(it.id) },
+                                        onRepostClick = { p -> mediaViewModel.repostPost(p.id, p.repostCount, p.isReposted) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
@@ -586,7 +590,10 @@ fun ProfileView(
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
-                                        onShareClick = { p -> com.example.firstapp.common.util.ShareUtils.sharePost(context, p) }
+                                        onShareClick = { p -> 
+                                            mediaViewModel.sharePost(p.id, p.shares)
+                                            com.example.firstapp.common.util.ShareUtils.sharePost(context, p) 
+                                        }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                                 }
@@ -610,7 +617,12 @@ fun ProfileView(
                                             val short = shorts[index]
                                             if (short != null) {
                                                 Box(modifier = Modifier.weight(1f).padding(1.dp)) {
-                                                    ShortGridItem(short, { onShortClick(it) })
+                                                    PostItem(
+                                                        adManager = adManager,
+                                                        post = short,
+                                                        displayMode = com.example.firstapp.media.ui.components.PostDisplayMode.GRID,
+                                                        onClick = { onShortClick(short) }
+                                                    )
                                                 }
                                             } else {
                                                 Spacer(modifier = Modifier.weight(1f))
@@ -690,68 +702,25 @@ fun SuggestedUserCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                Button(
-                    onClick = onFollow,
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary, 
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Follow", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                if (!contact.isFollowing) {
+                    Button(
+                        onClick = onFollow,
+                        modifier = Modifier.fillMaxWidth().height(32.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary, 
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Follow", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                } else {
+                    // Show a disabled "Following" or nothing.
+                    // Following the user's request to "not show following", we show nothing.
+                    Box(modifier = Modifier.height(32.dp))
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ShortGridItem(post: Post, onShortClick: (Post) -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(9f / 16f)
-            .clip(RoundedCornerShape(4.dp))
-            .background(post.mediaPlaceholderColor ?: Color.Black)
-            .clickable { onShortClick(post) }
-    ) {
-        val rawModel = if (post.thumbnailUrl?.isNotEmpty() == true) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
-        val model = com.example.firstapp.common.util.MediaUtils.formatUrl(rawModel)
-
-        AsyncImage(
-            model = model,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
-                    )
-                )
-        )
-
-        Icon(
-            imageVector = Icons.Default.PlayArrow,
-            contentDescription = "Play short",
-            tint = Color.White,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(24.dp)
-        )
-        
-        Text(
-            text = "${post.views}",
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
-        )
     }
 }

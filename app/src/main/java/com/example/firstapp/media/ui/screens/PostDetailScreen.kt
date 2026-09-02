@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.ui.theme.*
@@ -43,12 +44,15 @@ fun PostDetailScreen(
     mediaViewModel: MediaViewModel,
     adManager: AdManager,
     ownProfileId: String,
+    mainViewModel: com.example.firstapp.home.ui.viewmodel.MainViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onProfileClick: (String) -> Unit,
     onMediaClick: (String, String, Long) -> Unit,
     onReplyDetailClick: (String) -> Unit = {}
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
+    val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
+    val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
     val post = uiState.selectedPost
     var currentPlaybackPosition by remember { mutableLongStateOf(0L) }
 
@@ -148,23 +152,27 @@ fun PostDetailScreen(
                 // 1. ANCESTORS (If any)
                 post.originalPost?.let { parent ->
                     item {
-                        ThreadPostItem(
-                            item = FlattenedThreadItem(
-                                post = parent,
-                                depth = 0,
-                                isLastInBranch = true,
-                                hasVerticalLineAbove = false,
-                                hasVerticalLineBelow = false, // Standalone ancestor
-                                hasChildren = true
-                            ),
-                            isRoot = true,
-                            onLikeClick = { mediaViewModel.likePost(parent.id, parent.likes, parent.isLiked) },
-                            onReplyClick = { replyingToPost = parent },
-                            onRepostClick = { mediaViewModel.repostPost(parent.id) },
-                            onShareClick = { com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, parent) },
+                        PostItem(
+                            adManager = adManager,
+                            post = parent,
+                            showThreadLine = true,
+                            showLineAbove = false,
+                            showLineBelow = true,
+                            depth = 0,
+                            activePostId = postId,
+                            autoplayEnabled = autoplayEnabled,
+                            autoplayGifsEnabled = autoplayGifsEnabled,
+                            onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                            onReplyClick = { p, _ -> replyingToPost = p },
+                            onRepostClick = { mediaViewModel.repostPost(parent.id, parent.repostCount, parent.isReposted) },
+                            onShareClick = { 
+                                mediaViewModel.sharePost(parent.id, parent.shares)
+                                com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, parent) 
+                            },
+                            onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                             onProfileClick = onProfileClick,
                             onMediaClick = onMediaClick,
-                            modifier = Modifier.clickable { onReplyDetailClick(parent.id) }
+                            onClick = { onReplyDetailClick(parent.id) }
                         )
                     }
                 }
@@ -174,18 +182,32 @@ fun PostDetailScreen(
                     items = flattenedItems,
                     key = { _, item -> item.post.id }
                 ) { index, item ->
-                    ThreadPostItem(
-                        item = item,
-                        isRoot = index == 0 && post.originalPost == null,
-                        onLikeClick = { mediaViewModel.likePost(item.post.id, item.post.likes, item.post.isLiked) },
-                        onReplyClick = { replyingToPost = item.post },
-                        onRepostClick = { mediaViewModel.repostPost(item.post.id) },
-                        onShareClick = { com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, item.post) },
+                    PostItem(
+                        adManager = adManager,
+                        post = item.post,
+                        showThreadLine = true,
+                        showLineAbove = item.hasVerticalLineAbove,
+                        showLineBelow = item.hasVerticalLineBelow,
+                        depth = item.depth,
+                        isLastInThread = item.isLastInBranch,
+                        activePostId = postId,
+                        autoplayEnabled = autoplayEnabled,
+                        autoplayGifsEnabled = autoplayGifsEnabled,
+                        onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
+                        onReplyClick = { p, _ -> replyingToPost = p },
+                        onRepostClick = { mediaViewModel.repostPost(item.post.id, item.post.repostCount, item.post.isReposted) },
+                        onShareClick = { 
+                            mediaViewModel.sharePost(item.post.id, item.post.shares)
+                            com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, item.post) 
+                        },
+                        onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                         onProfileClick = onProfileClick,
                         onMediaClick = onMediaClick,
-                        modifier = if (item.post.id != post.id) {
-                            Modifier.clickable { onReplyDetailClick(item.post.id) }
-                        } else Modifier
+                        onClick = {
+                            if (item.post.id != post.id) {
+                                onReplyDetailClick(item.post.id)
+                            }
+                        }
                     )
 
                     // Add a divider after the Main Post (the root of the thread)
@@ -206,12 +228,17 @@ fun PostDetailScreen(
             onDismissRequest = { showRepostOptions = false },
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 32.dp)
+            ) {
                 ListItem(
                     headlineContent = { Text(if (post.isReposted) "Undo Repost" else "Repost", color = MaterialTheme.colorScheme.onSurface) },
                     leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (post.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurface) },
                     modifier = Modifier.clickable {
-                        mediaViewModel.repostPost(post.id)
+                        mediaViewModel.repostPost(post.id, post.repostCount, post.isReposted)
                         showRepostOptions = false
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)

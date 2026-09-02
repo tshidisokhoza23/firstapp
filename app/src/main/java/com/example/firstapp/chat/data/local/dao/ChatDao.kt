@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChatDao {
-    @Query("SELECT * FROM chats WHERE isArchived = 0 AND type IN ('DIRECT', 'GROUP') ORDER BY isPinned DESC, timestamp DESC")
+    @Query("SELECT * FROM chats WHERE isArchived = 0 AND type IN ('DIRECT', 'GROUP', 'JOB_CHAT') ORDER BY isPinned DESC, timestamp DESC")
     fun getChats(): Flow<List<ChatEntity>>
 
-    @Query("SELECT * FROM chats WHERE isArchived = 1 AND type IN ('DIRECT', 'GROUP') ORDER BY timestamp DESC")
+    @Query("SELECT * FROM chats WHERE isArchived = 1 AND type IN ('DIRECT', 'GROUP', 'JOB_CHAT') ORDER BY timestamp DESC")
     fun getArchivedChats(): Flow<List<ChatEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -48,6 +48,9 @@ interface ChatDao {
 
     @Query("UPDATE messages SET reactions = :reactions WHERE id = :messageId")
     suspend fun updateMessageReactions(messageId: String, reactions: Map<String, Int>)
+
+    @Query("UPDATE messages SET content = :newContent WHERE id = :messageId")
+    suspend fun updateMessageContent(messageId: String, newContent: String)
 
     @Query("SELECT * FROM messages WHERE clientId = :clientId LIMIT 1")
     suspend fun getMessageByClientId(clientId: String): MessageEntity?
@@ -88,6 +91,9 @@ interface ChatDao {
     @Query("UPDATE messages SET isRead = 1, status = 'READ' WHERE id = :messageId")
     suspend fun markAsRead(messageId: String)
 
+    @Query("UPDATE messages SET isStarred = :isStarred WHERE id = :messageId")
+    suspend fun updateMessageStarred(messageId: String, isStarred: Boolean)
+
     @Query("SELECT conversationId FROM messages WHERE id = :messageId")
     suspend fun getChatIdForMessage(messageId: String): String?
 
@@ -123,16 +129,28 @@ interface ChatDao {
 
     @Query("UPDATE chats SET disappearingMessagesDuration = :duration WHERE id = :chatId")
     suspend fun updateDisappearingMessages(chatId: String, duration: Int)
+
+    @Query("UPDATE chats SET avatarUrl = :avatarUrl WHERE id = :chatId")
+    suspend fun updateAvatar(chatId: String, avatarUrl: String?)
     
     @Query("SELECT * FROM messages WHERE id IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH :query) ORDER BY timestamp DESC")
     fun searchMessagesAcrossAll(query: String): Flow<List<MessageEntity>>
 
-    @Query("DELETE FROM messages WHERE conversationId = :chatId AND id NOT IN (SELECT id FROM messages WHERE conversationId = :chatId ORDER BY timestamp DESC LIMIT :limit)")
-    suspend fun pruneMessages(chatId: String, limit: Int)
+    @Query("DELETE FROM messages WHERE conversationId = :chatId AND timestamp < :timestamp")
+    suspend fun deleteMessagesBefore(chatId: String, timestamp: Long)
+
+    @Query("SELECT * FROM chats WHERE disappearingMessagesDuration > 0")
+    suspend fun getChatsWithDisappearingMessages(): List<ChatEntity>
 
     @Query("SELECT * FROM chats WHERE id = :chatId")
     fun getChatById(chatId: String): Flow<ChatEntity?>
 
     @Query("SELECT * FROM messages WHERE status = 'PENDING' OR status = 'FAILED'")
     suspend fun getPendingMessages(): List<MessageEntity>
+
+    @Query("SELECT * FROM messages WHERE isStarred = 1 ORDER BY timestamp DESC")
+    fun getStarredMessages(): Flow<List<MessageEntity>>
+
+    @Query("SELECT * FROM messages WHERE type IN ('IMAGE', 'VIDEO', 'DOCUMENT', 'AUDIO_MESSAGE') ORDER BY timestamp DESC")
+    fun getAllFiles(): Flow<List<MessageEntity>>
 }

@@ -65,10 +65,12 @@ class IncomingCallActivity : ComponentActivity() {
             TJTheme {
 
                 val incomingCall by GlobalCallState.incomingCall.collectAsState()
-                val callerName = incomingCall?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("User ") }
-                    ?: GlobalCallState.getContactName(senderId)
-                    ?: GlobalCallState.getContactPhone(senderId)
-                    ?: if (senderId != "") senderId else "Unknown"
+                val callerName = remember(incomingCall, senderId) {
+                    incomingCall?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("User ") && it.length < 30 }
+                        ?: GlobalCallState.getContactName(senderId)
+                        ?: GlobalCallState.getContactPhone(senderId)
+                        ?: ""
+                }
                 val callLabel = if (callType == CallType.VIDEO) "Incoming video call" else "Incoming voice call"
 
                 // If the call was cancelled while this screen was open, close ourselves

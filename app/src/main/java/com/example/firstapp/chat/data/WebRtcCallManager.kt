@@ -9,6 +9,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import android.os.PowerManager
+import android.util.Log
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import org.webrtc.AudioSource
@@ -120,6 +121,7 @@ class WebRtcCallManager(context: Context) {
 
     @Synchronized
     fun start(callType: CallType) {
+        android.util.Log.d("WebRtcCallManager", "Starting call: type=$callType")
         this.callType = callType
         releasePeerConnectionOnly()
 
@@ -145,26 +147,23 @@ class WebRtcCallManager(context: Context) {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
         }
         peerConnection = factory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
-            override fun onSignalingChange(state: PeerConnection.SignalingState) = Unit
+            override fun onSignalingChange(state: PeerConnection.SignalingState) {
+                android.util.Log.d("WebRtcCallManager", "Signaling state changed: $state")
+            }
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
+                android.util.Log.d("WebRtcCallManager", "ICE connection state changed: $state")
                 when (state) {
                     PeerConnection.IceConnectionState.CONNECTED,
                     PeerConnection.IceConnectionState.COMPLETED -> {
-                        // Re-assert the audio route now that media is actually flowing. Some
-                        // OEM firmware (observed on Samsung) resets/ignores the communication
-                        // device chosen at call setup time, leaving audio routed to the quiet
-                        // earpiece even during a video call.
                         setSpeakerEnabled(callType == CallType.VIDEO)
                         onConnected?.invoke()
                     }
                     PeerConnection.IceConnectionState.DISCONNECTED -> {
-                        // Network might have switched, try ICE restart if not recovered soon
                         observationScope.launch {
                             delay(3000)
                             if (peerConnection?.iceConnectionState() == PeerConnection.IceConnectionState.DISCONNECTED) {
                                 restartIce()
                                 
-                                // Final termination if recovery fails within 15 seconds of disconnect
                                 delay(12000)
                                 if (peerConnection?.iceConnectionState() == PeerConnection.IceConnectionState.DISCONNECTED || 
                                     peerConnection?.iceConnectionState() == PeerConnection.IceConnectionState.FAILED) {
@@ -369,9 +368,7 @@ class WebRtcCallManager(context: Context) {
     fun setMicEnabled(enabled: Boolean) {
         localAudioTrack?.setEnabled(enabled)
         localAudioTrack?.setVolume(if (enabled) 1.0 else 0.0)
-        // Set hardware mute on the Audio Device Module (Robust for Huawei/Samsung)
         audioDeviceModule?.setMicrophoneMute(!enabled)
-        // Fallback system mute
         audioManager.isMicrophoneMute = !enabled
     }
 
@@ -380,17 +377,26 @@ class WebRtcCallManager(context: Context) {
         var routedViaCommunicationDevice = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val devices = audioManager.availableCommunicationDevices
-            val targetType = if (enabled) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-            val device = devices.firstOrNull { it.type == targetType }
-            if (device != null) {
-                routedViaCommunicationDevice = audioManager.setCommunicationDevice(device)
+            
+            if (enabled) {
+                val speaker = devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                if (speaker != null) {
+                    routedViaCommunicationDevice = audioManager.setCommunicationDevice(speaker)
+                }
+            } else {
+                val bluetooth = devices.firstOrNull { 
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || 
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET 
+                }
+                val earpiece = devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                
+                val target = bluetooth ?: earpiece
+                if (target != null) {
+                    routedViaCommunicationDevice = audioManager.setCommunicationDevice(target)
+                }
             }
         }
-        // Always also set the legacy speakerphone flag as a fallback: some OEM builds
-        // (observed on Samsung devices) silently fail setCommunicationDevice() or reset
-        // the route shortly after, leaving the call routed to the earpiece (very quiet)
-        // even during a video call. Setting this too costs nothing and guarantees the
-        // expected route is applied.
         if (!routedViaCommunicationDevice || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = enabled
@@ -398,11 +404,6 @@ class WebRtcCallManager(context: Context) {
         ensureAudibleCallVolume()
     }
 
-    /**
-     * Boosts the in-call (STREAM_VOICE_CALL) volume to an audible level when a call starts.
-     * Without this, calls can sound almost silent if the stream's volume index was left low
-     * from a previous call/media session, even though the app itself plays audio at full gain.
-     */
     private fun ensureAudibleCallVolume() {
         try {
             val stream = AudioManager.STREAM_VOICE_CALL
@@ -412,8 +413,7 @@ class WebRtcCallManager(context: Context) {
             if (current < minAudible) {
                 audioManager.setStreamVolume(stream, minAudible, 0)
             }
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
     }
 
     fun setCameraEnabled(enabled: Boolean) {
@@ -438,13 +438,25 @@ class WebRtcCallManager(context: Context) {
     }
 
     fun attachLocalRenderer(renderer: SurfaceViewRenderer) {
+        if (localRenderer == renderer) return
+        
+        // Detach from previous renderer if any
         localRenderer?.let { localVideoTrack?.removeSink(it) }
+        
         localRenderer = renderer
         try {
+            // Note: renderer.init is often called multiple times if reused in Compose, 
+            // but we should avoid it if the context hasn't changed.
             renderer.init(eglBase.eglBaseContext, null)
             renderer.setEnableHardwareScaler(true)
             renderer.setMirror(true)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            // Only log if it's not a "renderer already initialized" error which is common in PiP swaps
+            if (e.message?.contains("already initialized") != true) {
+                Log.w("WebRtcCallManager", "Local renderer init info: ${e.message}")
+            }
+        }
+        
         localVideoTrack?.addSink(renderer)
     }
 
@@ -454,6 +466,8 @@ class WebRtcCallManager(context: Context) {
     }
 
     fun attachRemoteRenderer(renderer: SurfaceViewRenderer) {
+        if (remoteRenderer == renderer) return
+        
         observationScope.launch {
             remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
             remoteRenderer = renderer
@@ -462,9 +476,12 @@ class WebRtcCallManager(context: Context) {
                 renderer.setEnableHardwareScaler(true)
                 renderer.setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                 renderer.setMirror(false)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                if (e.message?.contains("already initialized") != true) {
+                    Log.w("WebRtcCallManager", "Remote renderer init info: ${e.message}")
+                }
+            }
             
-            // Explicitly enable and attach if track exists
             remoteVideoTrack?.let { track ->
                 track.setEnabled(true)
                 track.addSink(renderer)
@@ -511,7 +528,7 @@ class WebRtcCallManager(context: Context) {
             } catch (_: Exception) {}
         }
         proximityWakeLock?.let {
-            if (!it.isHeld) it.acquire(10 * 60 * 1000L) // 10 min fallback
+            if (!it.isHeld) it.acquire(10 * 60 * 1000L)
         }
     }
 
@@ -567,7 +584,6 @@ class WebRtcCallManager(context: Context) {
         }
         remoteAudioTrack = null
 
-
         if (isCapturing) {
             videoCapturer?.stopCaptureSafely()
             isCapturing = false
@@ -608,10 +624,9 @@ class WebRtcCallManager(context: Context) {
         override fun onSetFailure(error: String) = Unit
     }
 }
+
 private fun CameraVideoCapturer.stopCaptureSafely() {
     try {
         stopCapture()
-    } catch (_: Exception) {
-        // No-op: camera may already be stopped.
-    }
+    } catch (_: Exception) {}
 }

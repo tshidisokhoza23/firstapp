@@ -29,6 +29,10 @@ import androidx.compose.material.icons.automirrored.filled.*
 import coil.compose.AsyncImage
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.ui.res.stringResource
 import com.example.firstapp.R
 import java.text.SimpleDateFormat
@@ -66,6 +70,9 @@ import kotlin.text.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.chat.ui.components.AttachmentPanel
@@ -139,10 +146,12 @@ fun ChatMessagesScreen(
     
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    var showGifPicker by remember { mutableStateOf(false) }
     var showForwardDialog by remember { mutableStateOf(false) }
     val messagesToForward = remember { mutableStateListOf<Message>() }
     
     var replyingToMessage by remember { mutableStateOf<Message?>(null) }
+    var editingMessage by remember { mutableStateOf<Message?>(null) }
     val selectedMessages = remember { mutableStateListOf<String>() }
 
     var fullScreenImageUri by remember { mutableStateOf<String?>(null) }
@@ -151,13 +160,20 @@ fun ChatMessagesScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf<String?>(null) }
     var deleteForEveryone by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = fullScreenImageUri != null || fullScreenVideoUri != null || showAttachments || showEmojiPicker || selectedMessages.isNotEmpty()) {
+    var showSchedulePicker by remember { mutableStateOf(false) }
+
+    var selectedMediaForPreview by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var mediaPreviewType by remember { mutableStateOf("") }
+
+    BackHandler(enabled = fullScreenImageUri != null || fullScreenVideoUri != null || showAttachments || showEmojiPicker || showGifPicker || selectedMessages.isNotEmpty() || selectedMediaForPreview.isNotEmpty()) {
         when {
             fullScreenImageUri != null -> fullScreenImageUri = null
             fullScreenVideoUri != null -> fullScreenVideoUri = null
             showAttachments -> showAttachments = false
             showEmojiPicker -> showEmojiPicker = false
+            showGifPicker -> showGifPicker = false
             selectedMessages.isNotEmpty() -> selectedMessages.clear()
+            selectedMediaForPreview.isNotEmpty() -> selectedMediaForPreview = emptyList()
         }
     }
 
@@ -170,7 +186,8 @@ fun ChatMessagesScreen(
         mediaUrls: List<String> = emptyList(), 
         duration: String? = null, 
         fileName: String? = null, 
-        fileSize: String? = null
+        fileSize: String? = null,
+        scheduledAt: Long? = null
     ) {
         chatViewModel.sendMessage(
             chatId = chat.id, 
@@ -182,7 +199,8 @@ fun ChatMessagesScreen(
             fileSize = fileSize, 
             replyToId = replyingToMessage?.id,
             replyToText = replyingToMessage?.content,
-            replyToSenderName = if (replyingToMessage?.isFromMe == true) "You" else (replyingToMessage?.senderName ?: chat.senderName)
+            replyToSenderName = if (replyingToMessage?.isFromMe == true) "You" else (replyingToMessage?.senderName ?: chat.senderName),
+            scheduledAt = scheduledAt
         )
         replyingToMessage = null
     }
@@ -196,11 +214,47 @@ fun ChatMessagesScreen(
         }
     }
 
-    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { sendMediaMessage(it, "image") } }
-    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { sendMediaMessage(it, "video") } }
-    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { sendMediaMessage(it, "document", it.lastPathSegment ?: "File") } }
-    val audioPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { sendMediaMessage(it, "audio") } }
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success -> if (success) tempPhotoUri?.let { sendMediaMessage(it, "image") } }
+    fun sendMediaMessages(uris: List<Uri>, type: String, caption: String? = null) {
+        scope.launch {
+            val files = uris.mapNotNull { MediaUtils.getFileFromUri(context, it) }
+            if (files.isNotEmpty()) {
+                chatViewModel.sendMediaMessages(chat.id, files, type, caption)
+            }
+        }
+    }
+
+    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> 
+        if (uris.isNotEmpty()) {
+            selectedMediaForPreview = uris
+            mediaPreviewType = "image"
+        }
+    }
+    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> 
+        uri?.let { 
+            selectedMediaForPreview = listOf(it)
+            mediaPreviewType = "video"
+        } 
+    }
+    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> 
+        uri?.let { 
+            selectedMediaForPreview = listOf(it)
+            mediaPreviewType = "document"
+        } 
+    }
+    val audioPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> 
+        uri?.let { 
+            selectedMediaForPreview = listOf(it)
+            mediaPreviewType = "audio"
+        } 
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success -> 
+        if (success) {
+            tempPhotoUri?.let { 
+                selectedMediaForPreview = listOf(it)
+                mediaPreviewType = "image"
+            } 
+        }
+    }
     val contactLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
         uri?.let {
             try {
@@ -244,10 +298,63 @@ fun ChatMessagesScreen(
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted -> if (isGranted) { /* handle granted */ } }
 
     var isRecording by remember { mutableStateOf(false) }
+    val capturedAmplitudes = remember { mutableStateListOf<Int>() }
     var recordingDurationSeconds by remember { mutableIntStateOf(0) }
+    var reviewingVoiceNoteUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Dedicated MediaPlayer for Voice Note Review
+    val reviewMediaPlayer = remember { android.media.MediaPlayer() }
+    var isPlayingReview by remember { mutableStateOf(false) }
+    
+    DisposableEffect(reviewingVoiceNoteUri) {
+        if (reviewingVoiceNoteUri != null) {
+            try {
+                reviewMediaPlayer.reset()
+                reviewMediaPlayer.setDataSource(context, reviewingVoiceNoteUri!!)
+                reviewMediaPlayer.setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                reviewMediaPlayer.prepareAsync()
+                reviewMediaPlayer.setOnPreparedListener { 
+                    android.util.Log.d("ChatScreen", "Review player ready")
+                }
+                reviewMediaPlayer.setOnCompletionListener { 
+                    isPlayingReview = false 
+                    reviewMediaPlayer.seekTo(0)
+                }
+                reviewMediaPlayer.setOnErrorListener { _, what, extra ->
+                    android.util.Log.e("ChatScreen", "Review player error: $what, $extra")
+                    isPlayingReview = false
+                    false
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatScreen", "Failed to setup review player", e)
+            }
+        }
+        onDispose {
+            try {
+                if (reviewMediaPlayer.isPlaying) reviewMediaPlayer.stop()
+                reviewMediaPlayer.reset()
+            } catch (_: Exception) {}
+            isPlayingReview = false
+        }
+    }
+
+    LaunchedEffect(isPlayingReview) {
+        if (isPlayingReview) {
+            try { reviewMediaPlayer.start() } catch (_: Exception) { isPlayingReview = false }
+        } else {
+            try { if (reviewMediaPlayer.isPlaying) reviewMediaPlayer.pause() } catch (_: Exception) {}
+        }
+    }
+
+    var recordingStartMs = 0L
+    var recordedDurationMs = 0L
     var recorder: MediaRecorder? = null
     var audioFile: File? = null
-    var recordingStartMs = 0L
 
     fun showToast(msg: String) { Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
 
@@ -264,6 +371,7 @@ fun ChatMessagesScreen(
 
     fun startRecording() {
         try {
+            capturedAmplitudes.clear()
             audioFile = File(context.cacheDir, "VOICE_" + System.currentTimeMillis() + ".m4a")
             recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context) else MediaRecorder()
             recorder?.apply {
@@ -275,24 +383,79 @@ fun ChatMessagesScreen(
                 start()
             }
             isRecording = true; recordingStartMs = System.currentTimeMillis(); recordingDurationSeconds = 0
-            scope.launch { while(isRecording) { delay(1000); recordingDurationSeconds++ } }
+            scope.launch { 
+                while(isRecording) { 
+                    delay(100)
+                    val amp = try { recorder?.maxAmplitude ?: 0 } catch(_: Exception) { 0 }
+                    // Normalize amplitude to 0..100 range
+                    val normalized = (amp.toFloat() / 32767f * 100f).toInt().coerceIn(1, 100)
+                    capturedAmplitudes.add(normalized)
+                    
+                    if (capturedAmplitudes.size % 10 == 0) {
+                        recordingDurationSeconds++
+                    }
+                } 
+            }
         } catch (e: Exception) { e.printStackTrace(); showToast("Recording failed") }
     }
     fun stopRecording(cancelled: Boolean = false) {
         try {
+            recordedDurationMs = System.currentTimeMillis() - recordingStartMs
             recorder?.apply { stop(); release() }; recorder = null; isRecording = false
             if (!cancelled) {
-                val seconds = ((System.currentTimeMillis() - recordingStartMs) / 1000L).coerceAtLeast(1L)
-                val durationLabel = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
-                audioFile?.let { sendMediaMessage(Uri.fromFile(it), "audio_message", "Voice Note", durationLabel) }
+                audioFile?.let { reviewingVoiceNoteUri = Uri.fromFile(it) }
             } else { audioFile?.delete(); showToast("Recording cancelled") }
         } catch (e: Exception) { e.printStackTrace() }
     }
+    
+    fun sendVoiceNote() {
+        val uri = reviewingVoiceNoteUri ?: return
+        val seconds = (recordedDurationMs / 1000L).coerceAtLeast(1L)
+        val durationLabel = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
+        
+        // Pass captured amplitudes
+        val amps = capturedAmplitudes.toList()
+        
+        scope.launch {
+            val file = MediaUtils.getFileFromUri(context, uri)
+            if (file != null) {
+                chatViewModel.sendMediaMessage(chat.id, file, "audio_message", "Voice Note", durationLabel, amps)
+            }
+        }
+        
+        reviewingVoiceNoteUri = null
+    }
+
+    fun discardVoiceNote() {
+        reviewingVoiceNoteUri?.path?.let { File(it).delete() }
+        reviewingVoiceNoteUri = null
+    }
 
     val chatSearchResults by chatViewModel.chatSearchResults.collectAsState()
+    val playingAudioUri by chatViewModel.currentlyPlayingAudio.collectAsState()
     var isSearchMode by remember { mutableStateOf(false) }
     var chatSearchQuery by remember { mutableStateOf("") }
-    LaunchedEffect(chatSearchQuery) { if (isSearchMode) chatViewModel.searchInChat(chat.id, chatSearchQuery) }
+    var activeSearchId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(chatSearchQuery) { 
+        if (isSearchMode) {
+            chatViewModel.searchInChat(chat.id, chatSearchQuery)
+            activeSearchId = null
+        }
+    }
+
+    LaunchedEffect(chatSearchResults, activeSearchId) {
+        if (isSearchMode && chatSearchResults.isNotEmpty()) {
+            val targetId = activeSearchId ?: chatSearchResults.firstOrNull()?.id
+            if (targetId != null) {
+                // Find index in full messages list
+                val idx = messages.indexOfFirst { it.id == targetId }
+                if (idx != -1) {
+                    messagesLazyListState.animateScrollToItem(idx)
+                    activeSearchId = targetId
+                }
+            }
+        }
+    }
 
     LaunchedEffect(chat.id) {
         chatViewModel.fetchMessages(chat.id)
@@ -386,12 +549,29 @@ fun ChatMessagesScreen(
 
     val sanitizedName = remember(currentChat.senderName) {
         val cachedName = GlobalCallState.getContactName(currentChat.id)
-        currentChat.senderName.takeIf { 
+        val name = currentChat.senderName.takeIf { 
             it.isNotBlank() && 
             it.lowercase() != "unknown" && 
             it.lowercase() != "null" && 
-            it.lowercase() != "undefined" 
-        } ?: cachedName ?: currentChat.id
+            it.lowercase() != "undefined" &&
+            !it.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
+        } ?: cachedName
+        
+        name ?: if (currentChat.type == ConversationType.CHANNEL) "Channel" else currentChat.id
+    }
+
+    if (showSchedulePicker) {
+        ScheduleMessageDialog(
+            onDismiss = { showSchedulePicker = false },
+            onSchedule = { scheduledTime ->
+                if (messageText.isNotBlank()) {
+                    sendToServer(body = messageText.trim(), messageType = "text", scheduledAt = scheduledTime)
+                    messageText = ""
+                    showSchedulePicker = false
+                    showToast("Message scheduled")
+                }
+            }
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -408,6 +588,19 @@ fun ChatMessagesScreen(
                         onBack = { if (selectedMessages.isNotEmpty()) selectedMessages.clear() else onBack() },
                         onSearchQueryChange = { chatSearchQuery = it },
                         onSearchModeChange = { isSearchMode = it },
+                        onSearchNavigate = { forward ->
+                            if (chatSearchResults.isNotEmpty()) {
+                                val currentIdx = chatSearchResults.indexOfFirst { it.id == activeSearchId }.coerceAtLeast(0)
+                                val nextIdx = if (forward) {
+                                    (currentIdx + 1) % chatSearchResults.size
+                                } else {
+                                    if (currentIdx <= 0) chatSearchResults.size - 1 else currentIdx - 1
+                                }
+                                activeSearchId = chatSearchResults[nextIdx].id
+                            }
+                        },
+                        activeSearchIndex = chatSearchResults.indexOfFirst { it.id == activeSearchId }.coerceAtLeast(0),
+                        totalSearchCount = chatSearchResults.size,
                         onClearSearch = { chatSearchQuery = "" },
                         onShowProfile = onShowProfile,
                         onAvatarClick = onAvatarClick,
@@ -415,7 +608,37 @@ fun ChatMessagesScreen(
                         onClearChat = { chatViewModel.clearChat(currentChat.id) },
                         onDeleteChat = { chatViewModel.deleteChat(currentChat.id); onBack() },
                         onDeleteSelectedMessages = { deleteSelectedMessages() },
-                        onForwardSelectedMessages = { /* Forward */ },
+                        onShowMessageInfo = {
+                            val msgId = selectedMessages.firstOrNull()
+                            if (msgId != null) {
+                                com.example.firstapp.common.util.GlobalNavigation.navigateTo(
+                                    com.example.firstapp.ui.navigation.Screen.MessageInfo.createRoute(msgId)
+                                )
+                                selectedMessages.clear()
+                            }
+                        },
+                        onStarSelectedMessages = {
+                            selectedMessages.forEach { id ->
+                                val msg = messages.find { it.id == id }
+                                val newStarredState = !(msg?.isStarred ?: false)
+                                chatViewModel.starMessage(id, newStarredState)
+                            }
+                            selectedMessages.clear()
+                        },
+                        onEditSelectedMessage = {
+                            val msgId = selectedMessages.firstOrNull()
+                            val msg = messages.find { it.id == msgId }
+                            if (msg != null && msg.isFromMe && msg.type == MessageType.TEXT) {
+                                editingMessage = msg
+                                messageText = msg.content
+                                selectedMessages.clear()
+                            }
+                        },
+                        onForwardSelectedMessages = {
+                            messagesToForward.clear()
+                            messagesToForward.addAll(messages.filter { selectedMessages.contains(it.id) })
+                            showForwardDialog = true
+                        },
                         onClearSelectedMessages = { selectedMessages.clear() }
                     )
                     if (jobTitle != null && companyName != null) {
@@ -431,8 +654,8 @@ fun ChatMessagesScreen(
                 ) {
                     Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding().imePadding()) {
                         
-                        // Banner Ad (at the bottom of Jobs or Channel chats)
-                        if (jobId != null || currentChat.type == ConversationType.CHANNEL) {
+                        // Banner Ad (at the bottom of Jobs)
+                        if (jobId != null) {
                             com.example.firstapp.common.ui.components.BannerAdView(
                                 modifier = Modifier.navigationBarsPadding()
                             )
@@ -450,20 +673,48 @@ fun ChatMessagesScreen(
                         
                         val myUserId = uiState.currentUser?.id
                         val isConversationClosed = uiState.closedConversationIds.contains(currentChat.id)
+                        
+                        // Robust check for channel posting permissions
                         val canPost = when (currentChat.type) {
                             ConversationType.DIRECT, ConversationType.GROUP, ConversationType.JOB_CHAT -> true
                             ConversationType.CHANNEL -> {
-                                val isAdm = currentChat.isAdmin || (currentChat.createdBy != null && currentChat.createdBy == myUserId)
-                                if (!isAdm) {
-                                    android.util.Log.d("ChatMessagesScreen", "Post Denied: chat.isAdmin=${currentChat.isAdmin}, chat.createdBy=${currentChat.createdBy}, myUserId=$myUserId")
-                                }
-                                isAdm
+                                val isCreator = currentChat.createdBy != null && currentChat.createdBy == myUserId
+                                // Expert: If creator ID is missing but user is admin, assume posting permission in their own view
+                                isCreator || (currentChat.isAdmin && (currentChat.adminsCanPost || currentChat.createdBy == null))
                             }
                         }
 
                         val canCompose = canPost && !isConversationClosed
+                        val showFollowButton = currentChat.type == ConversationType.CHANNEL && !currentChat.isSubscribed
 
                         if (canCompose) {
+                            val editMsg = editingMessage
+                            if (editMsg != null) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(text = "Editing message", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text(text = editMsg.content, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                        IconButton(onClick = { 
+                                            editingMessage = null
+                                            messageText = ""
+                                        }, modifier = Modifier.size(24.dp)) {
+                                            Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+
                             val replyMsg = replyingToMessage
                             if (replyMsg != null) {
                                 Surface(
@@ -498,8 +749,15 @@ fun ChatMessagesScreen(
                                     if (messageText.isNotBlank()) {
                                         chatViewModel.sendTyping(false)
                                         val textToSend = messageText.trim()
+                                        
+                                        if (editingMessage != null) {
+                                            chatViewModel.editMessage(editingMessage!!.id, textToSend)
+                                            editingMessage = null
+                                        } else {
+                                            sendToServer(body = textToSend, messageType = "text")
+                                        }
+                                        
                                         messageText = ""
-                                        sendToServer(body = textToSend, messageType = "text")
                                         keyboardController?.hide()
                                         
                                         // Standard pro app behavior: immediate scroll to bottom on send
@@ -515,11 +773,13 @@ fun ChatMessagesScreen(
                                     keyboardController?.hide()
                                     showAttachments = !showAttachments 
                                     showEmojiPicker = false
+                                    showGifPicker = false
                                 },
                                 onEmojiClick = { 
                                     keyboardController?.hide()
                                     showEmojiPicker = !showEmojiPicker 
                                     showAttachments = false
+                                    showGifPicker = false
                                 },
                                 onCameraClick = {
                                     val file = File(context.cacheDir, "IMG_${System.currentTimeMillis()}.jpg")
@@ -531,20 +791,102 @@ fun ChatMessagesScreen(
                                 isRecording = isRecording,
                                 recordingDuration = recordingDurationSeconds,
                                 enterIsSend = enterIsSend,
-                                modifier = Modifier.navigationBarsPadding()
+                                isReviewingVoiceNote = reviewingVoiceNoteUri != null,
+                                onSendVoiceNote = { sendVoiceNote() },
+                                onDiscardVoiceNote = { discardVoiceNote() },
+                                onTogglePlayReview = { isPlayingReview = !isPlayingReview },
+                                isPlayingReview = isPlayingReview,
+                                modifier = Modifier.navigationBarsPadding(),
+                                onSendLongClick = { showSchedulePicker = true }
                             )
-                        } else {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                color = Color.Transparent
-                            ) {
-                                Text(
-                                    text = if (isConversationClosed) "Conversation closed by employer" else "Only admins can send messages to this channel",
-                                    color = AppTextSecondary,
-                                    fontSize = 14.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                        } else if (!isConversationClosed) {
+                            if (showFollowButton) {
+                                var isSubscribing by remember { mutableStateOf(false) }
+                                Button(
+                                    onClick = { 
+                                        isSubscribing = true
+                                        chatViewModel.subscribeToChannel(currentChat.id) 
+                                    },
+                                    enabled = !isSubscribing,
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    if (isSubscribing) {
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Follow channel")
+                                    }
+                                }
+                            } else {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                    color = Color.Transparent
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Subscriber View: Production-grade controls (Mute/Unmute and Share)
+                                        val isMuted = currentChat.isMuted
+                                        
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.clickable { chatViewModel.muteChat(currentChat.id, !isMuted) }.padding(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isMuted) Icons.Default.NotificationsOff else Icons.Default.NotificationsActive,
+                                                contentDescription = null,
+                                                tint = if (isMuted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = if (isMuted) "Unmute" else "Mute",
+                                                fontSize = 11.sp,
+                                                color = if (isMuted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.clickable { 
+                                                val sendIntent: Intent = Intent().apply {
+                                                    action = Intent.ACTION_SEND
+                                                    putExtra(Intent.EXTRA_TEXT, "Check out this channel: ${currentChat.senderName}")
+                                                    type = "text/plain"
+                                                }
+                                                val shareIntent = Intent.createChooser(sendIntent, null)
+                                                context.startActivity(shareIntent)
+                                            }.padding(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Share,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = "Share",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.clickable { onShowProfile(currentChat.id, false) }.padding(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = "Info",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -587,7 +929,10 @@ fun ChatMessagesScreen(
                     com.example.firstapp.common.util.GlobalNavigation.navigateTo(
                         com.example.firstapp.ui.navigation.Screen.MediaViewer.createRoute(url, type)
                     )
-                }
+                },
+                playingAudioUri = playingAudioUri,
+                onPlayAudio = { chatViewModel.setPlayingAudio(it) },
+                highlightId = activeSearchId
             )
         }
 
@@ -636,9 +981,35 @@ fun ChatMessagesScreen(
                             } else {
                                 permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                             }
+                        },
+                        onGifClick = { 
+                            showAttachments = false
+                            showGifPicker = true 
                         }
                     )
                 }
+            }
+        }
+
+        if (showGifPicker) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { showGifPicker = false },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                com.example.firstapp.chat.ui.components.expression.GifStickerPicker(
+                    onGifSelected = { url ->
+                        chatViewModel.sendMessage(chat.id, "GIF", "image", listOf(url))
+                    },
+                    onStickerSelected = { url ->
+                        chatViewModel.sendMessage(chat.id, "Sticker", "image", listOf(url))
+                    },
+                    onDismiss = { showGifPicker = false }
+                )
             }
         }
 
@@ -718,5 +1089,252 @@ fun ChatMessagesScreen(
                 }
             )
         }
+
+        if (selectedMediaForPreview.isNotEmpty()) {
+            MediaPreviewOverlay(
+                uris = selectedMediaForPreview,
+                type = mediaPreviewType,
+                onDismiss = { selectedMediaForPreview = emptyList() },
+                onSend = { caption, uris ->
+                    sendMediaMessages(uris, mediaPreviewType, caption)
+                    selectedMediaForPreview = emptyList()
+                }
+            )
+        }
     }
+}
+
+@Composable
+fun MediaPreviewOverlay(
+    uris: List<Uri>,
+    type: String,
+    onDismiss: () -> Unit,
+    onSend: (String, List<Uri>) -> Unit
+) {
+    var caption by remember { mutableStateOf("") }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, null, tint = Color.White)
+                }
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    text = if (uris.size > 1) "${uris.size} ${type.replaceFirstChar { it.uppercase() }}s" else "Preview",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+
+            // Media Display
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (uris.size > 1) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.padding(16.dp),
+                        contentPadding = PaddingValues(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(uris) { uri ->
+                            Box(
+                                modifier = Modifier
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.DarkGray)
+                            ) {
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                                if (type == "video") {
+                                    Icon(
+                                        Icons.Default.PlayCircle,
+                                        null,
+                                        tint = Color.White,
+                                        modifier = Modifier.align(Alignment.Center).size(32.dp)
+                                    )
+                                } else if (type == "document") {
+                                    Icon(
+                                        Icons.Default.Description,
+                                        null,
+                                        tint = Color.White,
+                                        modifier = Modifier.align(Alignment.Center).size(32.dp)
+                                    )
+                                } else if (type == "audio") {
+                                    Icon(
+                                        Icons.Default.Audiotrack,
+                                        null,
+                                        tint = Color.White,
+                                        modifier = Modifier.align(Alignment.Center).size(32.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    val uri = uris.first()
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        if (type == "image") {
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else if (type == "video") {
+                            Box(contentAlignment = Alignment.Center) {
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                                Icon(
+                                    Icons.Default.PlayCircle,
+                                    null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(64.dp).background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                                )
+                            }
+                        } else {
+                            // Document or Audio
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = if (type == "document") Icons.Default.Description else Icons.Default.Audiotrack,
+                                    contentDescription = null,
+                                    tint = AppAccent,
+                                    modifier = Modifier.size(100.dp)
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    text = uri.lastPathSegment ?: "File",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 32.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom Bar with Caption
+            Surface(
+                color = Color.Black.copy(alpha = 0.9f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextField(
+                            value = caption,
+                            onValueChange = { caption = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Add a caption...", color = Color.Gray) },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = AppAccent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            maxLines = 4
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        FloatingActionButton(
+                            onClick = { onSend(caption, uris) },
+                            containerColor = AppAccent,
+                            contentColor = Color.White,
+                            shape = CircleShape
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, null)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScheduleMessageDialog(
+    onDismiss: () -> Unit,
+    onSchedule: (Long) -> Unit
+) {
+    var datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis() + 24 * 60 * 60 * 1000 // Tomorrow
+    )
+    var timePickerState = rememberTimePickerState(
+        initialHour = 12,
+        initialMinute = 0
+    )
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (showTimePicker) "Select Time" else "Schedule Message") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (!showTimePicker) {
+                    DatePicker(state = datePickerState)
+                } else {
+                    TimePicker(state = timePickerState)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (!showTimePicker) {
+                        showTimePicker = true
+                    } else {
+                        val calendar = Calendar.getInstance()
+                        datePickerState.selectedDateMillis?.let {
+                            calendar.timeInMillis = it
+                        }
+                        calendar.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                        calendar.set(Calendar.MINUTE, timePickerState.minute)
+                        onSchedule(calendar.timeInMillis)
+                    }
+                }
+            ) {
+                Text(if (showTimePicker) "Schedule" else "Next")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = if (showTimePicker) { { showTimePicker = false } } else onDismiss) {
+                Text(if (showTimePicker) "Back" else "Cancel")
+            }
+        }
+    )
 }

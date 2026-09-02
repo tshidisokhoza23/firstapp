@@ -243,7 +243,8 @@ fun StoryViewer(
                     if (currentStory.adObject != null) {
                         com.example.firstapp.common.ui.components.NativeAdCard(
                             adObject = currentStory.adObject,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.fillMaxSize(),
+                            layoutResId = com.example.firstapp.R.layout.item_story_native_ad
                         )
                     }
                 }
@@ -537,7 +538,8 @@ fun InViewerStoryAd(
         if (adObject != null) {
             com.example.firstapp.common.ui.components.NativeAdCard(
                 adObject = adObject,
-                modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                modifier = Modifier.fillMaxSize(),
+                layoutResId = com.example.firstapp.R.layout.item_story_native_ad
             )
         } else {
             // Fallback if ad disappeared

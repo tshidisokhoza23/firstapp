@@ -13,6 +13,7 @@ import com.example.firstapp.drive.data.api.DriveApi
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.music.data.api.MusicApi
+import com.example.firstapp.common.data.network.NetworkConstants
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,7 +34,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideBaseUrl(): String = BuildConfig.API_BASE_URL
+    fun provideBaseUrl(): String = NetworkConstants.BASE_URL
 
     @Provides
     @Singleton

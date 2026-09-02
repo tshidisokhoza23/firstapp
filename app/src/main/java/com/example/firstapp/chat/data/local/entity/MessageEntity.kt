@@ -19,6 +19,7 @@ data class MessageEntity(
     val mediaUrls: List<String>,
     val isRead: Boolean,
     val isDelivered: Boolean = false,
+    val isStarred: Boolean = false,
     val replyToId: String?,
     val status: MessageStatus = MessageStatus.SENT,
     val reactions: Map<String, Int> = emptyMap(),
@@ -34,5 +35,8 @@ data class MessageEntity(
     val replyToSenderName: String? = null,
     val applicantName: String? = null,
     val applicantBio: String? = null,
-    val jobTitle: String? = null
+    val jobTitle: String? = null,
+    @androidx.room.Embedded(prefix = "preview_") val linkPreview: com.example.firstapp.chat.model.LinkPreview? = null,
+    val audioAmplitudes: List<Int>? = null,
+    val scheduledAt: Long? = null
 )

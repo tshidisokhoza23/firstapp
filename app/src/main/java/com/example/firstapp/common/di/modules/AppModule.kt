@@ -21,8 +21,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideCallTonePlayer(): CallTonePlayer {
-        return CallTonePlayer()
+    fun provideCallTonePlayer(@ApplicationContext context: android.content.Context): CallTonePlayer {
+        return CallTonePlayer(context)
     }
 
     @Provides

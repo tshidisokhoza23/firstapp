@@ -24,6 +24,10 @@ class StoryRepositoryImpl @Inject constructor(
 ) : StoryRepository {
 
     override fun getStories(): Flow<Resource<List<UserStory>>> = flow {
+        // Periodic cleanup: 24h threshold
+        val threshold = System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
+        try { storyDao.pruneStories(threshold) } catch (_: Exception) {}
+
         val cachedEntities = storyDao.getStories().first()
         val cached = cachedEntities.map { it.toUserStory() }
         if (cached.isNotEmpty()) {
@@ -122,8 +126,7 @@ class StoryRepositoryImpl @Inject constructor(
     override fun markStoryAsViewed(userId: String, storyId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val storiesList = storyDao.getStories().first()
-            val entity = storiesList.find { it.id == userId }
+            val entity = storyDao.getStoriesByUserId(userId).first()
             if (entity != null) {
                 var awardPoints = false
                 val updatedItems = entity.stories.map { item: StoryItem -> 

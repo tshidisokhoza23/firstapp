@@ -157,7 +157,7 @@ fun StarredMessageItem(message: Message, onClick: () -> Unit, onLongClick: () ->
         Spacer(modifier = Modifier.width(16.dp))
         Column {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(message.senderName ?: "Unknown", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Text(message.senderName ?: "", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 Text(formatWhatsAppTime(message.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
             Text(message.content, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 2)

@@ -17,7 +17,8 @@ import kotlin.collections.*
 
 class ChannelRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
-    private val channelDao: ChannelDao
+    private val channelDao: ChannelDao,
+    private val webSocketManager: com.example.firstapp.common.data.realtime.WebSocketManager
 ) : ChannelRepository {
 
     override fun getChannels(): Flow<Resource<List<Channel>>> = flow {
@@ -35,8 +36,9 @@ class ChannelRepositoryImpl @Inject constructor(
                 val apiChannels = response.body()!!.channels
                 Log.d("ChannelRepo", "Fetched ${apiChannels.size} channels")
                 val channels = apiChannels.map { apiChannel: com.example.firstapp.media.data.api.ApiChannel -> mapApiChannel(apiChannel) }.distinctBy { it.id }
-                channelDao.clearChannels()
-                channelDao.insertChannels(channels.map { it.toEntity() })
+                if (channels.isNotEmpty()) {
+                    channelDao.replaceChannels(channels.map { it.toEntity() })
+                }
             } else {
                 Log.e("ChannelRepo", "getChannels failed: ${response.code()}")
             }
@@ -51,13 +53,28 @@ class ChannelRepositoryImpl @Inject constructor(
     }
 
     override fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
         try {
-            if (socialApi.subscribeToChannel(channelId).isSuccessful) {
+            val response = socialApi.subscribeToChannel(channelId)
+            if (response.isSuccessful) {
+                // Join WebSocket for real-time messages if now subscribed
+                webSocketManager.send("chat:$channelId", "join", op = "subscribe")
+
+                // Update local cache - Endpoint is usually a toggle
+                val entities = channelDao.getChannels().first()
+                val entity = entities.find { it.id == channelId }
+                if (entity != null) {
+                    val newStatus = !entity.isSubscribed
+                    channelDao.updateSubscription(channelId, newStatus)
+                }
                 emit(Resource.Success(true))
             } else {
-                emit(Resource.Error("Fail"))
+                val errorMsg = response.errorBody()?.string() ?: "Failed to update subscription"
+                emit(Resource.Error(errorMsg))
             }
-        } catch (e: Exception) { emit(Resource.Error("Offline")) }
+        } catch (e: Exception) { 
+            emit(Resource.Error(e.message ?: "Offline")) 
+        }
     }
 
     override fun muteChannel(channelId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow {
@@ -103,5 +120,24 @@ class ChannelRepositoryImpl @Inject constructor(
                 emit(Resource.Success(true))
             } else emit(Resource.Error("Fail"))
         } catch (e: Exception) { emit(Resource.Error("Offline")) }
+    }
+
+    override fun updateAdminPostingPermission(channelId: String, allowed: Boolean): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.toggleAdminPosting(channelId, ToggleAdminPostingRequest(allowed))
+            if (response.isSuccessful) {
+                // Update local cache
+                val channel = channelDao.getChannels().first().find { it.id == channelId }
+                if (channel != null) {
+                    channelDao.insertChannels(listOf(channel.copy(adminsCanPost = allowed)))
+                }
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to update permission"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Offline"))
+        }
     }
 }

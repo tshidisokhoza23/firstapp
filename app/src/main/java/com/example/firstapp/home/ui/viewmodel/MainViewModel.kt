@@ -41,6 +41,24 @@ class MainViewModel @Inject constructor(
     val animationsEnabled = settingsRepository.animationsEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val pinLockEnabled = settingsRepository.pinLockEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    
+    val biometricLockEnabled = settingsRepository.biometricLockEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    
+    val appPin = settingsRepository.appPin
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val autoplayVideos = settingsRepository.autoplayVideos
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val autoplayGifs = settingsRepository.autoplayGifs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val selectedLanguage = settingsRepository.selectedLanguage
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "English")
+
     private val _selectedBottomItem = MutableStateFlow(0)
     val selectedBottomItem: StateFlow<Int> = _selectedBottomItem.asStateFlow()
 

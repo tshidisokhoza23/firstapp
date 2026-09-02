@@ -31,12 +31,13 @@ fun CompleteProfileScreen(
     val currentUser = com.example.firstapp.LocalCurrentUser.current
     val authState by viewModel.authState.collectAsState()
 
-    var displayName by remember { mutableStateOf(currentUser.displayName) }
-    var username by remember { mutableStateOf(currentUser.username) }
+    var username by remember { 
+        mutableStateOf(
+            if (currentUser.username.contains("@")) "" else currentUser.username
+        ) 
+    }
     var phoneNumber by remember { mutableStateOf(currentUser.phoneNumber) }
     var selectedCategories by remember { mutableStateOf(setOf<String>()) }
-
-    val missingFields = currentUser.missingFields ?: emptyList()
 
     LaunchedEffect(authState) {
         if (authState is Resource.Success) {
@@ -65,43 +66,30 @@ fun CompleteProfileScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            if (missingFields.contains("display_name") || currentUser.displayName.isEmpty()) {
-                OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { displayName = it },
-                    label = { Text("Display Name") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                )
-            }
+            // Forced visible Username
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Username") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("e.g. john_doe") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+            )
 
-            if (missingFields.contains("username") || currentUser.username.isEmpty()) {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("Username") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("e.g. john_doe") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+            // Forced visible Phone Number
+            OutlinedTextField(
+                value = phoneNumber,
+                onValueChange = { phoneNumber = it },
+                label = { Text("Phone Number") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("+27...") },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Done
                 )
-            }
-
-            if (missingFields.contains("phone_number") || currentUser.phoneNumber.isEmpty()) {
-                OutlinedTextField(
-                    value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
-                    label = { Text("Phone Number") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("+27...") },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Phone,
-                        imeAction = ImeAction.Done
-                    )
-                )
-            }
+            )
 
             Spacer(Modifier.height(16.dp))
 
@@ -159,14 +147,14 @@ fun CompleteProfileScreen(
             Button(
                 onClick = {
                     viewModel.completeProfile(
-                        displayName.takeIf { it != currentUser.displayName },
-                        username.takeIf { it != currentUser.username },
-                        phoneNumber.takeIf { it != currentUser.phoneNumber },
-                        selectedCategories.toList().takeIf { it.isNotEmpty() }
+                        displayName = null, // Handled later in settings
+                        username = username.takeIf { it.isNotBlank() },
+                        phoneNumber = phoneNumber.takeIf { it.isNotBlank() },
+                        categories = selectedCategories.toList().takeIf { it.isNotEmpty() }
                     )
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                enabled = authState !is Resource.Loading
+                enabled = authState !is Resource.Loading && username.isNotBlank() && phoneNumber.isNotBlank()
             ) {
                 if (authState is Resource.Loading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)

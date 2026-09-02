@@ -40,6 +40,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val selectedLanguage: Flow<String> = observeKey("selected_language", "English")
 
     override val securityNotificationsEnabled: Flow<Boolean> = observeKey("security_notifications_enabled", true)
+    override val pinLockEnabled: Flow<Boolean> = observeKey("pin_lock_enabled", false)
+    override val biometricLockEnabled: Flow<Boolean> = observeKey("biometric_lock_enabled", false)
+    override val appPin: Flow<String?> = observeKey("app_pin", null)
 
     override suspend fun setFontSize(size: Float) {
         prefs.edit().putFloat("font_size", size).apply()
@@ -107,6 +110,18 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setSecurityNotificationsEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("security_notifications_enabled", enabled).apply()
+    }
+
+    override suspend fun setPinLockEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("pin_lock_enabled", enabled).apply()
+    }
+
+    override suspend fun setBiometricLockEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("biometric_lock_enabled", enabled).apply()
+    }
+
+    override suspend fun setAppPin(pin: String?) {
+        prefs.edit().putString("app_pin", pin).apply()
     }
 
     private fun <T> observeKey(key: String, default: T): Flow<T> = callbackFlow {

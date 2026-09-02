@@ -6,33 +6,55 @@ import com.example.firstapp.drive.data.api.SaveDestinationRequest
 import com.example.firstapp.drive.data.local.dao.DriveDao
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.drive.domain.repository.DriveRepository
-import com.example.firstapp.drive.model.Destination
-import com.example.firstapp.drive.model.DestinationType
-import com.example.firstapp.drive.model.RideOption
-import com.example.firstapp.drive.model.Trip
+import com.example.firstapp.drive.model.*
+import com.example.firstapp.drive.data.network.RideWebSocketClient
+
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
 class DriveRepositoryImpl @Inject constructor(
     private val driveApi: DriveApi,
-    private val driveDao: DriveDao
+    private val driveDao: DriveDao,
+    private val rideWebSocketClient: RideWebSocketClient
 ) : DriveRepository {
 
     override fun getRideOptions(): Flow<Resource<List<RideOption>>> = flow {
         emit(Resource.Loading())
-        driveDao.getRideOptions().firstOrNull()?.let { 
-            if (it.isNotEmpty()) emit(Resource.Success(it.map { entity -> entity.toRideOption() })) 
+        
+        // 1. Initial Local Data
+        val initialLocal = driveDao.getRideOptions().firstOrNull()
+        if (initialLocal != null && initialLocal.isNotEmpty()) {
+            emit(Resource.Success(initialLocal.map { it.toRideOption() }))
         }
+
+        // 2. Try Fetching from API
         try {
             val res = driveApi.getRideOptions()
             if (res.isSuccessful && res.body() != null) {
-                driveDao.clearRideOptions()
-                driveDao.insertRideOptions(res.body()!!.ride_options.map { it.toRideOptionEntity() })
+                val apiOptions = res.body()!!.ride_options
+                if (apiOptions.isNotEmpty()) {
+                    driveDao.clearRideOptions()
+                    driveDao.insertRideOptions(apiOptions.map { it.toRideOptionEntity() })
+                }
             }
         } catch (_: Exception) {}
-        driveDao.getRideOptions().collect { entities ->
-            emit(Resource.Success(entities.map { it.toRideOption() }))
-        }
+
+        // 3. Continuous Observation + Fallback Seeding
+        emitAll(driveDao.getRideOptions().map { entities ->
+            if (entities.isEmpty()) {
+                val defaults = listOf(
+                    RideOption("1", "TJ Go", "0.00", arrivalTime = "3 min", description = "Standard, compact rides", iconColor = Color.Green),
+                    RideOption("2", "TJ Comfort", "0.00", arrivalTime = "5 min", description = "Newer cars, extra legroom", iconColor = Color(0xFF2196F3)),
+                    RideOption("3", "TJ Premium", "0.00", arrivalTime = "4 min", description = "Luxury & top drivers", iconColor = Color(0xFF9C27B0)),
+                    RideOption("4", "TJ XL", "0.00", arrivalTime = "7 min", description = "SUVs for groups up to 6", iconColor = Color(0xFFFF9800))
+                )
+                // Seed asynchronously and don't emit yet, the collect will pick it up
+                driveDao.insertRideOptions(defaults.map { it.toRideOptionEntity() })
+                Resource.Loading() // Wait for seed to settle
+            } else {
+                Resource.Success(entities.map { it.toRideOption() })
+            }
+        })
     }
 
     override fun getDestinations(): Flow<Resource<List<Destination>>> = flow {
@@ -53,10 +75,16 @@ class DriveRepositoryImpl @Inject constructor(
 
     override fun getTrips(): Flow<Resource<List<Trip>>> = flow {
         emit(Resource.Loading())
-        emit(Resource.Success(listOf(
-            Trip("1", "Today, 10:24", "123 Innovation Drive", "Tech Park Building", "R85.50", "Toyota Corolla"),
-            Trip("2", "Yesterday, 18:45", "Mall of Africa", "123 Innovation Drive", "R120.00", "VW Polo")
-        )))
+        try {
+            val res = driveApi.getTrips()
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!.trips))
+            } else {
+                emit(Resource.Error("Failed to fetch trips"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
     }
 
     override fun saveDestination(
@@ -90,7 +118,7 @@ class DriveRepositoryImpl @Inject constructor(
         emit(Resource.Success(true))
     }
 
-    override fun getDriverDocuments(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>>> = flow {
+    override fun getDriverDocuments(): Flow<Resource<List<DriverDocument>>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.getDriverDocuments()
@@ -104,7 +132,7 @@ class DriveRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun uploadDocument(type: String, url: String): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>> = flow {
+    override fun uploadDocument(type: String, url: String): Flow<Resource<DriverDocument>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.uploadDocument(com.example.firstapp.drive.data.api.UploadDocumentRequest(type, url))
@@ -118,7 +146,7 @@ class DriveRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getAvailableRequests(lat: Double, lng: Double): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>> = flow {
+    override fun getAvailableRequests(lat: Double, lng: Double): Flow<Resource<List<RideRequest>>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.getAvailableRequests(lat, lng)
@@ -150,12 +178,13 @@ class DriveRepositoryImpl @Inject constructor(
         dLat: Double,
         dLng: Double,
         fare: Double,
+        distance: String,
         type: String
     ): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.createRideRequest(com.example.firstapp.drive.data.api.CreateRideRequest(
-                pickup, dest, pLat, pLng, dLat, dLng, fare, type
+                pickup, dest, pLat, pLng, dLat, dLng, fare, distance, type
             ))
             if (res.isSuccessful && res.body() != null) {
                 emit(Resource.Success(res.body()!!.ride_id))
@@ -187,7 +216,7 @@ class DriveRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getVehicleInfo(): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>> = flow {
+    override fun getVehicleInfo(): Flow<Resource<VehicleInfo>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.getVehicleInfo()
@@ -201,7 +230,7 @@ class DriveRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun updateVehicleInfo(vehicle: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>> = flow {
+    override fun updateVehicleInfo(vehicle: VehicleInfo): Flow<Resource<VehicleInfo>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.updateVehicleInfo(vehicle)
@@ -215,7 +244,7 @@ class DriveRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getNearbyDrivers(lat: Double, lng: Double): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverStatus>>> = flow {
+    override fun getNearbyDrivers(lat: Double, lng: Double): Flow<Resource<List<DriverStatus>>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.getNearbyDrivers(lat, lng)
@@ -223,6 +252,30 @@ class DriveRepositoryImpl @Inject constructor(
                 emit(Resource.Success(res.body()!!.drivers))
             } else {
                 emit(Resource.Error("Failed to fetch nearby drivers"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun getRideEvents() = rideWebSocketClient.events
+
+    override fun connectRideSocket() {
+        rideWebSocketClient.connect()
+    }
+
+    override fun disconnectRideSocket() {
+        rideWebSocketClient.disconnect()
+    }
+
+    override fun getActiveSession(): Flow<Resource<ActiveSession>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getActiveSession()
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!))
+            } else {
+                emit(Resource.Error("No active session"))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))

@@ -25,6 +25,9 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
+    @Inject lateinit var settingsRepository: com.example.firstapp.domain.repository.SettingsRepository
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
@@ -37,10 +40,22 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val data = message.data
         val type = data["type"] ?: ""
         
-        when (type) {
-            "call_invite" -> handleIncomingCall(data)
-            "new_message" -> handleNewMessage(data)
-            "new_chat" -> handleNewChat(data)
+        serviceScope.launch {
+            when (type) {
+                "call_invite" -> handleIncomingCall(data)
+                "new_message" -> {
+                    val rawType = data["chat_type"] ?: "direct"
+                    val isEnabled = when (rawType.lowercase()) {
+                        "group" -> settingsRepository.groupsEnabled.first()
+                        "channel" -> settingsRepository.channelsEnabled.first()
+                        else -> settingsRepository.privateChatsEnabled.first()
+                    }
+                    if (isEnabled) handleNewMessage(data)
+                }
+                "new_chat" -> {
+                    if (settingsRepository.privateChatsEnabled.first()) handleNewChat(data)
+                }
+            }
         }
     }
 
@@ -175,24 +190,26 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         manager.notify(sessionId.hashCode(), notification)
     }
 
-    private fun handleNewMessage(data: Map<String, String>) {
+    private suspend fun handleNewMessage(data: Map<String, String>) {
         val senderName = data["sender_name"] ?: "New Message"
         val body = data["body"] ?: ""
         val chatId = data["contact_id"] ?: "0"
         val messageId = data["message_id"] ?: ""
         
+        // Respect settings
+        val previewsEnabled = settingsRepository.previewsEnabled.first()
+        val soundsEnabled = settingsRepository.soundsEnabled.first()
+        val vibrateEnabled = settingsRepository.vibrateEnabled.first()
+
         // Expert Fix: Trigger background sync on new message FCM
-        val scope = kotlinx.coroutines.MainScope()
-        scope.launch {
-            chatRepository.syncChats().collect {}
-            
-            // Emit Delivery ACK via repository
-            if (messageId.isNotBlank() && chatId != "0") {
-                chatRepository.sendDeliveryAck(chatId, messageId)
-            }
+        chatRepository.syncChats().collect {}
+        
+        // Emit Delivery ACK via repository
+        if (messageId.isNotBlank() && chatId != "0") {
+            chatRepository.sendDeliveryAck(chatId, messageId)
         }
 
-        createMessagesChannel()
+        createMessagesChannel(soundsEnabled, vibrateEnabled)
 
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -208,14 +225,15 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(senderName)
-            .setContentText(body)
+            .setContentText(if (previewsEnabled) body else "New Message")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .build()
+        
+        if (!soundsEnabled) notification.setSound(null)
 
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(chatId.hashCode(), notification)
+        manager.notify(chatId.hashCode(), notification.build())
     }
 
     private fun createIncomingCallsChannel() {
@@ -245,7 +263,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         manager.createNotificationChannel(channel)
     }
 
-    private fun createMessagesChannel() {
+    private fun createMessagesChannel(soundsEnabled: Boolean = true, vibrateEnabled: Boolean = true) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return
         }
@@ -257,8 +275,15 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "New message alerts"
+            enableVibration(vibrateEnabled)
+            if (!soundsEnabled) setSound(null, null)
         }
         manager.createNotificationChannel(channel)
+    }
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     companion object {

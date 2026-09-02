@@ -44,7 +44,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         MessageFtsEntity::class,
         SyncCursorEntity::class
     ], 
-    version = 58,
+    version = 62,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -97,40 +97,66 @@ abstract class AppDatabase : RoomDatabase() {
                 return current
             }
             
-            val dbName = "${BASE_DATABASE_NAME}_${userId}.db"
+            val dbName = getDatabaseNameForUser(userId)
             currentUserId = userId
 
             val db = try {
                 val d = buildDatabase(context, sessionManager, dbName)
-                // Force open to verify encryption key
+                // Force open to verify encryption key. SQLCipher will throw here if key is wrong.
                 d.openHelper.writableDatabase
                 d
             } catch (e: Exception) {
                 android.util.Log.e("AppDatabase", "Database open failed ($dbName). Encryption key might have changed or file is corrupted. Recreating...", e)
-                try {
-                    // Critical: Delete all database files (including -wal and -shm)
-                    val dbFile = context.getDatabasePath(dbName)
-                    if (dbFile.exists()) {
-                        androidx.room.RoomDatabase.Builder::class.java // Just to ensure Room is loaded
-                        context.deleteDatabase(dbName)
-                        // Explicitly delete -wal and -shm as context.deleteDatabase(dbName) might not be enough on all OS versions
-                        java.io.File(dbFile.absolutePath + "-wal").delete()
-                        java.io.File(dbFile.absolutePath + "-shm").delete()
-                    }
-                } catch (de: Exception) {
-                    android.util.Log.e("AppDatabase", "Failed to delete corrupted database", de)
-                }
                 
+                // Close the broken instance if it exists
+                instance?.close()
+                instance = null
+
+                deleteUserDatabase(context, userId)
+                
+                // Try building again from scratch
                 val d = buildDatabase(context, sessionManager, dbName)
                 try {
                     d.openHelper.writableDatabase
                 } catch (e2: Exception) {
                     android.util.Log.e("AppDatabase", "RECREATION FAILED. This is a fatal state.", e2)
+                    throw e2 // Re-throw so we don't return a broken database instance
                 }
                 d
             }
             instance = db
             return db
+        }
+
+        private fun getDatabaseNameForUser(userId: String): String {
+            return "${BASE_DATABASE_NAME}_${userId}.db"
+        }
+
+        /**
+         * Thoroughly deletes the database files for a specific user.
+         * Used on logout or when corruption is detected.
+         */
+        fun deleteUserDatabase(context: android.content.Context, userId: String) {
+            val dbName = getDatabaseNameForUser(userId)
+            android.util.Log.w("AppDatabase", "Deleting database for user: $userId ($dbName)")
+            try {
+                // Close current instance if it matches the user
+                if (currentUserId == userId) {
+                    instance?.close()
+                    instance = null
+                }
+                
+                val dbFile = context.getDatabasePath(dbName)
+                if (dbFile.exists()) {
+                    context.deleteDatabase(dbName)
+                    // Ensure auxiliary files are gone
+                    java.io.File(dbFile.absolutePath + "-wal").delete()
+                    java.io.File(dbFile.absolutePath + "-shm").delete()
+                    java.io.File(dbFile.absolutePath + "-journal").delete()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AppDatabase", "Error deleting database for $userId", e)
+            }
         }
 
         private fun buildDatabase(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager, dbName: String): AppDatabase {

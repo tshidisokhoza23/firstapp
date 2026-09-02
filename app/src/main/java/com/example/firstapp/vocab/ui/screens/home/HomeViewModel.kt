@@ -40,12 +40,12 @@ class HomeViewModel @Inject constructor(
         val filteredLessons = lessons.filter { it.language == safeUser.targetLanguage }
         
         val completedCount = filteredLessons.count { lesson ->
-            val mastery = safeUser.lessonMastery[lesson.id] ?: 0
+            val mastery = safeUser.lessonMastery?.get(lesson.id) ?: 0
             mastery >= 100
         }
         
         val units = filteredLessons.chunked(5).mapIndexed { index, unitLessons ->
-            val unitCompletedCount = unitLessons.count { (safeUser.lessonMastery[it.id] ?: 0) >= 100 }
+            val unitCompletedCount = unitLessons.count { (safeUser.lessonMastery?.get(it.id) ?: 0) >= 100 }
             val firstLesson = unitLessons.firstOrNull()
             val unitTitle = firstLesson?.categoryTranslations?.get(safeUser.nativeLanguage)
                 ?: firstLesson?.categoryTranslations?.get("English")

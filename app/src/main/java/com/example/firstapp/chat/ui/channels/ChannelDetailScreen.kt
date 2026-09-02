@@ -60,6 +60,7 @@ import com.example.firstapp.common.ui.theme.AppSecondary
 import com.example.firstapp.common.ui.theme.AppTextPrimary
 import com.example.firstapp.common.ui.theme.AppTextSecondary
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.tooling.preview.Preview
 
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
@@ -70,21 +71,31 @@ import com.example.firstapp.media.model.Post
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 
+import coil.compose.AsyncImage
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChannelDetailScreen(
     channel: Channel,
     posts: List<Post>,
+    currentUserId: String?,
     onBack: () -> Unit,
     onSubscribe: (String) -> Unit = {},
     onMute: (String, Boolean) -> Unit = { _, _ -> },
     onCreatePost: () -> Unit = {},
-    onAddAdmin: () -> Unit = {}
+    onAddAdmin: () -> Unit = {},
+    onToggleAdminPosting: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     var isSubscribed by remember { mutableStateOf(channel.isSubscribed) }
     var isMuted by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+
+    val isCreator = currentUserId != null && channel.createdBy == currentUserId
+    val canPost = isCreator || (channel.isAdmin && (channel.adminsCanPost || channel.createdBy == null))
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -97,7 +108,16 @@ fun ChannelDetailScreen(
                                 .background(channel.avatarColor),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(channel.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            if (channel.avatarUrl != null) {
+                                AsyncImage(
+                                    model = channel.avatarUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            } else {
+                                Text(channel.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
@@ -170,6 +190,32 @@ fun ChannelDetailScreen(
                                     leadingIcon = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary) }
                                 )
                             }
+                            if (isCreator) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                                DropdownMenuItem(
+                                    text = { 
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Admins can post", color = MaterialTheme.colorScheme.onSurface)
+                                            Switch(
+                                                checked = channel.adminsCanPost,
+                                                onCheckedChange = { 
+                                                    showMenu = false
+                                                    onToggleAdminPosting(it)
+                                                },
+                                                colors = SwitchDefaults.colors(
+                                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                                )
+                                            )
+                                        }
+                                    },
+                                    onClick = { /* Switch handles click */ }
+                                )
+                            }
                         }
                     }
                 },
@@ -182,7 +228,7 @@ fun ChannelDetailScreen(
             )
         },
         floatingActionButton = {
-            if (channel.isAdmin) {
+            if (canPost) {
                 FloatingActionButton(
                     onClick = onCreatePost,
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -366,5 +412,55 @@ fun ChannelPostItem(post: Post) {
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ChannelDetailScreenPreview() {
+    val mockChannel = Channel(
+        id = "1",
+        name = "Android Developers",
+        description = "The official channel for Android developers.",
+        followers = "1.2M",
+        avatarUrl = null,
+        avatarColor = Color.Blue,
+        isVerified = true,
+        isAdmin = true,
+        adminsCanPost = true,
+        createdBy = "user1"
+    )
+    MaterialTheme {
+        ChannelDetailScreen(
+            channel = mockChannel,
+            posts = emptyList(),
+            currentUserId = "user1",
+            onBack = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ChannelDetailScreenAdminPreview() {
+    val mockChannel = Channel(
+        id = "1",
+        name = "Android Developers",
+        description = "The official channel for Android developers.",
+        followers = "1.2M",
+        avatarUrl = null,
+        avatarColor = Color.Blue,
+        isVerified = true,
+        isAdmin = true,
+        adminsCanPost = false,
+        createdBy = "creator_id"
+    )
+    MaterialTheme {
+        ChannelDetailScreen(
+            channel = mockChannel,
+            posts = emptyList(),
+            currentUserId = "admin_id",
+            onBack = {}
+        )
     }
 }

@@ -35,9 +35,27 @@ fun PrivacySettingsScreen(
 ) {
     val settingsResource by viewModel.settings.collectAsState()
     val settings = settingsResource.data ?: PrivacySettings()
+    val pinLockEnabled by viewModel.pinLockEnabled.collectAsState()
+    val biometricLockEnabled by viewModel.biometricLockEnabled.collectAsState()
+    val appPin by viewModel.appPin.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
     var showLastSeenDialog by remember { mutableStateOf(false) }
     var showPhoneNumberDialog by remember { mutableStateOf(false) }
     var showStoriesPrivacyDialog by remember { mutableStateOf(false) }
+    var showPinDialog by remember { mutableStateOf(false) }
+
+    if (showPinDialog) {
+        SetPinDialog(
+            currentPin = appPin,
+            onPinSet = { 
+                viewModel.setAppPin(it)
+                viewModel.setPinLockEnabled(it != null)
+                showPinDialog = false
+            },
+            onDismiss = { showPinDialog = false }
+        )
+    }
 
     if (showLastSeenDialog) {
         PrivacyOptionDialog(
@@ -131,7 +149,30 @@ fun PrivacySettingsScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
-                    PrivacyItemUnique(title = "Passcode Lock", subtitle = "Off")
+                    PrivacyItemUnique(
+                        title = "Passcode Lock", 
+                        subtitle = if (pinLockEnabled) "On" else "Off",
+                        onClick = { showPinDialog = true }
+                    )
+                    
+                    if (com.example.firstapp.common.util.BiometricHelper.isBiometricAvailable(context)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Unlock with Biometrics", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                Text("Use fingerprint or face to unlock", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                            }
+                            Switch(
+                                checked = biometricLockEnabled,
+                                onCheckedChange = { viewModel.setBiometricLockEnabled(it) }
+                            )
+                        }
+                    }
+                    
                     PrivacyItemUnique(title = "Two-Step Verification", subtitle = "Off")
                 }
             }
@@ -148,6 +189,51 @@ fun PrivacySettingsScreen(
             Spacer(modifier = Modifier.height(100.dp))
         }
     }
+}
+
+@Composable
+fun SetPinDialog(currentPin: String?, onPinSet: (String?) -> Unit, onDismiss: () -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set App PIN", color = MaterialTheme.colorScheme.onSurface) },
+        text = {
+            Column {
+                Text("Enter a 4-digit PIN to lock the app.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) pin = it },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("New PIN") }
+                )
+                if (currentPin != null) {
+                    TextButton(
+                        onClick = { onPinSet(null) },
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text("Disable PIN Lock", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (pin.length == 4) onPinSet(pin) },
+                enabled = pin.length == 4
+            ) {
+                Text("Set PIN")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
 }
 
 @Composable

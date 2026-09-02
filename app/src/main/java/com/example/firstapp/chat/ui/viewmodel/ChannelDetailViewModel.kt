@@ -7,18 +7,24 @@ import com.example.firstapp.chat.model.Channel
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.chat.domain.repository.ChannelRepository
 import com.example.firstapp.media.domain.repository.SocialRepository
+import com.example.firstapp.auth.data.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class ChannelDetailViewModel @Inject constructor(
     private val repository: ChannelRepository,
-    private val socialRepository: SocialRepository
+    private val socialRepository: SocialRepository,
+    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository
 ) : ViewModel() {
+
+    private val authRepository = AuthRepository.getInstance()
+    val currentUserId = authRepository.currentUser.value?.uid
 
     private val _channel = MutableStateFlow<Resource<Channel>>(Resource.Loading())
     val channel: StateFlow<Resource<Channel>> = _channel.asStateFlow()
@@ -50,7 +56,10 @@ class ChannelDetailViewModel @Inject constructor(
     fun subscribe(channelId: String) {
         viewModelScope.launch {
             repository.subscribeToChannel(channelId).collect {
-                if (it is Resource.Success) loadChannel(channelId)
+                if (it is Resource.Success) {
+                    loadChannel(channelId)
+                    chatRepository.syncChats().collect {}
+                }
             }
         }
     }
@@ -66,6 +75,14 @@ class ChannelDetailViewModel @Inject constructor(
     fun addAdmin(channelId: String, userId: String) {
         viewModelScope.launch {
             repository.addAdmin(channelId, userId).collect { }
+        }
+    }
+
+    fun toggleAdminPosting(channelId: String, allowed: Boolean) {
+        viewModelScope.launch {
+            repository.updateAdminPostingPermission(channelId, allowed).collect {
+                if (it is Resource.Success) loadChannel(channelId)
+            }
         }
     }
 

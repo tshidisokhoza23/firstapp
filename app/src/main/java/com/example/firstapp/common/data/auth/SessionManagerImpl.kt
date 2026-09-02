@@ -164,14 +164,22 @@ class SessionManagerImpl @Inject constructor(
     }
 
     override fun clearSession() {
+        val userId = getUserId()
+        
         getPrefs().edit()
             .remove(KEY_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
             .remove(KEY_USER_DATA)
             .remove(KEY_PRIVATE_KEY)
             .remove(KEY_PUBLIC_KEY)
-            .remove(KEY_DB_PASSPHRASE)
             .apply()
+
+        // Clear local database for this user to ensure data isolation 
+        // and force fresh server fetch on next login.
+        if (userId != null) {
+            com.example.firstapp.common.data.local.AppDatabase.deleteUserDatabase(context, userId)
+        }
+
         _currentUser.value = null
         _authState.value = false
     }
@@ -188,12 +196,13 @@ class SessionManagerImpl @Inject constructor(
         getPrefs().edit().putString(KEY_PUBLIC_KEY, key).apply()
     }
 
+    @Synchronized
     override fun getDbPassphrase(): String {
         val p = getPrefs()
         var pass = p.getString(KEY_DB_PASSPHRASE, null)
-        if (pass == null) {
+        if (pass.isNullOrBlank()) {
             pass = UUID.randomUUID().toString()
-            p.edit().putString(KEY_DB_PASSPHRASE, pass).apply()
+            p.edit().putString(KEY_DB_PASSPHRASE, pass).commit()
         }
         return pass
     }

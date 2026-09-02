@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -72,13 +73,15 @@ fun ShortItem(
     adManager: com.example.firstapp.common.data.ads.AdManager,
     short: com.example.firstapp.media.model.Post,
     currentUserAvatarUrl: String? = null,
+    isOwnPost: Boolean = false,
     isVisible: Boolean,
     bottomInset: Dp,
     onLikeClick: (String) -> Unit,
     onSubscribeClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
     onBookmarkClick: (String) -> Unit,
-    onShareClick: (String) -> Unit,
+    onShareClick: (String, Long, Boolean) -> Unit, // Changed to support repost logic
+    onExternalShareClick: (String, Long) -> Unit, // New callback for external sharing
     onMoreClick: (String) -> Unit,
     onCreatorClick: (String) -> Unit = {},
     onEngagement: (String, String, Int, Boolean) -> Unit = { _, _, _, _ -> },
@@ -94,6 +97,8 @@ fun ShortItem(
     LaunchedEffect(isVisible) {
         if (isVisible) {
             startTime = System.currentTimeMillis()
+            // REQUIREMENT: Track explicit view for shorts as well
+            onEngagement(short.id, "view", 0, false)
         } else if (startTime > 0) {
             val watchTime = (System.currentTimeMillis() - startTime).toInt()
             onEngagement(short.id, "dwell", watchTime, false)
@@ -101,7 +106,6 @@ fun ShortItem(
         }
     }
     
-    var isMuted by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(true) }
     var showPlayerControls by remember { mutableStateOf(false) }
     var controlsTimer by remember { mutableLongStateOf(0L) }
@@ -132,17 +136,7 @@ fun ShortItem(
 
     val exoPlayer = remember(videoUrl) {
         if (videoUrl != null) {
-            val player = androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
-            player.setRepeatMode(Player.REPEAT_MODE_ONE)
-            player.setVolume(if (isMuted) 0f else 1f)
-            player.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                    .setUsage(C.USAGE_MEDIA)
-                    .build(),
-                true
-            )
-            player
+            ShortsVideoCache.acquirePlayer(context, videoUrl)
         } else {
             null
         }
@@ -168,13 +162,22 @@ fun ShortItem(
         }
     }
 
-    LaunchedEffect(isMuted) {
-        android.util.Log.d("ShortItem", "Volume update: isMuted=$isMuted -> Setting volume to ${if (isMuted) 0f else 1f}")
-        exoPlayer?.setVolume(if (isMuted) 0f else 1f)
-    }
-
     LaunchedEffect(isPlaying, isAppInBackground, isVisible, isGlobalPaused) {
         exoPlayer?.setPlayWhenReady(isPlaying && !isAppInBackground && isVisible && !isGlobalPaused)
+    }
+
+    LaunchedEffect(exoPlayer, videoUrl, isVisible) {
+        val player = exoPlayer
+        if (player != null && videoUrl != null && isVisible) {
+            android.util.Log.d("ShortItem", "isVisible - Preparing video: $videoUrl for short: ${short.id}")
+            if (player.currentMediaItem?.localConfiguration?.uri.toString() != videoUrl) {
+                player.setMediaItem(MediaItem.fromUri(videoUrl))
+                player.prepare()
+            } else {
+                isVideoReady = player.playbackState == Player.STATE_READY
+                isBuffering = player.playbackState == Player.STATE_BUFFERING
+            }
+        }
     }
 
     DisposableEffect(exoPlayer, videoUrl) {
@@ -214,14 +217,11 @@ fun ShortItem(
             }
 
             player.addListener(listener)
-            android.util.Log.d("ShortItem", "Preparing video: $videoUrl for short: ${short.id}")
-            player.setMediaItem(MediaItem.fromUri(videoUrl))
-            player.prepare()
             
             onDispose {
                 android.util.Log.d("ShortItem", "Releasing player for short: ${short.id}")
                 player.removeListener(listener)
-                player.release()
+                ShortsVideoCache.releasePlayer(player, videoUrl)
             }
         }
     }
@@ -280,6 +280,7 @@ fun ShortItem(
                     },
                     update = { view ->
                         view.player = exoPlayer
+                        view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     },
                     modifier = Modifier.fillMaxSize()
                 )
@@ -354,17 +355,6 @@ fun ShortItem(
                     }
                 }
             }
-            
-            IconButton(
-                onClick = { isMuted = !isMuted },
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 48.dp, end = 16.dp)
-            ) {
-                Icon(
-                    imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.6f)
-                )
-            }
 
             Column(
                 modifier = Modifier
@@ -421,18 +411,19 @@ fun ShortItem(
                 )
                 ShortActionButton(
                     icon = Icons.Default.Repeat,
-                    text = formatShortNumber(short.shares),
-                    onClick = { onShareClick(short.id) }
+                    text = formatShortNumber(short.repostCount),
+                    onClick = { onShareClick(short.id, short.repostCount, short.isReposted) }
                 )
                 ShortActionButton(
                     icon = if (short.isBookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-                    text = formatShortNumber(0L), // Placeholder for bookmark count
+                    text = if (short.isBookmarked) "Saved" else "Save",
                     onClick = { onBookmarkClick(short.id) }
                 )
                 ShortActionButton(
                     icon = Icons.AutoMirrored.Filled.Shortcut,
                     text = "Share",
                     onClick = {
+                        onExternalShareClick(short.id, short.shares)
                         val sendIntent = android.content.Intent().apply {
                             action = android.content.Intent.ACTION_SEND
                             putExtra(android.content.Intent.EXTRA_TEXT, videoUrl ?: "")
@@ -440,6 +431,12 @@ fun ShortItem(
                         }
                         context.startActivity(android.content.Intent.createChooser(sendIntent, null))
                     }
+                )
+
+                ShortActionButton(
+                    icon = Icons.Default.MoreHoriz,
+                    text = "",
+                    onClick = { onMoreClick(short.id) }
                 )
             }
 
@@ -475,16 +472,19 @@ fun ShortItem(
                         fontSize = 16.sp,
                         modifier = Modifier.clickable { onCreatorClick(short.authorId) }
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Surface(
-                        onClick = { onSubscribeClick(short.authorId) },
-                        color = Color.Transparent,
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, Color.White),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                            Text("Follow", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    
+                    if (!short.isAuthorFollowed && !isOwnPost) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Surface(
+                            onClick = { onSubscribeClick(short.authorId) },
+                            color = Color.Transparent,
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, Color.White),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Box(modifier = Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                                Text("Follow", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -519,18 +519,52 @@ fun ShortItem(
             
             if (duration > 0) {
                 val progress = currentPosition.toFloat() / duration.toFloat()
+                var isScrubbing by remember { mutableStateOf(false) }
+                var scrubPosition by remember { mutableFloatStateOf(0f) }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(2.dp)
+                        .height(30.dp) 
                         .align(Alignment.BottomCenter)
-                        .background(Color.White.copy(alpha = 0.2f))
+                        .pointerInput(duration) {
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    isScrubbing = true
+                                    scrubPosition = (offset.x / size.width).coerceIn(0f, 1f)
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    scrubPosition = (scrubPosition + dragAmount.x / size.width).coerceIn(0f, 1f)
+                                },
+                                onDragEnd = {
+                                    isScrubbing = false
+                                    val seekTo = (scrubPosition * duration).toLong()
+                                    exoPlayer?.seekTo(seekTo)
+                                },
+                                onDragCancel = {
+                                    isScrubbing = false
+                                }
+                            )
+                        }
                 ) {
+                    val displayProgress = if (isScrubbing) scrubPosition else progress
+
+                    // Track Background (slightly taller hit box)
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(progress.coerceIn(0f, 1f))
-                            .fillMaxHeight()
-                            .background(AppAccent)
+                            .fillMaxWidth()
+                            .height(if (isScrubbing) 6.dp else 2.dp)
+                            .align(Alignment.Center)
+                            .background(Color.White.copy(alpha = 0.2f))
+                    )
+                    // Progress Fill
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(displayProgress.coerceIn(0f, 1f))
+                            .height(if (isScrubbing) 6.dp else 2.dp)
+                            .align(Alignment.CenterStart)
+                            .background(if (isScrubbing) Color.White else AppAccent)
                     )
                 }
             }
@@ -553,13 +587,11 @@ fun formatShortNumber(number: Long): String {
     return when {
         number >= 1_000_000 -> {
             val millions = number.toDouble() / 1_000_000.0
-            val s = java.lang.String.format(java.util.Locale.ROOT, "%.1fM", millions)
-            s.replace(".", ",")
+            java.lang.String.format(java.util.Locale.US, "%.1fM", millions)
         }
         number >= 1_000 -> {
             val thousands = number.toDouble() / 1_000.0
-            val s = java.lang.String.format(java.util.Locale.ROOT, "%.1fK", thousands)
-            s.replace(".", ",")
+            java.lang.String.format(java.util.Locale.US, "%.1fK", thousands)
         }
         else -> number.toString()
     }

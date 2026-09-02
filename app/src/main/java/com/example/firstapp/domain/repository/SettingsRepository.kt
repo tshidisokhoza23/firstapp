@@ -28,6 +28,9 @@ interface SettingsRepository {
 
     // Security
     val securityNotificationsEnabled: Flow<Boolean>
+    val pinLockEnabled: Flow<Boolean>
+    val biometricLockEnabled: Flow<Boolean>
+    val appPin: Flow<String?>
 
     suspend fun setFontSize(size: Float)
     suspend fun setEnterIsSend(enabled: Boolean)
@@ -50,4 +53,7 @@ interface SettingsRepository {
     suspend fun setSelectedLanguage(language: String)
 
     suspend fun setSecurityNotificationsEnabled(enabled: Boolean)
+    suspend fun setPinLockEnabled(enabled: Boolean)
+    suspend fun setBiometricLockEnabled(enabled: Boolean)
+    suspend fun setAppPin(pin: String?)
 }

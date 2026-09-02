@@ -57,6 +57,9 @@ import com.example.firstapp.chat.jobs.ui.screens.JobList
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.ui.components.DynamicAdCard
 import com.example.firstapp.common.ui.components.BannerAdView
+import com.example.firstapp.chat.data.CallType
+import com.example.firstapp.chat.data.GlobalCallState
+import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -68,7 +71,9 @@ fun ChatsListScreen(
     navController: NavController,
     onLogout: () -> Unit,
     adManager: AdManager,
+    bottomPadding: Dp = 0.dp,
     onShowMore: () -> Unit = {}, 
+    initialTab: String? = null,
     chatViewModel: ChatViewModel = hiltViewModel(),
     advertsViewModel: AdvertsViewModel = hiltViewModel(),
     rewardViewModel: com.example.firstapp.chat.ui.viewmodel.RewardViewModel = hiltViewModel(),
@@ -77,9 +82,28 @@ fun ChatsListScreen(
     jobViewModel: JobViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
     musicViewModel: MusicViewModel = hiltViewModel(),
-    storyViewModel: StoryViewModel = hiltViewModel()
+    storyViewModel: StoryViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
-    var selectedTabItem by remember { mutableIntStateOf(0) }
+    val initialTabIndex = when(initialTab) {
+        "rewards" -> 1
+        "jobs" -> 2
+        "channels" -> 3
+        else -> 0
+    }
+    var selectedTabItem by rememberSaveable { mutableIntStateOf(initialTabIndex) }
+    
+    LaunchedEffect(initialTab) {
+        initialTab?.let {
+            val idx = when(it) {
+                "rewards" -> 1
+                "jobs" -> 2
+                "channels" -> 3
+                else -> 0
+            }
+            selectedTabItem = idx
+        }
+    }
     val chatsState by chatViewModel.chats.collectAsState()
     val context = LocalContext.current
     
@@ -97,7 +121,13 @@ fun ChatsListScreen(
     
     val sanitizedChats = remember(chatsState) {
         android.util.Log.d("ChatTabScreen", "Recomposing sanitizedChats: state=${chatsState::class.simpleName}, count=${chatsState.data?.size ?: 0}")
-        chatsState.data ?: emptyList()
+        val data = chatsState.data ?: emptyList()
+        data.forEach { chat ->
+            if (chat.otherUserId != null && chat.senderName.isNotEmpty()) {
+                GlobalCallState.updateContactInfo(chat.otherUserId, chat.senderName, chat.phoneNumber)
+            }
+        }
+        data
     }
 
     var isSearchActive by remember { mutableStateOf(false) }
@@ -125,6 +155,7 @@ fun ChatsListScreen(
     val channelsState by channelsViewModel.channels.collectAsState()
     val hasRewardedAds by advertsViewModel.hasRewardedAdsAvailable.collectAsState()
     val adCooldownSeconds by advertsViewModel.cooldownRemainingSeconds.collectAsState()
+    val animationsEnabled by chatViewModel.animationsEnabled.collectAsState()
 
     // Network sync is now handled by ChatViewModel init
     // LaunchedEffect(Unit) {
@@ -274,7 +305,16 @@ fun ChatsListScreen(
         },
         bottomBar = {
             if (selectedTabItem != 0) {
-                BannerAdView()
+                val adUnitId = when (selectedTabItem) {
+                    1 -> AdUnitConfig.BANNER_REWARDS_ID
+                    2 -> AdUnitConfig.BANNER_JOBS_ID
+                    3 -> AdUnitConfig.BANNER_CHANNELS_ID
+                    else -> AdUnitConfig.BANNER_MAIN_ID
+                }
+                Column {
+                    BannerAdView(adUnitId = adUnitId)
+                    Spacer(Modifier.height(bottomPadding)) // FIX: Pushes FAB above the outer bottom navigation
+                }
             }
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -285,7 +325,12 @@ fun ChatsListScreen(
                 onDismissRequest = { showTopMoreSheet = false },
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(bottom = 32.dp)
+                ) {
                     when (selectedTabItem) {
                         0 -> {
                             ListItem(
@@ -380,126 +425,166 @@ fun ChatsListScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            Box(modifier = Modifier.weight(1f)) {
-                when (selectedTabItem) {
-                    0 -> {
-                        val searchResults by searchViewModel.searchResults.collectAsState()
-                        if (isSearchActive && searchQuery.length > 0) {
-                            SearchResultsView(
-                                results = searchResults,
-                                type = SearchType.CHATS,
-                                onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id)) },
-                                onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
-                                onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                            )
+            AnimatedContent(
+                targetState = selectedTabItem,
+                transitionSpec = {
+                    if (animationsEnabled) {
+                        if (targetState > initialState) {
+                            (slideInHorizontally { width -> width } + fadeIn()).togetherWith(slideOutHorizontally { width -> -width } + fadeOut())
                         } else {
-                            when {
-                                chatsState is Resource.Loading && sanitizedChats.isEmpty() -> {
-                                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                        items(10) { ChatItemShimmer() }
-                                    }
-                                }
-                                chatsState is Resource.Error && sanitizedChats.isEmpty() -> {
-                                    Column(
-                                        modifier = Modifier.fillMaxSize().padding(24.dp),
-                                        verticalArrangement = Arrangement.Center,
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(64.dp))
-                                        Spacer(Modifier.height(16.dp))
-                                        Text("Could not load chats", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                                        Text(chatsState.message ?: "Unknown error", color = Color.Gray, fontSize = 14.sp, textAlign = TextAlign.Center)
-                                        Spacer(Modifier.height(24.dp))
-                                        Button(onClick = { chatViewModel.fetchChats() }) {
-                                            Text("Retry")
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    ChatList(
-                                        chats = sanitizedChats,
-                                        archivedChatsCount = archivedChatsState.data?.size ?: 0,
-                                        stories = storiesState.data ?: emptyList<UserStory>(),
-                                        chatViewModel = chatViewModel,
-                                        navController = navController,
-                                        topBarHeight = 0.dp, // No spacer inside list
-                                        currentUserId = currentUser?.id,
-                                        initialScrollDone = isChatInitialScrollDone,
-                                        onInitialScrollDone = { isChatInitialScrollDone = it },
-                                        onChatClick = { chat -> 
-                                            val typeStr = when (chat.type) {
-                                                ConversationType.CHANNEL -> "channel"
-                                                ConversationType.GROUP -> "group"
-                                                ConversationType.JOB_CHAT -> "job_chat"
-                                                else -> "direct"
-                                            }
-                                            navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
-                                        },
-                                        onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
-                                        onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
-                                        onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
-                                        onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
-                                        onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = false)) },
-                                        onAvatarClick = { userId -> 
-                                            val chat = sanitizedChats.find { it.id == userId }
-                                            if (chat?.avatarUrl != null) {
-                                                navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
-                                            } else {
-                                                navController.navigate(Screen.ChatProfile.createRoute(userId, chat?.isGroup ?: false))
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    1 -> {
-                        RewardsScreen(
-                            viewModel = rewardViewModel,
-                            topBarHeight = 0.dp
+                            (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(slideOutHorizontally { width -> width } + fadeOut())
+                        }.using(
+                            SizeTransform(clip = false)
                         )
+                    } else {
+                        fadeIn().togetherWith(fadeOut())
                     }
-                    2 -> {
-                        val searchResults by searchViewModel.searchResults.collectAsState()
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                if (isSearchActive && searchQuery.length > 0) {
-                                    SearchResultsView(
-                                        results = searchResults,
-                                        type = SearchType.JOBS,
-                                        onChatClick = {},
-                                        onMessageClick = {},
-                                        onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
-                                        onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                                    )
-                                } else {
-                                    DataStateHandler(jobsState) { jobs -> 
-                                        JobList(jobs, topBarHeight = 0.dp) { 
-                                            navController.navigate(Screen.JobDetail.createRoute(it.id)) 
-                                        } 
+                },
+                label = "ChatTabContent",
+                modifier = Modifier.weight(1f)
+            ) { targetTab ->
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (targetTab) {
+                        0 -> {
+                            val searchResults by searchViewModel.searchResults.collectAsState()
+                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
+                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
+                            if (isSearchActive && searchQuery.length > 0) {
+                                SearchResultsView(
+                                    results = searchResults,
+                                    type = SearchType.CHATS,
+                                    autoplayEnabled = autoplayEnabled,
+                                    autoplayGifsEnabled = autoplayGifsEnabled,
+                                    onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id)) },
+                                    onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
+                                    onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
+                                    onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                                )
+                            } else {
+                                when {
+                                    chatsState is Resource.Loading && sanitizedChats.isEmpty() -> {
+                                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                            items(10) { ChatItemShimmer() }
+                                        }
+                                    }
+                                    chatsState is Resource.Error && sanitizedChats.isEmpty() -> {
+                                        Column(
+                                            modifier = Modifier.fillMaxSize().padding(24.dp),
+                                            verticalArrangement = Arrangement.Center,
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(64.dp))
+                                            Spacer(Modifier.height(16.dp))
+                                            Text("Could not load chats", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                            Text(chatsState.message ?: "Unknown error", color = Color.Gray, fontSize = 14.sp, textAlign = TextAlign.Center)
+                                            Spacer(Modifier.height(24.dp))
+                                            Button(onClick = { chatViewModel.fetchChats() }) {
+                                                Text("Retry")
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        ChatList(
+                                            chats = sanitizedChats,
+                                            archivedChatsCount = archivedChatsState.data?.size ?: 0,
+                                            stories = storiesState.data ?: emptyList<UserStory>(),
+                                            chatViewModel = chatViewModel,
+                                            navController = navController,
+                                            topBarHeight = 0.dp, // No spacer inside list
+                                            bottomPadding = bottomPadding,
+                                            currentUserId = currentUser?.id,
+                                            initialScrollDone = isChatInitialScrollDone,
+                                            onInitialScrollDone = { isChatInitialScrollDone = it },
+                                            onChatClick = { chat -> 
+                                                val typeStr = when (chat.type) {
+                                                    ConversationType.CHANNEL -> "channel"
+                                                    ConversationType.GROUP -> "group"
+                                                    ConversationType.JOB_CHAT -> "job_chat"
+                                                    else -> "direct"
+                                                }
+                                                navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
+                                            },
+                                            onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
+                                            onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
+                                            onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
+                                            onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },
+                                            onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = false)) },
+                                            onAvatarClick = { userId -> 
+                                                val chat = sanitizedChats.find { it.id == userId }
+                                                if (chat?.avatarUrl != null) {
+                                                    navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                                                } else {
+                                                    navController.navigate(Screen.ChatProfile.createRoute(userId, chat?.isGroup ?: false))
+                                                }
+                                            }
+                                        )
                                     }
                                 }
                             }
                         }
-                    }
-                    3 -> {
-                        val searchResults by searchViewModel.searchResults.collectAsState()
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                if (isSearchActive && searchQuery.length > 0) {
-                                    SearchResultsView(
-                                        results = searchResults,
-                                        type = SearchType.CHANNELS,
-                                        onChatClick = {},
-                                        onMessageClick = {},
-                                        onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel")) },
-                                        onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                                    )
-                                } else {
-                                    DataStateHandler(channelsState) { channels -> 
-                                        ChannelList(channels, topBarHeight = 0.dp) {
-                                            navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel"))
-                                        } 
+                        1 -> {
+                            RewardsScreen(
+                                viewModel = rewardViewModel,
+                                topBarHeight = 0.dp
+                            )
+                        }
+                        2 -> {
+                            val searchResults by searchViewModel.searchResults.collectAsState()
+                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
+                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (isSearchActive && searchQuery.length > 0) {
+                                        SearchResultsView(
+                                            results = searchResults,
+                                            type = SearchType.JOBS,
+                                            autoplayEnabled = autoplayEnabled,
+                                            autoplayGifsEnabled = autoplayGifsEnabled,
+                                            onChatClick = {},
+                                            onMessageClick = {},
+                                            onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
+                                            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
+                                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                                        )
+                                    } else {
+                                        DataStateHandler(jobsState) { jobs -> 
+                                            JobList(jobs, topBarHeight = 0.dp) { 
+                                                navController.navigate(Screen.JobDetail.createRoute(it.id)) 
+                                            } 
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        3 -> {
+                            val searchResults by searchViewModel.searchResults.collectAsState()
+                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
+                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (isSearchActive && searchQuery.length > 0) {
+                                        SearchResultsView(
+                                            results = searchResults,
+                                            type = SearchType.CHANNELS,
+                                            autoplayEnabled = autoplayEnabled,
+                                            autoplayGifsEnabled = autoplayGifsEnabled,
+                                            onChatClick = {},
+                                            onMessageClick = {},
+                                            onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
+                                            onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel")) },
+                                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                                        )
+                                    } else {
+                                        DataStateHandler(channelsState) { channels -> 
+                                        ChannelList(
+                                            channels = channels, 
+                                            topBarHeight = 0.dp,
+                                            onChannelClick = {
+                                                navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel"))
+                                            },
+                                            onSubscribe = { id -> channelsViewModel.subscribeToChannel(id) }
+                                        ) 
+                                    }
                                     }
                                 }
                             }
@@ -522,6 +607,7 @@ fun ChatList(
     chatViewModel: ChatViewModel,
     navController: NavController,
     topBarHeight: Dp = 0.dp,
+    bottomPadding: Dp = 0.dp,
     currentUserId: String? = null,
     initialScrollDone: Boolean = false,
     onInitialScrollDone: (Boolean) -> Unit = {},
@@ -561,7 +647,8 @@ fun ChatList(
     ) {
         LazyColumn(
             state = lazyListState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
         ) {
         item(key = "stories_row_item") {
             Box(
@@ -738,10 +825,13 @@ fun ChatList(
 fun SearchResultsView(
     results: com.example.firstapp.search.model.SearchResult?,
     type: com.example.firstapp.search.model.SearchType = com.example.firstapp.search.model.SearchType.GLOBAL,
+    autoplayEnabled: Boolean = true,
+    autoplayGifsEnabled: Boolean = true,
     onChatClick: (ChatMessage) -> Unit,
     onMessageClick: (Message) -> Unit,
     onJobClick: (Job) -> Unit = {},
     onChannelClick: (Channel) -> Unit = {},
+    onPostClick: (com.example.firstapp.media.model.Post) -> Unit = {},
     onContactClick: (Contact) -> Unit = {}
 ) {
     if (results == null) return
@@ -763,6 +853,7 @@ fun SearchResultsView(
     val artists = results.artists
     val jobs = results.jobs
     val channels = results.channels
+    val posts = results.posts
 
     val showChats = type == SearchType.GLOBAL || type == SearchType.CHATS
     val showContacts = type == SearchType.GLOBAL || type == SearchType.CHATS
@@ -798,6 +889,26 @@ fun SearchResultsView(
                 Column(modifier = Modifier.clickable { onChannelClick(channel) }) {
                     ChannelItem(channel = channel, onClick = { onChannelClick(channel) })
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+        }
+
+        if (posts.isNotEmpty()) {
+            item { SearchSectionHeader("Media Posts") }
+            items(posts, key = { "post_" + it.id }) { post ->
+                Column(modifier = Modifier.clickable { onPostClick(post) }) {
+                    com.example.firstapp.media.ui.components.PostItem(
+                        adManager = com.example.firstapp.common.data.ads.AdMobManagerImpl(), 
+                        post = post,
+                        autoplayEnabled = autoplayEnabled,
+                        autoplayGifsEnabled = autoplayGifsEnabled,
+                        onClick = { onPostClick(post) },
+                        onLike = { _, _, _ -> },
+                        onRepostClick = { },
+                        onReplyClick = { _, _ -> },
+                        onProfileClick = { }
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }

@@ -36,6 +36,7 @@ data class ShortcutItem(
 @Composable
 fun MoreShortcutsSheet(
     isVisible: Boolean,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     onDismiss: () -> Unit,
     onNavigate: (String) -> Unit
 ) {
@@ -68,7 +69,7 @@ fun MoreShortcutsSheet(
                     .fillMaxWidth()
                     .clickable(enabled = false) { }
                     .padding(horizontal = 8.dp)
-                    .padding(bottom = 16.dp), // Gap above bottom nav
+                    .padding(bottom = 16.dp + bottomPadding), // Gap above bottom nav
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface
             ) {

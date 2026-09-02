@@ -8,6 +8,7 @@ import androidx.room.withTransaction
 import com.example.firstapp.common.data.local.AppDatabase
 import com.example.firstapp.media.data.local.entity.PostEntity
 import com.example.firstapp.media.data.local.entity.PostRemoteKeys
+import com.example.firstapp.media.model.PostType
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.repository.toPostEntity
 import com.example.firstapp.media.data.repository.mapApiPost
@@ -58,25 +59,39 @@ class PostRemoteMediator(
                     "short" -> {
                         val response = socialApi.getShorts(page = page, categoryId = categoryId)
                         ensureSuccessful(response)
-                        response.body()?.map { mapApiPost(it) } ?: emptyList()
+                        val data = response.body() ?: emptyList()
+                        if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
+                        val mapped = data.map { mapApiPost(it) }
+                        mapped.filter { it.type == PostType.SHORT }
                     }
                     "media" -> {
                         val response = socialApi.getMediaFeed(page = page, categoryId = categoryId)
                         ensureSuccessful(response)
-                        response.body()?.map { mapApiPost(it) } ?: emptyList()
+                        val data = response.body() ?: emptyList()
+                        if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
+                        data.map { mapApiPost(it) }
                     }
                     else -> {
                         val limit = state.config.pageSize
                         val offset = (page - 1) * limit
                         val response = socialApi.getFeed(limit = limit, offset = offset, categoryId = categoryId)
                         ensureSuccessful(response)
-                        mapMediaFeedItems(response.body()?.items ?: emptyList())
+                        val data = response.body()?.items ?: emptyList()
+                        if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
+                        mapMediaFeedItems(data)
                     }
                 }
             } else {
                 val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = apiFeedType, categoryId = categoryId)
                 ensureSuccessful(response)
-                response.body()?.map { mapApiPost(it) } ?: emptyList()
+                val data = response.body() ?: emptyList()
+                if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
+                val mapped = data.map { mapApiPost(it) }
+                if (apiFeedType == "short") {
+                    mapped.filter { it.type == PostType.SHORT }
+                } else {
+                    mapped
+                }
             }
 
             val endOfPaginationReached = apiPosts.isEmpty()

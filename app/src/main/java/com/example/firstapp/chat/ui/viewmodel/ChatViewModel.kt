@@ -70,13 +70,16 @@ class ChatViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     // UI Compatibility flows
-    val chats = uiState.map { it.chats }.stateIn(viewModelScope, SharingStarted.Eagerly, Resource.Loading())
-    val messages = uiState.map { it.messages }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
-    val contacts = repository.getContacts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+    val chats = uiState.map { it.chats }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, Resource.Loading())
+    val messages = uiState.map { it.messages }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+    val contacts = repository.getContacts().distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val archivedChats = uiState.map { it.archivedChats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val starredMessages = uiState.map { it.starredMessages }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val chatSearchResults = uiState.map { it.chatSearchResults }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val selectedContactsForGroup = uiState.map { it.selectedContactsForGroup }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _currentlyPlayingAudio = MutableStateFlow<String?>(null)
+    val currentlyPlayingAudio: StateFlow<String?> = _currentlyPlayingAudio.asStateFlow()
 
     init {
         fetchCurrentUser()
@@ -100,19 +103,16 @@ class ChatViewModel @Inject constructor(
             .onEach { res -> 
                 Log.d("ChatViewModel", "Observe: chats list updated, count=${res.data?.size ?: 0}")
                 _uiState.update { current ->
-                    // FIX: Ensure Success state is emitted even for empty lists to stop loading spinner
-                    val updatedChats = if (res is Resource.Loading && res.data != null) {
+                    // EXPERT FIX: Prefer Success state if we have any data, even if sync is still loading/error
+                    val updatedChats = if (res.data != null) {
                          Resource.Success(res.data!!)
-                    } else if (res is Resource.Success) {
-                         res
                     } else {
-                         // If we have data in a Loading or Error state, prefer showing it as Success
-                         res.data?.let { Resource.Success(it) } ?: res
+                         res
                     }
 
                     current.copy(
-                        chats = updatedChats,
-                        isChatsFetching = false
+                        chats = updatedChats
+                        // Removed isChatsFetching = false to let sync finish independently
                     ) 
                 }
             }
@@ -120,6 +120,10 @@ class ChatViewModel @Inject constructor(
 
         repository.getArchivedChats()
             .onEach { res -> _uiState.update { it.copy(archivedChats = res) } }
+            .launchIn(viewModelScope)
+
+        repository.getStarredMessages()
+            .onEach { res -> _uiState.update { it.copy(starredMessages = res) } }
             .launchIn(viewModelScope)
     }
 
@@ -176,6 +180,7 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.PinChat -> pinChat(intent.chatId, intent.isPinned)
             is ChatIntent.MuteChat -> muteChat(intent.chatId, intent.isMuted)
             is ChatIntent.ClearChat -> clearChat(intent.chatId)
+            is ChatIntent.StarMessage -> starMessage(intent.messageId, intent.isStarred)
             is ChatIntent.ClearAllChats -> clearAllChats()
         }
     }
@@ -212,9 +217,11 @@ class ChatViewModel @Inject constructor(
         _activeChatId.value = chatId
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
-            repository.getMessages(chatId).collect { res ->
-                _uiState.update { it.copy(messages = res) }
-            }
+            repository.getMessages(chatId)
+                .distinctUntilChanged()
+                .collect { res ->
+                    _uiState.update { it.copy(messages = res) }
+                }
         }
         
         // Trigger network sync
@@ -229,34 +236,36 @@ class ChatViewModel @Inject constructor(
         chatId: String, body: String, messageType: String = "text", mediaUrls: List<String> = emptyList(),
         duration: String? = null, fileName: String? = null, fileSize: String? = null,
         contactName: String? = null, contactPhone: String? = null, latitude: Double? = null, longitude: Double? = null,
-        replyToId: String? = null, replyToText: String? = null, replyToSenderName: String? = null
+        replyToId: String? = null, replyToText: String? = null, replyToSenderName: String? = null,
+        clientId: String? = null, audioAmplitudes: List<Int>? = null, scheduledAt: Long? = null
     ) {
         viewModelScope.launch {
+            // Detect and fetch link preview if it's a text message with a link
+            var linkPreview: com.example.firstapp.chat.model.LinkPreview? = null
+            if (messageType.lowercase() == "text" && scheduledAt == null) {
+                val matcher = android.util.Patterns.WEB_URL.matcher(body)
+                if (matcher.find()) {
+                    val url = matcher.group()
+                    val fullUrl = if (!url.startsWith("http")) "https://$url" else url
+                    linkPreview = com.example.firstapp.chat.util.LinkMetadataParser.fetchMetadata(fullUrl)
+                }
+            }
+
             repository.sendMessage(
                 chatId, body, messageType, mediaUrls, duration, fileName, fileSize,
                 contactName, contactPhone, latitude, longitude, 
-                replyToId, replyToText, replyToSenderName
+                replyToId, replyToText, replyToSenderName,
+                clientId, scheduledAt
             ).collect { res ->
+                if (res is Resource.Success && res.data != null && (linkPreview != null || audioAmplitudes != null)) {
+                    // Update the message in cache with the preview or amplitudes
+                    repository.updateMessageInCache(chatId, res.data.copy(linkPreview = linkPreview, audioAmplitudes = audioAmplitudes))
+                }
                 if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
             }
         }
     }
 
-    fun sendMediaMessage(chatId: String, file: File, type: String, name: String? = null, duration: String? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            val finalType = if (type == "audio") "audio_message" else type
-            accountRepository.uploadFile(file, "chat/$type").collect { res ->
-                if (res is Resource.Success && res.data != null) {
-                    sendMessage(chatId, name ?: type, finalType, listOf(res.data.url), duration, file.name)
-                    file.delete()
-                } else if (res is Resource.Error) {
-                    _uiState.update { it.copy(error = res.message) }
-                }
-                _uiState.update { it.copy(isLoading = false) }
-            }
-        }
-    }
 
     fun startVoiceOrVideoCall(receiverId: String, callType: com.example.firstapp.chat.data.CallType, name: String? = null) {
         // Check for Mic/Camera permissions before initiating
@@ -273,6 +282,22 @@ class ChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             name?.let { GlobalCallState.updateContactInfo(receiverId, it, null) }
+            
+            // 1. Fetch ICE servers first for professional TURN support in outgoing calls
+            val iceResource = repository.getICEServers()
+            if (iceResource is Resource.Success) {
+                val servers = iceResource.data?.map { config: IceServerConfig ->
+                    val builder = org.webrtc.PeerConnection.IceServer.builder(config.urls)
+                    if (config.username != null) builder.setUsername(config.username)
+                    if (config.credential != null) builder.setPassword(config.credential)
+                    builder.createIceServer()
+                }
+                if (servers != null) {
+                    webRtcCallManager.setIceServers(servers)
+                }
+            }
+
+            // 2. Initiate the call on the server
             repository.initiateCall(receiverId, callType.wireValue()).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val sessionId = resource.data
@@ -303,6 +328,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch { repository.reactToMessage(messageId, emoji).collect { } }
     }
 
+    fun starMessage(messageId: String, isStarred: Boolean) {
+        viewModelScope.launch { repository.starMessage(messageId, isStarred).collect { } }
+    }
+
     fun searchInChat(chatId: String, query: String) {
         if (query.isBlank()) { _uiState.update { it.copy(chatSearchResults = emptyList()) }; return }
         viewModelScope.launch { repository.searchLocalMessages(chatId, query).collect { res -> _uiState.update { it.copy(chatSearchResults = res) } } }
@@ -326,6 +355,21 @@ class ChatViewModel @Inject constructor(
     fun archiveChat(chatId: String, isArchived: Boolean) { viewModelScope.launch { repository.archiveChat(chatId, isArchived).collect { fetchChats() } } }
     fun clearChat(chatId: String) { viewModelScope.launch { repository.clearMessages(chatId); fetchMessages(chatId) } }
     fun clearAllChats() { viewModelScope.launch { repository.clearAllChats(); fetchChats() } }
+
+    fun subscribeToChannel(channelId: String) {
+        viewModelScope.launch {
+            repository.subscribeToChannel(channelId).collect {
+                if (it is Resource.Success) {
+                    fetchChats()
+                    fetchMessages(channelId)
+                }
+            }
+        }
+    }
+
+    fun setPlayingAudio(uri: String?) {
+        _currentlyPlayingAudio.value = uri
+    }
 
     fun sendTyping(isTyping: Boolean) {
         val chatId = _activeChatId.value ?: return
@@ -418,6 +462,145 @@ class ChatViewModel @Inject constructor(
                 if (res is Resource.Success) fetchChats()
             }
         }
+    }
+
+    fun updateChatAvatar(chatId: String, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val file = com.example.firstapp.common.util.MediaUtils.processImageForAvatar(com.example.firstapp.common.util.ContextProvider.context, uri)
+            if (file != null) {
+                // 1. Optimistic Update (Immediate Local)
+                repository.updateChatAvatar(chatId, uri.toString())
+                
+                // If it's my own profile chat, update the global session user and local DB too
+                if (chatId == sessionManager.getUserId()) {
+                    sessionManager.currentUser.value?.let { current ->
+                        val updated = current.copy(avatarUrl = uri.toString())
+                        sessionManager.updateCurrentUser(updated)
+                        userRepository.updateUserLocally(updated)
+                    }
+                }
+                
+                // 2. Network Upload
+                accountRepository.uploadFile(file, "avatars").collect { res ->
+                    if (res is Resource.Success && res.data != null) {
+                        val serverUrl = res.data.url
+                        repository.updateChatAvatar(chatId, serverUrl)
+                        
+                        if (chatId == sessionManager.getUserId()) {
+                            // Update the actual user record on the server for my profile
+                            userRepository.updateUser(null, null, null, serverUrl).collect { }
+                        } else {
+                            // TODO: Add ChatApi.updateGroupAvatar if needed
+                        }
+                        
+                        file.delete()
+                    } else if (res is Resource.Error) {
+                        _uiState.update { it.copy(error = res.message) }
+                    }
+                }
+            }
+        }
+    }
+
+    fun sendMediaMessage(chatId: String, file: java.io.File, type: String, name: String? = null, duration: String? = null, audioAmplitudes: List<Int>? = null) {
+        viewModelScope.launch {
+            val clientUuid = java.util.UUID.randomUUID().toString()
+            val localUri = android.net.Uri.fromFile(file).toString()
+            val finalType = if (type == "audio" || type == "audio_message") "audio_message" else type
+            val bodyText = name ?: type.replaceFirstChar { it.uppercase() }
+            
+            // 1. Optimistic Update: Save to Local DB immediately via repository.saveMessage
+            val myUserId = sessionManager.getUserId() ?: "0"
+            val optimisticMsg = Message(
+                id = clientUuid,
+                conversationId = chatId,
+                content = bodyText,
+                senderId = myUserId,
+                senderName = "You",
+                timestamp = System.currentTimeMillis(),
+                isFromMe = true,
+                status = MessageStatus.PENDING,
+                type = try { MessageType.valueOf(finalType.uppercase()) } catch(_: Exception) { MessageType.TEXT },
+                mediaUrls = listOf(localUri),
+                clientId = clientUuid,
+                duration = duration,
+                fileName = file.name,
+                audioAmplitudes = audioAmplitudes
+            )
+            repository.saveMessage(chatId, optimisticMsg)
+            
+            // 2. Upload and finalize
+            _uiState.update { it.copy(isLoading = true) }
+            accountRepository.uploadFile(file, "chat/$type").collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    val serverUrl = res.data.url
+                    // 3. Send via API with the real URL, using the SAME clientId to replace the optimistic one
+                    sendMessage(chatId, bodyText, finalType, listOf(serverUrl), duration, file.name, null, null, null, null, null, null, null, null, clientUuid, audioAmplitudes)
+                    file.delete()
+                } else if (res is Resource.Error) {
+                    _uiState.update { it.copy(error = res.message) }
+                    // Keep the local message but maybe mark as failed if we had updateMessageStatus
+                }
+            }
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    fun sendMediaMessages(chatId: String, files: List<java.io.File>, type: String, caption: String? = null) {
+        viewModelScope.launch {
+            val finalType = if (type == "audio") "audio_message" else type
+            val bodyText = if (!caption.isNullOrBlank()) caption else type.replaceFirstChar { it.uppercase() }
+
+            if (finalType == "image") {
+                val clientUuid = java.util.UUID.randomUUID().toString()
+                val localUris = files.map { android.net.Uri.fromFile(it).toString() }
+                
+                // 1. Optimistic Grid
+                val myUserId = sessionManager.getUserId() ?: "0"
+                val optimisticMsg = Message(
+                    id = clientUuid,
+                    conversationId = chatId,
+                    content = bodyText,
+                    senderId = myUserId,
+                    senderName = "You",
+                    timestamp = System.currentTimeMillis(),
+                    isFromMe = true,
+                    status = MessageStatus.PENDING,
+                    type = MessageType.IMAGE,
+                    mediaUrls = localUris,
+                    clientId = clientUuid
+                )
+                repository.saveMessage(chatId, optimisticMsg)
+                
+                // 2. Upload all
+                val uploadedUrls = mutableListOf<String>()
+                val uploadJobs = files.map { file ->
+                    launch {
+                        accountRepository.uploadFile(file, "chat/$type").collect { res ->
+                            if (res is Resource.Success && res.data != null) {
+                                synchronized(uploadedUrls) { uploadedUrls.add(res.data.url) }
+                            }
+                        }
+                    }
+                }
+                uploadJobs.joinAll()
+                
+                if (uploadedUrls.size == files.size) {
+                    // 3. Send via API
+                    sendMessage(chatId, bodyText, finalType, uploadedUrls, null, null, null, null, null, null, null, null, null, null, clientUuid)
+                    files.forEach { it.delete() }
+                }
+            } else {
+                // Separate bubbles for non-images
+                files.forEach { file ->
+                    sendMediaMessage(chatId, file, type, caption)
+                }
+            }
+        }
+    }
+
+    fun getMessageReaders(messageId: String): Flow<Resource<List<com.example.firstapp.chat.data.api.ApiReader>>> {
+        return repository.getMessageReaders(messageId)
     }
 
     override fun onCleared() {

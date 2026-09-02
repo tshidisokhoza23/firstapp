@@ -99,11 +99,28 @@ object MediaUtils {
     }
 
     fun formatUrl(url: String?): String? {
-        if (url == null) return null
-        if (url.length == 0) return null
-        if (url.startsWith("http") || url.startsWith("data:")) return url
+        if (url == null || url.isEmpty()) return null
         
-        val base = com.example.firstapp.BuildConfig.API_BASE_URL
+        val base = com.example.firstapp.common.data.network.NetworkConstants.BASE_URL
+        val baseUri = try { android.net.Uri.parse(base) } catch (e: Exception) { null }
+        val targetHost = baseUri?.host ?: "192.168.100.7"
+        
+        // Handle absolute URLs
+        if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("file:") || url.startsWith("local:")) {
+            var formatted = url
+            
+            // Fix legacy port 5000 -> 8082
+            if (formatted.contains(":5000")) {
+                formatted = formatted.replace(":5000", ":8082")
+            }
+            
+            // Fix localhost/127.0.0.1 -> real IP
+            if (formatted.contains("://localhost") || formatted.contains("://127.0.0.1")) {
+                formatted = formatted.replace("localhost", targetHost).replace("127.0.0.1", targetHost)
+            }
+            return formatted
+        }
+        
         var cleanBase = base
         if (base.endsWith("/api/v1/")) {
             cleanBase = base.substring(0, base.length - 8)
@@ -113,7 +130,13 @@ object MediaUtils {
             cleanBase = base.substring(0, base.length - 1)
         }
         
-        val cleanUrl = if (url.startsWith("/")) url.substring(1) else url
+        var cleanUrl = if (url.startsWith("/")) url.substring(1) else url
+        
+        // Ensure relative paths start with uploads/ if they don't already
+        if (!cleanUrl.startsWith("uploads/")) {
+            cleanUrl = "uploads/$cleanUrl"
+        }
+        
         return "$cleanBase/$cleanUrl"
     }
 
@@ -139,5 +162,39 @@ object MediaUtils {
             inputStream.use { input -> outputStream.use { output -> input.copyTo(output) } }
             tempFile
         } catch (e: Exception) { null }
+    }
+
+    fun getVideoThumbnail(context: Context, uri: Uri): File? {
+        return try {
+            val retriever = android.media.MediaMetadataRetriever()
+            retriever.setDataSource(context, uri)
+            val bitmap = retriever.getFrameAtTime(1000000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            retriever.release()
+            
+            if (bitmap == null) return null
+            
+            val outFile = File(context.cacheDir, "thumb_${System.currentTimeMillis()}.jpg")
+            val outStream = FileOutputStream(outFile)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outStream)
+            outStream.flush()
+            outStream.close()
+            bitmap.recycle()
+            outFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun getVideoDuration(context: Context, uri: Uri): Long {
+        return try {
+            val retriever = android.media.MediaMetadataRetriever()
+            retriever.setDataSource(context, uri)
+            val duration = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            retriever.release()
+            duration?.toLong() ?: 0L
+        } catch (e: Exception) {
+            0L
+        }
     }
 }

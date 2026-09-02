@@ -28,7 +28,7 @@ class DisplayNameResolver(private val context: Context) {
                  return user.displayName
              }
              val fallbackPhone = user?.phoneNumber?.trim() ?: ""
-             return if (fallbackPhone.isNotEmpty()) fallbackPhone else "Unknown"
+             return if (fallbackPhone.isNotEmpty()) fallbackPhone else ""
         }
 
         // Check cache first

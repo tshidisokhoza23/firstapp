@@ -54,6 +54,7 @@ import com.example.firstapp.media.model.*
 import com.example.firstapp.music.model.Song
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.util.formatTwitterTime
+import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.ui.components.*
 import com.example.firstapp.chat.data.CallType
 import kotlin.collections.*
@@ -98,11 +99,11 @@ fun MediaScreen(
     ownProfileAvatarUrl: String? = null,
     ownProfileAvatarColor: Color = Color(0xFF3A4B57),
     onPostSelect: (Post?) -> Unit,
-    onCreatePost: (content: String, mediaUrls: List<String>, tags: List<String>, postType: String?, pollOptions: List<String>?, location: String?, parentPostId: String?, rootPostId: String?) -> Unit,
+    onCreatePost: (content: String, mediaUrls: List<String>, tags: List<String>, postType: String?, pollOptions: List<String>?, location: String?, parentPostId: String?, rootPostId: String?, repostOfId: String?) -> Unit,
     onLikePost: (postId: String, likes: Long, isLiked: Boolean) -> Unit,
-    onRepostPost: (postId: String) -> Unit,
+    onRepostPost: (Post) -> Unit,
     onBookmarkPost: (postId: String) -> Unit,
-    onViewPost: (postId: String) -> Unit = {},
+    onPostViewed: (postId: String) -> Unit = {},
     onProfileViewChange: (Boolean) -> Unit = {},
     onGetUserPosts: (String, String) -> Flow<PagingData<Post>> = { _, _ -> kotlinx.coroutines.flow.flowOf() },
     userViewModel: UserViewModel,
@@ -122,9 +123,12 @@ fun MediaScreen(
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
     onProfileClick: (String) -> Unit = {},
+    autoplayEnabled: Boolean = true,
+    autoplayGifsEnabled: Boolean = true,
     categories: List<Category> = emptyList(),
     selectedCategoryId: String? = null,
-    onCategorySelected: (String?) -> Unit = {}
+    onCategorySelected: (String?) -> Unit = {},
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
     LaunchedEffect(refreshTrigger) {
@@ -137,10 +141,18 @@ fun MediaScreen(
 
     var showCreatePost by remember { mutableStateOf(false) }
     var replyingToPost by remember { mutableStateOf<Post?>(null) }
+    var quotingPost by remember { mutableStateOf<Post?>(null) }
     var replyingToReply by remember { mutableStateOf<Post?>(null) }
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
+    var searchGlobal by remember { mutableStateOf(false) }
+
+    LaunchedEffect(searchQuery, searchGlobal) {
+        if (isSearchActive) {
+            mediaViewModel.search(searchQuery, searchGlobal)
+        }
+    }
 
     var showRepostOptions by remember { mutableStateOf<Post?>(null) }
     var showTopMoreSheet by remember { mutableStateOf(false) }
@@ -240,38 +252,53 @@ fun MediaScreen(
                 contentWindowInsets = WindowInsets(0, 0, 0, 0)
             ) { innerPadding ->
                 Box(modifier = Modifier.padding(innerPadding)) {
-                    MainFeedSection(
-                        adManager = adManager,
-                        posts = posts,
-                        preloadedAds = preloadedAds,
-                        adsLoaded = adsLoaded,
-                        ownProfileId = ownProfileId,
-                        ownProfileHandle = ownProfileHandle,
-                        onPostClick = onPostSelect,
-                        onLike = onLikePost,
-                        onRepostClick = { showRepostOptions = it },
-                        onBookmark = onBookmarkPost,
-                        onDeletePost = onDeletePost,
-                        onMoreClick = { showPostMoreOptions = it },
-                        onReplyClick = { p, r -> 
-                            replyingToPost = p
-                            replyingToReply = r
-                        },
-                        onProfileClick = { id ->
-                            onProfileClick(id)
-                        },
-                        onPlaySong = onPlaySong,
-                        onVotePoll = onVotePoll,
-                        onRefresh = onRefresh,
-                        onShortClick = { short ->
-                            onShortClick(short)
-                        },
-                        onMediaClick = onMediaClick,
-                        onFollowUser = onFollowUser,
-                        categories = categories,
-                        selectedCategoryId = selectedCategoryId,
-                        onCategorySelected = onCategorySelected
-                    )
+                    if (isSearchActive && searchQuery.isNotEmpty()) {
+                        val searchResults by mediaViewModel.searchResults.collectAsState()
+                        SearchResultsList(
+                            results = searchResults,
+                            autoplayEnabled = autoplayEnabled,
+                            autoplayGifsEnabled = autoplayGifsEnabled,
+                            onPostClick = onPostSelect,
+                            onProfileClick = onProfileClick
+                        )
+                    } else {
+                        MainFeedSection(
+                            bottomPadding = bottomPadding,
+                            adManager = adManager,
+                            posts = posts,
+                            preloadedAds = preloadedAds,
+                            adsLoaded = adsLoaded,
+                            ownProfileId = ownProfileId,
+                            ownProfileHandle = ownProfileHandle,
+                            autoplayEnabled = autoplayEnabled,
+                            autoplayGifsEnabled = autoplayGifsEnabled,
+                            onPostClick = onPostSelect,
+                            onLike = onLikePost,
+                            onRepostClick = { showRepostOptions = it },
+                            onBookmark = onBookmarkPost,
+                            onDeletePost = onDeletePost,
+                            onMoreClick = { showPostMoreOptions = it },
+                            onReplyClick = { p, r -> 
+                                replyingToPost = p
+                                replyingToReply = r
+                            },
+                            onProfileClick = { id ->
+                                onProfileClick(id)
+                            },
+                            onPlaySong = onPlaySong,
+                            onVotePoll = onVotePoll,
+                            onRefresh = onRefresh,
+                            onShortClick = { short ->
+                                onShortClick(short)
+                            },
+                            onMediaClick = onMediaClick,
+                            onFollowUser = onFollowUser,
+                            onPostViewed = onPostViewed,
+                            categories = categories,
+                            selectedCategoryId = selectedCategoryId,
+                            onCategorySelected = onCategorySelected
+                        )
+                    }
                 }
             }
         }
@@ -282,7 +309,12 @@ fun MediaScreen(
                 onDismissRequest = { showTopMoreSheet = false },
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(bottom = 32.dp)
+                ) {
                     ListItem(
                         headlineContent = { Text("View Profile", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurface) },
@@ -328,12 +360,17 @@ fun MediaScreen(
                 onDismissRequest = { showRepostOptions = null },
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(bottom = 32.dp)
+                ) {
                     ListItem(
                         headlineContent = { Text(if (targetPost.isReposted) "Undo Repost" else "Repost", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Repeat, null, tint = if (targetPost.isReposted) Color(0xFF00BA7C) else MaterialTheme.colorScheme.onSurface) },
                         modifier = Modifier.clickable {
-                            onRepostPost(targetPost.id)
+                            onRepostPost(targetPost)
                             showRepostOptions = null
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -342,6 +379,7 @@ fun MediaScreen(
                         headlineContent = { Text("Quote Post", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) },
                         modifier = Modifier.clickable {
+                            quotingPost = targetPost
                             showRepostOptions = null
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -357,7 +395,12 @@ fun MediaScreen(
                 onDismissRequest = { showPostMoreOptions = null },
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(bottom = 32.dp)
+                ) {
                     ListItem(
                         headlineContent = { Text(if (targetPost.isBookmarked) "Remove Bookmark" else "Bookmark", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(if (targetPost.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, null) },
@@ -392,32 +435,29 @@ fun MediaScreen(
             }
         }
 
-        if (showCreatePost) {
-            PostComposerDialog(
-                avatarUrl = ownProfileAvatarUrl,
-                avatarColor = ownProfileAvatarColor,
-                onDismiss = { showCreatePost = false },
-                onSubmit = { content, media, tags, type, poll, loc ->
-                    onCreatePost(content, media, tags, type, poll, loc, null, null)
-                    showCreatePost = false
-                }
-            )
-        }
-
-        if (replyingToPost != null) {
-            val rootId = replyingToPost!!.rootPostId ?: replyingToPost!!.id
+        if (showCreatePost || replyingToPost != null || quotingPost != null) {
+            val rootId = replyingToPost?.let { it.rootPostId ?: it.id }
             PostComposerDialog(
                 replyingTo = replyingToReply ?: replyingToPost,
+                quotingPost = quotingPost,
                 avatarUrl = ownProfileAvatarUrl,
                 avatarColor = ownProfileAvatarColor,
                 onDismiss = { 
+                    showCreatePost = false
                     replyingToPost = null
                     replyingToReply = null
+                    quotingPost = null
                 },
                 onSubmit = { content, media, tags, type, poll, loc ->
-                    onCreatePost(content, media, tags, type, poll, loc, replyingToReply?.id ?: replyingToPost?.id, rootId)
+                    if (quotingPost != null) {
+                        onCreatePost(content, media, tags, "repost", poll, loc, null, null, quotingPost!!.id)
+                    } else {
+                        onCreatePost(content, media, tags, type, poll, loc, replyingToReply?.id ?: replyingToPost?.id, rootId, null)
+                    }
+                    showCreatePost = false
                     replyingToPost = null
                     replyingToReply = null
+                    quotingPost = null
                 }
             )
         }
@@ -449,9 +489,13 @@ fun MainFeedSection(
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
     onFollowUser: (String, Boolean) -> Unit = { _, _ -> },
+    onPostViewed: (String) -> Unit = {},
+    autoplayEnabled: Boolean = true,
+    autoplayGifsEnabled: Boolean = true,
     categories: List<Category> = emptyList(),
     selectedCategoryId: String? = null,
-    onCategorySelected: (String?) -> Unit = {}
+    onCategorySelected: (String?) -> Unit = {},
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     when {
         posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
@@ -520,10 +564,14 @@ fun MainFeedSection(
             }
         }
 
+        LaunchedEffect(activePostId) {
+            activePostId?.let { onPostViewed(it) }
+        }
+
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp)
+            contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
         ) {
             if (categories.isNotEmpty()) {
                 item {
@@ -549,6 +597,8 @@ fun MainFeedSection(
                             showThreadLine = post.hasThread,
                             isLastInThread = true,
                             activePostId = activePostId,
+                            autoplayEnabled = autoplayEnabled,
+                            autoplayGifsEnabled = autoplayGifsEnabled,
                             onClick = { onPostClick(post) },
                             onLike = { id, likes, liked -> onLike(id, likes, liked) },
                             onRepostClick = { p -> onRepostClick(p) },
@@ -575,7 +625,7 @@ fun MainFeedSection(
                             } else {
                                 DynamicAdCard(
                                     adManager = adManager,
-                                    adUnitId = "ca-app-pub-3940256099942544/2247696110",
+                                    adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
                                     modifier = Modifier.padding(vertical = 8.dp),
                                     onAdRevenuePaid = { rev ->
                                         onAdRevenueLogged(post.id, rev, "main_feed")
@@ -599,22 +649,97 @@ fun MainFeedSection(
 }
 
 @Composable
-fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
+fun SearchTopBar(
+    query: String, 
+    searchGlobal: Boolean = false,
+    onQueryChange: (String) -> Unit, 
+    onToggleGlobal: () -> Unit = {},
+    onClose: () -> Unit
+) {
     Surface(modifier = Modifier.fillMaxWidth().height(64.dp), color = MaterialTheme.colorScheme.background, tonalElevation = 4.dp) {
-        TextField(
-            value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxSize(),
-            placeholder = { Text("Search profiles or posts...", color = Color.Gray) },
-            leadingIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
-            trailingIcon = { if (query.isNotEmpty()) { IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Default.Close, null) } } },
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent, 
-                unfocusedContainerColor = Color.Transparent, 
-                cursorColor = MaterialTheme.colorScheme.primary, 
-                focusedTextColor = MaterialTheme.colorScheme.onBackground, 
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextField(
+                value = query, onValueChange = onQueryChange, modifier = Modifier.weight(1f),
+                placeholder = { Text("Search profiles or posts...", color = Color.Gray) },
+                leadingIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
+                trailingIcon = { if (query.isNotEmpty()) { IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Default.Close, null) } } },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent, 
+                    unfocusedContainerColor = Color.Transparent, 
+                    cursorColor = MaterialTheme.colorScheme.primary, 
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground, 
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                )
             )
-        )
+            
+            TextButton(
+                onClick = onToggleGlobal,
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Text(
+                    text = if (searchGlobal) "Global" else "Contacts",
+                    color = if (searchGlobal) MaterialTheme.colorScheme.primary else Color.Gray,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchResultsList(
+    results: Resource<List<Post>>,
+    autoplayEnabled: Boolean = true,
+    autoplayGifsEnabled: Boolean = true,
+    onPostClick: (Post) -> Unit,
+    onProfileClick: (String) -> Unit
+) {
+    when (results) {
+        is Resource.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = AppPrimary)
+            }
+        }
+        is Resource.Error -> {
+            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                Text(text = results.message ?: "Search failed", color = MaterialTheme.colorScheme.error)
+            }
+        }
+        is Resource.Success -> {
+            val postsList = results.data ?: emptyList()
+            if (postsList.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No results found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(postsList) { post ->
+                        VerticalFeedPostCard(
+                            post = post,
+                            autoplayEnabled = autoplayEnabled,
+                            autoplayGifsEnabled = autoplayGifsEnabled,
+                            onLikeClick = {},
+                            onCommentClick = {},
+                            onRepostClick = {},
+                            onShareClick = {},
+                            onBookmarkClick = {},
+                            onFollowClick = {},
+                            onMoreClick = {},
+                            onProfileClick = onProfileClick,
+                            onMediaClick = { _, _, _ -> },
+                            modifier = Modifier.clickable { onPostClick(post) }
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

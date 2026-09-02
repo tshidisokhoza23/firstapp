@@ -18,8 +18,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.foundation.shape.CircleShape
 import coil.compose.AsyncImage
+import com.example.firstapp.media.model.Post
 import com.example.firstapp.media.model.PostPoll
+import com.example.firstapp.common.util.formatTwitterTime
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import coil.request.ImageRequest
 import kotlin.text.*
 
 @Composable
@@ -27,23 +33,33 @@ fun InteractionIcon(
     icon: ImageVector,
     count: Long,
     color: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showCount: Boolean = true
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(4.dp)
     ) {
         Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(text = count.toString(), color = color, fontSize = 12.sp)
+        if (showCount) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(text = count.toString(), color = color, fontSize = 12.sp)
+        }
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
+fun MediaGrid(
+    urls: List<String>, 
+    autoplayEnabled: Boolean = true,
+    autoplayGifsEnabled: Boolean = true,
+    onMediaClick: (String) -> Unit = {}
+) {
     val shape = RoundedCornerShape(12.dp)
     val modifier = if (urls.size == 1) {
         Modifier
@@ -74,7 +90,9 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                             videoUrl = urlString,
                             isPlaying = true, // Auto-play single videos in grid
                             modifier = Modifier.fillMaxWidth(),
-                            useController = false
+                            useController = false,
+                            autoplayEnabled = autoplayEnabled,
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         )
                         Icon(
                             imageVector = Icons.Default.PlayCircle,
@@ -87,12 +105,23 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                     }
                 } else {
                     AsyncImage(
-                        model = urlString,
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(urlString)
+                            .crossfade(true)
+                            .apply {
+                                val isGif = urlString.lowercase().endsWith(".gif")
+                                if (isGif && !autoplayGifsEnabled) {
+                                    setParameter("play_animated", false)
+                                }
+                            }
+                            .build(),
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .background(Color.DarkGray.copy(alpha = 0.2f))
                             .clickable { onMediaClick(urlString) },
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Crop,
+                        placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.1f))
                     )
                 }
             }
@@ -104,8 +133,10 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxSize()
+                                .background(Color.DarkGray.copy(alpha = 0.2f))
                                 .clickable { onMediaClick(urls[0]) },
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.1f))
                         )
                     }
                     Spacer(modifier = Modifier.width(1.dp))
@@ -115,8 +146,10 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxSize()
+                                .background(Color.DarkGray.copy(alpha = 0.2f))
                                 .clickable { onMediaClick(urls[1]) },
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.1f))
                         )
                     }
                 }
@@ -227,6 +260,87 @@ fun MediaGrid(urls: List<String>, onMediaClick: (String) -> Unit = {}) {
     }
 }
 
+@Composable
+fun QuotedPostCard(
+    post: Post,
+    onProfileClick: (String) -> Unit,
+    onMediaClick: (String, String, Long) -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = com.example.firstapp.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(post.authorAvatarColor),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = post.authorName,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = " @${post.authorHandle} · ${formatTwitterTime(post.timestamp)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            Spacer(Modifier.height(4.dp))
+            
+            Text(
+                text = post.content,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            if (post.mediaUrls.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                ) {
+                    val url = post.mediaUrls[0]
+                    val isVideo = com.example.firstapp.common.util.MediaUtils.isVideo(url)
+                    val displayUrl = if (isVideo && post.thumbnailUrl != null) post.thumbnailUrl else url
+                    
+                    AsyncImage(
+                        model = com.example.firstapp.common.util.MediaUtils.formatUrl(displayUrl),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    if (isVideo) {
+                        Icon(
+                            Icons.Default.PlayCircle,
+                            null,
+                            modifier = Modifier.align(Alignment.Center).size(32.dp),
+                            tint = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 @Composable
 fun PollView(poll: PostPoll, onVote: (String) -> Unit) {
     var totalVotes = 0L

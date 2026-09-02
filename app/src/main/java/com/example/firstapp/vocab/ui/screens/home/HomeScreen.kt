@@ -280,7 +280,7 @@ fun HomeScreen(
 
                 items(unit.lessons) { lesson ->
                     val isEnabled = true 
-                    val isCompleted = (uiState.user.lessonMastery[lesson.id] ?: 0) >= 100
+                    val isCompleted = (uiState.user.lessonMastery?.get(lesson.id) ?: 0) >= 100
 
                     LessonItem(
                         title = lesson.titleTranslations[nativeLang] ?: lesson.titleTranslations["English"] ?: "",

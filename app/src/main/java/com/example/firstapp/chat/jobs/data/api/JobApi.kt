@@ -93,7 +93,7 @@ data class ApiJobApplication(
         id = id,
         jobId = job_id,
         jobTitle = title ?: "Job",
-        companyName = company_name ?: "Unknown",
+        companyName = company_name ?: "",
         location = location ?: "",
         appliedDate = applied_date,
         status = com.example.firstapp.chat.jobs.model.ApplicationStatus.PENDING,

@@ -15,7 +15,8 @@ import com.example.firstapp.chat.domain.repository.ChannelRepository
 
 @HiltViewModel
 class ChannelsViewModel @Inject constructor(
-    private val repository: ChannelRepository
+    private val repository: ChannelRepository,
+    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository
 ) : ViewModel() {
 
     private val _channels = MutableStateFlow<Resource<List<Channel>>>(Resource.Loading())
@@ -39,7 +40,10 @@ class ChannelsViewModel @Inject constructor(
     fun subscribeToChannel(channelId: String) {
         viewModelScope.launch {
             repository.subscribeToChannel(channelId).collect {
-                if (it is Resource.Success) fetchChannels()
+                if (it is Resource.Success) {
+                    fetchChannels()
+                    chatRepository.syncChats().collect {}
+                }
                 else if (it is Resource.Error) _toastMessage.value = it.message
             }
         }
@@ -85,6 +89,19 @@ class ChannelsViewModel @Inject constructor(
             repository.removeAdmin(channelId, userId).collect {
                 if (it is Resource.Success) {
                     _toastMessage.value = "Admin removed"
+                    fetchChannels()
+                } else if (it is Resource.Error) {
+                    _toastMessage.value = it.message
+                }
+            }
+        }
+    }
+
+    fun toggleAdminPosting(channelId: String, allowed: Boolean) {
+        viewModelScope.launch {
+            repository.updateAdminPostingPermission(channelId, allowed).collect {
+                if (it is Resource.Success) {
+                    _toastMessage.value = "Posting permission updated"
                     fetchChannels()
                 } else if (it is Resource.Error) {
                     _toastMessage.value = it.message

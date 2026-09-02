@@ -94,8 +94,8 @@ fun FilesScreen(onBack: () -> Unit, viewModel: FilesViewModel = hiltViewModel())
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(filteredFiles) { msg ->
                             FileItem(
-                                fileName = msg.fileName ?: "Unknown file",
-                                fileSize = msg.fileSize ?: "Unknown size",
+                                fileName = msg.fileName ?: "File",
+                                fileSize = msg.fileSize ?: "",
                                 timestamp = msg.timestamp.toString(), // Simplified
                                 type = msg.type
                             )

@@ -122,6 +122,8 @@ class CallListenerService : Service() {
                                     return
                                 } else {
                                     Log.d("CallListenerService", "Glare detected: I lose tie-breaker. Aborting my offer.")
+                                    val mySessionId = GlobalCallState.activeSessionId.value
+                                    if (mySessionId != null) GlobalCallState.onCallEnded(mySessionId)
                                     webRtcCallManager.end()
                                     // Fall through to accept their invite
                                 }
@@ -141,10 +143,10 @@ class CallListenerService : Service() {
                             val iceResource = repository.getICEServers()
                             if (iceResource is com.example.firstapp.common.util.Resource.Success) {
                                 val servers = iceResource.data?.map { config: IceServerConfig ->
-                                    org.webrtc.PeerConnection.IceServer.builder(config.urls)
-                                        .setUsername(config.username)
-                                        .setPassword(config.credential)
-                                        .createIceServer()
+                                    val builder = org.webrtc.PeerConnection.IceServer.builder(config.urls)
+                                    if (config.username != null) builder.setUsername(config.username)
+                                    if (config.credential != null) builder.setPassword(config.credential)
+                                    builder.createIceServer()
                                 }
                                 if (servers != null) {
                                     webRtcCallManager.setIceServers(servers)
@@ -259,6 +261,26 @@ class CallListenerService : Service() {
                     signalPayload = payload
                 )
             }
+        }
+
+        webRtcCallManager.onDisconnected = {
+            serviceScope.launch {
+                val sessionId = GlobalCallState.activeSessionId.value
+                val participantId = GlobalCallState.activeParticipantId.value
+                val callType = GlobalCallState.activeCallType.value
+                if (sessionId != null && participantId != null && callType != null) {
+                    Log.w("CallListenerService", "WebRTC Disconnected, ending session")
+                    callWebSocketClient.end(participantId, sessionId, callType, 0, "webrtc_disconnected")
+                    GlobalCallState.onCallEnded(sessionId)
+                    webRtcCallManager.end()
+                    callTonePlayer.stop()
+                }
+            }
+        }
+
+        webRtcCallManager.onConnected = {
+            GlobalCallState.setConnectionEstablished(true)
+            callTonePlayer.stop()
         }
 
         serviceScope.launch {
@@ -462,13 +484,13 @@ class CallListenerService : Service() {
         val callTypeStr = if (event.callType == CallType.VIDEO) "video" else "voice"
         val notificationId = event.sessionId.hashCode()
         val senderIdStr = event.senderId
-        val callerName = event.senderName.takeIf { it.isNotBlank() } 
+        val callerName = event.senderName.takeIf { it.isNotBlank() && it != senderIdStr } 
             ?: GlobalCallState.getContactName(senderIdStr)
             ?: GlobalCallState.getContactPhone(senderIdStr) 
-            ?: senderIdStr
+            ?: ""
 
         val fullScreenActivityIntent = Intent(this, com.example.firstapp.IncomingCallActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, event.sessionId)
             putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, event.senderId)
             putExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME, callerName)
@@ -516,6 +538,7 @@ class CallListenerService : Service() {
             .setTimeoutAfter(60000) 
             .setFullScreenIntent(fullScreenIntent, true)
             .setContentIntent(fullScreenIntent)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
             .setStyle(
                 NotificationCompat.CallStyle.forIncomingCall(
                     caller,

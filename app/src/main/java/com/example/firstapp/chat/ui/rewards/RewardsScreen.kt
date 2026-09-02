@@ -39,21 +39,21 @@ fun RewardsScreen(
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
-            title = { Text("What are these rewards?", color = Color.White) },
+            title = { Text("What are these rewards?", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Text(
                     "You can earn points by watching short video ads. " +
                             "These points can be redeemed for various in-app benefits, " +
                             "exclusive content, or wallet top-ups depending on available offers.",
-                    color = Color.LightGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
                 TextButton(onClick = { showInfoDialog = false }) {
-                    Text("Got it", color = Color(0xFF0056D2))
+                    Text("Got it", color = MaterialTheme.colorScheme.primary)
                 }
             },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -61,24 +61,24 @@ fun RewardsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)) // Pure Dark Background
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Spacer(modifier = Modifier.height(topBarHeight))
 
         when (val state = uiState) {
             is RewardUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color(0xFF0056D2))
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
             is RewardUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(state.message, color = Color.White, textAlign = TextAlign.Center)
+                        Text(state.message, color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
                         Button(
                             onClick = { viewModel.fetchDashboard() },
                             modifier = Modifier.padding(top = 16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0056D2))
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Retry")
                         }
@@ -100,7 +100,7 @@ fun RewardsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(
@@ -112,7 +112,7 @@ fun RewardsScreen(
                             ) {
                                 Column {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Total Points", color = Color.Gray, fontSize = 14.sp)
+                                        Text("Total Points", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                         Spacer(Modifier.width(4.dp))
                                         IconButton(
                                             onClick = { showInfoDialog = true },
@@ -121,7 +121,7 @@ fun RewardsScreen(
                                             Icon(
                                                 Icons.Default.Info,
                                                 contentDescription = null,
-                                                tint = Color.Gray,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.size(14.dp)
                                             )
                                         }
@@ -130,23 +130,28 @@ fun RewardsScreen(
                                         Icon(
                                             Icons.Default.MonetizationOn,
                                             contentDescription = null,
-                                            tint = Color(0xFFFF9800),
+                                            tint = com.example.firstapp.common.ui.theme.NiceOrange,
                                             modifier = Modifier.size(24.dp)
                                         )
                                         Spacer(Modifier.width(8.dp))
+                                        val pointsText = if (dash.total_points % 1.0 == 0.0) {
+                                            dash.total_points.toInt().toString()
+                                        } else {
+                                            String.format(java.util.Locale.US, "%.2f", dash.total_points)
+                                        }
                                         Text(
-                                            "${dash.total_points}",
-                                            color = Color.White,
+                                            pointsText,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = 32.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("Today", color = Color.Gray, fontSize = 14.sp)
+                                    Text("Today", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                     Text(
                                         "${dash.ads_watched_today}/${dash.max_daily_ads}",
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -159,7 +164,7 @@ fun RewardsScreen(
                         item {
                             Text(
                                 "Daily Tasks",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onBackground,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -198,7 +203,7 @@ fun RewardsScreen(
                         item {
                             Text(
                                 "Watched",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -226,7 +231,7 @@ fun RewardsScreen(
                                     .height(200.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("No tasks available right now.", color = Color.Gray)
+                                Text("No tasks available right now.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -250,7 +255,7 @@ fun TaskRow(
     onWatchClick: () -> Unit
 ) {
     Surface(
-        color = Color(0xFF121212),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -259,7 +264,7 @@ fun TaskRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF1A1A1A)),
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
                 val icon = when {
@@ -267,15 +272,20 @@ fun TaskRow(
                     isLocked -> Icons.Default.Lock
                     else -> Icons.Default.PlayCircle
                 }
-                val iconTint = if (task.is_completed) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                val iconTint = if (task.is_completed) Color(0xFF4CAF50) else com.example.firstapp.common.ui.theme.NiceOrange
                 Icon(icon, contentDescription = null, tint = iconTint)
             }
             
             Spacer(modifier = Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(task.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                Text("+${task.points} points", color = Color(0xFFFF9800), fontSize = 14.sp)
+                Text(task.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                val pointsText = if (task.points % 1.0 == 0.0) {
+                    task.points.toInt().toString()
+                } else {
+                    String.format(java.util.Locale.US, "%.2f", task.points)
+                }
+                Text("+$pointsText points", color = com.example.firstapp.common.ui.theme.NiceOrange, fontSize = 14.sp)
             }
 
             val buttonColor: Color
@@ -285,34 +295,34 @@ fun TaskRow(
 
             when {
                 task.is_completed -> {
-                    buttonColor = Color(0xFF333333)
-                    textColor = Color.Gray
+                    buttonColor = MaterialTheme.colorScheme.surface
+                    textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     buttonText = "Done"
                     enabled = false
                 }
                 isLocked -> {
-                    buttonColor = Color(0xFF222222)
-                    textColor = Color.DarkGray
+                    buttonColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                    textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     buttonText = "Locked"
                     enabled = false
                 }
                 dailyLimitReached -> {
-                    buttonColor = Color(0xFF222222)
-                    textColor = Color.DarkGray
+                    buttonColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                    textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     buttonText = "Limit Reached"
                     enabled = false
                 }
                 cooldownSeconds > 0 -> {
-                    buttonColor = Color(0xFF333333)
-                    textColor = Color.Gray
+                    buttonColor = MaterialTheme.colorScheme.surface
+                    textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     val mins = cooldownSeconds / 60
                     val secs = cooldownSeconds % 60
                     buttonText = String.format("%02d:%02d", mins, secs)
                     enabled = false
                 }
                 else -> {
-                    buttonColor = Color(0xFF0056D2)
-                    textColor = Color.White
+                    buttonColor = MaterialTheme.colorScheme.primary
+                    textColor = MaterialTheme.colorScheme.onPrimary
                     buttonText = "Watch"
                     enabled = true
                 }
@@ -333,7 +343,7 @@ fun TaskRow(
                     Text(buttonText, color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             } else if (task.is_completed) {
-                Text("Done", color = Color.Gray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("Done", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

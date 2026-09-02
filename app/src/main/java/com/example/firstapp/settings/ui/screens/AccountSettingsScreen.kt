@@ -146,11 +146,11 @@ fun ChangePhoneDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = AppSecondary,
-        title = { Text("Change Phone Number", color = Color.White) },
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = { Text("Change Phone Number", color = MaterialTheme.colorScheme.onSurface) },
         text = {
             Column {
-                Text("Enter your new phone number with country code.", color = Color.White.copy(0.7f))
+                Text("Enter your new phone number with country code.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     CountryPickerField(
@@ -169,10 +169,10 @@ fun ChangePhoneDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
                         label = { Text("New Number") },
                         modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppAccent,
-                            unfocusedBorderColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
@@ -189,12 +189,12 @@ fun ChangePhoneDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
                     onConfirm(selectedCountry.dialCode + formatted)
                 }
             }) {
-                Text("Change", color = AppAccent)
+                Text("Change", color = MaterialTheme.colorScheme.primary)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.White.copy(0.6f))
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -211,12 +211,12 @@ fun SettingsItem(icon: ImageVector, title: String, subtitle: String? = null, onC
             modifier = Modifier.padding(16.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = AppTextSecondary, modifier = Modifier.size(24.dp))
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(title, color = Color.White, fontSize = 16.sp)
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
                 if (subtitle != null) {
-                    Text(subtitle, color = AppTextSecondary, fontSize = 14.sp)
+                    Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 }
             }
         }

@@ -12,4 +12,5 @@ interface ChannelRepository {
     fun searchChannels(query: String): Flow<List<Channel>>
     fun addAdmin(channelId: String, userId: String): Flow<Resource<Boolean>>
     fun removeAdmin(channelId: String, userId: String): Flow<Resource<Boolean>>
+    fun updateAdminPostingPermission(channelId: String, allowed: Boolean): Flow<Resource<Boolean>>
 }

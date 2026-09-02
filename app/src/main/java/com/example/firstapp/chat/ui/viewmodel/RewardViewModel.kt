@@ -34,6 +34,7 @@ class RewardViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val poolManager: RewardedAdPoolManager,
     private val webSocketManager: WebSocketManager,
+    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -66,8 +67,13 @@ class RewardViewModel @Inject constructor(
 
     private fun initializePool() {
         viewModelScope.launch {
-            val user = userRepository.observeCurrentUser().filterNotNull().first()
-            poolManager.initialize(context, AdUnitConfig.REWARDED_POINTS_ID, user.id)
+            val userId = sessionManager.getUserId()
+            if (userId != null) {
+                android.util.Log.d("RewardViewModel", "Initializing ad pool for user: $userId")
+                poolManager.initialize(context, AdUnitConfig.REWARDED_POINTS_ID, userId)
+            } else {
+                android.util.Log.w("RewardViewModel", "Cannot initialize pool: No user ID found in session")
+            }
         }
     }
 
@@ -124,20 +130,33 @@ class RewardViewModel @Inject constructor(
     fun watchAd(activity: Activity, adUnitId: String, taskId: String) {
         android.util.Log.d("RewardViewModel", "watchAd called for task: $taskId")
         viewModelScope.launch {
-            val user = userRepository.observeCurrentUser().filterNotNull().first()
-            android.util.Log.d("RewardViewModel", "User found for watchAd: ${user.id}. Showing ad...")
+            val userId = sessionManager.getUserId()
+            if (userId == null) {
+                android.util.Log.e("RewardViewModel", "Cannot watch ad: No active session")
+                _uiState.value = RewardUiState.Error("Please log in again to earn rewards")
+                return@launch
+            }
             
+            // Show loading toast if pool is empty
+            if (!poolManager.hasAvailableAds.value) {
+                android.widget.Toast.makeText(context, "Loading ad... please wait.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+
+            android.util.Log.d("RewardViewModel", "Showing ad for user: $userId...")
             poolManager.showAd(
                 activity = activity,
                 adUnitId = adUnitId,
-                userId = user.id,
+                userId = userId,
                 taskId = taskId,
                 onRewardEarned = {
                     android.util.Log.i("RewardViewModel", "Reward earned for task: $taskId")
                     handleAdCompleted(taskId)
                 },
                 onAdClosed = {
-                    android.util.Log.d("RewardViewModel", "Ad closed for task: $taskId")
+                    android.util.Log.d("RewardViewModel", "Ad closed/failed for task: $taskId")
+                    if (!poolManager.hasAvailableAds.value) {
+                        android.widget.Toast.makeText(context, "Ad could not be loaded. Please check your connection and try again.", android.widget.Toast.LENGTH_LONG).show()
+                    }
                 }
             )
         }
@@ -147,11 +166,14 @@ class RewardViewModel @Inject constructor(
         // 1. Optimistic UI Update
         val currentState = _uiState.value
         if (currentState is RewardUiState.Success) {
+            val task = currentState.dashboard.tasks.find { it.id == taskId }
+            val earnedPoints = task?.points ?: 10.0 // Fallback only if task not found
+            
             val updatedTasks = currentState.dashboard.tasks.map {
                 if (it.id == taskId) it.copy(is_completed = true) else it
             }
             val updatedDash = currentState.dashboard.copy(
-                total_points = currentState.dashboard.total_points + 10,
+                total_points = currentState.dashboard.total_points + earnedPoints,
                 ads_watched_today = currentState.dashboard.ads_watched_today + 1,
                 tasks = updatedTasks
             )

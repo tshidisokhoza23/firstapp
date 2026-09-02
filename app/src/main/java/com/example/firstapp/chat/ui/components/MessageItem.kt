@@ -7,6 +7,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -25,10 +26,22 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
+import android.util.Patterns
 import androidx.compose.ui.unit.*
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 import com.example.firstapp.media.ui.components.MediaGrid
 import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.MessageStatus
@@ -64,11 +77,14 @@ fun MessageItemUnique(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onReply: (Message) -> Unit,
-    onMediaClick: (String, String) -> Unit = { _, _ -> }
+    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    playingAudioUri: String? = null,
+    onPlayAudio: (String?) -> Unit = {},
+    isHighlighted: Boolean = false
 ) {
     val alignment = if (messageItem.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
-    val bubbleColor = if (messageItem.isFromMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val contentColor = if (messageItem.isFromMe) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val bubbleColor = if (messageItem.isFromMe) MaterialTheme.colorScheme.primary else Color.White
+    val contentColor = if (messageItem.isFromMe) Color.White else Color.Black
     
     // Unique rounded bubble shape without tails
     val shape = if (messageItem.isFromMe) {
@@ -102,7 +118,13 @@ fun MessageItemUnique(
                     onDragCancel = { scope.launch { dragAmount.animateTo(0f) } }
                 )
             }
-            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+            .background(
+                color = when {
+                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    isHighlighted -> Color.Yellow.copy(alpha = 0.3f)
+                    else -> Color.Transparent
+                }
+            )
             .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
         // Reply Icon Indicator (Dynamic highlight)
@@ -152,7 +174,7 @@ fun MessageItemUnique(
                             modifier = Modifier
                                 .padding(bottom = 8.dp)
                                 .fillMaxWidth(),
-                            color = Color.Black.copy(alpha = 0.2f),
+                            color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.05f),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Row(modifier = Modifier.padding(8.dp)) {
@@ -161,19 +183,19 @@ fun MessageItemUnique(
                                         .width(4.dp)
                                         .height(36.dp)
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary)
+                                        .background(if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary)
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Column {
                                     Text(
                                         text = if (replyToSender == "You" || referencedMessage?.isFromMe == true) "You" else (replyToSender ?: "Sender"),
-                                        color = MaterialTheme.colorScheme.primary,
+                                        color = if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp
                                     )
                                     Text(
                                         text = replyToContent ?: "Message",
-                                        color = contentColor.copy(alpha = 0.7f),
+                                        color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.9f) else Color.DarkGray,
                                         fontSize = 13.sp,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
@@ -203,7 +225,13 @@ fun MessageItemUnique(
                         if (messageItem.mediaUrls.isNotEmpty() ||
                             messageItem.type == MessageType.LOCATION || 
                             messageItem.type == MessageType.APPLICATION_LINK) {
-                            AttachmentPreview(messageItem, contentColor, onMediaClick = onMediaClick)
+                            AttachmentPreview(
+                                message = messageItem, 
+                                contentColor = contentColor, 
+                                onMediaClick = onMediaClick,
+                                playingAudioUri = playingAudioUri,
+                                onPlayAudio = onPlayAudio
+                            )
                         }
 
                         val isMediaTypePlaceholder = messageItem.content == "Voice Note" || 
@@ -213,12 +241,22 @@ fun MessageItemUnique(
                                                    messageItem.content == "File"
 
                         if (messageItem.content.isNotBlank() && (messageItem.type == MessageType.TEXT || !isMediaTypePlaceholder)) {
-                            Text(
-                                text = messageItem.content,
-                                color = contentColor,
-                                fontSize = fontSize.sp,
-                                lineHeight = (fontSize * 1.35f).sp
-                            )
+                            Column {
+                                SelectionContainer {
+                                    ClickableLinkText(
+                                        text = messageItem.content,
+                                        color = contentColor,
+                                        fontSize = fontSize.sp,
+                                        lineHeight = (fontSize * 1.35f).sp
+                                    )
+                                }
+                                
+                                val preview = messageItem.linkPreview
+                                if (preview != null) {
+                                    Spacer(Modifier.height(8.dp))
+                                    LinkPreviewCard(preview, messageItem.isFromMe)
+                                }
+                            }
                         }
                     }
 
@@ -227,9 +265,17 @@ fun MessageItemUnique(
                         modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (messageItem.isStarred) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = if (messageItem.isFromMe) Color.White else Color(0xFFFFD700),
+                                modifier = Modifier.size(12.dp).padding(end = 4.dp)
+                            )
+                        }
                         Text(
                             text = formatWhatsAppTime(messageItem.timestamp),
-                            color = contentColor.copy(alpha = 0.6f),
+                            color = contentColor.copy(alpha = 0.8f),
                             fontSize = 10.sp
                         )
                         if (messageItem.isFromMe) {
@@ -242,10 +288,10 @@ fun MessageItemUnique(
                                 MessageStatus.FAILED -> Icons.Default.Error
                             }
                             val tickColor = when (messageItem.status) {
-                                MessageStatus.READ -> if (showReadReceipts) Color(0xFF1D9BF0) else contentColor.copy(alpha = 0.4f)
+                                MessageStatus.READ -> if (showReadReceipts) Color(0xFF81D4FA) else Color.White.copy(alpha = 0.6f)
                                 MessageStatus.FAILED -> Color.Red
-                                MessageStatus.SENDING, MessageStatus.PENDING -> contentColor.copy(alpha = 0.3f)
-                                else -> contentColor.copy(alpha = 0.4f)
+                                MessageStatus.SENDING, MessageStatus.PENDING -> Color.White.copy(alpha = 0.4f)
+                                else -> Color.White.copy(alpha = 0.6f)
                             }
                             Icon(
                                 imageVector = tickIcon,
@@ -291,6 +337,7 @@ fun MessageItemUnique(
 fun CallLogItem(message: Message, contentColor: Color = MaterialTheme.colorScheme.onSurface) {
     val isMissed = message.content.startsWith("No answer")
     val isOutgoing = message.isFromMe
+    val iconColor = if (message.isFromMe) Color.White else (if (isMissed) Color.Red else MaterialTheme.colorScheme.primary)
     
     Row(
         modifier = Modifier
@@ -302,13 +349,13 @@ fun CallLogItem(message: Message, contentColor: Color = MaterialTheme.colorSchem
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(contentColor.copy(alpha = 0.1f)),
+                .background(contentColor.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = if (isOutgoing) Icons.Default.CallMade else Icons.Default.CallReceived,
                 contentDescription = null,
-                tint = if (isMissed) Color.Red else MaterialTheme.colorScheme.primary,
+                tint = iconColor,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -322,7 +369,7 @@ fun CallLogItem(message: Message, contentColor: Color = MaterialTheme.colorSchem
             )
             Text(
                 text = if (isMissed) "No answer" else (message.duration ?: "Ended"),
-                color = contentColor.copy(alpha = 0.7f),
+                color = contentColor.copy(alpha = 0.8f),
                 fontSize = 13.sp
             )
         }
@@ -334,16 +381,23 @@ fun CallLogItem(message: Message, contentColor: Color = MaterialTheme.colorSchem
 fun AttachmentPreview(
     message: Message,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
-    onMediaClick: (String, String) -> Unit = { _, _ -> }
+    onMediaClick: (String, String) -> Unit = { _, _ -> },
+    playingAudioUri: String? = null,
+    onPlayAudio: (String?) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val firstMedia = message.mediaUrls.firstOrNull()?.replace("local://", "file://") ?: ""
+    val rawFirstMedia = message.mediaUrls.firstOrNull() ?: ""
+    val firstMedia = com.example.firstapp.common.util.MediaUtils.formatUrl(rawFirstMedia) ?: ""
     
     when (message.type) {
         MessageType.IMAGE -> {
             if (message.mediaUrls.size > 1) {
-                MediaGrid(urls = message.mediaUrls) { url ->
-                    onMediaClick(url, "image")
+                MediaGrid(
+                    urls = message.mediaUrls,
+                    autoplayEnabled = false,
+                    autoplayGifsEnabled = false
+                ) { url ->
+                    onMediaClick(com.example.firstapp.common.util.MediaUtils.formatUrl(url) ?: url, "image")
                 }
             } else if (firstMedia.isNotEmpty()) {
                 AsyncImage(
@@ -351,10 +405,13 @@ fun AttachmentPreview(
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 280.dp)
+                        .heightIn(min = 150.dp, max = 300.dp)
                         .clip(RoundedCornerShape(12.dp))
+                        .background(Color.DarkGray.copy(alpha = 0.5f))
                         .clickable { onMediaClick(firstMedia, "image") },
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    error = androidx.compose.ui.graphics.painter.ColorPainter(Color.Red.copy(alpha = 0.2f)),
+                    placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.2f))
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -370,33 +427,49 @@ fun AttachmentPreview(
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
-                    model = firstMedia,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(firstMedia)
+                        .videoFrameMillis(1000)
+                        .build(),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    error = androidx.compose.ui.graphics.painter.ColorPainter(Color.DarkGray)
                 )
                 Box(
                     modifier = Modifier.size(56.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.PlayArrow, null, tint = AppAccent, modifier = Modifier.size(32.dp))
                 }
             }
             Spacer(Modifier.height(4.dp))
         }
         MessageType.AUDIO_MESSAGE -> {
-            VoiceNotePlayer(uri = firstMedia, duration = message.duration, isFromMe = message.isFromMe)
+            VoiceNotePlayer(
+                uri = firstMedia, 
+                duration = message.duration, 
+                isFromMe = message.isFromMe,
+                isPlayingGlobal = playingAudioUri == firstMedia,
+                onPlay = { onPlayAudio(if (it) firstMedia else null) },
+                amplitudes = message.audioAmplitudes
+            )
         }
         MessageType.DOCUMENT -> {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                    .background(contentColor.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                Icon(
+                    Icons.Default.Description, 
+                    null, 
+                    tint = if (message.isFromMe) Color.White else MaterialTheme.colorScheme.primary, 
+                    modifier = Modifier.size(32.dp)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -409,7 +482,7 @@ fun AttachmentPreview(
                     )
                     Text(
                         text = message.fileSize ?: "File",
-                        color = contentColor.copy(alpha = 0.7f),
+                        color = contentColor.copy(alpha = 0.8f),
                         fontSize = 11.sp
                     )
                 }
@@ -421,7 +494,7 @@ fun AttachmentPreview(
                     .fillMaxWidth()
                     .height(140.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    .background(contentColor.copy(alpha = 0.15f))
                     .clickable {
                         val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}")
                         val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
@@ -431,8 +504,18 @@ fun AttachmentPreview(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
-                Text("Shared Location", color = contentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Icon(
+                    Icons.Default.LocationOn, 
+                    null, 
+                    tint = if (message.isFromMe) Color.White else MaterialTheme.colorScheme.primary, 
+                    modifier = Modifier.size(36.dp)
+                )
+                Text(
+                    "Shared Location", 
+                    color = contentColor, 
+                    fontSize = 14.sp, 
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
         MessageType.CONTACT -> {
@@ -554,40 +637,82 @@ fun AttachmentPreview(
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
+fun VoiceNotePlayer(
+    uri: String, 
+    duration: String?, 
+    isFromMe: Boolean = false,
+    isPlayingGlobal: Boolean = false,
+    onPlay: (Boolean) -> Unit = {},
+    amplitudes: List<Int>? = null
+) {
     val context = LocalContext.current
-    var isPlaying by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
-    var isPrepared by remember { mutableStateOf(false) }
-    val mediaPlayer = remember { android.media.MediaPlayer() }
-
-    val barHeights = remember { List(25) { (4..18).random() } }
-
-    DisposableEffect(uri) {
-        if (uri.isNotBlank()) {
-            try {
-                mediaPlayer.reset()
-                mediaPlayer.setDataSource(context, Uri.parse(uri))
-                mediaPlayer.prepareAsync()
-                mediaPlayer.setOnPreparedListener { isPrepared = true }
-                mediaPlayer.setOnCompletionListener { isPlaying = false; progress = 0f; mediaPlayer.seekTo(0) }
-            } catch (_: Exception) { isPrepared = false }
+    var durationMs by remember { mutableLongStateOf(0L) }
+    
+    val exoPlayer = remember {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            repeatMode = androidx.media3.common.Player.REPEAT_MODE_OFF
         }
-        onDispose { try { mediaPlayer.release() } catch (_: Exception) {} }
     }
 
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            while (isPlaying && isPrepared) {
-                try {
-                    if (mediaPlayer.duration > 0) {
-                        progress = mediaPlayer.currentPosition.toFloat() / mediaPlayer.duration
-                    }
-                } catch (_: Exception) {}
-                delay(100)
+    DisposableEffect(Unit) {
+        onDispose { 
+            exoPlayer.release()
+        }
+    }
+
+    LaunchedEffect(uri) {
+        if (uri.isNotBlank()) {
+            val formattedUri = if (!uri.startsWith("http") && !uri.startsWith("content") && !uri.startsWith("file")) {
+                com.example.firstapp.chat.data.repository.formatUrl(uri)
+            } else uri
+            
+            android.util.Log.d("VoiceNotePlayer", "Setting URI: $formattedUri")
+            val mediaItem = androidx.media3.common.MediaItem.fromUri(formattedUri)
+            exoPlayer.setMediaItem(mediaItem)
+            exoPlayer.prepare()
+        }
+    }
+
+    LaunchedEffect(isPlayingGlobal) {
+        if (isPlayingGlobal) {
+            exoPlayer.play()
+        } else {
+            exoPlayer.pause()
+        }
+    }
+
+    // Progress and completion tracking
+    LaunchedEffect(exoPlayer) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == androidx.media3.common.Player.STATE_ENDED) {
+                    onPlay(false)
+                    exoPlayer.seekTo(0)
+                    progress = 0f
+                }
+                if (state == androidx.media3.common.Player.STATE_READY) {
+                    durationMs = exoPlayer.duration
+                }
             }
         }
+        exoPlayer.addListener(listener)
+        
+        while (true) {
+            if (exoPlayer.isPlaying) {
+                val dur = exoPlayer.duration
+                if (dur > 0) {
+                    progress = exoPlayer.currentPosition.toFloat() / dur
+                }
+            }
+            delay(100)
+        }
+    }
+
+    val barHeights = remember(amplitudes) { 
+        amplitudes ?: List(25) { (4..18).random() } 
     }
 
     Row(
@@ -602,55 +727,265 @@ fun VoiceNotePlayer(uri: String, duration: String?, isFromMe: Boolean = false) {
                 Icons.Default.Mic,
                 null,
                 tint = AppAccent,
+                modifier = Modifier.size(16.dp).align(Alignment.BottomEnd).offset(x = 2.dp, y = 2.dp).background(Color.White, CircleShape).padding(2.dp)
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            // Interactive waveform-like progress bar
+            Box(
                 modifier = Modifier
-                    .size(16.dp)
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 2.dp, y = 2.dp)
-                    .background(MaterialTheme.colorScheme.background, CircleShape)
-                    .padding(2.dp)
-            )
-        }
-
-        IconButton(
-            onClick = {
-                if (!isPrepared) return@IconButton
-                if (isPlaying) { mediaPlayer.pause(); isPlaying = false }
-                else { mediaPlayer.start(); isPlaying = true }
-            },
-            modifier = Modifier.size(44.dp)
-        ) {
-            Icon(
-                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(32.dp)
-            )
-        }
-
-        val secondaryColor = AppTextSecondary
-        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-            Canvas(modifier = Modifier.fillMaxWidth().height(24.dp)) {
-                val barWidthPx = 3.dp.toPx()
-                val spacingPx = 2.dp.toPx()
-                val canvasWidth = size.width
-                val canvasHeight = size.height
-                val count = (canvasWidth / (barWidthPx + spacingPx)).toInt().coerceAtMost(barHeights.size)
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .pointerInput(durationMs) {
+                        detectTapGestures { offset ->
+                            if (durationMs > 0) {
+                                val ratio = offset.x / size.width
+                                exoPlayer.seekTo((ratio * durationMs).toLong())
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                // Background bars
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    barHeights.forEach { height ->
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .height(height.dp)
+                                .background(if (isFromMe) Color.White.copy(alpha = 0.4f) else Color.Gray.copy(alpha = 0.3f))
+                        )
+                    }
+                }
                 
-                for (i in 0 until count) {
-                    val barHeightPx = barHeights[i].dp.toPx()
-                    val x = i * (barWidthPx + spacingPx)
-                    val isPlayed = progress > (i.toFloat() / count.toFloat())
-                    
-                    drawLine(
-                        color = if (isPlayed) AppAccent else secondaryColor.copy(alpha = 0.3f),
-                        start = Offset(x, canvasHeight / 2 - barHeightPx / 2),
-                        end = Offset(x, canvasHeight / 2 + barHeightPx / 2),
-                        strokeWidth = barWidthPx,
-                        cap = StrokeCap.Round
+                // Progress mask/fill
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .fillMaxHeight()
+                        .clip(RectangleShape),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(1f / progress.coerceAtLeast(0.01f)),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        barHeights.forEach { height ->
+                            Box(
+                                modifier = Modifier
+                                    .width(2.dp)
+                                    .height(height.dp)
+                                    .background(if (isFromMe) Color.White else AppAccent)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = if (duration != null && duration.length < 10) duration else "Voice",
+                    color = if (isFromMe) Color.White.copy(alpha = 0.8f) else Color.Gray,
+                    fontSize = 11.sp
+                )
+                
+                if (isPlayingGlobal) {
+                    Text(
+                        text = "Playing",
+                        color = if (isFromMe) Color.White else AppAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
-            Text(text = duration ?: "Voice", color = secondaryColor, fontSize = 10.sp)
+        }
+
+        Spacer(Modifier.width(8.dp))
+
+        IconButton(
+            onClick = { onPlay(!isPlayingGlobal) },
+            modifier = Modifier.size(36.dp).background(if (isFromMe) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+        ) {
+            Icon(
+                imageVector = if (isPlayingGlobal) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlayingGlobal) "Pause" else "Play",
+                tint = if (isFromMe) Color.White else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
+}
+
+@Composable
+fun LinkPreviewCard(preview: com.example.firstapp.chat.model.LinkPreview, isFromMe: Boolean) {
+    val backgroundColor = if (isFromMe) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+    val contentColor = if (isFromMe) Color.White else MaterialTheme.colorScheme.onSurface
+    val context = LocalContext.current
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(preview.url))
+                    context.startActivity(intent)
+                } catch (_: Exception) {}
+            },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        border = BorderStroke(0.5.dp, contentColor.copy(alpha = 0.1f))
+    ) {
+        Column {
+            if (preview.thumbnailUrl != null) {
+                AsyncImage(
+                    model = preview.thumbnailUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            Column(modifier = Modifier.padding(12.dp)) {
+                if (preview.siteName != null) {
+                    Text(
+                        text = preview.siteName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.7f),
+                        maxLines = 1
+                    )
+                }
+                if (preview.title != null) {
+                    Text(
+                        text = preview.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (preview.description != null) {
+                    Text(
+                        text = preview.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor.copy(alpha = 0.8f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ClickableLinkText(
+    text: String,
+    color: Color,
+    fontSize: TextUnit,
+    lineHeight: TextUnit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val annotatedString = buildAnnotatedString {
+        // 1. Parse Markdown & Links
+        val markdownRegex = Regex("(\\*\\*?.*?\\*\\*?|__?.*?__?|~~.*?~~|`.*?`|https?://\\S+|www\\.\\S+)")
+        var lastIndex = 0
+        
+        val matches = markdownRegex.findAll(text)
+        for (match in matches) {
+            // Append text before the match
+            append(text.substring(lastIndex, match.range.first))
+            
+            val matchText = match.value
+            when {
+                // Bold: **text** or *text*
+                matchText.startsWith("**") && matchText.endsWith("**") -> {
+                    withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
+                        append(matchText.substring(2, matchText.length - 2))
+                    }
+                }
+                matchText.startsWith("*") && matchText.endsWith("*") -> {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append(matchText.substring(1, matchText.length - 1))
+                    }
+                }
+                // Italic: _text_
+                matchText.startsWith("_") && matchText.endsWith("_") -> {
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                        append(matchText.substring(1, matchText.length - 1))
+                    }
+                }
+                // Strikethrough: ~~text~~
+                matchText.startsWith("~~") && matchText.endsWith("~~") -> {
+                    withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
+                        append(matchText.substring(2, matchText.length - 2))
+                    }
+                }
+                // Code: `text`
+                matchText.startsWith("`") && matchText.endsWith("`") -> {
+                    withStyle(SpanStyle(
+                        fontFamily = FontFamily.Monospace,
+                        background = Color.Black.copy(alpha = 0.1f),
+                        color = if (color == Color.White) Color.White else Color(0xFFE91E63)
+                    )) {
+                        append(matchText.substring(1, matchText.length - 1))
+                    }
+                }
+                // Links
+                matchText.startsWith("http") || matchText.startsWith("www.") -> {
+                    val link = matchText
+                    pushStringAnnotation(tag = "URL", annotation = link)
+                    withStyle(
+                        style = SpanStyle(
+                            color = if (color == Color.White) Color.White else Color(0xFF2196F3),
+                            textDecoration = TextDecoration.Underline,
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append(link)
+                    }
+                    pop()
+                }
+                else -> append(matchText)
+            }
+            lastIndex = match.range.last + 1
+        }
+        append(text.substring(lastIndex))
+    }
+
+    ClickableText(
+        text = annotatedString,
+        style = LocalTextStyle.current.copy(
+            color = color,
+            fontSize = fontSize,
+            lineHeight = lineHeight
+        ),
+        modifier = modifier,
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    val url = if (!annotation.item.startsWith("http")) "https://${annotation.item}" else annotation.item
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        android.util.Log.e("ClickableLinkText", "Failed to open link: $url", e)
+                    }
+                }
+        }
+    )
 }

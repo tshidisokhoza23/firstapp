@@ -121,7 +121,7 @@ fun MessageItem(
             Column(modifier = Modifier.padding(8.dp).widthIn(max = 280.dp)) {
                 if (!message.isFromMe) {
                     Text(
-                        text = message.senderName ?: "Unknown",
+                        text = message.senderName ?: "",
                         style = MaterialTheme.typography.labelSmall,
                         color = AppAccent,
                         fontWeight = FontWeight.Bold
@@ -342,7 +342,8 @@ fun AttachmentPanel(
     onContactClick: () -> Unit,
     onCameraClick: () -> Unit,
     onAudioClick: () -> Unit,
-    onLocationClick: () -> Unit
+    onLocationClick: () -> Unit,
+    onGifClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -371,10 +372,12 @@ fun AttachmentPanel(
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Spacer(modifier = Modifier.width(24.dp))
                 AttachmentIcon(Icons.Default.Videocam, "Video", Color(0xFFFFB74D), onVideoClick)
+                AttachmentIcon(Icons.Default.Gif, "GIF", Color(0xFF26A69A), onGifClick)
+                // Placeholder for alignment
+                Box(modifier = Modifier.size(60.dp))
             }
         }
     }
@@ -462,16 +465,82 @@ fun ReactionPickerOverlay(onDismiss: () -> Unit, onEmojiSelect: (String) -> Unit
 }
 
 @Composable
-fun ForwardDialog(chats: List<ChatMessage>, onDismiss: () -> Unit, onForward: (List<ChatMessage>) -> Unit) {
+fun ForwardDialog(
+    chats: List<ChatMessage>,
+    onDismiss: () -> Unit,
+    onForward: (List<ChatMessage>) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val selectedChats = remember { mutableStateListOf<ChatMessage>() }
+
+    val filteredChats = remember(chats, searchQuery) {
+        if (searchQuery.isBlank()) chats
+        else chats.filter { it.senderName.contains(searchQuery, ignoreCase = true) }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Forward to...") },
+        title = { Text("Forward to") },
         text = {
-            LazyColumn {
-                items(chats) { chat ->
-                    Text(chat.senderName, color = Color.White, modifier = Modifier.fillMaxWidth().clickable { onForward(listOf(chat)) }.padding(16.dp))
+            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search") },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(filteredChats) { chat ->
+                        val isSelected = selectedChats.any { it.id == chat.id }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    if (isSelected) selectedChats.removeAll { it.id == chat.id }
+                                    else selectedChats.add(chat)
+                                }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ChatAvatar(
+                                imageUrl = chat.avatarUrl,
+                                name = chat.senderName,
+                                size = 40.dp
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                chat.senderName,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = null // Handled by row click
+                            )
+                        }
+                    }
                 }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onForward(selectedChats.toList()) },
+                enabled = selectedChats.isNotEmpty()
+            ) {
+                Text("Forward")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
             }
         }
     )

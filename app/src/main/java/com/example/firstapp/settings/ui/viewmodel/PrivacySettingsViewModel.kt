@@ -19,7 +19,8 @@ import com.example.firstapp.account.domain.repository.AccountRepository
 @HiltViewModel
 class PrivacySettingsViewModel @Inject constructor(
     private val repository: AccountRepository,
-    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository
+    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository,
+    private val settingsRepository: com.example.firstapp.domain.repository.SettingsRepository
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow<Resource<PrivacySettings>>(Resource.Loading())
@@ -27,6 +28,15 @@ class PrivacySettingsViewModel @Inject constructor(
 
     private val _blockedUsers = MutableStateFlow<Resource<List<Contact>>>(Resource.Loading())
     val blockedUsers: StateFlow<Resource<List<Contact>>> = _blockedUsers.asStateFlow()
+
+    val pinLockEnabled = settingsRepository.pinLockEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    
+    val biometricLockEnabled = settingsRepository.biometricLockEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    
+    val appPin = settingsRepository.appPin
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val contacts: StateFlow<Resource<List<Contact>>> = chatRepository.getContacts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
@@ -70,5 +80,17 @@ class PrivacySettingsViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun setPinLockEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setPinLockEnabled(enabled) }
+    }
+
+    fun setBiometricLockEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setBiometricLockEnabled(enabled) }
+    }
+
+    fun setAppPin(pin: String?) {
+        viewModelScope.launch { settingsRepository.setAppPin(pin) }
     }
 }

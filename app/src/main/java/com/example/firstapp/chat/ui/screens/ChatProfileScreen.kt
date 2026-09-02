@@ -2,6 +2,7 @@
 
 package com.example.firstapp.chat.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,6 +28,7 @@ import com.example.firstapp.chat.model.Message
 import com.example.firstapp.chat.model.MessageType
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.chat.ui.components.ChatAvatar
+import com.example.firstapp.common.model.ConversationType
 import com.example.firstapp.common.ui.theme.AppAccent
 import com.example.firstapp.common.ui.theme.SecondaryText
 import com.example.firstapp.common.util.MediaUtils
@@ -37,6 +39,7 @@ fun ChatProfileScreen(
     chat: ChatMessage,
     onBack: () -> Unit,
     onMediaClick: (String, String) -> Unit,
+    onNavigateToSharedMedia: (String) -> Unit = {},
     sharedMedia: List<Message> = emptyList(),
     groupInfo: Resource<com.example.firstapp.chat.data.api.GroupInfoResponse> = Resource.Loading(),
     contacts: List<Contact> = emptyList(),
@@ -46,11 +49,29 @@ fun ChatProfileScreen(
     onAddMember: (String) -> Unit = {},
     onRemoveMember: (String) -> Unit = {},
     onPromoteAdmin: (String) -> Unit = {},
-    onLeaveGroup: () -> Unit = {}
+    onLeaveGroup: () -> Unit = {},
+    onToggleAdminPosting: (Boolean) -> Unit = {},
+    onSubscribe: (String) -> Unit = {},
+    onAvatarSelected: (android.net.Uri) -> Unit = {}
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scrollState = rememberScrollState()
     var showAddMemberDialog by remember { mutableStateOf(false) }
-    val currentUserId = com.example.firstapp.LocalCurrentUser.current.id
+    val currentUser = com.example.firstapp.LocalCurrentUser.current
+    val currentUserId = currentUser.id
+    val isChannel = chat.type == ConversationType.CHANNEL
+    val isCreator = chat.createdBy != null && chat.createdBy == currentUserId
+    
+    // Can edit if it's my own profile or I'm an admin of the group/channel
+    val canEditAvatar = remember(chat.id, chat.isAdmin, currentUserId) {
+        chat.id == currentUserId || chat.isAdmin
+    }
+
+    val pickMedia = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
+    ) { uri: android.net.Uri? ->
+        uri?.let { onAvatarSelected(it) }
+    }
 
     Scaffold(
         topBar = {
@@ -58,12 +79,25 @@ fun ChatProfileScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
+                    if (isChannel) {
+                        IconButton(onClick = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                val deepLink = "firstapp://channel/${chat.id}"
+                                putExtra(Intent.EXTRA_SUBJECT, "Check out this channel: ${chat.senderName}")
+                                putExtra(Intent.EXTRA_TEXT, "Follow ${chat.senderName} on TJ: $deepLink")
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Channel"))
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share Channel", tint = Color.White)
+                        }
+                    }
                     IconButton(onClick = { /* More options */ }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -94,8 +128,31 @@ fun ChatProfileScreen(
                     fontSize = 120.sp,
                     backgroundColor = Color.DarkGray,
                     textColor = Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (canEditAvatar) Modifier.clickable {
+                                pickMedia.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            } else Modifier
+                        )
                 )
+
+                if (canEditAvatar) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(24.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(AppAccent)
+                            .clickable {
+                                pickMedia.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                }
                 
                 // Name Overlay
                 Box(
@@ -125,36 +182,85 @@ fun ChatProfileScreen(
 
             // Info Section
             Column(modifier = Modifier.padding(16.dp)) {
-                if (chat.isGroup) {
+                if (isChannel) {
                     Text(
-                        "Group description",
+                        "Channel info",
                         color = AppAccent,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
                     Text(
-                        text = "This is a chat group", 
+                        text = "This is a broadcast channel for ${chat.senderName}.", 
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Groups, null, tint = SecondaryText, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "${chat.followers} followers",
+                            color = SecondaryText,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else if (chat.isGroup) {
+                    Text(
+                        "Group info",
+                        color = AppAccent,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "Group conversation", 
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 } else {
                     Text(
-                        "Status and phone number",
+                        "Details",
                         color = AppAccent,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
-                    Text(
-                        text = "Hey there! I am using TJ.",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                    Text(
-                        text = chat.phoneNumber ?: chat.id,
-                        color = SecondaryText,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val detailValue = chat.phoneNumber ?: chat.id
+                    val isUuid = remember(detailValue) {
+                        detailValue.lowercase().matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
+                    }
+                    
+                    if (chat.phoneNumber != null || !isUuid) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                            Icon(
+                                imageVector = if (chat.phoneNumber != null) Icons.Default.Phone else Icons.Default.AlternateEmail, 
+                                contentDescription = null, 
+                                tint = AppAccent, 
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = detailValue,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    text = if (chat.phoneNumber != null) "Mobile" else "Username",
+                                    color = SecondaryText,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    } else {
+                        // HIDDEN: Don't show raw UUIDs in the Details section.
+                        // Instead, maybe show the senderName again or just leave it empty for a "neat" look.
+                        Text(
+                            text = "No public contact details",
+                            color = SecondaryText,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -282,7 +388,7 @@ fun ChatProfileScreen(
                         "${sharedMedia.size} >",
                         color = SecondaryText,
                         fontSize = 14.sp,
-                        modifier = Modifier.clickable { /* Navigate to shared media */ }
+                        modifier = Modifier.clickable { onNavigateToSharedMedia(chat.id) }
                     )
                 }
                 
@@ -336,27 +442,52 @@ fun ChatProfileScreen(
             Column {
                 ListItem(
                     headlineContent = { Text("Mute notifications") },
-                    leadingContent = { Icon(Icons.Default.NotificationsOff, null) },
-                    trailingContent = { Switch(checked = chat.isMuted, onCheckedChange = onMuteToggle) },
+                    leadingContent = { Icon(Icons.Default.NotificationsOff, null, tint = AppAccent) },
+                    trailingContent = { Switch(checked = chat.isMuted, onCheckedChange = onMuteToggle, colors = SwitchDefaults.colors(checkedThumbColor = AppAccent)) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
-                if (chat.isGroup) {
+
+                if (isChannel) {
                     ListItem(
-                        headlineContent = { Text("Group Settings") },
-                        leadingContent = { Icon(Icons.Default.Settings, null) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { }
+                        headlineContent = { Text(if (chat.isSubscribed) "Unfollow channel" else "Follow channel") },
+                        leadingContent = { Icon(if (chat.isSubscribed) Icons.Default.RemoveCircleOutline else Icons.Default.AddCircleOutline, null, tint = AppAccent) },
+                        modifier = Modifier.clickable { onSubscribe(chat.id) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                
+                if (isCreator && isChannel) {
+                    ListItem(
+                        headlineContent = { Text("Admins can post") },
+                        leadingContent = { Icon(Icons.Default.PostAdd, null, tint = AppAccent) },
+                        trailingContent = { 
+                            Switch(
+                                checked = chat.adminsCanPost, 
+                                onCheckedChange = onToggleAdminPosting,
+                                colors = SwitchDefaults.colors(checkedThumbColor = AppAccent)
+                            ) 
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+                
                 ListItem(
                     headlineContent = { Text("Custom notifications") },
-                    leadingContent = { Icon(Icons.Default.MusicNote, null) },
+                    leadingContent = { Icon(Icons.Default.MusicNote, null, tint = AppAccent) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { }
                 )
                 ListItem(
                     headlineContent = { Text("Media visibility") },
-                    leadingContent = { Icon(Icons.Default.Image, null) },
+                    leadingContent = { Icon(Icons.Default.Image, null, tint = AppAccent) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { }
+                )
+                
+                ListItem(
+                    headlineContent = { Text("Disappearing messages") },
+                    supportingContent = { Text("Off") },
+                    leadingContent = { Icon(Icons.Default.Timer, null, tint = AppAccent) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { }
                 )

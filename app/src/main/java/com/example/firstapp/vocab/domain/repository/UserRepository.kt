@@ -32,6 +32,7 @@ interface UserRepository {
     fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>>
 
     fun logout(): Flow<Resource<Boolean>>
+    suspend fun updateUserLocally(user: User)
 
     // Work Experience
     fun getWorkExperiences(): Flow<Resource<List<WorkExperience>>>

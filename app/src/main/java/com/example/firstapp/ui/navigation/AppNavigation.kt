@@ -45,13 +45,15 @@ fun AppNavigation(
         authNavGraph(navController)
         
         composable(
-            route = "main?tab={tab}&shortId={shortId}",
+            route = "main?tab={tab}&subTab={subTab}&shortId={shortId}",
             arguments = listOf(
                 navArgument("tab") { defaultValue = "" },
+                navArgument("subTab") { defaultValue = "" },
                 navArgument("shortId") { defaultValue = "" }
             )
         ) { backStackEntry ->
             val tabArg = backStackEntry.arguments?.getString("tab")
+            val subTabArg = backStackEntry.arguments?.getString("subTab")
             val shortId = backStackEntry.arguments?.getString("shortId")
             
             LaunchedEffect(tabArg) {
@@ -73,6 +75,7 @@ fun AppNavigation(
                 navController = navController,
                 adManager = adManager,
                 onLogout = onLogout,
+                initialSubTab = if (subTabArg != null && subTabArg.length > 0) subTabArg else null,
                 initialShortId = if (shortId != null && shortId.length > 0) shortId else null
             )
         }

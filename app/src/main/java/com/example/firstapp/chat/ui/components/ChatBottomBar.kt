@@ -2,6 +2,9 @@ package com.example.firstapp.chat.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,17 +14,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.*
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatBottomBarUnique(
     text: String,
@@ -32,9 +38,17 @@ fun ChatBottomBarUnique(
     onCameraClick: () -> Unit,
     onMicClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onMicCancel: () -> Unit = {}, // Not used anymore but kept for compat if needed
+    onMicRelease: () -> Unit = {}, // Not used anymore but kept for compat if needed
     isRecording: Boolean = false,
     recordingDuration: Int = 0,
-    enterIsSend: Boolean = false
+    enterIsSend: Boolean = false,
+    isReviewingVoiceNote: Boolean = false,
+    onSendVoiceNote: () -> Unit = {},
+    onDiscardVoiceNote: () -> Unit = {},
+    onTogglePlayReview: () -> Unit = {},
+    isPlayingReview: Boolean = false,
+    onSendLongClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -50,9 +64,40 @@ fun ChatBottomBarUnique(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
             ) {
-                if (isRecording) {
+                if (isReviewingVoiceNote) {
+                    IconButton(onClick = onDiscardVoiceNote) {
+                        Icon(Icons.Default.Delete, "Discard", tint = MaterialTheme.colorScheme.error)
+                    }
+                    
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .padding(horizontal = 8.dp)
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp)),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp)) {
+                            Icon(
+                                imageVector = if (isPlayingReview) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable { onTogglePlayReview() }
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = "Voice Note Preview", 
+                                fontSize = 14.sp, 
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else if (isRecording) {
                     Icon(
                         Icons.Default.Mic,
                         null,
@@ -66,10 +111,11 @@ fun ChatBottomBarUnique(
                         fontSize = 16.sp
                     )
                     Text(
-                        text = "Slide to cancel",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = "Recording...",
+                        color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp,
-                        modifier = Modifier.padding(end = 16.dp)
+                        modifier = Modifier.padding(end = 16.dp),
+                        fontWeight = FontWeight.Bold
                     )
                 } else {
                     IconButton(onClick = onEmojiClick) {
@@ -114,18 +160,39 @@ fun ChatBottomBarUnique(
         
         Spacer(modifier = Modifier.width(8.dp))
         
-        // Circular button (Send/Mic) - Unique style
+        // Circular button (Send/Mic/Stop)
         Surface(
             modifier = Modifier
                 .size(52.dp)
-                .clickable { if (text.isNotBlank()) onSend() else onMicClick() },
+                .combinedClickable(
+                    onClick = { 
+                        when {
+                            isReviewingVoiceNote -> onSendVoiceNote()
+                            text.isNotBlank() -> onSend()
+                            else -> onMicClick()
+                        }
+                    },
+                    onLongClick = {
+                        if (text.isNotBlank() && !isRecording && !isReviewingVoiceNote) {
+                            onSendLongClick()
+                        }
+                    }
+                ),
             shape = CircleShape,
-            color = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            color = when {
+                isRecording -> MaterialTheme.colorScheme.error
+                isReviewingVoiceNote || text.isNotBlank() -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.primary
+            },
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = if (text.isNotBlank()) Icons.AutoMirrored.Filled.Send else if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                    imageVector = when {
+                        isReviewingVoiceNote || text.isNotBlank() -> Icons.AutoMirrored.Filled.Send
+                        isRecording -> Icons.Default.Stop
+                        else -> Icons.Default.Mic
+                    },
                     contentDescription = null,
                     tint = if (isRecording) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(24.dp)

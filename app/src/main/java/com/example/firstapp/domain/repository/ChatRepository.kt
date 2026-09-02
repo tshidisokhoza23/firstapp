@@ -45,7 +45,9 @@ interface ChatRepository {
         longitude: Double? = null,
         replyToId: String? = null,
         replyToText: String? = null,
-        replyToSenderName: String? = null
+        replyToSenderName: String? = null,
+        clientId: String? = null,
+        scheduledAt: Long? = null
     ): Flow<Resource<Message>>
     suspend fun saveMessage(chatId: String, message: Message)
     suspend fun updateMessageInCache(chatId: String, message: Message)
@@ -71,6 +73,7 @@ interface ChatRepository {
     suspend fun updateCustomNotificationTone(chatId: String, tone: String?)
     suspend fun updateMediaVisibility(chatId: String, visible: Boolean)
     suspend fun updateDisappearingMessages(chatId: String, duration: Int)
+    suspend fun updateChatAvatar(chatId: String, avatarUrl: String?)
     suspend fun syncPendingMessages()
     fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>>
     fun getMessageReaders(messageId: String): Flow<Resource<List<com.example.firstapp.chat.data.api.ApiReader>>>
@@ -83,6 +86,7 @@ interface ChatRepository {
     fun getAllFiles(): Flow<Resource<List<Message>>>
     suspend fun refreshLocalChatNames()
     fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>>
+    fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>>
     fun getConversationMembers(chatId: String): Flow<Resource<List<com.example.firstapp.common.data.api.ApiUser>>>
     suspend fun getICEServers(): Resource<List<com.example.firstapp.chat.data.api.IceServerConfig>>
     fun sendDeliveryAck(chatId: String, messageId: String)

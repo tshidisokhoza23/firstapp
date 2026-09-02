@@ -18,6 +18,14 @@ data class JobDetails(
     val title: String
 )
 
+data class LinkPreview(
+    val url: String,
+    val title: String? = null,
+    val description: String? = null,
+    val thumbnailUrl: String? = null,
+    val siteName: String? = null
+)
+
 data class Message(
     val id: String = "",
     val conversationId: String = "",
@@ -49,7 +57,10 @@ data class Message(
     val reactions: Map<String, Int> = emptyMap(),
     val clientId: String? = null,
     val applicantProfile: ApplicantProfile? = null,
-    val jobDetails: JobDetails? = null
+    val jobDetails: JobDetails? = null,
+    val linkPreview: LinkPreview? = null,
+    val audioAmplitudes: List<Int>? = null,
+    val scheduledAt: Long? = null
 )
 
 data class ChatMessage(
@@ -71,6 +82,7 @@ data class ChatMessage(
     val lastMessageRead: Boolean = false,
     val isArchived: Boolean = false,
     val isAdmin: Boolean = false,
+    val adminsCanPost: Boolean = false,
     val isVerified: Boolean = false,
     val isSubscribed: Boolean = false,
     val createdBy: String? = null,

@@ -45,8 +45,14 @@ fun ChatTopBar(
     onClearChat: () -> Unit,
     onDeleteChat: () -> Unit,
     onDeleteSelectedMessages: () -> Unit,
+    onShowMessageInfo: () -> Unit = {},
+    onStarSelectedMessages: () -> Unit,
+    onEditSelectedMessage: () -> Unit,
     onForwardSelectedMessages: () -> Unit,
-    onClearSelectedMessages: () -> Unit
+    onClearSelectedMessages: () -> Unit,
+    onSearchNavigate: (Boolean) -> Unit = {},
+    activeSearchIndex: Int = 0,
+    totalSearchCount: Int = 0
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -84,8 +90,22 @@ fun ChatTopBar(
                         singleLine = true
                     )
                     if (chatSearchQuery != "") {
-                        IconButton(onClick = onClearSearch) {
-                            Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (totalSearchCount > 0) "${activeSearchIndex + 1}/$totalSearchCount" else "0/0",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                            IconButton(onClick = { onSearchNavigate(false) }) {
+                                Icon(Icons.Default.KeyboardArrowUp, "Prev", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = { onSearchNavigate(true) }) {
+                                Icon(Icons.Default.KeyboardArrowDown, "Next", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = onClearSearch) {
+                                Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 } else if (selectedMessagesCount > 0) {
@@ -99,6 +119,11 @@ fun ChatTopBar(
                         fontSize = 18.sp,
                         modifier = Modifier.weight(1f).padding(start = 16.dp)
                     )
+                    if (selectedMessagesCount == 1) {
+                        IconButton(onClick = onShowMessageInfo) { Icon(Icons.Default.Info, "Info", tint = MaterialTheme.colorScheme.onSurface) }
+                        IconButton(onClick = onEditSelectedMessage) { Icon(Icons.Default.Edit, "Edit", tint = MaterialTheme.colorScheme.onSurface) }
+                    }
+                    IconButton(onClick = onStarSelectedMessages) { Icon(Icons.Default.Star, "Star", tint = MaterialTheme.colorScheme.onSurface) }
                     IconButton(onClick = onDeleteSelectedMessages) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurface) }
                     IconButton(onClick = onForwardSelectedMessages) { Icon(Icons.AutoMirrored.Filled.Forward, "Forward", tint = MaterialTheme.colorScheme.onSurface) }
                 } else {
@@ -169,12 +194,27 @@ fun ChatTopBar(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val targetId = chat.otherUserId ?: chat.id
-                        IconButton(onClick = { onInitiateCall(targetId, sanitizedName, CallType.VIDEO) }) {
-                            Icon(Icons.Default.Videocam, "Video Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
-                        }
-                        IconButton(onClick = { onInitiateCall(targetId, sanitizedName, CallType.VOICE) }) {
-                            Icon(Icons.Default.Call, "Voice Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                        if (chat.type == ConversationType.CHANNEL) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            IconButton(onClick = {
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    val deepLink = "firstapp://channel/${chat.id}"
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "Check out this channel: $sanitizedName")
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "Follow $sanitizedName on TJ: $deepLink")
+                                }
+                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Channel"))
+                            }) {
+                                Icon(Icons.Default.Share, "Share Channel", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
+                            }
+                        } else {
+                            val targetId = chat.otherUserId ?: chat.id
+                            IconButton(onClick = { onInitiateCall(targetId, sanitizedName, CallType.VIDEO) }) {
+                                Icon(Icons.Default.Videocam, "Video Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
+                            }
+                            IconButton(onClick = { onInitiateCall(targetId, sanitizedName, CallType.VOICE) }) {
+                                Icon(Icons.Default.Call, "Voice Call", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                            }
                         }
                         
                         var showMenu by remember { mutableStateOf(false) }

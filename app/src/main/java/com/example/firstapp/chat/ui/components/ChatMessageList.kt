@@ -36,7 +36,10 @@ fun ChatMessageList(
     onMessageClick: (Message) -> Unit,
     onMessageLongClick: (Message) -> Unit,
     onReply: (Message) -> Unit,
-    onMediaClick: (String, String) -> Unit
+    onMediaClick: (String, String) -> Unit,
+    playingAudioUri: String? = null,
+    onPlayAudio: (String?) -> Unit = {},
+    highlightId: String? = null
 ) {
     Box(
         modifier = modifier
@@ -120,10 +123,13 @@ fun ChatMessageList(
                         referencedMessage = referencedMsg,
                         fontSize = fontSize,
                         showReadReceipts = showReadReceipts,
+                        isHighlighted = m.id == highlightId,
                         onClick = { onMessageClick(m) },
                         onLongClick = { onMessageLongClick(m) },
                         onReply = onReply,
-                        onMediaClick = onMediaClick
+                        onMediaClick = onMediaClick,
+                        playingAudioUri = playingAudioUri,
+                        onPlayAudio = onPlayAudio
                     )
                 }
             }

@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.firstapp.chat.ui.viewmodel.ChannelsViewModel
 
+import coil.compose.AsyncImage
+import androidx.compose.foundation.clickable
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateChannelScreen(
@@ -28,8 +31,16 @@ fun CreateChannelScreen(
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var avatarUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    
     val toastMessage by viewModel.toastMessage.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        avatarUri = uri
+    }
 
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
@@ -79,16 +90,35 @@ fun CreateChannelScreen(
                 Surface(
                     modifier = Modifier
                         .size(100.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                        .clip(CircleShape)
+                        .clickable { launcher.launch("image/*") },
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = if (avatarUri == null) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) else null
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.CameraAlt,
-                            contentDescription = "Channel Icon",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(32.dp)
-                        )
+                        if (avatarUri != null) {
+                            AsyncImage(
+                                model = avatarUri,
+                                contentDescription = "Channel Icon",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.CameraAlt,
+                                    contentDescription = "Add Icon",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Text(
+                                    "ADD ICON", 
+                                    fontSize = 10.sp, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
             }

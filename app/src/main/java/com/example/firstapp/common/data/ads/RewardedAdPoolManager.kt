@@ -81,6 +81,7 @@ class RewardedAdPoolManager @Inject constructor() {
      * Entry point to ensure the pool is healthy.
      */
     fun initialize(context: Context, adUnitId: String, userId: String) {
+        Log.i(TAG, "!!! initialize called !!! unitId: $adUnitId, userId: $userId")
         managerScope.launch {
             refillPool(context.applicationContext, adUnitId, userId)
         }
@@ -88,15 +89,28 @@ class RewardedAdPoolManager @Inject constructor() {
 
     private suspend fun refillPool(context: Context, adUnitId: String, userId: String) {
         poolMutex.withLock {
-            if (isRefilling || pool.size >= MAX_CAPACITY) return
+            if (isRefilling) {
+                Log.d(TAG, "Refill already in progress. skipping.")
+                return
+            }
+            if (pool.size >= MAX_CAPACITY) {
+                Log.d(TAG, "Pool at capacity ($MAX_CAPACITY). skipping refill.")
+                return
+            }
             isRefilling = true
         }
 
-        Log.d(TAG, "Triggering refill. Current pool size: ${pool.size}")
-        loadAdInternal(context, adUnitId, userId)
+        Log.i(TAG, "Triggering refill. Current pool size: ${pool.size}")
+        try {
+            loadAdInternal(context, adUnitId, userId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Fatal error in loadAdInternal: ${e.message}")
+            poolMutex.withLock { isRefilling = false }
+        }
     }
 
     private fun loadAdInternal(context: Context, adUnitId: String, userId: String) {
+        Log.i(TAG, "Requesting RewardedAd.load... unitId: $adUnitId, userId: $userId")
         val adRequest = AdRequest.Builder().build()
         
         // Setup Server-Side Verification (SSV) with professional fraud detection
@@ -112,6 +126,7 @@ class RewardedAdPoolManager @Inject constructor() {
             adRequest, 
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(rewardedAd: RewardedAd) {
+                    Log.i(TAG, "Ad preloaded SUCCESS. unitId: $adUnitId")
                     rewardedAd.setServerSideVerificationOptions(ssvOptions)
                     
                     managerScope.launch {
@@ -121,7 +136,7 @@ class RewardedAdPoolManager @Inject constructor() {
                             retryAttempt = 0 // Reset backoff
                             updateAvailability()
                         }
-                        Log.d(TAG, "Ad preloaded successfully. Pool size: ${pool.size}")
+                        Log.d(TAG, "Added ad to pool. Pool size: ${pool.size}")
                         
                         // Recursive refill if still below capacity
                         if (pool.size < MAX_CAPACITY) {
@@ -131,6 +146,7 @@ class RewardedAdPoolManager @Inject constructor() {
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    Log.e(TAG, "Ad FAILED to load: ${error.message}, code: ${error.code}, domain: ${error.domain}. userId: $userId, adUnitId: $adUnitId")
                     managerScope.launch {
                         poolMutex.withLock { isRefilling = false }
                         
@@ -139,7 +155,7 @@ class RewardedAdPoolManager @Inject constructor() {
                         val rawDelay = INITIAL_BACKOFF_DELAY_MS * base.pow(retryAttempt.toDouble())
                         val delayMs = rawDelay.toLong().coerceAtMost(MAX_BACKOFF_DELAY_MS)
                         
-                        Log.e(TAG, "Ad failed to load: ${error.message}. Retrying in ${delayMs}ms (Attempt $retryAttempt)")
+                        Log.e(TAG, "Retrying refill in ${delayMs}ms (Attempt $retryAttempt)")
                         retryAttempt++
                         
                         delay(delayMs)
@@ -152,6 +168,7 @@ class RewardedAdPoolManager @Inject constructor() {
 
     /**
      * Consumes an unexpired ad from the pool and displays it.
+     * If no ad is available, it will wait for a short period before failing.
      */
     fun showAd(
         activity: Activity,
@@ -173,11 +190,22 @@ class RewardedAdPoolManager @Inject constructor() {
                 return@launch
             }
 
-            val cachedAd = getNextValidAd()
+            // Attempt to get an ad, wait up to 5 seconds if none available
+            var cachedAd = getNextValidAd()
+            if (cachedAd == null) {
+                Log.i(TAG, "Pool empty, triggering immediate refill and waiting...")
+                refillPool(activity.applicationContext, adUnitId, userId)
+                
+                // Wait loop (max 5 seconds)
+                val startWait = System.currentTimeMillis()
+                while (cachedAd == null && (System.currentTimeMillis() - startWait) < 5000) {
+                    delay(500)
+                    cachedAd = getNextValidAd()
+                }
+            }
             
             if (cachedAd == null) {
-                Log.w(TAG, "No ads available in pool to show.")
-                refillPool(activity.applicationContext, adUnitId, userId)
+                Log.w(TAG, "No ads available after wait. userId: $userId, adUnitId: $adUnitId.")
                 onAdClosed()
                 return@launch
             }
@@ -190,26 +218,29 @@ class RewardedAdPoolManager @Inject constructor() {
             cachedAd.ad.setServerSideVerificationOptions(ssvOptions)
 
             isShowingAd = true
-            cachedAd.ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    isShowingAd = false
-                    Log.d(TAG, "Ad dismissed. Triggering background refill.")
-                    managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
-                    onAdClosed()
+            val adToShow = cachedAd.ad
+            activity.runOnUiThread {
+                adToShow.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        isShowingAd = false
+                        Log.d(TAG, "Ad dismissed. Triggering background refill.")
+                        managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
+                        onAdClosed()
+                    }
+
+                    override fun onAdFailedToShowFullScreenContent(err: com.google.android.gms.ads.AdError) {
+                        isShowingAd = false
+                        Log.e(TAG, "Failed to show ad: ${err.message}")
+                        managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
+                        onAdClosed()
+                    }
                 }
 
-                override fun onAdFailedToShowFullScreenContent(err: com.google.android.gms.ads.AdError) {
-                    isShowingAd = false
-                    Log.e(TAG, "Failed to show ad: ${err.message}")
-                    managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
-                    onAdClosed()
+                adToShow.show(activity) {
+                    Log.i(TAG, "User earned reward!")
+                    lastRewardTimestamp = System.currentTimeMillis()
+                    onRewardEarned()
                 }
-            }
-
-            cachedAd.ad.show(activity) {
-                Log.i(TAG, "User earned reward!")
-                lastRewardTimestamp = System.currentTimeMillis()
-                onRewardEarned()
             }
         }
     }

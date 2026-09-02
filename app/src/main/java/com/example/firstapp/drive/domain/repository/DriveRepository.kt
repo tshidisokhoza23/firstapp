@@ -1,9 +1,7 @@
 package com.example.firstapp.drive.domain.repository
 
 import com.example.firstapp.common.util.Resource
-import com.example.firstapp.drive.model.Destination
-import com.example.firstapp.drive.model.RideOption
-import com.example.firstapp.drive.model.Trip
+import com.example.firstapp.drive.model.*
 import kotlinx.coroutines.flow.Flow
 
 interface DriveRepository {
@@ -14,20 +12,26 @@ interface DriveRepository {
     fun deleteDestination(id: String): Flow<Resource<Boolean>>
 
     // Driver Features
-    fun getDriverDocuments(): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>>>
-    fun uploadDocument(type: String, url: String): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>>
-    fun getAvailableRequests(lat: Double, lng: Double): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>>>
+    fun getDriverDocuments(): Flow<Resource<List<DriverDocument>>>
+    fun uploadDocument(type: String, url: String): Flow<Resource<DriverDocument>>
+    fun getAvailableRequests(lat: Double, lng: Double): Flow<Resource<List<RideRequest>>>
     fun updateOnlineStatus(online: Boolean, latitude: Double, longitude: Double): Flow<Resource<Boolean>>
     
     // Ride Lifecycle
-    fun createRideRequest(pickup: String, dest: String, pLat: Double, pLng: Double, dLat: Double, dLng: Double, fare: Double, type: String): Flow<Resource<String>>
+    fun createRideRequest(pickup: String, dest: String, pLat: Double, pLng: Double, dLat: Double, dLng: Double, fare: Double, distance: String, type: String): Flow<Resource<String>>
     fun updateRideStatus(rideId: String, status: String): Flow<Resource<Boolean>>
     fun cancelRide(rideId: String, reason: String, by: String): Flow<Resource<Boolean>>
 
     // Vehicle Features
-    fun getVehicleInfo(): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>>
-    fun updateVehicleInfo(vehicle: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo): Flow<Resource<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>>
+    fun getVehicleInfo(): Flow<Resource<VehicleInfo>>
+    fun updateVehicleInfo(vehicle: VehicleInfo): Flow<Resource<VehicleInfo>>
     
     // Nearby Search
-    fun getNearbyDrivers(lat: Double, lng: Double): Flow<Resource<List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverStatus>>>
+    fun getNearbyDrivers(lat: Double, lng: Double): Flow<Resource<List<DriverStatus>>>
+
+    // Real-time & Session
+    fun getRideEvents(): kotlinx.coroutines.flow.SharedFlow<com.example.firstapp.drive.data.network.RideEvent>
+    fun connectRideSocket()
+    fun disconnectRideSocket()
+    fun getActiveSession(): Flow<Resource<ActiveSession>>
 }

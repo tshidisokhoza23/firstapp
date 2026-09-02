@@ -1,5 +1,6 @@
 package com.example.firstapp.chat.ui.stories
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,28 +43,63 @@ fun NewStoryScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            selectedMediaUri = it
             val mimeType = context.contentResolver.getType(it)
-            mediaType = if (mimeType?.startsWith("video") == true) "video" else "image"
+            val isVideo = mimeType?.startsWith("video") == true
+            
+            selectedMediaUri = it
+            mediaType = if (isVideo) "video" else "image"
         }
     }
 
+    var videoDurationMs by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(selectedMediaUri) {
+        if (selectedMediaUri != null && mediaType == "video") {
+            videoDurationMs = com.example.firstapp.common.util.MediaUtils.getVideoDuration(context, selectedMediaUri!!)
+        } else {
+            videoDurationMs = 0L
+        }
+    }
+
+    val isVideoTooLong = mediaType == "video" && videoDurationMs > 120000L
+
     LaunchedEffect(Unit) {
         if (selectedMediaUri == null) {
-            launcher.launch("*/*") // Allow anything, we filter by type inside
+            launcher.launch("*/*")
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New Story", color = Color.White) },
+                title = { 
+                    Column {
+                        Text("New Story", color = Color.White)
+                        if (isVideoTooLong) {
+                            Text("Video exceeds 2m limit", color = Color.Red, fontSize = 12.sp)
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
+                    if (selectedMediaUri != null) {
+                        IconButton(onClick = { 
+                            try {
+                                val intent = Intent(Intent.ACTION_EDIT).apply {
+                                    setDataAndType(selectedMediaUri, if (mediaType == "video") "video/*" else "image/*")
+                                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "No editor found on device.", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit Media", tint = if (isVideoTooLong) Color.Red else Color.White)
+                        }
+                    }
                     IconButton(onClick = { /* Download logic */ }) {
                         Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
                     }
@@ -115,23 +151,40 @@ fun NewStoryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        IconButton(onClick = { /* Brush */ }) { Icon(Icons.Default.Brush, null, tint = Color.White) }
-                        IconButton(onClick = { /* Sticker */ }) { Icon(Icons.Default.Face, null, tint = Color.White) }
-                        IconButton(onClick = { /* Text */ }) { Icon(Icons.Default.TextFields, null, tint = Color.White) }
-                        IconButton(onClick = { /* Settings */ }) { Icon(Icons.Default.Tune, null, tint = Color.White) }
+                        val onEdit = {
+                            if (selectedMediaUri != null) {
+                                try {
+                                    val intent = Intent(Intent.ACTION_EDIT).apply {
+                                        setDataAndType(selectedMediaUri, if (mediaType == "video") "video/*" else "image/*")
+                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "No editor found", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        IconButton(onClick = onEdit) { Icon(Icons.Default.Brush, null, tint = Color.White) }
+                        IconButton(onClick = onEdit) { Icon(Icons.Default.Face, null, tint = Color.White) }
+                        IconButton(onClick = onEdit) { Icon(Icons.Default.TextFields, null, tint = Color.White) }
+                        IconButton(onClick = onEdit) { Icon(Icons.Default.Tune, null, tint = Color.White) }
                     }
                     
                     Button(
                         onClick = { 
-                            onNext(caption, selectedMediaUri?.toString() ?: "", mediaType)
+                            if (isVideoTooLong) {
+                                android.widget.Toast.makeText(context, "Please trim video to under 2 minutes first.", android.widget.Toast.LENGTH_LONG).show()
+                            } else {
+                                onNext(caption, selectedMediaUri?.toString() ?: "", mediaType)
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
+                            containerColor = if (isVideoTooLong) Color.Gray else MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         shape = RoundedCornerShape(24.dp)
                     ) {
-                        Text("NEXT", fontWeight = FontWeight.Bold)
+                        Text(if (isVideoTooLong) "TRIM REQUIRED" else "NEXT", fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(4.dp))
                         Icon(Icons.Default.ChevronRight, null)
                     }
@@ -152,6 +205,49 @@ fun NewStoryScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
+                
+                if (isVideoTooLong) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(Icons.Default.Warning, null, tint = Color.Yellow, modifier = Modifier.size(48.dp))
+                                Spacer(Modifier.height(16.dp))
+                                Text("Video is too long", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                Text("${videoDurationMs / 1000}s selected (Max 120s)", color = Color.LightGray, fontSize = 14.sp)
+                                Spacer(Modifier.height(24.dp))
+                                Button(
+                                    onClick = { 
+                                        try {
+                                            val intent = Intent(Intent.ACTION_EDIT).apply {
+                                                setDataAndType(selectedMediaUri, "video/*")
+                                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            android.widget.Toast.makeText(context, "No video editor found", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+                                ) {
+                                    Icon(Icons.Default.Edit, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("TRIM VIDEO")
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
                 Box(
                     modifier = Modifier

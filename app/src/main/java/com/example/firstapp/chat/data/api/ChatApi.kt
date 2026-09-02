@@ -68,14 +68,25 @@ interface ChatApi {
         @Path("messageID") messageId: String
     ): Response<StatusResponse>
 
+    @PATCH("conversations/{conversationID}/messages/{messageID}")
+    suspend fun editMessage(
+        @Path("conversationID") conversationID: String,
+        @Path("messageID") messageId: String,
+        @Body request: EditMessageRequest
+    ): Response<MessageResponse>
+
     @POST("calls/initiate")
     suspend fun initiateCall(@Body request: InitiateCallRequest): Response<InitiateCallResponse>
+
+    @POST("chats/channels/{channelId}/subscribe")
+    suspend fun subscribeToChannel(@Path("channelId") channelId: String): Response<StatusResponse>
 
     @GET("calls/ice_servers")
     suspend fun getICEServers(): Response<IceServersResponse>
 }
 
 data class AddMemberRequest(val user_id: String)
+data class EditMessageRequest(val message_text: String)
 data class ReadReceiptRequest(val last_read_message_id: String)
 data class StatusUpdateRequest(val status: String)
 
@@ -98,10 +109,15 @@ data class ChatSummary(
     val unread_count: Int,
     val is_muted: Boolean,
     val is_pinned: Boolean,
+    val is_subscribed: Boolean = false,
+    val is_following: Boolean = false,
     val is_admin: Boolean = false,
+    val admins_can_post: Boolean = false,
     val contact_id: String? = null,
+    val channel_id: String? = null,
     val phone_number: String? = null,
-    val avatar_url: String? = null
+    val avatar_url: String? = null,
+    val created_by: String? = null
 )
 
 data class ChatSummaryResponse(val chats: List<ChatSummary>)
@@ -123,6 +139,7 @@ data class ApiMessage(
     val contact_phone: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val is_starred: Boolean? = false,
     val created_at: Long,
     val direction: String,
     val reactions: Map<String, Int>?,
@@ -131,7 +148,10 @@ data class ApiMessage(
     val reply_to_text: String? = null,
     val reply_to_sender_name: String? = null,
     val applicant_profile: ApiApplicantProfile? = null,
-    val job_details: ApiJobDetails? = null
+    val job_details: ApiJobDetails? = null,
+    val link_preview: com.example.firstapp.chat.model.LinkPreview? = null,
+    val audio_amplitudes: List<Int>? = null,
+    val scheduled_at: Long? = null
 )
 
 data class ApiApplicantProfile(
@@ -173,7 +193,10 @@ data class SendMessageRequest(
     val longitude: Double? = null,
     val mention_user_ids: List<String>? = null,
     val receiver_id: String? = null,
-    val reply_to_id: String? = null
+    val reply_to_id: String? = null,
+    val scheduled_at: Long? = null,
+    val link_preview: com.example.firstapp.chat.model.LinkPreview? = null,
+    val audio_amplitudes: List<Int>? = null
 )
 
 data class GroupInfoResponse(

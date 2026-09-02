@@ -1,14 +1,16 @@
 package com.example.firstapp.drive.data.api
 
 import com.example.firstapp.common.data.api.*
-import com.example.firstapp.drive.model.RideOption
-import com.example.firstapp.drive.model.Destination
+import com.example.firstapp.drive.model.*
 import retrofit2.Response
 import retrofit2.http.*
 
 interface DriveApi {
     @GET("ride-options")
     suspend fun getRideOptions(): Response<RideOptionsResponse>
+
+    @GET("trips")
+    suspend fun getTrips(): Response<TripsResponse>
 
     @GET("destinations")
     suspend fun getDestinations(): Response<DestinationsResponse>
@@ -41,10 +43,13 @@ interface DriveApi {
     suspend fun getNearbyDrivers(@Query("lat") lat: Double, @Query("lng") lng: Double): Response<NearbyDriversResponse>
 
     @GET("driver/vehicle")
-    suspend fun getVehicleInfo(): Response<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>
+    suspend fun getVehicleInfo(): Response<VehicleInfo>
 
     @POST("driver/vehicle")
-    suspend fun updateVehicleInfo(@Body request: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo): Response<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.VehicleInfo>
+    suspend fun updateVehicleInfo(@Body request: VehicleInfo): Response<VehicleInfo>
+
+    @GET("user/active-session")
+    suspend fun getActiveSession(): Response<ActiveSession>
 }
 
 data class CreateRideRequest(
@@ -55,6 +60,7 @@ data class CreateRideRequest(
     val dest_lat: Double,
     val dest_lng: Double,
     val fare: Double,
+    val distance: String,
     val ride_type: String
 )
 
@@ -66,12 +72,12 @@ data class UpdateRideStatusResponse(val success: Boolean)
 data class CancelRideRequest(val ride_id: String, val reason: String, val by: String)
 data class CancelRideResponse(val success: Boolean)
 
-data class NearbyDriversResponse(val drivers: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverStatus>)
+data class NearbyDriversResponse(val drivers: List<DriverStatus>)
 
-data class DriverDocumentsResponse(val documents: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument>)
+data class DriverDocumentsResponse(val documents: List<DriverDocument>)
 data class UploadDocumentRequest(val type: String, val url: String)
-data class UploadDocumentResponse(val document: com.example.firstapp.drive.ui.viewmodel.DriveViewModel.DriverDocument)
-data class RideRequestsResponse(val requests: List<com.example.firstapp.drive.ui.viewmodel.DriveViewModel.RideRequest>)
+data class UploadDocumentResponse(val document: DriverDocument)
+data class RideRequestsResponse(val requests: List<RideRequest>)
 data class UpdateStatusRequest(val online: Boolean, val latitude: Double, val longitude: Double)
 data class UpdateStatusResponse(val success: Boolean)
 
@@ -86,5 +92,6 @@ data class SaveDestinationRequest(
 )
 
 data class RideOptionsResponse(val ride_options: List<RideOption>)
+data class TripsResponse(val trips: List<com.example.firstapp.drive.model.Trip>)
 data class DestinationsResponse(val destinations: List<Destination>)
 data class SaveDestinationResponse(val destination: Destination)

@@ -11,6 +11,7 @@ import com.example.firstapp.common.data.local.AppDatabase
 import com.example.firstapp.media.data.local.dao.PostDao
 import com.example.firstapp.media.data.local.entity.PostEntity
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.media.data.realtime.RealtimeEngagementManager
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.paging.PostRemoteMediator
 import com.example.firstapp.media.domain.repository.SocialRepository
@@ -26,20 +27,28 @@ import kotlin.collections.*
 
 class SocialRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
+    private val userApi: com.example.firstapp.common.data.api.UserApi,
     private val postDao: PostDao,
     private val contactDao: com.example.firstapp.chat.data.local.dao.ContactDao,
     private val appDatabase: AppDatabase,
-    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver
+    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver,
+    private val realtimeEngagementManager: RealtimeEngagementManager
 ) : SocialRepository {
+
+    init {
+        realtimeEngagementManager.start()
+    }
 
     @OptIn(ExperimentalPagingApi::class)
     override fun getPostsPaging(following: Boolean, authorId: String, feedType: String, categoryId: String?): Flow<PagingData<Post>> {
         val finalFeedType = when {
             categoryId != null -> "${feedType}_cat_$categoryId"
-            authorId.isNotBlank() -> "user_$authorId"
+            authorId.isNotBlank() -> "${feedType}_user_$authorId"
             following -> "following"
             else -> feedType
         }
+        
+        Log.d("SocialRepo", "getPostsPaging: following=$following, authorId=$authorId, feedType=$feedType, final=$finalFeedType")
         
         val pagingSourceFactory = { postDao.getPostsPaging(finalFeedType) }
         
@@ -64,8 +73,12 @@ class SocialRepositoryImpl @Inject constructor(
         postDao.updateLikeStatus(postId, likes, isLiked)
     }
 
-    override suspend fun updatePostRepostLocally(postId: String, shares: Long, isReposted: Boolean) {
-        postDao.updateRepostStatus(postId, shares, isReposted)
+    override suspend fun updatePostRepostLocally(postId: String, repostCount: Long, isReposted: Boolean) {
+        postDao.updateRepostStatus(postId, repostCount, isReposted)
+    }
+
+    override suspend fun updatePostShareLocally(postId: String, shares: Long) {
+        postDao.updateShareStatus(postId, shares)
     }
 
     override suspend fun updatePostBookmarkLocally(postId: String, isBookmarked: Boolean) {
@@ -78,10 +91,11 @@ class SocialRepositoryImpl @Inject constructor(
 
     private suspend fun syncPostsInternal(
         page: Int,
-        feedType: String,
+        dbFeedType: String,
         following: Boolean = false,
         authorId: String = "",
-        channelId: String? = null
+        channelId: String? = null,
+        apiFeedType: String? = null // Optional override for backend parameter
     ) {
         try {
             val response = socialApi.getPosts(
@@ -89,14 +103,14 @@ class SocialRepositoryImpl @Inject constructor(
                 following = following,
                 authorId = authorId,
                 channelId = channelId,
-                feedType = feedType
+                feedType = apiFeedType ?: dbFeedType
             )
             if (response.isSuccessful) {
                 val apiPosts = response.body() ?: emptyList()
                 val posts = apiPosts.map { mapApiPost(it) }
                 if (posts.isNotEmpty()) {
-                    if (page == 1) postDao.clearPosts(feedType)
-                    postDao.insertPosts(posts.map { it.toPostEntity(feedType) })
+                    if (page == 1) postDao.clearPosts(dbFeedType)
+                    postDao.insertPosts(posts.map { it.toPostEntity(dbFeedType) })
                 }
             } else {
                 Log.e("SocialRepo", "syncPostsInternal failed: ${response.code()}")
@@ -114,13 +128,16 @@ class SocialRepositoryImpl @Inject constructor(
         }
 
     override fun getUserPosts(userId: String, feedType: String, page: Int): Flow<Resource<List<Post>>> = flow {
-        val type = if (feedType.startsWith("user_")) feedType else "user_$userId"
-        val cached = postDao.getPosts(type).first()
+        // Feed type for Room must be unique per user and per tab (Posts vs Shorts vs Media)
+        val roomFeedType = if (feedType.startsWith("user_")) feedType else "${feedType}_user_$userId"
+        
+        val cached = postDao.getPosts(roomFeedType).first()
         if (cached.isNotEmpty()) emit(Resource.Loading(cached.map { it.toPost() }))
         else emit(Resource.Loading())
 
-        syncPostsInternal(page, type, authorId = userId)
-        emitAll(getPostsFlowInternal(type))
+        // Pass the actual feed type name ("short", "standard", etc.) to the API, not the room key
+        syncPostsInternal(page, roomFeedType, authorId = userId, apiFeedType = feedType)
+        emitAll(getPostsFlowInternal(roomFeedType))
     }
 
     override fun getPosts(page: Int, feedType: String): Flow<Resource<List<Post>>> = flow {
@@ -152,7 +169,7 @@ class SocialRepositoryImpl @Inject constructor(
         emitAll(getPostsFlowInternal(type))
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?): Flow<Resource<Boolean>> = flow {
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?, repostOfId: String?, thumbnailUrl: String?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             val pollRequest = if (pollOptions != null && pollOptions.size > 0) {
@@ -170,7 +187,9 @@ class SocialRepositoryImpl @Inject constructor(
                 poll = pollRequest,
                 parent_post_id = parentPostId,
                 root_post_id = rootPostId,
-                category_id = categoryId
+                category_id = categoryId,
+                repost_of_id = repostOfId,
+                thumbnail_url = thumbnailUrl
             )
             if (socialApi.createPost(request).isSuccessful) {
                 emit(Resource.Success(true))
@@ -268,7 +287,26 @@ class SocialRepositoryImpl @Inject constructor(
         } 
     }
 
-    override fun viewPost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.viewPost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
+    override fun viewPost(postId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            socialApi.viewPost(postId)
+            postDao.incrementViewCount(postId)
+            emit(Resource.Success(true))
+        } catch (_: Exception) {
+            emit(Resource.Error("Failed to track view"))
+        }
+    }
+
+    override fun sharePost(postId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            val response = socialApi.sharePost(postId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Fail"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Offline"))
+        }
+    }
 
     override fun trackEngagement(
         postId: String, 
@@ -310,8 +348,37 @@ class SocialRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Post not found"))
             }
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Error: ${e.localizedMessage}"))
+            if (e !is kotlinx.coroutines.CancellationException) emit(Resource.Error("Error: ${e.localizedMessage}"))
+        }
+    }
+
+    override fun searchPosts(query: String, isGlobal: Boolean): Flow<Resource<List<Post>>> = flow {
+        emit(Resource.Loading())
+        if (isGlobal) {
+            try {
+                val response = userApi.search(query, "posts")
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    if (body != null) {
+                        val postsList = body.posts.map { apiPost -> mapApiPost(apiPost) }
+                        emit(Resource.Success(postsList))
+                    } else {
+                        emit(Resource.Success(emptyList()))
+                    }
+                } else {
+                    emit(Resource.Error("Search failed on server: ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) emit(Resource.Error("Offline"))
+            }
+        } else {
+            // Local search in cache
+            try {
+                val cached = postDao.searchPostsInCache("%$query%").first()
+                emit(Resource.Success(cached.map { it.toPost() }))
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) emit(Resource.Error("Local search failed"))
+            }
         }
     }
 }

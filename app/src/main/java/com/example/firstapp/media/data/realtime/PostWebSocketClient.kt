@@ -57,16 +57,21 @@ class PostWebSocketClient @Inject constructor(
                     val type = json.optString("type")
                     val action = json.optString("action")
 
+                    val likes = if (json.has("likes")) json.getLong("likes") else null
+                    val reposts = if (json.has("reposts")) json.getLong("reposts") else null
+                    val shares = if (json.has("shares")) json.getLong("shares") else null
+                    val views = if (json.has("views")) json.getLong("views") else null
+
                     when (type) {
-                        "post" -> {
+                        "post", "posts_event" -> {
                             val postId = if (json.has("post_id")) json.getString("post_id") else null
-                            listeners.forEach { it.onPostsEvent(action, postId) }
+                            listeners.forEach { it.onPostsEvent(action, postId, likes, reposts, shares, views) }
                         }
-                        "short" -> {
+                        "short", "shorts_event" -> {
                             val shortId = if (json.has("short_id")) json.getString("short_id") else null
                             listeners.forEach { it.onShortsEvent(action, shortId) }
                         }
-                        "story" -> {
+                        "story", "stories_event" -> {
                             val storyId = if (json.has("story_id")) json.getString("story_id") else null
                             listeners.forEach { it.onStoriesEvent(action, storyId) }
                         }
@@ -114,7 +119,7 @@ class PostWebSocketClient @Inject constructor(
 
 interface PostSocketListener {
     fun onOpen()
-    fun onPostsEvent(action: String, postId: String?)
+    fun onPostsEvent(action: String, postId: String?, likes: Long? = null, reposts: Long? = null, shares: Long? = null, views: Long? = null)
     fun onShortsEvent(action: String, shortId: String?)
     fun onStoriesEvent(action: String, storyId: String?)
     fun onError(error: String)

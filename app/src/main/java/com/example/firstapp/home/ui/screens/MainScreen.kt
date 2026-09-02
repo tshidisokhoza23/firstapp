@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -41,6 +42,7 @@ fun MainScreen(
     adManager: com.example.firstapp.common.data.ads.AdManager,
     userViewModel: com.example.firstapp.common.ui.viewmodel.UserViewModel = hiltViewModel(),
     onLogout: () -> Unit,
+    initialSubTab: String? = null,
     initialShortId: String? = null
 ) {
     val selectedIndex by viewModel.selectedBottomItem.collectAsState()
@@ -139,9 +141,7 @@ fun MainScreen(
                 containerColor = Color.Transparent
             ) { innerPadding ->
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = innerPadding.calculateBottomPadding())
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     val tabToDisplay = if (selectedIndex == 5) {
                         BottomNavItem.fromIndex(lastActiveTab.intValue)
@@ -159,32 +159,42 @@ fun MainScreen(
                             BottomNavItem.Chat -> ChatsListScreen(
                                 navController = navController,
                                 adManager = adManager,
+                                bottomPadding = innerPadding.calculateBottomPadding(),
                                 onLogout = onLogout,
-                                chatViewModel = chatViewModel
+                                chatViewModel = chatViewModel,
+                                initialTab = initialSubTab
                             )
                             BottomNavItem.Social -> MediaTabScreen(
                                 navController = navController,
                                 adManager = adManager,
-                                chatViewModel = chatViewModel
+                                bottomPadding = innerPadding.calculateBottomPadding(),
+                                chatViewModel = chatViewModel,
+                                mediaViewModel = hiltViewModel(key = "social_feed")
                             )
                             BottomNavItem.Scroll -> ShortsTabScreen(
                                 navController = navController,
                                 adManager = adManager,
+                                bottomPadding = innerPadding.calculateBottomPadding(),
                                 onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
-                                initialShortId = initialShortId
+                                initialShortId = initialShortId,
+                                mediaViewModel = hiltViewModel(key = "shorts_feed")
                             )
                             BottomNavItem.Stream -> MusicTabScreen(
-                                navController = navController
+                                navController = navController,
+                                bottomPadding = innerPadding.calculateBottomPadding()
                             )
                             BottomNavItem.Ride -> DriveTabScreen(
                                 navController = navController,
+                                bottomPadding = innerPadding.calculateBottomPadding(),
                                 chatViewModel = chatViewModel
                             )
                             else -> ChatsListScreen(
                                 navController = navController,
                                 adManager = adManager,
+                                bottomPadding = innerPadding.calculateBottomPadding(),
                                 onLogout = onLogout,
-                                chatViewModel = chatViewModel
+                                chatViewModel = chatViewModel,
+                                initialTab = initialSubTab
                             )
                         }
                     }
@@ -193,6 +203,7 @@ fun MainScreen(
                     if (selectedIndex == 5) {
                         MoreShortcutsSheet(
                             isVisible = true,
+                            bottomPadding = innerPadding.calculateBottomPadding(),
                             onDismiss = { viewModel.setSelectedBottomItem(lastActiveTab.intValue) },
                             onNavigate = { route: String ->
                                 viewModel.setSelectedBottomItem(lastActiveTab.intValue)
@@ -214,34 +225,46 @@ fun MainBottomNavigation(
     selectedRoute: String,
     onTabSelected: (BottomNavItem) -> Unit
 ) {
+    val isScrollTab = selectedRoute == BottomNavItem.Scroll.route
     Surface(
-        color = Color.Transparent,
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 0.dp
+        tonalElevation = 8.dp
     ) {
-
-        Column {
-            NavigationBar(
-                containerColor = Color.Transparent,
-                tonalElevation = 0.dp,
-                windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
-            ) {
-                for (item in BottomNavItem.items) {
-                    val isSelected = selectedRoute == item.route
-                    NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.title, modifier = Modifier.size(22.dp)) },
-                        label = { Text(item.title, fontSize = 10.sp) },
-                        selected = isSelected,
-                        onClick = { onTabSelected(item) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                        )
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
+            windowInsets = NavigationBarDefaults.windowInsets
+        ) {
+            for (item in BottomNavItem.items) {
+                val isSelected = selectedRoute == item.route
+                NavigationBarItem(
+                    icon = { 
+                        Icon(
+                            item.icon, 
+                            contentDescription = item.title, 
+                            modifier = Modifier.size(24.dp)
+                        ) 
+                    },
+                    label = { 
+                        Text(
+                            item.title, 
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1
+                        ) 
+                    },
+                    selected = isSelected,
+                    onClick = { onTabSelected(item) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     )
-                }
+                )
             }
         }
     }
