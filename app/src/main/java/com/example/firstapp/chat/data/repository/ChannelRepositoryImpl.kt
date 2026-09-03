@@ -36,9 +36,7 @@ class ChannelRepositoryImpl @Inject constructor(
                 val apiChannels = response.body()!!.channels
                 Log.d("ChannelRepo", "Fetched ${apiChannels.size} channels")
                 val channels = apiChannels.map { apiChannel: com.example.firstapp.media.data.api.ApiChannel -> mapApiChannel(apiChannel) }.distinctBy { it.id }
-                if (channels.isNotEmpty()) {
-                    channelDao.replaceChannels(channels.map { it.toEntity() })
-                }
+                channelDao.replaceChannels(channels.map { it.toEntity() })
             } else {
                 Log.e("ChannelRepo", "getChannels failed: ${response.code()}")
             }
@@ -58,7 +56,11 @@ class ChannelRepositoryImpl @Inject constructor(
             val response = socialApi.subscribeToChannel(channelId)
             if (response.isSuccessful) {
                 // Join WebSocket for real-time messages if now subscribed
-                webSocketManager.send("chat:$channelId", "join", op = "subscribe")
+                val conversationId = channelDao.getChannels().first()
+                    .find { it.id == channelId }
+                    ?.conversationId
+                    ?: channelId
+                webSocketManager.send("chat:$conversationId", "join", op = "subscribe")
 
                 // Update local cache - Endpoint is usually a toggle
                 val entities = channelDao.getChannels().first()
@@ -92,6 +94,13 @@ class ChannelRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.createChannel(CreateChannelRequest(name, description))
             if (response.isSuccessful) {
+                val channelsResponse = socialApi.getChannels()
+                if (channelsResponse.isSuccessful && channelsResponse.body() != null) {
+                    val channels = channelsResponse.body()!!.channels
+                        .map { mapApiChannel(it) }
+                        .distinctBy { it.id }
+                    channelDao.replaceChannels(channels.map { it.toEntity() })
+                }
                 emit(Resource.Success(true))
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Failed to create channel"

@@ -163,31 +163,12 @@ class RewardViewModel @Inject constructor(
     }
 
     private fun handleAdCompleted(taskId: String) {
-        // 1. Optimistic UI Update
-        val currentState = _uiState.value
-        if (currentState is RewardUiState.Success) {
-            val task = currentState.dashboard.tasks.find { it.id == taskId }
-            val earnedPoints = task?.points ?: 10.0 // Fallback only if task not found
-            
-            val updatedTasks = currentState.dashboard.tasks.map {
-                if (it.id == taskId) it.copy(is_completed = true) else it
-            }
-            val updatedDash = currentState.dashboard.copy(
-                total_points = currentState.dashboard.total_points + earnedPoints,
-                ads_watched_today = currentState.dashboard.ads_watched_today + 1,
-                tasks = updatedTasks
-            )
-            _uiState.value = RewardUiState.Success(updatedDash)
-        }
-
-        // 2. Start 120s cooldown
+        // Start the cooldown immediately, but only show points after server confirmation.
         startCooldownTimer(120)
 
-        // 3. Background Sync
         viewModelScope.launch {
-            delay(2000) // Small delay to let SSV process
+            delay(2000)
             fetchDashboard()
-            // Also refresh user profile for SSOT points
             userRepository.getCurrentUser().collectLatest { }
         }
     }
