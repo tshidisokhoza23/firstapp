@@ -1,17 +1,14 @@
 package com.example.firstapp.chat.ui.stories
 
-import android.widget.Toast
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -24,8 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -54,9 +49,9 @@ fun StoryViewer(
     onStoryViewed: (Int) -> Unit,
     onDeleteStory: (String) -> Unit = {},
     onAdTriggered: () -> Unit = {},
-    onReply: (String) -> Unit = {},
     onFinish: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onNavigateToUser: (Int) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -65,10 +60,18 @@ fun StoryViewer(
         mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) 
     }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var hasFinished by remember(userStory.id) { mutableStateOf(false) }
+
+    fun finishOnce() {
+        if (!hasFinished) {
+            hasFinished = true
+            onFinish()
+        }
+    }
 
     val stories = userStory.stories
     if (stories.isEmpty()) {
-        onFinish()
+        LaunchedEffect(Unit) { finishOnce() }
         return
     }
     
@@ -124,8 +127,9 @@ fun StoryViewer(
     }
 
     
-    // For swipe to dismiss
+    // Track horizontal story navigation separately from downward dismissal.
     var offsetY by remember { mutableFloatStateOf(0f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
 
     // Video duration listener
     LaunchedEffect(exoPlayer) {
@@ -175,7 +179,7 @@ fun StoryViewer(
                 progress.snapTo(0f)
                 currentStoryIndex++
             } else {
-                onFinish()
+                finishOnce()
             }
         }
     }
@@ -183,24 +187,37 @@ fun StoryViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .offset { IntOffset(0, offsetY.roundToInt()) }
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .background(if (currentStory.type == StoryType.TEXT) Color.DarkGray else Color.Black)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        if (dragAmount.y > 0 || offsetY > 0) {
+                        if (kotlin.math.abs(dragAmount.x) > kotlin.math.abs(dragAmount.y) && offsetY == 0f) {
+                            offsetX += dragAmount.x
+                        } else if (dragAmount.y > 0 || offsetY > 0) {
                             offsetY += dragAmount.y
                         }
                     },
                     onDragEnd = {
-                        if (offsetY > 300f) {
+                        if (kotlin.math.abs(offsetX) > 240f) {
+                            if (offsetX < 0 && currentStoryIndex < stories.size - 1) {
+                                currentStoryIndex++
+                            } else if (offsetX < 0) {
+                                finishOnce()
+                            } else if (offsetX > 0 && currentStoryIndex > 0) {
+                                currentStoryIndex--
+                            } else if (offsetX > 0) {
+                                onNavigateToUser(-1)
+                            }
+                            scope.launch { progress.snapTo(0f) }
+                        } else if (offsetY > 300f) {
                             onClose()
-                        } else {
-                            offsetY = 0f
                         }
+                        offsetX = 0f
+                        offsetY = 0f
                     },
-                    onDragCancel = { offsetY = 0f }
+                    onDragCancel = { offsetX = 0f; offsetY = 0f }
                 )
             }
             .pointerInput(currentStoryIndex) {
@@ -219,14 +236,14 @@ fun StoryViewer(
                                 scope.launch { progress.snapTo(0f) }
                                 currentStoryIndex--
                             } else {
-                                onClose()
+                                onNavigateToUser(-1)
                             }
                         } else {
                             if (currentStoryIndex < stories.size - 1) {
                                 scope.launch { progress.snapTo(0f) }
                                 currentStoryIndex++
                             } else {
-                                onFinish()
+                                finishOnce()
                             }
                         }
                     }
@@ -409,110 +426,6 @@ fun StoryViewer(
             )
         }
 
-        // Reply Bar
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            var replyText by remember { mutableStateOf("") }
-            
-            Surface(
-                modifier = Modifier.weight(1f).height(48.dp),
-                color = Color.Black.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(24.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
-            ) {
-                TextField(
-                    value = replyText,
-                    onValueChange = { 
-                        replyText = it
-                        isPaused = it.isNotEmpty()
-                    },
-                    placeholder = { Text("Reply", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp) },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .onFocusChanged { focusState ->
-                            if (focusState.isFocused) {
-                                isPaused = true
-                            }
-                        },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color.White
-                    ),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        imeAction = androidx.compose.ui.text.input.ImeAction.Send
-                    ),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                        onSend = {
-                            if (replyText.isNotBlank()) {
-                                onReply(replyText)
-                                replyText = ""
-                                isPaused = false
-                            }
-                        }
-                    )
-                )
-            }
-            
-            // Reaction Emojis
-            Text(
-                "😍", 
-                fontSize = 28.sp, 
-                modifier = Modifier.clickable { 
-                    onReply("😍")
-                    Toast.makeText(context, "Sent 😍", Toast.LENGTH_SHORT).show()
-                }
-            )
-            Text(
-                "😂", 
-                fontSize = 28.sp, 
-                modifier = Modifier.clickable { 
-                    onReply("😂")
-                    Toast.makeText(context, "Sent 😂", Toast.LENGTH_SHORT).show()
-                }
-            )
-            Text(
-                "😮", 
-                fontSize = 28.sp, 
-                modifier = Modifier.clickable { 
-                    onReply("😮")
-                    Toast.makeText(context, "Sent 😮", Toast.LENGTH_SHORT).show()
-                }
-            )
-            
-            IconButton(onClick = { 
-                Toast.makeText(context, "Story reshared", Toast.LENGTH_SHORT).show()
-            }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Repeat, null, tint = Color.White, modifier = Modifier.size(24.dp))
-            }
-            
-            var isLiked by remember { mutableStateOf(false) }
-            IconButton(onClick = { 
-                isLiked = !isLiked
-                Toast.makeText(context, if (isLiked) "Story liked" else "Like removed", Toast.LENGTH_SHORT).show()
-            }, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
-                    null, 
-                    tint = if (isLiked) Color.Red else Color.White, 
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
     }
 }
 

@@ -6,6 +6,8 @@ import com.example.firstapp.common.model.User
 import com.example.firstapp.chat.model.Contact
 import com.example.firstapp.common.data.api.UploadResponse
 import kotlinx.coroutines.flow.Flow
+import android.content.Context
+import android.net.Uri
 import java.io.File
 
 interface AccountRepository {
@@ -29,4 +31,5 @@ interface AccountRepository {
     fun reportUser(userId: String, reason: String): Flow<Resource<Boolean>>
     fun upsertPushToken(token: String, deviceId: String): Flow<Resource<Boolean>>
     fun uploadFile(file: File, folder: String? = null): Flow<Resource<UploadResponse>>
+    fun uploadUri(context: Context, uri: Uri, folder: String? = null): Flow<Resource<UploadResponse>>
 }

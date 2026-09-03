@@ -61,34 +61,6 @@ object MediaUtils {
         }
     }
 
-    fun getFileFromUri(context: Context, uri: Uri): File? {
-        if (uri.scheme == "file") {
-            return uri.path?.let { File(it) }
-        }
-        val contentResolver = context.contentResolver
-        val fileName = "TEMP_" + System.currentTimeMillis()
-        val extension = getExtension(context, uri) ?: ""
-        val file = File(context.cacheDir, if (extension.length > 0) "$fileName.$extension" else fileName)
-        
-        try {
-            contentResolver.openInputStream(uri)?.use { inputStream ->
-                FileOutputStream(file).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-            return file
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return null
-        }
-    }
-
-    private fun getExtension(context: Context, uri: Uri): String? {
-        return context.contentResolver.getType(uri)?.let { mime ->
-            android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
-        }
-    }
-
     fun createImageFileUri(context: Context): Uri {
         val file = File(context.cacheDir, "CAMERA_${System.currentTimeMillis()}.jpg")
         return FileProvider.getUriForFile(
@@ -145,23 +117,6 @@ object MediaUtils {
         return s.contains(".mp4") || s.contains(".mov") || s.contains(".avi") || 
                s.contains(".webm") || s.contains(".mkv") || s.contains(".3gp") ||
                s.contains("video") || s.contains("/shorts/") || s.contains(".tmp")
-    }
-
-    fun copyUriToTempFile(context: Context, uri: Uri): File? {
-        return try {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-            val mimeType = context.contentResolver.getType(uri)
-            val extension = if (mimeType != null) {
-                android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "tmp"
-            } else {
-                "tmp"
-            }
-            
-            val tempFile = File.createTempFile("upload_", ".$extension", context.cacheDir)
-            val outputStream = FileOutputStream(tempFile)
-            inputStream.use { input -> outputStream.use { output -> input.copyTo(output) } }
-            tempFile
-        } catch (e: Exception) { null }
     }
 
     fun getVideoThumbnail(context: Context, uri: Uri): File? {

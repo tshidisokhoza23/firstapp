@@ -15,7 +15,8 @@ import com.google.android.gms.ads.nativead.NativeAdView
 @Composable
 fun StaticAdCard(
     nativeAd: Any,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutResId: Int = R.layout.item_media_native_ad
 ) {
     if (nativeAd !is NativeAd) return
 
@@ -24,7 +25,7 @@ fun StaticAdCard(
             .fillMaxWidth()
             .wrapContentHeight(),
         factory = { ctx ->
-            val view = LayoutInflater.from(ctx).inflate(R.layout.item_media_native_ad, null) as NativeAdView
+            val view = LayoutInflater.from(ctx).inflate(layoutResId, null) as NativeAdView
             
             view.headlineView = view.findViewById(R.id.ad_headline)
             view.bodyView = view.findViewById(R.id.ad_body)

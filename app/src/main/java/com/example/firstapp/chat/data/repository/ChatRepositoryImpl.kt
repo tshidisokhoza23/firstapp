@@ -39,6 +39,7 @@ import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 import okhttp3.ResponseBody
+import com.google.gson.Gson
 
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
@@ -64,6 +65,7 @@ class ChatRepositoryImpl @Inject constructor(
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
+    private val gson = Gson()
 
     init {
         observeWebSocketEvents()
@@ -714,14 +716,31 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
                 
-                // Process missed events
+                val privKey = sessionManager.getPrivateKey()
+                val myUserId = sessionManager.getUserId()
+                var processingFailed = false
+
                 for (jsonEl in body.messages) {
                     try {
-                        val envelope = json.decodeFromString<WSEnvelope>(jsonEl.toString())
-                        handleIncomingEvent(envelope)
+                        val apiMsg = gson.fromJson(jsonEl.toString(), ApiMessage::class.java)
+                        val message = mapApiMessage(apiMsg, privKey, myUserId)
+                        saveMessage(message.conversationId, message)
+                        chatDaoProvider.get().updateLastMessage(
+                            message.conversationId,
+                            message.content,
+                            message.timestamp,
+                            message.isFromMe,
+                            message.isRead
+                        )
                     } catch (e: Exception) {
+                        processingFailed = true
                         Log.e("ChatRepository", "Failed to process delta event", e)
                     }
+                }
+
+                if (processingFailed) {
+                    emit(Resource.Error("Failed to process message sync"))
+                    return@flow
                 }
 
                 dao.upsertCursor(

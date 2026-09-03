@@ -7,7 +7,6 @@ import com.example.firstapp.common.util.Resource
 import com.example.firstapp.common.util.ContextProvider
 import com.example.firstapp.media.data.realtime.PostWebSocketClient
 import com.example.firstapp.media.data.realtime.PostSocketListener
-import com.example.firstapp.common.util.MediaUtils.copyUriToTempFile
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -85,21 +84,15 @@ class StoryViewModel @Inject constructor(
                 try {
                     val uri = android.net.Uri.parse(contentUrl)
                     val context = ContextProvider.context
-                    val file = copyUriToTempFile(context, uri)
-                    if (file != null) {
-                        accountRepository.uploadFile(file, "stories").collect { res ->
+                    accountRepository.uploadUri(context, uri, "stories").collect { res ->
                             if (res is Resource.Success && res.data != null) {
                                 val finalUrl = res.data.url
                                 val finalType = if (type == "text") "image" else type
-                                file.delete()
                                 createStoryEntry(content, finalUrl, finalType)
                             } else if (res is Resource.Error) {
                                 _postResult.value = Resource.Error(res.message ?: "Upload failed")
                             }
                         }
-                    } else {
-                        _postResult.value = Resource.Error("Could not process file")
-                    }
                 } catch (e: Exception) {
                     _postResult.value = Resource.Error("File error: ${e.message}")
                 }
@@ -147,23 +140,6 @@ class StoryViewModel @Inject constructor(
             repository.deleteStory(storyId).collect {
                 if (it is Resource.Success) {
                     refreshStories()
-                }
-            }
-        }
-    }
-
-    fun sendStoryReply(userId: String, storyId: String, text: String) {
-        viewModelScope.launch {
-            // Step 1: Ensure a DM session exists with this user
-            chatRepository.initiateDM(userId).collect { res ->
-                if (res is Resource.Success && res.data != null) {
-                    val chatId = res.data
-                    // Step 2: Send the reply as a message in that chat
-                    chatRepository.sendMessage(
-                        chatId = chatId,
-                        body = "Replied to story: $text",
-                        messageType = "text"
-                    ).collect { /* result handled by chat system */ }
                 }
             }
         }

@@ -18,6 +18,7 @@ import com.example.firstapp.common.data.api.GoogleSignInRequest
 import com.example.firstapp.common.data.api.CompleteProfileRequest
 import com.example.firstapp.common.data.api.ForgotPasswordRequest
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.common.util.UriRequestBody
 import com.example.firstapp.profile.model.WorkExperience
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -33,6 +34,8 @@ import retrofit2.HttpException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.util.*
+import android.content.Context
+import android.net.Uri
 import kotlin.collections.*
 import kotlin.text.*
 import kotlin.*
@@ -477,6 +480,27 @@ class UserRepositoryImpl @Inject constructor(
                 if (currentUser != null) {
                     userDao.updateUser(currentUser.copy(avatar_url = url))
                 }
+                emit(Resource.Success(url))
+            } else {
+                emit(Resource.Error("Failed to upload avatar"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
+    }
+
+    override fun updateAvatar(context: Context, uri: Uri): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val resolver = context.contentResolver
+            val mediaType = resolver.getType(uri)?.toMediaTypeOrNull()
+            val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "avatar"
+            val body = MultipartBody.Part.createFormData("avatar", name, UriRequestBody(resolver, uri, mediaType))
+            val response = apiService.updateAvatar(body)
+            if (response.isSuccessful && response.body() != null) {
+                val url = response.body()!!.avatar_url
+                userDao.getCurrentUser().firstOrNull()?.let { userDao.updateUser(it.copy(avatar_url = url)) }
                 emit(Resource.Success(url))
             } else {
                 emit(Resource.Error("Failed to upload avatar"))

@@ -104,6 +104,21 @@ class MediaChatViewModel @Inject constructor(
         }
     }
 
+    fun sendMediaMessage(receiverId: String, uri: android.net.Uri, context: android.content.Context, type: String) {
+        val chatId = activeChatId ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            accountRepository.uploadUri(context, uri, "media_chat").collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    sendMessage(receiverId, "", type, listOf(res.data.url))
+                } else if (res is Resource.Error) {
+                    _error.value = res.message
+                    _isLoading.value = false
+                }
+            }
+        }
+    }
+
     private fun Message.toMediaMessage(): MediaMessage {
         return MediaMessage(
             id = id,

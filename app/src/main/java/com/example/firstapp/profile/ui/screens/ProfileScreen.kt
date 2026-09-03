@@ -68,6 +68,9 @@ fun ProfileView(
     sharedMediaViewModel: SharedMediaViewModel = hiltViewModel(),
     onNavigateToSharedMedia: (String) -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
+    onNavigateToSearch: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToMore: () -> Unit = {},
     onShortClick: (Post) -> Unit = {},
     onNavigateToMediaViewer: (String, String, Long) -> Unit = { _, _, _ -> },
     onNavigateToPostDetail: (String) -> Unit = {},
@@ -91,6 +94,7 @@ fun ProfileView(
     var remoteUser by remember(userId) { mutableStateOf<User?>(null) }
     var profileRefreshNonce by remember(userId) { mutableIntStateOf(0) }
     var isFollowUpdating by remember(userId) { mutableStateOf(false) }
+    val dismissedSuggestedUserIds = remember { mutableStateListOf<String>() }
 
     LaunchedEffect(isMyProfile) {
         if (isMyProfile) {
@@ -160,13 +164,13 @@ fun ProfileView(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { /* TODO: Search */ }) {
+                        IconButton(onClick = onNavigateToSearch) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
-                        IconButton(onClick = { /* TODO: Notifications */ }) {
+                        IconButton(onClick = onNavigateToNotifications) {
                             Icon(Icons.Default.NotificationsNone, contentDescription = "Notifications")
                         }
-                        IconButton(onClick = { /* TODO: More */ }) {
+                        IconButton(onClick = onNavigateToMore) {
                             Icon(Icons.Default.MoreVert, contentDescription = "More")
                         }
                     },
@@ -383,9 +387,16 @@ fun ProfileView(
                             }
 
                             Button(
-                                onClick = { 
+                                onClick = {
                                     if (isMyProfile) {
-                                        // onNavigateToSharedMedia("inbox")
+                                        val shareUrl = "https://firstapp.app/u/${user?.username ?: currentUser.username}"
+                                        val shareText = "Check out my profile on FirstApp: $shareUrl"
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                                        }
+                                        val chooser = android.content.Intent.createChooser(intent, "Share profile")
+                                        context.startActivity(chooser)
                                     } else if (user != null) {
                                         com.example.firstapp.common.util.GlobalNavigation.navigateTo(
                                             com.example.firstapp.ui.navigation.Screen.Chat.createRoute(user.id, type = "initiate")
@@ -409,7 +420,8 @@ fun ProfileView(
                             val uiState by mediaViewModel.uiState.collectAsState()
                             val suggestedUsers = uiState.suggestedUsers
                             
-                            if (suggestedUsers.isNotEmpty()) {
+                            val visibleSuggestedUsers = suggestedUsers.filterNot { it.id in dismissedSuggestedUserIds }
+                            if (visibleSuggestedUsers.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Text(
                                     "Suggested for you",
@@ -422,10 +434,20 @@ fun ProfileView(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(suggestedUsers) { contact ->
+                                    items(visibleSuggestedUsers) { contact ->
                                         SuggestedUserCard(
                                             contact = contact,
-                                            onFollow = { mediaViewModel.followUser(contact.id) }
+                                            onDismiss = {
+                                                if (!dismissedSuggestedUserIds.contains(contact.id)) {
+                                                    dismissedSuggestedUserIds.add(contact.id)
+                                                }
+                                            },
+                                            onFollow = {
+                                                if (!dismissedSuggestedUserIds.contains(contact.id)) {
+                                                    dismissedSuggestedUserIds.add(contact.id)
+                                                }
+                                                mediaViewModel.followUser(contact.id)
+                                            }
                                         )
                                     }
                                 }
@@ -652,6 +674,7 @@ fun ProfileView(
 @Composable
 fun SuggestedUserCard(
     contact: Contact,
+    onDismiss: () -> Unit = {},
     onFollow: () -> Unit
 ) {
     Card(
@@ -663,7 +686,7 @@ fun SuggestedUserCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             IconButton(
-                onClick = { /* TODO: Dismiss */ },
+                onClick = onDismiss,
                 modifier = Modifier.align(Alignment.TopEnd).size(28.dp).padding(4.dp)
             ) {
                 Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))

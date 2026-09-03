@@ -18,7 +18,7 @@ object StoryAdInjector {
      * Takes raw user stories and drops an initialized AdStory placeholder
      * at defined thresholds (e.g., every 3rd or 4th position).
      */
-    fun injectAds(stories: List<UserStory>, ads: List<NativeAd>, interval: Int = 3): List<StoryItemWrapper> {
+    fun injectAds(stories: List<UserStory>, ads: List<NativeAd>, interval: Int = 4): List<StoryItemWrapper> {
         val result = mutableListOf<StoryItemWrapper>()
         var adIndex = 0
         

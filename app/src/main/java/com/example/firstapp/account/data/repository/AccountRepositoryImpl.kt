@@ -9,6 +9,9 @@ import com.example.firstapp.chat.data.repository.mapApiContact
 import com.example.firstapp.common.model.PrivacySettings
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.common.util.UriRequestBody
+import android.content.Context
+import android.net.Uri
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -263,6 +266,30 @@ class AccountRepositoryImpl @Inject constructor(
             val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
             val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
             
+            val response = mediaApi.uploadMedia(body, folderBody)
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!))
+            } else {
+                emit(Resource.Error("Upload failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Upload error: ${e.localizedMessage}"))
+        } finally {
+            if (file.path.contains("/cache/")) {
+                file.delete()
+            }
+        }
+    }
+
+    override fun uploadUri(context: Context, uri: Uri, folder: String?): Flow<Resource<UploadResponse>> = flow {
+        emit(Resource.Loading())
+        try {
+            val resolver = context.contentResolver
+            val mediaType = resolver.getType(uri)?.toMediaTypeOrNull()
+            val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "upload"
+            val body = MultipartBody.Part.createFormData("file", name, UriRequestBody(resolver, uri, mediaType))
+            val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
             val response = mediaApi.uploadMedia(body, folderBody)
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!))

@@ -154,16 +154,24 @@ class UserViewModel @Inject constructor(
         }
     }
 
+    fun uploadProfilePicture(uri: android.net.Uri, context: android.content.Context, isBanner: Boolean = false) {
+        viewModelScope.launch {
+            val folder = if (isBanner) "banners" else "avatars"
+            accountRepository.uploadUri(context, uri, folder).collect { resource ->
+                if (resource is Resource.Success) {
+                    if (isBanner) updateProfile(null, null, null, null, resource.data?.url)
+                    else updateProfile(null, null, null, resource.data?.url)
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = "Failed to upload image: ${resource.message}"
+                }
+            }
+        }
+    }
+
     fun onAvatarSelected(context: Context, uri: Uri) {
         viewModelScope.launch {
             _toastMessage.value = "Updating avatar..."
-            val file = MediaUtils.processImageForAvatar(context, uri)
-            if (file == null) {
-                _toastMessage.value = "Failed to process image"
-                return@launch
-            }
-
-            userRepository.updateAvatar(file).collect { resource ->
+            userRepository.updateAvatar(context, uri).collect { resource ->
                 if (resource is Resource.Success && resource.data != null) {
                     val url = resource.data!!
                     val current = currentUser.value

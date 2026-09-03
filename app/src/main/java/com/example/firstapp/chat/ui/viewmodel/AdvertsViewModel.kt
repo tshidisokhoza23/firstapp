@@ -9,6 +9,7 @@ import com.example.firstapp.common.data.ads.RewardedAdPoolManager
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.chat.domain.repository.AdRepository
 import com.example.firstapp.chat.model.Advert
+import com.example.firstapp.chat.rewards.data.RewardsManager
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi

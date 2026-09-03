@@ -99,7 +99,7 @@ class WebSocketManager @Inject constructor(
             .url(wsUrl)
             .build()
 
-        Log.d("WebSocketManager", "Connecting to $wsUrl")
+        Log.d("WebSocketManager", "Connecting to configured chat websocket")
         okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.i("WebSocketManager", "WebSocket Opened")

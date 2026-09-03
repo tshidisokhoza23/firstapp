@@ -127,13 +127,7 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _updateState.value = Resource.Loading()
             
-            val file = MediaUtils.processImageForAvatar(context, uri)
-            if (file == null) {
-                _updateState.value = Resource.Error("Failed to process image")
-                return@launch
-            }
-
-            userRepository.updateAvatar(file).collect { resource ->
+            userRepository.updateAvatar(context, uri).collect { resource ->
                 _updateState.value = resource
                 if (resource is Resource.Success) {
                     val current = (_profileUser.value as? Resource.Success)?.data

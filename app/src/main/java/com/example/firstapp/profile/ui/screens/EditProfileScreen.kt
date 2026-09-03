@@ -49,10 +49,7 @@ fun EditProfileScreen(
 
     val bannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let {
-            val file = MediaUtils.getFileFromUri(context, it)
-            if (file != null) {
-                userViewModel.uploadProfilePicture(file, true)
-            }
+            userViewModel.uploadProfilePicture(it, context, true)
         }
     }
 

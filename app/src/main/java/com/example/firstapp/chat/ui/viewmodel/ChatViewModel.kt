@@ -466,10 +466,8 @@ class ChatViewModel @Inject constructor(
 
     fun updateChatAvatar(chatId: String, uri: android.net.Uri) {
         viewModelScope.launch {
-            val file = com.example.firstapp.common.util.MediaUtils.processImageForAvatar(com.example.firstapp.common.util.ContextProvider.context, uri)
-            if (file != null) {
-                // 1. Optimistic Update (Immediate Local)
-                repository.updateChatAvatar(chatId, uri.toString())
+            val context = com.example.firstapp.common.util.ContextProvider.context
+            repository.updateChatAvatar(chatId, uri.toString())
                 
                 // If it's my own profile chat, update the global session user and local DB too
                 if (chatId == sessionManager.getUserId()) {
@@ -481,7 +479,7 @@ class ChatViewModel @Inject constructor(
                 }
                 
                 // 2. Network Upload
-                accountRepository.uploadFile(file, "avatars").collect { res ->
+                accountRepository.uploadUri(context, uri, "avatars").collect { res ->
                     if (res is Resource.Success && res.data != null) {
                         val serverUrl = res.data.url
                         repository.updateChatAvatar(chatId, serverUrl)
@@ -493,12 +491,10 @@ class ChatViewModel @Inject constructor(
                             // TODO: Add ChatApi.updateGroupAvatar if needed
                         }
                         
-                        file.delete()
                     } else if (res is Resource.Error) {
                         _uiState.update { it.copy(error = res.message) }
                     }
                 }
-            }
         }
     }
 
@@ -543,6 +539,46 @@ class ChatViewModel @Inject constructor(
                 }
             }
             _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    fun sendMediaMessage(chatId: String, uri: android.net.Uri, context: android.content.Context, type: String, name: String? = null, duration: String? = null) {
+        viewModelScope.launch {
+            val clientUuid = java.util.UUID.randomUUID().toString()
+            val finalType = if (type == "audio" || type == "audio_message") "audio_message" else type
+            val bodyText = name ?: type.replaceFirstChar { it.uppercase() }
+            val fileName = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "media"
+            val myUserId = sessionManager.getUserId() ?: "0"
+            repository.saveMessage(chatId, Message(
+                id = clientUuid,
+                conversationId = chatId,
+                content = bodyText,
+                senderId = myUserId,
+                senderName = "You",
+                timestamp = System.currentTimeMillis(),
+                isFromMe = true,
+                status = MessageStatus.PENDING,
+                type = try { MessageType.valueOf(finalType.uppercase()) } catch(_: Exception) { MessageType.TEXT },
+                mediaUrls = listOf(uri.toString()),
+                clientId = clientUuid,
+                duration = duration,
+                fileName = fileName
+            ))
+            _uiState.update { it.copy(isLoading = true) }
+            accountRepository.uploadUri(context, uri, "chat/$type").collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    sendMessage(chatId, bodyText, finalType, listOf(res.data.url), duration, fileName, null, null, null, null, null, null, null, null, clientUuid, null)
+                } else if (res is Resource.Error) {
+                    _uiState.update { it.copy(error = res.message) }
+                }
+            }
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    fun sendMediaMessages(chatId: String, uris: List<android.net.Uri>, context: android.content.Context, type: String, caption: String? = null) {
+        uris.forEachIndexed { index, uri ->
+            sendMediaMessage(chatId, uri, context, type, if (index == 0) caption else null)
         }
     }
 

@@ -374,7 +374,7 @@ fun ShortItem(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(currentUserAvatarUrl)
+                    val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(short.authorAvatarUrl)
                     if (formattedUrl != null) {
                         AsyncImage(
                             model = formattedUrl,

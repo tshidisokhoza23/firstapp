@@ -7,19 +7,15 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.RatingBar
 import android.widget.TextView
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdLoader
@@ -109,21 +105,6 @@ fun NativeAdCard(
                 update = { adView ->
                     populateNativeAdView(nativeAd!!, adView)
                 }
-            )
-        }
-    } else {
-        // Placeholder while loading or if failed
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Loading Advertisement...", 
-                color = Color.Gray, 
-                fontSize = 12.sp
             )
         }
     }

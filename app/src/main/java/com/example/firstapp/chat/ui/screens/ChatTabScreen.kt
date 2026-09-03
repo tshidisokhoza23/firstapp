@@ -504,7 +504,7 @@ fun ChatsListScreen(
                                                 }
                                                 navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
                                             },
-                                            onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.id)) },
+                                            onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.userId.ifBlank { story.id })) },
                                             onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
                                             onTextStoryClick = { navController.navigate(Screen.Story.createRoute(showComposer = true)) },
                                             onArchivedClick = { navController.navigate(Screen.ArchivedChats.route) },

@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.media3.common.util.UnstableApi
+import com.google.android.gms.ads.nativead.NativeAd
 import androidx.paging.compose.LazyPagingItems
 import com.example.firstapp.media.data.ShortsVideoCache
 import com.example.firstapp.media.model.Post
@@ -31,6 +32,7 @@ fun ShortsList(
     adManager: com.example.firstapp.common.data.ads.AdManager,
     shorts: LazyPagingItems<com.example.firstapp.media.model.Post>,
     shortsViewModel: com.example.firstapp.media.ui.viewmodel.MediaViewModel,
+    preloadedAds: List<Any> = emptyList(),
     currentUserAvatarUrl: String? = null,
     ownUserId: String? = null,
     bottomPadding: Dp,
@@ -44,19 +46,19 @@ fun ShortsList(
     if (shorts.itemCount == 0) return
 
     val context = LocalContext.current
-    val adFrequency = 4
+    val validPreloadedAds = preloadedAds.filterIsInstance<NativeAd>()
     val totalPageCount = if (shorts.itemCount > 0) {
-        shorts.itemCount + (shorts.itemCount / (adFrequency - 1))
+        shorts.itemCount + minOf(validPreloadedAds.size, shorts.itemCount / 4)
     } else 0
 
     val pagerState = rememberPagerState(pageCount = { totalPageCount })
     
     fun getShortIndex(page: Int): Int {
-        val adsBefore = page / adFrequency
+        val adsBefore = page / 5
         return page - adsBefore
     }
 
-    fun isAdPage(page: Int): Boolean = (page + 1) % adFrequency == 0
+    fun isAdPage(page: Int): Boolean = page % 5 == 4
 
     LaunchedEffect(initialShortId) {
         if (initialShortId != null && shorts.itemCount > 0) {
@@ -70,7 +72,7 @@ fun ShortsList(
             }
             if (foundShortIndex != -1) {
                 // Map short index back to page index
-                val pageIndex = foundShortIndex + (foundShortIndex / (adFrequency - 1))
+                val pageIndex = foundShortIndex + (foundShortIndex / 4)
                 if (pageIndex < totalPageCount) {
                     pagerState.scrollToPage(pageIndex)
                     onShortDisplayed()
@@ -117,12 +119,14 @@ fun ShortsList(
                     .background(Color.Black)
                     .padding(bottom = bottomPadding) // REQUIREMENT: Avoid nav bar clipping
             ) {
-                com.example.firstapp.common.ui.components.DynamicAdCard(
-                    adManager = adManager,
-                    adUnitId = AdUnitConfig.NATIVE_SHORTS_ID,
-                    modifier = Modifier.fillMaxSize(),
-                    isShortsAd = true
-                )
+                val adIndex = page / 5
+                if (adIndex < validPreloadedAds.size) {
+                    com.example.firstapp.common.ui.components.StaticAdCard(
+                    nativeAd = validPreloadedAds[adIndex],
+                        modifier = Modifier.fillMaxSize(),
+                        layoutResId = com.example.firstapp.R.layout.item_short_native_ad
+                    )
+                }
             }
         } else {
             val shortIndex = getShortIndex(page)

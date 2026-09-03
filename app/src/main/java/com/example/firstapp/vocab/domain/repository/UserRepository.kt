@@ -4,6 +4,8 @@ import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.profile.model.WorkExperience
 import kotlinx.coroutines.flow.Flow
+import android.content.Context
+import android.net.Uri
 
 interface UserRepository {
     fun getUserData(userId: String): Flow<User?>
@@ -21,6 +23,7 @@ interface UserRepository {
     suspend fun buyStreakFreeze(userId: String)
     fun updateUser(displayName: String?, bio: String?, location: String?, avatarUrl: String?, bannerUrl: String? = null, isArtist: Boolean? = null): Flow<Resource<User>>
     fun updateAvatar(file: java.io.File): Flow<Resource<String>>
+    fun updateAvatar(context: Context, uri: Uri): Flow<Resource<String>>
     fun forgotPassword(emailOrUsername: String): Flow<Resource<Boolean>>
     fun googleSignIn(idToken: String): Flow<Resource<com.example.firstapp.common.data.api.AuthResponse>>
     fun completeProfile(displayName: String?, username: String?, phoneNumber: String?, categories: List<String>? = null): Flow<Resource<User>>

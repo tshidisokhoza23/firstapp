@@ -57,13 +57,12 @@ fun StoryScreen(
     onDeleteStory: (String) -> Unit,
     onStoryViewed: (String, String) -> Unit,
     onMuteStory: (String, Boolean) -> Unit,
-    onReply: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateToNewStory: () -> Unit = {}
 ) {
     val context = LocalContext.current
     
     var viewingUserStory by remember { 
-        mutableStateOf(if (initialPlay) stories.find { it.id == initialViewingUserId } else null)
+        mutableStateOf(if (initialPlay) stories.find { it.id == initialViewingUserId || it.userId == initialViewingUserId } else null)
     }
     var viewingStoryIndex by remember { mutableIntStateOf(0) }
 
@@ -78,6 +77,7 @@ fun StoryScreen(
     var usersViewedCount by remember { mutableIntStateOf(0) }
     var loadedAdObject by remember { mutableStateOf<Any?>(null) }
     var isAdLoading by remember { mutableStateOf(false) }
+    var nextUserIndexAfterAd by remember { mutableIntStateOf(-1) }
 
     // Preload ad as soon as we start viewing
     LaunchedEffect(viewingUserStory) {
@@ -182,7 +182,7 @@ fun StoryScreen(
     // Initial play logic
     LaunchedEffect(initialViewingUserId, initialPlay, stories) {
         if (initialPlay && initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-            val story = stories.find { it.id == initialViewingUserId }
+            val story = stories.find { it.id == initialViewingUserId || it.userId == initialViewingUserId }
             if (story != null) {
                 viewingUserStory = story
                 viewingStoryIndex = 0
@@ -190,10 +190,9 @@ fun StoryScreen(
         }
     }
 
-    // Reset ad counters when closing viewer
+    // Release an ad when the viewer closes; keep the user cadence for this screen session.
     LaunchedEffect(viewingUserStory) {
         if (viewingUserStory == null) {
-            usersViewedCount = 0
             loadedAdObject?.let { adManager.destroyAd(it) }
             loadedAdObject = null
             isAdLoading = false
@@ -281,19 +280,12 @@ fun StoryScreen(
                 val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
                 if (storyId != null) {
                     if (viewingUserStory?.id != "system_ad") {
-                        onStoryViewed(viewingUserStory!!.id, storyId)
+                          onStoryViewed(viewingUserStory!!.userId.ifBlank { viewingUserStory!!.id }, storyId)
                     }
                 }
             },
             onDeleteStory = { storyId ->
                 onDeleteStory(storyId)
-            },
-            onReply = { text ->
-                val storyId = viewingUserStory?.stories?.getOrNull(viewingStoryIndex)?.id
-                if (storyId != null) {
-                    onReply(viewingUserStory!!.userId, storyId, text)
-                    Toast.makeText(context, "Reply sent", Toast.LENGTH_SHORT).show()
-                }
             },
             onFinish = { 
                 if (viewingUserStory?.id != "system_ad") {
@@ -301,12 +293,10 @@ fun StoryScreen(
                 }
 
                 val adObj = loadedAdObject
-                // Trigger ad after every 2 users, OR after the very last user
-                val isAdTriggered = (usersViewedCount > 0 && usersViewedCount % 2 == 0) || 
-                                   (usersViewedCount == storiesWithAds.size)
+                val isAdTriggered = usersViewedCount > 0 && usersViewedCount % 4 == 0
 
                 if (isAdTriggered && adObj != null && viewingUserStory?.id != "system_ad") {
-                    // Inject Ad after user's playlist is finished
+                    nextUserIndexAfterAd = (storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id } + 1)
                     viewingUserStory = UserStory(
                         id = "system_ad",
                         userName = "Sponsored",
@@ -331,8 +321,10 @@ fun StoryScreen(
                         viewingUserStory = storiesWithAds[currentIndex + 1]
                         viewingStoryIndex = 0
                     } else if (viewingUserStory?.id == "system_ad") {
-                        if (usersViewedCount < storiesWithAds.size) {
-                            viewingUserStory = storiesWithAds[usersViewedCount]
+                        val nextIndex = nextUserIndexAfterAd
+                        nextUserIndexAfterAd = -1
+                        if (nextIndex in storiesWithAds.indices) {
+                            viewingUserStory = storiesWithAds[nextIndex]
                             viewingStoryIndex = 0
                         } else {
                             viewingUserStory = null
@@ -346,6 +338,20 @@ fun StoryScreen(
                     }
                 }
             },
+              onNavigateToUser = { direction ->
+                  val currentIndex = storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id }
+                  val nextIndex = currentIndex + direction
+                  if (nextIndex in storiesWithAds.indices) {
+                      viewingUserStory = storiesWithAds[nextIndex]
+                      viewingStoryIndex = 0
+                  } else {
+                      if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                          onBack()
+                      } else {
+                          viewingUserStory = null
+                      }
+                  }
+              },
             onClose = {
                 if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                     onBack()
@@ -503,7 +509,7 @@ fun StoryScreen(
                         },
                         onLongClick = { storyToMute = item }
                     )
-                    if ((idx + 1) % 5 == 0) {
+                    if ((idx + 1) % 4 == 0) {
                         com.example.firstapp.common.ui.components.NativeAdCard(
                             adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

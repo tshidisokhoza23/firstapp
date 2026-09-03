@@ -31,7 +31,6 @@ import com.example.firstapp.common.ui.viewmodel.UserViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.media.ui.screens.SearchTopBar
-import java.io.File
 import kotlin.collections.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,6 +61,7 @@ fun ShortsTabScreen(
     var activeShortIdForComments by remember { mutableStateOf<String?>(null) }
     var activeShortForMoreMenu by remember { mutableStateOf<Post?>(null) }
     val shortRepliesState by mediaViewModel.shortReplies.collectAsState()
+    val preloadedShortAds by mediaViewModel.preloadedShortAds.collectAsState()
 
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -117,6 +117,7 @@ fun ShortsTabScreen(
                     adManager = adManager,
                     shorts = shortsPagingItems,
                     shortsViewModel = mediaViewModel,
+                    preloadedAds = preloadedShortAds,
                     currentUserAvatarUrl = currentUser.avatarUrl,
                     ownUserId = currentUser.id,
                     bottomPadding = bottomPadding,
@@ -194,8 +195,8 @@ fun ShortsTabScreen(
         if (showUploadDialog) {
             UploadShortDialog(
                 onDismiss = { showUploadDialog = false },
-                onUpload = { file, desc ->
-                    mediaViewModel.createPost(desc, java.util.Arrays.asList(file.absolutePath), postType = "short", mediaType = "video")
+                onUpload = { uri, desc ->
+                    mediaViewModel.createPost(desc, java.util.Arrays.asList(uri.toString()), postType = "short", mediaType = "video")
                     showUploadDialog = false
                 }
             )
@@ -309,7 +310,7 @@ fun ShortsTopOverlay(
 @Composable
 fun UploadShortDialog(
     onDismiss: () -> Unit,
-    onUpload: (File, String) -> Unit
+    onUpload: (android.net.Uri, String) -> Unit
 ) {
     val context = LocalContext.current
     var description by remember { mutableStateOf("") }
@@ -352,8 +353,7 @@ fun UploadShortDialog(
                 onClick = {
                     val uri = selectedVideoUri
                     if (uri != null) {
-                        val file = com.example.firstapp.common.util.MediaUtils.getFileFromUri(context, uri)
-                        if (file != null) onUpload(file, description)
+                        onUpload(uri, description)
                     }
                 },
                 enabled = selectedVideoUri != null

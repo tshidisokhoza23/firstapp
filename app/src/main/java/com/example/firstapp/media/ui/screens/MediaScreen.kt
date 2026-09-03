@@ -622,15 +622,6 @@ fun MainFeedSection(
                                     nativeAd = preloadedAds[adIndex],
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
-                            } else {
-                                DynamicAdCard(
-                                    adManager = adManager,
-                                    adUnitId = com.example.firstapp.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                    onAdRevenuePaid = { rev ->
-                                        onAdRevenueLogged(post.id, rev, "main_feed")
-                                    }
-                                )
                             }
                         }
                 }

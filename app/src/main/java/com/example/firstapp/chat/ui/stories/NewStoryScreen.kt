@@ -51,6 +51,14 @@ fun NewStoryScreen(
         }
     }
 
+    val editorLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.data?.let { selectedMediaUri = it }
+        }
+    }
+
     var videoDurationMs by remember { mutableLongStateOf(0L) }
     LaunchedEffect(selectedMediaUri) {
         if (selectedMediaUri != null && mediaType == "video") {
@@ -92,7 +100,7 @@ fun NewStoryScreen(
                                     setDataAndType(selectedMediaUri, if (mediaType == "video") "video/*" else "image/*")
                                     flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                                 }
-                                context.startActivity(intent)
+                                editorLauncher.launch(intent)
                             } catch (e: Exception) {
                                 android.widget.Toast.makeText(context, "No editor found on device.", android.widget.Toast.LENGTH_SHORT).show()
                             }
@@ -158,7 +166,7 @@ fun NewStoryScreen(
                                         setDataAndType(selectedMediaUri, if (mediaType == "video") "video/*" else "image/*")
                                         flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                                     }
-                                    context.startActivity(intent)
+                                        editorLauncher.launch(intent)
                                 } catch (e: Exception) {
                                     android.widget.Toast.makeText(context, "No editor found", android.widget.Toast.LENGTH_SHORT).show()
                                 }
@@ -233,7 +241,7 @@ fun NewStoryScreen(
                                                 setDataAndType(selectedMediaUri, "video/*")
                                                 flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                                             }
-                                            context.startActivity(intent)
+                                            editorLauncher.launch(intent)
                                         } catch (e: Exception) {
                                             android.widget.Toast.makeText(context, "No video editor found", android.widget.Toast.LENGTH_SHORT).show()
                                         }

@@ -109,6 +109,15 @@ fun NavGraphBuilder.profileNavGraph(
             onNavigateToEditProfile = {
                 navController.navigate(Screen.EditProfile.route)
             },
+            onNavigateToSearch = {
+                navController.navigate(Screen.Main.createRoute(tab = "social"))
+            },
+            onNavigateToNotifications = {
+                navController.navigate(Screen.NotificationSettings.route)
+            },
+            onNavigateToMore = {
+                navController.navigate(Screen.Settings.route)
+            },
             onShortClick = { short ->
                 navController.navigate(Screen.Main.createRoute(tab = "scroll", shortId = short.id))
             },

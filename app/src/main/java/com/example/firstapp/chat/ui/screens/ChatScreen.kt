@@ -206,21 +206,11 @@ fun ChatMessagesScreen(
     }
 
     fun sendMediaMessage(uri: Uri, type: String, name: String? = null, duration: String? = null) {
-        scope.launch {
-            val file = MediaUtils.getFileFromUri(context, uri)
-            if (file != null) {
-                chatViewModel.sendMediaMessage(chat.id, file, type, name, duration)
-            }
-        }
+        chatViewModel.sendMediaMessage(chat.id, uri, context, type, name, duration)
     }
 
     fun sendMediaMessages(uris: List<Uri>, type: String, caption: String? = null) {
-        scope.launch {
-            val files = uris.mapNotNull { MediaUtils.getFileFromUri(context, it) }
-            if (files.isNotEmpty()) {
-                chatViewModel.sendMediaMessages(chat.id, files, type, caption)
-            }
-        }
+        chatViewModel.sendMediaMessages(chat.id, uris, context, type, caption)
     }
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> 
@@ -416,11 +406,8 @@ fun ChatMessagesScreen(
         // Pass captured amplitudes
         val amps = capturedAmplitudes.toList()
         
-        scope.launch {
-            val file = MediaUtils.getFileFromUri(context, uri)
-            if (file != null) {
-                chatViewModel.sendMediaMessage(chat.id, file, "audio_message", "Voice Note", durationLabel, amps)
-            }
+        uri.path?.let { path ->
+            chatViewModel.sendMediaMessage(chat.id, File(path), "audio_message", "Voice Note", durationLabel, amps)
         }
         
         reviewingVoiceNoteUri = null
@@ -557,7 +544,7 @@ fun ChatMessagesScreen(
             !it.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
         } ?: cachedName
         
-        name ?: if (currentChat.type == ConversationType.CHANNEL) "Channel" else currentChat.id
+        name ?: if (currentChat.type == ConversationType.CHANNEL) "Channel" else "Contact"
     }
 
     if (showSchedulePicker) {
@@ -1112,6 +1099,7 @@ fun MediaPreviewOverlay(
     onSend: (String, List<Uri>) -> Unit
 ) {
     var caption by remember { mutableStateOf("") }
+    val context = LocalContext.current
     
     Box(
         modifier = Modifier
@@ -1204,18 +1192,27 @@ fun MediaPreviewOverlay(
                                 contentScale = ContentScale.Fit
                             )
                         } else if (type == "video") {
+                            val previewPlayer = remember(uri) {
+                                androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                    setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
+                                    prepare()
+                                    playWhenReady = false
+                                }
+                            }
+                            DisposableEffect(previewPlayer) {
+                                onDispose { previewPlayer.release() }
+                            }
                             Box(contentAlignment = Alignment.Center) {
-                                AsyncImage(
-                                    model = uri,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
-                                    contentScale = ContentScale.Fit
-                                )
-                                Icon(
-                                    Icons.Default.PlayCircle,
-                                    null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(64.dp).background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                                AndroidView(
+                                    factory = { viewContext ->
+                                        androidx.media3.ui.PlayerView(viewContext).apply {
+                                            player = previewPlayer
+                                            useController = true
+                                            controllerShowTimeoutMs = 2500
+                                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp)
                                 )
                             }
                         } else {

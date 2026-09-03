@@ -100,10 +100,7 @@ fun MediaChatScreen(
                     val mediaLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: android.net.Uri? ->
                         if (uri != null) {
                             val context = com.example.firstapp.common.util.ContextProvider.context
-                            val file = com.example.firstapp.common.util.MediaUtils.getFileFromUri(context, uri)
-                            if (file != null) {
-                                viewModel.sendMediaMessage(userId, file, "image")
-                            }
+                            viewModel.sendMediaMessage(userId, uri, context, "image")
                         }
                     }
                     IconButton(onClick = { mediaLauncher.launch("image/*") }) {

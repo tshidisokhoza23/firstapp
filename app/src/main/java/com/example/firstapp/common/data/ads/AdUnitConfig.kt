@@ -15,7 +15,9 @@ object AdUnitConfig {
     // Set current environment (In a real project, this might come from Build Variants / Flavors)
     private val currentEnvironment: Environment = when {
         BuildConfig.DEBUG -> Environment.SIT
-        BuildConfig.BUILD_TYPE == "beta" -> Environment.BETA
+        BuildConfig.FLAVOR == "beta" -> Environment.BETA
+        BuildConfig.FLAVOR == "uat" -> Environment.UAT
+        BuildConfig.FLAVOR == "sit" -> Environment.SIT
         else -> Environment.PROD
     }
 

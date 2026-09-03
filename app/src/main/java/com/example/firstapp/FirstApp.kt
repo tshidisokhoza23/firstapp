@@ -7,13 +7,13 @@ import androidx.work.WorkManager
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import com.example.firstapp.common.data.worker.SyncWorker
+import com.example.firstapp.common.util.ContactSyncWorker
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
 
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
-import coil.disk.DiskCache
 import coil.memory.MemoryCache
 
 import androidx.work.Configuration
@@ -49,12 +49,6 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
                     .maxSizePercent(0.15)
                     .build()
             }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache"))
-                    .maxSizeBytes(100 * 1024 * 1024)
-                    .build()
-            }
             .crossfade(true)
             .build()
     }
@@ -79,6 +73,15 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
                 "message_sync",
                 ExistingPeriodicWorkPolicy.KEEP,
                 request
+            )
+
+            val contactRequest = PeriodicWorkRequestBuilder<ContactSyncWorker>(1, TimeUnit.HOURS)
+                .setConstraints(constraints)
+                .build()
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "contact_sync",
+                ExistingPeriodicWorkPolicy.KEEP,
+                contactRequest
             )
         } catch (e: Exception) {
             android.util.Log.e("TJ", "Failed to schedule sync", e)

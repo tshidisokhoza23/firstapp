@@ -36,6 +36,7 @@ class MediaViewModel @Inject constructor(
 
     private val _shortReplies = MutableStateFlow<Resource<List<Post>>>(Resource.Success(emptyList()))
     val shortReplies: StateFlow<Resource<List<Post>>> = _shortReplies.asStateFlow()
+    private var shortRepliesPostId: String? = null
 
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
@@ -52,6 +53,8 @@ class MediaViewModel @Inject constructor(
 
     private val _preloadedAds = MutableStateFlow<List<Any>>(emptyList())
     val preloadedAds: StateFlow<List<Any>> = _preloadedAds.asStateFlow()
+    private val _preloadedShortAds = MutableStateFlow<List<Any>>(emptyList())
+    val preloadedShortAds: StateFlow<List<Any>> = _preloadedShortAds.asStateFlow()
 
     private val _adsLoaded = MutableStateFlow(false)
     val adsLoaded: StateFlow<Boolean> = _adsLoaded.asStateFlow()
@@ -99,6 +102,13 @@ class MediaViewModel @Inject constructor(
                     android.util.Log.e("MediaViewModel", "Native ad preload failed: $error")
                     _adsLoaded.value = true // Continue anyway
                 }
+            )
+            adManager.loadNativeAds(
+                context = context,
+                adUnitId = AdUnitConfig.NATIVE_SHORTS_ID,
+                count = 8,
+                onAdsLoaded = { ads -> _preloadedShortAds.value = ads },
+                onAdFailed = { _preloadedShortAds.value = emptyList() }
             )
         }
     }
@@ -254,13 +264,11 @@ class MediaViewModel @Inject constructor(
 
                 if (uriStr.startsWith("content://") || uriStr.startsWith("file://") || uriStr.startsWith("/")) {
                     try {
-                        val file = MediaUtils.copyUriToTempFile(context, uri)
-                        if (file != null) {
+                        if (uri != null) {
                             var uploadSuccess = false
-                            accountRepository.uploadFile(file, "posts").collect { res ->
+                            accountRepository.uploadUri(context, uri, "posts").collect { res ->
                                 if (res is Resource.Success && res.data != null) {
                                     finalUrls.add(res.data.url)
-                                    file.delete()
                                     uploadSuccess = true
                                 } else if (res is Resource.Error) {
                                     _toastMessage.value = "Upload failed: ${res.message}"
@@ -511,11 +519,14 @@ class MediaViewModel @Inject constructor(
 
     fun fetchShortReplies(postId: String) {
         android.util.Log.d("MediaViewModel", "fetchShortReplies called for post: $postId")
+        shortRepliesPostId = postId
         viewModelScope.launch {
             _shortReplies.value = Resource.Loading()
             socialRepository.getReplies(postId).collect { resource ->
                 android.util.Log.d("MediaViewModel", "fetchShortReplies received resource: ${resource::class.simpleName}, count=${resource.data?.size ?: 0}")
-                _shortReplies.value = resource
+                if (shortRepliesPostId == postId) {
+                    _shortReplies.value = resource
+                }
             }
         }
     }

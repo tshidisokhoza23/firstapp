@@ -98,8 +98,10 @@ fun MainScreen(
     }
 
     val hasHistory = viewModel.hasTabHistory()
-    BackHandler(enabled = (selectedIndex != 0 && selectedIndex != 5) || (selectedIndex == 5) || hasHistory) {
-        if (selectedIndex == 5) {
+    BackHandler(enabled = initialShortId != null && initialShortId.isNotBlank() || (selectedIndex != 0 && selectedIndex != 5) || (selectedIndex == 5) || hasHistory) {
+        if (initialShortId != null && initialShortId.isNotBlank()) {
+            navController.popBackStack()
+        } else if (selectedIndex == 5) {
             // Dismiss "More" sheet overlay and return to prior tab
             viewModel.setSelectedBottomItem(lastActiveTab.intValue)
         } else {

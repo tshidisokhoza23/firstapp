@@ -28,22 +28,20 @@ fun DynamicAdCard(
 ) {
     val context = LocalContext.current
     var adObject by remember { mutableStateOf<Any?>(null) }
-    var loadFailed by remember { mutableStateOf(false) }
-
     DisposableEffect(adUnitId) {
         if (isBanner) {
             adManager.loadBannerAd(
                 context = context,
                 adUnitId = adUnitId,
                 onAdLoaded = { adObject = it },
-                onAdFailed = { loadFailed = true }
+                onAdFailed = { }
             )
         } else if (isShortsAd) {
             adManager.loadShortsNativeAd(
                 context = context,
                 adUnitId = adUnitId,
                 onAdLoaded = { adObject = it },
-                onAdFailed = { loadFailed = true },
+                onAdFailed = { },
                 onAdRevenuePaid = onAdRevenuePaid
             )
         } else {
@@ -51,7 +49,7 @@ fun DynamicAdCard(
                 context = context,
                 adUnitId = adUnitId,
                 onAdLoaded = { adObject = it },
-                onAdFailed = { loadFailed = true },
+                onAdFailed = { },
                 onAdRevenuePaid = onAdRevenuePaid
             )
         }
@@ -60,12 +58,7 @@ fun DynamicAdCard(
         }
     }
 
-    if (loadFailed || adObject == null) {
-        if (isShortsAd) {
-            ShortsAdShimmer()
-        } else if (!isBanner) {
-            MediaAdShimmer()
-        }
+    if (adObject == null) {
         return
     }
 
