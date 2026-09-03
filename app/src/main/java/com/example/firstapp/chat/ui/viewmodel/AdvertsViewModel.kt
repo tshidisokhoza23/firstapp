@@ -8,7 +8,6 @@ import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.data.ads.RewardedAdPoolManager
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.chat.domain.repository.AdRepository
-import com.example.firstapp.chat.rewards.data.RewardsManager
 import com.example.firstapp.chat.model.Advert
 import com.example.firstapp.vocab.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -100,6 +99,12 @@ class AdvertsViewModel @Inject constructor(
                     userId = user.id,
                     onRewardEarned = {
                         markAdvertAsViewed(advertId)
+                        viewModelScope.launch {
+                            // AdMob SSV is asynchronous; refresh the profile after the
+                            // callback has had time to update the authoritative balance.
+                            delay(5000)
+                            userRepository.getCurrentUser().collectLatest { }
+                        }
                     }
                 )
             }
@@ -133,33 +138,13 @@ class AdvertsViewModel @Inject constructor(
             val isVirtual = advertId.startsWith("virtual_ad_")
             
             if (isVirtual) {
-                // For virtual ads, we skip repository tracking but still award points authoritatively
-                awardPointsAuthoritatively(advertId)
+                // Virtual slots are local placeholders and cannot produce a valid AdMob SSV reward.
+                return@launch
             } else {
                 repository.markAdvertViewed(advertId).collect { result ->
-                    if (result is Resource.Success && result.data == true) {
-                        awardPointsAuthoritatively(advertId)
-                    }
+                    if (result is Resource.Success && result.data == true) fetchAdverts()
                 }
             }
         }
-    }
-
-    private suspend fun awardPointsAuthoritatively(advertId: String) {
-        // Try to award points authoritatively via backend
-        RewardsManager.awardPoints(
-            amount = 10.0,
-            source = "REWARDED_AD",
-            description = "Viewed rewarded ad $advertId"
-        )
-        
-        // Give the backend a moment to sync with AdMob SSV (if applicable)
-        delay(2000)
-        
-        // Authoritatively refresh balance from server
-        RewardsManager.refreshBalance()
-        
-        // Also refresh user profile to update wallet balance in UI
-        userRepository.getCurrentUser().collectLatest { }
     }
 }

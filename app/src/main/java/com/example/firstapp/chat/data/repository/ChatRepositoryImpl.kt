@@ -647,22 +647,34 @@ class ChatRepositoryImpl @Inject constructor(
             // Huawei/Privacy Safety: If we have permission but the list is empty, don't clear remote list.
             // An empty list here usually means system restriction or transient error, 
             // and syncing it would hide all stories for the user.
-            if (deviceContacts.isEmpty() && phoneNumbers.isEmpty()) {
-                Log.w("ChatRepository", "Skipping contact sync: No local contacts found (Safety Trigger)")
+            val savedContacts = userApi.getSavedContacts().body().orEmpty()
+            if (deviceContacts.isEmpty() && phoneNumbers.isEmpty() && savedContacts.isEmpty()) {
+                Log.w("ChatRepository", "Skipping contact sync: No local contacts found")
                 val existing = contactDaoProvider.get().getContacts().first()
                 emit(Resource.Success(existing.map { it.toModel() }))
                 return@flow
             }
 
-            val numbersToSync = (phoneNumbers + deviceContacts.map { it.phoneNumber }).distinct()
+            val localByPhone = deviceContacts.associateBy { it.phoneNumber }
+            val persistResponse = userApi.syncAccountContacts(
+                SyncAccountContactsRequest(
+                    deviceContacts.map { AccountContactDTO(it.displayName, it.phoneNumber) }
+                )
+            )
+            if (!persistResponse.isSuccessful) {
+                Log.w("ChatRepository", "Named contact persistence failed: ${persistResponse.code()}")
+            }
+            val savedByPhone = savedContacts.associateBy { it.phone_number }
+            val numbersToSync = (phoneNumbers + deviceContacts.map { it.phoneNumber } + savedContacts.map { it.phone_number }).distinct()
             val response = userApi.syncContacts(SyncContactsRequest(numbersToSync))
             if (response.isSuccessful && response.body() != null) {
                 val apiUsers = response.body()!!.contacts
                 val registeredContacts = apiUsers.map { apiUser ->
-                    val localMatch = deviceContacts.find { it.phoneNumber == apiUser.phone_number }
+                    val localMatch = apiUser.phone_number?.let { localByPhone[it] }
+                    val savedMatch = apiUser.phone_number?.let { savedByPhone[it] }
                     Contact(
                         id = apiUser.id, username = apiUser.username,
-                        displayName = localMatch?.displayName ?: apiUser.display_name,
+                        displayName = localMatch?.displayName ?: savedMatch?.name ?: apiUser.display_name,
                         avatarUrl = apiUser.avatar_url, phoneNumber = apiUser.phone_number ?: "",
                         isRegistered = true
                     )
@@ -670,15 +682,17 @@ class ChatRepositoryImpl @Inject constructor(
                 // Also keep non-registered device contacts so the full address book is shown
                 // (the UI renders them with an "Invite" action for people not on the app yet).
                 val registeredPhones = apiUsers.mapNotNull { it.phone_number }.toSet()
-                val nonRegisteredContacts = deviceContacts
-                    .filter { it.phoneNumber.isNotBlank() && it.phoneNumber !in registeredPhones }
+                val allSavedContacts = (deviceContacts.map { AccountContactDTO(it.displayName, it.phoneNumber) } + savedContacts)
+                    .distinctBy { it.phone_number }
+                val nonRegisteredContacts = allSavedContacts
+                    .filter { it.phone_number.isNotBlank() && it.phone_number !in registeredPhones }
                     .map { deviceContact ->
                         Contact(
-                            id = "phone:${deviceContact.phoneNumber}",
-                            username = deviceContact.phoneNumber,
-                            displayName = deviceContact.displayName,
+                            id = "phone:${deviceContact.phone_number}",
+                            username = deviceContact.phone_number,
+                            displayName = deviceContact.name,
                             avatarUrl = null,
-                            phoneNumber = deviceContact.phoneNumber,
+                            phoneNumber = deviceContact.phone_number,
                             isRegistered = false
                         )
                     }
