@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -101,7 +102,9 @@ fun ShortsTabScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.VideoLibrary, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(16.dp))
-                            Text("No shorts found", color = Color.White.copy(alpha = 0.7f), fontSize = 16.sp)
+                            Text("No shorts found", color = Color.White.copy(alpha = 0.9f), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Be the first to post!", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
                             if (loadState.refresh is androidx.paging.LoadState.Error) {
                                 Text((loadState.refresh as androidx.paging.LoadState.Error).error.localizedMessage ?: "Network error", color = Color.Red.copy(alpha = 0.5f), fontSize = 12.sp)
                             }

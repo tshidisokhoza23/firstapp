@@ -526,6 +526,8 @@ fun MainFeedSection(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(text = "No posts yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text(text = "Be the first to post!", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             }
             return
         }
