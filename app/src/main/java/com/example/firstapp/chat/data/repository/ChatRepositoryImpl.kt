@@ -22,6 +22,8 @@ import com.example.firstapp.common.data.realtime.WSEnvelope
 import com.example.firstapp.common.data.api.UserApi
 import com.example.firstapp.common.data.api.ApiUser
 import com.example.firstapp.common.data.api.SyncContactsRequest
+import com.example.firstapp.common.data.api.SyncAccountContactsRequest
+import com.example.firstapp.common.data.api.AccountContactDTO
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.chat.rewards.data.RewardsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -658,7 +660,7 @@ class ChatRepositoryImpl @Inject constructor(
             val localByPhone = deviceContacts.associateBy { it.phoneNumber }
             val persistResponse = userApi.syncAccountContacts(
                 SyncAccountContactsRequest(
-                    deviceContacts.map { AccountContactDTO(it.displayName, it.phoneNumber) }
+                    deviceContacts.map { AccountContactDTO(name = it.displayName, phone_number = it.phoneNumber) }
                 )
             )
             if (!persistResponse.isSuccessful) {
@@ -682,7 +684,7 @@ class ChatRepositoryImpl @Inject constructor(
                 // Also keep non-registered device contacts so the full address book is shown
                 // (the UI renders them with an "Invite" action for people not on the app yet).
                 val registeredPhones = apiUsers.mapNotNull { it.phone_number }.toSet()
-                val allSavedContacts = (deviceContacts.map { AccountContactDTO(it.displayName, it.phoneNumber) } + savedContacts)
+                val allSavedContacts = (deviceContacts.map { AccountContactDTO(name = it.displayName, phone_number = it.phoneNumber) } + savedContacts)
                     .distinctBy { it.phone_number }
                 val nonRegisteredContacts = allSavedContacts
                     .filter { it.phone_number.isNotBlank() && it.phone_number !in registeredPhones }
