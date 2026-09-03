@@ -535,7 +535,7 @@ fun AttachmentPreview(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = message.contactName ?: "Contact", color = contentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(text = message.contactName?.takeIf { it.isNotBlank() } ?: message.contactPhone ?: "", color = contentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text(text = message.contactPhone ?: "", color = contentColor.copy(alpha = 0.7f), fontSize = 12.sp)
                 }
                 IconButton(onClick = {

@@ -99,7 +99,7 @@ class SessionManagerImpl @Inject constructor(
     override val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     init {
-        scope.launch {
+        try {
             val p = getPrefs()
             val token = p.getString(KEY_TOKEN, null)
             val userData = p.getString(KEY_USER_DATA, null)
@@ -114,6 +114,8 @@ class SessionManagerImpl @Inject constructor(
                 }
                 _authState.value = true
             }
+        } catch (e: Exception) {
+            Log.e("SessionManager", "Init error", e)
         }
     }
 

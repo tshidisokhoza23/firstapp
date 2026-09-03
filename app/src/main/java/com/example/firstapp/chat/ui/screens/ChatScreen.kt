@@ -544,7 +544,7 @@ fun ChatMessagesScreen(
             !it.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
         } ?: cachedName
         
-        name ?: if (currentChat.type == ConversationType.CHANNEL) "Channel" else "Contact"
+        name ?: currentChat.phoneNumber?.takeIf { it.isNotBlank() } ?: if (currentChat.type == ConversationType.CHANNEL) "Channel" else ""
     }
 
     if (showSchedulePicker) {
