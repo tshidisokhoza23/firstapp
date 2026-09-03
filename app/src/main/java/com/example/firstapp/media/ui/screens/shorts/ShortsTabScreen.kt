@@ -106,11 +106,12 @@ fun ShortsTabScreen(
                             Spacer(Modifier.height(4.dp))
                             Text("Be the first to post!", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
                             if (loadState.refresh is androidx.paging.LoadState.Error) {
+                                Spacer(Modifier.height(8.dp))
                                 Text((loadState.refresh as androidx.paging.LoadState.Error).error.localizedMessage ?: "Network error", color = Color.Red.copy(alpha = 0.5f), fontSize = 12.sp)
-                            }
-                            Spacer(Modifier.height(16.dp))
-                            Button(onClick = { shortsPagingItems.retry() }) {
-                                Text("Retry")
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { shortsPagingItems.retry() }) {
+                                    Text("Retry")
+                                }
                             }
                         }
                     }
