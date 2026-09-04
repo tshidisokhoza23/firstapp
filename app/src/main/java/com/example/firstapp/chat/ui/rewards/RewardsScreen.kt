@@ -128,10 +128,10 @@ fun RewardsScreen(
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            Icons.Default.MonetizationOn,
-                                            contentDescription = null,
+                                            Icons.Default.Stars,
+                                            contentDescription = "Coin",
                                             tint = com.example.firstapp.common.ui.theme.NiceOrange,
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(28.dp)
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         val pointsText = if (dash.total_points % 1.0 == 0.0) {
@@ -171,15 +171,17 @@ fun RewardsScreen(
                             )
                         }
 
-                        items(availableTasks) { task ->
-                            val canWatch = cooldownSeconds <= 0 && dash.ads_watched_today < dash.max_daily_ads
+                        items(availableTasks.indices.toList()) { index ->
+                            val task = availableTasks[index]
+                            val isNext = index == 0
+                            val canWatch = isNext && cooldownSeconds <= 0 && dash.ads_watched_today < dash.max_daily_ads
 
                             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 TaskRow(
                                     task = task,
                                     dailyLimitReached = dash.ads_watched_today >= dash.max_daily_ads,
-                                    cooldownSeconds = cooldownSeconds,
-                                    isLocked = false,
+                                    cooldownSeconds = if (isNext) cooldownSeconds else 0,
+                                    isLocked = !isNext,
                                     onWatchClick = {
                                         if (canWatch) {
                                             android.util.Log.d("RewardsScreen", "Watch clicked for task: ${task.id}")
