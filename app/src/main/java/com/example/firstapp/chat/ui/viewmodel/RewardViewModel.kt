@@ -174,7 +174,7 @@ class RewardViewModel @Inject constructor(
                 android.widget.Toast.makeText(context, "Earned 10 reward points!", android.widget.Toast.LENGTH_LONG).show()
             }
             fetchDashboard()
-            userRepository.getCurrentUser().collectLatest { }
+            userRepository.getCurrentUser().firstOrNull()
         }
     }
 }
