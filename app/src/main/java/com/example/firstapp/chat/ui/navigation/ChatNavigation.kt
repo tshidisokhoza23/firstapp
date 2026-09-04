@@ -167,10 +167,12 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     if (resource is Resource.Success<String> && resource.data != null) {
                         resolvedChatId = resource.data
                         targetUserId = chatId
+                        chatViewModel.fetchMessages(resource.data)
                     }
                 }
             } else {
                 resolvedChatId = chatId
+                chatViewModel.fetchMessages(chatId)
             }
         }
 

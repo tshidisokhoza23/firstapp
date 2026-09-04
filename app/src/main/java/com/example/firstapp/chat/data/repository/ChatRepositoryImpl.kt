@@ -1000,7 +1000,17 @@ class ChatRepositoryImpl @Inject constructor(
         })
     }
     override suspend fun incrementUnreadCount(chatId: String) { chatDaoProvider.get().incrementUnreadCount(chatId) }
-    override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) { chatDaoProvider.get().updateLastMessage(chatId, lastMessage, time, isFromMe, isRead) }
+    override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) { 
+        val chatDao = chatDaoProvider.get()
+        val existing = chatDao.searchChatsById(chatId)
+        if (existing != null) {
+            chatDao.updateLastMessage(chatId, lastMessage, time, isFromMe, isRead)
+        } else {
+            scope.launch {
+                syncChats().collect {}
+            }
+        }
+    }
 
     override suspend fun createGroup(name: String, contactIds: List<String>): Flow<Resource<ChatMessage>> = flow {
         emit(Resource.Loading())
