@@ -87,8 +87,8 @@ fun ChatsListScreen(
 ) {
     val initialTabIndex = when(initialTab) {
         "chats" -> 0
-        "jobs" -> 1
-        "channels" -> 2
+        "channels" -> 1
+        "jobs" -> 2
         "rewards" -> 3
         else -> 3 // Default active tab on launch is Rewards
     }
@@ -98,8 +98,8 @@ fun ChatsListScreen(
         initialTab?.let {
             val idx = when(it) {
                 "chats" -> 0
-                "jobs" -> 1
-                "channels" -> 2
+                "channels" -> 1
+                "jobs" -> 2
                 "rewards" -> 3
                 else -> 3
             }
@@ -170,7 +170,7 @@ fun ChatsListScreen(
         }
     }
 
-    val tabs = listOf("Chats", "Jobs", "Channels", "Rewards")
+    val tabs = listOf("Chats", "Channels", "Jobs", "Rewards")
 
     Scaffold(
         topBar = {
@@ -196,8 +196,8 @@ fun ChatsListScreen(
                         if (isSearchActive) {
                             val searchType = when (selectedTabItem) {
                                 0 -> SearchType.CHATS
-                                1 -> SearchType.JOBS
-                                2 -> SearchType.CHANNELS
+                                1 -> SearchType.CHANNELS
+                                2 -> SearchType.JOBS
                                 else -> SearchType.GLOBAL
                             }
                             TextField(
@@ -209,8 +209,8 @@ fun ChatsListScreen(
                                 placeholder = { 
                                     val hint = when (selectedTabItem) {
                                         0 -> "Search chats, contacts, messages..."
-                                        1 -> "Search jobs, companies..."
-                                        2 -> "Search channels..."
+                                        1 -> "Search channels..."
+                                        2 -> "Search jobs, companies..."
                                         else -> "Search..."
                                     }
                                     Text(hint, color = Color.Gray) 
@@ -308,8 +308,8 @@ fun ChatsListScreen(
         bottomBar = {
             if (selectedTabItem != 0) {
                 val adUnitId = when (selectedTabItem) {
-                    1 -> AdUnitConfig.BANNER_JOBS_ID
-                    2 -> AdUnitConfig.BANNER_CHANNELS_ID
+                    1 -> AdUnitConfig.BANNER_CHANNELS_ID
+                    2 -> AdUnitConfig.BANNER_JOBS_ID
                     3 -> AdUnitConfig.BANNER_REWARDS_ID
                     else -> AdUnitConfig.BANNER_MAIN_ID
                 }
@@ -365,11 +365,11 @@ fun ChatsListScreen(
                         }
                         1 -> {
                             ListItem(
-                                headlineContent = { Text("Wallet", color = MaterialTheme.colorScheme.onSurface) },
-                                leadingContent = { Icon(Icons.Default.AccountBalanceWallet, null, tint = Color.Green) },
+                                headlineContent = { Text("Create Channel", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
                                 modifier = Modifier.clickable { 
                                     showTopMoreSheet = false
-                                    navController.navigate(Screen.Wallet.route) 
+                                    navController.navigate(Screen.CreateChannel.route)
                                 },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -387,11 +387,11 @@ fun ChatsListScreen(
                         }
                         3 -> {
                             ListItem(
-                                headlineContent = { Text("Add Channel", color = MaterialTheme.colorScheme.onSurface) },
-                                leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                headlineContent = { Text("Wallet", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.AccountBalanceWallet, null, tint = Color.Green) },
                                 modifier = Modifier.clickable { 
                                     showTopMoreSheet = false
-                                    navController.navigate(Screen.CreateChannel.route)
+                                    navController.navigate(Screen.Wallet.route) 
                                 },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -533,34 +533,6 @@ fun ChatsListScreen(
                                     if (isSearchActive && searchQuery.length > 0) {
                                         SearchResultsView(
                                             results = searchResults,
-                                            type = SearchType.JOBS,
-                                            autoplayEnabled = autoplayEnabled,
-                                            autoplayGifsEnabled = autoplayGifsEnabled,
-                                            onChatClick = {},
-                                            onMessageClick = {},
-                                            onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
-                                            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
-                                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                                        )
-                                    } else {
-                                        DataStateHandler(jobsState) { jobs -> 
-                                            JobList(jobs, topBarHeight = 0.dp) { 
-                                                navController.navigate(Screen.JobDetail.createRoute(it.id)) 
-                                            } 
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        2 -> {
-                            val searchResults by searchViewModel.searchResults.collectAsState()
-                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
-                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    if (isSearchActive && searchQuery.length > 0) {
-                                        SearchResultsView(
-                                            results = searchResults,
                                             type = SearchType.CHANNELS,
                                             autoplayEnabled = autoplayEnabled,
                                             autoplayGifsEnabled = autoplayGifsEnabled,
@@ -581,6 +553,34 @@ fun ChatsListScreen(
                                             onSubscribe = { id -> channelsViewModel.subscribeToChannel(id) }
                                         ) 
                                     }
+                                    }
+                                }
+                            }
+                        }
+                        2 -> {
+                            val searchResults by searchViewModel.searchResults.collectAsState()
+                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
+                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (isSearchActive && searchQuery.length > 0) {
+                                        SearchResultsView(
+                                            results = searchResults,
+                                            type = SearchType.JOBS,
+                                            autoplayEnabled = autoplayEnabled,
+                                            autoplayGifsEnabled = autoplayGifsEnabled,
+                                            onChatClick = {},
+                                            onMessageClick = {},
+                                            onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
+                                            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
+                                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                                        )
+                                    } else {
+                                        DataStateHandler(jobsState) { jobs -> 
+                                            JobList(jobs, topBarHeight = 0.dp) { 
+                                                navController.navigate(Screen.JobDetail.createRoute(it.id)) 
+                                            } 
+                                        }
                                     }
                                 }
                             }

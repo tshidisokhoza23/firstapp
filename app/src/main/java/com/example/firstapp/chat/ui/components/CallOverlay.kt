@@ -215,9 +215,12 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
             AndroidView(
                 factory = { context ->
                     SurfaceViewRenderer(context).apply {
-                        callManager.attachLocalRenderer(this)
                         setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                        setEnableHardwareScaler(true)
                     }
+                },
+                update = { view ->
+                    callManager.attachLocalRenderer(view)
                 },
                 modifier = Modifier.fillMaxSize(),
                 onRelease = { callManager.detachLocalRenderer() }

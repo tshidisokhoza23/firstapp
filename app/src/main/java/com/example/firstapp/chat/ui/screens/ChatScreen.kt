@@ -458,7 +458,7 @@ fun ChatMessagesScreen(
         }
     }
 
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.lastOrNull()?.id, messages.lastOrNull()?.status, messages.size) {
         if (messages.isNotEmpty()) {
             // Mark as read if we are on the screen
             chatViewModel.markAsRead(chat.id)
@@ -571,7 +571,7 @@ fun ChatMessagesScreen(
                         isSearchMode = isSearchMode,
                         chatSearchQuery = chatSearchQuery,
                         selectedMessagesCount = selectedMessages.size,
-                        isTyping = uiState.typingStatus[currentChat.id] ?: false,
+                        isTyping = (uiState.typingStatus[currentChat.id] ?: uiState.typingStatus[currentChat.otherUserId ?: ""]) ?: currentChat.isTyping,
                         onBack = { if (selectedMessages.isNotEmpty()) selectedMessages.clear() else onBack() },
                         onSearchQueryChange = { chatSearchQuery = it },
                         onSearchModeChange = { isSearchMode = it },
@@ -1091,6 +1091,7 @@ fun ChatMessagesScreen(
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun MediaPreviewOverlay(
     uris: List<Uri>,
