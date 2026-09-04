@@ -24,7 +24,8 @@ data class RewardsBalanceResponse(
 data class AwardPointsRequest(
     val amount: Double,
     val source: String,
-    val description: String
+    val description: String,
+    val task_id: String? = null
 )
 
 data class AwardPointsResponse(

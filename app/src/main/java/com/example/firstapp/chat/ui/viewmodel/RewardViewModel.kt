@@ -166,7 +166,12 @@ class RewardViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad task: $taskId")
+                com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(
+                    amount = 10.0,
+                    source = "REWARDED_AD",
+                    description = "Watched rewarded ad task: $taskId",
+                    taskId = taskId
+                )
             } catch (e: Exception) {
                 android.util.Log.e("RewardViewModel", "Failed to award points", e)
             }
