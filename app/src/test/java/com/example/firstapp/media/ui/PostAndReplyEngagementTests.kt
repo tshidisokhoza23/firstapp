@@ -56,7 +56,7 @@ class PostAndReplyEngagementTests {
         val postId = "123"
         coEvery { socialRepository.repostPost(postId) } returns flowOf(Resource.Success(true))
         
-        viewModel.repostPost(postId)
+        viewModel.repostPost(postId, 5L, false)
         
         coVerify { socialRepository.repostPost(postId) }
     }

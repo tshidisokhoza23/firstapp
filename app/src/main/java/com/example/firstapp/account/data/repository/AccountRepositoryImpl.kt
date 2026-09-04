@@ -12,6 +12,7 @@ import com.example.firstapp.common.util.Resource
 import com.example.firstapp.common.util.UriRequestBody
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -287,7 +288,13 @@ class AccountRepositoryImpl @Inject constructor(
         try {
             val resolver = context.contentResolver
             val mediaType = resolver.getType(uri)?.toMediaTypeOrNull()
-            val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "upload"
+            val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+                ?.takeIf { it.isNotBlank() }
+                ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+                ?: "upload${extensionForMediaType(mediaType?.toString())}"
             val body = MultipartBody.Part.createFormData("file", name, UriRequestBody(resolver, uri, mediaType))
             val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
             val response = mediaApi.uploadMedia(body, folderBody)
@@ -300,5 +307,11 @@ class AccountRepositoryImpl @Inject constructor(
             if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Upload error: ${e.localizedMessage}"))
         }
+    }
+
+    private fun extensionForMediaType(mediaType: String?): String = when {
+        mediaType?.startsWith("image/") == true -> ".jpg"
+        mediaType?.startsWith("video/") == true -> ".mp4"
+        else -> ""
     }
 }

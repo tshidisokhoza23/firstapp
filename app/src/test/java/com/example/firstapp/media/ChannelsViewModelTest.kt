@@ -2,6 +2,7 @@ package com.example.firstapp.media
 
 import com.example.firstapp.chat.ui.viewmodel.ChannelsViewModel
 import com.example.firstapp.chat.domain.repository.ChannelRepository
+import com.example.firstapp.domain.repository.ChatRepository
 import com.example.firstapp.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -13,20 +14,20 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import kotlin.collections.*
-import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChannelsViewModelTest {
 
     private lateinit var viewModel: ChannelsViewModel
     private val repository: ChannelRepository = mockk(relaxed = true)
+    private val chatRepository: ChatRepository = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { repository.getChannels() } returns flowOf(Resource.Success(emptyList()))
-        viewModel = ChannelsViewModel(repository)
+        viewModel = ChannelsViewModel(repository, chatRepository)
     }
 
     @After

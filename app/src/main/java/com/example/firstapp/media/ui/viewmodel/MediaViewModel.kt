@@ -249,8 +249,11 @@ class MediaViewModel @Inject constructor(
                      android.net.Uri.parse(uriStr)
                 }
 
-                // Expert Logic: If it's a video, generate a thumbnail
-                if (thumbnailUrl == null && MediaUtils.isVideo(uriStr)) {
+                val isVideo = context.contentResolver.getType(uri)?.startsWith("video/") == true ||
+                    MediaUtils.isVideo(uriStr)
+
+                // Generate a thumbnail for the first selected video.
+                if (thumbnailUrl == null && isVideo) {
                     val thumbFile = MediaUtils.getVideoThumbnail(context, uri)
                     if (thumbFile != null) {
                         accountRepository.uploadFile(thumbFile, "thumbnails").collect { res ->
@@ -288,7 +291,7 @@ class MediaViewModel @Inject constructor(
             }
             
             val finalMediaType = if (postType == "short") "VIDEO" else (mediaType ?: if (finalUrls.size > 0) {
-                if (com.example.firstapp.common.util.MediaUtils.isVideo(finalUrls[0])) "VIDEO" else "IMAGE"
+                if (isMediaVideo(context, mediaUris.firstOrNull(), finalUrls[0])) "VIDEO" else "IMAGE"
             } else "TEXT")
 
             if (finalUrls.size == 0 && content.length == 0 && (pollOptions == null || pollOptions.size == 0) && repostOfId == null) {
@@ -317,6 +320,13 @@ class MediaViewModel @Inject constructor(
     }
 
     fun clearToast() { _toastMessage.value = null }
+
+    private fun isMediaVideo(context: android.content.Context, sourceUri: String?, uploadedUrl: String): Boolean {
+        val uri = sourceUri?.let { android.net.Uri.parse(it) }
+        return (uri != null && context.contentResolver.getType(uri)?.startsWith("video/") == true) ||
+            MediaUtils.isVideo(sourceUri) ||
+            MediaUtils.isVideo(uploadedUrl)
+    }
 
     fun trackEngagement(
         postId: String, 
