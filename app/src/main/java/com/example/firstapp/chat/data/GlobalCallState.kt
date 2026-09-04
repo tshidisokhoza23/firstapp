@@ -73,8 +73,6 @@ object GlobalCallState {
         contactNames[userId] = name
         // Also map the phone number if available
         phone?.let { contactPhones[userId] = it }
-        
-        android.util.Log.d("GlobalCallState", "Updated contact info: $userId -> $name")
     }
 
     fun getContactName(id: String): String? {
