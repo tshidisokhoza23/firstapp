@@ -72,7 +72,8 @@ object RewardsManager {
                 )
             )
             if (response.isSuccessful) {
-                refreshBalance()
+                response.body()?.balance?.let { _balance.value = it }
+                response.body()?.balance != null || refreshBalance()
             } else {
                 false
             }
