@@ -85,6 +85,9 @@ interface ChatDao {
     @Query("UPDATE messages SET isRead = 1, status = 'READ' WHERE conversationId = :chatId AND isFromMe = 1")
     suspend fun markOutgoingAsRead(chatId: String)
 
+    @Query("UPDATE messages SET isDelivered = 1, status = 'DELIVERED' WHERE conversationId = :chatId AND isFromMe = 1")
+    suspend fun markOutgoingAsDelivered(chatId: String)
+
     @Query("UPDATE messages SET isDelivered = 1, status = 'DELIVERED' WHERE id = :messageId")
     suspend fun markAsDelivered(messageId: String)
 

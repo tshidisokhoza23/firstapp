@@ -281,6 +281,51 @@ class ChatRepositoryImpl @Inject constructor(
                             }
                         }
                     }
+                    "presence", "PRESENCE", "presence_update" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            try {
+                                val userId = (payload["user_id"] ?: payload["userId"])?.toString()?.trim('"')
+                                val isOnline = (payload["is_online"] ?: payload["isOnline"])?.toString()?.toBoolean() ?: false
+                                val lastSeen = (payload["last_seen"] ?: payload["lastSeen"])?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
+                                if (userId != null) {
+                                    Log.d("ChatRepository", "Updating presence via WS: user $userId -> online=$isOnline")
+                                    chatDao.updatePresence(userId, isOnline, lastSeen)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("ChatRepository", "Failed to decode presence event", e)
+                            }
+                        }
+                    }
+                    "READ_RECEIPT", "READ", "read_receipt" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            try {
+                                val convId = (payload["conversation_id"] ?: payload["chat_id"])?.toString()?.trim('"')
+                                if (convId != null) {
+                                    Log.d("ChatRepository", "Updating outgoing messages to READ via WS for conv: $convId")
+                                    chatDao.markOutgoingAsRead(convId)
+                                    chatDao.markOutgoingLastMessageAsRead(convId)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("ChatRepository", "Failed to decode READ_RECEIPT event", e)
+                            }
+                        }
+                    }
+                    "DELIVERY_RECEIPT", "DELIVERED", "delivery_receipt" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            try {
+                                val convId = (payload["conversation_id"] ?: payload["chat_id"])?.toString()?.trim('"')
+                                if (convId != null) {
+                                    Log.d("ChatRepository", "Updating outgoing messages to DELIVERED via WS for conv: $convId")
+                                    chatDao.markOutgoingAsDelivered(convId)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("ChatRepository", "Failed to decode DELIVERY_RECEIPT event", e)
+                            }
+                        }
+                    }
                     "MSG_ACK" -> {
                         val payload = envelope.payload
                         if (payload != null) {
