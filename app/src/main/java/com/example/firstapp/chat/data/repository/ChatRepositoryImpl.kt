@@ -159,7 +159,7 @@ class ChatRepositoryImpl @Inject constructor(
         val topic = envelope.topic ?: ""
         
         when {
-            topic == "chat" || topic.startsWith("chat:") -> {
+            topic == "chat" || topic.startsWith("chat:") || topic.startsWith("user:") -> {
                 Log.v("ChatRepository", "Handling chat event: ${envelope.event} on topic: $topic")
                 when (envelope.event) {
                     "message", "INCOMING_MSG" -> {
@@ -512,6 +512,7 @@ class ChatRepositoryImpl @Inject constructor(
                 val apiChats = response.body()!!.chats
                 
                 val entities = apiChats.map { chat ->
+                    val contactDao = contactDaoProvider.get()
                     val mapped = mapApiChatSummary(chat)
                     var finalName = ""
                     
@@ -519,10 +520,17 @@ class ChatRepositoryImpl @Inject constructor(
                         val phone = chat.phone_number ?: ""
                         val title = chat.title ?: ""
                         val otherId = chat.contact_id ?: ""
-                        finalName = displayNameResolver.resolve(
+                        
+                        val localContact = if (otherId.isNotBlank()) contactDao.getContactById(otherId) else null
+                        val localName = localContact?.displayName?.takeIf { it.isNotBlank() }
+                        
+                        finalName = localName ?: displayNameResolver.resolve(
                             com.example.firstapp.common.model.User(id = otherId, displayName = title),
                             phone
                         )
+                        if (finalName.isBlank()) {
+                            finalName = phone.ifBlank { localContact?.username ?: "" }
+                        }
                     } else {
                         val fallback = if (mapped.type == com.example.firstapp.common.model.ConversationType.CHANNEL) "Channel" else "Group"
                         finalName = if (chat.title.isNotBlank() && 

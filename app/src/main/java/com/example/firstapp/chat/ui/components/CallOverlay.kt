@@ -158,26 +158,21 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
             )
 
             // PiP View (Local by default)
-            Surface(
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(top = 16.dp, end = 16.dp)
                     .size(width = 120.dp, height = 180.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { isLocalFullScreen = !isLocalFullScreen },
-                shape = RoundedCornerShape(12.dp),
-                color = Color.Black,
-                tonalElevation = 12.dp,
-                shadowElevation = 12.dp
+                    .clickable { isLocalFullScreen = !isLocalFullScreen }
             ) {
                 AndroidView(
                     factory = { context ->
                         SurfaceViewRenderer(context).apply {
+                            setZOrderMediaOverlay(true)
                             setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                             setEnableHardwareScaler(true)
-                            // CRITICAL: Ensure this view is always on top of the background video
-                            setZOrderMediaOverlay(true)
                         }
                     },
                     update = { view ->

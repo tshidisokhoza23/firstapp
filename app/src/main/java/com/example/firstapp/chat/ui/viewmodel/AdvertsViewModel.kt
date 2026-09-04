@@ -101,9 +101,15 @@ class AdvertsViewModel @Inject constructor(
                     onRewardEarned = {
                         markAdvertAsViewed(advertId)
                         viewModelScope.launch {
-                            // AdMob SSV is asynchronous; refresh the profile after the
-                            // callback has had time to update the authoritative balance.
-                            delay(5000)
+                            try {
+                                val success = com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad")
+                                if (success) {
+                                    _toastMessage.value = "Earned 10 reward points!"
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("AdvertsViewModel", "Failed to award points", e)
+                            }
+                            delay(2000)
                             userRepository.getCurrentUser().collectLatest { }
                         }
                     }
