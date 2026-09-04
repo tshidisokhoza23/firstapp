@@ -86,20 +86,22 @@ fun ChatsListScreen(
     mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val initialTabIndex = when(initialTab) {
-        "rewards" -> 1
-        "jobs" -> 2
-        "channels" -> 3
-        else -> 0
+        "chats" -> 0
+        "jobs" -> 1
+        "channels" -> 2
+        "rewards" -> 3
+        else -> 3 // Default active tab on launch is Rewards
     }
     var selectedTabItem by rememberSaveable { mutableIntStateOf(initialTabIndex) }
     
     LaunchedEffect(initialTab) {
         initialTab?.let {
             val idx = when(it) {
-                "rewards" -> 1
-                "jobs" -> 2
-                "channels" -> 3
-                else -> 0
+                "chats" -> 0
+                "jobs" -> 1
+                "channels" -> 2
+                "rewards" -> 3
+                else -> 3
             }
             selectedTabItem = idx
         }
@@ -163,12 +165,12 @@ fun ChatsListScreen(
     // }
 
     LaunchedEffect(selectedTabItem) {
-        if (selectedTabItem == 1) {
+        if (selectedTabItem == 3) {
             advertsViewModel.initializePool(context, AdUnitConfig.REWARDED_POINTS_ID)
         }
     }
 
-    val tabs = listOf("Chats", "Rewards", "Jobs", "Channels")
+    val tabs = listOf("Chats", "Jobs", "Channels", "Rewards")
 
     Scaffold(
         topBar = {
@@ -194,8 +196,8 @@ fun ChatsListScreen(
                         if (isSearchActive) {
                             val searchType = when (selectedTabItem) {
                                 0 -> SearchType.CHATS
-                                2 -> SearchType.JOBS
-                                3 -> SearchType.CHANNELS
+                                1 -> SearchType.JOBS
+                                2 -> SearchType.CHANNELS
                                 else -> SearchType.GLOBAL
                             }
                             TextField(
@@ -207,8 +209,8 @@ fun ChatsListScreen(
                                 placeholder = { 
                                     val hint = when (selectedTabItem) {
                                         0 -> "Search chats, contacts, messages..."
-                                        2 -> "Search jobs, companies..."
-                                        3 -> "Search channels..."
+                                        1 -> "Search jobs, companies..."
+                                        2 -> "Search channels..."
                                         else -> "Search..."
                                     }
                                     Text(hint, color = Color.Gray) 
@@ -306,9 +308,9 @@ fun ChatsListScreen(
         bottomBar = {
             if (selectedTabItem != 0) {
                 val adUnitId = when (selectedTabItem) {
-                    1 -> AdUnitConfig.BANNER_REWARDS_ID
-                    2 -> AdUnitConfig.BANNER_JOBS_ID
-                    3 -> AdUnitConfig.BANNER_CHANNELS_ID
+                    1 -> AdUnitConfig.BANNER_JOBS_ID
+                    2 -> AdUnitConfig.BANNER_CHANNELS_ID
+                    3 -> AdUnitConfig.BANNER_REWARDS_ID
                     else -> AdUnitConfig.BANNER_MAIN_ID
                 }
                 Column {
@@ -523,12 +525,6 @@ fun ChatsListScreen(
                             }
                         }
                         1 -> {
-                            RewardsScreen(
-                                viewModel = rewardViewModel,
-                                topBarHeight = 0.dp
-                            )
-                        }
-                        2 -> {
                             val searchResults by searchViewModel.searchResults.collectAsState()
                             val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
                             val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
@@ -556,7 +552,7 @@ fun ChatsListScreen(
                                 }
                             }
                         }
-                        3 -> {
+                        2 -> {
                             val searchResults by searchViewModel.searchResults.collectAsState()
                             val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
                             val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
@@ -588,6 +584,12 @@ fun ChatsListScreen(
                                     }
                                 }
                             }
+                        }
+                        3 -> {
+                            RewardsScreen(
+                                viewModel = rewardViewModel,
+                                topBarHeight = 0.dp
+                            )
                         }
                     }
                 }
