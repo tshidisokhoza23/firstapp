@@ -18,6 +18,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -165,14 +166,14 @@ class RewardViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val success = com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad task: $taskId")
-                if (success) {
-                    android.widget.Toast.makeText(context, "Earned 10 reward points!", android.widget.Toast.LENGTH_SHORT).show()
-                    fetchDashboard()
-                }
+                com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad task: $taskId")
             } catch (e: Exception) {
                 android.util.Log.e("RewardViewModel", "Failed to award points", e)
             }
+            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                android.widget.Toast.makeText(context, "Earned 10 reward points!", android.widget.Toast.LENGTH_LONG).show()
+            }
+            fetchDashboard()
             userRepository.getCurrentUser().collectLatest { }
         }
     }

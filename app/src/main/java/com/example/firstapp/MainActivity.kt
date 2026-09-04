@@ -550,8 +550,6 @@ class MainActivity : FragmentActivity() {
                     lifecycleScope.launch {
                         try {
                             chatRepository.refreshLocalChatNames()
-                            val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(this@MainActivity)
-                            chatRepository.syncContacts(phoneNumbers).collect {}
                         } catch (_: Exception) {}
                     }
                 }

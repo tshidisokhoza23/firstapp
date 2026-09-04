@@ -141,7 +141,7 @@ interface SocialApi {
     suspend fun getChannels(): Response<ChannelsResponse>
 
     @POST("chats/channels")
-    suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiPost>
+    suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiChannel>
 
     @POST("chats/channels/{channelId}/subscribe")
     suspend fun subscribeToChannel(@Path("channelId") channelId: String): Response<StatusResponse>
