@@ -6,6 +6,7 @@ import android.util.Log
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.gms.ads.rewarded.ServerSideVerificationOptions
@@ -102,6 +103,7 @@ class RewardedAdPoolManager @Inject constructor() {
 
         Log.i(TAG, "Triggering refill. Current pool size: ${pool.size}")
         try {
+            MobileAds.initialize(context)
             loadAdInternal(context, adUnitId, userId)
         } catch (e: Exception) {
             Log.e(TAG, "Fatal error in loadAdInternal: ${e.message}")
@@ -186,7 +188,11 @@ class RewardedAdPoolManager @Inject constructor() {
 
             val elapsed = System.currentTimeMillis() - lastRewardTimestamp
             if (lastRewardTimestamp > 0 && elapsed < AD_COOLDOWN_MS) {
-                Log.w(TAG, "Ad requested during cooldown. Ignoring.")
+                val remainingSec = ((AD_COOLDOWN_MS - elapsed) / 1000).coerceAtLeast(1)
+                Log.w(TAG, "Ad requested during cooldown. Remaining: ${remainingSec}s")
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(activity, "Please wait ${remainingSec}s before watching another ad.", android.widget.Toast.LENGTH_SHORT).show()
+                }
                 return@launch
             }
 
