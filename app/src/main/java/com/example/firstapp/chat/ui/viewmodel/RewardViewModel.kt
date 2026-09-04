@@ -163,11 +163,19 @@ class RewardViewModel @Inject constructor(
     }
 
     private fun handleAdCompleted(taskId: String) {
-        // Start the cooldown immediately, but only show points after server confirmation.
+        // Start the cooldown immediately, and award 10 points via backend
         startCooldownTimer(120)
 
         viewModelScope.launch {
-            delay(2000)
+            try {
+                val success = com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad task: $taskId")
+                if (success) {
+                    android.widget.Toast.makeText(context, "Earned 10 reward points!", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RewardViewModel", "Failed to award points", e)
+            }
+            delay(1000)
             fetchDashboard()
             userRepository.getCurrentUser().collectLatest { }
         }
