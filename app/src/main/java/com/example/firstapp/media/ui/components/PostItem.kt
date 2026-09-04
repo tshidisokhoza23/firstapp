@@ -224,7 +224,6 @@ fun VerticalFeedPostCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (showThreadLine) Modifier.height(IntrinsicSize.Min) else Modifier)
             .background(Color.Transparent)
             .padding(
                 start = if (showThreadLine) (20 * depth.coerceAtMost(4)).dp else 0.dp,
