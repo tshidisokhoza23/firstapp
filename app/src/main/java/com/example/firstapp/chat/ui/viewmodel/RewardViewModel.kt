@@ -153,10 +153,7 @@ class RewardViewModel @Inject constructor(
                     handleAdCompleted(taskId)
                 },
                 onAdClosed = {
-                    android.util.Log.d("RewardViewModel", "Ad closed/failed for task: $taskId")
-                    if (!poolManager.hasAvailableAds.value) {
-                        android.widget.Toast.makeText(context, "Ad could not be loaded. Please check your connection and try again.", android.widget.Toast.LENGTH_LONG).show()
-                    }
+                    android.util.Log.d("RewardViewModel", "Ad session completed for task: $taskId")
                 }
             )
         }
@@ -171,12 +168,11 @@ class RewardViewModel @Inject constructor(
                 val success = com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad task: $taskId")
                 if (success) {
                     android.widget.Toast.makeText(context, "Earned 10 reward points!", android.widget.Toast.LENGTH_SHORT).show()
+                    fetchDashboard()
                 }
             } catch (e: Exception) {
                 android.util.Log.e("RewardViewModel", "Failed to award points", e)
             }
-            delay(1000)
-            fetchDashboard()
             userRepository.getCurrentUser().collectLatest { }
         }
     }

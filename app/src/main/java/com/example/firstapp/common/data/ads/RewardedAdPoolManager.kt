@@ -211,8 +211,47 @@ class RewardedAdPoolManager @Inject constructor() {
             }
             
             if (cachedAd == null) {
-                Log.w(TAG, "No ads available after wait. userId: $userId, adUnitId: $adUnitId.")
-                onAdClosed()
+                Log.w(TAG, "No cached ad in pool. Attempting direct load for userId: $userId")
+                val adRequest = AdRequest.Builder().build()
+                val ssvOptions = ServerSideVerificationOptions.Builder()
+                    .setUserId(userId)
+                    .setCustomData(taskId)
+                    .build()
+
+                activity.runOnUiThread {
+                    RewardedAd.load(activity, adUnitId, adRequest, object : RewardedAdLoadCallback() {
+                        override fun onAdLoaded(rewardedAd: RewardedAd) {
+                            rewardedAd.setServerSideVerificationOptions(ssvOptions)
+                            rewardedAd.fullScreenContentCallback = object : FullScreenContentCallback() {
+                                override fun onAdDismissedFullScreenContent() {
+                                    isShowingAd = false
+                                    onAdClosed()
+                                }
+
+                                override fun onAdFailedToShowFullScreenContent(err: com.google.android.gms.ads.AdError) {
+                                    isShowingAd = false
+                                    Log.e(TAG, "Failed to show direct ad: ${err.message}, granting fallback points")
+                                    lastRewardTimestamp = System.currentTimeMillis()
+                                    onRewardEarned()
+                                    onAdClosed()
+                                }
+                            }
+                            isShowingAd = true
+                            rewardedAd.show(activity) { _ ->
+                                Log.i(TAG, "User earned reward from direct ad!")
+                                lastRewardTimestamp = System.currentTimeMillis()
+                                onRewardEarned()
+                            }
+                        }
+
+                        override fun onAdFailedToLoad(error: LoadAdError) {
+                            Log.e(TAG, "Direct Ad failed to load: ${error.message}, granting fallback points")
+                            lastRewardTimestamp = System.currentTimeMillis()
+                            onRewardEarned()
+                            onAdClosed()
+                        }
+                    })
+                }
                 return@launch
             }
 
