@@ -13,6 +13,9 @@ interface StoryDao {
     @Query("SELECT * FROM stories")
     fun getStories(): Flow<List<StoryEntity>>
 
+    @Query("SELECT MAX(lastUpdatedMillis) FROM stories")
+    suspend fun getLatestStoryTimestamp(): Long?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertStories(stories: List<StoryEntity>)
 

@@ -1,93 +1,80 @@
 @file:Suppress("DEPRECATION")
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
 
 package com.example.firstapp.chat.ui.screens
 
-import androidx.hilt.navigation.compose.hiltViewModel
 import android.Manifest
-import android.content.Context
 import android.content.Intent
-import android.provider.ContactsContract
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
-import coil.compose.AsyncImage
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.ui.res.stringResource
-import com.example.firstapp.R
-import java.text.SimpleDateFormat
-import java.util.*
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.ImeAction
-import com.example.firstapp.common.model.ConversationType
-import com.example.firstapp.chat.model.*
-import com.example.firstapp.chat.data.*
-import androidx.compose.runtime.*
-import kotlin.collections.emptyList
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.gestures.*
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.core.content.ContextCompat
-import com.example.firstapp.common.util.*
-import com.example.firstapp.common.ui.theme.*
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import java.io.File
-import kotlin.collections.*
-import kotlin.text.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
+import com.example.firstapp.R
+import com.example.firstapp.chat.model.ChatMessage
+import com.example.firstapp.chat.model.Message
+import com.example.firstapp.chat.model.MessageType
+import com.example.firstapp.chat.ui.components.*
+import com.example.firstapp.chat.ui.components.expression.GifStickerPicker
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
-import com.example.firstapp.chat.ui.components.AttachmentPanel
-import com.example.firstapp.chat.ui.components.EmojiPicker
-import com.example.firstapp.chat.ui.components.ForwardDialog
-import com.example.firstapp.chat.ui.components.FullScreenImagePlayer
-import com.example.firstapp.chat.ui.components.FullScreenVideoPlayer
-import com.example.firstapp.chat.ui.components.MessageItemUnique
-import com.example.firstapp.chat.ui.components.EncryptionInfoBubble
-import com.example.firstapp.chat.ui.components.ModernDateHeader
-import com.example.firstapp.chat.ui.components.ChatBottomBarUnique
-import com.example.firstapp.chat.ui.components.ScrollToBottomButton
-import com.example.firstapp.chat.ui.components.ChatTopBar
-import com.example.firstapp.chat.ui.components.ChatMessageList
+import com.example.firstapp.common.model.ConversationType
+import com.example.firstapp.common.ui.theme.AppAccent
+import com.example.firstapp.chat.data.GlobalCallState
+import com.example.firstapp.common.util.GlobalNavigation
+import com.example.firstapp.common.util.Resource
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun JobInfoHeader(title: String, company: String) {
@@ -100,21 +87,38 @@ fun JobInfoHeader(title: String, company: String) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.BusinessCenter, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Default.BusinessCenter,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                Text(text = company, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = company,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                )
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatMessagesScreen(
     chat: ChatMessage,
@@ -128,8 +132,8 @@ fun ChatMessagesScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     val uiState by chatViewModel.uiState.collectAsState()
     val activeChat by chatViewModel.activeChat.collectAsState()
     val currentChat = activeChat ?: chat
@@ -139,34 +143,63 @@ fun ChatMessagesScreen(
     val animationsEnabled by chatViewModel.animationsEnabled.collectAsState()
     val showReadReceipts by chatViewModel.showReadReceipts.collectAsState()
 
-    var messageText by remember { mutableStateOf("") }
+    var messageText by remember(currentChat.id) { mutableStateOf("") }
     val messagesResource by chatViewModel.messages.collectAsState()
-    val messages = messagesResource.data ?: kotlin.collections.emptyList()
+    val messages = messagesResource.data.orEmpty()
     val messagesLazyListState = rememberLazyListState()
-    var lastMessageCount by remember(chat.id) { mutableIntStateOf(0) }
-    
+
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showGifPicker by remember { mutableStateOf(false) }
     var showForwardDialog by remember { mutableStateOf(false) }
     val messagesToForward = remember { mutableStateListOf<Message>() }
-    
-    var replyingToMessage by remember { mutableStateOf<Message?>(null) }
-    var editingMessage by remember { mutableStateOf<Message?>(null) }
-    val selectedMessages = remember { mutableStateListOf<String>() }
+
+    var replyingToMessage by remember(currentChat.id) { mutableStateOf<Message?>(null) }
+    var editingMessage by remember(currentChat.id) { mutableStateOf<Message?>(null) }
+    val selectedMessages = remember(currentChat.id) { mutableStateListOf<String>() }
 
     var fullScreenImageUri by remember { mutableStateOf<String?>(null) }
     var fullScreenVideoUri by remember { mutableStateOf<String?>(null) }
-    
+
     var showDeleteConfirmDialog by remember { mutableStateOf<String?>(null) }
     var deleteForEveryone by remember { mutableStateOf(false) }
-
     var showSchedulePicker by remember { mutableStateOf(false) }
 
     var selectedMediaForPreview by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var mediaPreviewType by remember { mutableStateOf("") }
+    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
-    BackHandler(enabled = fullScreenImageUri != null || fullScreenVideoUri != null || showAttachments || showEmojiPicker || showGifPicker || selectedMessages.isNotEmpty() || selectedMediaForPreview.isNotEmpty()) {
+    // Search Mode State
+    val chatSearchResults by chatViewModel.chatSearchResults.collectAsState()
+    val playingAudioUri by chatViewModel.currentlyPlayingAudio.collectAsState()
+    var isSearchMode by remember(currentChat.id) { mutableStateOf(false) }
+    var chatSearchQuery by remember(currentChat.id) { mutableStateOf("") }
+    var activeSearchId by remember(currentChat.id) { mutableStateOf<String?>(null) }
+
+    // Audio Recording State
+    var isRecording by remember { mutableStateOf(false) }
+    val capturedAmplitudes = remember { mutableStateListOf<Int>() }
+    var recordingDurationSeconds by remember { mutableIntStateOf(0) }
+    var reviewingVoiceNoteUri by remember { mutableStateOf<Uri?>(null) }
+    val reviewMediaPlayer = remember { MediaPlayer() }
+    var isPlayingReview by remember { mutableStateOf(false) }
+
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var audioFile by remember { mutableStateOf<File?>(null) }
+    var recordingJob by remember { mutableStateOf<Job?>(null) }
+    var recordingStartMs by remember { mutableLongStateOf(0L) }
+    var recordedDurationMs by remember { mutableLongStateOf(0L) }
+
+    BackHandler(
+        enabled = fullScreenImageUri != null ||
+            fullScreenVideoUri != null ||
+            showAttachments ||
+            showEmojiPicker ||
+            showGifPicker ||
+            selectedMessages.isNotEmpty() ||
+            selectedMediaForPreview.isNotEmpty() ||
+            reviewingVoiceNoteUri != null
+    ) {
         when {
             fullScreenImageUri != null -> fullScreenImageUri = null
             fullScreenVideoUri != null -> fullScreenVideoUri = null
@@ -175,154 +208,159 @@ fun ChatMessagesScreen(
             showGifPicker -> showGifPicker = false
             selectedMessages.isNotEmpty() -> selectedMessages.clear()
             selectedMediaForPreview.isNotEmpty() -> selectedMediaForPreview = emptyList()
+            reviewingVoiceNoteUri != null -> {
+                reviewingVoiceNoteUri?.path?.let { File(it).delete() }
+                reviewingVoiceNoteUri = null
+            }
         }
     }
 
-    // Media capturing
-    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
-    
+    fun showToast(msg: String) {
+        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+    }
+
     fun sendToServer(
-        body: String, 
-        messageType: String = "text", 
-        mediaUrls: List<String> = emptyList(), 
-        duration: String? = null, 
-        fileName: String? = null, 
+        body: String,
+        messageType: String = "text",
+        mediaUrls: List<String> = emptyList(),
+        duration: String? = null,
+        fileName: String? = null,
         fileSize: String? = null,
+        contactName: String? = null,
+        contactPhone: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
         scheduledAt: Long? = null
     ) {
         chatViewModel.sendMessage(
-            chatId = chat.id, 
-            body = body, 
-            messageType = messageType, 
-            mediaUrls = mediaUrls, 
-            duration = duration, 
-            fileName = fileName, 
-            fileSize = fileSize, 
+            chatId = currentChat.id,
+            body = body,
+            messageType = messageType,
+            mediaUrls = mediaUrls,
+            duration = duration,
+            fileName = fileName,
+            fileSize = fileSize,
+            contactName = contactName,
+            contactPhone = contactPhone,
+            latitude = latitude,
+            longitude = longitude,
             replyToId = replyingToMessage?.id,
             replyToText = replyingToMessage?.content,
-            replyToSenderName = if (replyingToMessage?.isFromMe == true) "You" else (replyingToMessage?.senderName ?: chat.senderName),
+            replyToSenderName = if (replyingToMessage?.isFromMe == true) "You" else (replyingToMessage?.senderName ?: currentChat.senderName),
             scheduledAt = scheduledAt
         )
         replyingToMessage = null
     }
 
-    fun sendMediaMessage(uri: Uri, type: String, name: String? = null, duration: String? = null) {
-        chatViewModel.sendMediaMessage(chat.id, uri, context, type, name, duration)
-    }
-
-    fun sendMediaMessages(uris: List<Uri>, type: String, caption: String? = null) {
-        chatViewModel.sendMediaMessages(chat.id, uris, context, type, caption)
-    }
-
-    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> 
-        if (uris.isNotEmpty()) {
-            selectedMediaForPreview = uris
-            mediaPreviewType = "image"
+    fun stopRecording(cancelled: Boolean = false) {
+        try {
+            recordingJob?.cancel()
+            recordingJob = null
+            recordedDurationMs = System.currentTimeMillis() - recordingStartMs
+            recorder?.apply {
+                stop()
+                release()
+            }
+            recorder = null
+            isRecording = false
+            if (!cancelled) {
+                audioFile?.let { reviewingVoiceNoteUri = Uri.fromFile(it) }
+            } else {
+                audioFile?.delete()
+                showToast("Recording cancelled")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            isRecording = false
         }
     }
-    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> 
-        uri?.let { 
-            selectedMediaForPreview = listOf(it)
-            mediaPreviewType = "video"
-        } 
-    }
-    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> 
-        uri?.let { 
-            selectedMediaForPreview = listOf(it)
-            mediaPreviewType = "document"
-        } 
-    }
-    val audioPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> 
-        uri?.let { 
-            selectedMediaForPreview = listOf(it)
-            mediaPreviewType = "audio"
-        } 
-    }
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success -> 
-        if (success) {
-            tempPhotoUri?.let { 
-                selectedMediaForPreview = listOf(it)
-                mediaPreviewType = "image"
-            } 
-        }
-    }
-    val contactLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
-        uri?.let {
-            try {
-                val projection = arrayOf(
-                    android.provider.ContactsContract.Contacts.DISPLAY_NAME,
-                    android.provider.ContactsContract.Contacts._ID
-                )
-                val cursor = context.contentResolver.query(it, projection, null, null, null)
-                cursor?.use { c ->
-                    if (c.moveToFirst()) {
-                        val name = c.getString(0)
-                        val id = c.getString(1)
-                        
-                        // Now get phone number
-                        val phoneCursor = context.contentResolver.query(
-                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                            arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
-                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
-                            arrayOf(id),
-                            null
-                        )
-                        phoneCursor?.use { pc ->
-                            if (pc.moveToFirst()) {
-                                val phone = pc.getString(0)
-                                chatViewModel.sendMessage(
-                                    chatId = chat.id,
-                                    body = "Shared Contact",
-                                    messageType = "contact",
-                                    contactName = name,
-                                    contactPhone = phone
-                                )
-                            }
-                        }
+
+    fun startRecording() {
+        try {
+            capturedAmplitudes.clear()
+            val file = File(context.cacheDir, "VOICE_${System.currentTimeMillis()}.m4a")
+            audioFile = file
+            val newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(context)
+            } else {
+                MediaRecorder()
+            }
+
+            newRecorder.apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
+            }
+            recorder = newRecorder
+            isRecording = true
+            recordingStartMs = System.currentTimeMillis()
+            recordingDurationSeconds = 0
+
+            recordingJob = scope.launch {
+                while (isActive && isRecording) {
+                    delay(100)
+                    val amp = try { recorder?.maxAmplitude ?: 0 } catch (_: Exception) { 0 }
+                    val normalized = (amp.toFloat() / 32767f * 100f).toInt().coerceIn(1, 100)
+                    capturedAmplitudes.add(normalized)
+
+                    if (capturedAmplitudes.size % 10 == 0) {
+                        recordingDurationSeconds++
                     }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            isRecording = false
+            showToast("Recording initialization failed")
         }
     }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted -> if (isGranted) { /* handle granted */ } }
 
-    var isRecording by remember { mutableStateOf(false) }
-    val capturedAmplitudes = remember { mutableStateListOf<Int>() }
-    var recordingDurationSeconds by remember { mutableIntStateOf(0) }
-    var reviewingVoiceNoteUri by remember { mutableStateOf<Uri?>(null) }
-    
-    // Dedicated MediaPlayer for Voice Note Review
-    val reviewMediaPlayer = remember { android.media.MediaPlayer() }
-    var isPlayingReview by remember { mutableStateOf(false) }
-    
+    fun sendVoiceNote() {
+        val uri = reviewingVoiceNoteUri ?: return
+        val seconds = (recordedDurationMs / 1000L).coerceAtLeast(1L)
+        val durationLabel = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
+        val amps = capturedAmplitudes.toList()
+
+        uri.path?.let { path ->
+            chatViewModel.sendMediaMessage(
+                currentChat.id,
+                File(path),
+                "audio_message",
+                "Voice Note",
+                durationLabel,
+                amps
+            )
+        }
+        reviewingVoiceNoteUri = null
+    }
+
+    fun discardVoiceNote() {
+        reviewingVoiceNoteUri?.path?.let { File(it).delete() }
+        reviewingVoiceNoteUri = null
+    }
+
+    // Audio Review MediaPlayer Lifecycle
     DisposableEffect(reviewingVoiceNoteUri) {
         if (reviewingVoiceNoteUri != null) {
             try {
                 reviewMediaPlayer.reset()
                 reviewMediaPlayer.setDataSource(context, reviewingVoiceNoteUri!!)
                 reviewMediaPlayer.setAudioAttributes(
-                    android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build()
                 )
                 reviewMediaPlayer.prepareAsync()
-                reviewMediaPlayer.setOnPreparedListener { 
-                    android.util.Log.d("ChatScreen", "Review player ready")
-                }
-                reviewMediaPlayer.setOnCompletionListener { 
-                    isPlayingReview = false 
+                reviewMediaPlayer.setOnCompletionListener {
+                    isPlayingReview = false
                     reviewMediaPlayer.seekTo(0)
                 }
-                reviewMediaPlayer.setOnErrorListener { _, what, extra ->
-                    android.util.Log.e("ChatScreen", "Review player error: $what, $extra")
-                    isPlayingReview = false
-                    false
-                }
             } catch (e: Exception) {
-                android.util.Log.e("ChatScreen", "Failed to setup review player", e)
+                e.printStackTrace()
             }
         }
         onDispose {
@@ -342,158 +380,83 @@ fun ChatMessagesScreen(
         }
     }
 
-    var recordingStartMs = 0L
-    var recordedDurationMs = 0L
-    var recorder: MediaRecorder? = null
-    var audioFile: File? = null
-
-    fun showToast(msg: String) { Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
-
-    fun onReact(messageId: String, emoji: String) { chatViewModel.reactToMessage(messageId, emoji) }
-    fun deleteSelectedMessages() { 
-        val canDeleteForEveryone = selectedMessages.size == 1 && (messages.find { it.id == selectedMessages.first() }?.isFromMe == true)
-        if (canDeleteForEveryone) {
-            showDeleteConfirmDialog = selectedMessages.first()
-        } else {
-            selectedMessages.forEach { chatViewModel.deleteMessage(it) }
-            selectedMessages.clear()
+    // Activity Result Launchers
+    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNotEmpty()) {
+            selectedMediaForPreview = uris
+            mediaPreviewType = "image"
         }
     }
-
-    fun startRecording() {
-        try {
-            capturedAmplitudes.clear()
-            audioFile = File(context.cacheDir, "VOICE_" + System.currentTimeMillis() + ".m4a")
-            recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context) else MediaRecorder()
-            recorder?.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setOutputFile(audioFile?.absolutePath)
-                prepare()
-                start()
+    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            selectedMediaForPreview = listOf(it)
+            mediaPreviewType = "video"
+        }
+    }
+    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            selectedMediaForPreview = listOf(it)
+            mediaPreviewType = "document"
+        }
+    }
+    val audioPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            selectedMediaForPreview = listOf(it)
+            mediaPreviewType = "audio"
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            tempPhotoUri?.let {
+                selectedMediaForPreview = listOf(it)
+                mediaPreviewType = "image"
             }
-            isRecording = true; recordingStartMs = System.currentTimeMillis(); recordingDurationSeconds = 0
-            scope.launch { 
-                while(isRecording) { 
-                    delay(100)
-                    val amp = try { recorder?.maxAmplitude ?: 0 } catch(_: Exception) { 0 }
-                    // Normalize amplitude to 0..100 range
-                    val normalized = (amp.toFloat() / 32767f * 100f).toInt().coerceIn(1, 100)
-                    capturedAmplitudes.add(normalized)
-                    
-                    if (capturedAmplitudes.size % 10 == 0) {
-                        recordingDurationSeconds++
+        }
+    }
+    val contactLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        uri?.let {
+            try {
+                val projection = arrayOf(
+                    android.provider.ContactsContract.Contacts.DISPLAY_NAME,
+                    android.provider.ContactsContract.Contacts._ID
+                )
+                context.contentResolver.query(it, projection, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val name = cursor.getString(0)
+                        val id = cursor.getString(1)
+
+                        context.contentResolver.query(
+                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+                            "${android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                            arrayOf(id),
+                            null
+                        )?.use { phoneCursor ->
+                            if (phoneCursor.moveToFirst()) {
+                                val phone = phoneCursor.getString(0)
+                                sendToServer(
+                                    body = "Shared Contact",
+                                    messageType = "contact",
+                                    contactName = name,
+                                    contactPhone = phone
+                                )
+                            }
+                        }
                     }
-                } 
-            }
-        } catch (e: Exception) { e.printStackTrace(); showToast("Recording failed") }
-    }
-    fun stopRecording(cancelled: Boolean = false) {
-        try {
-            recordedDurationMs = System.currentTimeMillis() - recordingStartMs
-            recorder?.apply { stop(); release() }; recorder = null; isRecording = false
-            if (!cancelled) {
-                audioFile?.let { reviewingVoiceNoteUri = Uri.fromFile(it) }
-            } else { audioFile?.delete(); showToast("Recording cancelled") }
-        } catch (e: Exception) { e.printStackTrace() }
-    }
-    
-    fun sendVoiceNote() {
-        val uri = reviewingVoiceNoteUri ?: return
-        val seconds = (recordedDurationMs / 1000L).coerceAtLeast(1L)
-        val durationLabel = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
-        
-        // Pass captured amplitudes
-        val amps = capturedAmplitudes.toList()
-        
-        uri.path?.let { path ->
-            chatViewModel.sendMediaMessage(chat.id, File(path), "audio_message", "Voice Note", durationLabel, amps)
-        }
-        
-        reviewingVoiceNoteUri = null
-    }
-
-    fun discardVoiceNote() {
-        reviewingVoiceNoteUri?.path?.let { File(it).delete() }
-        reviewingVoiceNoteUri = null
-    }
-
-    val chatSearchResults by chatViewModel.chatSearchResults.collectAsState()
-    val playingAudioUri by chatViewModel.currentlyPlayingAudio.collectAsState()
-    var isSearchMode by remember { mutableStateOf(false) }
-    var chatSearchQuery by remember { mutableStateOf("") }
-    var activeSearchId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(chatSearchQuery) { 
-        if (isSearchMode) {
-            chatViewModel.searchInChat(chat.id, chatSearchQuery)
-            activeSearchId = null
-        }
-    }
-
-    LaunchedEffect(chatSearchResults, activeSearchId) {
-        if (isSearchMode && chatSearchResults.isNotEmpty()) {
-            val targetId = activeSearchId ?: chatSearchResults.firstOrNull()?.id
-            if (targetId != null) {
-                // Find index in full messages list
-                val idx = messages.indexOfFirst { it.id == targetId }
-                if (idx != -1) {
-                    messagesLazyListState.animateScrollToItem(idx)
-                    activeSearchId = targetId
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
-
-    LaunchedEffect(chat.id) {
-        chatViewModel.fetchMessages(chat.id)
-        chatViewModel.markAsRead(chat.id)
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (!isGranted) showToast("Permission denied")
     }
 
-    var systemMessageSent by remember { mutableStateOf(false) }
-    LaunchedEffect(messagesResource, jobTitle, companyName) {
-        if (!systemMessageSent && messagesResource is Resource.Success<List<Message>> && (messagesResource.data?.isEmpty() == true) && jobTitle != null && companyName != null) {
-            systemMessageSent = true
-            val systemMessage = "Hi, I would like to apply for the position of $jobTitle at $companyName. Attached is my profile summary."
-            sendToServer(body = systemMessage, messageType = "application_link")
-        }
-    }
-
-    LaunchedEffect(messages.lastOrNull()?.id, messages.lastOrNull()?.status, messages.size) {
-        if (messages.isNotEmpty()) {
-            // Mark as read if we are on the screen
-            chatViewModel.markAsRead(chat.id)
-
-            val lastMsg = messages[messages.size - 1]
-            val isAtBottom = messagesLazyListState.firstVisibleItemIndex >= (messages.size - 8).coerceAtLeast(0)
-            
-            val targetScrollIndex = (messagesLazyListState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-            // Force scroll to bottom if it's our own message or we are already at the bottom
-            if (lastMessageCount == 0 || lastMsg.isFromMe || isAtBottom) {
-                delay(100)
-                val totalIndex = (messagesLazyListState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                if (animationsEnabled) {
-                    messagesLazyListState.animateScrollToItem(totalIndex)
-                } else {
-                    messagesLazyListState.scrollToItem(totalIndex)
-                }
-            }
-        }
-        lastMessageCount = messages.size
-    }
-
-    val shouldLoadOlder by remember {
-        derivedStateOf {
-            messages.isNotEmpty() &&
-                messagesLazyListState.firstVisibleItemIndex <= 2 &&
-                messagesLazyListState.firstVisibleItemScrollOffset == 0
-        }
-    }
-
-    LaunchedEffect(shouldLoadOlder, messages.firstOrNull()?.timestamp, chat.id) {
-        if (!shouldLoadOlder) return@LaunchedEffect
-        val oldestTs = messages.minOfOrNull { it.timestamp } ?: return@LaunchedEffect
-        chatViewModel.loadMoreMessages(chat.id, oldestTs)
+    // Initial Fetch & Typing Sync
+    LaunchedEffect(currentChat.id) {
+        chatViewModel.fetchMessages(currentChat.id)
+        chatViewModel.markAsRead(currentChat.id)
     }
 
     var isTypingSent by remember { mutableStateOf(false) }
@@ -508,23 +471,51 @@ fun ChatMessagesScreen(
                 chatViewModel.sendTyping(false)
                 isTypingSent = false
             }
-        } else {
-            if (isTypingSent) {
-                chatViewModel.sendTyping(false)
-                isTypingSent = false
-            }
+        } else if (isTypingSent) {
+            chatViewModel.sendTyping(false)
+            isTypingSent = false
         }
     }
 
-    DisposableEffect(chat.id) {
+    DisposableEffect(currentChat.id) {
         onDispose {
-            if (isTypingSent) {
-                chatViewModel.sendTyping(false)
+            if (isTypingSent) chatViewModel.sendTyping(false)
+            if (isRecording) stopRecording(cancelled = true)
+        }
+    }
+
+    // Dynamic Auto-scroll on Inbound and Outbound Messages
+    LaunchedEffect(messages.lastOrNull()?.id, messages.lastOrNull()?.status) {
+        if (messages.isNotEmpty()) {
+            chatViewModel.markAsRead(currentChat.id)
+            val totalIndex = (messagesLazyListState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+            if (animationsEnabled) {
+                messagesLazyListState.animateScrollToItem(totalIndex)
+            } else {
+                messagesLazyListState.scrollToItem(totalIndex)
             }
         }
     }
 
-    val groupedMessages: Map<String, List<Message>> = remember(messages, chatSearchQuery, chatSearchResults) {
+    // Load Older Messages on Scroll Up
+    val shouldLoadOlder by remember {
+        derivedStateOf {
+            messages.isNotEmpty() &&
+                messagesLazyListState.firstVisibleItemIndex <= 2 &&
+                messagesLazyListState.firstVisibleItemScrollOffset == 0
+        }
+    }
+
+    LaunchedEffect(shouldLoadOlder) {
+        if (shouldLoadOlder) {
+            messages.minOfOrNull { it.timestamp }?.let { oldestTs ->
+                chatViewModel.loadMoreMessages(currentChat.id, oldestTs)
+            }
+        }
+    }
+
+    // Grouping Messages by Calendar Day
+    val groupedMessages = remember(messages, chatSearchQuery, chatSearchResults) {
         val filtered = if (chatSearchQuery.isBlank()) messages else chatSearchResults
         filtered.groupBy { msg ->
             val date = Date(msg.timestamp)
@@ -533,20 +524,22 @@ fun ChatMessagesScreen(
             val isToday = now.get(Calendar.YEAR) == cal.get(Calendar.YEAR) && now.get(Calendar.DAY_OF_YEAR) == cal.get(Calendar.DAY_OF_YEAR)
             val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
             val isYesterday = yesterday.get(Calendar.YEAR) == cal.get(Calendar.YEAR) && yesterday.get(Calendar.DAY_OF_YEAR) == cal.get(Calendar.DAY_OF_YEAR)
-            when { isToday -> "Today"; isYesterday -> "Yesterday"; else -> SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(date) }
+            when {
+                isToday -> "Today"
+                isYesterday -> "Yesterday"
+                else -> SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(date)
+            }
         }
     }
 
     val sanitizedName = remember(currentChat.senderName) {
         val cachedName = GlobalCallState.getContactName(currentChat.id)
-        val name = currentChat.senderName.takeIf { 
-            it.isNotBlank() && 
-            it.lowercase() != "unknown" && 
-            it.lowercase() != "null" && 
-            it.lowercase() != "undefined" &&
-            !it.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
+        val name = currentChat.senderName.takeIf {
+            it.isNotBlank() &&
+                it.lowercase() != "unknown" &&
+                it.lowercase() != "null" &&
+                !it.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
         } ?: cachedName
-        
         name ?: currentChat.phoneNumber?.takeIf { it.isNotBlank() } ?: if (currentChat.type == ConversationType.CHANNEL) "Channel" else ""
     }
 
@@ -597,13 +590,18 @@ fun ChatMessagesScreen(
                         onInitiateCall = { targetId, name, type -> chatViewModel.startVoiceOrVideoCall(receiverId = targetId, callType = type, name = name) },
                         onClearChat = { chatViewModel.clearChat(currentChat.id) },
                         onDeleteChat = { chatViewModel.deleteChat(currentChat.id); onBack() },
-                        onDeleteSelectedMessages = { deleteSelectedMessages() },
+                        onDeleteSelectedMessages = {
+                            val canDeleteForEveryone = selectedMessages.size == 1 && (messages.find { it.id == selectedMessages.first() }?.isFromMe == true)
+                            if (canDeleteForEveryone) {
+                                showDeleteConfirmDialog = selectedMessages.first()
+                            } else {
+                                selectedMessages.forEach { chatViewModel.deleteMessage(it) }
+                                selectedMessages.clear()
+                            }
+                        },
                         onShowMessageInfo = {
-                            val msgId = selectedMessages.firstOrNull()
-                            if (msgId != null) {
-                                com.example.firstapp.common.util.GlobalNavigation.navigateTo(
-                                    com.example.firstapp.ui.navigation.Screen.MessageInfo.createRoute(msgId)
-                                )
+                            selectedMessages.firstOrNull()?.let { msgId ->
+                                GlobalNavigation.navigateTo("message_info/$msgId")
                                 selectedMessages.clear()
                             }
                         },
@@ -616,12 +614,14 @@ fun ChatMessagesScreen(
                             selectedMessages.clear()
                         },
                         onEditSelectedMessage = {
-                            val msgId = selectedMessages.firstOrNull()
-                            val msg = messages.find { it.id == msgId }
-                            if (msg != null && msg.isFromMe && msg.type == MessageType.TEXT) {
-                                editingMessage = msg
-                                messageText = msg.content
-                                selectedMessages.clear()
+                            selectedMessages.firstOrNull()?.let { msgId ->
+                                messages.find { it.id == msgId }?.let { msg ->
+                                    if (msg.isFromMe && msg.type == MessageType.TEXT) {
+                                        editingMessage = msg
+                                        messageText = msg.content
+                                        selectedMessages.clear()
+                                    }
+                                }
                             }
                         },
                         onForwardSelectedMessages = {
@@ -642,34 +642,18 @@ fun ChatMessagesScreen(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 4.dp
                 ) {
-                    Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding().imePadding()) {
-                        
-                        // Banner Ad (at the bottom of Jobs)
-                        if (jobId != null) {
-                            com.example.firstapp.common.ui.components.BannerAdView(
-                                modifier = Modifier.navigationBarsPadding()
-                            )
-                        }
-
-                        if (currentChat.isTyping) {
-                            Text(
-                                text = stringResource(R.string.typing),
-                                modifier = Modifier.padding(start = 16.dp, bottom = 4.dp, top = 4.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        
+                    Column(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surface)
+                            .navigationBarsPadding()
+                            .imePadding()
+                    ) {
                         val myUserId = uiState.currentUser?.id
                         val isConversationClosed = uiState.closedConversationIds.contains(currentChat.id)
-                        
-                        // Robust check for channel posting permissions
                         val canPost = when (currentChat.type) {
                             ConversationType.DIRECT, ConversationType.GROUP, ConversationType.JOB_CHAT -> true
                             ConversationType.CHANNEL -> {
                                 val isCreator = currentChat.createdBy != null && currentChat.createdBy == myUserId
-                                // Expert: If creator ID is missing but user is admin, assume posting permission in their own view
                                 isCreator || (currentChat.isAdmin && (currentChat.adminsCanPost || currentChat.createdBy == null))
                             }
                         }
@@ -678,10 +662,11 @@ fun ChatMessagesScreen(
                         val showFollowButton = currentChat.type == ConversationType.CHANNEL && !currentChat.isSubscribed
 
                         if (canCompose) {
-                            val editMsg = editingMessage
-                            if (editMsg != null) {
+                            editingMessage?.let { editMsg ->
                                 Surface(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
                                     shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                                 ) {
@@ -689,26 +674,51 @@ fun ChatMessagesScreen(
                                         modifier = Modifier.padding(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(text = "Editing message", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                            Text(text = editMsg.content, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                text = "Editing message",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
+                                            Text(
+                                                text = editMsg.content,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                                fontSize = 14.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
                                         }
-                                        IconButton(onClick = { 
-                                            editingMessage = null
-                                            messageText = ""
-                                        }, modifier = Modifier.size(24.dp)) {
-                                            Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                        IconButton(
+                                            onClick = {
+                                                editingMessage = null
+                                                messageText = ""
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp)
+                                            )
                                         }
                                     }
                                 }
                             }
 
-                            val replyMsg = replyingToMessage
-                            if (replyMsg != null) {
+                            replyingToMessage?.let { replyMsg ->
                                 Surface(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
                                     shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                                 ) {
@@ -716,14 +726,39 @@ fun ChatMessagesScreen(
                                         modifier = Modifier.padding(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(modifier = Modifier.width(3.dp).height(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+                                        Box(
+                                            modifier = Modifier
+                                                .width(3.dp)
+                                                .height(32.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primary)
+                                        )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(text = if (replyMsg.isFromMe) "You" else chat.senderName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                            Text(text = replyMsg.content, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                text = if (replyMsg.isFromMe) "You" else currentChat.senderName,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
+                                            Text(
+                                                text = replyMsg.content,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                                fontSize = 14.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
                                         }
-                                        IconButton(onClick = { replyingToMessage = null }, modifier = Modifier.size(24.dp)) {
-                                            Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                        IconButton(
+                                            onClick = { replyingToMessage = null },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp)
+                                            )
                                         }
                                     }
                                 }
@@ -731,53 +766,45 @@ fun ChatMessagesScreen(
 
                             ChatBottomBarUnique(
                                 text = messageText,
-                                onTextChange = { 
-                                    messageText = it 
+                                onTextChange = {
+                                    messageText = it
                                     chatViewModel.sendTyping(it.isNotBlank())
                                 },
                                 onSend = {
                                     if (messageText.isNotBlank()) {
                                         chatViewModel.sendTyping(false)
                                         val textToSend = messageText.trim()
-                                        
                                         if (editingMessage != null) {
                                             chatViewModel.editMessage(editingMessage!!.id, textToSend)
                                             editingMessage = null
                                         } else {
                                             sendToServer(body = textToSend, messageType = "text")
                                         }
-                                        
                                         messageText = ""
                                         keyboardController?.hide()
-                                        
-                                        // Standard pro app behavior: immediate scroll to bottom on send
-                                        scope.launch {
-                                            delay(100)
-                                            if (messages.isNotEmpty()) {
-                                                messagesLazyListState.animateScrollToItem(messages.size - 1)
-                                            }
-                                        }
                                     }
                                 },
-                                onAttachClick = { 
+                                onAttachClick = {
                                     keyboardController?.hide()
-                                    showAttachments = !showAttachments 
+                                    showAttachments = !showAttachments
                                     showEmojiPicker = false
                                     showGifPicker = false
                                 },
-                                onEmojiClick = { 
+                                onEmojiClick = {
                                     keyboardController?.hide()
-                                    showEmojiPicker = !showEmojiPicker 
+                                    showEmojiPicker = !showEmojiPicker
                                     showAttachments = false
                                     showGifPicker = false
                                 },
                                 onCameraClick = {
                                     val file = File(context.cacheDir, "IMG_${System.currentTimeMillis()}.jpg")
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
                                     tempPhotoUri = uri
                                     cameraLauncher.launch(uri)
                                 },
-                                onMicClick = { if (isRecording) stopRecording() else startRecording() },
+                                onMicClick = {
+                                    if (isRecording) stopRecording() else startRecording()
+                                },
                                 isRecording = isRecording,
                                 recordingDuration = recordingDurationSeconds,
                                 enterIsSend = enterIsSend,
@@ -789,93 +816,27 @@ fun ChatMessagesScreen(
                                 modifier = Modifier.navigationBarsPadding(),
                                 onSendLongClick = { showSchedulePicker = true }
                             )
-                        } else if (!isConversationClosed) {
-                            if (showFollowButton) {
-                                var isSubscribing by remember { mutableStateOf(false) }
-                                Button(
-                                    onClick = { 
-                                        isSubscribing = true
-                                        chatViewModel.subscribeToChannel(currentChat.id) 
-                                    },
-                                    enabled = !isSubscribing,
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    if (isSubscribing) {
-                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                                    } else {
-                                        Text("Follow channel")
-                                    }
-                                }
-                            } else {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                                    color = Color.Transparent
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceEvenly,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        // Subscriber View: Production-grade controls (Mute/Unmute and Share)
-                                        val isMuted = currentChat.isMuted
-                                        
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.clickable { chatViewModel.muteChat(currentChat.id, !isMuted) }.padding(8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isMuted) Icons.Default.NotificationsOff else Icons.Default.NotificationsActive,
-                                                contentDescription = null,
-                                                tint = if (isMuted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = if (isMuted) "Unmute" else "Mute",
-                                                fontSize = 11.sp,
-                                                color = if (isMuted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.clickable { 
-                                                val sendIntent: Intent = Intent().apply {
-                                                    action = Intent.ACTION_SEND
-                                                    putExtra(Intent.EXTRA_TEXT, "Check out this channel: ${currentChat.senderName}")
-                                                    type = "text/plain"
-                                                }
-                                                val shareIntent = Intent.createChooser(sendIntent, null)
-                                                context.startActivity(shareIntent)
-                                            }.padding(8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Share,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = "Share",
-                                                fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.clickable { onShowProfile(currentChat.id, false) }.padding(8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Info,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = "Info",
-                                                fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
+                        } else if (!isConversationClosed && showFollowButton) {
+                            var isSubscribing by remember { mutableStateOf(false) }
+                            Button(
+                                onClick = {
+                                    isSubscribing = true
+                                    chatViewModel.subscribeToChannel(currentChat.id)
+                                },
+                                enabled = !isSubscribing,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                if (isSubscribing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("Follow channel")
                                 }
                             }
                         }
@@ -887,7 +848,7 @@ fun ChatMessagesScreen(
                 modifier = Modifier.padding(padding),
                 messagesLazyListState = messagesLazyListState,
                 groupedMessages = groupedMessages,
-                messages = messages, // Pass the flat list too
+                messages = messages,
                 selectedMessages = selectedMessages,
                 chat = currentChat,
                 fontSize = fontSize,
@@ -897,18 +858,17 @@ fun ChatMessagesScreen(
                 messagesCount = messages.size,
                 onMessageClick = { message ->
                     if (selectedMessages.isNotEmpty()) {
-                        if (selectedMessages.contains(message.id)) selectedMessages.remove(message.id)
-                        else selectedMessages.add(message.id)
-                    } else {
-                        when (message.type) {
-                            MessageType.LOCATION -> {
-                                val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}")
-                                val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                                mapIntent.setPackage("com.google.android.apps.maps")
-                                context.startActivity(mapIntent)
-                            }
-                            else -> { /* Other clicks like links handled in text */ }
+                        if (selectedMessages.contains(message.id)) {
+                            selectedMessages.remove(message.id)
+                        } else {
+                            selectedMessages.add(message.id)
                         }
+                    } else if (message.type == MessageType.LOCATION) {
+                        val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}")
+                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
+                            setPackage("com.google.android.apps.maps")
+                        }
+                        context.startActivity(mapIntent)
                     }
                 },
                 onMessageLongClick = { message ->
@@ -916,9 +876,7 @@ fun ChatMessagesScreen(
                 },
                 onReply = { replyingToMessage = it },
                 onMediaClick = { url, type ->
-                    com.example.firstapp.common.util.GlobalNavigation.navigateTo(
-                        com.example.firstapp.ui.navigation.Screen.MediaViewer.createRoute(url, type)
-                    )
+                    GlobalNavigation.navigateTo("media_viewer?url=${Uri.encode(url)}&type=$type")
                 },
                 playingAudioUri = playingAudioUri,
                 onPlayAudio = { chatViewModel.setPlayingAudio(it) },
@@ -926,6 +884,7 @@ fun ChatMessagesScreen(
             )
         }
 
+        // Attachments Bottom Sheet / Overlay
         if (showAttachments) {
             Box(
                 modifier = Modifier
@@ -938,43 +897,57 @@ fun ChatMessagesScreen(
             ) {
                 Box(modifier = Modifier.padding(bottom = 80.dp)) {
                     AttachmentPanel(
-                        onImageClick = { showAttachments = false; imageLauncher.launch("image/*") },
-                        onVideoClick = { showAttachments = false; videoLauncher.launch("video/*") },
-                        onDocClick = { showAttachments = false; documentLauncher.launch("*/*") },
-                        onContactClick = { showAttachments = false; contactLauncher.launch(null) },
+                        onImageClick = {
+                            showAttachments = false
+                            imageLauncher.launch("image/*")
+                        },
+                        onVideoClick = {
+                            showAttachments = false
+                            videoLauncher.launch("video/*")
+                        },
+                        onDocClick = {
+                            showAttachments = false
+                            documentLauncher.launch("*/*")
+                        },
+                        onContactClick = {
+                            showAttachments = false
+                            contactLauncher.launch(null)
+                        },
                         onCameraClick = {
                             showAttachments = false
                             val file = File(context.cacheDir, "IMG_${System.currentTimeMillis()}.jpg")
-                            val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
                             tempPhotoUri = uri
                             cameraLauncher.launch(uri)
                         },
-                        onAudioClick = { showAttachments = false; audioPickerLauncher.launch("audio/*") },
-                        onLocationClick = { 
+                        onAudioClick = {
+                            showAttachments = false
+                            audioPickerLauncher.launch("audio/*")
+                        },
+                        onLocationClick = {
                             showAttachments = false
                             if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                                val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-                                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+                                LocationServices.getFusedLocationProviderClient(context)
+                                    .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
                                     .addOnSuccessListener { location ->
                                         if (location != null) {
-                                            chatViewModel.sendMessage(
-                                                chatId = chat.id,
+                                            sendToServer(
                                                 body = "Shared Location",
                                                 messageType = "location",
                                                 latitude = location.latitude,
                                                 longitude = location.longitude
                                             )
                                         } else {
-                                            showToast("Could not get location")
+                                            showToast("Could not retrieve precise location")
                                         }
                                     }
                             } else {
                                 permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                             }
                         },
-                        onGifClick = { 
+                        onGifClick = {
                             showAttachments = false
-                            showGifPicker = true 
+                            showGifPicker = true
                         }
                     )
                 }
@@ -991,12 +964,12 @@ fun ChatMessagesScreen(
                     ) { showGifPicker = false },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                com.example.firstapp.chat.ui.components.expression.GifStickerPicker(
+                GifStickerPicker(
                     onGifSelected = { url ->
-                        chatViewModel.sendMessage(chat.id, "GIF", "image", listOf(url))
+                        chatViewModel.sendMessage(currentChat.id, "GIF", "image", listOf(url))
                     },
                     onStickerSelected = { url ->
-                        chatViewModel.sendMessage(chat.id, "Sticker", "image", listOf(url))
+                        chatViewModel.sendMessage(currentChat.id, "Sticker", "image", listOf(url))
                     },
                     onDismiss = { showGifPicker = false }
                 )
@@ -1010,9 +983,9 @@ fun ChatMessagesScreen(
                     .clickable { showEmojiPicker = false },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                EmojiPicker(onEmojiSelect = { 
+                EmojiPicker(onEmojiSelect = {
                     messageText += it
-                    showEmojiPicker = false 
+                    showEmojiPicker = false
                 })
             }
         }
@@ -1020,7 +993,7 @@ fun ChatMessagesScreen(
         if (showForwardDialog) {
             val allChats by chatViewModel.chats.collectAsState()
             ForwardDialog(
-                chats = allChats.data ?: kotlin.collections.emptyList(),
+                chats = allChats.data.orEmpty(),
                 onDismiss = { showForwardDialog = false },
                 onForward = { selectedChats ->
                     messagesToForward.forEach { msg ->
@@ -1051,7 +1024,7 @@ fun ChatMessagesScreen(
             FullScreenVideoPlayer(uri = uri, onBack = { fullScreenVideoUri = null })
         }
 
-        if (showDeleteConfirmDialog != null) {
+        showDeleteConfirmDialog?.let { msgId ->
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = null },
                 title = { Text("Delete Message") },
@@ -1060,7 +1033,9 @@ fun ChatMessagesScreen(
                         Text("Delete this message?")
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 8.dp).clickable { deleteForEveryone = !deleteForEveryone }
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .clickable { deleteForEveryone = !deleteForEveryone }
                         ) {
                             Checkbox(checked = deleteForEveryone, onCheckedChange = { deleteForEveryone = it })
                             Text("Delete for everyone", modifier = Modifier.padding(start = 8.dp))
@@ -1069,7 +1044,7 @@ fun ChatMessagesScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        showDeleteConfirmDialog?.let { chatViewModel.deleteMessage(it, deleteForEveryone) }
+                        chatViewModel.deleteMessage(msgId, deleteForEveryone)
                         showDeleteConfirmDialog = null
                         selectedMessages.clear()
                     }) { Text("Delete") }
@@ -1086,7 +1061,7 @@ fun ChatMessagesScreen(
                 type = mediaPreviewType,
                 onDismiss = { selectedMediaForPreview = emptyList() },
                 onSend = { caption, uris ->
-                    sendMediaMessages(uris, mediaPreviewType, caption)
+                    chatViewModel.sendMediaMessages(currentChat.id, uris, context, mediaPreviewType, caption)
                     selectedMediaForPreview = emptyList()
                 }
             )
@@ -1094,7 +1069,7 @@ fun ChatMessagesScreen(
     }
 }
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun MediaPreviewOverlay(
     uris: List<Uri>,
@@ -1104,7 +1079,7 @@ fun MediaPreviewOverlay(
 ) {
     var caption by remember { mutableStateOf("") }
     val context = LocalContext.current
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1113,7 +1088,6 @@ fun MediaPreviewOverlay(
             .navigationBarsPadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Top Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1121,7 +1095,7 @@ fun MediaPreviewOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, null, tint = Color.White)
+                    Icon(Icons.Default.Close, contentDescription = null, tint = Color.White)
                 }
                 Spacer(Modifier.width(16.dp))
                 Text(
@@ -1132,7 +1106,6 @@ fun MediaPreviewOverlay(
                 )
             }
 
-            // Media Display
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -1160,45 +1133,26 @@ fun MediaPreviewOverlay(
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
                                 )
-                                if (type == "video") {
-                                    Icon(
-                                        Icons.Default.PlayCircle,
-                                        null,
-                                        tint = Color.White,
-                                        modifier = Modifier.align(Alignment.Center).size(32.dp)
-                                    )
-                                } else if (type == "document") {
-                                    Icon(
-                                        Icons.Default.Description,
-                                        null,
-                                        tint = Color.White,
-                                        modifier = Modifier.align(Alignment.Center).size(32.dp)
-                                    )
-                                } else if (type == "audio") {
-                                    Icon(
-                                        Icons.Default.Audiotrack,
-                                        null,
-                                        tint = Color.White,
-                                        modifier = Modifier.align(Alignment.Center).size(32.dp)
-                                    )
-                                }
                             }
                         }
                     }
                 } else {
                     val uri = uris.first()
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        if (type == "image") {
+                    when (type) {
+                        "image" -> {
                             AsyncImage(
                                 model = uri,
                                 contentDescription = null,
-                                modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 500.dp),
                                 contentScale = ContentScale.Fit
                             )
-                        } else if (type == "video") {
+                        }
+                        "video" -> {
                             val previewPlayer = remember(uri) {
-                                androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                    setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
+                                ExoPlayer.Builder(context).build().apply {
+                                    setMediaItem(MediaItem.fromUri(uri))
                                     prepare()
                                     playWhenReady = false
                                 }
@@ -1206,21 +1160,21 @@ fun MediaPreviewOverlay(
                             DisposableEffect(previewPlayer) {
                                 onDispose { previewPlayer.release() }
                             }
-                            Box(contentAlignment = Alignment.Center) {
-                                AndroidView(
-                                    factory = { viewContext ->
-                                        androidx.media3.ui.PlayerView(viewContext).apply {
-                                            player = previewPlayer
-                                            useController = true
-                                            controllerShowTimeoutMs = 2500
-                                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp)
-                                )
-                            }
-                        } else {
-                            // Document or Audio
+                            AndroidView(
+                                factory = { viewContext ->
+                                    PlayerView(viewContext).apply {
+                                        player = previewPlayer
+                                        useController = true
+                                        controllerShowTimeoutMs = 2500
+                                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 500.dp)
+                            )
+                        }
+                        else -> {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = if (type == "document") Icons.Default.Description else Icons.Default.Audiotrack,
@@ -1242,43 +1196,40 @@ fun MediaPreviewOverlay(
                 }
             }
 
-            // Bottom Bar with Caption
             Surface(
                 color = Color.Black.copy(alpha = 0.9f),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextField(
+                        value = caption,
+                        onValueChange = { caption = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Add a caption...", color = Color.Gray) },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = AppAccent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        maxLines = 4
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    FloatingActionButton(
+                        onClick = { onSend(caption, uris) },
+                        containerColor = AppAccent,
+                        contentColor = Color.White,
+                        shape = CircleShape
                     ) {
-                        TextField(
-                            value = caption,
-                            onValueChange = { caption = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("Add a caption...", color = Color.Gray) },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = AppAccent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            maxLines = 4
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        FloatingActionButton(
-                            onClick = { onSend(caption, uris) },
-                            containerColor = AppAccent,
-                            contentColor = Color.White,
-                            shape = CircleShape
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, null)
-                        }
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                     }
                 }
             }
@@ -1292,10 +1243,10 @@ fun ScheduleMessageDialog(
     onDismiss: () -> Unit,
     onSchedule: (Long) -> Unit
 ) {
-    var datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis() + 24 * 60 * 60 * 1000 // Tomorrow
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis() + 24 * 60 * 60 * 1000
     )
-    var timePickerState = rememberTimePickerState(
+    val timePickerState = rememberTimePickerState(
         initialHour = 12,
         initialMinute = 0
     )

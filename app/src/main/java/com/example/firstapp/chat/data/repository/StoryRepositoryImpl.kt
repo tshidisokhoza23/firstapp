@@ -6,6 +6,7 @@ import com.example.firstapp.chat.data.local.dao.StoryDao
 import com.example.firstapp.chat.data.local.entity.*
 import com.example.firstapp.chat.rewards.data.RewardsManager
 import com.example.firstapp.common.util.Resource
+import com.example.firstapp.common.data.realtime.WebSocketManager
 import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.media.data.api.ApiStoryResponse
 import com.example.firstapp.media.data.api.CreateStoryRequest
@@ -14,14 +15,26 @@ import com.example.firstapp.media.model.*
 import com.example.firstapp.chat.model.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.map as flowMap
+import kotlinx.coroutines.*
 import javax.inject.Inject
 
 class StoryRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
     private val storyDao: StoryDao,
     private val contactDao: com.example.firstapp.chat.data.local.dao.ContactDao,
-    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver
+    private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver,
+    private val webSocketManager: WebSocketManager
 ) : StoryRepository {
+
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        webSocketManager.connectionState
+            .filter { it == WebSocketManager.ConnectionState.CONNECTED }
+            .onEach { syncStories() }
+            .catch { error -> android.util.Log.w("StoryRepository", "story reconnect sync failed", error) }
+            .launchIn(syncScope)
+    }
 
     override fun getStories(): Flow<Resource<List<UserStory>>> = flow {
         // Periodic cleanup: 24h threshold
@@ -36,55 +49,7 @@ class StoryRepositoryImpl @Inject constructor(
             emit(Resource.Loading())
         }
 
-        var fetchFailed = false
-        try {
-            val response = socialApi.getStories()
-            if (response.isSuccessful) {
-                val apiStories = response.body()?.stories ?: emptyList<ApiStoryResponse>()
-                android.util.Log.d("StoryRepository", "getStories: fetched ${apiStories.size} story sets")
-                
-                val localContacts = contactDao.getContacts().first().associateBy { it.id }
-
-                val stories = apiStories.map { apiStory: ApiStoryResponse -> 
-                    val contact = localContacts[apiStory.user_id] ?: localContacts[apiStory.user_id.removePrefix("user_")]
-                    val model = mapApiStory(apiStory)
-                    
-                    val resolvedName = displayNameResolver.resolve(
-                        com.example.firstapp.common.model.User(
-                            id = apiStory.user_id,
-                            displayName = contact?.displayName ?: apiStory.user_name,
-                            username = "" 
-                        ),
-                        contact?.phoneNumber ?: apiStory.phone_number ?: ""
-                    )
-                    
-                    val finalName = if (resolvedName.isBlank() || resolvedName == apiStory.user_id) {
-                         contact?.phoneNumber?.takeIf { it.isNotBlank() } ?: apiStory.phone_number?.takeIf { it.isNotBlank() } ?: apiStory.user_name
-                    } else resolvedName
-
-                    model.copy(userName = finalName)
-                }
-                if (stories.isNotEmpty()) {
-                    storyDao.replaceStories(stories.map { it.toStoryEntity() })
-                    android.util.Log.d("StoryRepository", "getStories: inserted ${stories.size} stories")
-                } else {
-                    // A 2xx with an empty list can happen transiently (e.g. while
-                    // contacts are re-syncing). Don't wipe the cache in that case,
-                    // or valid stories will "disappear" from the scroller.
-                    android.util.Log.d("StoryRepository", "getStories: empty response, keeping cache")
-                }
-            } else {
-                android.util.Log.w(
-                    "StoryRepository",
-                    "getStories: HTTP ${response.code()} - ${response.errorBody()?.string() ?: "no error body"}"
-                )
-                fetchFailed = true
-            }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            android.util.Log.e("StoryRepository", "getStories failed", e)
-            fetchFailed = true
-        }
+        val fetchFailed = !refreshStories(null, replace = true)
         
         if (fetchFailed && storyDao.getStories().first().isEmpty()) {
             emit(Resource.Error<List<UserStory>>("Could not load stories"))
@@ -96,6 +61,69 @@ class StoryRepositoryImpl @Inject constructor(
             models.sortByDescending { us: UserStory -> us.stories.maxByOrNull { s: StoryItem -> s.createdAt }?.createdAt ?: 0L }
             Resource.Success<List<UserStory>>(models)
         })
+    }
+
+    override suspend fun syncStories(): Boolean {
+        val since = storyDao.getLatestStoryTimestamp() ?: 0L
+        return refreshStories(since, replace = false)
+    }
+
+    private suspend fun refreshStories(since: Long?, replace: Boolean): Boolean {
+        return try {
+            val response = socialApi.getStories(since?.takeIf { it > 0L })
+            if (!response.isSuccessful) {
+                android.util.Log.w("StoryRepository", "sync stories: HTTP ${response.code()}")
+                return false
+            }
+
+            val apiStories = response.body()?.stories ?: emptyList<ApiStoryResponse>()
+            val localContacts = contactDao.getContacts().first().associateBy { it.id }
+            val fetched = apiStories.map { apiStory: ApiStoryResponse ->
+                val contact = localContacts[apiStory.user_id]
+                    ?: localContacts[apiStory.user_id.removePrefix("user_")]
+                val model = mapApiStory(apiStory)
+                val resolvedName = displayNameResolver.resolve(
+                    com.example.firstapp.common.model.User(
+                        id = apiStory.user_id,
+                        displayName = contact?.displayName ?: apiStory.user_name,
+                        username = ""
+                    ),
+                    contact?.phoneNumber ?: apiStory.phone_number ?: ""
+                )
+                val finalName = if (resolvedName.isBlank() || resolvedName == apiStory.user_id) {
+                    contact?.phoneNumber?.takeIf { it.isNotBlank() }
+                        ?: apiStory.phone_number?.takeIf { it.isNotBlank() }
+                        ?: apiStory.user_name
+                } else resolvedName
+                model.copy(userName = finalName)
+            }
+
+            if (fetched.isEmpty()) return true
+            if (replace) {
+                storyDao.replaceStories(fetched.map { it.toStoryEntity() })
+            } else {
+                val existing = storyDao.getStories().first().associateBy { it.userId }
+                val merged = fetched.map { incoming ->
+                    val old = existing[incoming.userId]
+                    if (old == null) incoming.toStoryEntity()
+                    else old.copy(
+                        userName = incoming.userName,
+                        phoneNumber = incoming.phoneNumber ?: old.phoneNumber,
+                        userAvatarUrl = incoming.userAvatarUrl ?: old.userAvatarUrl,
+                        stories = (old.stories + incoming.stories).distinctBy { it.id }.sortedBy { it.createdAt },
+                        lastUpdated = incoming.lastUpdated,
+                        lastUpdatedMillis = maxOf(old.lastUpdatedMillis, incoming.stories.maxOfOrNull { it.createdAt } ?: 0L),
+                        isMuted = incoming.isMuted
+                    )
+                }
+                storyDao.insertStories(merged)
+            }
+            true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            android.util.Log.e("StoryRepository", "sync stories failed", e)
+            false
+        }
     }
 
     override fun createStory(content: String, contentUrl: String?, type: String): Flow<Resource<Boolean>> = flow {

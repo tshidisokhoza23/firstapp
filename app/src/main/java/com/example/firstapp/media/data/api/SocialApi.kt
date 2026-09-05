@@ -120,7 +120,7 @@ interface SocialApi {
     suspend fun getSuggestedUsers(): Response<ContactsResponse>
 
     @GET("chats/stories")
-    suspend fun getStories(): Response<StoriesResponse>
+    suspend fun getStories(@Query("since") since: Long? = null): Response<StoriesResponse>
 
     @POST("chats/stories")
     suspend fun createStory(@Body request: CreateStoryRequest): Response<CreateStoryResponse>

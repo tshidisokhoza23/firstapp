@@ -25,6 +25,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
+    @Inject lateinit var storyRepository: com.example.firstapp.chat.domain.repository.StoryRepository
     @Inject lateinit var settingsRepository: com.example.firstapp.domain.repository.SettingsRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -51,6 +52,9 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
                         else -> settingsRepository.privateChatsEnabled.first()
                     }
                     if (isEnabled) handleNewMessage(data)
+                }
+                "new_story" -> {
+                    storyRepository.syncStories()
                 }
                 "new_chat" -> {
                     if (settingsRepository.privateChatsEnabled.first()) handleNewChat(data)
@@ -202,6 +206,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val vibrateEnabled = settingsRepository.vibrateEnabled.first()
 
         // Expert Fix: Trigger background sync on new message FCM
+        chatRepository.syncDelta().collect {}
         chatRepository.syncChats().collect {}
         
         // Emit Delivery ACK via repository

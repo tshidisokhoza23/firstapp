@@ -1459,12 +1459,50 @@ class MockLessonRepositoryImpl @Inject constructor(
     private fun buildEnglishExample(word: String): String {
         val words = word.split(" ")
         if (words.size == 2 && adjectiveVocab.contains(words[0]) && baseVocab.contains(words[1])) {
-            return "The ${words[1]} is ${words[0]}."
+            val adjective = words[0]
+            val noun = words[1]
+            return when (noun) {
+                "banana" -> "This banana has a funny shape, but it tastes good."
+                "meat" -> "The meat has a funny smell, so I will not eat it."
+                "food" -> "The $adjective food was a hit at the family dinner."
+                "dog" -> "The $adjective dog greeted every visitor at the park."
+                "car" -> "The $adjective car attracted attention on the street."
+                "movie" -> "The $adjective movie kept the audience entertained."
+                "music" -> "The $adjective music filled the room."
+                "idea" -> "Her $adjective idea solved the problem."
+                "project" -> "The $adjective project was completed on time."
+                "weather" -> "The $adjective weather changed our travel plans."
+                else -> {
+                    val templates = listOf(
+                        "I noticed a $adjective $noun at the market.",
+                        "Everyone talked about the $adjective $noun.",
+                        "The $adjective $noun caught my attention.",
+                        "We found a $adjective $noun near the entrance."
+                    )
+                    templates[Math.floorMod(word.hashCode(), templates.size)]
+                }
+            }
         }
 
         return when {
-            verbVocab.contains(word) -> "I $word every day."
-            adjectiveVocab.contains(word) -> "The room is $word."
+            verbVocab.contains(word) -> {
+                val templates = listOf(
+                    "I $word before breakfast.",
+                    "We $word together after work.",
+                    "They $word whenever they have time.",
+                    "She plans to $word this weekend."
+                )
+                templates[Math.floorMod(word.hashCode(), templates.size)]
+            }
+            adjectiveVocab.contains(word) -> {
+                val templates = listOf(
+                    "The new design looks $word.",
+                    "This jacket feels $word.",
+                    "The teacher said the answer was $word.",
+                    "That sounds like a $word plan."
+                )
+                templates[Math.floorMod(word.hashCode(), templates.size)]
+            }
             adverbVocab.contains(word) -> when (word) {
                 "always" -> "I always arrive on time."
                 "never" -> "I never skip breakfast."
@@ -1476,7 +1514,15 @@ class MockLessonRepositoryImpl @Inject constructor(
                 "too" -> "The bag is too heavy."
                 else -> "She speaks $word."
             }
-            baseVocab.contains(word) -> "The $word is useful in everyday life."
+            baseVocab.contains(word) -> {
+                val templates = listOf(
+                    "I keep the $word in the kitchen.",
+                    "We talked about the $word on the way home.",
+                    "The $word was waiting near the door.",
+                    "She brought the $word to work."
+                )
+                templates[Math.floorMod(word.hashCode(), templates.size)]
+            }
             else -> "I use the word \"$word\" in a sentence."
         }
     }
@@ -1511,7 +1557,11 @@ class MockLessonRepositoryImpl @Inject constructor(
             word.split(" ").size == 2 && adjectiveVocab.contains(word.split(" ")[0]) && baseVocab.contains(word.split(" ")[1]) -> {
                 val adjective = word.split(" ")[0]
                 val noun = word.split(" ")[1]
-                "The $noun is $adjective." to "Die ${translateAfrikaansExampleWord(noun)} is ${translateAfrikaansExampleWord(adjective)}."
+                when (word) {
+                    "funny banana" -> "This banana has a funny shape, but it tastes good." to "Hierdie piesang het 'n snaakse vorm, maar dit smaak lekker."
+                    "funny meat" -> "The meat has a funny smell, so I will not eat it." to "Die vleis het 'n snaakse reuk, so ek sal dit nie eet nie."
+                    else -> "The $noun is $adjective." to "Die ${translateAfrikaansExampleWord(noun)} is ${translateAfrikaansExampleWord(adjective)}."
+                }
             }
             verbVocab.contains(word) -> {
                 "I like to $word." to "Ek hou daarvan om ${translateAfrikaansExampleWord(word)}."
