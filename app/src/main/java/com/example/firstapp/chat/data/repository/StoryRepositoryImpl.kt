@@ -57,7 +57,10 @@ class StoryRepositoryImpl @Inject constructor(
         }
 
         emitAll(storyDao.getStories().flowMap { entities: List<StoryEntity> ->
-            val models = entities.map { it.toUserStory() }.toMutableList()
+            val models = entities.map { entity ->
+                val us = entity.toUserStory()
+                us.copy(stories = us.stories.sortedBy { it.createdAt })
+            }.toMutableList()
             models.sortByDescending { us: UserStory -> us.stories.maxByOrNull { s: StoryItem -> s.createdAt }?.createdAt ?: 0L }
             Resource.Success<List<UserStory>>(models)
         })

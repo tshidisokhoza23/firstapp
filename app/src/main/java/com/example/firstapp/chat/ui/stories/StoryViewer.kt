@@ -162,15 +162,12 @@ fun StoryViewer(
                 currentStory.durationMs.toLong().coerceAtLeast(10000L)
             }
             
-            // Reset progress if we just changed stories
-            if (progress.value >= 0.99f) {
-                progress.snapTo(0f)
-            }
+            progress.snapTo(0f)
 
             progress.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(
-                    durationMillis = ((1f - progress.value) * durationMs).toInt(),
+                    durationMillis = durationMs.toInt(),
                     easing = LinearEasing
                 )
             )

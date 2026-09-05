@@ -489,7 +489,12 @@ class MainActivity : FragmentActivity() {
 
                     LaunchedEffect(Unit) {
                         GlobalNavigation.navigationEvents.collect { route ->
-                            navController.navigate(route)
+                            val currentRoute = navController.currentDestination?.route
+                            if (currentRoute != route) {
+                                navController.navigate(route) {
+                                    launchSingleTop = true
+                                }
+                            }
                         }
                     }
 
@@ -497,10 +502,15 @@ class MainActivity : FragmentActivity() {
                         val openChatId = intent?.getStringExtra("open_chat_id")
                         val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
                         if (isLoggedIn) {
-                            if (openChatId != null) { 
-                                navController.navigate(Screen.Chat.createRoute(openChatId)) 
-                            } else if (senderId != null) { 
-                                navController.navigate(Screen.Chat.createRoute(senderId))
+                            val targetId = openChatId ?: senderId
+                            if (targetId != null) {
+                                val targetRoute = Screen.Chat.createRoute(targetId)
+                                val currentRoute = navController.currentDestination?.route
+                                if (currentRoute != targetRoute) {
+                                    navController.navigate(targetRoute) {
+                                        launchSingleTop = true
+                                    }
+                                }
                             }
                         }
                     }
