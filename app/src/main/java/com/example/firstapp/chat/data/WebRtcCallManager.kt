@@ -46,6 +46,7 @@ class WebRtcCallManager(context: Context) {
     private val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
     private var proximityWakeLock: PowerManager.WakeLock? = null
     private val eglBase = EglBase.create()
+    val eglBaseContext: EglBase.Context get() = eglBase.eglBaseContext
 
     private val observationScope = CoroutineScope(Dispatchers.Main)
 
@@ -438,25 +439,24 @@ class WebRtcCallManager(context: Context) {
     }
 
     fun attachLocalRenderer(renderer: SurfaceViewRenderer) {
-        if (localRenderer == renderer) return
+        if (localRenderer == renderer) {
+            localVideoTrack?.addSink(renderer)
+            return
+        }
         
-        // Detach from previous renderer if any
         localRenderer?.let { localVideoTrack?.removeSink(it) }
-        
         localRenderer = renderer
         try {
-            // Note: renderer.init is often called multiple times if reused in Compose, 
-            // but we should avoid it if the context hasn't changed.
             renderer.init(eglBase.eglBaseContext, null)
             renderer.setEnableHardwareScaler(true)
             renderer.setMirror(true)
         } catch (e: Exception) {
-            // Only log if it's not a "renderer already initialized" error which is common in PiP swaps
             if (e.message?.contains("already initialized") != true) {
                 Log.w("WebRtcCallManager", "Local renderer init info: ${e.message}")
             }
         }
         
+        localVideoTrack?.setEnabled(true)
         localVideoTrack?.addSink(renderer)
     }
 
@@ -466,7 +466,10 @@ class WebRtcCallManager(context: Context) {
     }
 
     fun attachRemoteRenderer(renderer: SurfaceViewRenderer) {
-        if (remoteRenderer == renderer) return
+        if (remoteRenderer == renderer) {
+            remoteVideoTrack?.addSink(renderer)
+            return
+        }
         
         observationScope.launch {
             remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }

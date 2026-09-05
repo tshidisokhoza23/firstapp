@@ -139,6 +139,9 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
             AndroidView(
                 factory = { context ->
                     SurfaceViewRenderer(context).apply {
+                        try {
+                            init(callManager.eglBaseContext, null)
+                        } catch (_: Exception) {}
                         setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                         setEnableHardwareScaler(true)
                     }
@@ -157,7 +160,7 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
                 }
             )
 
-            // PiP View (Local by default)
+            // PiP View (Local Video Box)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -165,12 +168,17 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
                     .padding(top = 16.dp, end = 16.dp)
                     .size(width = 120.dp, height = 180.dp)
                     .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black)
                     .clickable { isLocalFullScreen = !isLocalFullScreen }
             ) {
                 AndroidView(
                     factory = { context ->
                         SurfaceViewRenderer(context).apply {
+                            setZOrderOnTop(true)
                             setZOrderMediaOverlay(true)
+                            try {
+                                init(callManager.eglBaseContext, null)
+                            } catch (_: Exception) {}
                             setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                             setEnableHardwareScaler(true)
                         }
@@ -215,6 +223,9 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
             AndroidView(
                 factory = { context ->
                     SurfaceViewRenderer(context).apply {
+                        try {
+                            init(callManager.eglBaseContext, null)
+                        } catch (_: Exception) {}
                         setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                         setEnableHardwareScaler(true)
                     }
