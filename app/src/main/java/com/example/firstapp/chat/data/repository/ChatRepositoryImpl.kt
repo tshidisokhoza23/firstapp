@@ -187,21 +187,20 @@ class ChatRepositoryImpl @Inject constructor(
                                     )
 
                                     val displaySummary = formatLastMessageSummary(message.content, message.type)
-                                    chatDao.updateLastMessage(
-                                        message.conversationId,
-                                        displaySummary,
-                                        message.timestamp,
-                                        message.isFromMe,
-                                        message.isRead
-                                    )
 
-                                    if (!message.isFromMe) {
-                                        chatDao.incrementUnreadCount(message.conversationId)
-                                    }
-
-                                    // Upsert missing conversation shell if message belongs to a new conversation
                                     val chatExists = chatDao.searchChatsById(message.conversationId) != null
-                                    if (!chatExists) {
+                                    if (chatExists) {
+                                        chatDao.updateLastMessage(
+                                            message.conversationId,
+                                            displaySummary,
+                                            message.timestamp,
+                                            message.isFromMe,
+                                            message.isRead
+                                        )
+                                        if (!message.isFromMe) {
+                                            chatDao.incrementUnreadCount(message.conversationId)
+                                        }
+                                    } else {
                                         val newChat = ChatEntity(
                                             id = message.conversationId,
                                             type = com.example.firstapp.common.model.ConversationType.DIRECT,
@@ -815,10 +814,10 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun updateTyping(chatId: String, isTyping: Boolean) {
         chatDaoProvider.get().updateTyping(chatId, isTyping)
-        webSocketManager.send("chat", "typing", buildJsonObject {
+        webSocketManager.send("chat", "TYPING", buildJsonObject {
             put("conversation_id", chatId)
-            put("is_typing", isTyping)
-        })
+            put("state", if (isTyping) "START" else "STOP")
+        }, op = "TYPING")
     }
 
     override suspend fun updatePresence(chatId: String, isOnline: Boolean, lastSeen: Long) {
@@ -917,7 +916,20 @@ class ChatRepositoryImpl @Inject constructor(
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList())) }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow { emit(Resource.Error("Use CallListenerService")) }
+    override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.initiateCall(InitiateCallRequest(receiverId, callType))
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.session_id))
+            } else {
+                emit(Resource.Error("Failed to initiate call: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error initiating call", e)
+            emit(Resource.Error(e.message ?: "Network error"))
+        }
+    }
     override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow { emit(Resource.Success(emptyList())) }
     override suspend fun getICEServers(): Resource<List<IceServerConfig>> = Resource.Success(emptyList())

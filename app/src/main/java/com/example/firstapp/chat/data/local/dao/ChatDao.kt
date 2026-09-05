@@ -120,7 +120,7 @@ interface ChatDao {
     // READ / DELIVERY RECEIPTS & LAST MESSAGE
     // ==========================================
 
-    @Query("UPDATE chats SET lastMessage = :lastMessage, timestamp = :time, lastMessageIsFromMe = :isFromMe, lastMessageRead = :isRead WHERE id = :chatId")
+    @Query("UPDATE chats SET lastMessage = :lastMessage, timestamp = :time, lastMessageIsFromMe = :isFromMe, lastMessageRead = :isRead WHERE id = :chatId OR otherUserId = :chatId")
     suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean)
 
     @Query("UPDATE chats SET unreadCount = :count WHERE id = :chatId OR otherUserId = :chatId")

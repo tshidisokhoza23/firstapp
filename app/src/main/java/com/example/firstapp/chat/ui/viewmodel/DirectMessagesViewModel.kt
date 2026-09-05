@@ -31,7 +31,14 @@ class DirectMessagesViewModel @Inject constructor(
 
     fun fetchData() {
         viewModelScope.launch {
-            repository.getChats().collect { _chats.value = it }
+            repository.getChats().collect { res ->
+                if (res is Resource.Success) {
+                    val filtered = res.data?.filter { it.type == com.example.firstapp.common.model.ConversationType.DIRECT } ?: emptyList()
+                    _chats.value = Resource.Success(filtered)
+                } else {
+                    _chats.value = res
+                }
+            }
         }
         viewModelScope.launch {
             repository.getCallLogs().collect { _calls.value = it }
