@@ -192,9 +192,10 @@ class ChatRepositoryImpl @Inject constructor(
                                     phone
                                 )
 
+                                val displaySummary = formatLastMessageSummary(message.content, message.type)
                                 chatDao.updateLastMessage(
                                     message.conversationId, 
-                                    message.content, 
+                                    displaySummary, 
                                     message.timestamp, 
                                     message.isFromMe, 
                                     message.isRead
