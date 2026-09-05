@@ -133,30 +133,33 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * Thoroughly deletes the database files for a specific user.
+         * Thoroughly deletes the database files for a specific user or all databases.
          * Used on logout or when corruption is detected.
          */
-        fun deleteUserDatabase(context: android.content.Context, userId: String) {
-            val dbName = getDatabaseNameForUser(userId)
-            android.util.Log.w("AppDatabase", "Deleting database for user: $userId ($dbName)")
+        @Synchronized
+        fun closeAndClearAllDatabases(context: android.content.Context) {
             try {
-                // Close current instance if it matches the user
-                if (currentUserId == userId) {
-                    instance?.close()
-                    instance = null
-                }
-                
-                val dbFile = context.getDatabasePath(dbName)
-                if (dbFile.exists()) {
-                    context.deleteDatabase(dbName)
-                    // Ensure auxiliary files are gone
-                    java.io.File(dbFile.absolutePath + "-wal").delete()
-                    java.io.File(dbFile.absolutePath + "-shm").delete()
-                    java.io.File(dbFile.absolutePath + "-journal").delete()
+                android.util.Log.w("AppDatabase", "Closing and deleting all local databases")
+                instance?.close()
+                instance = null
+                currentUserId = null
+
+                val dbPath = context.getDatabasePath("dummy")
+                val dbDir = dbPath.parentFile
+                if (dbDir != null && dbDir.exists()) {
+                    dbDir.listFiles()?.forEach { file ->
+                        android.util.Log.w("AppDatabase", "Deleting database file: ${file.name}")
+                        context.deleteDatabase(file.name)
+                        file.delete()
+                    }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AppDatabase", "Error deleting database for $userId", e)
+                android.util.Log.e("AppDatabase", "Error clearing all database files", e)
             }
+        }
+
+        fun deleteUserDatabase(context: android.content.Context, userId: String) {
+            closeAndClearAllDatabases(context)
         }
 
         private fun buildDatabase(context: android.content.Context, sessionManager: com.example.firstapp.common.domain.auth.SessionManager, dbName: String): AppDatabase {

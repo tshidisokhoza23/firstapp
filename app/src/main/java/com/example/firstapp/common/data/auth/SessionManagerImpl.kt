@@ -168,35 +168,21 @@ class SessionManagerImpl @Inject constructor(
 
         Log.w("SessionManager", "Logging out user $userId: Clearing session, databases, preferences, and cache")
 
-        // 1. Clear SharedPreferences
+        // 1. Close and delete all Room databases FIRST before clearing preferences
+        try {
+            com.example.firstapp.common.data.local.AppDatabase.closeAndClearAllDatabases(context)
+        } catch (e: Exception) {
+            Log.e("SessionManager", "Error clearing databases on logout", e)
+        }
+
+        // 2. Clear SharedPreferences
         try {
             getPrefs().edit().clear().commit()
         } catch (e: Exception) {
             Log.e("SessionManager", "Failed to clear SharedPreferences", e)
         }
 
-        // 2. Delete user database and default database
-        if (userId != null) {
-            com.example.firstapp.common.data.local.AppDatabase.deleteUserDatabase(context, userId)
-        }
-        com.example.firstapp.common.data.local.AppDatabase.deleteUserDatabase(context, "anonymous")
-
-        // 3. Delete all database files on disk
-        try {
-            val dbPath = context.getDatabasePath("dummy")
-            val dbDir = dbPath.parentFile
-            if (dbDir != null && dbDir.exists()) {
-                dbDir.listFiles()?.forEach { file ->
-                    Log.w("SessionManager", "Deleting database file on logout: ${file.name}")
-                    context.deleteDatabase(file.name)
-                    file.delete()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("SessionManager", "Error clearing database directory on logout", e)
-        }
-
-        // 4. Clear cache directory
+        // 3. Clear cache directory
         try {
             context.cacheDir.deleteRecursively()
         } catch (e: Exception) {
