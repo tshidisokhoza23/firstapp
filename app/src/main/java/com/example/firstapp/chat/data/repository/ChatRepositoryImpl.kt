@@ -861,9 +861,14 @@ class ChatRepositoryImpl @Inject constructor(
                             isRegistered = false
                         )
                     }
-                val contacts = registeredContacts + nonRegisteredContacts
-                contactDaoProvider.get().insertContacts(contacts.map { it.toEntity() })
-                emit(Resource.Success(contacts))
+                val syncedContacts = registeredContacts + nonRegisteredContacts
+                
+                // Merge with existing local Room DB contacts so non-phonebook / social contacts are never excluded or deleted
+                val existingDbContacts = contactDaoProvider.get().getContacts().first().map { it.toModel() }
+                val mergedContacts = (syncedContacts + existingDbContacts).distinctBy { it.id }
+                
+                contactDaoProvider.get().insertContacts(mergedContacts.map { it.toEntity() })
+                emit(Resource.Success(mergedContacts))
             } else emit(Resource.Error("Sync failed"))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error syncing contacts")) }
     }
