@@ -218,8 +218,28 @@ class ChatRepositoryImpl @Inject constructor(
                                 val existsInChannels = channels.any { it.id == message.conversationId || it.conversationId == message.conversationId }
                                 
                                 if (!existsInChats && !existsInChannels) {
-                                    Log.i("ChatRepository", "New conversation detected via WS: ${message.conversationId}, syncing...")
-                                    syncChats().collect {}
+                                    Log.i("ChatRepository", "New conversation detected via WS: ${message.conversationId}, inserting new ChatEntity immediately")
+                                    val displaySummary = formatLastMessageSummary(message.content, message.type)
+                                    val newChat = ChatEntity(
+                                        id = message.conversationId,
+                                        type = com.example.firstapp.common.model.ConversationType.DIRECT,
+                                        senderName = resolvedName.ifBlank { senderName.ifBlank { "New Message" } },
+                                        lastMessage = displaySummary,
+                                        timestamp = message.timestamp,
+                                        unreadCount = if (!message.isFromMe) 1 else 0,
+                                        avatarUrl = null,
+                                        otherUserId = apiMsg.sender_id,
+                                        isOnline = false,
+                                        isMuted = false,
+                                        isPinned = false,
+                                        isTyping = false,
+                                        phoneNumber = phone,
+                                        lastMessageIsFromMe = message.isFromMe,
+                                        lastMessageRead = message.isRead
+                                    )
+                                    chatDao.insertChats(listOf(newChat))
+                                    webSocketManager.send("chat:${message.conversationId}", "join", op = "subscribe")
+                                    scope.launch { syncChats().collect {} }
                                 }
                             } catch (e: Exception) {
                                 Log.e("ChatRepository", "Failed to decode WS message", e)
