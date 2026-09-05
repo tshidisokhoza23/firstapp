@@ -198,6 +198,7 @@ fun ChatsListScreen(
                                 0 -> SearchType.CHATS
                                 1 -> SearchType.CHANNELS
                                 2 -> SearchType.JOBS
+                                4 -> SearchType.GLOBAL
                                 else -> SearchType.GLOBAL
                             }
                             TextField(
@@ -211,6 +212,7 @@ fun ChatsListScreen(
                                         0 -> "Search chats, contacts, messages..."
                                         1 -> "Search channels..."
                                         2 -> "Search jobs, companies..."
+                                        4 -> "Search people by name or username..."
                                         else -> "Search..."
                                     }
                                     Text(hint, color = Color.Gray) 
@@ -902,7 +904,7 @@ fun SearchResultsView(
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         if (showContacts && contacts.size > 0) {
-            item { SearchSectionHeader("Contacts") }
+            item { SearchSectionHeader("People & Contacts") }
             items(items = contacts, key = { "contact_" + it.id }) { contactItem: Contact ->
                 Column(modifier = Modifier.clickable { onContactClick(contactItem) }) {
                     ContactSearchItem(contactItem)
