@@ -530,8 +530,30 @@ class ChatRepositoryImpl @Inject constructor(
                 val localChats = chatDao.getChats().first().associateBy { it.id }
                 val finalEntities = entities.map { serverEntity ->
                     val local = localChats[serverEntity.id]
+                    val latestMsg = chatDao.getLatestMessage(serverEntity.id)
+                    var resultEntity = serverEntity
+
+                    if (latestMsg != null) {
+                        val displaySummary = formatLastMessageSummary(latestMsg.content, latestMsg.type)
+                        if (latestMsg.timestamp >= serverEntity.timestamp || serverEntity.lastMessage.isBlank()) {
+                            resultEntity = resultEntity.copy(
+                                lastMessage = displaySummary,
+                                timestamp = maxOf(serverEntity.timestamp, latestMsg.timestamp),
+                                lastMessageIsFromMe = latestMsg.isFromMe,
+                                lastMessageRead = latestMsg.isRead
+                            )
+                        }
+                    } else if (local != null && serverEntity.lastMessage.isBlank() && local.lastMessage.isNotBlank()) {
+                        resultEntity = resultEntity.copy(
+                            lastMessage = local.lastMessage,
+                            timestamp = maxOf(serverEntity.timestamp, local.timestamp),
+                            lastMessageIsFromMe = local.lastMessageIsFromMe,
+                            lastMessageRead = local.lastMessageRead
+                        )
+                    }
+
                     if (local != null && serverEntity.type == com.example.firstapp.common.model.ConversationType.CHANNEL) {
-                        serverEntity.copy(
+                        resultEntity.copy(
                             isSubscribed = local.isSubscribed || serverEntity.isSubscribed,
                             isAdmin = local.isAdmin || serverEntity.isAdmin,
                             isMuted = local.isMuted,
@@ -539,7 +561,7 @@ class ChatRepositoryImpl @Inject constructor(
                             createdBy = serverEntity.createdBy ?: local.createdBy
                         )
                     } else {
-                        serverEntity
+                        resultEntity
                     }
                 }
 
@@ -568,10 +590,14 @@ class ChatRepositoryImpl @Inject constructor(
                     finalEntity = finalEntity.copy(mediaUrls = pending.mediaUrls)
                 }
                 chatDao.confirmSentMessage(clientId, finalEntity)
+                val displaySummary = formatLastMessageSummary(message.content, message.type)
+                chatDao.updateLastMessage(chatId, displaySummary, message.timestamp, message.isFromMe, message.isRead)
                 return
             }
         }
         chatDao.insertMessages(listOf(entity))
+        val displaySummary = formatLastMessageSummary(message.content, message.type)
+        chatDao.updateLastMessage(chatId, displaySummary, message.timestamp, message.isFromMe, message.isRead)
     }
 
     override fun sendDeliveryAck(chatId: String, messageId: String) {

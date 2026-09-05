@@ -140,6 +140,9 @@ interface SocialApi {
     @GET("channels")
     suspend fun getChannels(): Response<ChannelsResponse>
 
+    @GET("chats/channels")
+    suspend fun getChatsChannels(): Response<ChannelsResponse>
+
     @POST("chats/channels")
     suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiChannel>
 
