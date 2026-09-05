@@ -197,6 +197,8 @@ data class SendMessageRequest(
     val mention_user_ids: List<String>? = null,
     val receiver_id: String? = null,
     val reply_to_id: String? = null,
+    val reply_to_text: String? = null,
+    val reply_to_sender_name: String? = null,
     val scheduled_at: Long? = null,
     val link_preview: com.example.firstapp.chat.model.LinkPreview? = null,
     val audio_amplitudes: List<Int>? = null
