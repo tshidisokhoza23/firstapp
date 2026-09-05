@@ -899,9 +899,8 @@ class ChatRepositoryImpl @Inject constructor(
         chatDaoProvider.get().clearMessages(chatId)
     }
     override suspend fun clearAllChats() {
-        val chatDao = chatDaoProvider.get()
-        chatDao.clearChats()
-        chatDao.clearAllMessages()
+        val db = dbProvider.get()
+        db.clearAllTables()
     }
     override fun getArchivedChats(): Flow<Resource<List<ChatMessage>>> = chatDaoProvider.get().getArchivedChats().map { list -> Resource.Success(list.map { it.toModel() }) }
     override fun getCallLogs(): Flow<Resource<List<CallLog>>> = callLogDaoProvider.get().getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }
