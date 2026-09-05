@@ -130,26 +130,35 @@ class ChatViewModel @Inject constructor(
     private fun observeRealtimeEvents() {
         webSocketManager.events
             .onEach { envelope ->
-                when (envelope.topic) {
-                    "chat", "chat:${_activeChatId.value}" -> {
-                        if (envelope.event == "message" || envelope.event == "INCOMING_MSG") {
-                            val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
-                            if (cid != null && cid == _activeChatId.value) {
-                                // If the chat is currently open, mark as read immediately
-                                markAsRead(cid)
+                val topic = envelope.topic ?: ""
+                val event = (envelope.event ?: envelope.op ?: "").uppercase()
+
+                when {
+                    topic == "chat" || topic.startsWith("chat:") || topic.startsWith("user:") -> {
+                        when (event) {
+                            "MESSAGE", "INCOMING_MSG", "MSG_ACK" -> {
+                                val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
+                                val currentOpenChat = _activeChatId.value
+                                if (cid != null && cid == currentOpenChat) {
+                                    markAsRead(cid)
+                                    // Trigger immediate re-fetch from Room DB for current open chat
+                                    repository.getMessages(cid).firstOrNull()?.let { res ->
+                                        _uiState.update { s -> s.copy(messages = res) }
+                                    }
+                                }
                             }
-                        }
-                        if (envelope.event == "typing" || envelope.event == "TYPING") {
-                            val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
-                                ?: envelope.topic?.substringAfter("chat:")
-                            val state = (envelope.payload?.get("is_typing") 
-                                ?: envelope.payload?.get("state"))?.toString()?.toBoolean() ?: false
-                            
-                            if (cid != null) {
-                                _uiState.update { s ->
-                                    val updated = s.typingStatus.toMutableMap()
-                                    updated[cid] = state
-                                    s.copy(typingStatus = updated)
+                            "TYPING", "typing" -> {
+                                val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
+                                    ?: topic.substringAfter("chat:")
+                                val state = (envelope.payload?.get("is_typing") 
+                                    ?: envelope.payload?.get("state"))?.toString()?.toBoolean() ?: false
+                                
+                                if (cid.isNotBlank()) {
+                                    _uiState.update { s ->
+                                        val updated = s.typingStatus.toMutableMap()
+                                        updated[cid] = state
+                                        s.copy(typingStatus = updated)
+                                    }
                                 }
                             }
                         }
@@ -212,16 +221,15 @@ class ChatViewModel @Inject constructor(
     private var messagesJob: kotlinx.coroutines.Job? = null
 
     fun fetchMessages(chatId: String) {
-        if (_activeChatId.value == chatId && messagesJob != null) return // Already collecting
-
         _activeChatId.value = chatId
-        messagesJob?.cancel()
-        messagesJob = viewModelScope.launch {
-            repository.getMessages(chatId)
-                .distinctUntilChanged()
-                .collect { res ->
-                    _uiState.update { it.copy(messages = res) }
-                }
+        if (messagesJob == null || messagesJob?.isActive != true) {
+            messagesJob?.cancel()
+            messagesJob = viewModelScope.launch {
+                repository.getMessages(chatId)
+                    .collect { res ->
+                        _uiState.update { it.copy(messages = res) }
+                    }
+            }
         }
         
         // Trigger network sync

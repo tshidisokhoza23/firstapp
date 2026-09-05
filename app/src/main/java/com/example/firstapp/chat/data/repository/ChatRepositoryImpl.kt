@@ -460,7 +460,7 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getMessages(chatId: String, page: Int): Flow<Resource<List<Message>>> = 
         chatDaoProvider.get().getMessages(chatId).map { list ->
             Resource.Success(list.map { it.toModel() })
-        }.distinctUntilChanged()
+        }
 
     override fun fetchMessages(chatId: String, page: Int): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
