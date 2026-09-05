@@ -45,10 +45,22 @@ interface ChatDao {
     // MESSAGE STREAMS & MUTATIONS
     // ==========================================
 
-    @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp ASC")
+    @Query("""
+        SELECT * FROM messages 
+        WHERE conversationId = :chatId 
+           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+        ORDER BY timestamp ASC
+    """)
     fun getMessages(chatId: String): Flow<List<MessageEntity>>
 
-    @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp DESC")
+    @Query("""
+        SELECT * FROM messages 
+        WHERE conversationId = :chatId 
+           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+        ORDER BY timestamp DESC
+    """)
     fun getMessagesPaging(chatId: String): PagingSource<Int, MessageEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -66,10 +78,22 @@ interface ChatDao {
     @Query("SELECT conversationId FROM messages WHERE id = :messageId LIMIT 1")
     suspend fun getChatIdForMessage(messageId: String): String?
 
-    @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp ASC LIMIT 1")
+    @Query("""
+        SELECT * FROM messages 
+        WHERE conversationId = :chatId 
+           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+        ORDER BY timestamp ASC LIMIT 1
+    """)
     suspend fun getOldestMessage(chatId: String): MessageEntity?
 
-    @Query("SELECT * FROM messages WHERE conversationId = :chatId OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1) ORDER BY timestamp DESC LIMIT 1")
+    @Query("""
+        SELECT * FROM messages 
+        WHERE conversationId = :chatId 
+           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+        ORDER BY timestamp DESC LIMIT 1
+    """)
     suspend fun getLatestMessage(chatId: String): MessageEntity?
 
     @Query("SELECT MAX(timestamp) FROM messages WHERE conversationId = :chatId")

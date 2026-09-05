@@ -189,17 +189,34 @@ class ChatRepositoryImpl @Inject constructor(
 
                             val displaySummary = formatLastMessageSummary(message.content, message.type)
 
-                            val chatExists = chatDao.searchChatsById(message.conversationId) != null
-                            if (chatExists) {
-                                chatDao.updateLastMessage(
-                                    message.conversationId,
-                                    displaySummary,
-                                    message.timestamp,
-                                    message.isFromMe,
-                                    message.isRead
-                                )
-                                if (!message.isFromMe) {
-                                    chatDao.incrementUnreadCount(message.conversationId)
+                            var existingChat = chatDao.searchChatsById(message.conversationId)
+                            if (existingChat == null) {
+                                existingChat = chatDao.searchChatsById(apiMsg.sender_id)
+                            }
+
+                            if (existingChat != null) {
+                                if (existingChat.id != message.conversationId) {
+                                    chatDao.migrateMessagesConversationId(existingChat.id, message.conversationId)
+                                    chatDao.deleteChat(existingChat.id)
+                                    chatDao.insertChats(listOf(
+                                        existingChat.copy(
+                                            id = message.conversationId,
+                                            lastMessage = displaySummary,
+                                            timestamp = message.timestamp,
+                                            unreadCount = if (!message.isFromMe) existingChat.unreadCount + 1 else existingChat.unreadCount
+                                        )
+                                    ))
+                                } else {
+                                    chatDao.updateLastMessage(
+                                        message.conversationId,
+                                        displaySummary,
+                                        message.timestamp,
+                                        message.isFromMe,
+                                        message.isRead
+                                    )
+                                    if (!message.isFromMe) {
+                                        chatDao.incrementUnreadCount(message.conversationId)
+                                    }
                                 }
                             } else {
                                 val newChat = ChatEntity(
