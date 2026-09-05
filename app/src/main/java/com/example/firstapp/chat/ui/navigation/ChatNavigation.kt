@@ -111,15 +111,32 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val url = backStackEntry.arguments?.getString("url") ?: ""
         val type = backStackEntry.arguments?.getString("type") ?: "text"
         val storyViewModel: StoryViewModel = hiltViewModel()
+        val postResult by storyViewModel.postResult.collectAsState()
+        val context = androidx.compose.ui.platform.LocalContext.current
+
+        LaunchedEffect(postResult) {
+            when (val res = postResult) {
+                is com.example.firstapp.common.util.Resource.Success -> {
+                    android.widget.Toast.makeText(context, "Story posted!", android.widget.Toast.LENGTH_SHORT).show()
+                    storyViewModel.clearPostResult()
+                    navController.popBackStack(Screen.Main.route, false)
+                }
+                is com.example.firstapp.common.util.Resource.Error -> {
+                    android.widget.Toast.makeText(context, res.message ?: "Failed to post story", android.widget.Toast.LENGTH_LONG).show()
+                    storyViewModel.clearPostResult()
+                }
+                else -> {}
+            }
+        }
         
         ShareStoryScreen(
             content = content,
             url = url,
             type = type,
+            isPosting = postResult is com.example.firstapp.common.util.Resource.Loading,
             onBack = { navController.popBackStack() },
             onPost = { c, u, t ->
                 storyViewModel.postStory(c, u.takeIf { it.isNotBlank() }, t)
-                navController.popBackStack(Screen.Main.route, false)
             }
         )
     }
@@ -158,11 +175,12 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                    else if (typeStr == "job_chat") ConversationType.JOB_CHAT
                    else ConversationType.DIRECT
         
-        var resolvedChatId by remember { mutableStateOf<String?>(if (typeStr == "initiate") null else chatId) }
-        var targetUserId by remember { mutableStateOf<String?>(if (typeStr == "initiate") chatId else null) }
+        val isInitiate = typeStr == "initiate" || typeStr == "initiate_dm"
+        var resolvedChatId by remember { mutableStateOf<String?>(if (isInitiate) null else chatId) }
+        var targetUserId by remember { mutableStateOf<String?>(if (isInitiate) chatId else null) }
         
         LaunchedEffect(chatId, typeStr) {
-            if (typeStr == "initiate") {
+            if (isInitiate) {
                 chatViewModel.initiateDM(chatId).collect { resource ->
                     if (resource is Resource.Success<String> && resource.data != null) {
                         resolvedChatId = resource.data

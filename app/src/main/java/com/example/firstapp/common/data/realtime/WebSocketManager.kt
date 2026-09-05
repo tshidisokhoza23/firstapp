@@ -47,7 +47,7 @@ class WebSocketManager @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     private val _events = MutableSharedFlow<WSEnvelope>(
-        extraBufferCapacity = 100,
+        extraBufferCapacity = 200,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val events: SharedFlow<WSEnvelope> = _events.asSharedFlow()
@@ -80,29 +80,34 @@ class WebSocketManager @Inject constructor(
 
     @Synchronized
     fun connect() {
-        if (isConnected || isManualDisconnect) return
+        if (isConnected) return
+        isManualDisconnect = false
         
         val token = sessionManager.getToken()
         if (token.isNullOrEmpty()) {
-            Log.w("WebSocketManager", "No token available, skipping connection")
+            Log.w("WebSocketManager", "No token available, scheduling retry")
             _connectionState.value = ConnectionState.DISCONNECTED
+            scope.launch {
+                delay(2000)
+                if (!isConnected && !sessionManager.getToken().isNullOrEmpty()) {
+                    connect()
+                }
+            }
             return
         }
 
         _connectionState.value = ConnectionState.CONNECTING
 
-        // Use the configured WS base URL so the socket targets the same backend
-        // as the REST API (e.g. the local dev server) instead of a hardcoded host.
         val base = BuildConfig.WS_BASE_URL.trimEnd('/')
         val wsUrl = "$base/ws/chat?token=$token"
         val request = Request.Builder()
             .url(wsUrl)
             .build()
 
-        Log.d("WebSocketManager", "Connecting to configured chat websocket")
+        Log.d("WebSocketManager", "Connecting to chat websocket at $wsUrl")
         okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.i("WebSocketManager", "WebSocket Opened")
+                Log.i("WebSocketManager", "WebSocket Opened successfully")
                 webSocketRef.set(webSocket)
                 isConnected = true
                 retryCount = 0
@@ -111,7 +116,7 @@ class WebSocketManager @Inject constructor(
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.v("WebSocketManager", "Received: $text")
+                Log.v("WebSocketManager", "Received WS message: $text")
                 scope.launch {
                     try {
                         val envelope = json.decodeFromString<WSEnvelope>(text)
@@ -130,13 +135,12 @@ class WebSocketManager @Inject constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("WebSocketManager", "WebSocket Failure", t)
+                Log.e("WebSocketManager", "WebSocket Failure: ${t.message}", t)
                 _connectionState.value = ConnectionState.DISCONNECTED
                 handleReconnect()
             }
         })
     }
-
 
     private fun handleReconnect() {
         isConnected = false
@@ -156,9 +160,9 @@ class WebSocketManager @Inject constructor(
 
     private fun calculateExponentialBackoff(retries: Int): Long {
         val baseDelay = 1000L // 1s
-        val maxDelay = 30000L // 30s
-        val delay = min(maxDelay, baseDelay * (1L shl min(retries, 10)))
-        val jitter = Random.nextLong(0, 500) // 500ms max jitter
+        val maxDelay = 15000L // 15s max
+        val delay = min(maxDelay, baseDelay * (1L shl min(retries, 5)))
+        val jitter = Random.nextLong(0, 500)
         return delay + jitter
     }
 
@@ -166,8 +170,7 @@ class WebSocketManager @Inject constructor(
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
             while (isActive && isConnected) {
-                delay(15000) // 15s heartbeat (presence contract)
-                // Send heartbeat on presence topic to keep user online
+                delay(15000) // 15s heartbeat
                 send("presence", "heartbeat", buildJsonObject {
                     put("status", "online")
                     put("timestamp", System.currentTimeMillis())
@@ -184,9 +187,12 @@ class WebSocketManager @Inject constructor(
             webSocket.send(jsonStr)
         } else {
             Log.w("WebSocketManager", "Cannot send, socket not connected: $topic/$event")
+            // If socket was disconnected unexpectedly, attempt reconnect
+            if (!isConnected && !isManualDisconnect) {
+                connect()
+            }
         }
     }
-
 
     fun disconnect() {
         isManualDisconnect = true

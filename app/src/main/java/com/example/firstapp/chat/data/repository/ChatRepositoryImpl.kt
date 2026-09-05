@@ -157,12 +157,13 @@ class ChatRepositoryImpl @Inject constructor(
         }
         val chatDao = chatDaoProvider.get()
         val topic = envelope.topic ?: ""
+        val event = (envelope.event ?: envelope.op ?: "").uppercase()
         
         when {
             topic == "chat" || topic.startsWith("chat:") || topic.startsWith("user:") -> {
                 Log.v("ChatRepository", "Handling chat event: ${envelope.event} on topic: $topic")
-                when (envelope.event) {
-                    "message", "INCOMING_MSG" -> {
+                when (event) {
+                    "MESSAGE", "INCOMING_MSG" -> {
                         val payload = envelope.payload
                         if (payload != null) {
                             try {
@@ -268,6 +269,20 @@ class ChatRepositoryImpl @Inject constructor(
                             }
                         }
                     }
+                    "CLEAR_CONV" -> {
+                        val payload = envelope.payload
+                        if (payload != null) {
+                            try {
+                                val chatId = payload["conversation_id"]?.toString()?.trim('"')
+                                if (chatId != null) {
+                                    Log.d("ChatRepository", "Clearing conversation messages via WS: $chatId")
+                                    chatDao.clearMessages(chatId)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("ChatRepository", "Failed to decode CLEAR_CONV event", e)
+                            }
+                        }
+                    }
                     "typing", "TYPING" -> {
                         val payload = envelope.payload
                         if (payload != null) {
@@ -286,10 +301,11 @@ class ChatRepositoryImpl @Inject constructor(
                         if (payload != null) {
                             try {
                                 val userId = (payload["user_id"] ?: payload["userId"])?.toString()?.trim('"')
-                                val isOnline = (payload["is_online"] ?: payload["isOnline"])?.toString()?.toBoolean() ?: false
+                                val statusStr = (payload["status"] ?: payload["is_online"] ?: payload["isOnline"])?.toString()?.trim('"')?.lowercase()
+                                val isOnline = statusStr == "online" || statusStr == "true"
                                 val lastSeen = (payload["last_seen"] ?: payload["lastSeen"])?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
                                 if (userId != null) {
-                                    Log.d("ChatRepository", "Updating presence via WS: user $userId -> online=$isOnline")
+                                    Log.d("ChatRepository", "Updating presence via WS: user $userId -> online=$isOnline (statusStr=$statusStr)")
                                     chatDao.updatePresence(userId, isOnline, lastSeen)
                                 }
                             } catch (e: Exception) {
@@ -364,17 +380,17 @@ class ChatRepositoryImpl @Inject constructor(
                 val payload = envelope.payload
                 if (payload != null) {
                     try {
-                        val userId = payload["user_id"]?.toString()?.trim('"')
-                        val eventType = envelope.event ?: ""
+                        val userId = (payload["user_id"] ?: payload["userId"])?.toString()?.trim('"')
+                        val eventType = envelope.event ?: envelope.op ?: ""
+                        val statusStr = (payload["status"] ?: payload["is_online"] ?: payload["isOnline"])?.toString()?.trim('"')?.lowercase()
                         
-                        // Support multiple event formats for presence
                         val isOnline = when (eventType.uppercase()) {
                             "ONLINE" -> true
                             "OFFLINE" -> false
-                            else -> payload["is_online"]?.toString()?.toBoolean() ?: false
+                            else -> statusStr == "online" || statusStr == "true"
                         }
                         
-                        val lastSeen = payload["last_seen"]?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
+                        val lastSeen = (payload["last_seen"] ?: payload["lastSeen"])?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
                         
                         if (userId != null) {
                             Log.d("ChatRepository", "Presence event: user=$userId, online=$isOnline, event=$eventType")
@@ -483,33 +499,68 @@ class ChatRepositoryImpl @Inject constructor(
         }
 
         try {
-            val response = chatApi.sendMessage(
-                conversationID = chatId,
+            var targetConvId = chatId
+            var response = chatApi.sendMessage(
+                conversationID = targetConvId,
                 request = SendMessageRequest(
                     client_uuid = clientUuid, message_text = body, media_type = messageType.uppercase(),
                     media_urls = mediaUrls, duration = duration, file_name = fileName, file_size = fileSize,
                     contact_name = contactName, contact_phone = contactPhone, latitude = latitude,
-                    longitude = longitude, reply_to_id = replyToId, scheduled_at = scheduledAt,
+                    longitude = longitude, reply_to_id = replyToId, reply_to_text = replyToText,
+                    reply_to_sender_name = replyToSenderName, scheduled_at = scheduledAt,
                     link_preview = pendingMsg.linkPreview, audio_amplitudes = pendingMsg.audioAmplitudes
                 )
             )
+
+            if (!response.isSuccessful && (response.code() == 403 || response.code() == 404)) {
+                try {
+                    val chatEntity = chatDao.searchChatsById(chatId)
+                    val recipientId = chatEntity?.otherUserId?.takeIf { it.isNotBlank() } ?: chatId
+                    val dmRes = chatApi.initiateDM(InitiateDMRequest(recipientId))
+                    if (dmRes.isSuccessful && dmRes.body() != null) {
+                        targetConvId = dmRes.body()!!.conversation_id
+                        response = chatApi.sendMessage(
+                            conversationID = targetConvId,
+                            request = SendMessageRequest(
+                                client_uuid = clientUuid, message_text = body, media_type = messageType.uppercase(),
+                                media_urls = mediaUrls, duration = duration, file_name = fileName, file_size = fileSize,
+                                contact_name = contactName, contact_phone = contactPhone, latitude = latitude,
+                                longitude = longitude, reply_to_id = replyToId, reply_to_text = replyToText,
+                                reply_to_sender_name = replyToSenderName, scheduled_at = scheduledAt,
+                                link_preview = pendingMsg.linkPreview, audio_amplitudes = pendingMsg.audioAmplitudes
+                            )
+                        )
+                    }
+                } catch (_: Exception) {}
+            }
 
             if (response.isSuccessful && response.body() != null) {
                 if (scheduledAt == null) {
                     val privKey = sessionManager.getPrivateKey()
                     var serverMsg = mapApiMessage(response.body()!!.message, privKey, myUserId)
                     
-                    // Preserve mediaUrls if server response doesn't echo them
+                    // Preserve mediaUrls and quoted message info if server response doesn't echo them
                     if (serverMsg.mediaUrls.isEmpty() && pendingMsg.mediaUrls.isNotEmpty()) {
                         serverMsg = serverMsg.copy(mediaUrls = pendingMsg.mediaUrls)
+                    }
+                    if (serverMsg.replyToText.isNullOrEmpty() && !pendingMsg.replyToText.isNullOrEmpty()) {
+                        serverMsg = serverMsg.copy(
+                            replyToId = pendingMsg.replyToId ?: serverMsg.replyToId,
+                            replyToText = pendingMsg.replyToText,
+                            replyToSenderName = pendingMsg.replyToSenderName
+                        )
                     }
 
                     val db = dbProvider.get()
                     db.withTransaction {
                         chatDao.deleteMessage(clientUuid)
-                        chatDao.insertMessages(listOf(serverMsg.toEntity(chatId)))
+                        if (targetConvId != chatId) {
+                            chatDao.deleteMessage(clientUuid)
+                        }
+                        chatDao.insertMessages(listOf(serverMsg.toEntity(targetConvId)))
                     }
-                    updateLastMessage(chatId, serverMsg.content, serverMsg.timestamp, true, true)
+                    val displaySummary = formatLastMessageSummary(serverMsg.content, serverMsg.type)
+                    updateLastMessage(targetConvId, displaySummary, serverMsg.timestamp, isFromMe = true, isRead = false)
                     emit(Resource.Success(serverMsg))
                 } else {
                     emit(Resource.Success(pendingMsg))
@@ -673,6 +724,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val conversationId = response.body()!!.conversation_id
                 val contactDao = contactDaoProvider.get()
+                val chatDao = chatDaoProvider.get()
                 val contact = contactDao.getContactById(contactId)
                 
                 val resolvedName = displayNameResolver.resolve(
@@ -680,6 +732,9 @@ class ChatRepositoryImpl @Inject constructor(
                     contact?.phoneNumber ?: ""
                 )
                 
+                // Migrate any orphaned messages sent to User ID over to real Conversation ID
+                chatDao.migrateMessagesConversationId(contactId, conversationId)
+
                 val newChat = ChatEntity(
                     id = conversationId, type = com.example.firstapp.common.model.ConversationType.DIRECT,
                     senderName = resolvedName, lastMessage = "",
@@ -687,7 +742,11 @@ class ChatRepositoryImpl @Inject constructor(
                     otherUserId = contactId, isOnline = false, isMuted = false, isPinned = false, isTyping = false,
                     phoneNumber = contact?.phoneNumber
                 )
-                chatDaoProvider.get().insertChats(listOf(newChat))
+                chatDao.insertChats(listOf(newChat))
+
+                // Subscribe immediately to WebSocket topic for real-time messages
+                webSocketManager.send("chat:$conversationId", "join", op = "subscribe")
+
                 emit(Resource.Success(conversationId))
             } else emit(Resource.Error("Failed to initiate DM"))
         } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
@@ -988,6 +1047,21 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun updateMessageInCache(chatId: String, message: Message) { chatDaoProvider.get().insertMessages(listOf(message.toEntity(chatId))) }
     override suspend fun updateMessageReactions(messageId: String, reactions: Map<String, Int>) { chatDaoProvider.get().updateMessageReactions(messageId, reactions) }
     override suspend fun deleteMessageLocal(messageId: String) { chatDaoProvider.get().deleteMessage(messageId) }
+    private fun formatLastMessageSummary(content: String, type: MessageType? = null): String {
+        val mType = type?.name?.uppercase() ?: ""
+        return when {
+            mType.contains("LOCATION") || content.startsWith("loc:") -> "📍 Location"
+            mType.contains("VIDEO_CALL") -> "📹 Video call"
+            mType.contains("VOICE_CALL") || mType.contains("CALL") -> "📞 Voice call"
+            mType.contains("IMAGE") -> if (content.isNotBlank() && !content.startsWith("http")) content else "📷 Photo"
+            mType.contains("VIDEO") -> if (content.isNotBlank() && !content.startsWith("http")) content else "🎥 Video"
+            mType.contains("AUDIO") || mType.contains("VOICE") -> if (content.isNotBlank() && !content.startsWith("http")) content else "🎵 Audio"
+            mType.contains("FILE") || mType.contains("DOCUMENT") -> if (content.isNotBlank() && !content.startsWith("http")) content else "📄 Document"
+            content.isBlank() && mType.isNotBlank() -> mType.lowercase().replaceFirstChar { it.uppercase() }
+            else -> content
+        }
+    }
+
     override suspend fun saveChat(chat: ChatMessage) { chatDaoProvider.get().insertChats(listOf(chat.toEntity())) }
     override suspend fun updateMessageStatus(messageId: String, status: MessageStatus) { /* Implement */ }
     override suspend fun markChatAsReadLocal(chatId: String) { chatDaoProvider.get().markIncomingAsRead(chatId) }
@@ -1003,8 +1077,9 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean) { 
         val chatDao = chatDaoProvider.get()
         val existing = chatDao.searchChatsById(chatId)
+        val formattedSummary = formatLastMessageSummary(lastMessage)
         if (existing != null) {
-            chatDao.updateLastMessage(chatId, lastMessage, time, isFromMe, isRead)
+            chatDao.updateLastMessage(chatId, formattedSummary, time, isFromMe, isRead)
         } else {
             scope.launch {
                 syncChats().collect {}
@@ -1050,7 +1125,13 @@ class ChatRepositoryImpl @Inject constructor(
             emit(Resource.Error(e.message ?: "Error")) 
         }
     }
-    override suspend fun clearMessages(chatId: String) { chatDaoProvider.get().clearMessages(chatId) }
+    override suspend fun clearMessages(chatId: String) {
+        val response = chatApi.clearConversation(chatId)
+        if (!response.isSuccessful) {
+            throw IllegalStateException("Server failed to clear chat: ${response.code()}")
+        }
+        chatDaoProvider.get().clearMessages(chatId)
+    }
     override suspend fun clearAllChats() { val chatDao = chatDaoProvider.get(); chatDao.clearChats(); chatDao.clearAllMessages() }
     override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow {
         try {

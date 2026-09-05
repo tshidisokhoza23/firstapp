@@ -883,7 +883,7 @@ class MockLessonRepositoryImpl @Inject constructor(
             "i" -> "ek"
             "you" -> "jy"
             "he" -> "hy"
-            "sy" -> "sy"
+            "she" -> "sy"
             "it" -> "dit"
             "we" -> "ons"
             "they" -> "hulle"
@@ -896,6 +896,15 @@ class MockLessonRepositoryImpl @Inject constructor(
             "name" -> "naam"
             "friend" -> "vriend"
             "family" -> "familie"
+            "mother" -> "ma"
+            "father" -> "pa"
+            "son" -> "seun"
+            "daughter" -> "dogter"
+            "brother" -> "broer"
+            "sister" -> "suster"
+            "parent" -> "ouer"
+            "kid" -> "kind"
+            "wife" -> "vrou"
             "man" -> "man"
             "woman" -> "vrou"
             "child" -> "kind"
@@ -913,6 +922,15 @@ class MockLessonRepositoryImpl @Inject constructor(
             "week" -> "week"
             "month" -> "maand"
             "year" -> "jaar"
+            "time" -> "tyd"
+            "hour" -> "uur"
+            "minute" -> "minuut"
+            "morning" -> "oggend"
+            "night" -> "nag"
+            "afternoon" -> "middag"
+            "evening" -> "aand"
+            "tomorrow" -> "môre"
+            "yesterday" -> "gister"
             "house" -> "huis"
             "dog" -> "hond"
             "cat" -> "kat"
@@ -925,7 +943,7 @@ class MockLessonRepositoryImpl @Inject constructor(
             "tea" -> "tee"
             "book" -> "boek"
             "pen" -> "pen"
-            "phone" -> "foon"
+            "phone" -> "telefoon"
             "city" -> "stad"
             "school" -> "skool"
             "office" -> "kantoor"
@@ -962,6 +980,122 @@ class MockLessonRepositoryImpl @Inject constructor(
             "rain" -> "reën"
             "snow" -> "sneeu"
             "fire" -> "vuur"
+            "body" -> "liggaam"
+            "head" -> "kop"
+            "face" -> "gesig"
+            "eye" -> "oog"
+            "foot" -> "voet"
+            "arm" -> "arm"
+            "heart" -> "hart"
+            "sick" -> "siek"
+            "touch" -> "aanraak"
+            "cloud" -> "wolk"
+            "wind" -> "wind"
+            "storm" -> "storm"
+            "weather" -> "weer"
+            "winter" -> "winter"
+            "summer" -> "somer"
+            "spring" -> "lente"
+            "autumn" -> "herfs"
+            "ice" -> "ys"
+            "company" -> "maatskappy"
+            "project" -> "projek"
+            "meeting" -> "vergadering"
+            "career" -> "loopbaan"
+            "success" -> "sukses"
+            "problem" -> "probleem"
+            "solution" -> "oplossing"
+            "result" -> "resultaat"
+            "fact" -> "feit"
+            "idea" -> "idee"
+            "culture" -> "kultuur"
+            "history" -> "geskiedenis"
+            "art" -> "kuns"
+            "music" -> "musiek"
+            "movie" -> "fliek"
+            "sport" -> "sport"
+            "game" -> "spel"
+            "nature" -> "natuur"
+            "tree" -> "boom"
+            "flower" -> "blom"
+            "bird" -> "voël"
+            "forest" -> "bos"
+            "health" -> "gesondheid"
+            "doctor" -> "dokter"
+            "hospital" -> "hospitaal"
+            "medicine" -> "medisyne"
+            "pain" -> "pyn"
+            "travel" -> "reis"
+            "trip" -> "reis"
+            "plane" -> "vliegtuig"
+            "train" -> "trein"
+            "hotel" -> "hotel"
+            "beach" -> "strand"
+            "passport" -> "paspoort"
+            "ticket" -> "kaartjie"
+            "economy" -> "ekonomie"
+            "growth" -> "groei"
+            "law" -> "wet"
+            "rule" -> "reël"
+            "government" -> "regering"
+            "vote" -> "stem"
+            "leader" -> "leier"
+            "society" -> "samelewing"
+            "keyboard" -> "sleutelbord"
+            "mouse" -> "muis"
+            "screen" -> "skerm"
+            "internet" -> "internet"
+            "website" -> "webwerf"
+            "app" -> "toepassing"
+            "message" -> "boodskap"
+            "video" -> "video"
+            "photo" -> "foto"
+            "camera" -> "kamera"
+            "concept" -> "begrip"
+            "thought" -> "gedagte"
+            "mind" -> "verstand"
+            "soul" -> "siel"
+            "power" -> "krag"
+            "freedom" -> "vryheid"
+            "justice" -> "geregtigheid"
+            "truth" -> "waarheid"
+            "beauty" -> "skoonheid"
+            "honor" -> "eer"
+            "research" -> "navorsing"
+            "evidence" -> "bewyse"
+            "theory" -> "teorie"
+            "discovery" -> "ontdekking"
+            "environment" -> "omgewing"
+            "pollution" -> "besoedeling"
+            "climate" -> "klimaat"
+            "energy" -> "energie"
+            "resource" -> "hulpbron"
+            "relationship" -> "verhouding"
+            "conflict" -> "konflik"
+            "agreement" -> "ooreenkoms"
+            "debate" -> "debat"
+            "opinion" -> "mening"
+            "reason" -> "rede"
+            "purpose" -> "doel"
+            "memory" -> "herinnering"
+            "experience" -> "ervaring"
+            "childhood" -> "kinderjare"
+            "philosophy" -> "filosofie"
+            "psychology" -> "sielkunde"
+            "strategy" -> "strategie"
+            "innovation" -> "innovasie"
+            "structure" -> "struktuur"
+            "perspective" -> "perspektief"
+            "challenge" -> "uitdaging"
+            "opportunity" -> "geleentheid"
+            "threat" -> "bedreiging"
+            "benefit" -> "voordeel"
+            "consequence" -> "gevolg"
+            "influence" -> "invloed"
+            "impact" -> "impak"
+            "reaction" -> "reaksie"
+            "emotion" -> "emosie"
+            "passion" -> "passie"
             "good" -> "goed"
             "bad" -> "sleg"
             "big" -> "groot"
@@ -1008,8 +1142,32 @@ class MockLessonRepositoryImpl @Inject constructor(
             "feel" -> "voel"
             "think" -> "dink"
             "know" -> "weet"
-            "want" -> "wil hê"
-            "need" -> "benodig"
+            "want" -> "wil"
+            "need" -> "nodig hê"
+            "discuss" -> "bespreek"
+            "analyze" -> "ontleed"
+            "evaluate" -> "evalueer"
+            "discover" -> "ontdek"
+            "invent" -> "uitvind"
+            "improve" -> "verbeter"
+            "increase" -> "verhoog"
+            "decrease" -> "verminder"
+            "provide" -> "voorsien"
+            "require" -> "vereis"
+            "develop" -> "ontwikkel"
+            "manage" -> "bestuur"
+            "organize" -> "organiseer"
+            "negotiate" -> "onderhandel"
+            "persuade" -> "oorreed"
+            "influence" -> "beïnvloed"
+            "affect" -> "beïnvloed"
+            "challenge" -> "uitdaag"
+            "succeed" -> "slaag"
+            "prepare" -> "voorberei"
+            "decide" -> "besluit"
+            "achieve" -> "bereik"
+            "maintain" -> "handhaaf"
+            "resolve" -> "oplos"
             "give" -> "gee"
             "take" -> "neem"
             "always" -> "altyd"
@@ -1259,18 +1417,123 @@ class MockLessonRepositoryImpl @Inject constructor(
     }
 
     private fun getRealisticExample(eng: String, targetLang: String): Pair<String, String> {
-        return when (eng.lowercase()) {
-            "hello" -> "Hello, how are you today?" to translateSentence("Hello, how are you today?", targetLang)
-            "goodbye" -> "It is time to say goodbye." to translateSentence("It is time to say goodbye.", targetLang)
-            "house" -> "I am going to my house." to translateSentence("I am going to my house.", targetLang)
-            "dog" -> "The dog is playing in the park." to translateSentence("The dog is playing in the park.", targetLang)
-            "eat" -> "I like to eat apples." to translateSentence("I like to eat apples.", targetLang)
-            "water" -> "Can I have some water, please?" to translateSentence("Can I have some water, please?", targetLang)
-            "bread" -> "The bread is fresh and warm." to translateSentence("The bread is fresh and warm.", targetLang)
-            "city" -> "The city is very busy at night." to translateSentence("The city is very busy at night.", targetLang)
-            "friend" -> "You are a very good friend." to translateSentence("You are a very good friend.", targetLang)
-            "family" -> "I love spending time with my family." to translateSentence("I love spending time with my family.", targetLang)
-            else -> "I want to see the $eng." to translateSentence("I want to see the $eng.", targetLang)
+        if (targetLang == "Afrikaans") {
+            return getAfrikaansExample(eng)
+        }
+
+        val englishExample = getEnglishExample(eng)
+        return englishExample to translateSentence(englishExample, targetLang)
+    }
+
+    private fun getEnglishExample(eng: String): String {
+        val word = eng.lowercase()
+        return when (word) {
+            "hello" -> "Hello, how are you today?"
+            "goodbye" -> "I will see you tomorrow. Goodbye!"
+            "please" -> "Please open the door."
+            "thanks" -> "Thanks for your help."
+            "yes" -> "Yes, I understand."
+            "no" -> "No, I do not know."
+            "house" -> "I am going home after work."
+            "dog" -> "The dog is playing in the park."
+            "eat" -> "I like to eat fresh fruit."
+            "water" -> "Could I have a glass of water, please?"
+            "bread" -> "The bread is fresh this morning."
+            "city" -> "The city is busy during the day."
+            "friend" -> "My friend is waiting outside."
+            "family" -> "My family lives nearby."
+            "where is the bathroom" -> "Where is the bathroom?"
+            "i am lost" -> "I am lost. Can you help me?"
+            "can you help me" -> "Can you help me find the station?"
+            "i dont understand" -> "I do not understand the question."
+            "please speak slowly" -> "Please speak slowly."
+            "what is this" -> "What is this called?"
+            "where is the hotel" -> "Where is the hotel?"
+            "i need a doctor" -> "I need a doctor."
+            "call the police" -> "Please call the police."
+            "how much does it cost" -> "How much does it cost?"
+            else -> buildEnglishExample(word)
+        }
+    }
+
+    private fun buildEnglishExample(word: String): String {
+        val words = word.split(" ")
+        if (words.size == 2 && adjectiveVocab.contains(words[0]) && baseVocab.contains(words[1])) {
+            return "The ${words[1]} is ${words[0]}."
+        }
+
+        return when {
+            verbVocab.contains(word) -> "I $word every day."
+            adjectiveVocab.contains(word) -> "The room is $word."
+            adverbVocab.contains(word) -> when (word) {
+                "always" -> "I always arrive on time."
+                "never" -> "I never skip breakfast."
+                "now" -> "I am busy now."
+                "today" -> "I am working today."
+                "here" -> "Please wait here."
+                "there" -> "The station is over there."
+                "very" -> "The coffee is very hot."
+                "too" -> "The bag is too heavy."
+                else -> "She speaks $word."
+            }
+            baseVocab.contains(word) -> "The $word is useful in everyday life."
+            else -> "I use the word \"$word\" in a sentence."
+        }
+    }
+
+    private fun getAfrikaansExample(eng: String): Pair<String, String> {
+        val word = eng.lowercase()
+        return when {
+            word == "hello" -> "Hello, how are you today?" to "Hallo, hoe gaan dit vandag?"
+            word == "goodbye" -> "I will see you tomorrow. Goodbye!" to "Ek sien jou môre. Totsiens!"
+            word == "please" -> "Please open the door." to "Maak asseblief die deur oop."
+            word == "thanks" -> "Thanks for your help." to "Dankie vir jou hulp."
+            word == "yes" -> "Yes, I understand." to "Ja, ek verstaan."
+            word == "no" -> "No, I do not know." to "Nee, ek weet nie."
+            word == "house" -> "I am going home after work." to "Ek gaan huis toe ná werk."
+            word == "dog" -> "The dog is playing in the park." to "Die hond speel in die park."
+            word == "eat" -> "I like to eat fresh fruit." to "Ek hou daarvan om vars vrugte te eet."
+            word == "water" -> "Could I have a glass of water, please?" to "Kan ek asseblief 'n glas water kry?"
+            word == "bread" -> "The bread is fresh this morning." to "Die brood is vars vanoggend."
+            word == "city" -> "The city is busy during the day." to "Die stad is bedrywig gedurende die dag."
+            word == "friend" -> "My friend is waiting outside." to "My vriend wag buite."
+            word == "family" -> "My family lives nearby." to "My familie woon naby."
+            word == "where is the bathroom" -> "Where is the bathroom?" to "Waar is die badkamer?"
+            word == "i am lost" -> "I am lost. Can you help me?" to "Ek is verdwaal. Kan jy my help?"
+            word == "can you help me" -> "Can you help me find the station?" to "Kan jy my help om die stasie te vind?"
+            word == "i dont understand" -> "I do not understand the question." to "Ek verstaan nie die vraag nie."
+            word == "please speak slowly" -> "Please speak slowly." to "Praat asseblief stadig."
+            word == "what is this" -> "What is this called?" to "Wat noem 'n mens dit?"
+            word == "where is the hotel" -> "Where is the hotel?" to "Waar is die hotel?"
+            word == "i need a doctor" -> "I need a doctor." to "Ek het 'n dokter nodig."
+            word == "call the police" -> "Please call the police." to "Bel asseblief die polisie."
+            word == "how much does it cost" -> "How much does it cost?" to "Hoeveel kos dit?"
+            word.split(" ").size == 2 && adjectiveVocab.contains(word.split(" ")[0]) && baseVocab.contains(word.split(" ")[1]) -> {
+                val adjective = word.split(" ")[0]
+                val noun = word.split(" ")[1]
+                "The $noun is $adjective." to "Die ${translateAfrikaansExampleWord(noun)} is ${translateAfrikaansExampleWord(adjective)}."
+            }
+            verbVocab.contains(word) -> {
+                "I like to $word." to "Ek hou daarvan om ${translateAfrikaansExampleWord(word)}."
+            }
+            adjectiveVocab.contains(word) -> {
+                "The room is $word." to "Die kamer is ${translateAfrikaansExampleWord(word)}."
+            }
+            adverbVocab.contains(word) -> {
+                "She speaks $word." to "Sy praat ${translateAfrikaansExampleWord(word)}."
+            }
+            else -> {
+                "I see the $word." to "Ek sien die ${translateAfrikaansExampleWord(word)}."
+            }
+        }
+    }
+
+    private fun translateAfrikaansExampleWord(word: String): String {
+        val directTranslation = translateToAfrikaans(word)
+        return if (directTranslation != word) {
+            directTranslation
+        } else {
+            word.split(" ").joinToString(" ") { translateToAfrikaans(it) }
         }
     }
 
@@ -1384,10 +1647,10 @@ class MockLessonRepositoryImpl @Inject constructor(
 
     private fun getPartOfSpeech(eng: String): String {
         return when {
-            baseVocab.contains(eng) -> "noun"
-            adjectiveVocab.contains(eng) -> "adjective"
             verbVocab.contains(eng) -> "verb"
-            adjectiveVocab.contains(eng) -> "adverb"
+            adverbVocab.contains(eng) -> "adverb"
+            adjectiveVocab.contains(eng) -> "adjective"
+            baseVocab.contains(eng) -> "noun"
             else -> "phrase"
         }
     }

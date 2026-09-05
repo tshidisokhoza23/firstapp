@@ -138,20 +138,18 @@ class SessionManagerImpl @Inject constructor(
             _currentUser.value = user
         }
 
-        // Persist off the main thread; encrypted prefs can hang on first run.
-        scope.launch {
-            try {
-                val p = getPrefs()
-                val editor = p.edit()
-                editor.putString(KEY_TOKEN, token)
-                editor.putString(KEY_REFRESH_TOKEN, refreshToken)
-                if (user != null) {
-                    editor.putString(KEY_USER_DATA, gson.toJson(user))
-                }
-                editor.apply()
-            } catch (e: Exception) {
-                Log.e("SessionManager", "Failed to persist session", e)
+        // Persist session tokens immediately and synchronously so they are never lost
+        try {
+            val p = getPrefs()
+            val editor = p.edit()
+            editor.putString(KEY_TOKEN, token)
+            editor.putString(KEY_REFRESH_TOKEN, refreshToken)
+            if (user != null) {
+                editor.putString(KEY_USER_DATA, gson.toJson(user))
             }
+            editor.commit()
+        } catch (e: Exception) {
+            Log.e("SessionManager", "Failed to persist session", e)
         }
     }
 

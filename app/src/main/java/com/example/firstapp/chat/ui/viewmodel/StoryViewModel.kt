@@ -80,19 +80,22 @@ class StoryViewModel @Inject constructor(
         viewModelScope.launch {
             _postResult.value = Resource.Loading()
             
-            if (contentUrl?.startsWith("content://") == true) {
+            val urlToUpload = contentUrl?.takeIf { it.isNotBlank() }
+            val needsUpload = urlToUpload != null && !urlToUpload.startsWith("http://") && !urlToUpload.startsWith("https://")
+            
+            if (needsUpload) {
                 try {
-                    val uri = android.net.Uri.parse(contentUrl)
+                    val uri = android.net.Uri.parse(urlToUpload)
                     val context = ContextProvider.context
                     accountRepository.uploadUri(context, uri, "stories").collect { res ->
-                            if (res is Resource.Success && res.data != null) {
-                                val finalUrl = res.data.url
-                                val finalType = if (type == "text") "image" else type
-                                createStoryEntry(content, finalUrl, finalType)
-                            } else if (res is Resource.Error) {
-                                _postResult.value = Resource.Error(res.message ?: "Upload failed")
-                            }
+                        if (res is Resource.Success && res.data != null) {
+                            val finalUrl = res.data.url
+                            val finalType = if (type == "text" || type.isBlank()) "image" else type
+                            createStoryEntry(content, finalUrl, finalType)
+                        } else if (res is Resource.Error) {
+                            _postResult.value = Resource.Error(res.message ?: "Upload failed")
                         }
+                    }
                 } catch (e: Exception) {
                     _postResult.value = Resource.Error("File error: ${e.message}")
                 }

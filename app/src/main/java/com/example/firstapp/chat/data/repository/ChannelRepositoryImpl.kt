@@ -94,12 +94,29 @@ class ChannelRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.createChannel(CreateChannelRequest(name, description))
             if (response.isSuccessful) {
+                val createdApiChannel = response.body()
+                val createdModel = createdApiChannel?.let { mapApiChannel(it) }?.copy(isSubscribed = true, isAdmin = true)
+
+                if (createdModel != null) {
+                    // Save created channel immediately to Room DB so it shows up in 0ms!
+                    channelDao.insertChannel(createdModel.toEntity())
+                    val convId = createdModel.conversationId ?: createdModel.id
+                    webSocketManager.send("chat:$convId", "join", op = "subscribe")
+                }
+
                 val channelsResponse = socialApi.getChannels()
                 if (channelsResponse.isSuccessful && channelsResponse.body() != null) {
-                    val channels = channelsResponse.body()!!.channels
+                    val serverChannels = channelsResponse.body()!!.channels
                         .map { mapApiChannel(it) }
                         .distinctBy { it.id }
-                    channelDao.replaceChannels(channels.map { it.toEntity() })
+                    
+                    val merged = if (createdModel != null) {
+                        (listOf(createdModel) + serverChannels).distinctBy { it.id }
+                    } else {
+                        serverChannels
+                    }
+                    
+                    channelDao.insertChannels(merged.map { it.toEntity() })
                 }
                 emit(Resource.Success(true))
             } else {

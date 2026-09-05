@@ -62,6 +62,9 @@ interface ChatApi {
     @DELETE("conversations/{conversationID}")
     suspend fun deleteConversation(@Path("conversationID") conversationID: String): Response<StatusResponse>
 
+    @POST("conversations/{conversationID}/clear")
+    suspend fun clearConversation(@Path("conversationID") conversationID: String): Response<StatusResponse>
+
     @DELETE("conversations/{conversationID}/messages/{messageID}")
     suspend fun deleteMessage(
         @Path("conversationID") conversationID: String,

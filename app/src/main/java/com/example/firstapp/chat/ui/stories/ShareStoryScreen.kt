@@ -28,6 +28,7 @@ fun ShareStoryScreen(
     content: String,
     url: String,
     type: String,
+    isPosting: Boolean = false,
     onBack: () -> Unit,
     onPost: (content: String, url: String, type: String) -> Unit
 ) {
@@ -41,12 +42,12 @@ fun ShareStoryScreen(
             TopAppBar(
                 title = { Text("New Story", color = Color.White) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, enabled = !isPosting) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Download logic */ }) {
+                    IconButton(onClick = { /* Download logic */ }, enabled = !isPosting) {
                         Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
                     }
                 },
@@ -62,11 +63,20 @@ fun ShareStoryScreen(
             ) {
                 Button(
                     onClick = { onPost(content, url, type) },
+                    enabled = !isPosting,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
                     shape = RoundedCornerShape(28.dp)
                 ) {
-                    Text("Post Story", color = AppBackground, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    if (isPosting) {
+                        CircularProgressIndicator(
+                            color = AppBackground,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Post Story", color = AppBackground, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
                 }
             }
         },

@@ -345,11 +345,14 @@ class MainActivity : FragmentActivity() {
                             }
                         }
 
-                        if (wasLoggedIn && !isLoggedIn) {
-                            navController.navigate(Screen.Login.route) {
-                                popUpTo(0) { inclusive = true }
+                        if (!isLoggedIn || sessionManager.getToken().isNullOrEmpty()) {
+                            val isAtAuthScreen = navController.currentDestination?.route == Screen.Login.route
+                            if (!isAtAuthScreen) {
+                                navController.navigate(Screen.Login.route) {
+                                    popUpTo(0) { inclusive = true }
+                                }
                             }
-                        } else if (isLoggedIn && (currentUser != null || sessionManager.getToken() != null)) {
+                        } else if (currentUser != null || sessionManager.getToken() != null) {
                             val isAtAuthScreen = navController.currentDestination?.route == Screen.Login.route
                             val isAtCompleteProfile = navController.currentDestination?.route == Screen.CompleteProfile.route
                             

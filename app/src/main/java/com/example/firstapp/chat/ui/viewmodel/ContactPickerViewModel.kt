@@ -26,39 +26,40 @@ class ContactPickerViewModel @Inject constructor(
     val searchResults: StateFlow<List<Contact>> = _searchResults.asStateFlow()
 
     init {
+        // Continuously observe local Room contacts immediately so the UI displays cached contacts with zero delay.
+        viewModelScope.launch {
+            repository.getContacts().collect { resource ->
+                _contacts.value = resource
+            }
+        }
         fetchContacts()
     }
 
-    private var fetchJob: Job? = null
+    private var syncJob: Job? = null
 
     fun fetchContacts() {
-        fetchJob?.cancel()
-        fetchJob = viewModelScope.launch {
+        // Only set Loading if we don't already have contacts cached locally
+        if ((_contacts.value.data ?: emptyList()).isEmpty()) {
             _contacts.value = Resource.Loading()
+        }
+        
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch {
             try {
-                // 1. Sync Chats first - this recovers people you've talked to 
-                // but aren't in this phone's address book
-                repository.syncChats().collect { }
+                // Background sync 1: Chats
+                launch { repository.syncChats().collect { } }
 
-                // 2. Sync Phone Contacts
-                syncContacts()
-                
-                // 3. Update UI from local DB
-                repository.getContacts().collect { resource ->
-                    _contacts.value = resource
-                }
+                // Background sync 2: Phone contacts
+                val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(context)
+                repository.syncContacts(phoneNumbers).collect { }
             } catch (e: Exception) {
                 if (e !is kotlinx.coroutines.CancellationException) {
-                    _contacts.value = Resource.Error(e.message ?: "Unknown error")
+                    if ((_contacts.value.data ?: emptyList()).isEmpty()) {
+                        _contacts.value = Resource.Error(e.message ?: "Failed to sync contacts")
+                    }
                 }
             }
         }
-    }
-
-    private suspend fun syncContacts() {
-        val phoneNumbers = com.example.firstapp.common.util.ContactUtils.getPhoneContacts(context)
-        // Collect all emissions from syncContacts to ensure it finishes
-        repository.syncContacts(phoneNumbers).collect { }
     }
 
     fun searchContacts(query: String) {

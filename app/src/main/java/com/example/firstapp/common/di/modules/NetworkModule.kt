@@ -119,19 +119,24 @@ object NetworkModule {
                     
                     if (refreshResponse.isSuccessful && refreshResponse.body() != null) {
                         val body = refreshResponse.body()!!
-                        android.util.Log.i("NetworkModule", "Refresh successful")
+                        android.util.Log.i("NetworkModule", "Refresh successful, token updated")
                         sessionManager.saveSession(body.token, body.refreshToken, sessionManager.currentUser.value)
                         response.request.newBuilder()
                             .header("Authorization", "Bearer " + body.token)
                             .build()
                     } else {
                         val code = refreshResponse.code()
-                        android.util.Log.e("NetworkModule", "Refresh failed with $code, clearing session to stop retry loop")
-                        sessionManager.clearSession()
+                        android.util.Log.e("NetworkModule", "Refresh failed with code $code")
+                        // Pro App Behavior: Only clear session if token is explicitly revoked/rejected (400/401/403)
+                        if (code == 400 || code == 401 || code == 403) {
+                            android.util.Log.w("NetworkModule", "Refresh token invalid or revoked, clearing session")
+                            sessionManager.clearSession()
+                        }
                         null
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("NetworkModule", "Exception during refresh", e)
+                    android.util.Log.e("NetworkModule", "Exception during token refresh (network/transient)", e)
+                    // Do NOT clear session on transient network errors!
                     null
                 }
             }

@@ -466,13 +466,15 @@ fun ChatMessagesScreen(
             val lastMsg = messages[messages.size - 1]
             val isAtBottom = messagesLazyListState.firstVisibleItemIndex >= (messages.size - 8).coerceAtLeast(0)
             
+            val targetScrollIndex = (messagesLazyListState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
             // Force scroll to bottom if it's our own message or we are already at the bottom
             if (lastMessageCount == 0 || lastMsg.isFromMe || isAtBottom) {
                 delay(100)
+                val totalIndex = (messagesLazyListState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                 if (animationsEnabled) {
-                    messagesLazyListState.animateScrollToItem((messages.size - 1).coerceAtLeast(0))
+                    messagesLazyListState.animateScrollToItem(totalIndex)
                 } else {
-                    messagesLazyListState.scrollToItem((messages.size - 1).coerceAtLeast(0))
+                    messagesLazyListState.scrollToItem(totalIndex)
                 }
             }
         }

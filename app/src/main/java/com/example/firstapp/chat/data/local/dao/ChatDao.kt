@@ -58,6 +58,9 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE id = :chatId")
     suspend fun searchChatsById(chatId: String): ChatEntity?
 
+    @Query("UPDATE messages SET conversationId = :newId WHERE conversationId = :oldId")
+    suspend fun migrateMessagesConversationId(oldId: String, newId: String)
+
     @Query("UPDATE chats SET isOnline = :isOnline, lastSeen = :lastSeen WHERE id = :chatId OR otherUserId = :chatId")
     suspend fun updatePresence(chatId: String, isOnline: Boolean, lastSeen: Long)
 
