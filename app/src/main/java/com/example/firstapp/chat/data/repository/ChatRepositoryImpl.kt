@@ -134,17 +134,14 @@ class ChatRepositoryImpl @Inject constructor(
 
             val allIds = (chatIds + channelConvIds).distinct()
 
-            // 1. Subscribe to personal routing channel
+            // 1. Subscribe to personal routing channels
             webSocketManager.send("user:$myUserId", "subscribe", op = "subscribe")
             webSocketManager.send("presence", "subscribe", op = "subscribe")
+            webSocketManager.send("chat", "subscribe", op = "subscribe")
 
-            // 2. Batch join all active chat rooms
-            allIds.chunked(50).forEach { batch ->
-                webSocketManager.send("chat", "BATCH_JOIN", buildJsonObject {
-                    putJsonArray("conversation_ids") {
-                        batch.forEach { add(it) }
-                    }
-                })
+            // 2. Join all active chat rooms
+            allIds.forEach { id ->
+                webSocketManager.send("chat:$id", "join", op = "subscribe")
             }
             Log.d("ChatRepository", "Subscribed to ${allIds.size} total active chat topics")
         } catch (e: Exception) {
@@ -355,6 +352,23 @@ class ChatRepositoryImpl @Inject constructor(
             chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
             val displaySummary = formatLastMessageSummary(body, type)
             chatDao.updateLastMessage(chatId, displaySummary, pendingMsg.timestamp, isFromMe = true, isRead = false)
+        }
+
+        // Send via live WebSocket for sub-10ms delivery if text message
+        if (scheduledAt == null && mediaUrls.isEmpty()) {
+            webSocketManager.send(
+                "chat:$chatId",
+                "SEND_MESSAGE",
+                buildJsonObject {
+                    put("client_id", clientUuid)
+                    put("client_msg_id", clientUuid)
+                    put("conversation_id", chatId)
+                    put("content", body)
+                    put("message_text", body)
+                    put("media_type", messageType.uppercase())
+                },
+                op = "SEND_MESSAGE"
+            )
         }
 
         emit(Resource.Success(pendingMsg))

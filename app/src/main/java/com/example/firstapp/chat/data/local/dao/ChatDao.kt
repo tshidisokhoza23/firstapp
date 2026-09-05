@@ -69,7 +69,7 @@ interface ChatDao {
     @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp ASC LIMIT 1")
     suspend fun getOldestMessage(chatId: String): MessageEntity?
 
-    @Query("SELECT * FROM messages WHERE conversationId = :chatId ORDER BY timestamp DESC LIMIT 1")
+    @Query("SELECT * FROM messages WHERE conversationId = :chatId OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1) ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestMessage(chatId: String): MessageEntity?
 
     @Query("SELECT MAX(timestamp) FROM messages WHERE conversationId = :chatId")
