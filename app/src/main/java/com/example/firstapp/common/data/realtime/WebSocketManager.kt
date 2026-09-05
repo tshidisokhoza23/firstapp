@@ -35,7 +35,8 @@ data class WSEnvelope(
 @Singleton
 class WebSocketManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
 ) : DefaultLifecycleObserver {
 
     private val json = Json { 
@@ -98,8 +99,8 @@ class WebSocketManager @Inject constructor(
 
         _connectionState.value = ConnectionState.CONNECTING
 
-        val base = BuildConfig.WS_BASE_URL.trimEnd('/')
-        val wsUrl = "$base/ws/chat?token=$token"
+        val base = envManager.currentWsUrl.trimEnd('/')
+        val wsUrl = if (base.endsWith("/ws/chat")) "$base?token=$token" else "$base/ws/chat?token=$token"
         val request = Request.Builder()
             .url(wsUrl)
             .build()

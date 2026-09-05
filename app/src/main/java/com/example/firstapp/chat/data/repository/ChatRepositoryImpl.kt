@@ -35,12 +35,7 @@ import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.*
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Provider
@@ -162,156 +157,165 @@ class ChatRepositoryImpl @Inject constructor(
         if (!db.isOpen) return
 
         val chatDao = chatDaoProvider.get()
-        val topic = envelope.topic ?: ""
         val event = (envelope.event ?: envelope.op ?: "").uppercase()
+        val topic = (envelope.topic ?: "").lowercase()
 
-        when {
-            topic == "chat" || topic.startsWith("chat:") || topic.startsWith("user:") -> {
-                when (event) {
-                    "MESSAGE", "INCOMING_MSG" -> {
-                        envelope.payload?.let { payload ->
-                            try {
-                                val apiMsg = json.decodeFromJsonElement<ApiMessage>(payload)
-                                val myUserId = sessionManager.getUserId()
-                                val privKey = sessionManager.getPrivateKey()
-                                val message = mapApiMessage(apiMsg, privKey, myUserId)
+        Log.d("ChatRepository", "handleIncomingEvent: event='$event', topic='$topic'")
 
-                                db.withTransaction {
-                                    saveMessage(message.conversationId, message)
+        when (event) {
+            "MESSAGE", "INCOMING_MSG", "NEW_MESSAGE" -> {
+                envelope.payload?.let { payload ->
+                    try {
+                        val apiMsg = json.decodeFromJsonElement<ApiMessage>(payload)
+                        val myUserId = sessionManager.getUserId()
+                        val privKey = sessionManager.getPrivateKey()
+                        var message = mapApiMessage(apiMsg, privKey, myUserId)
 
-                                    val phone = apiMsg.contact_phone ?: ""
-                                    val senderName = apiMsg.sender_name ?: ""
-                                    val resolvedName = displayNameResolver.resolve(
-                                        com.example.firstapp.common.model.User(id = apiMsg.sender_id, displayName = senderName),
-                                        phone
-                                    )
+                        if (message.content.isBlank()) {
+                            val altContent = payload["content"]?.jsonPrimitive?.contentOrNull
+                                ?: payload["text"]?.jsonPrimitive?.contentOrNull
+                                ?: payload["body"]?.jsonPrimitive?.contentOrNull ?: ""
+                            if (altContent.isNotBlank()) {
+                                message = message.copy(content = altContent)
+                            }
+                        }
 
-                                    val displaySummary = formatLastMessageSummary(message.content, message.type)
+                        db.withTransaction {
+                            saveMessage(message.conversationId, message)
 
-                                    val chatExists = chatDao.searchChatsById(message.conversationId) != null
-                                    if (chatExists) {
-                                        chatDao.updateLastMessage(
-                                            message.conversationId,
-                                            displaySummary,
-                                            message.timestamp,
-                                            message.isFromMe,
-                                            message.isRead
-                                        )
-                                        if (!message.isFromMe) {
-                                            chatDao.incrementUnreadCount(message.conversationId)
-                                        }
-                                    } else {
-                                        val newChat = ChatEntity(
-                                            id = message.conversationId,
-                                            type = com.example.firstapp.common.model.ConversationType.DIRECT,
-                                            senderName = resolvedName.ifBlank { senderName.ifBlank { "New Chat" } },
-                                            lastMessage = displaySummary,
-                                            timestamp = message.timestamp,
-                                            unreadCount = if (!message.isFromMe) 1 else 0,
-                                            avatarUrl = null,
-                                            otherUserId = apiMsg.sender_id,
-                                            isOnline = false,
-                                            isMuted = false,
-                                            isPinned = false,
-                                            isTyping = false,
-                                            phoneNumber = phone,
-                                            lastMessageIsFromMe = message.isFromMe,
-                                            lastMessageRead = message.isRead
-                                        )
-                                        chatDao.insertChats(listOf(newChat))
-                                    }
-                                }
+                            val phone = apiMsg.contact_phone ?: ""
+                            val senderName = apiMsg.sender_name ?: ""
+                            val resolvedName = displayNameResolver.resolve(
+                                com.example.firstapp.common.model.User(id = apiMsg.sender_id, displayName = senderName),
+                                phone
+                            )
 
+                            val displaySummary = formatLastMessageSummary(message.content, message.type)
+
+                            val chatExists = chatDao.searchChatsById(message.conversationId) != null
+                            if (chatExists) {
+                                chatDao.updateLastMessage(
+                                    message.conversationId,
+                                    displaySummary,
+                                    message.timestamp,
+                                    message.isFromMe,
+                                    message.isRead
+                                )
                                 if (!message.isFromMe) {
-                                    sendDeliveryAck(message.conversationId, message.id)
+                                    chatDao.incrementUnreadCount(message.conversationId)
                                 }
-                            } catch (e: Exception) {
-                                Log.e("ChatRepository", "Failed to decode WS message payload", e)
+                            } else {
+                                val newChat = ChatEntity(
+                                    id = message.conversationId,
+                                    type = com.example.firstapp.common.model.ConversationType.DIRECT,
+                                    senderName = resolvedName.ifBlank { senderName.ifBlank { "New Chat" } },
+                                    lastMessage = displaySummary,
+                                    timestamp = message.timestamp,
+                                    unreadCount = if (!message.isFromMe) 1 else 0,
+                                    avatarUrl = null,
+                                    otherUserId = apiMsg.sender_id,
+                                    isOnline = false,
+                                    isMuted = false,
+                                    isPinned = false,
+                                    isTyping = false,
+                                    phoneNumber = phone,
+                                    lastMessageIsFromMe = message.isFromMe,
+                                    lastMessageRead = message.isRead
+                                )
+                                chatDao.insertChats(listOf(newChat))
                             }
                         }
-                    }
 
-                    "MSG_ACK" -> {
-                        envelope.payload?.let { payload ->
-                            val clientUuid = payload["client_msg_id"]?.toString()?.trim('"')
-                            val serverId = payload["message_id"]?.toString()?.trim('"')
-                            val timestamp = payload["created_at"]?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
-                            if (clientUuid != null && serverId != null) {
-                                val msg = chatDao.getMessageById(clientUuid)
-                                if (msg != null) {
-                                    chatDao.confirmSentMessage(clientUuid, msg.copy(id = serverId, timestamp = timestamp, status = MessageStatus.SENT))
-                                }
-                            }
+                        if (!message.isFromMe) {
+                            sendDeliveryAck(message.conversationId, message.id)
                         }
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "Failed to decode WS message payload", e)
                     }
+                }
+            }
 
-                    "READ_RECEIPT", "READ" -> {
-                        envelope.payload?.let { payload ->
-                            val convId = (payload["conversation_id"] ?: payload["chat_id"])?.toString()?.trim('"')
-                            if (convId != null) {
-                                db.withTransaction {
-                                    chatDao.markOutgoingAsRead(convId)
-                                    chatDao.markOutgoingLastMessageAsRead(convId)
-                                }
-                            }
-                        }
-                    }
-
-                    "DELIVERY_RECEIPT", "DELIVERED" -> {
-                        envelope.payload?.let { payload ->
-                            val convId = (payload["conversation_id"] ?: payload["chat_id"])?.toString()?.trim('"')
-                            if (convId != null) {
-                                chatDao.markOutgoingAsDelivered(convId)
-                            }
-                        }
-                    }
-
-                    "DELETE_MSG" -> {
-                        envelope.payload?.let { payload ->
-                            val messageId = payload["message_id"]?.toString()?.trim('"')
-                            if (messageId != null) {
-                                db.withTransaction { chatDao.deleteMessage(messageId) }
-                            }
-                        }
-                    }
-
-                    "DELETE_CONV" -> {
-                        envelope.payload?.let { payload ->
-                            val chatId = payload["conversation_id"]?.toString()?.trim('"')
-                            if (chatId != null) {
-                                db.withTransaction {
-                                    chatDao.deleteChat(chatId)
-                                    chatDao.clearMessages(chatId)
-                                }
-                            }
-                        }
-                    }
-
-                    "TYPING" -> {
-                        envelope.payload?.let { payload ->
-                            val chatId = payload["conversation_id"]?.toString()?.trim('"')
-                            val isTyping = (payload["is_typing"] ?: payload["state"])?.toString()?.trim('"')
-                            val state = isTyping == "true" || isTyping == "START"
-                            chatId?.let { chatDao.updateTyping(it, state) }
+            "MSG_ACK" -> {
+                envelope.payload?.let { payload ->
+                    val clientUuid = (payload["client_msg_id"] ?: payload["client_id"])?.jsonPrimitive?.contentOrNull
+                    val serverId = (payload["message_id"] ?: payload["id"])?.jsonPrimitive?.contentOrNull
+                    val timestamp = payload["created_at"]?.jsonPrimitive?.longOrNull
+                        ?: payload["server_timestamp"]?.jsonPrimitive?.longOrNull
+                        ?: System.currentTimeMillis()
+                    if (clientUuid != null && serverId != null) {
+                        val msg = chatDao.getMessageById(clientUuid)
+                        if (msg != null) {
+                            chatDao.confirmSentMessage(clientUuid, msg.copy(id = serverId, timestamp = timestamp, status = MessageStatus.SENT))
                         }
                     }
                 }
             }
 
-            topic == "presence" -> {
+            "READ_RECEIPT", "READ", "READ_ACK" -> {
                 envelope.payload?.let { payload ->
-                    val userId = (payload["user_id"] ?: payload["userId"])?.toString()?.trim('"')
-                    val statusStr = (payload["status"] ?: payload["is_online"])?.toString()?.trim('"')?.lowercase()
-                    val isOnline = statusStr == "online" || statusStr == "true"
-                    val lastSeen = (payload["last_seen"] ?: payload["lastSeen"])?.toString()?.toLongOrNull() ?: System.currentTimeMillis()
+                    val convId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
+                    if (convId != null) {
+                        db.withTransaction {
+                            chatDao.markOutgoingAsRead(convId)
+                            chatDao.markOutgoingLastMessageAsRead(convId)
+                        }
+                    }
+                }
+            }
+
+            "DELIVERY_RECEIPT", "DELIVERED", "DELIVERY_ACK" -> {
+                envelope.payload?.let { payload ->
+                    val convId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
+                    if (convId != null) {
+                        chatDao.markOutgoingAsDelivered(convId)
+                    }
+                }
+            }
+
+            "DELETE_MSG" -> {
+                envelope.payload?.let { payload ->
+                    val messageId = (payload["message_id"] ?: payload["id"])?.jsonPrimitive?.contentOrNull
+                    if (messageId != null) {
+                        db.withTransaction { chatDao.deleteMessage(messageId) }
+                    }
+                }
+            }
+
+            "DELETE_CONV" -> {
+                envelope.payload?.let { payload ->
+                    val chatId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
+                    if (chatId != null) {
+                        db.withTransaction {
+                            chatDao.deleteChat(chatId)
+                            chatDao.clearMessages(chatId)
+                        }
+                    }
+                }
+            }
+
+            "TYPING" -> {
+                envelope.payload?.let { payload ->
+                    val chatId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
+                    val stateStr = (payload["state"] ?: payload["is_typing"])?.jsonPrimitive?.contentOrNull
+                    val isTyping = stateStr == "START" || stateStr == "true" || stateStr == "1"
+                    chatId?.let { chatDao.updateTyping(it, isTyping) }
+                }
+            }
+
+            "PRESENCE", "PRESENCE_UPDATE" -> {
+                envelope.payload?.let { payload ->
+                    val userId = (payload["user_id"] ?: payload["userId"])?.jsonPrimitive?.contentOrNull
+                    val statusStr = (payload["status"] ?: payload["is_online"])?.jsonPrimitive?.contentOrNull?.lowercase()
+                    val isOnline = statusStr == "online" || statusStr == "true" || statusStr == "1"
+                    val lastSeen = payload["last_seen"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis()
                     if (userId != null) {
                         chatDao.updatePresence(userId, isOnline, lastSeen)
                     }
                 }
             }
 
-            topic.startsWith("user:") && envelope.event == "balance_update" -> {
-                envelope.payload?.get("balance")?.toString()?.trim('"')?.toDoubleOrNull()?.let {
+            "BALANCE_UPDATE" -> {
+                envelope.payload?.get("balance")?.jsonPrimitive?.doubleOrNull?.let {
                     RewardsManager.onBalanceUpdate(it)
                 }
             }
