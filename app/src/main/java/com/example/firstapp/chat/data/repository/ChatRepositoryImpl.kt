@@ -588,8 +588,15 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun getChats(): Flow<Resource<List<ChatMessage>>> = 
         chatDaoProvider.get().getChats().map { list ->
-            Log.d("ChatRepository", "getChats: emitting ${list.size} chats from local DB")
-            Resource.Success(list.map { it.toModel() }) 
+            val deduplicated = list.distinctBy { entity ->
+                if (entity.type == com.example.firstapp.common.model.ConversationType.DIRECT && !entity.otherUserId.isNullOrBlank()) {
+                    "direct_${entity.otherUserId}"
+                } else {
+                    entity.id
+                }
+            }
+            Log.d("ChatRepository", "getChats: emitting ${deduplicated.size} chats from local DB")
+            Resource.Success(deduplicated.map { it.toModel() }) 
         }.distinctUntilChanged()
 
     override fun getChatById(chatId: String): Flow<Resource<ChatMessage>> =
@@ -650,9 +657,30 @@ class ChatRepositoryImpl @Inject constructor(
                 
                 val finalEntities = entities.map { serverEntity ->
                     val local = localChats[serverEntity.id]
+                    var resultEntity = serverEntity
+
+                    if (serverEntity.type == com.example.firstapp.common.model.ConversationType.DIRECT && !serverEntity.otherUserId.isNullOrBlank()) {
+                        val otherId = serverEntity.otherUserId
+                        val oldUserChat = localChats[otherId]
+                        if (oldUserChat != null && oldUserChat.id != serverEntity.id) {
+                            Log.i("ChatRepository", "Migrating orphaned user-ID chat ${oldUserChat.id} to conversation ${serverEntity.id}")
+                            scope.launch {
+                                chatDao.migrateMessagesConversationId(otherId, serverEntity.id)
+                                chatDao.deleteChat(otherId)
+                            }
+                            if (serverEntity.lastMessage.isBlank() && oldUserChat.lastMessage.isNotBlank()) {
+                                resultEntity = serverEntity.copy(
+                                    lastMessage = oldUserChat.lastMessage,
+                                    timestamp = Math.max(serverEntity.timestamp, oldUserChat.timestamp),
+                                    lastMessageIsFromMe = oldUserChat.lastMessageIsFromMe,
+                                    lastMessageRead = oldUserChat.lastMessageRead
+                                )
+                            }
+                        }
+                    }
+
                     if (local != null && serverEntity.type == com.example.firstapp.common.model.ConversationType.CHANNEL) {
-                        // Preserve local truth for subscription and admin status (backend field names might vary or be missing)
-                        serverEntity.copy(
+                        resultEntity.copy(
                             isSubscribed = local.isSubscribed || serverEntity.isSubscribed,
                             isAdmin = local.isAdmin || serverEntity.isAdmin,
                             isMuted = local.isMuted,
@@ -660,7 +688,7 @@ class ChatRepositoryImpl @Inject constructor(
                             createdBy = serverEntity.createdBy ?: local.createdBy
                         )
                     } else {
-                        serverEntity
+                        resultEntity
                     }
                 }
 

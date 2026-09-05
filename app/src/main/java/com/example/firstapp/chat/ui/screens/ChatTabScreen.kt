@@ -170,7 +170,7 @@ fun ChatsListScreen(
         }
     }
 
-    val tabs = listOf("Chats", "Channels", "Jobs", "Rewards")
+    val tabs = listOf("Chats", "Channels", "Jobs", "Rewards", "DM")
 
     Scaffold(
         topBar = {
@@ -590,6 +590,42 @@ fun ChatsListScreen(
                                 viewModel = rewardViewModel,
                                 topBarHeight = 0.dp
                             )
+                        }
+                        4 -> {
+                            // DM Tab: Shows all direct messages from social profiles
+                            DataStateHandler(chatsState) { chats ->
+                                val dmChats = chats.filter { it.type == ConversationType.DIRECT }
+                                if (dmChats.isEmpty()) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No direct messages yet",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                } else {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(bottom = 80.dp)
+                                    ) {
+                                        items(dmChats, key = { it.id }) { chat ->
+                                            Box(modifier = Modifier.clickable {
+                                                navController.navigate(
+                                                    Screen.Chat.createRoute(
+                                                        chat.id,
+                                                        type = "direct"
+                                                    )
+                                                )
+                                            }) {
+                                                ChatItem(chat = chat)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
