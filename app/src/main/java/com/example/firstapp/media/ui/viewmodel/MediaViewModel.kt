@@ -68,6 +68,29 @@ class MediaViewModel @Inject constructor(
     // Session-based unique view tracking to avoid redundant API calls
     private val viewedPostsThisSession = HashSet<String>()
 
+    private var lastRealtimePostRefreshMs: Long = 0L
+
+    // Posts/shorts/stories broadcasts arrive over the dedicated /ws/posts socket
+    // (PostWebSocketClient), not the chat socket. Declared before init{} below since
+    // Kotlin runs property initializers/init blocks in textual order, and init{}
+    // calls connectPostRealtime() which needs this already constructed.
+    private val feedRefreshListener = object : PostSocketListener {
+        override fun onOpen() {}
+        override fun onPostsEvent(action: String, postId: String?, likes: Long?, reposts: Long?, shares: Long?, views: Long?) {
+            val now = System.currentTimeMillis()
+            if (now - lastRealtimePostRefreshMs < 1500) return
+            lastRealtimePostRefreshMs = now
+            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        }
+        override fun onShortsEvent(action: String, shortId: String?) {
+            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        }
+        override fun onStoriesEvent(action: String, storyId: String?) {
+            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        }
+        override fun onError(error: String) {}
+    }
+
     init {
         preloadAds()
         loadFeed("standard")
@@ -135,29 +158,6 @@ class MediaViewModel @Inject constructor(
 
     fun selectCategory(categoryId: String?) {
         loadFeed(currentFeedType ?: "standard", categoryId)
-    }
-
-    private var lastRealtimePostRefreshMs: Long = 0L
-
-    // Posts/shorts/stories broadcasts arrive over the dedicated /ws/posts socket
-    // (PostWebSocketClient), not the chat socket — a previous version of this
-    // listened on webSocketManager's "feed"/"stories" topics, which the chat
-    // socket never actually emits, so the feed never auto-refreshed.
-    private val feedRefreshListener = object : PostSocketListener {
-        override fun onOpen() {}
-        override fun onPostsEvent(action: String, postId: String?, likes: Long?, reposts: Long?, shares: Long?, views: Long?) {
-            val now = System.currentTimeMillis()
-            if (now - lastRealtimePostRefreshMs < 1500) return
-            lastRealtimePostRefreshMs = now
-            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-        }
-        override fun onShortsEvent(action: String, shortId: String?) {
-            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-        }
-        override fun onStoriesEvent(action: String, storyId: String?) {
-            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-        }
-        override fun onError(error: String) {}
     }
 
     private fun connectPostRealtime() {
