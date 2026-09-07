@@ -57,7 +57,7 @@ class RewardViewModel @Inject constructor(
 
     private fun observeRealtimeUpdates() {
         webSocketManager.events
-            .filter { it.event == "REWARD_UPDATE" }
+            .filter { it.type == "reward_update" }
             .onEach {
                 android.util.Log.i("RewardViewModel", "Reward update received via WS, refreshing dashboard")
                 fetchDashboard()

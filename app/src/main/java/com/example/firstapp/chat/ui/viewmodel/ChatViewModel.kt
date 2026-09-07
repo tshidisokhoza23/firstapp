@@ -130,36 +130,28 @@ class ChatViewModel @Inject constructor(
     private fun observeRealtimeEvents() {
         webSocketManager.events
             .onEach { envelope ->
-                val topic = envelope.topic ?: ""
-                val event = (envelope.event ?: envelope.op ?: "").uppercase()
-
-                when {
-                    topic == "chat" || topic.startsWith("chat:") || topic.startsWith("user:") -> {
-                        when (event) {
-                            "MESSAGE", "INCOMING_MSG", "MSG_ACK" -> {
-                                val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
-                                val currentOpenChat = _activeChatId.value
-                                if (cid != null && cid == currentOpenChat) {
-                                    markAsRead(cid)
-                                    // Trigger immediate re-fetch from Room DB for current open chat
-                                    repository.getMessages(cid).firstOrNull()?.let { res ->
-                                        _uiState.update { s -> s.copy(messages = res) }
-                                    }
-                                }
+                when (envelope.type) {
+                    "message_new", "message_ack" -> {
+                        val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
+                        val currentOpenChat = _activeChatId.value
+                        if (cid != null && cid == currentOpenChat) {
+                            markAsRead(cid)
+                            // Trigger immediate re-fetch from Room DB for current open chat
+                            repository.getMessages(cid).firstOrNull()?.let { res ->
+                                _uiState.update { s -> s.copy(messages = res) }
                             }
-                            "TYPING", "typing" -> {
-                                val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
-                                    ?: topic.substringAfter("chat:")
-                                val state = (envelope.payload?.get("is_typing") 
-                                    ?: envelope.payload?.get("state"))?.toString()?.toBoolean() ?: false
-                                
-                                if (cid.isNotBlank()) {
-                                    _uiState.update { s ->
-                                        val updated = s.typingStatus.toMutableMap()
-                                        updated[cid] = state
-                                        s.copy(typingStatus = updated)
-                                    }
-                                }
+                        }
+                    }
+                    "typing" -> {
+                        val cid = envelope.payload?.get("conversation_id")?.toString()?.trim('"')
+                        val state = envelope.payload?.get("state")?.toString()?.trim('"')
+                        val isTyping = state == "START"
+
+                        if (!cid.isNullOrBlank()) {
+                            _uiState.update { s ->
+                                val updated = s.typingStatus.toMutableMap()
+                                updated[cid] = isTyping
+                                s.copy(typingStatus = updated)
                             }
                         }
                     }

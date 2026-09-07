@@ -26,10 +26,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 
 @Serializable
 data class WSEnvelope(
-    val topic: String? = null,
-    val event: String? = null,
-    val payload: JsonObject? = null,
-    val op: String? = null
+    val type: String? = null,
+    val payload: JsonObject? = null
 )
 
 @Singleton
@@ -172,7 +170,7 @@ class WebSocketManager @Inject constructor(
         heartbeatJob = scope.launch {
             while (isActive && isConnected) {
                 delay(15000) // 15s heartbeat
-                send("presence", "heartbeat", buildJsonObject {
+                send("heartbeat", buildJsonObject {
                     put("status", "online")
                     put("timestamp", System.currentTimeMillis())
                 })
@@ -180,14 +178,14 @@ class WebSocketManager @Inject constructor(
         }
     }
 
-    fun send(topic: String, event: String, payload: JsonObject? = null, op: String? = null) {
+    fun send(type: String, payload: JsonObject? = null) {
         val webSocket = webSocketRef.get()
         if (webSocket != null && isConnected) {
-            val envelope = WSEnvelope(topic, event, payload, op)
+            val envelope = WSEnvelope(type, payload)
             val jsonStr = json.encodeToString(WSEnvelope.serializer(), envelope)
             webSocket.send(jsonStr)
         } else {
-            Log.w("WebSocketManager", "Cannot send, socket not connected: $topic/$event")
+            Log.w("WebSocketManager", "Cannot send, socket not connected: $type")
             // If socket was disconnected unexpectedly, attempt reconnect
             if (!isConnected && !isManualDisconnect) {
                 connect()
@@ -201,9 +199,5 @@ class WebSocketManager @Inject constructor(
         heartbeatJob?.cancel()
         webSocketRef.get()?.close(1000, "App paused/stopped")
         webSocketRef.set(null)
-    }
-
-    fun subscribe(topic: String): Flow<WSEnvelope> {
-        return events.filter { it.topic == topic }
     }
 }

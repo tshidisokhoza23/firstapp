@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map as flowMap
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 
 class ChannelRepositoryImpl @Inject constructor(
@@ -92,7 +94,7 @@ class ChannelRepositoryImpl @Inject constructor(
                     .find { it.id == channelId }
                     ?.conversationId
                     ?: channelId
-                webSocketManager.send("chat:$conversationId", "join", op = "subscribe")
+                webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$conversationId") })
 
                 val entities = channelDao.getChannels().first()
                 val entity = entities.find { it.id == channelId }
@@ -132,7 +134,7 @@ class ChannelRepositoryImpl @Inject constructor(
                     // Save created channel immediately to Room DB
                     channelDao.insertChannel(createdModel.toEntity())
                     val convId = createdModel.conversationId ?: createdModel.id
-                    webSocketManager.send("chat:$convId", "join", op = "subscribe")
+                    webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$convId") })
                 }
 
                 var channelsResponse = socialApi.getChannels()

@@ -135,13 +135,13 @@ class ChatRepositoryImpl @Inject constructor(
             val allIds = (chatIds + channelConvIds).distinct()
 
             // 1. Subscribe to personal routing channels
-            webSocketManager.send("user:$myUserId", "subscribe", op = "subscribe")
-            webSocketManager.send("presence", "subscribe", op = "subscribe")
-            webSocketManager.send("chat", "subscribe", op = "subscribe")
+            webSocketManager.send("subscribe", buildJsonObject { put("topic", "user:$myUserId") })
+            webSocketManager.send("subscribe", buildJsonObject { put("topic", "presence") })
+            webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat") })
 
             // 2. Join all active chat rooms
             allIds.forEach { id ->
-                webSocketManager.send("chat:$id", "join", op = "subscribe")
+                webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$id") })
             }
             Log.d("ChatRepository", "Subscribed to ${allIds.size} total active chat topics")
         } catch (e: Exception) {
@@ -154,13 +154,12 @@ class ChatRepositoryImpl @Inject constructor(
         if (!db.isOpen) return
 
         val chatDao = chatDaoProvider.get()
-        val event = (envelope.event ?: envelope.op ?: "").uppercase()
-        val topic = (envelope.topic ?: "").lowercase()
+        val event = envelope.type ?: ""
 
-        Log.d("ChatRepository", "handleIncomingEvent: event='$event', topic='$topic'")
+        Log.d("ChatRepository", "handleIncomingEvent: type='$event'")
 
         when (event) {
-            "MESSAGE", "INCOMING_MSG", "NEW_MESSAGE" -> {
+            "message_new" -> {
                 envelope.payload?.let { payload ->
                     try {
                         val apiMsg = json.decodeFromJsonElement<ApiMessage>(payload)
@@ -282,13 +281,11 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
 
-            "MSG_ACK" -> {
+            "message_ack" -> {
                 envelope.payload?.let { payload ->
-                    val clientUuid = (payload["client_msg_id"] ?: payload["client_id"])?.jsonPrimitive?.contentOrNull
-                    val serverId = (payload["message_id"] ?: payload["id"])?.jsonPrimitive?.contentOrNull
-                    val timestamp = payload["created_at"]?.jsonPrimitive?.longOrNull
-                        ?: payload["server_timestamp"]?.jsonPrimitive?.longOrNull
-                        ?: System.currentTimeMillis()
+                    val clientUuid = payload["client_msg_id"]?.jsonPrimitive?.contentOrNull
+                    val serverId = payload["message_id"]?.jsonPrimitive?.contentOrNull
+                    val timestamp = payload["created_at"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis()
                     if (clientUuid != null && serverId != null) {
                         val msg = chatDao.getMessageById(clientUuid)
                         if (msg != null) {
@@ -298,9 +295,9 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
 
-            "READ_RECEIPT", "READ", "READ_ACK" -> {
+            "read_receipt", "read_ack" -> {
                 envelope.payload?.let { payload ->
-                    val convId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
+                    val convId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull
                     if (convId != null) {
                         db.withTransaction {
                             chatDao.markOutgoingAsRead(convId)
@@ -310,27 +307,27 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
 
-            "DELIVERY_RECEIPT", "DELIVERED", "DELIVERY_ACK" -> {
+            "delivery_receipt", "delivery_ack" -> {
                 envelope.payload?.let { payload ->
-                    val convId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
+                    val convId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull
                     if (convId != null) {
                         chatDao.markOutgoingAsDelivered(convId)
                     }
                 }
             }
 
-            "DELETE_MSG" -> {
+            "message_deleted" -> {
                 envelope.payload?.let { payload ->
-                    val messageId = (payload["message_id"] ?: payload["id"])?.jsonPrimitive?.contentOrNull
+                    val messageId = payload["message_id"]?.jsonPrimitive?.contentOrNull
                     if (messageId != null) {
                         db.withTransaction { chatDao.deleteMessage(messageId) }
                     }
                 }
             }
 
-            "DELETE_CONV" -> {
+            "conversation_deleted" -> {
                 envelope.payload?.let { payload ->
-                    val chatId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
+                    val chatId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull
                     if (chatId != null) {
                         db.withTransaction {
                             chatDao.deleteChat(chatId)
@@ -340,20 +337,29 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
 
-            "TYPING" -> {
+            "conversation_cleared" -> {
                 envelope.payload?.let { payload ->
-                    val chatId = (payload["conversation_id"] ?: payload["chat_id"])?.jsonPrimitive?.contentOrNull
-                    val stateStr = (payload["state"] ?: payload["is_typing"])?.jsonPrimitive?.contentOrNull
-                    val isTyping = stateStr == "START" || stateStr == "true" || stateStr == "1"
+                    val chatId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull
+                    if (chatId != null) {
+                        db.withTransaction { chatDao.clearMessages(chatId) }
+                    }
+                }
+            }
+
+            "typing" -> {
+                envelope.payload?.let { payload ->
+                    val chatId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull
+                    val stateStr = payload["state"]?.jsonPrimitive?.contentOrNull
+                    val isTyping = stateStr == "START"
                     chatId?.let { chatDao.updateTyping(it, isTyping) }
                 }
             }
 
-            "PRESENCE", "PRESENCE_UPDATE" -> {
+            "presence" -> {
                 envelope.payload?.let { payload ->
-                    val userId = (payload["user_id"] ?: payload["userId"])?.jsonPrimitive?.contentOrNull
+                    val userId = payload["user_id"]?.jsonPrimitive?.contentOrNull
                     val statusStr = (payload["status"] ?: payload["is_online"])?.jsonPrimitive?.contentOrNull?.lowercase()
-                    val isOnline = statusStr == "online" || statusStr == "true" || statusStr == "1"
+                    val isOnline = statusStr == "online" || statusStr == "true"
                     val lastSeen = payload["last_seen"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis()
                     if (userId != null) {
                         chatDao.updatePresence(userId, isOnline, lastSeen)
@@ -361,7 +367,7 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
 
-            "BALANCE_UPDATE" -> {
+            "reward_update" -> {
                 envelope.payload?.get("balance")?.jsonPrimitive?.doubleOrNull?.let {
                     RewardsManager.onBalanceUpdate(it)
                 }
@@ -407,17 +413,13 @@ class ChatRepositoryImpl @Inject constructor(
         // Send via live WebSocket for sub-10ms delivery if text message
         if (scheduledAt == null && mediaUrls.isEmpty()) {
             webSocketManager.send(
-                "chat:$chatId",
-                "SEND_MESSAGE",
+                "send_message",
                 buildJsonObject {
-                    put("client_id", clientUuid)
                     put("client_msg_id", clientUuid)
                     put("conversation_id", chatId)
                     put("content", body)
-                    put("message_text", body)
                     put("media_type", messageType.uppercase())
-                },
-                op = "SEND_MESSAGE"
+                }
             )
         }
 
@@ -669,7 +671,7 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun sendDeliveryAck(chatId: String, messageId: String) {
-        webSocketManager.send("chat", "DELIVERY_ACK", buildJsonObject {
+        webSocketManager.send("delivery_ack", buildJsonObject {
             put("message_id", messageId)
             put("conversation_id", chatId)
         })
@@ -685,7 +687,7 @@ class ChatRepositoryImpl @Inject constructor(
                 chatDao.updateUnreadCount(chatId, 0)
             }
 
-            webSocketManager.send("chat", "READ_ACK", buildJsonObject {
+            webSocketManager.send("read_ack", buildJsonObject {
                 put("conversation_id", chatId)
                 put("timestamp", System.currentTimeMillis())
             })
@@ -856,7 +858,7 @@ class ChatRepositoryImpl @Inject constructor(
                     phoneNumber = contact?.phoneNumber
                 )
                 chatDao.insertChats(listOf(newChat))
-                webSocketManager.send("chat:$conversationId", "join", op = "subscribe")
+                webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$conversationId") })
                 emit(Resource.Success(conversationId))
             } else {
                 emit(Resource.Error("Failed to initiate DM"))
@@ -916,10 +918,10 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun updateTyping(chatId: String, isTyping: Boolean) {
         chatDaoProvider.get().updateTyping(chatId, isTyping)
-        webSocketManager.send("chat", "TYPING", buildJsonObject {
+        webSocketManager.send("typing", buildJsonObject {
             put("conversation_id", chatId)
             put("state", if (isTyping) "START" else "STOP")
-        }, op = "TYPING")
+        })
     }
 
     override suspend fun updatePresence(chatId: String, isOnline: Boolean, lastSeen: Long) {

@@ -28,7 +28,7 @@ class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
     private val accountRepository: AccountRepository,
     private val adManager: com.example.firstapp.common.data.ads.AdManager,
-    private val webSocketManager: com.example.firstapp.common.data.realtime.WebSocketManager
+    private val postWebSocketClient: PostWebSocketClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
@@ -139,21 +139,29 @@ class MediaViewModel @Inject constructor(
 
     private var lastRealtimePostRefreshMs: Long = 0L
 
+    // Posts/shorts/stories broadcasts arrive over the dedicated /ws/posts socket
+    // (PostWebSocketClient), not the chat socket — a previous version of this
+    // listened on webSocketManager's "feed"/"stories" topics, which the chat
+    // socket never actually emits, so the feed never auto-refreshed.
+    private val feedRefreshListener = object : PostSocketListener {
+        override fun onOpen() {}
+        override fun onPostsEvent(action: String, postId: String?, likes: Long?, reposts: Long?, shares: Long?, views: Long?) {
+            val now = System.currentTimeMillis()
+            if (now - lastRealtimePostRefreshMs < 1500) return
+            lastRealtimePostRefreshMs = now
+            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        }
+        override fun onShortsEvent(action: String, shortId: String?) {
+            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        }
+        override fun onStoriesEvent(action: String, storyId: String?) {
+            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        }
+        override fun onError(error: String) {}
+    }
+
     private fun connectPostRealtime() {
-        webSocketManager.subscribe("feed")
-            .onEach { envelope ->
-                val now = System.currentTimeMillis()
-                if (now - lastRealtimePostRefreshMs < 1500) return@onEach
-                lastRealtimePostRefreshMs = now
-                _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-            }
-            .launchIn(viewModelScope)
-            
-        webSocketManager.subscribe("stories")
-            .onEach {
-                _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-            }
-            .launchIn(viewModelScope)
+        postWebSocketClient.connect(feedRefreshListener)
     }
 
     fun refreshAll() {
@@ -610,7 +618,7 @@ class MediaViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        // PostWebSocketClient.close()
+        postWebSocketClient.disconnect(feedRefreshListener)
         super.onCleared()
     }
 }
