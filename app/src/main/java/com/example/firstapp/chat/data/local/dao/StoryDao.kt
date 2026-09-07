@@ -36,6 +36,6 @@ interface StoryDao {
         insertStories(stories)
     }
 
-    @Query("DELETE FROM stories WHERE lastUpdatedMillis < :threshold")
+    @Query("DELETE FROM stories WHERE lastUpdatedMillis > 0 AND lastUpdatedMillis < :threshold")
     suspend fun pruneStories(threshold: Long)
 }

@@ -13,6 +13,8 @@ import com.example.firstapp.media.data.api.CreateStoryRequest
 import com.example.firstapp.media.data.api.ApiViewer
 import com.example.firstapp.media.model.*
 import com.example.firstapp.chat.model.*
+import com.example.firstapp.common.domain.auth.SessionManager
+import com.example.firstapp.common.util.MediaUtils
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.map as flowMap
 import kotlinx.coroutines.*
@@ -23,7 +25,8 @@ class StoryRepositoryImpl @Inject constructor(
     private val storyDao: StoryDao,
     private val contactDao: com.example.firstapp.chat.data.local.dao.ContactDao,
     private val displayNameResolver: com.example.firstapp.common.util.DisplayNameResolver,
-    private val webSocketManager: WebSocketManager
+    private val webSocketManager: WebSocketManager,
+    private val sessionManager: SessionManager
 ) : StoryRepository {
 
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -60,7 +63,7 @@ class StoryRepositoryImpl @Inject constructor(
             val models = entities.map { entity ->
                 val us = entity.toUserStory()
                 us.copy(stories = us.stories.sortedBy { it.createdAt })
-            }.toMutableList()
+            }.filter { it.stories.isNotEmpty() }.toMutableList()
             models.sortByDescending { us: UserStory -> us.stories.maxByOrNull { s: StoryItem -> s.createdAt }?.createdAt ?: 0L }
             Resource.Success<List<UserStory>>(models)
         })
@@ -102,10 +105,20 @@ class StoryRepositoryImpl @Inject constructor(
             }
 
             if (replace) {
-                // Full refresh must replace even when the server returns no
-                // stories, otherwise a failed visibility query leaves stale
-                // empty cache and the tray never recovers on later retries.
-                storyDao.replaceStories(fetched.map { it.toStoryEntity() })
+                val myId = sessionManager.getUserId()
+                val existingMine = if (myId.isNullOrBlank()) null else {
+                    storyDao.getStories().first().find { it.userId == myId || it.id == myId }
+                }
+                val entities = fetched.map { it.toStoryEntity() }.toMutableList()
+                if (existingMine != null && existingMine.stories.isNotEmpty()) {
+                    val idx = entities.indexOfFirst { it.userId == myId || it.id == myId }
+                    if (idx < 0) {
+                        entities.add(0, existingMine)
+                    } else if (entities[idx].stories.isEmpty()) {
+                        entities[idx] = existingMine
+                    }
+                }
+                storyDao.replaceStories(entities)
             } else if (fetched.isEmpty()) {
                 return true
             } else {
@@ -133,11 +146,53 @@ class StoryRepositoryImpl @Inject constructor(
         }
     }
 
+    private suspend fun cacheOwnPostedStory(
+        apiItem: com.example.firstapp.media.data.api.ApiStoryItem?,
+        content: String,
+        contentUrl: String?,
+        type: String
+    ) {
+        val myId = sessionManager.getUserId() ?: return
+        val me = sessionManager.currentUser.value
+        val now = apiItem?.created_at ?: System.currentTimeMillis()
+        val item = StoryItem(
+            id = apiItem?.id?.takeIf { it.isNotBlank() } ?: "local_$now",
+            content = apiItem?.content ?: content,
+            contentUrl = MediaUtils.formatUrl(apiItem?.content_url ?: contentUrl),
+            type = when ((apiItem?.story_type ?: type).lowercase()) {
+                "video" -> StoryType.VIDEO
+                "image" -> StoryType.IMAGE
+                else -> StoryType.TEXT
+            },
+            timestamp = formatStoryTimestamp(now),
+            createdAt = now,
+            backgroundColorArgb = 0xBF546E7A,
+            isViewed = true,
+            durationMs = apiItem?.duration_ms ?: 5000
+        )
+        val existing = storyDao.getStories().first().find { it.userId == myId || it.id == myId }
+        val mergedStories = ((existing?.stories ?: emptyList()) + item).distinctBy { it.id }.sortedBy { it.createdAt }
+        val entity = StoryEntity(
+            id = myId,
+            userId = myId,
+            userName = me?.displayName?.takeIf { it.isNotBlank() } ?: existing?.userName ?: "My Story",
+            phoneNumber = me?.phoneNumber ?: existing?.phoneNumber,
+            userAvatarUrl = me?.avatarUrl ?: existing?.userAvatarUrl,
+            userAvatarColor = existing?.userAvatarColor ?: 0xFF455A64.toInt(),
+            stories = mergedStories,
+            lastUpdated = formatTimeAgo(now),
+            lastUpdatedMillis = now,
+            isMuted = existing?.isMuted ?: false
+        )
+        storyDao.insertStories(listOf(entity))
+    }
+
     override fun createStory(content: String, contentUrl: String?, type: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             val response = socialApi.createStory(CreateStoryRequest(content, contentUrl, type))
             if (response.isSuccessful) {
+                cacheOwnPostedStory(response.body()?.story, content, contentUrl, type)
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Server error: ${response.code()}"))

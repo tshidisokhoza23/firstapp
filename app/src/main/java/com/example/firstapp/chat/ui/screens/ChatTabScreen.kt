@@ -549,7 +549,7 @@ fun ChatsListScreen(
                                             onChatClick = {},
                                             onMessageClick = {},
                                             onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
-                                            onChannelClick = { navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel")) },
+                                            onChannelClick = { navController.navigate(Screen.ChannelDetail.createRoute(it.id)) },
                                             onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                                         )
                                     } else {
@@ -558,7 +558,7 @@ fun ChatsListScreen(
                                             channels = channels, 
                                             topBarHeight = 0.dp,
                                             onChannelClick = {
-                                                navController.navigate(Screen.Chat.createRoute(it.conversationId ?: it.id, type = "channel"))
+                                                navController.navigate(Screen.ChannelDetail.createRoute(it.id))
                                             },
                                             onSubscribe = { id -> channelsViewModel.subscribeToChannel(id) }
                                         ) 

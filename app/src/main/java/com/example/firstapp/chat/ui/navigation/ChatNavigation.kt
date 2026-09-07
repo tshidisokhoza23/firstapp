@@ -150,6 +150,81 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         )
     }
 
+    composable(
+        route = Screen.ChannelDetail.route,
+        arguments = listOf(navArgument("channelId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val channelId = backStackEntry.arguments?.getString("channelId") ?: return@composable
+        val viewModel: ChannelDetailViewModel = hiltViewModel()
+        val channelState by viewModel.channel.collectAsState()
+        val postsState by viewModel.posts.collectAsState()
+        val currentUser = com.example.firstapp.LocalCurrentUser.current
+        var showComposer by remember { mutableStateOf(false) }
+        var postText by remember { mutableStateOf("") }
+
+        LaunchedEffect(channelId) {
+            viewModel.loadChannel(channelId)
+        }
+
+        if (showComposer) {
+            AlertDialog(
+                onDismissRequest = { showComposer = false },
+                title = { Text("Post to channel") },
+                text = {
+                    OutlinedTextField(
+                        value = postText,
+                        onValueChange = { postText = it },
+                        placeholder = { Text("Write an update") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val body = postText.trim()
+                            if (body.isNotEmpty()) {
+                                viewModel.createPost(channelId, body, emptyList())
+                                postText = ""
+                                showComposer = false
+                            }
+                        }
+                    ) { Text("Post") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showComposer = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        when (val ch = channelState) {
+            is Resource.Success -> {
+                val channel = ch.data
+                if (channel != null) {
+                    ChannelDetailScreen(
+                        channel = channel,
+                        posts = postsState.data ?: emptyList(),
+                        currentUserId = currentUser?.id ?: viewModel.currentUserId,
+                        onBack = { navController.popBackStack() },
+                        onSubscribe = { viewModel.subscribe(it) },
+                        onMute = { id, muted -> viewModel.mute(id, muted) },
+                        onCreatePost = { showComposer = true },
+                        onToggleAdminPosting = { viewModel.toggleAdminPosting(channelId, it) }
+                    )
+                }
+            }
+            is Resource.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(ch.message ?: "Channel not found")
+                }
+            }
+            else -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+    }
+
 
     composable(
         route = Screen.Chat.route,

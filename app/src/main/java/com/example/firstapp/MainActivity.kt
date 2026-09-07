@@ -188,7 +188,7 @@ class MainActivity : FragmentActivity() {
                 }
                 "channel" -> {
                     val id = data.lastPathSegment
-                    if (id != null) { GlobalNavigation.navigateTo(Screen.Chat.createRoute(id, type = "channel")) }
+                    if (id != null) { GlobalNavigation.navigateTo(Screen.ChannelDetail.createRoute(id)) }
                 }
             }
         }

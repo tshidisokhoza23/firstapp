@@ -36,7 +36,7 @@ class ChannelDetailViewModel @Inject constructor(
         viewModelScope.launch {
             repository.getChannels().collect { resource ->
                 if (resource is Resource.Success) {
-                    val ch = resource.data?.find { it.id == channelId }
+                    val ch = resource.data?.find { it.id == channelId || it.conversationId == channelId }
                     if (ch != null) _channel.value = Resource.Success(ch)
                     else _channel.value = Resource.Error("Channel not found")
                 } else if (resource is Resource.Error) {
