@@ -280,10 +280,10 @@ data class VotePollRequest(val option_id: String)
 data class CreatePostReplyRequest(val content: String, val parent_reply_id: String? = null)
 
 data class CreateStoryRequest(
-    val content: String = "",
-    val content_url: String? = null,
-    val story_type: String = "text",
-    val duration_ms: Int = 5000
+    @SerializedName("content") val content: String = "",
+    @SerializedName("content_url") val content_url: String? = null,
+    @SerializedName("story_type") val story_type: String = "text",
+    @SerializedName("duration_ms") val duration_ms: Int = 5000
 )
 
 data class ApiPostAuthor(

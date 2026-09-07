@@ -1,7 +1,6 @@
 package com.example.firstapp.common.di.modules
 
 import com.example.firstapp.chat.data.CallWebSocketClient
-import com.example.firstapp.chat.data.ChatWebSocketClient
 import com.example.firstapp.common.data.auth.SessionManagerImpl
 import com.example.firstapp.common.domain.auth.SessionManager
 import com.google.gson.Gson
@@ -25,15 +24,6 @@ abstract class AuthModule {
         @Provides
         @Singleton
         fun provideGson(): Gson = Gson()
-
-        @Provides
-        @Singleton
-        fun provideChatWebSocketClient(
-            sessionManager: SessionManager,
-            httpClient: OkHttpClient,
-            gson: Gson,
-            envManager: com.example.firstapp.common.data.network.NetworkEnvironmentManager
-        ): ChatWebSocketClient = ChatWebSocketClient(sessionManager, httpClient, gson, envManager)
 
         @Provides
         @Singleton
