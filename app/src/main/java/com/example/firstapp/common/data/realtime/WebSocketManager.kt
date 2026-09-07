@@ -178,19 +178,19 @@ class WebSocketManager @Inject constructor(
         }
     }
 
-    fun send(type: String, payload: JsonObject? = null) {
+    fun send(type: String, payload: JsonObject? = null): Boolean {
         val webSocket = webSocketRef.get()
         if (webSocket != null && isConnected) {
             val envelope = WSEnvelope(type, payload)
             val jsonStr = json.encodeToString(WSEnvelope.serializer(), envelope)
-            webSocket.send(jsonStr)
-        } else {
-            Log.w("WebSocketManager", "Cannot send, socket not connected: $type")
-            // If socket was disconnected unexpectedly, attempt reconnect
-            if (!isConnected && !isManualDisconnect) {
-                connect()
-            }
+            return webSocket.send(jsonStr)
         }
+        Log.w("WebSocketManager", "Cannot send, socket not connected: $type")
+        // If socket was disconnected unexpectedly, attempt reconnect
+        if (!isConnected && !isManualDisconnect) {
+            connect()
+        }
+        return false
     }
 
     fun disconnect() {

@@ -170,10 +170,12 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val jobTitle = backStackEntry.arguments?.getString("jobTitle")?.takeIf { it.isNotBlank() }
         val companyName = backStackEntry.arguments?.getString("companyName")?.takeIf { it.isNotBlank() }
         
-        val type = if (typeStr == "group") ConversationType.GROUP 
-                   else if (typeStr == "channel") ConversationType.CHANNEL 
-                   else if (typeStr == "job_chat") ConversationType.JOB_CHAT
-                   else ConversationType.DIRECT
+        val type = when (typeStr.trim().lowercase()) {
+            "group" -> ConversationType.GROUP
+            "channel", "hiring_channel" -> ConversationType.CHANNEL
+            "job_chat", "job_application" -> ConversationType.JOB_CHAT
+            else -> ConversationType.DIRECT
+        }
         
         val isInitiate = typeStr == "initiate" || typeStr == "initiate_dm"
         var resolvedChatId by remember { mutableStateOf<String?>(if (isInitiate) null else chatId) }
@@ -204,6 +206,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chatsState by chatViewModel.chats.collectAsState()
         val chats = chatsState.data ?: emptyList<ChatMessage>()
         val existingChat = chats.firstOrNull { it.id == resolvedChatId && it.type == type }
+            ?: chats.firstOrNull { it.id == resolvedChatId }
         
         val channelsState by channelsViewModel.channels.collectAsState()
         val channelFromRepo = channelsState.data?.find { it.id == resolvedChatId || it.conversationId == resolvedChatId }

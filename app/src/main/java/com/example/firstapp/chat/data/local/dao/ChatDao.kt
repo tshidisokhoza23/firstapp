@@ -48,8 +48,13 @@ interface ChatDao {
     @Query("""
         SELECT * FROM messages 
         WHERE conversationId = :chatId 
-           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
-           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+           OR (
+                (SELECT type FROM chats WHERE id = :chatId LIMIT 1) = 'DIRECT'
+                AND (
+                    conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+                    OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId AND type = 'DIRECT' LIMIT 1)
+                )
+           )
         ORDER BY timestamp ASC
     """)
     fun getMessages(chatId: String): Flow<List<MessageEntity>>
@@ -57,8 +62,13 @@ interface ChatDao {
     @Query("""
         SELECT * FROM messages 
         WHERE conversationId = :chatId 
-           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
-           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+           OR (
+                (SELECT type FROM chats WHERE id = :chatId LIMIT 1) = 'DIRECT'
+                AND (
+                    conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+                    OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId AND type = 'DIRECT' LIMIT 1)
+                )
+           )
         ORDER BY timestamp DESC
     """)
     fun getMessagesPaging(chatId: String): PagingSource<Int, MessageEntity>
@@ -81,8 +91,13 @@ interface ChatDao {
     @Query("""
         SELECT * FROM messages 
         WHERE conversationId = :chatId 
-           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
-           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+           OR (
+                (SELECT type FROM chats WHERE id = :chatId LIMIT 1) = 'DIRECT'
+                AND (
+                    conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+                    OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId AND type = 'DIRECT' LIMIT 1)
+                )
+           )
         ORDER BY timestamp ASC LIMIT 1
     """)
     suspend fun getOldestMessage(chatId: String): MessageEntity?
@@ -90,8 +105,13 @@ interface ChatDao {
     @Query("""
         SELECT * FROM messages 
         WHERE conversationId = :chatId 
-           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
-           OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId LIMIT 1)
+           OR (
+                (SELECT type FROM chats WHERE id = :chatId LIMIT 1) = 'DIRECT'
+                AND (
+                    conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+                    OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId AND type = 'DIRECT' LIMIT 1)
+                )
+           )
         ORDER BY timestamp DESC LIMIT 1
     """)
     suspend fun getLatestMessage(chatId: String): MessageEntity?
@@ -144,26 +164,26 @@ interface ChatDao {
     // READ / DELIVERY RECEIPTS & LAST MESSAGE
     // ==========================================
 
-    @Query("UPDATE chats SET lastMessage = :lastMessage, timestamp = :time, lastMessageIsFromMe = :isFromMe, lastMessageRead = :isRead WHERE id = :chatId OR otherUserId = :chatId")
+    @Query("UPDATE chats SET lastMessage = :lastMessage, timestamp = :time, lastMessageIsFromMe = :isFromMe, lastMessageRead = :isRead WHERE id = :chatId OR (type = 'DIRECT' AND otherUserId = :chatId)")
     suspend fun updateLastMessage(chatId: String, lastMessage: String, time: Long, isFromMe: Boolean, isRead: Boolean)
 
-    @Query("UPDATE chats SET unreadCount = :count WHERE id = :chatId OR otherUserId = :chatId")
+    @Query("UPDATE chats SET unreadCount = :count WHERE id = :chatId OR (type = 'DIRECT' AND otherUserId = :chatId)")
     suspend fun updateUnreadCount(chatId: String, count: Int)
 
-    @Query("UPDATE chats SET unreadCount = 0 WHERE id = :chatId OR otherUserId = :chatId")
+    @Query("UPDATE chats SET unreadCount = 0 WHERE id = :chatId OR (type = 'DIRECT' AND otherUserId = :chatId)")
     suspend fun clearUnreadCount(chatId: String)
 
-    @Query("UPDATE chats SET unreadCount = unreadCount + 1 WHERE id = :chatId OR otherUserId = :chatId")
+    @Query("UPDATE chats SET unreadCount = unreadCount + 1 WHERE id = :chatId OR (type = 'DIRECT' AND otherUserId = :chatId)")
     suspend fun incrementUnreadCount(chatId: String)
 
     @Query("""
         UPDATE chats 
         SET unreadCount = (
             SELECT COUNT(*) FROM messages 
-            WHERE (conversationId = chats.id OR conversationId = chats.otherUserId) 
+            WHERE conversationId = chats.id
             AND isRead = 0 AND isFromMe = 0
         ) 
-        WHERE id = :chatId OR otherUserId = :chatId
+        WHERE id = :chatId OR (type = 'DIRECT' AND otherUserId = :chatId)
     """)
     suspend fun recalculateUnreadCount(chatId: String)
 
@@ -176,7 +196,13 @@ interface ChatDao {
     @Query("""
         UPDATE messages 
         SET isRead = 1, status = 'READ' 
-        WHERE (conversationId = :chatId OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)) 
+        WHERE (
+            conversationId = :chatId
+            OR (
+                (SELECT type FROM chats WHERE id = :chatId LIMIT 1) = 'DIRECT'
+                AND conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
+            )
+        )
         AND isFromMe = 0
     """)
     suspend fun markIncomingAsRead(chatId: String)
@@ -197,7 +223,7 @@ interface ChatDao {
     // PRESENCE, TYPING & METADATA
     // ==========================================
 
-    @Query("UPDATE chats SET isOnline = :isOnline, lastSeen = :lastSeen WHERE id = :chatId OR otherUserId = :chatId")
+    @Query("UPDATE chats SET isOnline = :isOnline, lastSeen = :lastSeen WHERE id = :chatId OR (type = 'DIRECT' AND otherUserId = :chatId)")
     suspend fun updatePresence(chatId: String, isOnline: Boolean, lastSeen: Long)
 
     @Query("UPDATE chats SET isTyping = :isTyping WHERE id = :chatId")

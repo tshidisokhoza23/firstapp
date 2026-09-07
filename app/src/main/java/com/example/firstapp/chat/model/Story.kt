@@ -25,11 +25,16 @@ data class StoryItem(
     val type: StoryType, 
     val timestamp: String,
     val createdAt: Long = 0,
-    val backgroundColor: Color = Color.DarkGray,
+    // Packed ARGB. Do not store Compose Color here — Room persists this list via
+    // Gson, which cannot round-trip androidx.compose.ui.graphics.Color and was
+    // dropping every story item on read (empty tray / empty viewer).
+    val backgroundColorArgb: Long = 0xFF546E7A,
     val isViewed: Boolean = false,
     val durationMs: Int = 5000,
     val expiresAt: String = "",
     val adObject: Any? = null
-)
+) {
+    val backgroundColor: Color get() = Color(backgroundColorArgb.toInt())
+}
 
 

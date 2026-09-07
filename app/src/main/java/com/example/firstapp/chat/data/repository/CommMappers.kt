@@ -102,7 +102,7 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
                 formatStoryTimestamp(ts)
             } ?: "", 
             createdAt = it.created_at ?: System.currentTimeMillis(),
-            backgroundColor = Color(0xFF546E7A).copy(0.75f), 
+            backgroundColorArgb = 0xBF546E7A,
             isViewed = it.is_viewed ?: false, 
             durationMs = it.duration_ms ?: 5000
         ) 

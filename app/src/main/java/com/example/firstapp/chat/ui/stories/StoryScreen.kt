@@ -116,17 +116,21 @@ fun StoryScreen(
         }
     }
     
-    val contactIds = remember(contacts) { 
+    val contactIds = remember(contacts) {
         contacts.map { it.id }.toSet() + contacts.map { "user_${it.id}" }.toSet() + contacts.map { it.id.removePrefix("user_") }.toSet()
     }
     val contactNames = remember(contacts) { contacts.map { it.displayName.lowercase().trim() }.toSet() }
-    
+
     val otherStories = remember(filteredStories, currentUserId, myStory, contactIds, contactNames) {
-        filteredStories.filter { story -> 
+        filteredStories.filter { story ->
             if (story.id == currentUserId || story.userId == currentUserId || story.id == myStory?.id) return@filter false
             if (story.id == "system_ad") return@filter true
-            val isFromContact = contactIds.contains(story.id) || contactNames.contains(story.userName.lowercase().trim())
-            if (contacts.isEmpty()) true else isFromContact
+            // Backend already returns contacts-only. If local contacts have not
+            // synced yet, don't hide the server list; once they load, keep only
+            // people who are actually in the phone book.
+            if (contacts.isEmpty()) return@filter true
+            contactIds.contains(story.id) || contactIds.contains(story.userId) ||
+                contactNames.contains(story.userName.lowercase().trim())
         }
     }
     

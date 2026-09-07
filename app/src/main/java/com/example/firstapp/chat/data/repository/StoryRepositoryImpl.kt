@@ -101,9 +101,13 @@ class StoryRepositoryImpl @Inject constructor(
                 model.copy(userName = finalName)
             }
 
-            if (fetched.isEmpty()) return true
             if (replace) {
+                // Full refresh must replace even when the server returns no
+                // stories, otherwise a failed visibility query leaves stale
+                // empty cache and the tray never recovers on later retries.
                 storyDao.replaceStories(fetched.map { it.toStoryEntity() })
+            } else if (fetched.isEmpty()) {
+                return true
             } else {
                 val existing = storyDao.getStories().first().associateBy { it.userId }
                 val merged = fetched.map { incoming ->

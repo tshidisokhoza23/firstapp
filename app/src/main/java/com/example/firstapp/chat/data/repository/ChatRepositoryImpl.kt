@@ -162,7 +162,7 @@ class ChatRepositoryImpl @Inject constructor(
             "message_new" -> {
                 envelope.payload?.let { payload ->
                     try {
-                        val apiMsg = json.decodeFromJsonElement<ApiMessage>(payload)
+                        val apiMsg = parseIncomingApiMessage(payload)
                         val myUserId = sessionManager.getUserId()
                         val privKey = sessionManager.getPrivateKey()
                         var message = mapApiMessage(apiMsg, privKey, myUserId)
@@ -174,6 +174,11 @@ class ChatRepositoryImpl @Inject constructor(
                             if (altContent.isNotBlank()) {
                                 message = message.copy(content = altContent)
                             }
+                        }
+
+                        if (message.conversationId.isBlank() || message.id.isBlank()) {
+                            Log.w("ChatRepository", "Dropping message_new with blank id/conversationId")
+                            return@let
                         }
 
                         db.withTransaction {
@@ -410,23 +415,26 @@ class ChatRepositoryImpl @Inject constructor(
             chatDao.updateLastMessage(chatId, displaySummary, pendingMsg.timestamp, isFromMe = true, isRead = false)
         }
 
-        // Send via live WebSocket for sub-10ms delivery if text message
-        if (scheduledAt == null && mediaUrls.isEmpty()) {
-            webSocketManager.send(
-                "send_message",
-                buildJsonObject {
-                    put("client_msg_id", clientUuid)
-                    put("conversation_id", chatId)
-                    put("content", body)
-                    put("media_type", messageType.uppercase())
-                }
-            )
+        // Live text goes over the socket. Do NOT also enqueue the outbox for
+        // that path — REST SendMessage would persist+broadcast a second copy.
+        val sentLive = scheduledAt == null && mediaUrls.isEmpty() && webSocketManager.send(
+            "send_message",
+            buildJsonObject {
+                put("client_msg_id", clientUuid)
+                put("conversation_id", chatId)
+                put("content", body)
+                put("media_type", messageType.uppercase())
+            }
+        )
+        if (sentLive) {
+            chatDao.updateMessageStatus(clientUuid, MessageStatus.SENDING)
         }
 
         emit(Resource.Success(pendingMsg))
 
-        // Offload execution directly to background Outbox Manager
-        ChatOutboxWorker.enqueue(context)
+        if (!sentLive) {
+            ChatOutboxWorker.enqueue(context)
+        }
     }
 
     /**
@@ -735,11 +743,41 @@ class ChatRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun String?.toConversationTypeOrNull(): com.example.firstapp.common.model.ConversationType? = when (this) {
+    private fun parseIncomingApiMessage(payload: JsonObject): ApiMessage {
+        val parsed = try {
+            gson.fromJson(payload.toString(), ApiMessage::class.java)
+        } catch (_: Exception) {
+            ApiMessage()
+        }
+        val text = parsed.message_text.ifBlank {
+            payload["content"]?.jsonPrimitive?.contentOrNull
+                ?: payload["body"]?.jsonPrimitive?.contentOrNull
+                ?: ""
+        }
+        val id = parsed.id.ifBlank {
+            payload["message_id"]?.jsonPrimitive?.contentOrNull ?: ""
+        }
+        val clientUuid = parsed.client_uuid.ifBlank {
+            payload["client_msg_id"]?.jsonPrimitive?.contentOrNull ?: ""
+        }
+        return parsed.copy(
+            id = id,
+            client_uuid = clientUuid,
+            message_text = text,
+            conversation_id = parsed.conversation_id.ifBlank {
+                payload["conversation_id"]?.jsonPrimitive?.contentOrNull ?: ""
+            },
+            sender_id = parsed.sender_id.ifBlank {
+                payload["sender_id"]?.jsonPrimitive?.contentOrNull ?: ""
+            }
+        )
+    }
+
+    private fun String?.toConversationTypeOrNull(): com.example.firstapp.common.model.ConversationType? = when (this?.trim()?.lowercase()) {
         "group" -> com.example.firstapp.common.model.ConversationType.GROUP
-        "channel" -> com.example.firstapp.common.model.ConversationType.CHANNEL
-        "job_chat" -> com.example.firstapp.common.model.ConversationType.JOB_CHAT
-        "direct" -> com.example.firstapp.common.model.ConversationType.DIRECT
+        "channel", "hiring_channel" -> com.example.firstapp.common.model.ConversationType.CHANNEL
+        "job_chat", "job_application" -> com.example.firstapp.common.model.ConversationType.JOB_CHAT
+        "direct", "direct_message" -> com.example.firstapp.common.model.ConversationType.DIRECT
         else -> null
     }
 

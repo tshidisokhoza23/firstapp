@@ -48,9 +48,14 @@ fun StoriesRow(
     onPostedStoriesClick: () -> Unit = {}
 ) {
     val myStory = stories.find { 
-        it.id == currentUserId || 
+        it.id == currentUserId ||
+        it.userId == currentUserId ||
         it.id == "user_$currentUserId" || 
-        (currentUserId != null && it.id == currentUserId.removePrefix("user_")) ||
+        it.userId == "user_$currentUserId" ||
+        (currentUserId != null && (
+            it.id == currentUserId.removePrefix("user_") ||
+            it.userId == currentUserId.removePrefix("user_")
+        )) ||
         it.userName == "My Story" ||
         it.userName == "My Number"
     }
@@ -84,9 +89,14 @@ fun StoriesRow(
             }
 
             items(stories.filter { 
-                it.id != currentUserId && 
-                it.id != "user_$currentUserId" && 
-                (currentUserId == null || it.id != currentUserId.removePrefix("user_")) &&
+                it.id != currentUserId &&
+                it.userId != currentUserId &&
+                it.id != "user_$currentUserId" &&
+                it.userId != "user_$currentUserId" &&
+                (currentUserId == null || (
+                    it.id != currentUserId.removePrefix("user_") &&
+                    it.userId != currentUserId.removePrefix("user_")
+                )) &&
                 it.userName != "My Story" && 
                 it.userName != "My Number"
             }, key = { it.id }) { story ->
