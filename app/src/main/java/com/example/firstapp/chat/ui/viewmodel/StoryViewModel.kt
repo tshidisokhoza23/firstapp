@@ -79,39 +79,46 @@ class StoryViewModel @Inject constructor(
     fun postStory(content: String, contentUrl: String?, type: String = "text") {
         viewModelScope.launch {
             _postResult.value = Resource.Loading()
-            
-            val urlToUpload = contentUrl?.takeIf { it.isNotBlank() }
-            val needsUpload = urlToUpload != null && !urlToUpload.startsWith("http://") && !urlToUpload.startsWith("https://")
-            
-            if (needsUpload) {
-                try {
+            try {
+                val urlToUpload = contentUrl?.takeIf { it.isNotBlank() }
+                val needsUpload = urlToUpload != null && !urlToUpload.startsWith("http://") && !urlToUpload.startsWith("https://")
+
+                var finalContentUrl = contentUrl
+                var finalType = type
+                if (needsUpload) {
                     val uri = android.net.Uri.parse(urlToUpload)
                     val context = ContextProvider.context
+                    var uploadedUrl: String? = null
                     accountRepository.uploadUri(context, uri, "stories").collect { res ->
-                        if (res is Resource.Success && res.data != null) {
-                            val finalUrl = res.data.url
-                            val finalType = if (type == "text" || type.isBlank()) "image" else type
-                            createStoryEntry(content, finalUrl, finalType)
-                        } else if (res is Resource.Error) {
-                            _postResult.value = Resource.Error(res.message ?: "Upload failed")
+                        when (res) {
+                            is Resource.Success -> uploadedUrl = res.data?.url
+                            is Resource.Error -> {
+                                _postResult.value = Resource.Error(res.message ?: "Upload failed")
+                                return@collect
+                            }
+                            else -> {}
                         }
                     }
-                } catch (e: Exception) {
-                    _postResult.value = Resource.Error("File error: ${e.message}")
+                    if (_postResult.value is Resource.Error) return@launch
+                    if (uploadedUrl.isNullOrBlank()) {
+                        _postResult.value = Resource.Error("Upload failed")
+                        return@launch
+                    }
+                    finalContentUrl = uploadedUrl
+                    if (type == "text" || type.isBlank()) finalType = "image"
                 }
-            } else {
-                createStoryEntry(content, contentUrl, type)
-            }
-        }
-    }
 
-    private fun createStoryEntry(content: String, contentUrl: String?, type: String) {
-        viewModelScope.launch {
-            repository.createStory(content, contentUrl, type).collect {
-                _postResult.value = it
-                if (it is Resource.Success) {
-                    refreshStories()
+                repository.createStory(content, finalContentUrl, finalType).collect {
+                    if (it !is Resource.Loading) {
+                        _postResult.value = it
+                    }
+                    if (it is Resource.Success) {
+                        refreshStories()
+                    }
                 }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _postResult.value = Resource.Error(e.message ?: "Failed to post story")
             }
         }
     }

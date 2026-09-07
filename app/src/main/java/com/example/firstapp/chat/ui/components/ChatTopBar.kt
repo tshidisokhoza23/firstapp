@@ -177,10 +177,10 @@ fun ChatTopBar(
                             )
                             val presenceText = when {
                                 isTyping -> "typing..."
-                                chat.type == ConversationType.CHANNEL -> "channel"
-                                chat.isGroup -> "group"
+                                chat.type == ConversationType.CHANNEL -> "channel · tap for details"
+                                chat.type == ConversationType.GROUP || chat.isGroup -> "group · tap for info"
                                 chat.isOnline -> "online"
-                                chat.lastSeen > 0L -> "active"
+                                chat.lastSeen > 0L -> com.example.firstapp.chat.ui.screens.formatDirectLastSeen(chat.lastSeen)
                                 else -> "offline"
                             }
                             Text(
@@ -228,11 +228,20 @@ fun ChatTopBar(
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(if (chat.isGroup) "Group Info" else "View Profile", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = {
+                                        Text(
+                                            when {
+                                                chat.type == ConversationType.CHANNEL -> "Channel info"
+                                                chat.type == ConversationType.GROUP || chat.isGroup -> "Group info"
+                                                else -> "View Profile"
+                                            },
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
                                     onClick = { 
                                         showMenu = false
                                         val tid = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
-                                        onShowProfile(tid, chat.isGroup) 
+                                        onShowProfile(tid, chat.isGroup || chat.type == ConversationType.GROUP) 
                                     }
                                 )
                                 DropdownMenuItem(

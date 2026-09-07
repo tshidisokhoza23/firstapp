@@ -158,6 +158,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val viewModel: ChannelDetailViewModel = hiltViewModel()
         val channelState by viewModel.channel.collectAsState()
         val postsState by viewModel.posts.collectAsState()
+        val contacts by viewModel.contacts.collectAsState()
+        val members by viewModel.members.collectAsState()
         val currentUser = com.example.firstapp.LocalCurrentUser.current
         var showComposer by remember { mutableStateOf(false) }
         var postText by remember { mutableStateOf("") }
@@ -203,12 +205,20 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     ChannelDetailScreen(
                         channel = channel,
                         posts = postsState.data ?: emptyList(),
-                        currentUserId = currentUser?.id ?: viewModel.currentUserId,
+                        currentUserId = viewModel.currentUserId ?: currentUser?.id,
+                        contacts = contacts,
+                        members = members,
                         onBack = { navController.popBackStack() },
                         onSubscribe = { viewModel.subscribe(it) },
                         onMute = { id, muted -> viewModel.mute(id, muted) },
                         onCreatePost = { showComposer = true },
-                        onToggleAdminPosting = { viewModel.toggleAdminPosting(channelId, it) }
+                        onAddAdmin = { userId -> viewModel.addAdmin(channel.id, userId) },
+                        onRemoveAdmin = { userId -> viewModel.removeAdmin(channel.id, userId) },
+                        onToggleAdminPosting = { viewModel.toggleAdminPosting(channelId, it) },
+                        onOpenDiscussion = {
+                            val discussionId = channel.conversationId ?: channel.id
+                            navController.navigate(Screen.Chat.createRoute(discussionId, type = "channel"))
+                        }
                     )
                 }
             }
@@ -348,14 +358,19 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             chat = chat,
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },
-            onShowProfile = { userId, isGroup -> 
-                navController.navigate(Screen.ChatProfile.createRoute(userId, isGroup)) 
+            onShowProfile = { userId, isGroup ->
+                when {
+                    type == ConversationType.GROUP || isGroup -> navController.navigate(Screen.GroupDetail.createRoute(userId))
+                    type == ConversationType.CHANNEL -> navController.navigate(Screen.ChannelDetail.createRoute(channelFromRepo?.id ?: userId))
+                    else -> navController.navigate(Screen.ChatProfile.createRoute(userId, false))
+                }
             },
             onAvatarClick = { userId ->
-                if (chat.avatarUrl != null) {
-                    navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
-                } else {
-                    navController.navigate(Screen.ChatProfile.createRoute(userId, chat.isGroup))
+                when {
+                    chat.avatarUrl != null -> navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                    type == ConversationType.GROUP || chat.isGroup -> navController.navigate(Screen.GroupDetail.createRoute(userId))
+                    type == ConversationType.CHANNEL -> navController.navigate(Screen.ChannelDetail.createRoute(channelFromRepo?.id ?: userId))
+                    else -> navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
             },
             jobId = jobId,
@@ -519,6 +534,95 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     }
 
     composable(
+        route = Screen.JoinGroup.route,
+        arguments = listOf(navArgument("inviteCode") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val inviteCode = backStackEntry.arguments?.getString("inviteCode") ?: return@composable
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val context = LocalContext.current
+        LaunchedEffect(inviteCode) {
+            chatViewModel.joinGroupByInvite(inviteCode) { groupId ->
+                navController.navigate(Screen.Chat.createRoute(groupId, type = "group")) {
+                    popUpTo(Screen.Main.route)
+                }
+            }
+        }
+        val joinError = chatViewModel.uiState.collectAsState().value.error
+        LaunchedEffect(joinError) {
+            if (!joinError.isNullOrBlank()) {
+                Toast.makeText(context, joinError, Toast.LENGTH_LONG).show()
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    }
+
+    composable(
+        route = Screen.GroupDetail.route,
+        arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val groupId = android.net.Uri.decode(backStackEntry.arguments?.getString("groupId") ?: return@composable)
+        val viewModel: GroupDetailViewModel = hiltViewModel()
+        val chatState by viewModel.chat.collectAsState()
+        val groupInfo by viewModel.groupInfo.collectAsState()
+        val contacts by viewModel.contacts.collectAsState()
+        val sharedMedia by viewModel.sharedMedia.collectAsState()
+        val inviteCode by viewModel.inviteCode.collectAsState()
+        val toast by viewModel.toast.collectAsState()
+        val context = LocalContext.current
+
+        LaunchedEffect(groupId) { viewModel.load(groupId) }
+        LaunchedEffect(toast) {
+            toast?.let {
+                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                viewModel.clearToast()
+            }
+        }
+
+        val chat = chatState.data ?: ChatMessage(
+            id = groupId,
+            type = ConversationType.GROUP,
+            senderName = groupInfo.data?.title ?: groupInfo.data?.name ?: "Group",
+            isGroup = true,
+            createdBy = groupInfo.data?.created_by,
+            isAdmin = groupInfo.data?.admin_ids?.contains(viewModel.currentUserId) == true
+        )
+
+        GroupDetailScreen(
+            chat = chat,
+            groupInfo = groupInfo,
+            contacts = contacts,
+            sharedMedia = sharedMedia,
+            currentUserId = viewModel.currentUserId,
+            inviteCode = inviteCode ?: groupInfo.data?.invite_code,
+            onBack = { navController.popBackStack() },
+            onOpenChat = {
+                val conversationId = groupInfo.data?.conversation_id?.takeIf { it.isNotBlank() } ?: chat.id
+                navController.navigate(Screen.Chat.createRoute(conversationId, type = "group"))
+            },
+            onMute = { muted -> viewModel.mute(groupId, muted) },
+            onAddMember = { userId -> viewModel.addMember(groupId, userId) },
+            onRemoveMember = { userId -> viewModel.removeMember(groupId, userId) },
+            onPromoteAdmin = { userId -> viewModel.promoteAdmin(groupId, userId) },
+            onMessageMember = { userId ->
+                navController.navigate(Screen.Chat.createRoute(userId, type = "initiate"))
+            },
+            onLeaveGroup = {
+                viewModel.leave(groupId) {
+                    navController.popBackStack(Screen.Main.route, false)
+                }
+            },
+            onGenerateInvite = { viewModel.generateInvite(groupId) },
+            onSharedMedia = { navController.navigate(Screen.SharedMedia.createRoute(groupId)) },
+            onMediaClick = { url, type ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type))
+            }
+        )
+    }
+
+    composable(
         route = Screen.ChatProfile.route,
         arguments = listOf(
             navArgument("userId") { type = NavType.StringType },
@@ -537,7 +641,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chatsState by chatViewModel.chats.collectAsState()
         val chats = chatsState.data ?: emptyList()
         
-        val chat = chats.find { it.id == userId } ?: ChatMessage(
+        val chat = chats.find { it.id == userId || it.otherUserId == userId } ?: ChatMessage(
             id = userId,
             type = when {
                 channelFromRepo != null -> ConversationType.CHANNEL
@@ -549,23 +653,38 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             createdBy = channelFromRepo?.createdBy,
             followers = channelFromRepo?.followers ?: "0",
             isAdmin = channelFromRepo?.isAdmin ?: false,
-            adminsCanPost = channelFromRepo?.adminsCanPost ?: false
+            adminsCanPost = channelFromRepo?.adminsCanPost ?: false,
+            otherUserId = if (isGroup || channelFromRepo != null) null else userId
         )
         
-        val sharedMediaResource by chatViewModel.getSharedMedia(userId).collectAsState(Resource.Loading<List<Message>>())
+        val sharedMediaResource by chatViewModel.getSharedMedia(chat.id).collectAsState(Resource.Loading<List<Message>>())
         val sharedMedia: List<Message> = sharedMediaResource.data ?: emptyList()
         val groupInfo by chatViewModel.uiState.collectAsState()
         val contactsState by chatViewModel.contacts.collectAsState()
         val contacts = contactsState.data ?: emptyList()
+        val contactUser by chatViewModel.contactUser.collectAsState()
+        val blockedUserIds by chatViewModel.blockedUserIds.collectAsState()
+        val otherUserId = chat.otherUserId ?: if (chat.type == ConversationType.DIRECT) userId else null
+        val isDirectProfile = chat.type == ConversationType.DIRECT && !isGroup && channelFromRepo == null
 
-        LaunchedEffect(userId, isGroup) {
+        LaunchedEffect(userId, isGroup, otherUserId) {
             if (isGroup) {
                 chatViewModel.fetchGroupInfo(userId)
             }
+            if (isDirectProfile && !otherUserId.isNullOrBlank()) {
+                chatViewModel.loadContactUser(otherUserId)
+                chatViewModel.refreshBlockedUsers()
+            }
         }
 
+        val profileChat = chat.copy(
+            phoneNumber = chat.phoneNumber ?: contactUser?.phoneNumber,
+            avatarUrl = chat.avatarUrl ?: contactUser?.avatarUrl,
+            senderName = chat.senderName.takeIf { it.isNotBlank() } ?: contactUser?.displayName.orEmpty()
+        )
+
         com.example.firstapp.chat.ui.screens.ChatProfileScreen(
-            chat = chat,
+            chat = profileChat,
             onBack = { navController.popBackStack() },
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
@@ -576,9 +695,13 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             sharedMedia = sharedMedia,
             groupInfo = if (isGroup) groupInfo.groupInfo else Resource.Loading(),
             contacts = contacts,
+            contactBio = contactUser?.bio,
+            contactUsername = contactUser?.username,
+            isBlocked = otherUserId != null && blockedUserIds.contains(otherUserId),
             onClearChat = { chatViewModel.clearChat(chat.id) },
             onDeleteChat = { chatViewModel.deleteChat(chat.id); navController.popBackStack() },
             onMuteToggle = { chatViewModel.muteChat(chat.id, it) },
+            onPinToggle = { chatViewModel.pinChat(chat.id, it) },
             onAddMember = { memberId -> chatViewModel.addGroupMember(chat.id, memberId) },
             onRemoveMember = { memberId -> chatViewModel.removeGroupMember(chat.id, memberId) },
             onPromoteAdmin = { memberId -> chatViewModel.promoteToAdmin(chat.id, memberId) },
@@ -597,6 +720,25 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             },
             onAvatarSelected = { uri ->
                 chatViewModel.updateChatAvatar(chat.id, uri)
+            },
+            onBlock = {
+                otherUserId?.let { target ->
+                    chatViewModel.blockUser(target) { ok ->
+                        if (ok) navController.popBackStack(Screen.Main.route, false)
+                    }
+                }
+            },
+            onUnblock = {
+                otherUserId?.let { chatViewModel.unblockUser(it) }
+            },
+            onReport = { reason ->
+                otherUserId?.let { chatViewModel.reportUser(it, reason) }
+            },
+            onDisappearingChange = { duration ->
+                chatViewModel.updateDisappearingMessages(chat.id, duration)
+            },
+            onMediaVisibilityChange = { visible ->
+                chatViewModel.updateMediaVisibility(chat.id, visible)
             }
         )
     }

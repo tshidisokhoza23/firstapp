@@ -1,6 +1,7 @@
 package com.example.firstapp.chat.ui.channels
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -81,20 +83,26 @@ fun ChannelDetailScreen(
     channel: Channel,
     posts: List<Post>,
     currentUserId: String?,
+    contacts: List<com.example.firstapp.chat.model.Contact> = emptyList(),
+    members: List<com.example.firstapp.common.data.api.ApiUser> = emptyList(),
     onBack: () -> Unit,
     onSubscribe: (String) -> Unit = {},
     onMute: (String, Boolean) -> Unit = { _, _ -> },
     onCreatePost: () -> Unit = {},
-    onAddAdmin: () -> Unit = {},
-    onToggleAdminPosting: (Boolean) -> Unit = {}
+    onAddAdmin: (String) -> Unit = {},
+    onRemoveAdmin: (String) -> Unit = {},
+    onToggleAdminPosting: (Boolean) -> Unit = {},
+    onOpenDiscussion: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var isSubscribed by remember { mutableStateOf(channel.isSubscribed) }
-    var isMuted by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showAddAdmin by remember { mutableStateOf(false) }
+    var showUnfollowConfirm by remember { mutableStateOf(false) }
 
     val isCreator = currentUserId != null && channel.createdBy == currentUserId
-    val canPost = isCreator || (channel.isAdmin && (channel.adminsCanPost || channel.createdBy == null))
+    val isAdmin = channel.isAdmin || isCreator
+    val canPost = isCreator || (channel.isAdmin && channel.adminsCanPost)
+    val isFollower = channel.isSubscribed || isAdmin
 
     Scaffold(
         topBar = {
@@ -160,32 +168,36 @@ fun ChannelDetailScreen(
                             modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Refresh", color = MaterialTheme.colorScheme.onSurface) },
+                                text = { Text("Open discussion", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
                                     showMenu = false
-                                    Toast.makeText(context, "Channel refreshed", Toast.LENGTH_SHORT).show()
+                                    if (isFollower) onOpenDiscussion()
+                                    else Toast.makeText(context, "Follow this channel first", Toast.LENGTH_SHORT).show()
                                 }
                             )
                             DropdownMenuItem(
                                 text = { 
                                     Text(
-                                        if (isMuted) "Unmute notifications" else "Mute notifications", 
+                                        if (channel.isMuted) "Unmute notifications" else "Mute notifications", 
                                         color = MaterialTheme.colorScheme.onSurface
                                     ) 
                                 },
                                 onClick = { 
-                                    showMenu = false 
-                                    isMuted = !isMuted
-                                    onMute(channel.id, isMuted)
+                                    showMenu = false
+                                    if (!isFollower) {
+                                        Toast.makeText(context, "Follow the channel first", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onMute(channel.id, !channel.isMuted)
+                                    }
                                 }
                             )
-                            if (channel.isAdmin) {
+                            if (isAdmin) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                                 DropdownMenuItem(
                                     text = { Text("Add Admin", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = { 
                                         showMenu = false
-                                        onAddAdmin()
+                                        showAddAdmin = true
                                     },
                                     leadingIcon = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary) }
                                 )
@@ -213,7 +225,22 @@ fun ChannelDetailScreen(
                                             )
                                         }
                                     },
-                                    onClick = { /* Switch handles click */ }
+                                    onClick = { }
+                                )
+                            }
+                            if (isFollower && !isCreator) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (channel.isSubscribed) "Unfollow channel" else "Follow channel",
+                                            color = if (channel.isSubscribed) Color.Red else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        if (channel.isSubscribed) showUnfollowConfirm = true else onSubscribe(channel.id)
+                                    }
                                 )
                             }
                         }
@@ -239,7 +266,7 @@ fun ChannelDetailScreen(
             }
         },
         bottomBar = {
-            if (!channel.isSubscribed && !channel.isAdmin) {
+            if (!isFollower) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surface,
@@ -254,7 +281,6 @@ fun ChannelDetailScreen(
                     ) {
                         Button(
                             onClick = {
-                                isSubscribed = true
                                 onSubscribe(channel.id)
                             },
                             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -289,15 +315,104 @@ fun ChannelDetailScreen(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 Text(
-                    text = channel.description.takeIf { it.isNotBlank() } ?: "Daily updates and news from ${channel.name}.",
+                    text = channel.description.takeIf { it.isNotBlank() }
+                        ?: "Broadcast updates from ${channel.name}. Followers can view posts; only the owner and allowed admins can publish.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 15.sp,
                     lineHeight = 22.sp
                 )
-                
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = when {
+                        isCreator -> "You own this channel. You can post, add admins, and decide whether admins may post."
+                        isAdmin && canPost -> "You are an admin and can publish updates."
+                        isAdmin -> "You are an admin. Only the owner can post until posting is enabled."
+                        isFollower -> "You follow this channel. Followers cannot post in a broadcast channel."
+                        else -> "Follow to receive updates. This is not a group chat."
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+
                 Spacer(modifier = Modifier.height(24.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (isAdmin) {
+                    Text(
+                        text = "Admins",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "Followers cannot post. Only the owner and allowed admins can publish updates.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val adminIds = buildList {
+                        channel.createdBy?.takeIf { it.isNotBlank() }?.let { add(it) }
+                        if (isAdmin && currentUserId != null && currentUserId != channel.createdBy) add(currentUserId)
+                    }.distinct()
+                    adminIds.forEach { adminId ->
+                        val contact = contacts.find { it.id == adminId }
+                        val member = members.find { it.id == adminId }
+                        val name = when {
+                            adminId == currentUserId -> "You"
+                            !contact?.displayName.isNullOrBlank() -> contact!!.displayName
+                            !member?.display_name.isNullOrBlank() -> member!!.display_name
+                            else -> adminId
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(name.take(1).uppercase(), fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(name, fontWeight = FontWeight.Medium)
+                                Text(
+                                    if (adminId == channel.createdBy) "Owner" else "Admin",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            if (isCreator && adminId != currentUserId && adminId != channel.createdBy) {
+                                Text(
+                                    "Remove",
+                                    color = Color.Red,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.clickable { onRemoveAdmin(adminId) }
+                                )
+                            }
+                        }
+                    }
+                    if (isCreator || isAdmin) {
+                        Text(
+                            "Add admin",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clickable { showAddAdmin = true }
+                                .padding(vertical = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
 
                 // Recent Updates Title
                 Text(
@@ -332,10 +447,17 @@ fun ChannelDetailScreen(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
-                            if (channel.isAdmin) {
+                            if (canPost) {
                                 Text(
                                     "Share something with your followers", 
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), 
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            } else if (!isFollower) {
+                                Text(
+                                    "Follow to see updates from this channel",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                     fontSize = 13.sp,
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
@@ -351,6 +473,55 @@ fun ChannelDetailScreen(
             
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
+    }
+
+    if (showAddAdmin) {
+        val available = contacts.filter { it.isRegistered && it.id != currentUserId }
+        AlertDialog(
+            onDismissRequest = { showAddAdmin = false },
+            title = { Text("Add admin") },
+            text = {
+                if (available.isEmpty()) {
+                    Text("No registered contacts to promote.")
+                } else {
+                    LazyColumn {
+                        items(available, key = { it.id }) { contact ->
+                            Text(
+                                text = contact.displayName,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onAddAdmin(contact.id)
+                                        showAddAdmin = false
+                                    }
+                                    .padding(vertical = 12.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showAddAdmin = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showUnfollowConfirm) {
+        AlertDialog(
+            onDismissRequest = { showUnfollowConfirm = false },
+            title = { Text("Unfollow channel?") },
+            text = { Text("You will stop seeing new posts from ${channel.name} in your chats.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showUnfollowConfirm = false
+                    onSubscribe(channel.id)
+                }) { Text("Unfollow", color = Color.Red) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showUnfollowConfirm = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

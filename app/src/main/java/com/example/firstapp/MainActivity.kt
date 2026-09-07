@@ -190,6 +190,15 @@ class MainActivity : FragmentActivity() {
                     val id = data.lastPathSegment
                     if (id != null) { GlobalNavigation.navigateTo(Screen.ChannelDetail.createRoute(id)) }
                 }
+                "group" -> {
+                    val segments = data.pathSegments
+                    if (segments.size >= 2 && segments[0] == "invite") {
+                        GlobalNavigation.navigateTo(Screen.JoinGroup.createRoute(segments[1]))
+                    } else {
+                        val id = data.lastPathSegment
+                        if (id != null) { GlobalNavigation.navigateTo(Screen.GroupDetail.createRoute(id)) }
+                    }
+                }
             }
         }
         

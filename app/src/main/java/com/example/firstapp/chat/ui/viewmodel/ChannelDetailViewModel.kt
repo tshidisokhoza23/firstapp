@@ -7,12 +7,11 @@ import com.example.firstapp.chat.model.Channel
 import com.example.firstapp.media.model.Post
 import com.example.firstapp.chat.domain.repository.ChannelRepository
 import com.example.firstapp.media.domain.repository.SocialRepository
-import com.example.firstapp.auth.data.AuthRepository
+import com.example.firstapp.common.domain.auth.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,11 +19,11 @@ import javax.inject.Inject
 class ChannelDetailViewModel @Inject constructor(
     private val repository: ChannelRepository,
     private val socialRepository: SocialRepository,
-    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository
+    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
-    private val authRepository = AuthRepository.getInstance()
-    val currentUserId = authRepository.currentUser.value?.uid
+    val currentUserId: String? get() = sessionManager.getUserId()
 
     private val _channel = MutableStateFlow<Resource<Channel>>(Resource.Loading())
     val channel: StateFlow<Resource<Channel>> = _channel.asStateFlow()
@@ -32,19 +31,40 @@ class ChannelDetailViewModel @Inject constructor(
     private val _posts = MutableStateFlow<Resource<List<Post>>>(Resource.Loading())
     val posts: StateFlow<Resource<List<Post>>> = _posts.asStateFlow()
 
+    private val _contacts = MutableStateFlow<List<com.example.firstapp.chat.model.Contact>>(emptyList())
+    val contacts: StateFlow<List<com.example.firstapp.chat.model.Contact>> = _contacts.asStateFlow()
+
+    private val _members = MutableStateFlow<List<com.example.firstapp.common.data.api.ApiUser>>(emptyList())
+    val members: StateFlow<List<com.example.firstapp.common.data.api.ApiUser>> = _members.asStateFlow()
+
     fun loadChannel(channelId: String) {
         viewModelScope.launch {
             repository.getChannels().collect { resource ->
                 if (resource is Resource.Success) {
                     val ch = resource.data?.find { it.id == channelId || it.conversationId == channelId }
-                    if (ch != null) _channel.value = Resource.Success(ch)
-                    else _channel.value = Resource.Error("Channel not found")
+                    if (ch != null) {
+                        _channel.value = Resource.Success(ch)
+                        loadMembers(ch.conversationId ?: ch.id)
+                    } else _channel.value = Resource.Error("Channel not found")
                 } else if (resource is Resource.Error) {
                     _channel.value = Resource.Error(resource.message ?: "Failed to load")
                 }
             }
         }
+        viewModelScope.launch {
+            chatRepository.getContacts().collect { res ->
+                _contacts.value = res.data ?: emptyList()
+            }
+        }
         loadPosts(channelId)
+    }
+
+    private fun loadMembers(conversationId: String) {
+        viewModelScope.launch {
+            chatRepository.getConversationMembers(conversationId).collect { res ->
+                _members.value = res.data ?: emptyList()
+            }
+        }
     }
 
     fun loadPosts(channelId: String) {
@@ -74,7 +94,17 @@ class ChannelDetailViewModel @Inject constructor(
 
     fun addAdmin(channelId: String, userId: String) {
         viewModelScope.launch {
-            repository.addAdmin(channelId, userId).collect { }
+            repository.addAdmin(channelId, userId).collect {
+                if (it is Resource.Success) loadChannel(channelId)
+            }
+        }
+    }
+
+    fun removeAdmin(channelId: String, userId: String) {
+        viewModelScope.launch {
+            repository.removeAdmin(channelId, userId).collect {
+                if (it is Resource.Success) loadChannel(channelId)
+            }
         }
     }
 

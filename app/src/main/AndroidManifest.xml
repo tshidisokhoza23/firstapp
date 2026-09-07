@@ -152,6 +152,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="firstapp" android:host="channel" />
             </intent-filter>
+
+            <!-- Group invite Deep Linking -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="firstapp" android:host="group" />
+            </intent-filter>
         </activity>
 
         <provider

@@ -1049,11 +1049,91 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun forwardMessage(messageId: String, receiverIds: List<String>, groupIds: List<String>): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun fetchOlderMessages(chatId: String, beforeTs: Long, limit: Int): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun getGroupInfo(groupId: String): Flow<Resource<GroupInfoResponse>> = flow { emit(Resource.Error("Not implemented")) }
-    override fun addGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun removeGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun promoteToAdmin(groupId: String, userId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun leaveGroup(groupId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
+    override fun getGroupInfo(groupId: String): Flow<Resource<GroupInfoResponse>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.getGroupInfo(groupId)
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!))
+            } else {
+                emit(Resource.Error("Failed to load group"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to load group"))
+        }
+    }
+
+    override fun addGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.addChatGroupMember(groupId, AddMemberRequest(userId))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Only admins can add members"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to add member"))
+        }
+    }
+
+    override fun removeGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.removeChatGroupMember(groupId, AddMemberRequest(userId))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Only admins can remove members"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to remove member"))
+        }
+    }
+
+    override fun promoteToAdmin(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.promoteChatGroupAdmin(groupId, AddMemberRequest(userId))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Only admins can promote members"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to promote"))
+        }
+    }
+
+    override fun leaveGroup(groupId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.leaveChatGroup(groupId)
+            if (response.isSuccessful) {
+                try { chatDaoProvider.get().deleteChat(groupId) } catch (_: Exception) {}
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Failed to leave group"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to leave group"))
+        }
+    }
+
+    override fun generateGroupInviteCode(groupId: String): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.generateGroupInviteCode(groupId)
+            val code = response.body()?.invite_code
+            if (response.isSuccessful && !code.isNullOrBlank()) emit(Resource.Success(code))
+            else emit(Resource.Error("Only admins can create invite links"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to create invite link"))
+        }
+    }
+
+    override fun joinGroupByInvite(inviteCode: String): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.joinGroupByInvite(inviteCode)
+            val body = response.body()
+            val joinedId = body?.conversation_id?.takeIf { it.isNotBlank() }
+                ?: body?.group_id?.takeIf { it.isNotBlank() }
+            if (response.isSuccessful && !joinedId.isNullOrBlank()) emit(Resource.Success(joinedId))
+            else emit(Resource.Error("Invalid invite link"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to join group"))
+        }
+    }
     override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList())) }
     override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
@@ -1072,7 +1152,16 @@ class ChatRepositoryImpl @Inject constructor(
         }
     }
     override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow { emit(Resource.Success(emptyList())) }
+    override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.getMembers(chatId)
+            if (response.isSuccessful) emit(Resource.Success(response.body() ?: emptyList()))
+            else emit(Resource.Error("Failed to load members"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to load members"))
+        }
+    }
     override suspend fun getICEServers(): Resource<List<IceServerConfig>> = Resource.Success(emptyList())
     override fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
     override suspend fun updateMessageStatus(messageId: String, status: MessageStatus) {}

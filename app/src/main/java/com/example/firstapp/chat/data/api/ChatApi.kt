@@ -59,6 +59,24 @@ interface ChatApi {
     @GET("chats/groups/{groupId}")
     suspend fun getGroupInfo(@Path("groupId") groupId: String): Response<GroupInfoResponse>
 
+    @POST("chats/groups/{groupId}/members")
+    suspend fun addChatGroupMember(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
+
+    @HTTP(method = "DELETE", path = "chats/groups/{groupId}/members", hasBody = true)
+    suspend fun removeChatGroupMember(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
+
+    @POST("chats/groups/{groupId}/admins")
+    suspend fun promoteChatGroupAdmin(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
+
+    @POST("chats/groups/{groupId}/leave")
+    suspend fun leaveChatGroup(@Path("groupId") groupId: String): Response<StatusResponse>
+
+    @POST("chats/groups/{groupId}/invite-code")
+    suspend fun generateGroupInviteCode(@Path("groupId") groupId: String): Response<GroupInviteCodeResponse>
+
+    @POST("chats/groups/join/{inviteCode}")
+    suspend fun joinGroupByInvite(@Path("inviteCode") inviteCode: String): Response<GroupJoinResponse>
+
     @DELETE("conversations/{conversationID}")
     suspend fun deleteConversation(@Path("conversationID") conversationID: String): Response<StatusResponse>
 
@@ -206,10 +224,23 @@ data class SendMessageRequest(
 
 data class GroupInfoResponse(
     val id: String,
-    val title: String,
-    val member_ids: List<String>,
+    val title: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    val avatar_url: String? = null,
+    val member_ids: List<String> = emptyList(),
     val admin_ids: List<String> = emptyList(),
-    val created_at: Long
+    val created_at: Long = 0L,
+    val created_by: String? = null,
+    val invite_code: String? = null,
+    val conversation_id: String? = null
+)
+
+data class GroupInviteCodeResponse(val invite_code: String)
+data class GroupJoinResponse(
+    val status: String? = null,
+    val group_id: String? = null,
+    val conversation_id: String? = null
 )
 
 data class ApiReader(

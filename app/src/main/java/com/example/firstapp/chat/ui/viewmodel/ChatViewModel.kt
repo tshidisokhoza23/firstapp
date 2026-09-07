@@ -81,11 +81,18 @@ class ChatViewModel @Inject constructor(
     private val _currentlyPlayingAudio = MutableStateFlow<String?>(null)
     val currentlyPlayingAudio: StateFlow<String?> = _currentlyPlayingAudio.asStateFlow()
 
+    private val _blockedUserIds = MutableStateFlow<Set<String>>(emptySet())
+    val blockedUserIds: StateFlow<Set<String>> = _blockedUserIds.asStateFlow()
+
+    private val _contactUser = MutableStateFlow<User?>(null)
+    val contactUser: StateFlow<User?> = _contactUser.asStateFlow()
+
     init {
         fetchCurrentUser()
         observeLocalDatabase()
         observeRealtimeEvents()
         fetchChats()
+        refreshBlockedUsers()
     }
 
     private fun fetchCurrentUser() {
@@ -363,6 +370,86 @@ class ChatViewModel @Inject constructor(
     fun clearChat(chatId: String) { viewModelScope.launch { repository.clearMessages(chatId); fetchMessages(chatId) } }
     fun clearAllChats() { viewModelScope.launch { repository.clearAllChats(); fetchChats() } }
 
+    fun refreshBlockedUsers() {
+        viewModelScope.launch {
+            accountRepository.getBlockedUsers().collect { res ->
+                if (res is Resource.Success) {
+                    _blockedUserIds.value = res.data?.map { it.id }?.toSet() ?: emptySet()
+                }
+            }
+        }
+    }
+
+    fun loadContactUser(userId: String) {
+        if (userId.isBlank()) {
+            _contactUser.value = null
+            return
+        }
+        viewModelScope.launch {
+            accountRepository.getUserById(userId).collect { res ->
+                if (res is Resource.Success) {
+                    _contactUser.value = res.data
+                }
+            }
+        }
+    }
+
+    fun blockUser(userId: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            accountRepository.blockUser(userId).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        _blockedUserIds.update { it + userId }
+                        onDone(true)
+                    }
+                    is Resource.Error -> onDone(false)
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun unblockUser(userId: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            accountRepository.unblockUser(userId).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        _blockedUserIds.update { it - userId }
+                        onDone(true)
+                    }
+                    is Resource.Error -> onDone(false)
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun reportUser(userId: String, reason: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            accountRepository.reportUser(userId, reason).collect { res ->
+                when (res) {
+                    is Resource.Success -> onDone(true)
+                    is Resource.Error -> onDone(false)
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun updateDisappearingMessages(chatId: String, duration: Int) {
+        viewModelScope.launch {
+            repository.updateDisappearingMessages(chatId, duration)
+            fetchChats()
+        }
+    }
+
+    fun updateMediaVisibility(chatId: String, visible: Boolean) {
+        viewModelScope.launch {
+            repository.updateMediaVisibility(chatId, visible)
+            fetchChats()
+        }
+    }
+
     fun subscribeToChannel(channelId: String) {
         viewModelScope.launch {
             repository.subscribeToChannel(channelId).collect {
@@ -439,6 +526,32 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             repository.getGroupInfo(groupId).collect { res ->
                 _uiState.update { it.copy(groupInfo = res) }
+            }
+        }
+    }
+
+    fun generateGroupInvite(groupId: String, onCode: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            repository.generateGroupInviteCode(groupId).collect { res ->
+                if (res is Resource.Success && !res.data.isNullOrBlank()) {
+                    onCode(res.data)
+                    fetchGroupInfo(groupId)
+                } else if (res is Resource.Error) {
+                    _uiState.update { it.copy(error = res.message) }
+                }
+            }
+        }
+    }
+
+    fun joinGroupByInvite(code: String, onJoined: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            repository.joinGroupByInvite(code).collect { res ->
+                if (res is Resource.Success && !res.data.isNullOrBlank()) {
+                    fetchChats()
+                    onJoined(res.data)
+                } else if (res is Resource.Error) {
+                    _uiState.update { it.copy(error = res.message) }
+                }
             }
         }
     }

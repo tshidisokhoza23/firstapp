@@ -28,6 +28,8 @@ interface ChatRepository {
     fun removeGroupMember(groupId: String, userId: String): Flow<Resource<Boolean>>
     fun promoteToAdmin(groupId: String, userId: String): Flow<Resource<Boolean>>
     fun leaveGroup(groupId: String): Flow<Resource<Boolean>>
+    fun generateGroupInviteCode(groupId: String): Flow<Resource<String>>
+    fun joinGroupByInvite(inviteCode: String): Flow<Resource<String>>
     fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>>
     fun editMessage(messageId: String, newBody: String): Flow<Resource<Message>>
     fun reactToMessage(messageId: String, emoji: String): Flow<Resource<Boolean>>

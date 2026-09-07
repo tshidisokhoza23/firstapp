@@ -137,6 +137,9 @@ fun ChatMessagesScreen(
     val uiState by chatViewModel.uiState.collectAsState()
     val activeChat by chatViewModel.activeChat.collectAsState()
     val currentChat = activeChat ?: chat
+    val blockedUserIds by chatViewModel.blockedUserIds.collectAsState()
+    val isDirectBlocked = currentChat.type == ConversationType.DIRECT &&
+        (currentChat.otherUserId ?: currentChat.id).let { blockedUserIds.contains(it) }
 
     val fontSize by chatViewModel.fontSize.collectAsState()
     val enterIsSend by chatViewModel.enterIsSend.collectAsState()
@@ -658,10 +661,23 @@ fun ChatMessagesScreen(
                             }
                         }
 
-                        val canCompose = canPost && !isConversationClosed
+                        val canCompose = canPost && !isConversationClosed && !isDirectBlocked
                         val showFollowButton = currentChat.type == ConversationType.CHANNEL && !currentChat.isSubscribed
 
-                        if (canCompose) {
+                        if (isDirectBlocked) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = "You blocked this contact. Unblock to send messages.",
+                                    modifier = Modifier.padding(16.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        } else if (canCompose) {
                             editingMessage?.let { editMsg ->
                                 Surface(
                                     modifier = Modifier

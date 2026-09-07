@@ -73,6 +73,12 @@ sealed class Screen(val route: String) {
     object ChannelDetail : Screen("channel_detail/{channelId}") {
         fun createRoute(channelId: String) = "channel_detail/$channelId"
     }
+    object GroupDetail : Screen("group_detail/{groupId}") {
+        fun createRoute(groupId: String) = "group_detail/${android.net.Uri.encode(groupId)}"
+    }
+    object JoinGroup : Screen("join_group/{inviteCode}") {
+        fun createRoute(inviteCode: String) = "join_group/${android.net.Uri.encode(inviteCode)}"
+    }
     object AdvertDetail : Screen("advert_detail/{advertId}") {
         fun createRoute(advertId: String) = "advert_detail/$advertId"
     }

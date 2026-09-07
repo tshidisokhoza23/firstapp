@@ -107,7 +107,7 @@ class StoryRepositoryImpl @Inject constructor(
             if (replace) {
                 val myId = sessionManager.getUserId()
                 val existingMine = if (myId.isNullOrBlank()) null else {
-                    storyDao.getStories().first().find { it.userId == myId || it.id == myId }
+                    storyDao.getStoriesOnce().find { it.userId == myId || it.id == myId }
                 }
                 val entities = fetched.map { it.toStoryEntity() }.toMutableList()
                 if (existingMine != null && existingMine.stories.isNotEmpty()) {
@@ -122,7 +122,7 @@ class StoryRepositoryImpl @Inject constructor(
             } else if (fetched.isEmpty()) {
                 return true
             } else {
-                val existing = storyDao.getStories().first().associateBy { it.userId }
+                val existing = storyDao.getStoriesOnce().associateBy { it.userId }
                 val merged = fetched.map { incoming ->
                     val old = existing[incoming.userId]
                     if (old == null) incoming.toStoryEntity()
@@ -170,7 +170,7 @@ class StoryRepositoryImpl @Inject constructor(
             isViewed = true,
             durationMs = apiItem?.duration_ms ?: 5000
         )
-        val existing = storyDao.getStories().first().find { it.userId == myId || it.id == myId }
+        val existing = storyDao.getStoriesOnce().find { it.userId == myId || it.id == myId }
         val mergedStories = ((existing?.stories ?: emptyList()) + item).distinctBy { it.id }.sortedBy { it.createdAt }
         val entity = StoryEntity(
             id = myId,
@@ -192,7 +192,12 @@ class StoryRepositoryImpl @Inject constructor(
             emit(Resource.Loading())
             val response = socialApi.createStory(CreateStoryRequest(content, contentUrl, type))
             if (response.isSuccessful) {
-                cacheOwnPostedStory(response.body()?.story, content, contentUrl, type)
+                try {
+                    cacheOwnPostedStory(response.body()?.story, content, contentUrl, type)
+                } catch (cacheErr: Exception) {
+                    if (cacheErr is kotlinx.coroutines.CancellationException) throw cacheErr
+                    android.util.Log.e("StoryRepository", "cacheOwnPostedStory failed", cacheErr)
+                }
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Server error: ${response.code()}"))

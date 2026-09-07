@@ -13,6 +13,9 @@ interface StoryDao {
     @Query("SELECT * FROM stories")
     fun getStories(): Flow<List<StoryEntity>>
 
+    @Query("SELECT * FROM stories")
+    suspend fun getStoriesOnce(): List<StoryEntity>
+
     @Query("SELECT MAX(lastUpdatedMillis) FROM stories")
     suspend fun getLatestStoryTimestamp(): Long?
 
