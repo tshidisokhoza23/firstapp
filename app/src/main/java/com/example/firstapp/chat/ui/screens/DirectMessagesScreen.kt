@@ -175,7 +175,7 @@ fun DMItem(chat: ChatMessage, onClick: () -> Unit) {
                 id = chat.otherUserId ?: chat.id,
                 username = chat.senderName,
                 displayName = chat.senderName,
-                phoneNumber = chat.phoneNumber
+                phoneNumber = chat.phoneNumber ?: ""
             ),
             chat.phoneNumber ?: ""
         )
