@@ -169,15 +169,15 @@ fun CallList(calls: List<CallLog>, onCallSelect: (CallLog) -> Unit) {
 fun DMItem(chat: ChatMessage, onClick: () -> Unit) {
     val context = LocalContext.current
     val displayNameResolver = remember(context) { DisplayNameResolver(context) }
-    val resolvedName = remember(chat.id, chat.senderName) {
+    val resolvedName = remember(chat.id, chat.senderName, chat.otherUserId, chat.phoneNumber) {
         displayNameResolver.resolve(
             User(
-                id = chat.id,
+                id = chat.otherUserId ?: chat.id,
                 username = chat.senderName,
                 displayName = chat.senderName,
-                phoneNumber = chat.id
+                phoneNumber = chat.phoneNumber
             ),
-            chat.id
+            chat.phoneNumber ?: ""
         )
     }
 

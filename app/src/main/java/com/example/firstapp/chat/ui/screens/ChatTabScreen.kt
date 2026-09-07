@@ -459,7 +459,15 @@ fun ChatsListScreen(
                                     type = SearchType.CHATS,
                                     autoplayEnabled = autoplayEnabled,
                                     autoplayGifsEnabled = autoplayGifsEnabled,
-                                    onChatClick = { chat -> navController.navigate(Screen.Chat.createRoute(chat.id)) },
+                                    onChatClick = { chat ->
+                                        val typeStr = when (chat.type) {
+                                            ConversationType.CHANNEL -> "channel"
+                                            ConversationType.GROUP -> "group"
+                                            ConversationType.JOB_CHAT -> "job_chat"
+                                            else -> "direct"
+                                        }
+                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr))
+                                    },
                                     onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
                                     onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
                                     onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
