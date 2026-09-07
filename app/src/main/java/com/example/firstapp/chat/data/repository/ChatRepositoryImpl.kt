@@ -188,54 +188,87 @@ class ChatRepositoryImpl @Inject constructor(
                             )
 
                             val displaySummary = formatLastMessageSummary(message.content, message.type)
-
-                            var existingChat = chatDao.searchChatsById(message.conversationId)
-                            if (existingChat == null) {
-                                existingChat = chatDao.searchChatsById(apiMsg.sender_id)
-                            }
+                            val existingChat = chatDao.searchChatsById(message.conversationId)
 
                             if (existingChat != null) {
-                                if (existingChat.id != message.conversationId) {
-                                    chatDao.migrateMessagesConversationId(existingChat.id, message.conversationId)
-                                    chatDao.deleteChat(existingChat.id)
-                                    chatDao.insertChats(listOf(
-                                        existingChat.copy(
-                                            id = message.conversationId,
-                                            lastMessage = displaySummary,
-                                            timestamp = message.timestamp,
-                                            unreadCount = if (!message.isFromMe) existingChat.unreadCount + 1 else existingChat.unreadCount
-                                        )
-                                    ))
-                                } else {
-                                    chatDao.updateLastMessage(
-                                        message.conversationId,
-                                        displaySummary,
-                                        message.timestamp,
-                                        message.isFromMe,
-                                        message.isRead
-                                    )
-                                    if (!message.isFromMe) {
-                                        chatDao.incrementUnreadCount(message.conversationId)
-                                    }
+                                chatDao.updateLastMessage(
+                                    message.conversationId,
+                                    displaySummary,
+                                    message.timestamp,
+                                    message.isFromMe,
+                                    message.isRead
+                                )
+                                if (!message.isFromMe) {
+                                    chatDao.incrementUnreadCount(message.conversationId)
                                 }
                             } else {
-                                val newChat = ChatEntity(
-                                    id = message.conversationId,
-                                    type = com.example.firstapp.common.model.ConversationType.DIRECT,
-                                    senderName = resolvedName.ifBlank { senderName.ifBlank { "New Chat" } },
-                                    lastMessage = displaySummary,
-                                    timestamp = message.timestamp,
-                                    unreadCount = if (!message.isFromMe) 1 else 0,
-                                    avatarUrl = null,
-                                    otherUserId = apiMsg.sender_id,
-                                    isOnline = false,
-                                    isMuted = false,
-                                    isPinned = false,
-                                    isTyping = false,
-                                    phoneNumber = phone,
-                                    lastMessageIsFromMe = message.isFromMe,
-                                    lastMessageRead = message.isRead
-                                )
+                                // The server now tags every message with the conversation's real
+                                // type, so a brand-new local chat entity can be created correctly
+                                // on the first message instead of guessing from the sender id.
+                                val conversationType = (payload["conversation_type"]?.jsonPrimitive?.contentOrNull)
+                                    .toConversationTypeOrNull() ?: com.example.firstapp.common.model.ConversationType.DIRECT
+
+                                val newChat = if (conversationType == com.example.firstapp.common.model.ConversationType.CHANNEL) {
+                                    val channel = channelDaoProvider.get().getChannels().first()
+                                        .find { it.conversationId == message.conversationId }
+                                    ChatEntity(
+                                        id = message.conversationId,
+                                        type = com.example.firstapp.common.model.ConversationType.CHANNEL,
+                                        senderName = channel?.name ?: "Channel",
+                                        lastMessage = displaySummary,
+                                        timestamp = message.timestamp,
+                                        unreadCount = if (!message.isFromMe) 1 else 0,
+                                        avatarUrl = channel?.avatarUrl,
+                                        otherUserId = null,
+                                        isOnline = false,
+                                        isMuted = channel?.isMuted ?: false,
+                                        isPinned = false,
+                                        isTyping = false,
+                                        isAdmin = channel?.isAdmin ?: false,
+                                        isSubscribed = channel?.isSubscribed ?: false,
+                                        adminsCanPost = channel?.adminsCanPost ?: false,
+                                        createdBy = channel?.createdBy,
+                                        phoneNumber = "",
+                                        lastMessageIsFromMe = message.isFromMe,
+                                        lastMessageRead = message.isRead
+                                    )
+                                } else if (conversationType == com.example.firstapp.common.model.ConversationType.GROUP) {
+                                    ChatEntity(
+                                        id = message.conversationId,
+                                        type = com.example.firstapp.common.model.ConversationType.GROUP,
+                                        senderName = "Group",
+                                        lastMessage = displaySummary,
+                                        timestamp = message.timestamp,
+                                        unreadCount = if (!message.isFromMe) 1 else 0,
+                                        avatarUrl = null,
+                                        otherUserId = null,
+                                        isOnline = false,
+                                        isMuted = false,
+                                        isPinned = false,
+                                        isTyping = false,
+                                        phoneNumber = "",
+                                        lastMessageIsFromMe = message.isFromMe,
+                                        lastMessageRead = message.isRead
+                                    )
+                                } else {
+                                    ChatEntity(
+                                        id = message.conversationId,
+                                        type = com.example.firstapp.common.model.ConversationType.DIRECT,
+                                        senderName = resolvedName.ifBlank { senderName.ifBlank { "New Chat" } },
+                                        lastMessage = displaySummary,
+                                        timestamp = message.timestamp,
+                                        unreadCount = if (!message.isFromMe) 1 else 0,
+                                        avatarUrl = null,
+                                        otherUserId = apiMsg.sender_id,
+                                        isOnline = false,
+                                        isMuted = false,
+                                        isPinned = false,
+                                        isTyping = false,
+                                        phoneNumber = phone,
+                                        lastMessageIsFromMe = message.isFromMe,
+                                        lastMessageRead = message.isRead
+                                    )
+                                }
                                 chatDao.insertChats(listOf(newChat))
                             }
                         }
@@ -698,6 +731,14 @@ class ChatRepositoryImpl @Inject constructor(
             content.isBlank() && mType.isNotBlank() -> mType.lowercase().replaceFirstChar { it.uppercase() }
             else -> content
         }
+    }
+
+    private fun String?.toConversationTypeOrNull(): com.example.firstapp.common.model.ConversationType? = when (this) {
+        "group" -> com.example.firstapp.common.model.ConversationType.GROUP
+        "channel" -> com.example.firstapp.common.model.ConversationType.CHANNEL
+        "job_chat" -> com.example.firstapp.common.model.ConversationType.JOB_CHAT
+        "direct" -> com.example.firstapp.common.model.ConversationType.DIRECT
+        else -> null
     }
 
     // Pass-through & Local CRUD delegates

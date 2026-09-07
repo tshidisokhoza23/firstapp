@@ -215,6 +215,15 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             resolvedChatId!!
         }
 
+        // Channels can resolve their real conversationId after the initial fetch above
+        // (e.g. channel list still syncing), so re-fetch once effectiveChatId settles to
+        // avoid showing message history/real-time updates for the wrong conversation.
+        LaunchedEffect(effectiveChatId) {
+            if (!isInitiate && effectiveChatId != chatId) {
+                chatViewModel.fetchMessages(effectiveChatId)
+            }
+        }
+
         val baseName = if (type == ConversationType.GROUP) {
             existingChat?.senderName ?: chatViewModel.getCachedGroupName(effectiveChatId) ?: ""
         } else if (type == ConversationType.CHANNEL) {

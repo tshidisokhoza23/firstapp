@@ -76,7 +76,7 @@ class ChannelRepositoryImpl @Inject constructor(
                             createdBy = chatEntity.createdBy
                         )
                     }
-                val merged = (fromChannelDao + fromChatDao).distinctBy { it.id }
+                val merged = (fromChannelDao + fromChatDao).distinctBy { it.conversationId ?: it.id }
                 Resource.Success<List<Channel>>(merged)
             }
         )

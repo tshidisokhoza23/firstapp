@@ -40,9 +40,14 @@ class ChatOutboxWorker @AssistedInject constructor(
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS)
                 .build()
 
+            // KEEP, not REPLACE: syncPendingMessages() drains ALL pending messages each
+            // run, so a message sent while a sync is already in flight will still be
+            // picked up. REPLACE was cancelling the in-flight sync on every new send,
+            // so bursts of messages kept restarting the loop and never confirmed earlier
+            // ones (they'd appear stuck "sending" indefinitely).
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP,
                 request
             )
         }
