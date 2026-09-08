@@ -226,8 +226,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                         onRemoveAdmin = { userId -> viewModel.removeAdmin(channel.id, userId) },
                         onToggleAdminPosting = { viewModel.toggleAdminPosting(channelId, it) },
                         onOpenDiscussion = {
-                            val discussionId = channel.conversationId ?: channel.id
-                            navController.navigate(Screen.Chat.createRoute(discussionId, type = "channel"))
+                            Toast.makeText(context, "Channels use posts, not a 1:1 chat. Use + to publish.", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -270,6 +269,23 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             "channel", "hiring_channel" -> ConversationType.CHANNEL
             "job_chat", "job_application" -> ConversationType.JOB_CHAT
             else -> ConversationType.DIRECT
+        }
+
+        if (type == ConversationType.GROUP) {
+            LaunchedEffect(chatId) {
+                navController.navigate(Screen.GroupChat.createRoute(chatId)) {
+                    popUpTo(backStackEntry.destination.id) { inclusive = true }
+                }
+            }
+            return@composable
+        }
+        if (type == ConversationType.CHANNEL) {
+            LaunchedEffect(chatId) {
+                navController.navigate(Screen.ChannelDetail.createRoute(chatId)) {
+                    popUpTo(backStackEntry.destination.id) { inclusive = true }
+                }
+            }
+            return@composable
         }
         
         val isInitiate = typeStr == "initiate" || typeStr == "initiate_dm"
@@ -657,20 +673,11 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             isGroup = true
         )).copy(type = ConversationType.GROUP, isGroup = true)
 
-        ChatMessagesScreen(
+        GroupChatScreen(
             chat = chat,
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },
-            onShowProfile = { _, _ ->
-                navController.navigate(Screen.GroupDetail.createRoute(groupId))
-            },
-            onAvatarClick = { userId ->
-                if (chat.avatarUrl != null) {
-                    navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
-                } else {
-                    navController.navigate(Screen.GroupDetail.createRoute(groupId))
-                }
-            }
+            onOpenGroupInfo = { navController.navigate(Screen.GroupDetail.createRoute(groupId)) }
         )
     }
 

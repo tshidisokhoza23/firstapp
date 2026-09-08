@@ -48,7 +48,8 @@ fun ChatBottomBarUnique(
     onDiscardVoiceNote: () -> Unit = {},
     onTogglePlayReview: () -> Unit = {},
     isPlayingReview: Boolean = false,
-    onSendLongClick: () -> Unit = {}
+    onSendLongClick: () -> Unit = {},
+    placeholder: String = "Message..."
 ) {
     Row(
         modifier = modifier
@@ -125,7 +126,7 @@ fun ChatBottomBarUnique(
                     TextField(
                         value = text,
                         onValueChange = onTextChange,
-                        placeholder = { Text("Message...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp) },
+                        placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp) },
                         modifier = Modifier.weight(1f),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
