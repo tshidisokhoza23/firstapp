@@ -249,6 +249,14 @@ class ChatViewModel @Inject constructor(
         markAsRead(chatId)
     }
 
+    fun clearActiveChat() {
+        _activeChatId.value = null
+        messagesJob?.cancel()
+        messagesJob = null
+        messagesJobChatId = null
+        _uiState.update { it.copy(messages = Resource.Success(emptyList())) }
+    }
+
     fun sendMessage(
         chatId: String, body: String, messageType: String = "text", mediaUrls: List<String> = emptyList(),
         duration: String? = null, fileName: String? = null, fileSize: String? = null,

@@ -136,7 +136,7 @@ fun ChatMessagesScreen(
 
     val uiState by chatViewModel.uiState.collectAsState()
     val activeChat by chatViewModel.activeChat.collectAsState()
-    val currentChat = activeChat ?: chat
+    val currentChat = if (activeChat?.id == chat.id) activeChat!! else chat
     val blockedUserIds by chatViewModel.blockedUserIds.collectAsState()
     val isDirectBlocked = currentChat.type == ConversationType.DIRECT &&
         (currentChat.otherUserId ?: currentChat.id).let { blockedUserIds.contains(it) }
@@ -457,9 +457,15 @@ fun ChatMessagesScreen(
     }
 
     // Initial Fetch & Typing Sync
-    LaunchedEffect(currentChat.id) {
-        chatViewModel.fetchMessages(currentChat.id)
-        chatViewModel.markAsRead(currentChat.id)
+    LaunchedEffect(chat.id) {
+        chatViewModel.fetchMessages(chat.id)
+        chatViewModel.markAsRead(chat.id)
+    }
+
+    DisposableEffect(chat.id) {
+        onDispose {
+            chatViewModel.clearActiveChat()
+        }
     }
 
     var isTypingSent by remember { mutableStateOf(false) }

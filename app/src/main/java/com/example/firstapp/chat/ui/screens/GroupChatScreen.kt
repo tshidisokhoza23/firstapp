@@ -51,9 +51,15 @@ fun GroupChatScreen(
         chatViewModel.fetchGroupInfo(group.id)
     }
 
+    DisposableEffect(group.id) {
+        onDispose {
+            chatViewModel.clearActiveChat()
+        }
+    }
+
     val uiState by chatViewModel.uiState.collectAsState()
     val activeChat by chatViewModel.activeChat.collectAsState()
-    val currentChat = (activeChat ?: group).copy(type = ConversationType.GROUP, isGroup = true)
+    val currentChat = (if (activeChat?.id == group.id) activeChat!! else group).copy(type = ConversationType.GROUP, isGroup = true)
     val fontSize by chatViewModel.fontSize.collectAsState()
     val enterIsSend by chatViewModel.enterIsSend.collectAsState()
     val animationsEnabled by chatViewModel.animationsEnabled.collectAsState()
