@@ -117,7 +117,11 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 is com.example.firstapp.common.util.Resource.Success -> {
                     android.widget.Toast.makeText(context, "Story posted!", android.widget.Toast.LENGTH_SHORT).show()
                     storyViewModel.clearPostResult()
-                    if (!navController.popBackStack(Screen.Main.createRoute("chat"), false)) {
+                    try {
+                        navController.navigate(Screen.Main.createRoute("chat")) {
+                            popUpTo(Screen.Main.route) { inclusive = false }
+                        }
+                    } catch (_: Exception) {
                         navController.popBackStack()
                     }
                 }
