@@ -1,7 +1,7 @@
 package com.example.firstapp.media
 
-import com.example.firstapp.chat.ui.viewmodel.ChannelsViewModel
-import com.example.firstapp.chat.domain.repository.ChannelRepository
+import com.example.firstapp.channels.ui.ChannelsViewModel
+import com.example.firstapp.channels.domain.ChannelRepository
 import com.example.firstapp.domain.repository.ChatRepository
 import com.example.firstapp.common.util.Resource
 import io.mockk.*

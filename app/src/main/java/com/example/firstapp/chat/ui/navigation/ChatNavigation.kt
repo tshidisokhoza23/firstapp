@@ -18,9 +18,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.ui.screens.*
-import com.example.firstapp.chat.ui.stories.*
-import com.example.firstapp.chat.ui.channels.*
-import com.example.firstapp.chat.ui.screens.*
+import com.example.firstapp.stories.ui.*
+import com.example.firstapp.channels.ui.*
+import com.example.firstapp.groups.ui.*
+import com.example.firstapp.direct.ui.*
 import com.example.firstapp.chat.ui.viewmodel.*
 import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.media.ui.screens.SharedMediaScreen

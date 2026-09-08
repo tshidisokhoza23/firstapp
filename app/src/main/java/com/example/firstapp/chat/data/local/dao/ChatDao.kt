@@ -5,6 +5,7 @@ import androidx.room.*
 import com.example.firstapp.chat.data.local.entity.ChatEntity
 import com.example.firstapp.chat.data.local.entity.MessageEntity
 import com.example.firstapp.chat.model.MessageStatus
+import com.example.firstapp.common.model.ConversationType
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -16,6 +17,12 @@ interface ChatDao {
 
     @Query("SELECT * FROM chats WHERE isArchived = 0 ORDER BY isPinned DESC, timestamp DESC")
     fun getChats(): Flow<List<ChatEntity>>
+
+    @Query("SELECT * FROM chats WHERE isArchived = 0 AND type = :type ORDER BY isPinned DESC, timestamp DESC")
+    fun getChatsByType(type: ConversationType): Flow<List<ChatEntity>>
+
+    @Query("SELECT * FROM chats WHERE isArchived = 0 AND type = :type ORDER BY isPinned DESC, timestamp DESC")
+    suspend fun getChatsByTypeOnce(type: ConversationType): List<ChatEntity>
 
     @Query("SELECT * FROM chats WHERE isArchived = 1 ORDER BY timestamp DESC")
     fun getArchivedChats(): Flow<List<ChatEntity>>

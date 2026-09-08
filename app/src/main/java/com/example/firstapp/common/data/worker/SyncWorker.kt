@@ -7,7 +7,7 @@ import androidx.work.ListenableWorker
 
 import androidx.hilt.work.HiltWorker
 import com.example.firstapp.domain.repository.ChatRepository
-import com.example.firstapp.chat.domain.repository.StoryRepository
+import com.example.firstapp.stories.domain.StoryRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 

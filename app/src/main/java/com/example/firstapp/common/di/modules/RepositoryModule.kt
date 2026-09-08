@@ -3,11 +3,14 @@ package com.example.firstapp.common.di.modules
 import com.example.firstapp.account.data.repository.AccountRepositoryImpl
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.chat.data.repository.ChatRepositoryImpl
-import com.example.firstapp.chat.data.repository.StoryRepositoryImpl
-import com.example.firstapp.chat.data.repository.ChannelRepositoryImpl
-import com.example.firstapp.chat.data.repository.AdRepositoryImpl
-import com.example.firstapp.chat.domain.repository.StoryRepository
-import com.example.firstapp.chat.domain.repository.ChannelRepository
+import com.example.firstapp.channels.data.ChannelRepositoryImpl
+import com.example.firstapp.channels.domain.ChannelRepository
+import com.example.firstapp.direct.data.DirectRepositoryImpl
+import com.example.firstapp.direct.domain.DirectRepository
+import com.example.firstapp.groups.data.GroupRepositoryImpl
+import com.example.firstapp.groups.domain.GroupRepository
+import com.example.firstapp.stories.data.StoryRepositoryImpl
+import com.example.firstapp.stories.domain.StoryRepository
 import com.example.firstapp.chat.domain.repository.AdRepository
 import com.example.firstapp.settings.data.repository.SettingsRepositoryImpl
 import com.example.firstapp.domain.repository.SettingsRepository
@@ -86,6 +89,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindChannelRepository(impl: ChannelRepositoryImpl): ChannelRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindGroupRepository(impl: GroupRepositoryImpl): GroupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDirectRepository(impl: DirectRepositoryImpl): DirectRepository
 
     @Binds
     @Singleton

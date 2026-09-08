@@ -12,6 +12,9 @@ interface ChannelDao {
     @Query("SELECT * FROM channels ORDER BY followers DESC")
     fun getChannels(): Flow<List<ChannelEntity>>
 
+    @Query("SELECT * FROM channels ORDER BY followers DESC")
+    suspend fun getChannelsOnce(): List<ChannelEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChannels(channels: List<ChannelEntity>)
 

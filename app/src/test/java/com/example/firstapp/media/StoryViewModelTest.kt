@@ -1,7 +1,7 @@
 package com.example.firstapp.media
 
-import com.example.firstapp.chat.ui.viewmodel.StoryViewModel
-import com.example.firstapp.chat.domain.repository.StoryRepository
+import com.example.firstapp.stories.ui.StoryViewModel
+import com.example.firstapp.stories.domain.StoryRepository
 import com.example.firstapp.chat.model.UserStory
 import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.common.util.Resource
@@ -23,16 +23,14 @@ class StoryViewModelTest {
     private val repository: StoryRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val chatRepository: com.example.firstapp.domain.repository.ChatRepository = mockk(relaxed = true)
-    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
-    private val postWebSocketClient: com.example.firstapp.media.data.realtime.PostWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        every { repository.getStories() } returns flowOf(Resource.Success(emptyList<UserStory>()))
+        every { repository.observeStories() } returns flowOf(Resource.Success(emptyList<UserStory>()))
         every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.chat.model.Contact>()))
-        viewModel = StoryViewModel(repository, accountRepository, chatRepository, sessionManager, postWebSocketClient)
+        viewModel = StoryViewModel(repository, accountRepository, chatRepository)
     }
 
     @After

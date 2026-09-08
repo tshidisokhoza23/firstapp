@@ -12,6 +12,8 @@ import com.example.firstapp.common.data.network.ActivePassiveInterceptor
 import com.example.firstapp.drive.data.api.DriveApi
 import com.example.firstapp.media.data.api.MediaApi
 import com.example.firstapp.media.data.api.SocialApi
+import com.example.firstapp.stories.data.api.StoryApi
+import com.example.firstapp.channels.data.api.ChannelApi
 import com.example.firstapp.music.data.api.MusicApi
 import com.example.firstapp.common.data.network.NetworkConstants
 import dagger.Module
@@ -210,6 +212,14 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideSocialApi(retrofit: Retrofit): SocialApi = retrofit.create(SocialApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideStoryApi(retrofit: Retrofit): StoryApi = retrofit.create(StoryApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideChannelApi(retrofit: Retrofit): ChannelApi = retrofit.create(ChannelApi::class.java)
 
     @Provides
     @Singleton

@@ -25,7 +25,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var chatRepository: com.example.firstapp.domain.repository.ChatRepository
-    @Inject lateinit var storyRepository: com.example.firstapp.chat.domain.repository.StoryRepository
+    @Inject lateinit var storyRepository: com.example.firstapp.stories.domain.StoryRepository
     @Inject lateinit var settingsRepository: com.example.firstapp.domain.repository.SettingsRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

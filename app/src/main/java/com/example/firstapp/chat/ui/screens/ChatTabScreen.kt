@@ -29,8 +29,9 @@ import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.ui.components.*
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.chat.ui.viewmodel.AdvertsViewModel
-import com.example.firstapp.chat.ui.viewmodel.ChannelsViewModel
-import com.example.firstapp.chat.ui.viewmodel.StoryViewModel
+import com.example.firstapp.channels.ui.ChannelsViewModel
+import com.example.firstapp.direct.ui.DirectMessagesViewModel
+import com.example.firstapp.stories.ui.StoryViewModel
 import com.example.firstapp.common.model.*
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.ui.viewmodel.*
@@ -50,8 +51,8 @@ import java.util.*
 import kotlin.collections.*
 import kotlin.text.*
 import com.example.firstapp.chat.ui.components.StoriesRow
-import com.example.firstapp.chat.ui.channels.ChannelList
-import com.example.firstapp.chat.ui.channels.ChannelItem
+import com.example.firstapp.channels.ui.ChannelList
+import com.example.firstapp.channels.ui.ChannelItem
 import com.example.firstapp.chat.ui.rewards.RewardsScreen
 import com.example.firstapp.chat.jobs.ui.screens.JobList
 import com.example.firstapp.common.data.ads.AdManager
@@ -78,6 +79,7 @@ fun ChatsListScreen(
     advertsViewModel: AdvertsViewModel = hiltViewModel(),
     rewardViewModel: com.example.firstapp.chat.ui.viewmodel.RewardViewModel = hiltViewModel(),
     channelsViewModel: ChannelsViewModel = hiltViewModel(),
+    directMessagesViewModel: DirectMessagesViewModel = hiltViewModel(),
     searchViewModel: SearchViewModel = hiltViewModel(),
     jobViewModel: JobViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
@@ -129,7 +131,7 @@ fun ChatsListScreen(
                 GlobalCallState.updateContactInfo(chat.otherUserId, chat.senderName, chat.phoneNumber)
             }
         }
-        data.filter { it.type != ConversationType.CHANNEL }
+        data.filter { it.type == ConversationType.GROUP || it.type == ConversationType.JOB_CHAT }
     }
 
     var isSearchActive by remember { mutableStateOf(false) }
@@ -148,6 +150,7 @@ fun ChatsListScreen(
     }
 
     val storiesState by storyViewModel.stories.collectAsState()
+    val dmState by directMessagesViewModel.chats.collectAsState()
     val archivedChatsState by chatViewModel.archivedChats.collectAsState()
     val currentUser = com.example.firstapp.LocalCurrentUser.current
     val points by advertsViewModel.points.collectAsState()
@@ -459,6 +462,7 @@ fun ChatsListScreen(
                                     type = SearchType.CHATS,
                                     autoplayEnabled = autoplayEnabled,
                                     autoplayGifsEnabled = autoplayGifsEnabled,
+                                    currentUserId = currentUser?.id,
                                     onChatClick = { chat ->
                                         when (chat.type) {
                                             ConversationType.CHANNEL ->
@@ -557,6 +561,7 @@ fun ChatsListScreen(
                                             type = SearchType.CHANNELS,
                                             autoplayEnabled = autoplayEnabled,
                                             autoplayGifsEnabled = autoplayGifsEnabled,
+                                            currentUserId = currentUser?.id,
                                             onChatClick = {},
                                             onMessageClick = {},
                                             onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
@@ -568,6 +573,7 @@ fun ChatsListScreen(
                                         ChannelList(
                                             channels = channels, 
                                             topBarHeight = 0.dp,
+                                            currentUserId = currentUser?.id,
                                             onChannelClick = {
                                                 navController.navigate(Screen.ChannelDetail.createRoute(it.id))
                                             },
@@ -590,6 +596,7 @@ fun ChatsListScreen(
                                             type = SearchType.JOBS,
                                             autoplayEnabled = autoplayEnabled,
                                             autoplayGifsEnabled = autoplayGifsEnabled,
+                                            currentUserId = currentUser?.id,
                                             onChatClick = {},
                                             onMessageClick = {},
                                             onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
@@ -613,9 +620,7 @@ fun ChatsListScreen(
                             )
                         }
                         4 -> {
-                            // DM Tab: Shows all direct messages from social profiles
-                            DataStateHandler(chatsState) { chats ->
-                                val dmChats = chats.filter { it.type == ConversationType.DIRECT }
+                            DataStateHandler(dmState) { dmChats ->
                                 if (dmChats.isEmpty()) {
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
@@ -886,6 +891,7 @@ fun SearchResultsView(
     type: com.example.firstapp.search.model.SearchType = com.example.firstapp.search.model.SearchType.GLOBAL,
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
+    currentUserId: String? = null,
     onChatClick: (ChatMessage) -> Unit,
     onMessageClick: (Message) -> Unit,
     onJobClick: (Job) -> Unit = {},
@@ -946,7 +952,11 @@ fun SearchResultsView(
             item { SearchSectionHeader("Channels") }
             items(channels, key = { "channel_" + it.id }) { channel ->
                 Column(modifier = Modifier.clickable { onChannelClick(channel) }) {
-                    ChannelItem(channel = channel, onClick = { onChannelClick(channel) })
+                    ChannelItem(
+                        channel = channel,
+                        currentUserId = currentUserId,
+                        onClick = { onChannelClick(channel) }
+                    )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
