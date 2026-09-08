@@ -138,7 +138,9 @@ data class ChatSummary(
     val channel_id: String? = null,
     val phone_number: String? = null,
     val avatar_url: String? = null,
-    val created_by: String? = null
+    val created_by: String? = null,
+    val is_online: Boolean = false,
+    val last_seen: Long = 0L
 )
 
 data class ChatSummaryResponse(val chats: List<ChatSummary>)

@@ -63,6 +63,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 if (it is Resource.Success) {
                     Toast.makeText(context, "Story update shared", Toast.LENGTH_SHORT).show()
                     storyViewModel.clearPostResult()
+                    navController.popBackStack()
                 } else if (it is Resource.Error) {
                     Toast.makeText(context, it.message ?: "Failed to share story", Toast.LENGTH_LONG).show()
                     storyViewModel.clearPostResult()
@@ -80,8 +81,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             initialShowComposer = showComposer,
             initialPlay = play,
             onBack = { navController.popBackStack() },
-            onPostStory = { content, url, type -> 
-                navController.navigate(Screen.ShareStory.createRoute(content, url ?: "", type))
+            onPostStory = { content, url, type ->
+                storyViewModel.postStory(content, url, type)
             },
             onDeleteStory = { storyId -> storyViewModel.deleteStory(storyId) },
             onStoryViewed = { userId, storyId -> storyViewModel.markStoryAsViewed(userId, storyId) },
@@ -160,12 +161,21 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val postsState by viewModel.posts.collectAsState()
         val contacts by viewModel.contacts.collectAsState()
         val members by viewModel.members.collectAsState()
+        val toast by viewModel.toast.collectAsState()
         val currentUser = com.example.firstapp.LocalCurrentUser.current
         var showComposer by remember { mutableStateOf(false) }
         var postText by remember { mutableStateOf("") }
+        val context = LocalContext.current
 
         LaunchedEffect(channelId) {
             viewModel.loadChannel(channelId)
+        }
+        LaunchedEffect(toast) {
+            val message = toast
+            if (!message.isNullOrBlank()) {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                viewModel.clearToast()
+            }
         }
 
         if (showComposer) {
@@ -425,14 +435,17 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)
         ArchivedChatsScreen(
             onBack = { navController.popBackStack() },
-            onChatClick = { chat -> 
-                val typeStr = when (chat.type) {
-                    ConversationType.CHANNEL -> "channel"
-                    ConversationType.GROUP -> "group"
-                    ConversationType.JOB_CHAT -> "job_chat"
-                    else -> "direct"
+            onChatClick = { chat ->
+                when (chat.type) {
+                    ConversationType.CHANNEL ->
+                        navController.navigate(Screen.ChannelDetail.createRoute(chat.id))
+                    ConversationType.GROUP ->
+                        navController.navigate(Screen.GroupChat.createRoute(chat.id))
+                    ConversationType.JOB_CHAT ->
+                        navController.navigate(Screen.Chat.createRoute(chat.id, type = "job_chat"))
+                    else ->
+                        navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
                 }
-                navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
             },
             viewModel = chatViewModel
         )
@@ -493,7 +506,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             selectedContacts = selectedContacts,
             onBack = { navController.popBackStack() },
             onCreated = { newChat ->
-                navController.navigate(Screen.Chat.createRoute(newChat.id, type = "group")) {
+                navController.navigate(Screen.GroupChat.createRoute(newChat.id)) {
                     popUpTo(Screen.Main.route)
                 }
             },
@@ -543,7 +556,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val context = LocalContext.current
         LaunchedEffect(inviteCode) {
             chatViewModel.joinGroupByInvite(inviteCode) { groupId ->
-                navController.navigate(Screen.Chat.createRoute(groupId, type = "group")) {
+                navController.navigate(Screen.GroupChat.createRoute(groupId)) {
                     popUpTo(Screen.Main.route)
                 }
             }
@@ -600,7 +613,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onBack = { navController.popBackStack() },
             onOpenChat = {
                 val conversationId = groupInfo.data?.conversation_id?.takeIf { it.isNotBlank() } ?: chat.id
-                navController.navigate(Screen.Chat.createRoute(conversationId, type = "group"))
+                navController.navigate(Screen.GroupChat.createRoute(conversationId))
             },
             onMute = { muted -> viewModel.mute(groupId, muted) },
             onAddMember = { userId -> viewModel.addMember(groupId, userId) },
@@ -623,6 +636,45 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     }
 
     composable(
+        route = Screen.GroupChat.route,
+        arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val groupId = android.net.Uri.decode(backStackEntry.arguments?.getString("groupId") ?: return@composable)
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        val chatsState by chatViewModel.chats.collectAsState()
+        val chats = chatsState.data ?: emptyList()
+        val existingChat = chats.firstOrNull { it.id == groupId }
+
+        LaunchedEffect(groupId) {
+            chatViewModel.fetchMessages(groupId)
+        }
+
+        val chat = (existingChat ?: ChatMessage(
+            id = groupId,
+            type = ConversationType.GROUP,
+            senderName = chatViewModel.getCachedGroupName(groupId) ?: "Group",
+            isGroup = true
+        )).copy(type = ConversationType.GROUP, isGroup = true)
+
+        ChatMessagesScreen(
+            chat = chat,
+            chatViewModel = chatViewModel,
+            onBack = { navController.popBackStack() },
+            onShowProfile = { _, _ ->
+                navController.navigate(Screen.GroupDetail.createRoute(groupId))
+            },
+            onAvatarClick = { userId ->
+                if (chat.avatarUrl != null) {
+                    navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                } else {
+                    navController.navigate(Screen.GroupDetail.createRoute(groupId))
+                }
+            }
+        )
+    }
+
+    composable(
         route = Screen.ChatProfile.route,
         arguments = listOf(
             navArgument("userId") { type = NavType.StringType },
@@ -631,6 +683,14 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     ) { backStackEntry ->
         val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
         val isGroup = backStackEntry.arguments?.getBoolean("isGroup") ?: false
+        if (isGroup) {
+            LaunchedEffect(userId) {
+                navController.navigate(Screen.GroupDetail.createRoute(userId)) {
+                    popUpTo(backStackEntry.destination.id) { inclusive = true }
+                }
+            }
+            return@composable
+        }
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val channelsViewModel: ChannelsViewModel = hiltViewModel(parentEntry)

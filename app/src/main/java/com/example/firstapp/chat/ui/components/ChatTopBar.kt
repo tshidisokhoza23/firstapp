@@ -25,6 +25,10 @@ import com.example.firstapp.chat.data.CallType
 import com.example.firstapp.common.model.ConversationType
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.common.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,7 +184,7 @@ fun ChatTopBar(
                                 chat.type == ConversationType.CHANNEL -> "channel · tap for details"
                                 chat.type == ConversationType.GROUP || chat.isGroup -> "group · tap for info"
                                 chat.isOnline -> "online"
-                                chat.lastSeen > 0L -> com.example.firstapp.chat.ui.screens.formatDirectLastSeen(chat.lastSeen)
+                                chat.lastSeen > 0L -> formatDirectLastSeen(chat.lastSeen)
                                 else -> "offline"
                             }
                             Text(
@@ -263,5 +267,21 @@ fun ChatTopBar(
                 }
             }
         }
+    }
+}
+
+internal fun formatDirectLastSeen(lastSeenMillis: Long): String {
+    if (lastSeenMillis <= 0L) return "offline"
+    val now = Calendar.getInstance()
+    val seen = Calendar.getInstance().apply { timeInMillis = lastSeenMillis }
+    val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastSeenMillis))
+    return when {
+        now.get(Calendar.YEAR) == seen.get(Calendar.YEAR) &&
+            now.get(Calendar.DAY_OF_YEAR) == seen.get(Calendar.DAY_OF_YEAR) ->
+            "last seen today at $time"
+        now.get(Calendar.YEAR) == seen.get(Calendar.YEAR) &&
+            now.get(Calendar.DAY_OF_YEAR) - seen.get(Calendar.DAY_OF_YEAR) == 1 ->
+            "last seen yesterday at $time"
+        else -> "last seen ${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(lastSeenMillis))} at $time"
     }
 }

@@ -116,10 +116,24 @@ class ChannelDetailViewModel @Inject constructor(
         }
     }
 
+    private val _toast = MutableStateFlow<String?>(null)
+    val toast: StateFlow<String?> = _toast.asStateFlow()
+
+    fun clearToast() {
+        _toast.value = null
+    }
+
     fun createPost(channelId: String, content: String, mediaUrls: List<String>) {
         viewModelScope.launch {
             socialRepository.createPost(content, mediaUrls, channelId = channelId).collect {
-                if (it is Resource.Success) loadPosts(channelId)
+                when (it) {
+                    is Resource.Success -> {
+                        _toast.value = "Posted to channel"
+                        loadPosts(channelId)
+                    }
+                    is Resource.Error -> _toast.value = it.message ?: "Failed to post"
+                    else -> {}
+                }
             }
         }
     }

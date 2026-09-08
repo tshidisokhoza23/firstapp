@@ -260,7 +260,7 @@ fun ChatProfileScreen(
                     val presenceLabel = when {
                         isBlocked -> "Blocked"
                         chat.isOnline -> "online"
-                        chat.lastSeen > 0L -> formatDirectLastSeen(chat.lastSeen)
+                        chat.lastSeen > 0L -> com.example.firstapp.chat.ui.components.formatDirectLastSeen(chat.lastSeen)
                         else -> null
                     }
                     if (presenceLabel != null) {
@@ -684,6 +684,14 @@ fun ChatProfileScreen(
                                 )
                             }
                         }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAddMemberDialog = false }) { Text("Close") }
+            }
+        )
+    }
 
     if (showBlockDialog) {
         AlertDialog(
@@ -787,18 +795,4 @@ private fun disappearingLabel(durationSeconds: Int): String = when (durationSeco
     else -> if (durationSeconds > 0) "${durationSeconds / 3600} hours" else "Off"
 }
 
-fun formatDirectLastSeen(lastSeenMillis: Long): String {
-    if (lastSeenMillis <= 0L) return "offline"
-    val now = java.util.Calendar.getInstance()
-    val seen = java.util.Calendar.getInstance().apply { timeInMillis = lastSeenMillis }
-    val time = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault()).format(java.util.Date(lastSeenMillis))
-    return when {
-        now.get(java.util.Calendar.YEAR) == seen.get(java.util.Calendar.YEAR) &&
-            now.get(java.util.Calendar.DAY_OF_YEAR) == seen.get(java.util.Calendar.DAY_OF_YEAR) ->
-            "last seen today at $time"
-        now.get(java.util.Calendar.YEAR) == seen.get(java.util.Calendar.YEAR) &&
-            now.get(java.util.Calendar.DAY_OF_YEAR) - seen.get(java.util.Calendar.DAY_OF_YEAR) == 1 ->
-            "last seen yesterday at $time"
-        else -> "last seen ${java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(lastSeenMillis))} at $time"
-    }
-}
+

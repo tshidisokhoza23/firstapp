@@ -76,6 +76,9 @@ sealed class Screen(val route: String) {
     object GroupDetail : Screen("group_detail/{groupId}") {
         fun createRoute(groupId: String) = "group_detail/${android.net.Uri.encode(groupId)}"
     }
+    object GroupChat : Screen("group_chat/{groupId}") {
+        fun createRoute(groupId: String) = "group_chat/${android.net.Uri.encode(groupId)}"
+    }
     object JoinGroup : Screen("join_group/{inviteCode}") {
         fun createRoute(inviteCode: String) = "join_group/${android.net.Uri.encode(inviteCode)}"
     }

@@ -55,6 +55,8 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         avatarColor = BoyishPurple,
         isMuted = chat.is_muted,
         isPinned = chat.is_pinned,
+        isOnline = chat.is_online,
+        lastSeen = chat.last_seen,
         isSubscribed = chat.is_subscribed || chat.is_following,
         isGroup = type == ConversationType.GROUP,
         isAdmin = chat.is_admin,

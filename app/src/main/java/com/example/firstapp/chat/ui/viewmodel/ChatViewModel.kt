@@ -206,6 +206,9 @@ class ChatViewModel @Inject constructor(
                         _uiState.update { it.copy(isChatsFetching = false) }
                     }
                 }
+                repository.syncDelta().collect { delta ->
+                    Log.d("ChatViewModel", "SyncDelta result: ${delta::class.simpleName}")
+                }
             }
             
             // Safety timeout: 15s limit for the spinner

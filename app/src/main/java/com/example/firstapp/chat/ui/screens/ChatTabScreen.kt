@@ -460,13 +460,16 @@ fun ChatsListScreen(
                                     autoplayEnabled = autoplayEnabled,
                                     autoplayGifsEnabled = autoplayGifsEnabled,
                                     onChatClick = { chat ->
-                                        val typeStr = when (chat.type) {
-                                            ConversationType.CHANNEL -> "channel"
-                                            ConversationType.GROUP -> "group"
-                                            ConversationType.JOB_CHAT -> "job_chat"
-                                            else -> "direct"
+                                        when (chat.type) {
+                                            ConversationType.CHANNEL ->
+                                                navController.navigate(Screen.ChannelDetail.createRoute(chat.id))
+                                            ConversationType.GROUP ->
+                                                navController.navigate(Screen.GroupChat.createRoute(chat.id))
+                                            ConversationType.JOB_CHAT ->
+                                                navController.navigate(Screen.Chat.createRoute(chat.id, type = "job_chat"))
+                                            else ->
+                                                navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
                                         }
-                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr))
                                     },
                                     onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
                                     onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
@@ -508,13 +511,16 @@ fun ChatsListScreen(
                                             initialScrollDone = isChatInitialScrollDone,
                                             onInitialScrollDone = { isChatInitialScrollDone = it },
                                             onChatClick = { chat -> 
-                                                val typeStr = when (chat.type) {
-                                                    ConversationType.CHANNEL -> "channel"
-                                                    ConversationType.GROUP -> "group"
-                                                    ConversationType.JOB_CHAT -> "job_chat"
-                                                    else -> "direct"
+                                                when (chat.type) {
+                                                    ConversationType.CHANNEL ->
+                                                        navController.navigate(Screen.ChannelDetail.createRoute(chat.id))
+                                                    ConversationType.GROUP ->
+                                                        navController.navigate(Screen.GroupChat.createRoute(chat.id))
+                                                    ConversationType.JOB_CHAT ->
+                                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = "job_chat"))
+                                                    else ->
+                                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
                                                 }
-                                                navController.navigate(Screen.Chat.createRoute(chat.id, type = typeStr)) 
                                             },
                                             onStoryClick = { story -> navController.navigate(Screen.Story.createRoute(userId = story.userId.ifBlank { story.id })) },
                                             onMediaStoryClick = { navController.navigate(Screen.NewStory.route) },
@@ -523,10 +529,15 @@ fun ChatsListScreen(
                                             onPostedStoriesClick = { navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = false)) },
                                             onAvatarClick = { userId -> 
                                                 val chat = sanitizedChats.find { it.id == userId }
-                                                if (chat?.avatarUrl != null) {
-                                                    navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
-                                                } else {
-                                                    navController.navigate(Screen.ChatProfile.createRoute(userId, chat?.isGroup ?: false))
+                                                when {
+                                                    chat?.avatarUrl != null ->
+                                                        navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                                                    chat?.type == ConversationType.GROUP || chat?.isGroup == true ->
+                                                        navController.navigate(Screen.GroupDetail.createRoute(userId))
+                                                    chat?.type == ConversationType.CHANNEL ->
+                                                        navController.navigate(Screen.ChannelDetail.createRoute(userId))
+                                                    else ->
+                                                        navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                                                 }
                                             }
                                         )

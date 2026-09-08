@@ -646,6 +646,40 @@ class ChatRepositoryImpl @Inject constructor(
                 db.withTransaction {
                     chatDao.insertChats(finalEntities)
                 }
+
+                val chatsNeedingHistory = finalEntities.filter { entity ->
+                    chatDao.getLatestMessage(entity.id) == null
+                }
+                for (entity in chatsNeedingHistory.take(40)) {
+                    try {
+                        val history = chatApi.getMessages(entity.id, cursor = null, limit = 50)
+                        if (history.isSuccessful && history.body() != null) {
+                            val myUserId = sessionManager.getUserId()
+                            val privKey = sessionManager.getPrivateKey()
+                            val messages = history.body()!!.messages.map {
+                                mapApiMessage(it, privKey, myUserId).toEntity(entity.id)
+                            }
+                            if (messages.isNotEmpty()) {
+                                db.withTransaction {
+                                    chatDao.insertMessages(messages)
+                                    val latest = messages.maxByOrNull { it.timestamp }
+                                    if (latest != null) {
+                                        chatDao.updateLastMessage(
+                                            entity.id,
+                                            formatLastMessageSummary(latest.content, latest.type),
+                                            latest.timestamp,
+                                            latest.isFromMe,
+                                            latest.isRead
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Log.w("ChatRepository", "hydrate messages failed for ${entity.id}", e)
+                    }
+                }
                 emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Chat sync failed: ${response.code()}"))
