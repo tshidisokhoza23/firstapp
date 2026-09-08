@@ -15,6 +15,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -288,24 +290,38 @@ class AccountRepositoryImpl @Inject constructor(
         try {
             val resolver = context.contentResolver
             val mediaType = resolver.getType(uri)?.toMediaTypeOrNull()
-            val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { cursor ->
-                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                ?: when {
+                    uri.toString().endsWith(".mp4", ignoreCase = true) -> "video/mp4".toMediaTypeOrNull()
+                    uri.toString().endsWith(".png", ignoreCase = true) -> "image/png".toMediaTypeOrNull()
+                    else -> "image/jpeg".toMediaTypeOrNull()
                 }
-                ?.takeIf { it.isNotBlank() }
-                ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-                ?: "upload${extensionForMediaType(mediaType?.toString())}"
+
+            var name: String? = null
+            if (uri.scheme == "content") {
+                try {
+                    resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) name = cursor.getString(0)
+                    }
+                } catch (_: Exception) {}
+            }
+            if (name.isNullOrBlank()) {
+                name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+                    ?: "upload${extensionForMediaType(mediaType?.toString())}"
+            }
+
             val body = MultipartBody.Part.createFormData("file", name, UriRequestBody(resolver, uri, mediaType))
             val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
-            val response = mediaApi.uploadMedia(body, folderBody)
+
+            val response = withTimeout(90_000) { mediaApi.uploadMedia(body, folderBody) }
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!))
             } else {
                 emit(Resource.Error("Upload failed: ${response.code()}"))
             }
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Upload error: ${e.localizedMessage}"))
+            if (e is kotlinx.coroutines.CancellationException && e !is TimeoutCancellationException) throw e
+            android.util.Log.e("AccountRepo", "uploadUri failed", e)
+            emit(Resource.Error("Upload error: ${e.localizedMessage ?: "Timeout"}"))
         }
     }
 

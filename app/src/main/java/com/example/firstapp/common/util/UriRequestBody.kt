@@ -16,14 +16,23 @@ class UriRequestBody(
     override fun contentType(): MediaType? = mediaType
 
     override fun contentLength(): Long = try {
-        resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
-    } catch (_: IOException) {
+        if (uri.scheme == "file") {
+            java.io.File(uri.path ?: "").length()
+        } else {
+            resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+        }
+    } catch (_: Exception) {
         -1L
     }
 
     override fun writeTo(sink: BufferedSink) {
-        resolver.openInputStream(uri)?.use { input ->
+        val stream = if (uri.scheme == "file") {
+            java.io.FileInputStream(java.io.File(uri.path ?: ""))
+        } else {
+            resolver.openInputStream(uri)
+        }
+        stream?.use { input ->
             sink.writeAll(input.source())
-        } ?: throw IOException("Unable to open selected media")
+        } ?: throw IOException("Unable to open selected media ($uri)")
     }
 }

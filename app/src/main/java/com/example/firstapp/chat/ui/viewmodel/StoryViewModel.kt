@@ -89,33 +89,35 @@ class StoryViewModel @Inject constructor(
                     val uri = android.net.Uri.parse(urlToUpload)
                     val context = ContextProvider.context
                     var uploadedUrl: String? = null
+                    var uploadError: String? = null
+
                     accountRepository.uploadUri(context, uri, "stories").collect { res ->
                         when (res) {
                             is Resource.Success -> uploadedUrl = res.data?.url
-                            is Resource.Error -> {
-                                _postResult.value = Resource.Error(res.message ?: "Upload failed")
-                                return@collect
-                            }
+                            is Resource.Error -> uploadError = res.message ?: "Upload failed"
                             else -> {}
                         }
                     }
-                    if (_postResult.value is Resource.Error) return@launch
-                    if (uploadedUrl.isNullOrBlank()) {
-                        _postResult.value = Resource.Error("Upload failed")
+
+                    if (!uploadError.isNullOrBlank() || uploadedUrl.isNullOrBlank()) {
+                        _postResult.value = Resource.Error(uploadError ?: "Upload failed: Unable to upload media file")
                         return@launch
                     }
+
                     finalContentUrl = uploadedUrl
                     if (type == "text" || type.isBlank()) finalType = "image"
                 }
 
-                repository.createStory(content, finalContentUrl, finalType, privacy).collect { res ->
-                    _postResult.value = res
-                    if (res is Resource.Success) {
-                        refreshStories()
+                kotlinx.coroutines.withTimeout(30_000) {
+                    repository.createStory(content, finalContentUrl, finalType, privacy).collect { res ->
+                        _postResult.value = res
+                        if (res is Resource.Success) {
+                            refreshStories()
+                        }
                     }
                 }
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is kotlinx.coroutines.CancellationException && e !is kotlinx.coroutines.TimeoutCancellationException) throw e
                 _postResult.value = Resource.Error(e.message ?: "Failed to post story")
             }
         }
