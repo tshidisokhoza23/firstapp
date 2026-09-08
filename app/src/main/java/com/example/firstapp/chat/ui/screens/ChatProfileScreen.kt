@@ -501,7 +501,7 @@ fun ChatProfileScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
 
-                if (isChannel) {
+                if (isChannel && !isCreator && !chat.isAdmin) {
                     ListItem(
                         headlineContent = { Text(if (chat.isSubscribed) "Unfollow channel" else "Follow channel") },
                         leadingContent = { Icon(if (chat.isSubscribed) Icons.Default.RemoveCircleOutline else Icons.Default.AddCircleOutline, null, tint = AppAccent) },

@@ -668,7 +668,7 @@ fun ChatMessagesScreen(
                         }
 
                         val canCompose = canPost && !isConversationClosed && !isDirectBlocked
-                        val showFollowButton = currentChat.type == ConversationType.CHANNEL && !currentChat.isSubscribed
+                        val showFollowButton = currentChat.type == ConversationType.CHANNEL && !currentChat.isSubscribed && !currentChat.isAdmin
 
                         if (isDirectBlocked) {
                             Surface(

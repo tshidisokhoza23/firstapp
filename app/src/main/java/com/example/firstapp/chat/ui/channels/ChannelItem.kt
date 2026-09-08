@@ -84,7 +84,7 @@ fun ChannelItem(channel: Channel, onClick: () -> Unit = {}, onSubscribe: (String
             )
         }
         
-        if (!channel.isSubscribed) {
+        if (!channel.isSubscribed && !channel.isAdmin) {
             Button(
                 onClick = { onSubscribe(channel.id) },
                 colors = ButtonDefaults.buttonColors(
