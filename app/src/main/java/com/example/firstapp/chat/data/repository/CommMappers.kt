@@ -82,7 +82,7 @@ fun mapApiChannel(api: ApiChannel): Channel = Channel(
     lastPostImageUrl = MediaUtils.formatUrl(api.last_post_image_url),
     lastPostTime = api.last_post_time?.toString() ?: "",
     avatarColor = Color.Gray,
-    conversationId = api.conversation_id
+    conversationId = api.conversation_id?.takeIf { it.isNotBlank() } ?: api.id
 )
 
 fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
