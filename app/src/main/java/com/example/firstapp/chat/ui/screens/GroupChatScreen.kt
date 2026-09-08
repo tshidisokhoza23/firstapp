@@ -29,7 +29,6 @@ import com.example.firstapp.chat.ui.components.ChatMessageList
 import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
 import com.example.firstapp.common.model.ConversationType
 import com.example.firstapp.common.util.Resource
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -252,4 +251,3 @@ fun GroupChatScreen(
             }
         }
     }
-}
