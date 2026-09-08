@@ -108,11 +108,9 @@ class StoryViewModel @Inject constructor(
                     if (type == "text" || type.isBlank()) finalType = "image"
                 }
 
-                repository.createStory(content, finalContentUrl, finalType).collect {
-                    if (it !is Resource.Loading) {
-                        _postResult.value = it
-                    }
-                    if (it is Resource.Success) {
+                repository.createStory(content, finalContentUrl, finalType).collect { res ->
+                    _postResult.value = res
+                    if (res is Resource.Success) {
                         refreshStories()
                     }
                 }

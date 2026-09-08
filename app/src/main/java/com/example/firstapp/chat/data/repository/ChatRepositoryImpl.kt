@@ -30,6 +30,8 @@ import com.example.firstapp.common.util.ContactUtils
 import com.example.firstapp.common.util.DisplayNameResolver
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.domain.repository.ChatRepository
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.example.firstapp.media.data.api.SocialApi
 import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -815,73 +817,77 @@ class ChatRepositoryImpl @Inject constructor(
         else -> null
     }
 
-    // Pass-through & Local CRUD delegates
     override fun getContacts(): Flow<Resource<List<Contact>>> =
         contactDaoProvider.get().getContacts().map { list -> Resource.Success(list.map { it.toModel() }) }
 
+    private val syncContactsMutex = Mutex()
+
     override fun syncContacts(phoneNumbers: List<String>): Flow<Resource<List<Contact>>> = flow {
         emit(Resource.Loading())
-        try {
-            val deviceContacts = ContactUtils.getPhoneContactsWithNames(context)
-            val savedContacts = userApi.getSavedContacts().body().orEmpty()
-            if (deviceContacts.isEmpty() && phoneNumbers.isEmpty() && savedContacts.isEmpty()) {
-                val existing = contactDaoProvider.get().getContacts().first()
-                emit(Resource.Success(existing.map { it.toModel() }))
-                return@flow
-            }
-
-            val localByPhone = deviceContacts.associateBy { it.phoneNumber }
-            userApi.syncAccountContacts(
-                SyncAccountContactsRequest(
-                    deviceContacts.map { AccountContactDTO(name = it.displayName, phone_number = it.phoneNumber) }
-                )
-            )
-
-            val savedByPhone = savedContacts.associateBy { it.phone_number }
-            val numbersToSync = (phoneNumbers + deviceContacts.map { it.phoneNumber } + savedContacts.map { it.phone_number }).distinct()
-            val response = userApi.syncContacts(SyncContactsRequest(numbersToSync))
-
-            if (response.isSuccessful && response.body() != null) {
-                val apiUsers = response.body()!!.contacts
-                val registeredContacts = apiUsers.map { apiUser ->
-                    val localMatch = apiUser.phone_number?.let { localByPhone[it] }
-                    val savedMatch = apiUser.phone_number?.let { savedByPhone[it] }
-                    Contact(
-                        id = apiUser.id,
-                        username = apiUser.username,
-                        displayName = localMatch?.displayName ?: savedMatch?.name ?: apiUser.display_name,
-                        avatarUrl = apiUser.avatar_url,
-                        phoneNumber = apiUser.phone_number ?: "",
-                        isRegistered = true
-                    )
+        syncContactsMutex.withLock {
+            try {
+                val deviceContacts = ContactUtils.getPhoneContactsWithNames(context)
+                val savedContacts = userApi.getSavedContacts().body().orEmpty()
+                if (deviceContacts.isEmpty() && phoneNumbers.isEmpty() && savedContacts.isEmpty()) {
+                    val existing = contactDaoProvider.get().getContacts().first()
+                    emit(Resource.Success(existing.map { it.toModel() }))
+                    return@withLock
                 }
 
-                val registeredPhones = apiUsers.mapNotNull { it.phone_number }.toSet()
-                val allSavedContacts = (deviceContacts.map { AccountContactDTO(name = it.displayName, phone_number = it.phoneNumber) } + savedContacts)
-                    .distinctBy { it.phone_number }
-                val nonRegisteredContacts = allSavedContacts
-                    .filter { it.phone_number.isNotBlank() && it.phone_number !in registeredPhones }
-                    .map { deviceContact ->
+                val localByPhone = deviceContacts.associateBy { it.phoneNumber }
+                userApi.syncAccountContacts(
+                    SyncAccountContactsRequest(
+                        deviceContacts.map { AccountContactDTO(name = it.displayName, phone_number = it.phoneNumber) }
+                    )
+                )
+
+                val savedByPhone = savedContacts.associateBy { it.phone_number }
+                val numbersToSync = (phoneNumbers + deviceContacts.map { it.phoneNumber } + savedContacts.map { it.phone_number }).distinct()
+                val response = userApi.syncContacts(SyncContactsRequest(numbersToSync))
+
+                if (response.isSuccessful && response.body() != null) {
+                    val apiUsers = response.body()!!.contacts
+                    val registeredContacts = apiUsers.map { apiUser ->
+                        val localMatch = apiUser.phone_number?.let { localByPhone[it] }
+                        val savedMatch = apiUser.phone_number?.let { savedByPhone[it] }
                         Contact(
-                            id = "phone:${deviceContact.phone_number}",
-                            username = deviceContact.phone_number,
-                            displayName = deviceContact.name,
-                            avatarUrl = null,
-                            phoneNumber = deviceContact.phone_number,
-                            isRegistered = false
+                            id = apiUser.id,
+                            username = apiUser.username,
+                            displayName = localMatch?.displayName ?: savedMatch?.name ?: apiUser.display_name,
+                            avatarUrl = apiUser.avatar_url,
+                            phoneNumber = apiUser.phone_number ?: "",
+                            isRegistered = true
                         )
                     }
 
-                val existingDbContacts = contactDaoProvider.get().getContacts().first().map { it.toModel() }
-                val mergedContacts = (registeredContacts + nonRegisteredContacts + existingDbContacts).distinctBy { it.id }
+                    val registeredPhones = apiUsers.mapNotNull { it.phone_number }.toSet()
+                    val allSavedContacts = (deviceContacts.map { AccountContactDTO(name = it.displayName, phone_number = it.phoneNumber) } + savedContacts)
+                        .distinctBy { it.phone_number }
+                    val nonRegisteredContacts = allSavedContacts
+                        .filter { it.phone_number.isNotBlank() && it.phone_number !in registeredPhones }
+                        .map { deviceContact ->
+                            Contact(
+                                id = "phone:${deviceContact.phone_number}",
+                                username = deviceContact.phone_number,
+                                displayName = deviceContact.name,
+                                avatarUrl = null,
+                                phoneNumber = deviceContact.phone_number,
+                                isRegistered = false
+                            )
+                        }
 
-                contactDaoProvider.get().insertContacts(mergedContacts.map { it.toEntity() })
-                emit(Resource.Success(mergedContacts))
-            } else {
-                emit(Resource.Error("Contact sync failed"))
+                    val existingDbContacts = contactDaoProvider.get().getContacts().first().map { it.toModel() }
+                    val mergedContacts = (registeredContacts + nonRegisteredContacts + existingDbContacts).distinctBy { it.id }
+
+                    contactDaoProvider.get().insertContacts(mergedContacts.map { it.toEntity() })
+                    emit(Resource.Success(mergedContacts))
+                } else {
+                    emit(Resource.Error("Contact sync failed"))
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                emit(Resource.Error(e.message ?: "Error syncing contacts"))
             }
-        } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Error syncing contacts"))
         }
     }
 
