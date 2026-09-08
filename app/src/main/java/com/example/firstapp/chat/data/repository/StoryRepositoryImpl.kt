@@ -187,10 +187,10 @@ class StoryRepositoryImpl @Inject constructor(
         storyDao.insertStories(listOf(entity))
     }
 
-    override fun createStory(content: String, contentUrl: String?, type: String): Flow<Resource<Boolean>> = flow {
+    override fun createStory(content: String, contentUrl: String?, type: String, privacy: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val response = socialApi.createStory(CreateStoryRequest(content, contentUrl, type))
+            val response = socialApi.createStory(CreateStoryRequest(content, contentUrl, type, privacy = privacy.ifBlank { "contacts" }))
             if (response.isSuccessful) {
                 try {
                     cacheOwnPostedStory(response.body()?.story, content, contentUrl, type)

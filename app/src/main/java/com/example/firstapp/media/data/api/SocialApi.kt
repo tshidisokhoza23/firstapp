@@ -283,7 +283,8 @@ data class CreateStoryRequest(
     @SerializedName("content") val content: String = "",
     @SerializedName("content_url") val content_url: String? = null,
     @SerializedName("story_type") val story_type: String = "text",
-    @SerializedName("duration_ms") val duration_ms: Int = 5000
+    @SerializedName("duration_ms") val duration_ms: Int = 5000,
+    @SerializedName("privacy") val privacy: String = "contacts"
 )
 
 data class ApiPostAuthor(

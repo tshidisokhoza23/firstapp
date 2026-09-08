@@ -125,12 +125,7 @@ fun StoryScreen(
         filteredStories.filter { story ->
             if (story.id == currentUserId || story.userId == currentUserId || story.id == myStory?.id) return@filter false
             if (story.id == "system_ad") return@filter true
-            // Backend already returns contacts-only. If local contacts have not
-            // synced yet, don't hide the server list; once they load, keep only
-            // people who are actually in the phone book.
-            if (contacts.isEmpty()) return@filter true
-            contactIds.contains(story.id) || contactIds.contains(story.userId) ||
-                contactNames.contains(story.userName.lowercase().trim())
+            true
         }
     }
     

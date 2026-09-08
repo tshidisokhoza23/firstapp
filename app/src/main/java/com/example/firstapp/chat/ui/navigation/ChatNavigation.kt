@@ -60,11 +60,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         
         LaunchedEffect(postResult) {
             postResult?.let {
-                if (it is Resource.Success) {
-                    Toast.makeText(context, "Story update shared", Toast.LENGTH_SHORT).show()
-                    storyViewModel.clearPostResult()
-                    navController.popBackStack()
-                } else if (it is Resource.Error) {
+                if (it is Resource.Error) {
                     Toast.makeText(context, it.message ?: "Failed to share story", Toast.LENGTH_LONG).show()
                     storyViewModel.clearPostResult()
                 }
@@ -82,7 +78,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             initialPlay = play,
             onBack = { navController.popBackStack() },
             onPostStory = { content, url, type ->
-                storyViewModel.postStory(content, url, type)
+                navController.navigate(Screen.ShareStory.createRoute(content, url ?: "", type))
             },
             onDeleteStory = { storyId -> storyViewModel.deleteStory(storyId) },
             onStoryViewed = { userId, storyId -> storyViewModel.markStoryAsViewed(userId, storyId) },
@@ -120,7 +116,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 is com.example.firstapp.common.util.Resource.Success -> {
                     android.widget.Toast.makeText(context, "Story posted!", android.widget.Toast.LENGTH_SHORT).show()
                     storyViewModel.clearPostResult()
-                    navController.popBackStack(Screen.Main.route, false)
+                    if (!navController.popBackStack(Screen.Main.createRoute("chat"), false)) {
+                        navController.popBackStack()
+                    }
                 }
                 is com.example.firstapp.common.util.Resource.Error -> {
                     android.widget.Toast.makeText(context, res.message ?: "Failed to post story", android.widget.Toast.LENGTH_LONG).show()
@@ -136,8 +134,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             type = type,
             isPosting = postResult is com.example.firstapp.common.util.Resource.Loading,
             onBack = { navController.popBackStack() },
-            onPost = { c, u, t ->
-                storyViewModel.postStory(c, u.takeIf { it.isNotBlank() }, t)
+            onPost = { c, u, t, privacy ->
+                storyViewModel.postStory(c, u.takeIf { it.isNotBlank() }, t, privacy)
             }
         )
     }
@@ -640,7 +638,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             },
             onLeaveGroup = {
                 viewModel.leave(groupId) {
-                    navController.popBackStack(Screen.Main.route, false)
+                    if (!navController.popBackStack(Screen.Main.createRoute("chat"), false)) {
+                        navController.popBackStack()
+                    }
                 }
             },
             onGenerateInvite = { viewModel.generateInvite(groupId) },
@@ -774,7 +774,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onPromoteAdmin = { memberId -> chatViewModel.promoteToAdmin(chat.id, memberId) },
             onLeaveGroup = { 
                 chatViewModel.leaveGroup(chat.id) {
-                    navController.popBackStack(Screen.Main.route, false)
+                    if (!navController.popBackStack(Screen.Main.createRoute("chat"), false)) {
+                        navController.popBackStack()
+                    }
                 }
             },
             onToggleAdminPosting = { allowed ->
@@ -791,7 +793,11 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onBlock = {
                 otherUserId?.let { target ->
                     chatViewModel.blockUser(target) { ok ->
-                        if (ok) navController.popBackStack(Screen.Main.route, false)
+                        if (ok) {
+                            if (!navController.popBackStack(Screen.Main.createRoute("chat"), false)) {
+                                navController.popBackStack()
+                            }
+                        }
                     }
                 }
             },

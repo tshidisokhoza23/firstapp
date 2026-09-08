@@ -76,7 +76,7 @@ class StoryViewModel @Inject constructor(
         refreshStories()
     }
 
-    fun postStory(content: String, contentUrl: String?, type: String = "text") {
+    fun postStory(content: String, contentUrl: String?, type: String = "text", privacy: String = "contacts") {
         viewModelScope.launch {
             _postResult.value = Resource.Loading()
             try {
@@ -108,7 +108,7 @@ class StoryViewModel @Inject constructor(
                     if (type == "text" || type.isBlank()) finalType = "image"
                 }
 
-                repository.createStory(content, finalContentUrl, finalType).collect { res ->
+                repository.createStory(content, finalContentUrl, finalType, privacy).collect { res ->
                     _postResult.value = res
                     if (res is Resource.Success) {
                         refreshStories()

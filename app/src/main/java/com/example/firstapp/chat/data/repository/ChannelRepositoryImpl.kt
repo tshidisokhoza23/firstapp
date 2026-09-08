@@ -22,7 +22,8 @@ class ChannelRepositoryImpl @Inject constructor(
     private val socialApi: SocialApi,
     private val channelDao: ChannelDao,
     private val chatDao: ChatDao,
-    private val webSocketManager: com.example.firstapp.common.data.realtime.WebSocketManager
+    private val webSocketManager: com.example.firstapp.common.data.realtime.WebSocketManager,
+    private val userApi: com.example.firstapp.common.data.api.UserApi
 ) : ChannelRepository {
 
     override fun getChannels(): Flow<Resource<List<Channel>>> = flow {
@@ -35,20 +36,27 @@ class ChannelRepositoryImpl @Inject constructor(
         }
 
         try {
-            var response = socialApi.getChannels()
-            if (!response.isSuccessful) {
-                response = socialApi.getChatsChannels()
-            }
-
-            if (response.isSuccessful && response.body() != null) {
-                val apiChannels = response.body()!!.channels
-                Log.d("ChannelRepo", "Fetched ${apiChannels.size} channels")
-                val channels = apiChannels.map { mapApiChannel(it) }.distinctBy { it.id }
-                if (channels.isNotEmpty()) {
-                    channelDao.replaceChannels(channels.map { it.toEntity() })
+            val fetched = mutableListOf<Channel>()
+            try {
+                val primary = socialApi.getChannels()
+                if (primary.isSuccessful) {
+                    fetched += primary.body()?.channels.orEmpty().map { mapApiChannel(it) }
                 }
-            } else {
-                Log.e("ChannelRepo", "getChannels failed: ${response.code()}")
+            } catch (e: Exception) {
+                Log.e("ChannelRepo", "getChannels /channels failed", e)
+            }
+            try {
+                val fallback = socialApi.getChatsChannels()
+                if (fallback.isSuccessful) {
+                    fetched += fallback.body()?.channels.orEmpty().map { mapApiChannel(it) }
+                }
+            } catch (e: Exception) {
+                Log.e("ChannelRepo", "getChannels /chats/channels failed", e)
+            }
+            val channels = fetched.distinctBy { it.conversationId ?: it.id }
+            Log.d("ChannelRepo", "Fetched ${channels.size} channels")
+            if (channels.isNotEmpty()) {
+                channelDao.replaceChannels(channels.map { it.toEntity() })
             }
         } catch (e: Exception) {
             Log.e("ChannelRepo", "getChannels exception", e)
@@ -78,7 +86,7 @@ class ChannelRepositoryImpl @Inject constructor(
                             createdBy = chatEntity.createdBy
                         )
                     }
-                val merged = (fromChannelDao + fromChatDao).distinctBy { it.id }
+                val merged = (fromChannelDao + fromChatDao).distinctBy { it.conversationId ?: it.id }
                 Resource.Success<List<Channel>>(merged)
             }
         )
@@ -166,8 +174,22 @@ class ChannelRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun searchChannels(query: String): Flow<List<Channel>> =
-        channelDao.searchChannels(query).flowMap { list -> list.map { it.toModel() } }
+    override fun searchChannels(query: String): Flow<List<Channel>> = flow {
+        val local = channelDao.searchChannels(query).first().map { it.toModel() }
+        emit(local)
+        try {
+            val response = userApi.search(query, "channels")
+            if (response.isSuccessful) {
+                val remote = response.body()?.channels.orEmpty().map { mapApiChannel(it) }
+                if (remote.isNotEmpty()) {
+                    channelDao.insertChannels(remote.map { it.toEntity() })
+                }
+                emit((remote + local).distinctBy { it.conversationId ?: it.id })
+            }
+        } catch (e: Exception) {
+            Log.e("ChannelRepo", "searchChannels failed", e)
+        }
+    }
 
     override fun addAdmin(channelId: String, userId: String): Flow<Resource<Boolean>> = flow {
         try {

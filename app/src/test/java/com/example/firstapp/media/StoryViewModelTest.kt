@@ -55,11 +55,11 @@ class StoryViewModelTest {
 
     @Test
     fun `posting story success updates post result`() = runTest {
-        coEvery { repository.createStory("hello", null, "text") } returns flowOf(Resource.Success(true))
+        coEvery { repository.createStory("hello", null, "text", "contacts") } returns flowOf(Resource.Success(true))
 
         viewModel.postStory("hello", null, "text")
 
         assertTrue(viewModel.postResult.value is Resource.Success)
-        coVerify { repository.createStory("hello", null, "text") }
+        coVerify { repository.createStory("hello", null, "text", "contacts") }
     }
 }

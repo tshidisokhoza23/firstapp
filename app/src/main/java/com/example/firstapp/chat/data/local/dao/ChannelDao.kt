@@ -39,6 +39,6 @@ interface ChannelDao {
     @Query("SELECT id FROM channels WHERE isSubscribed = 1")
     suspend fun getSubscribedChannelIds(): List<String>
 
-    @Query("SELECT * FROM channels WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%' OR LOWER(description) LIKE '%' || LOWER(:query) || '%' ORDER BY followers DESC")
+    @Query("SELECT * FROM channels WHERE id = :query OR conversationId = :query OR LOWER(name) LIKE '%' || LOWER(:query) || '%' OR LOWER(description) LIKE '%' || LOWER(:query) || '%' ORDER BY followers DESC")
     fun searchChannels(query: String): Flow<List<ChannelEntity>>
 }

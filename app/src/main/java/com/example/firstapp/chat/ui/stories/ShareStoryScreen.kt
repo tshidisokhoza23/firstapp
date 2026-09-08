@@ -30,7 +30,7 @@ fun ShareStoryScreen(
     type: String,
     isPosting: Boolean = false,
     onBack: () -> Unit,
-    onPost: (content: String, url: String, type: String) -> Unit
+    onPost: (content: String, url: String, type: String, privacy: String) -> Unit
 ) {
     var selectedPrivacy by remember { mutableStateOf("Everyone") }
     var allowScreenshots by remember { mutableStateOf(true) }
@@ -62,7 +62,15 @@ fun ShareStoryScreen(
                     .padding(16.dp)
             ) {
                 Button(
-                    onClick = { onPost(content, url, type) },
+                    onClick = {
+                        val privacy = when (selectedPrivacy) {
+                            "Everyone" -> "everyone"
+                            "Friends" -> "close_friends"
+                            "Selected" -> "selected"
+                            else -> "contacts"
+                        }
+                        onPost(content, url, type, privacy)
+                    },
                     enabled = !isPosting,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AppAccent),

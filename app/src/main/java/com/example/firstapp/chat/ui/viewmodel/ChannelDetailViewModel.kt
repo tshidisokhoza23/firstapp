@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -45,7 +46,16 @@ class ChannelDetailViewModel @Inject constructor(
                     if (ch != null) {
                         _channel.value = Resource.Success(ch)
                         loadMembers(ch.conversationId ?: ch.id)
-                    } else _channel.value = Resource.Error("Channel not found")
+                    } else {
+                        val searched = repository.searchChannels(channelId).firstOrNull()
+                            ?.find { it.id == channelId || it.conversationId == channelId }
+                        if (searched != null) {
+                            _channel.value = Resource.Success(searched)
+                            loadMembers(searched.conversationId ?: searched.id)
+                        } else {
+                            _channel.value = Resource.Error("Channel not found")
+                        }
+                    }
                 } else if (resource is Resource.Error) {
                     _channel.value = Resource.Error(resource.message ?: "Failed to load")
                 }
