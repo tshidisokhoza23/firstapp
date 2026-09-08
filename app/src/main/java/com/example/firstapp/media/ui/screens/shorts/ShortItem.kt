@@ -166,17 +166,15 @@ fun ShortItem(
         exoPlayer?.setPlayWhenReady(isPlaying && !isAppInBackground && isVisible && !isGlobalPaused)
     }
 
-    LaunchedEffect(exoPlayer, videoUrl, isVisible) {
+    LaunchedEffect(exoPlayer, videoUrl) {
         val player = exoPlayer
-        if (player != null && videoUrl != null && isVisible) {
-            android.util.Log.d("ShortItem", "isVisible - Preparing video: $videoUrl for short: ${short.id}")
+        if (player != null && videoUrl != null) {
             if (player.currentMediaItem?.localConfiguration?.uri.toString() != videoUrl) {
                 player.setMediaItem(MediaItem.fromUri(videoUrl))
                 player.prepare()
-            } else {
-                isVideoReady = player.playbackState == Player.STATE_READY
-                isBuffering = player.playbackState == Player.STATE_BUFFERING
             }
+            isVideoReady = player.playbackState == Player.STATE_READY
+            isBuffering = player.playbackState == Player.STATE_BUFFERING
         }
     }
 

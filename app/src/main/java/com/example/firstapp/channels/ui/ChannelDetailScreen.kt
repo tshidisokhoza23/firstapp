@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -527,59 +528,71 @@ fun ChannelDetailScreen(
 
 @Composable
 fun ChannelPostItem(post: Post) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column {
-            // Post Media
-            if (post.mediaUrls.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    coil.compose.AsyncImage(
-                        model = post.mediaUrls.first(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                    )
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 2.dp,
+            modifier = Modifier.widthIn(max = 340.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Centered Post Media Attachment
+                if (post.mediaUrls.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        coil.compose.AsyncImage(
+                            model = post.mediaUrls.first(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    }
+                    if (post.content.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                 }
-            }
 
-            // Text Content
-            if (post.content.isNotBlank()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                // Centered Text Content
+                if (post.content.isNotBlank()) {
                     Text(
                         text = post.content,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("❤️ ${post.likes}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("💬 ${post.repliesCount}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                        }
-                        Text(
-                            text = post.timestamp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
-                        )
-                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Centered Reactions & Timestamp Footer
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("❤️ ${post.likes}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("💬 ${post.repliesCount}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = post.timestamp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
                 }
             }
         }

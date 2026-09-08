@@ -131,7 +131,7 @@ fun ChatsListScreen(
                 GlobalCallState.updateContactInfo(chat.otherUserId, chat.senderName, chat.phoneNumber)
             }
         }
-        data.filter { it.type == ConversationType.GROUP || it.type == ConversationType.JOB_CHAT }
+        data.filter { it.type != ConversationType.CHANNEL }
     }
 
     var isSearchActive by remember { mutableStateOf(false) }

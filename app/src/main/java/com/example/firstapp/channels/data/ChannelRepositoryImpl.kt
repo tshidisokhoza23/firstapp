@@ -19,11 +19,14 @@ import com.example.firstapp.media.data.api.CreateChannelRequest
 import com.example.firstapp.media.data.api.ToggleAdminPostingRequest
 import com.example.firstapp.media.data.api.UserIdRequest
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -43,8 +46,9 @@ class ChannelRepositoryImpl @Inject constructor(
     override fun observeChannels(): Flow<Resource<List<Channel>>> = flow {
         val cached = channelDao.getChannelsOnce().map { it.toModel() }
         emit(if (cached.isNotEmpty()) Resource.Loading(cached) else Resource.Loading())
-        syncChannels()
-        emitAll(
+        coroutineScope {
+            launch { syncChannels() }
+            emitAll(
             combine(channelDao.getChannels(), chatDao.getChatsByType(ConversationType.CHANNEL)) { channelEntities, chatEntities ->
                 val fromChannelDao = channelEntities.map { it.toModel() }
                 val fromChatDao = chatEntities.map { chatEntity ->
@@ -63,23 +67,26 @@ class ChannelRepositoryImpl @Inject constructor(
                         createdBy = chatEntity.createdBy
                     )
                 }
-                Resource.Success((fromChannelDao + fromChatDao).distinctBy { it.conversationId ?: it.id })
+                Resource.Success((fromChannelDao + fromChatDao).distinctBy { it.id })
             }
-        )
+            )
+        }
     }
 
     override suspend fun syncChannels(): Boolean {
         return try {
             val fetched = mutableListOf<Channel>()
-            runCatching { channelApi.getChannels() }.getOrNull()?.takeIf { it.isSuccessful }?.body()?.channels
+            runCatching { kotlinx.coroutines.withTimeout(15_000) { channelApi.getChannels() } }
+                .getOrNull()?.takeIf { it.isSuccessful }?.body()?.channels
                 ?.map { mapApiChannel(it) }?.let { fetched += it }
-            runCatching { channelApi.getChatsChannels() }.getOrNull()?.takeIf { it.isSuccessful }?.body()?.channels
+            runCatching { kotlinx.coroutines.withTimeout(15_000) { channelApi.getChatsChannels() } }
+                .getOrNull()?.takeIf { it.isSuccessful }?.body()?.channels
                 ?.map { mapApiChannel(it) }?.let { fetched += it }
-            val channels = fetched.distinctBy { it.conversationId ?: it.id }
+            val channels = fetched.distinctBy { it.id }
             if (channels.isNotEmpty()) {
-                val existing = channelDao.getChannelsOnce().associateBy { it.conversationId ?: it.id }
+                val existing = channelDao.getChannelsOnce().associateBy { it.id }
                 val merged = channels.map { incoming ->
-                    val old = existing[incoming.conversationId ?: incoming.id]
+                    val old = existing[incoming.id]
                     if (old == null) incoming.toEntity() else incoming.toEntity().copy(
                         isSubscribed = incoming.isSubscribed || old.isSubscribed,
                         isAdmin = incoming.isAdmin || old.isAdmin,
@@ -90,7 +97,7 @@ class ChannelRepositoryImpl @Inject constructor(
             }
             true
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
+            if (e is CancellationException && e !is TimeoutCancellationException) throw e
             Log.e(TAG, "syncChannels failed", e)
             false
         }

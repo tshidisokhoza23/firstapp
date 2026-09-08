@@ -17,6 +17,7 @@ data class PlaylistEntity(
 @Entity(
     tableName = "playlist_songs",
     primaryKeys = ["playlistId", "songId"],
+    indices = [androidx.room.Index("playlistId"), androidx.room.Index("songId")],
     foreignKeys = [
         ForeignKey(
             entity = PlaylistEntity::class,

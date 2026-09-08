@@ -2,6 +2,7 @@ package com.example.firstapp.common.di.modules
 
 import com.example.firstapp.account.data.repository.AccountRepositoryImpl
 import com.example.firstapp.account.domain.repository.AccountRepository
+import com.example.firstapp.chat.data.repository.AdRepositoryImpl
 import com.example.firstapp.chat.data.repository.ChatRepositoryImpl
 import com.example.firstapp.channels.data.ChannelRepositoryImpl
 import com.example.firstapp.channels.domain.ChannelRepository

@@ -105,6 +105,15 @@ fun ShortsTabScreen(
                             Text("No shorts found", color = Color.White.copy(alpha = 0.9f), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text("Be the first to post!", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                onClick = { showUploadDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Create Short", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
                             if (loadState.refresh is androidx.paging.LoadState.Error) {
                                 Spacer(Modifier.height(8.dp))
                                 Text((loadState.refresh as androidx.paging.LoadState.Error).error.localizedMessage ?: "Network error", color = Color.Red.copy(alpha = 0.5f), fontSize = 12.sp)

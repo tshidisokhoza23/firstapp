@@ -21,11 +21,15 @@ import com.example.firstapp.media.data.api.CreateStoryRequest
 import com.example.firstapp.stories.data.api.StoryApi
 import com.example.firstapp.stories.domain.StoryRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,23 +49,20 @@ class StoryRepositoryImpl @Inject constructor(
         val cached = storyDao.getStoriesOnce().map { it.toUserStory() }.filter { it.stories.isNotEmpty() }
         emit(if (cached.isNotEmpty()) Resource.Loading(cached) else Resource.Loading())
 
-        val ok = syncStories()
-        if (!ok && storyDao.getStoriesOnce().isEmpty()) {
-            emit(Resource.Error("Could not load stories"))
-            return@flow
+        coroutineScope {
+            launch { syncStories() }
+            emitAll(storyDao.getStories().map { entities ->
+                val models = entities.map { it.toUserStory() }
+                    .filter { it.stories.isNotEmpty() }
+                    .sortedByDescending { it.stories.maxOfOrNull { item -> item.createdAt } ?: 0L }
+                Resource.Success(models)
+            })
         }
-
-        emitAll(storyDao.getStories().map { entities ->
-            val models = entities.map { it.toUserStory() }
-                .filter { it.stories.isNotEmpty() }
-                .sortedByDescending { it.stories.maxOfOrNull { item -> item.createdAt } ?: 0L }
-            Resource.Success(models)
-        })
     }
 
     override suspend fun syncStories(): Boolean {
         return try {
-            val response = storyApi.getStories(null)
+            val response = withTimeout(15_000) { storyApi.getStories(null) }
             if (!response.isSuccessful) {
                 Log.w(TAG, "GET stories HTTP ${response.code()}")
                 return false
@@ -70,7 +71,7 @@ class StoryRepositoryImpl @Inject constructor(
             mergeIntoCache(incoming)
             true
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
+            if (e is CancellationException && e !is TimeoutCancellationException) throw e
             Log.e(TAG, "syncStories failed", e)
             false
         }
@@ -90,16 +91,15 @@ class StoryRepositoryImpl @Inject constructor(
                 story_type = type.ifBlank { "text" },
                 privacy = privacy.ifBlank { "contacts" }
             )
-            val response = storyApi.createStory(request)
+            val response = withTimeout(20_000) { storyApi.createStory(request) }
             if (!response.isSuccessful) {
                 emit(Resource.Error("Server error: ${response.code()}"))
                 return@flow
             }
             cacheOwnPostedStory(response.body()?.story, content, contentUrl, type)
             emit(Resource.Success(true))
-            runCatching { syncStories() }
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
+            if (e is CancellationException && e !is TimeoutCancellationException) throw e
             emit(Resource.Error(e.localizedMessage ?: "Connection failed"))
         }
     }

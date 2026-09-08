@@ -64,11 +64,13 @@ class StoryViewModel @Inject constructor(
                     val uri = android.net.Uri.parse(urlToUpload)
                     var uploadedUrl: String? = null
                     var uploadError: String? = null
-                    accountRepository.uploadUri(ContextProvider.context, uri, "stories").collect { res ->
-                        when (res) {
-                            is Resource.Success -> uploadedUrl = res.data?.url
-                            is Resource.Error -> uploadError = res.message ?: "Upload failed"
-                            else -> {}
+                    withTimeout(30_000) {
+                        accountRepository.uploadUri(ContextProvider.context, uri, "stories").collect { res ->
+                            when (res) {
+                                is Resource.Success -> uploadedUrl = res.data?.url
+                                is Resource.Error -> uploadError = res.message ?: "Upload failed"
+                                else -> {}
+                            }
                         }
                     }
                     if (!uploadError.isNullOrBlank() || uploadedUrl.isNullOrBlank()) {

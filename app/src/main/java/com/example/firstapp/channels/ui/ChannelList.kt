@@ -18,7 +18,7 @@ fun ChannelList(
     onChannelClick: (Channel) -> Unit,
     onSubscribe: (String) -> Unit = {}
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 160.dp)) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
         items(channels, key = { it.id }) { ch -> 
             ChannelItem(
