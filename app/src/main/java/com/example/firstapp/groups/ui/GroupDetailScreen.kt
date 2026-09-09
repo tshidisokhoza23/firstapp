@@ -93,6 +93,7 @@ fun GroupDetailScreen(
     onAddMember: (String) -> Unit,
     onRemoveMember: (String) -> Unit,
     onPromoteAdmin: (String) -> Unit,
+    onDemoteAdmin: (String) -> Unit = {},
     onMessageMember: (String) -> Unit,
     onLeaveGroup: () -> Unit,
     onGenerateInvite: () -> Unit,
@@ -299,7 +300,12 @@ fun GroupDetailScreen(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
                     )
-                    Icon(Icons.Default.Search, contentDescription = null, tint = AppAccent, modifier = Modifier.size(18.dp))
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Search members",
+                        tint = AppAccent,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
                 OutlinedTextField(
                     value = memberQuery,
@@ -363,6 +369,11 @@ fun GroupDetailScreen(
                             DropdownMenuItem(
                                 text = { Text("Make group admin") },
                                 onClick = { showMemberMenu = false; onPromoteAdmin(memberId) }
+                            )
+                        } else if (info?.created_by != memberId) {
+                            DropdownMenuItem(
+                                text = { Text("Dismiss as admin") },
+                                onClick = { showMemberMenu = false; onDemoteAdmin(memberId) }
                             )
                         }
                         if (!(info?.created_by == memberId && !isCreator)) {

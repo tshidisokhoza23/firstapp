@@ -1,5 +1,6 @@
 package com.example.firstapp.media
 
+import android.content.Context
 import com.example.firstapp.stories.ui.StoryViewModel
 import com.example.firstapp.stories.domain.StoryRepository
 import com.example.firstapp.chat.model.UserStory
@@ -14,7 +15,6 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import kotlin.collections.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StoryViewModelTest {
@@ -23,6 +23,7 @@ class StoryViewModelTest {
     private val repository: StoryRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val chatRepository: com.example.firstapp.domain.repository.ChatRepository = mockk(relaxed = true)
+    private val context: Context = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
@@ -30,7 +31,7 @@ class StoryViewModelTest {
         Dispatchers.setMain(testDispatcher)
         every { repository.observeStories() } returns flowOf(Resource.Success(emptyList<UserStory>()))
         every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.chat.model.Contact>()))
-        viewModel = StoryViewModel(repository, accountRepository, chatRepository)
+        viewModel = StoryViewModel(repository, accountRepository, chatRepository, context)
     }
 
     @After
@@ -48,7 +49,6 @@ class StoryViewModelTest {
         viewModel.markStoryAsViewed(userId, storyId)
         
         coVerify { repository.markStoryAsViewed(userId, storyId) }
-        // Repository handles the +0.1 reward logic.
     }
 
     @Test
@@ -59,5 +59,15 @@ class StoryViewModelTest {
 
         assertTrue(viewModel.postResult.value is Resource.Success)
         coVerify { repository.createStory("hello", null, "text", "contacts") }
+    }
+
+    @Test
+    fun `posting story error updates post result with error`() = runTest {
+        coEvery { repository.createStory("hello", null, "text", "contacts") } returns flowOf(Resource.Error("Failed to create story"))
+
+        viewModel.postStory("hello", null, "text")
+
+        assertTrue(viewModel.postResult.value is Resource.Error)
+        assertEquals("Failed to create story", (viewModel.postResult.value as Resource.Error).message)
     }
 }

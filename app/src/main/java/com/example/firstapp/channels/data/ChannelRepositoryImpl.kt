@@ -140,10 +140,10 @@ class ChannelRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createChannel(name: String, description: String): Flow<Resource<Boolean>> = flow {
+    override fun createChannel(name: String, description: String, avatarUrl: String?): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            val response = channelApi.createChannel(CreateChannelRequest(name, description))
+            val response = channelApi.createChannel(CreateChannelRequest(name, description, avatarUrl))
             if (!response.isSuccessful) {
                 emit(Resource.Error(response.errorBody()?.string() ?: "Failed to create channel"))
                 return@flow
@@ -162,18 +162,57 @@ class ChannelRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getChannel(channelId: String): Flow<Resource<Channel>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = channelApi.getChannel(channelId)
+            if (response.isSuccessful && response.body() != null) {
+                val channel = mapApiChannel(response.body()!!)
+                channelDao.insertChannel(channel.toEntity())
+                emit(Resource.Success(channel))
+            } else {
+                emit(Resource.Error(response.errorBody()?.string() ?: "Channel not found"))
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Offline"))
+        }
+    }
+
+    override fun updateChannelAvatar(channelId: String, avatarUrl: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = channelApi.updateChannelAvatar(
+                channelId,
+                com.example.firstapp.chat.data.api.AvatarUrlRequest(avatarUrl)
+            )
+            if (response.isSuccessful) {
+                channelDao.updateAvatar(channelId, avatarUrl)
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error(response.errorBody()?.string() ?: "Failed to update icon"))
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Offline"))
+        }
+    }
+
     override fun searchChannels(query: String): Flow<List<Channel>> = flow {
         val local = channelDao.searchChannels(query).first().map { it.toModel() }
         emit(local)
         try {
-            val response = userApi.search(query, "channels")
-            if (response.isSuccessful) {
-                val remote = response.body()?.channels.orEmpty().map { mapApiChannel(it) }
-                if (remote.isNotEmpty()) {
-                    channelDao.insertChannels(remote.map { it.toEntity() })
-                }
-                emit((remote + local).distinctBy { it.conversationId ?: it.id })
+            val dedicated = runCatching { channelApi.searchChannels(query) }
+                .getOrNull()?.takeIf { it.isSuccessful }?.body()?.channels.orEmpty()
+                .map { mapApiChannel(it) }
+            val global = runCatching { userApi.search(query, "channels") }
+                .getOrNull()?.takeIf { it.isSuccessful }?.body()?.channels.orEmpty()
+                .map { mapApiChannel(it) }
+            val remote = (dedicated + global).distinctBy { it.conversationId ?: it.id }
+            if (remote.isNotEmpty()) {
+                channelDao.insertChannels(remote.map { it.toEntity() })
             }
+            emit((remote + local).distinctBy { it.conversationId ?: it.id })
         } catch (e: Exception) {
             Log.e(TAG, "searchChannels failed", e)
         }

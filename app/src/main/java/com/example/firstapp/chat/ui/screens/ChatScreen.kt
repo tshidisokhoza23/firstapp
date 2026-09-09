@@ -155,6 +155,9 @@ fun ChatMessagesScreen(
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showGifPicker by remember { mutableStateOf(false) }
     var showForwardDialog by remember { mutableStateOf(false) }
+    var showReactionPicker by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportReason by remember { mutableStateOf("") }
     val messagesToForward = remember { mutableStateListOf<Message>() }
 
     var replyingToMessage by remember(currentChat.id) { mutableStateOf<Message?>(null) }
@@ -178,6 +181,10 @@ fun ChatMessagesScreen(
     var isSearchMode by remember(currentChat.id) { mutableStateOf(false) }
     var chatSearchQuery by remember(currentChat.id) { mutableStateOf("") }
     var activeSearchId by remember(currentChat.id) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(currentChat.id, chatSearchQuery) {
+        chatViewModel.searchInChat(currentChat.id, chatSearchQuery)
+    }
 
     // Audio Recording State
     var isRecording by remember { mutableStateOf(false) }
@@ -622,6 +629,13 @@ fun ChatMessagesScreen(
                             }
                             selectedMessages.clear()
                         },
+                        onPinSelectedMessage = {
+                            selectedMessages.firstOrNull()?.let { msgId ->
+                                val alreadyPinned = currentChat.pinnedMessageId == msgId
+                                chatViewModel.pinMessage(currentChat.id, if (alreadyPinned) null else msgId)
+                            }
+                            selectedMessages.clear()
+                        },
                         onEditSelectedMessage = {
                             selectedMessages.firstOrNull()?.let { msgId ->
                                 messages.find { it.id == msgId }?.let { msg ->
@@ -637,6 +651,13 @@ fun ChatMessagesScreen(
                             messagesToForward.clear()
                             messagesToForward.addAll(messages.filter { selectedMessages.contains(it.id) })
                             showForwardDialog = true
+                        },
+                        onReactSelectedMessage = { if (selectedMessages.size == 1) showReactionPicker = true },
+                        onReportSelectedMessage = {
+                            if (selectedMessages.size == 1) {
+                                reportReason = ""
+                                showReportDialog = true
+                            }
                         },
                         onClearSelectedMessages = { selectedMessages.clear() }
                     )
@@ -1005,7 +1026,44 @@ fun ChatMessagesScreen(
                     .clickable { showEmojiPicker = false },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                EmojiPicker(onEmojiSelect = {
+                ReactionPicker) {
+            ReactionPickerOverlay(
+                onDismiss = { showReactionPicker = false },
+                onEmojiSelect = { emoji ->
+                    selectedMessages.firstOrNull()?.let { chatViewModel.reactToMessage(it, emoji) }
+                    showReactionPicker = false
+                    selectedMessages.clear()
+                }
+            )
+        }
+
+        if (showReportDialog) {
+            AlertDialog(
+                onDismissRequest = { showReportDialog = false },
+                title = { Text("Report message") },
+                text = {
+                    OutlinedTextField(
+                        value = reportReason,
+                        onValueChange = { reportReason = it },
+                        placeholder = { Text("Reason") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val reason = reportReason.trim().ifBlank { "Inappropriate" }
+                        selectedMessages.firstOrNull()?.let { chatViewModel.reportMessage(it, reason) }
+                        showReportDialog = false
+                        selectedMessages.clear()
+                    }) { Text("Report") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showReportDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        if (showEmojiPicker(onEmojiSelect = {
                     messageText += it
                     showEmojiPicker = false
                 })

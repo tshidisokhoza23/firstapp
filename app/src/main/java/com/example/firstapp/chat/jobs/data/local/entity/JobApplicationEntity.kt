@@ -12,5 +12,6 @@ data class JobApplicationEntity(
     val companyName: String,
     val location: String,
     val appliedDate: Long,
-    val status: ApplicationStatus
+    val status: ApplicationStatus,
+    val conversationId: String? = null
 )

@@ -51,8 +51,11 @@ fun ChatTopBar(
     onDeleteSelectedMessages: () -> Unit,
     onShowMessageInfo: () -> Unit = {},
     onStarSelectedMessages: () -> Unit,
+    onPinSelectedMessage: () -> Unit = {},
     onEditSelectedMessage: () -> Unit,
     onForwardSelectedMessages: () -> Unit,
+    onReactSelectedMessage: () -> Unit = {},
+    onReportSelectedMessage: () -> Unit = {},
     onClearSelectedMessages: () -> Unit,
     onSearchNavigate: (Boolean) -> Unit = {},
     activeSearchIndex: Int = 0,
@@ -126,6 +129,9 @@ fun ChatTopBar(
                     if (selectedMessagesCount == 1) {
                         IconButton(onClick = onShowMessageInfo) { Icon(Icons.Default.Info, "Info", tint = MaterialTheme.colorScheme.onSurface) }
                         IconButton(onClick = onEditSelectedMessage) { Icon(Icons.Default.Edit, "Edit", tint = MaterialTheme.colorScheme.onSurface) }
+                        IconButton(onClick = onReactSelectedMessage) { Icon(Icons.Default.AddReaction, "React", tint = MaterialTheme.colorScheme.onSurface) }
+                        IconButton(onClick = onReportSelectedMessage) { Icon(Icons.Default.Flag, "Report", tint = MaterialTheme.colorScheme.onSurface) }
+                        IconButton(onClick = onPinSelectedMessage) { Icon(Icons.Default.PushPin, "Pin", tint = MaterialTheme.colorScheme.onSurface) }
                     }
                     IconButton(onClick = onStarSelectedMessages) { Icon(Icons.Default.Star, "Star", tint = MaterialTheme.colorScheme.onSurface) }
                     IconButton(onClick = onDeleteSelectedMessages) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurface) }

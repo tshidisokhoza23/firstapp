@@ -34,7 +34,9 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
         JobApplicationsScreen(
             onBack = { navController.popBackStack() },
             onViewJobDetails = { jobId -> navController.navigate(Screen.JobDetail.createRoute(jobId)) },
-            onContactRecruiter = { /* Automatic DM logic */ },
+            onContactRecruiter = { id ->
+                navController.navigate(Screen.Chat.createRoute(id, type = "job_chat"))
+            },
             onSetReminder = { application -> /* Handle reminder */ },
             viewModel = jobApplicationsViewModel
         )

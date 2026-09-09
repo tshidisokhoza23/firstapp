@@ -65,9 +65,11 @@ class MessageRemoteMediator(
             val privKey = sessionManager.getPrivateKey()
 
             db.withTransaction {
+                val starredIds = db.chatDao().getStarredMessageIds().toSet()
                 val entities = apiMessages.map { apiMsg ->
                     val message: Message = mapApiMessage(apiMsg, privKey, myUserId)
-                    message.toEntity(conversationId)
+                    val entity = message.toEntity(conversationId)
+                    if (entity.id in starredIds) entity.copy(isStarred = true) else entity
                 }
                 db.chatDao().insertMessages(entities)
             }

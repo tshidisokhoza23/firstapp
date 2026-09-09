@@ -1,6 +1,7 @@
 package com.example.firstapp.chat.jobs.data.repository
 
 import com.example.firstapp.chat.jobs.data.api.*
+import com.example.firstapp.chat.jobs.data.local.dao.JobApplicationDao
 import com.example.firstapp.chat.jobs.data.local.dao.JobDao
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.domain.repository.JobRepository
@@ -18,6 +19,7 @@ import javax.inject.Inject
 class JobRepositoryImpl @Inject constructor(
     private val jobApi: JobApi,
     private val jobDao: JobDao,
+    private val jobApplicationDao: JobApplicationDao,
 ) : JobRepository {
 
     override fun getJobs(page: Int): Flow<Resource<List<Job>>> = flow {
@@ -65,15 +67,26 @@ class JobRepositoryImpl @Inject constructor(
     }
 
     override fun getJobApplications(): Flow<Resource<List<JobApplication>>> = flow {
-        emit(Resource.Loading())
+        val cached = jobApplicationDao.getApplications().first().map { it.toModel() }
+        if (cached.isNotEmpty()) {
+            emit(Resource.Loading(cached))
+        } else {
+            emit(Resource.Loading())
+        }
         try {
             val response = jobApi.getJobApplications()
             if (response.isSuccessful) {
                 val apiApps = response.body()?.applications ?: emptyList<ApiJobApplication>()
                 val applications = apiApps.map { aa: ApiJobApplication -> aa.toModel() }
-                emit(Resource.Success(applications))
+                jobApplicationDao.clearApplications()
+                jobApplicationDao.insertApplications(applications.map { it.toEntity() })
             }
-        } catch (e: Exception) { emit(Resource.Error("Error")) }
+        } catch (e: Exception) {
+            Log.e("JobRepo", "getJobApplications failed", e)
+        }
+        emitAll(jobApplicationDao.getApplications().flowMap { entities ->
+            Resource.Success(entities.map { it.toModel() })
+        })
     }
 
     override fun getJobProfile(): Flow<Resource<JobProfileData>> = flow {
@@ -89,7 +102,10 @@ class JobRepositoryImpl @Inject constructor(
     override fun withdrawApplication(applicationId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            if (jobApi.withdrawApplication(applicationId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
+            if (jobApi.withdrawApplication(applicationId).isSuccessful) {
+                jobApplicationDao.deleteApplication(applicationId)
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Fail"))
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 

@@ -87,7 +87,8 @@ data class ApiJobApplication(
     val status: String,
     val title: String? = null,
     val company_name: String? = null,
-    val location: String? = null
+    val location: String? = null,
+    val conversation_id: String? = null
 ) {
     fun toModel(): com.example.firstapp.chat.jobs.model.JobApplication = com.example.firstapp.chat.jobs.model.JobApplication(
         id = id,
@@ -97,6 +98,7 @@ data class ApiJobApplication(
         location = location ?: "",
         appliedDate = applied_date,
         status = com.example.firstapp.chat.jobs.model.ApplicationStatus.PENDING,
-        logoColor = androidx.compose.ui.graphics.Color(0xFF2196F3)
+        logoColor = androidx.compose.ui.graphics.Color(0xFF2196F3),
+        conversationId = conversation_id
     )
 }

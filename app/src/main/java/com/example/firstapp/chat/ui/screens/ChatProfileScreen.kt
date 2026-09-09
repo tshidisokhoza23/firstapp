@@ -52,6 +52,7 @@ fun ChatProfileScreen(
     onAddMember: (String) -> Unit = {},
     onRemoveMember: (String) -> Unit = {},
     onPromoteAdmin: (String) -> Unit = {},
+    onDemoteAdmin: (String) -> Unit = {},
     onLeaveGroup: () -> Unit = {},
     onToggleAdminPosting: (Boolean) -> Unit = {},
     onSubscribe: (String) -> Unit = {},
@@ -366,14 +367,14 @@ fun ChatProfileScreen(
                             groupInfo.data?.member_ids?.forEach { memberId ->
                                 val memberContact = contacts.find { it.id == memberId }
                                 val name = memberContact?.displayName ?: memberId
+                                val memberIsAdmin = groupInfo.data?.admin_ids?.contains(memberId) == true
                                 
                                 var showMemberMenu by remember { mutableStateOf(false) }
 
                                 ListItem(
                                     headlineContent = { Text(if (memberId == currentUserId) "You" else name) },
                                     supportingContent = { 
-                                        val isAdmin = (groupInfo as Resource.Success<com.example.firstapp.chat.data.api.GroupInfoResponse>).data?.admin_ids?.contains(memberId) == true
-                                        if (isAdmin) {
+                                        if (memberIsAdmin) {
                                             Text("Group Admin", color = AppAccent, fontSize = 12.sp)
                                         }
                                     },
@@ -403,10 +404,17 @@ fun ChatProfileScreen(
                                             text = { Text("Message $name") },
                                             onClick = { /* Message user */ showMemberMenu = false }
                                         )
-                                        DropdownMenuItem(
-                                            text = { Text("Make Group Admin") },
-                                            onClick = { onPromoteAdmin(memberId); showMemberMenu = false }
-                                        )
+                                        if (!memberIsAdmin) {
+                                            DropdownMenuItem(
+                                                text = { Text("Make Group Admin") },
+                                                onClick = { onPromoteAdmin(memberId); showMemberMenu = false }
+                                            )
+                                        } else if (groupInfo.data?.created_by != memberId) {
+                                            DropdownMenuItem(
+                                                text = { Text("Dismiss as admin") },
+                                                onClick = { onDemoteAdmin(memberId); showMemberMenu = false }
+                                            )
+                                        }
                                         DropdownMenuItem(
                                             text = { Text("Remove $name", color = Color.Red) },
                                             onClick = { onRemoveMember(memberId); showMemberMenu = false }

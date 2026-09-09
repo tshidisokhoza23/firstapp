@@ -44,7 +44,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         MessageFtsEntity::class,
         SyncCursorEntity::class
     ], 
-    version = 62,
+    version = 63,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

@@ -122,6 +122,19 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
+    fun demoteAdmin(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.demoteAdmin(groupId, userId).collect { res ->
+                if (res is Resource.Success) {
+                    _toast.value = "Admin dismissed"
+                    fetchGroupInfo(groupId)
+                } else if (res is Resource.Error) {
+                    _toast.value = res.message ?: "Only admins can dismiss admins"
+                }
+            }
+        }
+    }
+
     fun leave(groupId: String, onLeft: () -> Unit) {
         viewModelScope.launch {
             repository.leaveGroup(groupId).collect { res ->

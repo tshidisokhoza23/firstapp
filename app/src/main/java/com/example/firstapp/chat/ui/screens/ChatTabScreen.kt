@@ -66,7 +66,7 @@ import kotlinx.coroutines.flow.first
 
 import com.example.firstapp.common.data.ads.AdUnitConfig
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatsListScreen(
     navController: NavController,
@@ -92,6 +92,7 @@ fun ChatsListScreen(
         "channels" -> 1
         "jobs" -> 2
         "rewards" -> 3
+        "dm" -> 4
         else -> 3 // Default active tab on launch is Rewards
     }
     var selectedTabItem by rememberSaveable { mutableIntStateOf(initialTabIndex) }
@@ -103,6 +104,7 @@ fun ChatsListScreen(
                 "channels" -> 1
                 "jobs" -> 2
                 "rewards" -> 3
+                "dm" -> 4
                 else -> 3
             }
             selectedTabItem = idx
@@ -139,6 +141,7 @@ fun ChatsListScreen(
     var topBarHeight by remember { mutableStateOf(0.dp) }
     var isChatInitialScrollDone by remember { mutableStateOf(false) }
     var showTopMoreSheet by remember { mutableStateOf(false) }
+    var selectedDmForMenu by remember { mutableStateOf<ChatMessage?>(null) }
 
     BackHandler(enabled = isSearchActive || showTopMoreSheet) {
         if (isSearchActive) {
@@ -299,14 +302,32 @@ fun ChatsListScreen(
             }
         },
         floatingActionButton = {
-            if (selectedTabItem == 0 && !isSearchActive) {
-                FloatingActionButton(
-                    onClick = { navController.navigate(Screen.ContactPicker.route) },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
+            if (!isSearchActive) {
+                when (selectedTabItem) {
+                    0, 4 -> FloatingActionButton(
+                        onClick = { navController.navigate(Screen.ContactPicker.route) },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
+                    }
+                    1 -> FloatingActionButton(
+                        onClick = { navController.navigate(Screen.CreateChannel.route) },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Create Channel")
+                    }
+                    2 -> FloatingActionButton(
+                        onClick = { navController.navigate(Screen.PostJob.route) },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Work, contentDescription = "Post Job")
+                    }
                 }
             }
         },
@@ -367,6 +388,15 @@ fun ChatsListScreen(
                                 },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
+                            ListItem(
+                                headlineContent = { Text("Archived Chats", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Archive, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable {
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.ArchivedChats.route)
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
                         }
                         1 -> {
                             ListItem(
@@ -380,6 +410,35 @@ fun ChatsListScreen(
                             )
                         }
                         2 -> {
+                            ListItem(
+                                headlineContent = { Text("Post Job", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable {
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.PostJob.route)
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                            ListItem(
+                                headlineContent = { Text("Applications", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.AutoMirrored.Filled.Assignment, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable {
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.Applications.route)
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        4 -> {
+                            ListItem(
+                                headlineContent = { Text("Contacts", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                modifier = Modifier.clickable {
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.ContactPicker.route)
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
                             ListItem(
                                 headlineContent = { Text("Job Profile", color = MaterialTheme.colorScheme.onSurface) },
                                 leadingContent = { Icon(Icons.Default.Work, null, tint = MaterialTheme.colorScheme.onSurface) },
@@ -475,7 +534,19 @@ fun ChatsListScreen(
                                                 navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
                                         }
                                     },
-                                    onMessageClick = { msg -> navController.navigate(Screen.Chat.createRoute(msg.conversationId)) },
+                                    onMessageClick = { msg ->
+                                        val chat = sanitizedChats.firstOrNull { it.id == msg.conversationId }
+                                        when (chat?.type) {
+                                            ConversationType.CHANNEL ->
+                                                navController.navigate(Screen.ChannelDetail.createRoute(chat.id))
+                                            ConversationType.GROUP ->
+                                                navController.navigate(Screen.GroupChat.createRoute(chat.id))
+                                            ConversationType.JOB_CHAT ->
+                                                navController.navigate(Screen.Chat.createRoute(msg.conversationId, type = "job_chat"))
+                                            else ->
+                                                navController.navigate(Screen.Chat.createRoute(msg.conversationId, type = "direct"))
+                                        }
+                                    },
                                     onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
                                     onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                                 )
@@ -620,33 +691,59 @@ fun ChatsListScreen(
                             )
                         }
                         4 -> {
-                            DataStateHandler(dmState) { dmChats ->
-                                if (dmChats.isEmpty()) {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "No direct messages yet",
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
-                                } else {
-                                    LazyColumn(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(bottom = 80.dp)
-                                    ) {
-                                        items(dmChats, key = { it.id }) { chat ->
-                                            Box(modifier = Modifier.clickable {
-                                                navController.navigate(
-                                                    Screen.Chat.createRoute(
-                                                        chat.id,
-                                                        type = "direct"
+                            val searchResults by searchViewModel.searchResults.collectAsState()
+                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
+                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
+                            if (isSearchActive && searchQuery.length > 0) {
+                                SearchResultsView(
+                                    results = searchResults,
+                                    type = SearchType.GLOBAL,
+                                    autoplayEnabled = autoplayEnabled,
+                                    autoplayGifsEnabled = autoplayGifsEnabled,
+                                    currentUserId = currentUser?.id,
+                                    onChatClick = { chat ->
+                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
+                                    },
+                                    onMessageClick = { msg ->
+                                        navController.navigate(Screen.Chat.createRoute(msg.conversationId, type = "direct"))
+                                    },
+                                    onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
+                                    onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
+                                )
+                            } else {
+                                DataStateHandler(dmState) { dmChats ->
+                                    if (dmChats.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "No direct messages yet",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentPadding = PaddingValues(bottom = 80.dp)
+                                        ) {
+                                            items(dmChats, key = { it.id }) { chat ->
+                                                Box(
+                                                    modifier = Modifier.combinedClickable(
+                                                        onClick = {
+                                                            navController.navigate(
+                                                                Screen.Chat.createRoute(
+                                                                    chat.id,
+                                                                    type = "direct"
+                                                                )
+                                                            )
+                                                        },
+                                                        onLongClick = { selectedDmForMenu = chat }
                                                     )
-                                                )
-                                            }) {
-                                                ChatItem(chat = chat)
+                                                ) {
+                                                    ChatItem(chat = chat)
+                                                }
                                             }
                                         }
                                     }
@@ -657,6 +754,48 @@ fun ChatsListScreen(
                 }
             }
         }
+    }
+
+    if (selectedDmForMenu != null) {
+        val selectedChat = selectedDmForMenu!!
+        AlertDialog(
+            onDismissRequest = { selectedDmForMenu = null },
+            title = { Text(selectedChat.senderName, color = MaterialTheme.colorScheme.onSurface) },
+            text = {
+                Column {
+                    ListItem(
+                        headlineContent = { Text(if (selectedChat.isPinned) "Unpin Chat" else "Pin Chat", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.PushPin, null, tint = AppAccent) },
+                        modifier = Modifier.clickable {
+                            directMessagesViewModel.pinChat(selectedChat.id, !selectedChat.isPinned)
+                            selectedDmForMenu = null
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text(if (selectedChat.isMuted) "Unmute Notifications" else "Mute Notifications", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(if (selectedChat.isMuted) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff, null, tint = AppAccent) },
+                        modifier = Modifier.clickable {
+                            directMessagesViewModel.muteChat(selectedChat.id, !selectedChat.isMuted)
+                            selectedDmForMenu = null
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Delete Chat", color = Color.Red) },
+                        leadingContent = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
+                        modifier = Modifier.clickable {
+                            directMessagesViewModel.deleteChat(selectedChat.id)
+                            selectedDmForMenu = null
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            },
+            confirmButton = {},
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 }
 

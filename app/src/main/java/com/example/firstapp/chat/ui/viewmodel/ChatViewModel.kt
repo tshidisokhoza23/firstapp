@@ -376,6 +376,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun pinChat(chatId: String, isPinned: Boolean) { viewModelScope.launch { repository.pinChat(chatId, isPinned).collect { fetchChats() } } }
+    fun pinMessage(chatId: String, messageId: String?) { viewModelScope.launch { repository.pinMessage(chatId, messageId).collect { } } }
     fun muteChat(chatId: String, isMuted: Boolean) { viewModelScope.launch { repository.muteChat(chatId, isMuted).collect { fetchChats() } } }
     fun archiveChat(chatId: String, isArchived: Boolean) { viewModelScope.launch { repository.archiveChat(chatId, isArchived).collect { fetchChats() } } }
     fun clearChat(chatId: String) { viewModelScope.launch { repository.clearMessages(chatId); fetchMessages(chatId) } }
@@ -520,6 +521,15 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun demoteAdmin(groupId: String, userId: String) {
+        viewModelScope.launch {
+            repository.demoteAdmin(groupId, userId).collect { res ->
+                if (res is Resource.Success) fetchGroupInfo(groupId)
+                else if (res is Resource.Error) _uiState.update { it.copy(error = res.message) }
+            }
+        }
+    }
+
     fun leaveGroup(groupId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             repository.leaveGroup(groupId).collect { res ->
@@ -619,7 +629,13 @@ class ChatViewModel @Inject constructor(
                             // Update the actual user record on the server for my profile
                             userRepository.updateUser(null, null, null, serverUrl).collect { }
                         } else {
-                            // TODO: Add ChatApi.updateGroupAvatar if needed
+                            val chat = repository.getChatById(chatId).firstOrNull()?.data
+                            val type = chat?.type
+                            if (type == ConversationType.CHANNEL) {
+                                repository.updateChannelAvatar(chatId, serverUrl).collect { }
+                            } else {
+                                repository.updateGroupAvatar(chatId, serverUrl).collect { }
+                            }
                         }
                         
                     } else if (res is Resource.Error) {
@@ -768,6 +784,18 @@ class ChatViewModel @Inject constructor(
 
     fun getMessageReaders(messageId: String): Flow<Resource<List<com.example.firstapp.chat.data.api.ApiReader>>> {
         return repository.getMessageReaders(messageId)
+    }
+
+    fun reportMessage(messageId: String, reason: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            repository.reportMessage(messageId, reason).collect { res ->
+                when (res) {
+                    is Resource.Success -> onDone(true)
+                    is Resource.Error -> onDone(false)
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
     override fun onCleared() {

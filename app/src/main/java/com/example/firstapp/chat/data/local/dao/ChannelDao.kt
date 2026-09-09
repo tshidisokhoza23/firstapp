@@ -30,14 +30,23 @@ interface ChannelDao {
         insertChannels(channels)
     }
 
-    @Query("UPDATE channels SET isSubscribed = :isSubscribed WHERE id = :channelId")
+    @Query("UPDATE channels SET isSubscribed = :isSubscribed WHERE id = :channelId OR conversationId = :channelId")
     suspend fun updateSubscription(channelId: String, isSubscribed: Boolean)
 
     @Query("UPDATE channels SET conversationId = :conversationId, isSubscribed = 1 WHERE id = :channelId")
     suspend fun updateConversationMetadata(channelId: String, conversationId: String)
 
-    @Query("UPDATE channels SET isMuted = :isMuted WHERE id = :channelId")
+    @Query("UPDATE channels SET isMuted = :isMuted WHERE id = :channelId OR conversationId = :channelId")
     suspend fun updateMuted(channelId: String, isMuted: Boolean)
+
+    @Query("UPDATE channels SET adminsCanPost = :allowed WHERE id = :channelId OR conversationId = :channelId")
+    suspend fun updateAdminsCanPost(channelId: String, allowed: Boolean)
+
+    @Query("UPDATE channels SET isAdmin = :isAdmin WHERE id = :channelId OR conversationId = :channelId")
+    suspend fun updateAdmin(channelId: String, isAdmin: Boolean)
+
+    @Query("UPDATE channels SET avatarUrl = :avatarUrl WHERE id = :channelId OR conversationId = :channelId")
+    suspend fun updateAvatar(channelId: String, avatarUrl: String?)
 
     @Query("SELECT id FROM channels WHERE isSubscribed = 1")
     suspend fun getSubscribedChannelIds(): List<String>

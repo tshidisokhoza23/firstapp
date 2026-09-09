@@ -76,6 +76,7 @@ data class ChatMessage(
     val lastSeen: Long = 0,
     val isMuted: Boolean = false,
     val isPinned: Boolean = false,
+    val pinnedMessageId: String? = null,
     val isTyping: Boolean = false,
     val isGroup: Boolean = false,
     val lastMessageIsFromMe: Boolean = false,

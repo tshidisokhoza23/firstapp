@@ -10,7 +10,8 @@ data class JobApplication(
     val location: String,
     val appliedDate: Long,
     val status: ApplicationStatus,
-    val logoColor: Color
+    val logoColor: Color,
+    val conversationId: String? = null
 )
 
 enum class ApplicationStatus(val label: String, val color: Color) {

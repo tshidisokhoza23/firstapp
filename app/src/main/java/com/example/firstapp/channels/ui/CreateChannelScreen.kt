@@ -182,7 +182,7 @@ fun CreateChannelScreen(
             Button(
                 onClick = { 
                     if (name.isNotBlank()) {
-                        viewModel.createChannel(name, description)
+                        viewModel.createChannel(name, description, avatarUri)
                     }
                 },
                 enabled = name.isNotBlank(),

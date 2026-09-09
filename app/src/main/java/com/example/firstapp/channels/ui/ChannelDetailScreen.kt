@@ -77,6 +77,21 @@ import androidx.compose.foundation.lazy.items
 import coil.compose.AsyncImage
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.foundation.layout.imePadding
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.firstapp.chat.ui.components.ChatBottomBarUnique
+import com.example.firstapp.chat.ui.components.AttachmentPanel
+import com.example.firstapp.chat.ui.components.AttachmentPreview
+import com.example.firstapp.chat.model.Message
+import com.example.firstapp.chat.model.MessageType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,12 +99,14 @@ fun ChannelDetailScreen(
     channel: Channel,
     posts: List<Post>,
     currentUserId: String?,
+    messages: List<com.example.firstapp.chat.model.Message> = emptyList(),
     contacts: List<com.example.firstapp.chat.model.Contact> = emptyList(),
     members: List<com.example.firstapp.common.data.api.ApiUser> = emptyList(),
     onBack: () -> Unit,
     onSubscribe: (String) -> Unit = {},
     onMute: (String, Boolean) -> Unit = { _, _ -> },
     onCreatePost: () -> Unit = {},
+    onSendPost: (String, List<String>) -> Unit = { _, _ -> },
     onAddAdmin: (String) -> Unit = {},
     onRemoveAdmin: (String) -> Unit = {},
     onToggleAdminPosting: (Boolean) -> Unit = {},
@@ -99,6 +116,65 @@ fun ChannelDetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showAddAdmin by remember { mutableStateOf(false) }
     var showUnfollowConfirm by remember { mutableStateOf(false) }
+    var postText by remember { mutableStateOf("") }
+    var showAttachments by remember { mutableStateOf(false) }
+
+    val displayPosts = remember(posts, messages) {
+        val mappedMessages = messages.map { msg ->
+            val timestampLabel = try {
+                val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                sdf.format(java.util.Date(msg.timestamp))
+            } catch (_: Exception) {
+                "Just now"
+            }
+            Post(
+                id = msg.id,
+                authorId = msg.senderId,
+                authorName = channel.name,
+                authorHandle = "@channel",
+                authorAvatarUrl = channel.avatarUrl,
+                authorAvatarColor = channel.avatarColor,
+                content = msg.content,
+                mediaUrls = msg.mediaUrls,
+                timestamp = timestampLabel,
+                likes = 0,
+                repliesCount = 0
+            )
+        }
+        (mappedMessages + posts).distinctBy { it.id }
+    }
+
+    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNotEmpty()) {
+            val urls = uris.map { it.toString() }
+            onSendPost("", urls)
+            showAttachments = false
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            onSendPost("", listOf(it.toString()))
+            showAttachments = false
+        }
+    }
+    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            onSendPost("Document update", listOf(it.toString()))
+            showAttachments = false
+        }
+    }
+    val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            onSendPost("Audio update", listOf(it.toString()))
+            showAttachments = false
+        }
+    }
+    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            onSendPost("Video update", listOf(it.toString()))
+            showAttachments = false
+        }
+    }
 
     val isCreator = currentUserId != null && channel.createdBy == currentUserId
     val isAdmin = channel.isAdmin || isCreator
@@ -137,7 +213,16 @@ fun ChannelDetailScreen(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
-                                if (channel.isAdmin) {
+                                if (channel.isVerified || isAdmin) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Filled.Verified,
+                                        contentDescription = "Verified",
+                                        tint = Color(0xFF00A884),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                if (channel.isAdmin && !channel.isVerified) {
                                     Spacer(Modifier.width(4.dp))
                                     Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 }
@@ -156,6 +241,27 @@ fun ChannelDetailScreen(
                     }
                 },
                 actions = {
+                    if (isCreator || isAdmin) {
+                        IconButton(onClick = { 
+                            Toast.makeText(context, "Channel link copied", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Link, contentDescription = "Channel link", tint = MaterialTheme.colorScheme.onBackground)
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            if (isFollower) {
+                                onMute(channel.id, !channel.isMuted)
+                            } else {
+                                Toast.makeText(context, "Follow the channel first", Toast.LENGTH_SHORT).show()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = if (channel.isMuted) Icons.Default.NotificationsOff else Icons.Default.NotificationsNone,
+                                contentDescription = "Mute",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                    }
                     IconButton(onClick = { /* Share */ }) { 
                         Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.onBackground) 
                     }
@@ -255,17 +361,6 @@ fun ChannelDetailScreen(
                 )
             )
         },
-        floatingActionButton = {
-            if (canPost) {
-                FloatingActionButton(
-                    onClick = onCreatePost,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Post to Channel")
-                }
-            }
-        },
         bottomBar = {
             if (!isFollower) {
                 Surface(
@@ -293,6 +388,57 @@ fun ChannelDetailScreen(
                         ) {
                             Text("Follow channel", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                         }
+                    }
+                }
+            } else if (canPost) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .imePadding()
+                    ) {
+                        if (showAttachments) {
+                            AttachmentPanel(
+                                onImageClick = { imageLauncher.launch("image/*") },
+                                onVideoClick = { videoLauncher.launch("video/*") },
+                                onDocClick = { documentLauncher.launch("*/*") },
+                                onContactClick = {
+                                    showAttachments = false
+                                    Toast.makeText(context, "Select contact to share", Toast.LENGTH_SHORT).show()
+                                },
+                                onCameraClick = { cameraLauncher.launch("image/*") },
+                                onAudioClick = { audioLauncher.launch("audio/*") },
+                                onLocationClick = {
+                                    showAttachments = false
+                                    onSendPost("📍 Shared Location", emptyList())
+                                },
+                                onGifClick = {
+                                    showAttachments = false
+                                    onCreatePost()
+                                }
+                            )
+                        }
+
+                        ChatBottomBarUnique(
+                            text = postText,
+                            onTextChange = { postText = it },
+                            onSend = {
+                                if (postText.isNotBlank()) {
+                                    onSendPost(postText.trim(), emptyList())
+                                    postText = ""
+                                    showAttachments = false
+                                }
+                            },
+                            onAttachClick = { showAttachments = !showAttachments },
+                            onEmojiClick = { },
+                            onCameraClick = { cameraLauncher.launch("image/*") },
+                            onMicClick = { },
+                            placeholder = "Write an update"
+                        )
                     }
                 }
             }
@@ -425,7 +571,7 @@ fun ChannelDetailScreen(
                 )
             }
 
-            if (posts.isEmpty()) {
+            if (displayPosts.isEmpty()) {
                 item {
                     // Empty State
                     Box(
@@ -467,7 +613,7 @@ fun ChannelDetailScreen(
                     }
                 }
             } else {
-                items(posts, key = { it.id }) { post ->
+                items(displayPosts, key = { it.id }) { post ->
                     ChannelPostItem(post)
                 }
             }
@@ -527,7 +673,29 @@ fun ChannelDetailScreen(
 }
 
 @Composable
-fun ChannelPostItem(post: Post) {
+fun ChannelPostItem(
+    post: Post,
+    message: Message? = null,
+    onMediaClick: (String, String) -> Unit = { _, _ -> }
+) {
+    val displayMsg = message ?: Message(
+        id = post.id,
+        conversationId = "",
+        content = post.content,
+        senderId = post.authorId,
+        timestamp = System.currentTimeMillis(),
+        isFromMe = false,
+        type = when {
+            post.content.startsWith("📍 Shared Location") -> MessageType.LOCATION
+            post.content == "Voice Note" || post.content.startsWith("Audio update") -> MessageType.AUDIO_MESSAGE
+            post.content.startsWith("Video update") -> MessageType.VIDEO
+            post.content.startsWith("Document update") -> MessageType.DOCUMENT
+            post.mediaUrls.isNotEmpty() -> MessageType.IMAGE
+            else -> MessageType.TEXT
+        },
+        mediaUrls = post.mediaUrls
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -535,64 +703,72 @@ fun ChannelPostItem(post: Post) {
         contentAlignment = Alignment.Center
     ) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
             tonalElevation = 2.dp,
-            modifier = Modifier.widthIn(max = 340.dp)
+            modifier = Modifier.widthIn(max = 380.dp)
         ) {
             Column(
-                modifier = Modifier.padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(12.dp)
             ) {
-                // Centered Post Media Attachment
-                if (post.mediaUrls.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        coil.compose.AsyncImage(
-                            model = post.mediaUrls.first(),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                        )
-                    }
-                    if (post.content.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
+                // Media / Attachment Rendering (Image, Video, Audio, Document, Location)
+                if (displayMsg.mediaUrls.isNotEmpty() || displayMsg.type != MessageType.TEXT) {
+                    AttachmentPreview(
+                        message = displayMsg,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        onMediaClick = onMediaClick
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // Centered Text Content
-                if (post.content.isNotBlank()) {
+                // Text Content
+                val isPlaceholder = displayMsg.content == "Image" || displayMsg.content == "Video" || 
+                        displayMsg.content == "Voice Note" || displayMsg.content == "Document" || displayMsg.content == "Shared Location" ||
+                        displayMsg.content.startsWith("Document update") || displayMsg.content.startsWith("Video update") || displayMsg.content.startsWith("Audio update")
+                if (displayMsg.content.isNotBlank() && !isPlaceholder) {
                     Text(
-                        text = post.content,
+                        text = displayMsg.content,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
-                        lineHeight = 22.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        lineHeight = 22.sp
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Centered Reactions & Timestamp Footer
+                // Footer with reactions, timestamp, and forward share button
                 Row(
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("❤️ ${post.likes}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("💬 ${post.repliesCount}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = post.timestamp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("❤️ ${post.likes}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = post.timestamp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Reply,
+                            contentDescription = "Forward post",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
@@ -644,6 +820,59 @@ fun ChannelDetailScreenAdminPreview() {
             channel = mockChannel,
             posts = emptyList(),
             currentUserId = "admin_id",
+            onBack = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ChannelDetailScreenWithPostsPreview() {
+    val mockChannel = Channel(
+        id = "1",
+        name = "Android Developers",
+        description = "The official channel for Android developers.",
+        followers = "1.2M",
+        avatarUrl = null,
+        avatarColor = Color(0xFF2196F3),
+        isVerified = true,
+        isAdmin = true,
+        adminsCanPost = true,
+        createdBy = "user1"
+    )
+    val mockPosts = listOf(
+        Post(
+            id = "p1",
+            authorId = "user1",
+            authorName = "Android Developers",
+            authorHandle = "@androiddev",
+            authorAvatarUrl = null,
+            authorAvatarColor = Color(0xFF2196F3),
+            content = "Welcome to the official Android Developers channel! Stay tuned for news, updates, tips, and tutorials directly from the Android team.",
+            mediaUrls = emptyList(),
+            timestamp = "10:30 AM",
+            likes = 1240,
+            repliesCount = 85
+        ),
+        Post(
+            id = "p2",
+            authorId = "user1",
+            authorName = "Android Developers",
+            authorHandle = "@androiddev",
+            authorAvatarUrl = null,
+            authorAvatarColor = Color(0xFF2196F3),
+            content = "Jetpack Compose 1.7 is now stable! Check out performance improvements, lazy list optimizations, and new animation APIs.",
+            mediaUrls = emptyList(),
+            timestamp = "2:15 PM",
+            likes = 3450,
+            repliesCount = 210
+        )
+    )
+    MaterialTheme {
+        ChannelDetailScreen(
+            channel = mockChannel,
+            posts = mockPosts,
+            currentUserId = "user1",
             onBack = {}
         )
     }

@@ -78,7 +78,7 @@ object MediaUtils {
         val targetHost = baseUri?.host ?: "192.168.100.7"
         
         // Handle absolute URLs
-        if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("file:") || url.startsWith("local:")) {
+        if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("file:") || url.startsWith("local:") || url.startsWith("content:")) {
             var formatted = url
             
             // Fix legacy port 5000 -> 8082

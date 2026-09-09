@@ -248,7 +248,8 @@ data class UserIdRequest(val user_id: String)
 
 data class CreateChannelRequest(
     val name: String,
-    val description: String
+    val description: String,
+    val avatar_url: String? = null
 )
 
 data class ToggleAdminPostingRequest(

@@ -113,6 +113,33 @@ class GroupRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun demoteAdmin(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.demoteChatGroupAdmin(groupId, AddMemberRequest(userId))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Only admins can dismiss admins"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to demote"))
+        }
+    }
+
+    override fun updateGroupAvatar(groupId: String, avatarUrl: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.updateGroupAvatar(
+                groupId,
+                com.example.firstapp.chat.data.api.AvatarUrlRequest(avatarUrl)
+            )
+            if (response.isSuccessful) {
+                runCatching { chatDao.updateAvatar(groupId, avatarUrl) }
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Only admins can update the group icon"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to update icon"))
+        }
+    }
+
     override fun leaveGroup(groupId: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {

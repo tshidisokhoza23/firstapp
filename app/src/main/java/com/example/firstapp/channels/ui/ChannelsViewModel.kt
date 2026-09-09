@@ -16,7 +16,8 @@ import com.example.firstapp.channels.domain.ChannelRepository
 @HiltViewModel
 class ChannelsViewModel @Inject constructor(
     private val repository: ChannelRepository,
-    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository
+    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository,
+    private val accountRepository: com.example.firstapp.account.domain.repository.AccountRepository
 ) : ViewModel() {
 
     private val _channels = MutableStateFlow<Resource<List<Channel>>>(Resource.Loading())
@@ -58,12 +59,25 @@ class ChannelsViewModel @Inject constructor(
         }
     }
 
-    fun createChannel(name: String, description: String) {
+    fun createChannel(name: String, description: String, avatarUri: android.net.Uri? = null) {
         viewModelScope.launch {
-            repository.createChannel(name, description).collect {
+            var avatarUrl: String? = null
+            if (avatarUri != null) {
+                val context = com.example.firstapp.common.util.ContextProvider.context
+                accountRepository.uploadUri(context, avatarUri, "avatars").collect { res ->
+                    if (res is Resource.Success) {
+                        avatarUrl = res.data?.url
+                    } else if (res is Resource.Error) {
+                        _toastMessage.value = res.message ?: "Failed to upload icon"
+                    }
+                }
+                if (avatarUrl == null && _toastMessage.value != null) return@launch
+            }
+            repository.createChannel(name, description, avatarUrl).collect {
                 if (it is Resource.Success) {
                     _toastMessage.value = "Channel created successfully"
                     fetchChannels()
+                    chatRepository.syncChats().collect {}
                 } else if (it is Resource.Error) {
                     _toastMessage.value = it.message
                 }

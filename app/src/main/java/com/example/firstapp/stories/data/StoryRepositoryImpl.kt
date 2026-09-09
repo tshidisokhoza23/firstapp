@@ -85,22 +85,27 @@ class StoryRepositoryImpl @Inject constructor(
     ): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
+            val normalizedType = type.trim().lowercase().ifBlank { "text" }
+            val normalizedPrivacy = privacy.trim().ifBlank { "contacts" }
             val request = CreateStoryRequest(
-                content = content,
-                content_url = contentUrl,
-                story_type = type.ifBlank { "text" },
-                privacy = privacy.ifBlank { "contacts" }
+                content = content.trim(),
+                content_url = contentUrl?.trim()?.takeIf { it.isNotBlank() },
+                story_type = normalizedType,
+                privacy = normalizedPrivacy
             )
             val response = withTimeout(20_000) { storyApi.createStory(request) }
             if (!response.isSuccessful) {
-                emit(Resource.Error("Server error: ${response.code()}"))
+                val errorMsg = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
+                    ?: "Server error: ${response.code()}"
+                emit(Resource.Error(errorMsg))
                 return@flow
             }
-            cacheOwnPostedStory(response.body()?.story, content, contentUrl, type)
+            cacheOwnPostedStory(response.body()?.story, content, contentUrl, normalizedType)
             emit(Resource.Success(true))
         } catch (e: Exception) {
             if (e is CancellationException && e !is TimeoutCancellationException) throw e
-            emit(Resource.Error(e.localizedMessage ?: "Connection failed"))
+            Log.e(TAG, "createStory failed", e)
+            emit(Resource.Error(e.localizedMessage ?: "Failed to post story"))
         }
     }
 

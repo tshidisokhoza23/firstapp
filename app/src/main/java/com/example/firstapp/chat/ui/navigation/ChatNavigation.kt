@@ -117,12 +117,11 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 is com.example.firstapp.common.util.Resource.Success -> {
                     android.widget.Toast.makeText(context, "Story posted!", android.widget.Toast.LENGTH_SHORT).show()
                     storyViewModel.clearPostResult()
-                    val popped = navController.popBackStack(Screen.Main.createRoute("chat"), false)
+                    navController.popBackStack(Screen.ShareStory.route, true)
+                    navController.popBackStack(Screen.NewStory.route, true)
+                    val popped = navController.popBackStack(Screen.Story.route, false)
                     if (!popped) {
-                        navController.popBackStack(Screen.ShareStory.route, true)
-                        navController.popBackStack(Screen.NewStory.route, true)
-                        navController.popBackStack(Screen.Story.route, true)
-                        navController.popBackStack()
+                        navController.navigate(Screen.Story.createRoute(userId = null, play = false))
                     }
                 }
                 is com.example.firstapp.common.util.Resource.Error -> {
@@ -161,7 +160,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val channelId = backStackEntry.arguments?.getString("channelId") ?: return@composable
         val viewModel: ChannelDetailViewModel = hiltViewModel()
         val channelState by viewModel.channel.collectAsState()
-        val postsState by viewModel.posts.collectAsState()
+        val messagesState by viewModel.messages.collectAsState()
         val contacts by viewModel.contacts.collectAsState()
         val members by viewModel.members.collectAsState()
         val toast by viewModel.toast.collectAsState()
@@ -198,7 +197,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                         onClick = {
                             val body = postText.trim()
                             if (body.isNotEmpty()) {
-                                viewModel.createPost(channelId, body, emptyList())
+                                viewModel.sendMessage(channelId, body, emptyList())
                                 postText = ""
                                 showComposer = false
                             }
@@ -217,7 +216,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 if (channel != null) {
                     ChannelDetailScreen(
                         channel = channel,
-                        posts = postsState.data ?: emptyList(),
+                        posts = emptyList(),
+                        messages = messagesState,
                         currentUserId = viewModel.currentUserId ?: currentUser?.id,
                         contacts = contacts,
                         members = members,
@@ -225,11 +225,12 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                         onSubscribe = { viewModel.subscribe(it) },
                         onMute = { id, muted -> viewModel.mute(id, muted) },
                         onCreatePost = { showComposer = true },
+                        onSendPost = { text, media -> viewModel.sendMessage(channel.id, text, media) },
                         onAddAdmin = { userId -> viewModel.addAdmin(channel.id, userId) },
                         onRemoveAdmin = { userId -> viewModel.removeAdmin(channel.id, userId) },
                         onToggleAdminPosting = { viewModel.toggleAdminPosting(channelId, it) },
                         onOpenDiscussion = {
-                            Toast.makeText(context, "Channels use posts, not a 1:1 chat. Use + to publish.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Channels use posts, not a 1:1 chat.", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -479,7 +480,18 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             messagesState = starredMessages,
             onBack = { navController.popBackStack() },
             onMessageClick = { msg ->
-                navController.navigate(Screen.Chat.createRoute(msg.conversationId))
+                val chats = chatViewModel.chats.value.data.orEmpty()
+                val chat = chats.firstOrNull { it.id == msg.conversationId }
+                when (chat?.type) {
+                    ConversationType.CHANNEL ->
+                        navController.navigate(Screen.ChannelDetail.createRoute(chat.id))
+                    ConversationType.GROUP ->
+                        navController.navigate(Screen.GroupChat.createRoute(chat.id))
+                    ConversationType.JOB_CHAT ->
+                        navController.navigate(Screen.Chat.createRoute(msg.conversationId, type = "job_chat"))
+                    else ->
+                        navController.navigate(Screen.Chat.createRoute(msg.conversationId, type = "direct"))
+                }
             },
             viewModel = hiltViewModel()
         )
@@ -504,7 +516,16 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     popUpTo(Screen.ContactPicker.route) { inclusive = true }
                 }
             },
-            onInviteClicked = { /* invite logic */ },
+            onInviteClicked = {
+                val share = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(
+                        android.content.Intent.EXTRA_TEXT,
+                        "Join me on FirstApp: https://firstapp.app/invite"
+                    )
+                }
+                navController.context.startActivity(android.content.Intent.createChooser(share, "Invite friends"))
+            },
             onGroupCreate = { contacts ->
                 chatViewModel.updateSelectedContacts(contacts)
                 navController.navigate(Screen.CreateGroup.route)
@@ -638,6 +659,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onAddMember = { userId -> viewModel.addMember(groupId, userId) },
             onRemoveMember = { userId -> viewModel.removeMember(groupId, userId) },
             onPromoteAdmin = { userId -> viewModel.promoteAdmin(groupId, userId) },
+            onDemoteAdmin = { userId -> viewModel.demoteAdmin(groupId, userId) },
             onMessageMember = { userId ->
                 navController.navigate(Screen.Chat.createRoute(userId, type = "initiate"))
             },
@@ -777,6 +799,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onAddMember = { memberId -> chatViewModel.addGroupMember(chat.id, memberId) },
             onRemoveMember = { memberId -> chatViewModel.removeGroupMember(chat.id, memberId) },
             onPromoteAdmin = { memberId -> chatViewModel.promoteToAdmin(chat.id, memberId) },
+            onDemoteAdmin = { memberId -> chatViewModel.demoteAdmin(chat.id, memberId) },
             onLeaveGroup = { 
                 chatViewModel.leaveGroup(chat.id) {
                     if (!navController.popBackStack(Screen.Main.createRoute("chat"), false)) {

@@ -239,11 +239,26 @@ interface ChatDao {
     @Query("UPDATE chats SET isPinned = :isPinned WHERE id = :chatId")
     suspend fun updatePinned(chatId: String, isPinned: Boolean)
 
+    @Query("UPDATE chats SET pinnedMessageId = :messageId WHERE id = :chatId")
+    suspend fun updatePinnedMessage(chatId: String, messageId: String?)
+
+    @Query("SELECT id FROM messages WHERE isStarred = 1")
+    suspend fun getStarredMessageIds(): List<String>
+
     @Query("UPDATE chats SET isMuted = :isMuted WHERE id = :chatId")
     suspend fun updateMuted(chatId: String, isMuted: Boolean)
 
     @Query("UPDATE chats SET isArchived = :isArchived WHERE id = :chatId")
     suspend fun updateArchived(chatId: String, isArchived: Boolean)
+
+    @Query("UPDATE chats SET isSubscribed = :isSubscribed WHERE id = :chatId")
+    suspend fun updateSubscribed(chatId: String, isSubscribed: Boolean)
+
+    @Query("UPDATE chats SET adminsCanPost = :allowed WHERE id = :chatId")
+    suspend fun updateAdminsCanPost(chatId: String, allowed: Boolean)
+
+    @Query("UPDATE chats SET isAdmin = :isAdmin WHERE id = :chatId")
+    suspend fun updateAdmin(chatId: String, isAdmin: Boolean)
 
     @Query("UPDATE chats SET wallpaperUrl = :wallpaperUrl WHERE id = :chatId")
     suspend fun updateWallpaper(chatId: String, wallpaperUrl: String?)

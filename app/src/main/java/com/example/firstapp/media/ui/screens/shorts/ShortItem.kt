@@ -134,8 +134,8 @@ fun ShortItem(
         }
     }
 
-    val exoPlayer = remember(videoUrl) {
-        if (videoUrl != null) {
+    val exoPlayer = remember(videoUrl, isVisible) {
+        if (isVisible && videoUrl != null) {
             ShortsVideoCache.acquirePlayer(context, videoUrl)
         } else {
             null
@@ -166,9 +166,9 @@ fun ShortItem(
         exoPlayer?.setPlayWhenReady(isPlaying && !isAppInBackground && isVisible && !isGlobalPaused)
     }
 
-    LaunchedEffect(exoPlayer, videoUrl) {
+    LaunchedEffect(exoPlayer, videoUrl, isVisible) {
         val player = exoPlayer
-        if (player != null && videoUrl != null) {
+        if (isVisible && player != null && videoUrl != null) {
             if (player.currentMediaItem?.localConfiguration?.uri.toString() != videoUrl) {
                 player.setMediaItem(MediaItem.fromUri(videoUrl))
                 player.prepare()
@@ -178,9 +178,9 @@ fun ShortItem(
         }
     }
 
-    DisposableEffect(exoPlayer, videoUrl) {
+    DisposableEffect(exoPlayer, videoUrl, isVisible) {
         val player = exoPlayer
-        if (player == null || videoUrl == null) {
+        if (player == null || videoUrl == null || !isVisible) {
             isVideoReady = false
             isBuffering = false
             onDispose {}

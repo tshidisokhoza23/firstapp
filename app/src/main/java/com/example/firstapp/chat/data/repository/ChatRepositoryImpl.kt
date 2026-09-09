@@ -332,6 +332,35 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
 
+            "message_edited" -> {
+                envelope.payload?.let { payload ->
+                    val messageId = payload["message_id"]?.jsonPrimitive?.contentOrNull
+                    val newText = payload["message_text"]?.jsonPrimitive?.contentOrNull
+                        ?: payload["content"]?.jsonPrimitive?.contentOrNull
+                    if (messageId != null && !newText.isNullOrBlank()) {
+                        db.withTransaction { chatDao.updateMessageContent(messageId, newText) }
+                    }
+                }
+            }
+
+            "message_reaction" -> {
+                envelope.payload?.let { payload ->
+                    val messageId = payload["message_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    val reactionsEl = payload["reactions"]
+                    val reactions = if (reactionsEl is JsonObject) {
+                        reactionsEl.mapNotNull { (emoji, countEl) ->
+                            val count = countEl.jsonPrimitive.intOrNull ?: return@mapNotNull null
+                            emoji to count
+                        }.toMap()
+                    } else {
+                        emptyMap()
+                    }
+                    if (reactions.isNotEmpty()) {
+                        db.withTransaction { chatDao.updateMessageReactions(messageId, reactions) }
+                    }
+                }
+            }
+
             "conversation_deleted" -> {
                 envelope.payload?.let { payload ->
                     val chatId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull
@@ -371,6 +400,57 @@ class ChatRepositoryImpl @Inject constructor(
                     if (userId != null) {
                         chatDao.updatePresence(userId, isOnline, lastSeen)
                     }
+                }
+            }
+
+            "channel_subscribed" -> {
+                envelope.payload?.let { payload ->
+                    val channelId = payload["channel_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    val isSubscribed = payload["is_subscribed"]?.jsonPrimitive?.booleanOrNull ?: true
+                    channelDaoProvider.get().updateSubscription(channelId, isSubscribed)
+                    chatDao.updateSubscribed(channelId, isSubscribed)
+                }
+            }
+
+            "channel_muted" -> {
+                envelope.payload?.let { payload ->
+                    val channelId = payload["channel_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    val isMuted = payload["is_muted"]?.jsonPrimitive?.booleanOrNull ?: return@let
+                    channelDaoProvider.get().updateMuted(channelId, isMuted)
+                    chatDao.updateMuted(channelId, isMuted)
+                }
+            }
+
+            "channel_admin_posting" -> {
+                envelope.payload?.let { payload ->
+                    val channelId = payload["channel_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    val allowed = payload["admins_can_post"]?.jsonPrimitive?.booleanOrNull ?: return@let
+                    channelDaoProvider.get().updateAdminsCanPost(channelId, allowed)
+                    chatDao.updateAdminsCanPost(channelId, allowed)
+                }
+            }
+
+            "channel_admin_added" -> {
+                envelope.payload?.let { payload ->
+                    val channelId = payload["channel_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    channelDaoProvider.get().updateAdmin(channelId, true)
+                    chatDao.updateAdmin(channelId, true)
+                }
+            }
+
+            "channel_admin_removed" -> {
+                envelope.payload?.let { payload ->
+                    val channelId = payload["channel_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    channelDaoProvider.get().updateAdmin(channelId, false)
+                    chatDao.updateAdmin(channelId, false)
+                }
+            }
+
+            "message_pinned" -> {
+                envelope.payload?.let { payload ->
+                    val chatId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    val pinnedId = payload["pinned_message_id"]?.jsonPrimitive?.contentOrNull
+                    chatDao.updatePinnedMessage(chatId, pinnedId?.takeIf { it.isNotBlank() })
                 }
             }
 
@@ -554,11 +634,16 @@ class ChatRepositoryImpl @Inject constructor(
                 val apiMessages = response.body()!!.messages
                 val myUserId = sessionManager.getUserId()
                 val privKey = sessionManager.getPrivateKey()
-                val entities = apiMessages.map { mapApiMessage(it, privKey, myUserId).toEntity(chatId) }
+                val chatDao = chatDaoProvider.get()
+                val starredIds = chatDao.getStarredMessageIds().toSet()
+                val entities = apiMessages.map { api ->
+                    val mapped = mapApiMessage(api, privKey, myUserId).toEntity(chatId)
+                    if (mapped.id in starredIds) mapped.copy(isStarred = true) else mapped
+                }
 
                 val db = dbProvider.get()
                 db.withTransaction {
-                    chatDaoProvider.get().insertMessages(entities)
+                    chatDao.insertMessages(entities)
                 }
                 emit(Resource.Success(true))
             } else {
@@ -638,8 +723,11 @@ class ChatRepositoryImpl @Inject constructor(
                             isAdmin = local.isAdmin || serverEntity.isAdmin,
                             isMuted = local.isMuted,
                             adminsCanPost = local.adminsCanPost || serverEntity.adminsCanPost,
-                            createdBy = serverEntity.createdBy ?: local.createdBy
+                            createdBy = serverEntity.createdBy ?: local.createdBy,
+                            pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId
                         )
+                    } else if (local != null) {
+                        resultEntity.copy(pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId)
                     } else {
                         resultEntity
                     }
@@ -658,8 +746,10 @@ class ChatRepositoryImpl @Inject constructor(
                         if (history.isSuccessful && history.body() != null) {
                             val myUserId = sessionManager.getUserId()
                             val privKey = sessionManager.getPrivateKey()
+                            val starredIds = chatDao.getStarredMessageIds().toSet()
                             val messages = history.body()!!.messages.map {
-                                mapApiMessage(it, privKey, myUserId).toEntity(entity.id)
+                                val mapped = mapApiMessage(it, privKey, myUserId).toEntity(entity.id)
+                                if (mapped.id in starredIds) mapped.copy(isStarred = true) else mapped
                             }
                             if (messages.isNotEmpty()) {
                                 db.withTransaction {
@@ -1026,11 +1116,60 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getArchivedChats(): Flow<Resource<List<ChatMessage>>> = chatDaoProvider.get().getArchivedChats().map { list -> Resource.Success(list.map { it.toModel() }) }
     override fun getCallLogs(): Flow<Resource<List<CallLog>>> = callLogDaoProvider.get().getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }
     override fun getSharedMedia(chatId: String): Flow<Resource<List<Message>>> = chatDaoProvider.get().getMessages(chatId).map { list -> Resource.Success(list.filter { it.type == MessageType.IMAGE || it.type == MessageType.VIDEO }.map { it.toModel() }) }
-    override fun getStarredMessages(): Flow<Resource<List<Message>>> = chatDaoProvider.get().getStarredMessages().map { list -> Resource.Success(list.map { it.toModel() }) }
-    override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateMessageStarred(messageId, isStarred); emit(Resource.Success(true)) }
-    override fun pinChat(chatId: String, isPinned: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updatePinned(chatId, isPinned); emit(Resource.Success(true)) }
-    override fun muteChat(chatId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateMuted(chatId, isMuted); emit(Resource.Success(true)) }
-    override fun archiveChat(chatId: String, isArchived: Boolean): Flow<Resource<Boolean>> = flow { chatDaoProvider.get().updateArchived(chatId, isArchived); emit(Resource.Success(true)) }
+    override fun getStarredMessages(): Flow<Resource<List<Message>>> = flow {
+        try {
+            val response = chatApi.getStarredMessages()
+            if (response.isSuccessful) {
+                val privKey = sessionManager.getPrivateKey()
+                val myUserId = sessionManager.getUserId()
+                val entities = response.body()?.messages.orEmpty().map { api ->
+                    mapApiMessage(api, privKey, myUserId).toEntity(api.conversation_id).copy(isStarred = true)
+                }
+                if (entities.isNotEmpty()) {
+                    chatDaoProvider.get().insertMessages(entities)
+                }
+            }
+        } catch (_: Exception) {
+        }
+        emitAll(chatDaoProvider.get().getStarredMessages().map { list -> Resource.Success(list.map { it.toModel() }) })
+    }
+    override fun starMessage(messageId: String, isStarred: Boolean): Flow<Resource<Boolean>> = flow {
+        val chatDao = chatDaoProvider.get()
+        chatDao.updateMessageStarred(messageId, isStarred)
+        try {
+            if (isStarred) {
+                chatApi.starMessage(messageId, StarMessageRequest(starred = true))
+            } else {
+                chatApi.unstarMessage(messageId)
+            }
+        } catch (_: Exception) {
+        }
+        emit(Resource.Success(true))
+    }
+    override fun pinChat(chatId: String, isPinned: Boolean): Flow<Resource<Boolean>> = flow {
+        chatDaoProvider.get().updatePinned(chatId, isPinned)
+        try {
+            chatApi.updateConversationPrefs(chatId, ConversationPrefsRequest(is_pinned = isPinned))
+        } catch (_: Exception) {
+        }
+        emit(Resource.Success(true))
+    }
+    override fun muteChat(chatId: String, isMuted: Boolean): Flow<Resource<Boolean>> = flow {
+        chatDaoProvider.get().updateMuted(chatId, isMuted)
+        try {
+            chatApi.updateConversationPrefs(chatId, ConversationPrefsRequest(is_muted = isMuted))
+        } catch (_: Exception) {
+        }
+        emit(Resource.Success(true))
+    }
+    override fun archiveChat(chatId: String, isArchived: Boolean): Flow<Resource<Boolean>> = flow {
+        chatDaoProvider.get().updateArchived(chatId, isArchived)
+        try {
+            chatApi.updateConversationPrefs(chatId, ConversationPrefsRequest(is_archived = isArchived))
+        } catch (_: Exception) {
+        }
+        emit(Resource.Success(true))
+    }
     override suspend fun updateWallpaper(chatId: String, wallpaperUrl: String?) { chatDaoProvider.get().updateWallpaper(chatId, wallpaperUrl) }
     override suspend fun updateCustomNotificationTone(chatId: String, tone: String?) { chatDaoProvider.get().updateCustomNotificationTone(chatId, tone) }
     override suspend fun updateMediaVisibility(chatId: String, visible: Boolean) { chatDaoProvider.get().updateMediaVisibility(chatId, visible) }
@@ -1083,12 +1222,104 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun reactToMessage(messageId: String, emoji: String): Flow<Resource<Boolean>> = flow {
-        chatDaoProvider.get().updateMessageReactions(messageId, mapOf(emoji to 1))
-        emit(Resource.Success(true))
+        val chatDao = chatDaoProvider.get()
+        val existing = chatDao.getMessageById(messageId)
+        val merged = (existing?.reactions ?: emptyMap()).toMutableMap()
+        merged[emoji] = (merged[emoji] ?: 0) + 1
+        chatDao.updateMessageReactions(messageId, merged)
+        try {
+            val chatId = chatDao.getChatIdForMessage(messageId)
+            if (!chatId.isNullOrBlank()) {
+                val response = chatApi.reactToMessage(chatId, messageId, ReactMessageRequest(emoji))
+                if (response.isSuccessful) {
+                    response.body()?.reactions?.takeIf { it.isNotEmpty() }?.let {
+                        chatDao.updateMessageReactions(messageId, it)
+                    }
+                    emit(Resource.Success(true))
+                } else {
+                    emit(Resource.Error("Failed to react"))
+                }
+            } else {
+                emit(Resource.Success(true))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to react"))
+        }
     }
 
-    override fun forwardMessage(messageId: String, receiverIds: List<String>, groupIds: List<String>): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun fetchOlderMessages(chatId: String, beforeTs: Long, limit: Int): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
+    override fun forwardMessage(messageId: String, receiverIds: List<String>, groupIds: List<String>): Flow<Resource<Boolean>> = flow {
+        val source = chatDaoProvider.get().getMessageById(messageId)
+        if (source == null) {
+            emit(Resource.Error("Message not found"))
+            return@flow
+        }
+        val targets = (receiverIds + groupIds).distinct().filter { it.isNotBlank() }
+        if (targets.isEmpty()) {
+            emit(Resource.Error("No destinations selected"))
+            return@flow
+        }
+        var failed = false
+        for (targetId in targets) {
+            var chatId = targetId
+            val existing = chatDaoProvider.get().searchChatsById(targetId)
+            if (existing == null && receiverIds.contains(targetId)) {
+                try {
+                    initiateDM(targetId).collect { res ->
+                        if (res is Resource.Success && !res.data.isNullOrBlank()) {
+                            chatId = res.data
+                        } else if (res is Resource.Error) {
+                            failed = true
+                        }
+                    }
+                } catch (_: Exception) {
+                    failed = true
+                    continue
+                }
+            }
+            sendMessage(
+                chatId = chatId,
+                body = source.content,
+                messageType = source.type.name.lowercase(),
+                mediaUrls = source.mediaUrls,
+                duration = source.duration,
+                fileName = source.fileName,
+                fileSize = source.fileSize,
+                contactName = source.contactName,
+                contactPhone = source.contactPhone,
+                latitude = source.latitude,
+                longitude = source.longitude
+            ).collect { res ->
+                if (res is Resource.Error) failed = true
+            }
+        }
+        if (failed) emit(Resource.Error("Some forwards failed"))
+        else emit(Resource.Success(true))
+    }
+    override fun fetchOlderMessages(chatId: String, beforeTs: Long, limit: Int): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.getMessages(chatId, cursor = beforeTs.toString(), limit = limit)
+            if (response.isSuccessful && response.body() != null) {
+                val apiMessages = response.body()!!.messages
+                val myUserId = sessionManager.getUserId()
+                val privKey = sessionManager.getPrivateKey()
+                val chatDao = chatDaoProvider.get()
+                val starredIds = chatDao.getStarredMessageIds().toSet()
+                val entities = apiMessages.map { api ->
+                    val mapped = mapApiMessage(api, privKey, myUserId).toEntity(chatId)
+                    if (mapped.id in starredIds) mapped.copy(isStarred = true) else mapped
+                }
+                dbProvider.get().withTransaction {
+                    chatDao.insertMessages(entities)
+                }
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to fetch older messages: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to fetch older messages"))
+        }
+    }
     override fun getGroupInfo(groupId: String): Flow<Resource<GroupInfoResponse>> = flow {
         emit(Resource.Loading())
         try {
@@ -1136,6 +1367,43 @@ class ChatRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun demoteAdmin(groupId: String, userId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.demoteChatGroupAdmin(groupId, AddMemberRequest(userId))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Only admins can dismiss admins"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to demote"))
+        }
+    }
+
+    override fun updateGroupAvatar(groupId: String, avatarUrl: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.updateGroupAvatar(groupId, AvatarUrlRequest(avatarUrl))
+            if (response.isSuccessful) {
+                runCatching { chatDaoProvider.get().updateAvatar(groupId, avatarUrl) }
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Only admins can update the group icon"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to update icon"))
+        }
+    }
+
+    override fun updateChannelAvatar(channelId: String, avatarUrl: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.updateChannelAvatar(channelId, AvatarUrlRequest(avatarUrl))
+            if (response.isSuccessful) {
+                runCatching { chatDaoProvider.get().updateAvatar(channelId, avatarUrl) }
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Only admins can update the channel icon"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to update icon"))
+        }
+    }
+
     override fun leaveGroup(groupId: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
@@ -1174,9 +1442,37 @@ class ChatRepositoryImpl @Inject constructor(
             emit(Resource.Error(e.message ?: "Failed to join group"))
         }
     }
-    override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
-    override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow { emit(Resource.Success(emptyList())) }
-    override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
+    override fun pinMessage(chatId: String, messageId: String?): Flow<Resource<Boolean>> = flow {
+        val chatDao = chatDaoProvider.get()
+        chatDao.updatePinnedMessage(chatId, messageId)
+        try {
+            val response = chatApi.pinMessage(chatId, PinMessageRequest(message_id = messageId))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to pin message"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to pin message"))
+        }
+    }
+    override fun getMessageReaders(messageId: String): Flow<Resource<List<ApiReader>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.getMessageReaders(messageId)
+            if (response.isSuccessful) emit(Resource.Success(response.body() ?: emptyList()))
+            else emit(Resource.Error("Failed to load readers"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to load readers"))
+        }
+    }
+    override fun reportMessage(messageId: String, reason: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.reportMessage(messageId, ReportMessageRequest(reason))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to report message"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to report message"))
+        }
+    }
     override fun initiateCall(receiverId: String, callType: String): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         try {
@@ -1191,7 +1487,16 @@ class ChatRepositoryImpl @Inject constructor(
             emit(Resource.Error(e.message ?: "Network error"))
         }
     }
-    override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
+    override fun updateJobApplicationStatus(chatId: String, status: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.updateApplicationStatus(chatId, StatusUpdateRequest(status))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Failed to update application status"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to update application status"))
+        }
+    }
     override fun getConversationMembers(chatId: String): Flow<Resource<List<ApiUser>>> = flow {
         emit(Resource.Loading())
         try {
@@ -1202,7 +1507,49 @@ class ChatRepositoryImpl @Inject constructor(
             emit(Resource.Error(e.message ?: "Failed to load members"))
         }
     }
-    override suspend fun getICEServers(): Resource<List<IceServerConfig>> = Resource.Success(emptyList())
-    override fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>> = flow { emit(Resource.Success(true)) }
+
+    override fun subscribeToChannel(channelId: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = chatApi.subscribeToChannel(channelId)
+            if (response.isSuccessful) {
+                val channelDao = channelDaoProvider.get()
+                val chatDao = chatDaoProvider.get()
+                val entity = channelDao.getChannelsOnce()
+                    .find { it.id == channelId || it.conversationId == channelId }
+                val subscribed = if (entity != null) !entity.isSubscribed else true
+                if (entity != null) {
+                    channelDao.updateSubscription(entity.id, subscribed)
+                }
+                val conversationId = entity?.conversationId ?: channelId
+                chatDao.updateSubscribed(conversationId, subscribed)
+                if (entity != null && entity.id != conversationId) {
+                    chatDao.updateSubscribed(entity.id, subscribed)
+                }
+                if (subscribed) {
+                    webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$conversationId") })
+                }
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to update subscription"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Failed to update subscription"))
+        }
+    }
+
+    override suspend fun getICEServers(): Resource<List<IceServerConfig>> {
+        return try {
+            val response = chatApi.getICEServers()
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(response.body()!!.ice_servers)
+            } else {
+                Resource.Error("Failed to load ICE servers")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to load ICE servers")
+        }
+    }
+
     override suspend fun updateMessageStatus(messageId: String, status: MessageStatus) {}
 }

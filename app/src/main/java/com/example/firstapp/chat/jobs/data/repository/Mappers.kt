@@ -48,7 +48,8 @@ fun JobApplication.toEntity() = JobApplicationEntity(
     companyName = companyName,
     location = location,
     appliedDate = appliedDate,
-    status = status
+    status = status,
+    conversationId = conversationId
 )
 
 fun JobApplicationEntity.toModel() = JobApplication(
@@ -59,5 +60,6 @@ fun JobApplicationEntity.toModel() = JobApplication(
     location = location,
     appliedDate = appliedDate,
     status = status,
-    logoColor = AppAccent
+    logoColor = AppAccent,
+    conversationId = conversationId
 )

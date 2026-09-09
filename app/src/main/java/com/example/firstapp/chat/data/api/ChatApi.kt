@@ -68,6 +68,15 @@ interface ChatApi {
     @POST("chats/groups/{groupId}/admins")
     suspend fun promoteChatGroupAdmin(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
 
+    @HTTP(method = "DELETE", path = "chats/groups/{groupId}/admins", hasBody = true)
+    suspend fun demoteChatGroupAdmin(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
+
+    @PATCH("chats/groups/{groupId}/avatar")
+    suspend fun updateGroupAvatar(@Path("groupId") groupId: String, @Body request: AvatarUrlRequest): Response<StatusResponse>
+
+    @PATCH("chats/channels/{channelId}/avatar")
+    suspend fun updateChannelAvatar(@Path("channelId") channelId: String, @Body request: AvatarUrlRequest): Response<StatusResponse>
+
     @POST("chats/groups/{groupId}/leave")
     suspend fun leaveChatGroup(@Path("groupId") groupId: String): Response<StatusResponse>
 
@@ -96,6 +105,16 @@ interface ChatApi {
         @Body request: EditMessageRequest
     ): Response<MessageResponse>
 
+    @GET("messages/{messageID}/readers")
+    suspend fun getMessageReaders(@Path("messageID") messageId: String): Response<List<ApiReader>>
+
+    @POST("conversations/{conversationID}/messages/{messageID}/reactions")
+    suspend fun reactToMessage(
+        @Path("conversationID") conversationID: String,
+        @Path("messageID") messageId: String,
+        @Body request: ReactMessageRequest
+    ): Response<ReactionsResponse>
+
     @POST("calls/initiate")
     suspend fun initiateCall(@Body request: InitiateCallRequest): Response<InitiateCallResponse>
 
@@ -104,10 +123,51 @@ interface ChatApi {
 
     @GET("calls/ice_servers")
     suspend fun getICEServers(): Response<IceServersResponse>
+
+    @PATCH("conversations/{conversationID}/prefs")
+    suspend fun updateConversationPrefs(
+        @Path("conversationID") conversationID: String,
+        @Body request: ConversationPrefsRequest
+    ): Response<StatusResponse>
+
+    @POST("messages/{messageID}/report")
+    suspend fun reportMessage(
+        @Path("messageID") messageId: String,
+        @Body request: ReportMessageRequest
+    ): Response<StatusResponse>
+
+    @PATCH("conversations/{conversationID}/pinned-message")
+    suspend fun pinMessage(
+        @Path("conversationID") conversationID: String,
+        @Body request: PinMessageRequest
+    ): Response<StatusResponse>
+
+    @POST("messages/{messageID}/star")
+    suspend fun starMessage(
+        @Path("messageID") messageId: String,
+        @Body request: StarMessageRequest
+    ): Response<StatusResponse>
+
+    @DELETE("messages/{messageID}/star")
+    suspend fun unstarMessage(@Path("messageID") messageId: String): Response<StatusResponse>
+
+    @GET("messages/starred")
+    suspend fun getStarredMessages(): Response<MessagesResponse>
 }
 
 data class AddMemberRequest(val user_id: String)
+data class AvatarUrlRequest(val avatar_url: String)
 data class EditMessageRequest(val message_text: String)
+data class ReactMessageRequest(val emoji: String)
+data class ReactionsResponse(val reactions: Map<String, Int> = emptyMap())
+data class ConversationPrefsRequest(
+    val is_muted: Boolean? = null,
+    val is_pinned: Boolean? = null,
+    val is_archived: Boolean? = null
+)
+data class ReportMessageRequest(val reason: String)
+data class PinMessageRequest(val message_id: String?)
+data class StarMessageRequest(val starred: Boolean)
 data class ReadReceiptRequest(val last_read_message_id: String)
 data class StatusUpdateRequest(val status: String)
 
@@ -128,6 +188,7 @@ data class ChatSummary(
     val last_message: String,
     val time: Long,
     val unread_count: Int,
+    val pinned_message_id: String? = null,
     val is_muted: Boolean,
     val is_pinned: Boolean,
     val is_subscribed: Boolean = false,

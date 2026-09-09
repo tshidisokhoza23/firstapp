@@ -4,9 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.chat.model.Channel
-import com.example.firstapp.media.model.Post
+import com.example.firstapp.chat.model.Message
 import com.example.firstapp.channels.domain.ChannelRepository
-import com.example.firstapp.media.domain.repository.SocialRepository
 import com.example.firstapp.common.domain.auth.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +18,6 @@ import javax.inject.Inject
 @HiltViewModel
 class ChannelDetailViewModel @Inject constructor(
     private val repository: ChannelRepository,
-    private val socialRepository: SocialRepository,
     private val chatRepository: com.example.firstapp.domain.repository.ChatRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
@@ -29,8 +27,8 @@ class ChannelDetailViewModel @Inject constructor(
     private val _channel = MutableStateFlow<Resource<Channel>>(Resource.Loading())
     val channel: StateFlow<Resource<Channel>> = _channel.asStateFlow()
 
-    private val _posts = MutableStateFlow<Resource<List<Post>>>(Resource.Loading())
-    val posts: StateFlow<Resource<List<Post>>> = _posts.asStateFlow()
+    private val _messages = MutableStateFlow<List<Message>>(emptyList())
+    val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 
     private val _contacts = MutableStateFlow<List<com.example.firstapp.chat.model.Contact>>(emptyList())
     val contacts: StateFlow<List<com.example.firstapp.chat.model.Contact>> = _contacts.asStateFlow()
@@ -40,18 +38,30 @@ class ChannelDetailViewModel @Inject constructor(
 
     fun loadChannel(channelId: String) {
         viewModelScope.launch {
+            repository.getChannel(channelId).collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    _channel.value = res
+                    val convId = res.data.conversationId ?: res.data.id
+                    loadMessages(convId)
+                    loadMembers(convId)
+                }
+            }
             repository.getChannels().collect { resource ->
                 if (resource is Resource.Success) {
                     val ch = resource.data?.find { it.id == channelId || it.conversationId == channelId }
                     if (ch != null) {
                         _channel.value = Resource.Success(ch)
-                        loadMembers(ch.conversationId ?: ch.id)
+                        val convId = ch.conversationId ?: ch.id
+                        loadMessages(convId)
+                        loadMembers(convId)
                     } else {
                         val searched = repository.searchChannels(channelId).firstOrNull()
                             ?.find { it.id == channelId || it.conversationId == channelId }
                         if (searched != null) {
                             _channel.value = Resource.Success(searched)
-                            loadMembers(searched.conversationId ?: searched.id)
+                            val convId = searched.conversationId ?: searched.id
+                            loadMessages(convId)
+                            loadMembers(convId)
                         } else {
                             _channel.value = Resource.Error("Channel not found")
                         }
@@ -61,12 +71,12 @@ class ChannelDetailViewModel @Inject constructor(
                 }
             }
         }
+        loadMessages(channelId)
         viewModelScope.launch {
             chatRepository.getContacts().collect { res ->
                 _contacts.value = res.data ?: emptyList()
             }
         }
-        loadPosts(channelId)
     }
 
     private fun loadMembers(conversationId: String) {
@@ -77,18 +87,32 @@ class ChannelDetailViewModel @Inject constructor(
         }
     }
 
-    fun loadPosts(channelId: String) {
+    fun loadMessages(conversationId: String) {
         viewModelScope.launch {
-            socialRepository.getChannelPosts(channelId, 1, "standard").collect { _posts.value = it }
+            chatRepository.getMessages(conversationId).collect { res ->
+                _messages.value = res.data ?: emptyList()
+            }
+        }
+        viewModelScope.launch {
+            try {
+                chatRepository.fetchMessages(conversationId).collect {}
+            } catch (_: Exception) {}
         }
     }
 
     fun subscribe(channelId: String) {
         viewModelScope.launch {
-            repository.subscribeToChannel(channelId).collect {
-                if (it is Resource.Success) {
+            repository.subscribeToChannel(channelId).collect { res ->
+                if (res is Resource.Success) {
+                    _toast.value = "Channel followed"
                     loadChannel(channelId)
-                    chatRepository.syncChats().collect {}
+                    val convId = (_channel.value as? Resource.Success)?.data?.conversationId ?: channelId
+                    try {
+                        chatRepository.fetchMessages(convId).collect {}
+                        chatRepository.syncChats().collect {}
+                    } catch (_: Exception) {}
+                } else if (res is Resource.Error) {
+                    _toast.value = res.message ?: "Failed to follow channel"
                 }
             }
         }
@@ -133,18 +157,38 @@ class ChannelDetailViewModel @Inject constructor(
         _toast.value = null
     }
 
-    fun createPost(channelId: String, content: String, mediaUrls: List<String>) {
+    fun sendMessage(
+        channelId: String,
+        content: String,
+        mediaUrls: List<String> = emptyList(),
+        messageType: String = "text",
+        fileName: String? = null
+    ) {
         viewModelScope.launch {
-            socialRepository.createPost(content, mediaUrls, channelId = channelId).collect {
-                when (it) {
-                    is Resource.Success -> {
-                        _toast.value = "Posted to channel"
-                        loadPosts(channelId)
-                    }
-                    is Resource.Error -> _toast.value = it.message ?: "Failed to post"
-                    else -> {}
+            val ch = (_channel.value as? Resource.Success)?.data
+            val convId = ch?.conversationId ?: channelId
+            val type = when {
+                messageType.isNotBlank() && messageType != "text" -> messageType
+                mediaUrls.isNotEmpty() -> "image"
+                else -> "text"
+            }
+            
+            chatRepository.sendMessage(
+                chatId = convId,
+                body = content,
+                messageType = type,
+                mediaUrls = mediaUrls,
+                fileName = fileName
+            ).collect { res ->
+                if (res is Resource.Success) {
+                    _toast.value = "Update sent"
+                    loadMessages(convId)
                 }
             }
         }
+    }
+
+    fun createPost(channelId: String, content: String, mediaUrls: List<String>) {
+        sendMessage(channelId, content, mediaUrls, if (mediaUrls.isNotEmpty()) "image" else "text")
     }
 }

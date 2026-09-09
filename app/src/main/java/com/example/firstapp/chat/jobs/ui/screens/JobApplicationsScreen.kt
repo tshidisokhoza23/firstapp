@@ -80,7 +80,9 @@ fun JobApplicationsScreen(
                         application = application,
                         onViewJobDetails = { onViewJobDetails(application.jobId) },
                         onWithdrawApplication = { viewModel.withdrawApplication(application.id) },
-                        onContactRecruiter = { /* In WASAPP logic, recruiter contact is automatic via DM */ },
+                        onContactRecruiter = {
+                            onContactRecruiter(application.conversationId ?: application.jobId)
+                        },
                     ) { onSetReminder(application) }
                 }
             }

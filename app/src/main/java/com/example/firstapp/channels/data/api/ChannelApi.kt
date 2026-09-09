@@ -12,8 +12,10 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ChannelApi {
     @GET("channels")
@@ -22,8 +24,20 @@ interface ChannelApi {
     @GET("chats/channels")
     suspend fun getChatsChannels(): Response<ChannelsResponse>
 
+    @GET("chats/channels/search")
+    suspend fun searchChannels(@Query("query") query: String): Response<ChannelsResponse>
+
+    @GET("chats/channels/{channelId}")
+    suspend fun getChannel(@Path("channelId") channelId: String): Response<ApiChannel>
+
     @POST("chats/channels")
     suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiChannel>
+
+    @PATCH("chats/channels/{channelId}/avatar")
+    suspend fun updateChannelAvatar(
+        @Path("channelId") channelId: String,
+        @Body request: com.example.firstapp.chat.data.api.AvatarUrlRequest
+    ): Response<StatusResponse>
 
     @POST("chats/channels/{channelId}/subscribe")
     suspend fun subscribeToChannel(@Path("channelId") channelId: String): Response<StatusResponse>
