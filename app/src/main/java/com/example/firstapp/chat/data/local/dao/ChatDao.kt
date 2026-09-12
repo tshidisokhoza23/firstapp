@@ -15,16 +15,168 @@ interface ChatDao {
     // CHAT STREAMS & MUTATIONS
     // ==========================================
 
-    @Query("SELECT * FROM chats WHERE isArchived = 0 ORDER BY isPinned DESC, timestamp DESC")
+    @Query("""
+        SELECT 
+            c.id AS id,
+            c.type AS type,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
+            c.description AS description,
+            c.lastMessage AS lastMessage,
+            c.timestamp AS timestamp,
+            c.unreadCount AS unreadCount,
+            c.lastSeen AS lastSeen,
+            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            c.isOnline AS isOnline,
+            c.isMuted AS isMuted,
+            c.isPinned AS isPinned,
+            c.pinnedMessageId AS pinnedMessageId,
+            c.isTyping AS isTyping,
+            c.isArchived AS isArchived,
+            c.isVerified AS isVerified,
+            c.isAdmin AS isAdmin,
+            c.adminsCanPost AS adminsCanPost,
+            c.isGroup AS isGroup,
+            c.isSubscribed AS isSubscribed,
+            c.createdBy AS createdBy,
+            c.followers AS followers,
+            c.category AS category,
+            c.wallpaperUrl AS wallpaperUrl,
+            c.customNotificationTone AS customNotificationTone,
+            c.mediaVisibility AS mediaVisibility,
+            c.disappearingMessagesDuration AS disappearingMessagesDuration,
+            c.lastMessageIsFromMe AS lastMessageIsFromMe,
+            c.lastMessageRead AS lastMessageRead,
+            COALESCE(u.publicKey, c.publicKey) AS publicKey,
+            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            c.otherUserId AS otherUserId
+        FROM chats c
+        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        WHERE c.isArchived = 0
+        ORDER BY c.isPinned DESC, c.timestamp DESC
+    """)
     fun getChats(): Flow<List<ChatEntity>>
 
-    @Query("SELECT * FROM chats WHERE isArchived = 0 AND type = :type ORDER BY isPinned DESC, timestamp DESC")
+    @Query("""
+        SELECT 
+            c.id AS id,
+            c.type AS type,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
+            c.description AS description,
+            c.lastMessage AS lastMessage,
+            c.timestamp AS timestamp,
+            c.unreadCount AS unreadCount,
+            c.lastSeen AS lastSeen,
+            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            c.isOnline AS isOnline,
+            c.isMuted AS isMuted,
+            c.isPinned AS isPinned,
+            c.pinnedMessageId AS pinnedMessageId,
+            c.isTyping AS isTyping,
+            c.isArchived AS isArchived,
+            c.isVerified AS isVerified,
+            c.isAdmin AS isAdmin,
+            c.adminsCanPost AS adminsCanPost,
+            c.isGroup AS isGroup,
+            c.isSubscribed AS isSubscribed,
+            c.createdBy AS createdBy,
+            c.followers AS followers,
+            c.category AS category,
+            c.wallpaperUrl AS wallpaperUrl,
+            c.customNotificationTone AS customNotificationTone,
+            c.mediaVisibility AS mediaVisibility,
+            c.disappearingMessagesDuration AS disappearingMessagesDuration,
+            c.lastMessageIsFromMe AS lastMessageIsFromMe,
+            c.lastMessageRead AS lastMessageRead,
+            COALESCE(u.publicKey, c.publicKey) AS publicKey,
+            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            c.otherUserId AS otherUserId
+        FROM chats c
+        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        WHERE c.isArchived = 0 AND c.type = :type
+        ORDER BY c.isPinned DESC, c.timestamp DESC
+    """)
     fun getChatsByType(type: ConversationType): Flow<List<ChatEntity>>
 
-    @Query("SELECT * FROM chats WHERE isArchived = 0 AND type = :type ORDER BY isPinned DESC, timestamp DESC")
+    @Query("""
+        SELECT 
+            c.id AS id,
+            c.type AS type,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
+            c.description AS description,
+            c.lastMessage AS lastMessage,
+            c.timestamp AS timestamp,
+            c.unreadCount AS unreadCount,
+            c.lastSeen AS lastSeen,
+            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            c.isOnline AS isOnline,
+            c.isMuted AS isMuted,
+            c.isPinned AS isPinned,
+            c.pinnedMessageId AS pinnedMessageId,
+            c.isTyping AS isTyping,
+            c.isArchived AS isArchived,
+            c.isVerified AS isVerified,
+            c.isAdmin AS isAdmin,
+            c.adminsCanPost AS adminsCanPost,
+            c.isGroup AS isGroup,
+            c.isSubscribed AS isSubscribed,
+            c.createdBy AS createdBy,
+            c.followers AS followers,
+            c.category AS category,
+            c.wallpaperUrl AS wallpaperUrl,
+            c.customNotificationTone AS customNotificationTone,
+            c.mediaVisibility AS mediaVisibility,
+            c.disappearingMessagesDuration AS disappearingMessagesDuration,
+            c.lastMessageIsFromMe AS lastMessageIsFromMe,
+            c.lastMessageRead AS lastMessageRead,
+            COALESCE(u.publicKey, c.publicKey) AS publicKey,
+            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            c.otherUserId AS otherUserId
+        FROM chats c
+        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        WHERE c.isArchived = 0 AND c.type = :type
+        ORDER BY c.isPinned DESC, c.timestamp DESC
+    """)
     suspend fun getChatsByTypeOnce(type: ConversationType): List<ChatEntity>
 
-    @Query("SELECT * FROM chats WHERE isArchived = 1 ORDER BY timestamp DESC")
+    @Query("""
+        SELECT 
+            c.id AS id,
+            c.type AS type,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
+            c.description AS description,
+            c.lastMessage AS lastMessage,
+            c.timestamp AS timestamp,
+            c.unreadCount AS unreadCount,
+            c.lastSeen AS lastSeen,
+            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            c.isOnline AS isOnline,
+            c.isMuted AS isMuted,
+            c.isPinned AS isPinned,
+            c.pinnedMessageId AS pinnedMessageId,
+            c.isTyping AS isTyping,
+            c.isArchived AS isArchived,
+            c.isVerified AS isVerified,
+            c.isAdmin AS isAdmin,
+            c.adminsCanPost AS adminsCanPost,
+            c.isGroup AS isGroup,
+            c.isSubscribed AS isSubscribed,
+            c.createdBy AS createdBy,
+            c.followers AS followers,
+            c.category AS category,
+            c.wallpaperUrl AS wallpaperUrl,
+            c.customNotificationTone AS customNotificationTone,
+            c.mediaVisibility AS mediaVisibility,
+            c.disappearingMessagesDuration AS disappearingMessagesDuration,
+            c.lastMessageIsFromMe AS lastMessageIsFromMe,
+            c.lastMessageRead AS lastMessageRead,
+            COALESCE(u.publicKey, c.publicKey) AS publicKey,
+            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            c.otherUserId AS otherUserId
+        FROM chats c
+        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        WHERE c.isArchived = 1
+        ORDER BY c.timestamp DESC
+    """)
     fun getArchivedChats(): Flow<List<ChatEntity>>
 
     @Query("SELECT * FROM chats WHERE id = :chatId")

@@ -61,7 +61,7 @@ object RewardsManager {
      * Awards points through backend, then refreshes authoritative balance.
      */
     suspend fun awardPoints(amount: Double, source: String, description: String, taskId: String? = null): Boolean {
-        if (amount <= 0.0) return false
+        if (amount == 0.0) return false
         val rewardsApi = getRewardsApi() ?: return false
         return try {
             val response = rewardsApi.awardPoints(

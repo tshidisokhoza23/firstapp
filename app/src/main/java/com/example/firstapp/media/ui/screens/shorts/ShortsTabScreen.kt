@@ -146,7 +146,7 @@ fun ShortsTabScreen(
                         showShortMoreMenu = true
                     },
                     onCreatorClick = { creatorId ->
-                        navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(creatorId))
+                        navController.navigate(com.example.firstapp.ui.navigation.Screen.UserProfile.createRoute(creatorId, tab = "Shorts"))
                     },
                     isGlobalPaused = isGlobalPaused
                 )

@@ -32,6 +32,7 @@ data class StoryItem(
     val isViewed: Boolean = false,
     val durationMs: Int = 5000,
     val expiresAt: String = "",
+    val viewsCount: Int = 0,
     val adObject: Any? = null
 ) {
     val backgroundColor: Color get() = Color(backgroundColorArgb.toInt())

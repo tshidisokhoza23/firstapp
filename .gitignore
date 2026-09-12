@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+.scannerwork/
+app/build/reports/jacoco/
+.artifacts/
+.kotlin/
+*.png

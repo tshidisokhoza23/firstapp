@@ -61,15 +61,20 @@ class PostWebSocketClient @Inject constructor(
                     val reposts = if (json.has("reposts")) json.getLong("reposts") else null
                     val shares = if (json.has("shares")) json.getLong("shares") else null
                     val views = if (json.has("views")) json.getLong("views") else null
+                    val replies = if (json.has("replies_count")) json.getLong("replies_count") else null
 
                     when (type) {
                         "post", "posts_event" -> {
                             val postId = if (json.has("post_id")) json.getString("post_id") else null
-                            listeners.forEach { it.onPostsEvent(action, postId, likes, reposts, shares, views) }
+                            listeners.forEach { it.onPostsEvent(action, postId, likes, reposts, shares, views, replies) }
                         }
                         "short", "shorts_event" -> {
-                            val shortId = if (json.has("short_id")) json.getString("short_id") else null
-                            listeners.forEach { it.onShortsEvent(action, shortId) }
+                            val shortId = when {
+                                json.has("short_id") -> json.optString("short_id")
+                                json.has("post_id") -> json.optString("post_id")
+                                else -> null
+                            }?.ifBlank { null }
+                            listeners.forEach { it.onShortsEvent(action, shortId, likes, reposts, shares, views, replies) }
                         }
                         "story", "stories_event" -> {
                             val storyId = if (json.has("story_id")) json.getString("story_id") else null
@@ -119,8 +124,8 @@ class PostWebSocketClient @Inject constructor(
 
 interface PostSocketListener {
     fun onOpen()
-    fun onPostsEvent(action: String, postId: String?, likes: Long? = null, reposts: Long? = null, shares: Long? = null, views: Long? = null)
-    fun onShortsEvent(action: String, shortId: String?)
+    fun onPostsEvent(action: String, postId: String?, likes: Long? = null, reposts: Long? = null, shares: Long? = null, views: Long? = null, replies: Long? = null)
+    fun onShortsEvent(action: String, shortId: String?, likes: Long? = null, reposts: Long? = null, shares: Long? = null, views: Long? = null, replies: Long? = null)
     fun onStoriesEvent(action: String, storyId: String?)
     fun onError(error: String)
 }

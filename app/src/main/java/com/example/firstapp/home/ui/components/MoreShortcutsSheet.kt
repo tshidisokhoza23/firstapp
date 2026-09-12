@@ -30,7 +30,8 @@ data class ShortcutItem(
     val label: String,
     val icon: ImageVector,
     val color: Color,
-    val route: String
+    val route: String,
+    val isEnabled: Boolean = true
 )
 
 @Composable
@@ -41,15 +42,9 @@ fun MoreShortcutsSheet(
     onNavigate: (String) -> Unit
 ) {
     val shortcuts = java.util.Arrays.asList(
-        ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route),
-        ShortcutItem("Updates", Icons.Default.History, Color(0xFF4CAF50), Screen.Main.route + "?tab=media"),
-        ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route),
-        ShortcutItem("Files", Icons.Default.Folder, Color(0xFFFFC107), Screen.Files.route),
-        ShortcutItem("Calendar", Icons.Default.CalendarToday, Color(0xFFE91E63), Screen.Calendar.route),
-        ShortcutItem("Archived", Icons.Default.Archive, Color(0xFF8BC34A), Screen.ArchivedChats.route),
-        ShortcutItem("Post Job", Icons.Default.AddBusiness, Color(0xFFFF5722), Screen.PostJob.route),
-        ShortcutItem("Job Profile", Icons.Default.Work, Color(0xFF795548), Screen.JobProfile.route),
-        ShortcutItem("Applicatio...", Icons.AutoMirrored.Filled.Assignment, Color(0xFF2196F3), Screen.Applications.route)
+        ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
+        ShortcutItem("Stream", Icons.Default.MusicNote, Color(0xFF9C27B0), Screen.Stream.route, isEnabled = false),
+        ShortcutItem("Ride", Icons.Default.DirectionsCar, Color(0xFF00BCD4), Screen.Ride.route, isEnabled = false)
     )
 
     AnimatedVisibility(
@@ -119,28 +114,37 @@ fun MoreShortcutsSheet(
 
 @Composable
 fun ShortcutCell(item: ShortcutItem, onClick: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val itemColor = if (item.isEnabled) item.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() }
+        modifier = Modifier.clickable {
+            if (item.isEnabled) {
+                onClick()
+            } else {
+                android.widget.Toast.makeText(context, "${item.label} is coming soon! 🚀", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
     ) {
         Box(
             modifier = Modifier
                 .size(64.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(item.color.copy(alpha = 0.15f)),
+                .background(itemColor.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = item.icon,
                 contentDescription = item.label,
-                tint = item.color,
+                tint = itemColor,
                 modifier = Modifier.size(28.dp)
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = item.label,
-            color = MaterialTheme.colorScheme.onSurface,
+            text = if (item.isEnabled) item.label else "${item.label} (Soon)",
+            color = if (item.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,

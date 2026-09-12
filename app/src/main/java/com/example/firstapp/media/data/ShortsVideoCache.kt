@@ -1,18 +1,27 @@
 package com.example.firstapp.media.data
 
 import android.content.Context
+import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 @UnstableApi
 object ShortsVideoCache {
@@ -21,13 +30,16 @@ object ShortsVideoCache {
     private var currentPlayer: ExoPlayer? = null
     private var currentUrl: String? = null
 
+    private val preloadingJobs = ConcurrentHashMap<String, Job>()
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     private fun appContext(context: Context): Context = context.applicationContext
 
-    private fun getCache(context: Context): SimpleCache {
+    fun getCache(context: Context): SimpleCache {
         return simpleCache ?: synchronized(this) {
             simpleCache ?: run {
                 val cacheDir = File(appContext(context).cacheDir, "shorts_video_cache")
-                val evictor = LeastRecentlyUsedCacheEvictor(100 * 1024 * 1024L)
+                val evictor = LeastRecentlyUsedCacheEvictor(200 * 1024 * 1024L) // 200MB cache
                 val databaseProvider = StandaloneDatabaseProvider(appContext(context))
                 SimpleCache(cacheDir, evictor, databaseProvider).also { simpleCache = it }
             }
@@ -68,9 +80,41 @@ object ShortsVideoCache {
         return player
     }
 
-    @Synchronized
     fun preload(context: Context, urls: List<String>) {
-        // SimpleCache automatically retains cached segments on disk
+        val cache = getCache(context)
+        val httpFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36")
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(10_000)
+            .setReadTimeoutMs(10_000)
+        
+        val upstreamFactory = DefaultDataSource.Factory(appContext(context), httpFactory)
+
+        urls.take(3).forEach { url ->
+            if (url.isNotBlank() && !preloadingJobs.containsKey(url)) {
+                val job = scope.launch {
+                    try {
+                        val uri = Uri.parse(url)
+                        val dataSpec = DataSpec.Builder()
+                            .setUri(uri)
+                            .setLength(2 * 1024 * 1024L) // Pre-cache first 2MB for instant playback
+                            .build()
+                        val cacheDataSource = CacheDataSource(cache, upstreamFactory.createDataSource())
+                        val cacheWriter = CacheWriter(
+                            cacheDataSource,
+                            dataSpec,
+                            null,
+                            null
+                        )
+                        cacheWriter.cache()
+                    } catch (_: Exception) {
+                    } finally {
+                        preloadingJobs.remove(url)
+                    }
+                }
+                preloadingJobs[url] = job
+            }
+        }
     }
 
     @Synchronized

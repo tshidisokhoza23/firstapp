@@ -68,27 +68,53 @@ class MediaViewModel @Inject constructor(
     // Session-based unique view tracking to avoid redundant API calls
     private val viewedPostsThisSession = HashSet<String>()
 
-    private var lastRealtimePostRefreshMs: Long = 0L
-
     // Posts/shorts/stories broadcasts arrive over the dedicated /ws/posts socket
     // (PostWebSocketClient), not the chat socket. Declared before init{} below since
     // Kotlin runs property initializers/init blocks in textual order, and init{}
     // calls connectPostRealtime() which needs this already constructed.
+    // Count updates are applied in-place by RealtimeEngagementManager; only
+    // structural actions (new posts/shorts) should force a full feed refresh.
     private val feedRefreshListener = object : PostSocketListener {
         override fun onOpen() {}
-        override fun onPostsEvent(action: String, postId: String?, likes: Long?, reposts: Long?, shares: Long?, views: Long?) {
-            val now = System.currentTimeMillis()
-            if (now - lastRealtimePostRefreshMs < 1500) return
-            lastRealtimePostRefreshMs = now
-            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        override fun onPostsEvent(action: String, postId: String?, likes: Long?, reposts: Long?, shares: Long?, views: Long?, replies: Long?) {
+            patchSelectedPostCounts(postId, likes, reposts, shares, views, replies)
+            if (action == "created") {
+                _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+            }
         }
-        override fun onShortsEvent(action: String, shortId: String?) {
-            _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+        override fun onShortsEvent(action: String, shortId: String?, likes: Long?, reposts: Long?, shares: Long?, views: Long?, replies: Long?) {
+            patchSelectedPostCounts(shortId, likes, reposts, shares, views, replies)
+            if (action == "created") {
+                _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+            }
         }
         override fun onStoriesEvent(action: String, storyId: String?) {
             _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
         }
         override fun onError(error: String) {}
+    }
+
+    private fun patchSelectedPostCounts(
+        postId: String?,
+        likes: Long?,
+        reposts: Long?,
+        shares: Long?,
+        views: Long?,
+        replies: Long?
+    ) {
+        val selected = _uiState.value.selectedPost ?: return
+        if (postId.isNullOrBlank() || selected.id != postId) return
+        _uiState.update {
+            it.copy(
+                selectedPost = selected.copy(
+                    likes = likes ?: selected.likes,
+                    repostCount = reposts ?: selected.repostCount,
+                    shares = shares ?: selected.shares,
+                    views = views ?: selected.views,
+                    repliesCount = replies ?: selected.repliesCount
+                )
+            )
+        }
     }
 
     init {
@@ -138,9 +164,9 @@ class MediaViewModel @Inject constructor(
 
     private var currentFeedType: String? = null
 
-    fun loadFeed(type: String, categoryId: String? = null) {
+    fun loadFeed(type: String, categoryId: String? = null, forceReload: Boolean = false) {
         val currentCategory = _uiState.value.selectedCategoryId
-        if (currentFeedType == type && currentCategory == categoryId) return
+        if (!forceReload && currentFeedType == type && currentCategory == categoryId) return
         currentFeedType = type
 
         _uiState.update { 
@@ -311,9 +337,18 @@ class MediaViewModel @Inject constructor(
                 if (res is Resource.Success) {
                     _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+                    loadFeed(type = postType, forceReload = true)
                     
                     // REQUIREMENT: Refresh thread immediately after replying
                     if (parentPostId != null || rootPostId != null) {
+                        val countTarget = rootPostId ?: parentPostId
+                        if (countTarget != null) {
+                            socialRepository.incrementPostRepliesLocally(countTarget)
+                            val selected = _uiState.value.selectedPost
+                            if (selected != null && selected.id == countTarget) {
+                                _uiState.update { it.copy(selectedPost = selected.copy(repliesCount = selected.repliesCount + 1)) }
+                            }
+                        }
                         val currentSelectedId = _uiState.value.selectedPost?.id
                         if (currentSelectedId != null) {
                             fetchReplies(currentSelectedId)

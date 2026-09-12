@@ -46,6 +46,14 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
             }
         }
     }
+    if (mediaUrlsList.isEmpty()) {
+        apiPost.media?.forEach { item ->
+            val formatted = MediaUtils.formatUrl(item.media_url)
+            if (formatted != null) {
+                mediaUrlsList.add(formatted)
+            }
+        }
+    }
     android.util.Log.d("Mapper", "Post ${apiPost.id} mapped with ${mediaUrlsList.size} media URLs. Type: ${apiPost.media_type}")
 
     val viewsValue = Math.max(apiPost.views, apiPost.view_count)
@@ -105,7 +113,8 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         tags = apiPost.tags ?: emptyList(),
         ad = apiPost.ad?.let { mapApiAdvert(it) },
         originalPost = apiPost.original_post?.let { mapApiPost(it) },
-        thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url),
+        thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url)
+            ?: MediaUtils.formatUrl(apiPost.media?.firstOrNull()?.thumbnail_url),
         aspectRatio = apiPost.aspect_ratio,
         durationSec = apiPost.duration_sec,
         blurhash = apiPost.blurhash,

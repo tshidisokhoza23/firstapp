@@ -74,7 +74,8 @@ fun ProfileView(
     onShortClick: (Post) -> Unit = {},
     onNavigateToMediaViewer: (String, String, Long) -> Unit = { _, _, _ -> },
     onNavigateToPostDetail: (String) -> Unit = {},
-    onNavigateToFollowList: (String, String) -> Unit = { _, _ -> }
+    onNavigateToFollowList: (String, String) -> Unit = { _, _ -> },
+    initialTab: String? = "Posts"
 ) {
     val context = LocalContext.current
     val currentUser = com.example.firstapp.LocalCurrentUser.current
@@ -125,7 +126,16 @@ fun ProfileView(
 
 
 
-    var selectedTabIndex by remember(userId) { mutableIntStateOf(0) }
+    var selectedTabIndex by remember(userId, initialTab) { 
+        mutableIntStateOf(
+            when (initialTab?.lowercase()) {
+                "shorts" -> 3
+                "media" -> 2
+                "replies" -> 1
+                else -> 0
+            }
+        )
+    }
     val tabs = remember {
         val l = ArrayList<String>()
         l.add("Posts")

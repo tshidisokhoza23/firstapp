@@ -40,6 +40,15 @@ interface PostDao {
     @Query("UPDATE posts SET shares = :shares WHERE id = :postId")
     suspend fun updateShareStatus(postId: String, shares: Long)
 
+    @Query("UPDATE posts SET views = :views WHERE id = :postId")
+    suspend fun updateViewCount(postId: String, views: Long)
+
+    @Query("UPDATE posts SET repliesCount = :repliesCount WHERE id = :postId")
+    suspend fun updateRepliesCount(postId: String, repliesCount: Long)
+
+    @Query("UPDATE posts SET repliesCount = repliesCount + 1 WHERE id = :postId")
+    suspend fun incrementRepliesCount(postId: String)
+
     @Query("UPDATE posts SET isBookmarked = :isBookmarked WHERE id = :postId")
     suspend fun updateBookmarkStatus(postId: String, isBookmarked: Boolean)
 

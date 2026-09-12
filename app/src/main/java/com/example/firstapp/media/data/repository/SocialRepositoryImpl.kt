@@ -82,6 +82,10 @@ class SocialRepositoryImpl @Inject constructor(
         postDao.updateShareStatus(postId, shares)
     }
 
+    override suspend fun incrementPostRepliesLocally(postId: String) {
+        postDao.incrementRepliesCount(postId)
+    }
+
     override suspend fun updatePostBookmarkLocally(postId: String, isBookmarked: Boolean) {
         postDao.updateBookmarkStatus(postId, isBookmarked)
     }
@@ -192,10 +196,16 @@ class SocialRepositoryImpl @Inject constructor(
                 repost_of_id = repostOfId,
                 thumbnail_url = thumbnailUrl
             )
-            if (socialApi.createPost(request).isSuccessful) {
+            val response = socialApi.createPost(request)
+            if (response.isSuccessful && response.body() != null) {
+                val apiPost = response.body()!!
+                val mappedPost = mapApiPost(apiPost, postType)
+                runCatching {
+                    postDao.insertPosts(listOf(mappedPost.toPostEntity(feedType = postType ?: "standard")))
+                }
                 emit(Resource.Success(true))
             } else {
-                emit(Resource.Error("Fail"))
+                emit(Resource.Error("Failed to create post"))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -290,10 +300,11 @@ class SocialRepositoryImpl @Inject constructor(
 
     override fun viewPost(postId: String): Flow<Resource<Boolean>> = flow {
         try {
-            socialApi.viewPost(postId)
-            postDao.incrementViewCount(postId)
-            emit(Resource.Success(true))
-        } catch (_: Exception) {
+            val response = socialApi.viewPost(postId)
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Fail"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error("Failed to track view"))
         }
     }

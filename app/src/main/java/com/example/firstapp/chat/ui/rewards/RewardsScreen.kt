@@ -173,15 +173,14 @@ fun RewardsScreen(
 
                         items(availableTasks.indices.toList()) { index ->
                             val task = availableTasks[index]
-                            val isNext = index == 0
-                            val canWatch = isNext && cooldownSeconds <= 0 && dash.ads_watched_today < dash.max_daily_ads
+                            val canWatch = cooldownSeconds <= 0 && dash.ads_watched_today < dash.max_daily_ads
 
                             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 TaskRow(
                                     task = task,
                                     dailyLimitReached = dash.ads_watched_today >= dash.max_daily_ads,
-                                    cooldownSeconds = if (isNext) cooldownSeconds else 0,
-                                    isLocked = !isNext,
+                                    cooldownSeconds = cooldownSeconds,
+                                    isLocked = false,
                                     onWatchClick = {
                                         if (canWatch) {
                                             android.util.Log.d("RewardsScreen", "Watch clicked for task: ${task.id}")

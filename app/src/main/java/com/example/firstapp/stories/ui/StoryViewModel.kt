@@ -14,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -156,5 +157,9 @@ class StoryViewModel @Inject constructor(
 
     fun deleteStory(storyId: String) {
         viewModelScope.launch { repository.deleteStory(storyId).first() }
+    }
+
+    fun getStoryViewers(storyId: String): Flow<Resource<List<com.example.firstapp.media.data.api.ApiViewer>>> {
+        return repository.getStoryViewers(storyId)
     }
 }

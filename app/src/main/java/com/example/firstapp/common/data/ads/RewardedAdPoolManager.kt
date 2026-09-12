@@ -33,7 +33,8 @@ class RewardedAdPoolManager @Inject constructor() {
         private const val AD_TTL_MS = 45 * 60 * 1000L // 45 Minutes
         private const val INITIAL_BACKOFF_DELAY_MS = 2000L
         private const val MAX_BACKOFF_DELAY_MS = 64000L
-        private const val AD_COOLDOWN_MS = 120000L // 120 seconds cooldown (Principal Requirement)
+        private const val AD_COOLDOWN_MS = 3600_000L // 1 hour cooldown (3600s) after 3 ads
+        private const val BATCH_LIMIT = 3
     }
 
     private data class CachedAd(
@@ -56,6 +57,20 @@ class RewardedAdPoolManager @Inject constructor() {
     private var isShowingAd = false
     private var retryAttempt = 0
     private var lastRewardTimestamp = 0L
+    private var adBatchCount = 0
+
+    private fun recordAdReward() {
+        val elapsed = System.currentTimeMillis() - lastRewardTimestamp
+        if (lastRewardTimestamp > 0 && elapsed >= AD_COOLDOWN_MS) {
+            adBatchCount = 0
+            lastRewardTimestamp = 0L
+        }
+        adBatchCount++
+        if (adBatchCount >= BATCH_LIMIT) {
+            lastRewardTimestamp = System.currentTimeMillis()
+            adBatchCount = 0
+        }
+    }
     
     private val managerScope = MainScope()
 
@@ -283,7 +298,7 @@ class RewardedAdPoolManager @Inject constructor() {
 
                 adToShow.show(activity) {
                     Log.i(TAG, "User earned reward!")
-                    lastRewardTimestamp = System.currentTimeMillis()
+                    recordAdReward()
                     onRewardEarned()
                 }
             }

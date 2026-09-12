@@ -2,6 +2,8 @@ package com.example.firstapp.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -59,8 +61,9 @@ fun AppNavigation(
                     val tabIndex = when(tabArg) {
                         "social" -> 1
                         "scroll" -> 2
-                        "stream" -> 3
-                        "ride" -> 4
+                        "mingle" -> 3
+                        "stream" -> 4
+                        "ride" -> 5
                         else -> 0
                     }
                     viewModel.setSelectedBottomItem(tabIndex)
@@ -106,6 +109,25 @@ fun AppNavigation(
             WalletScreen(
                 onBack = { navController.popBackStack() },
                 advertsViewModel = advertsViewModel
+            )
+        }
+
+        composable(Screen.Stream.route) {
+            com.example.firstapp.music.ui.screens.MusicTabScreen(
+                navController = navController,
+                bottomPadding = 0.dp
+            )
+        }
+
+        composable(Screen.Ride.route) {
+            val parentEntry = remember(navController) { 
+                runCatching { navController.getBackStackEntry("app_root") }.getOrNull() 
+            }
+            val chatVm: ChatViewModel = if (parentEntry != null) androidx.hilt.navigation.compose.hiltViewModel(parentEntry) else androidx.hilt.navigation.compose.hiltViewModel()
+            com.example.firstapp.drive.ui.screens.DriveTabScreen(
+                navController = navController,
+                bottomPadding = 0.dp,
+                chatViewModel = chatVm
             )
         }
     }

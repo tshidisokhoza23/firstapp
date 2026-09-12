@@ -14,14 +14,17 @@ sealed class BottomNavItem(
     object Chat : BottomNavItem("chat_tab", "Chat", Icons.AutoMirrored.Filled.Chat, 0)
     object Social : BottomNavItem("social_tab", "Social", Icons.Default.Public, 1)
     object Scroll : BottomNavItem("scroll_tab", "Scroll", Icons.Default.Videocam, 2)
-    object Stream : BottomNavItem("stream_tab", "Stream", Icons.Default.MusicNote, 3)
-    object Ride : BottomNavItem("ride_tab", "Ride", Icons.Default.DirectionsCar, 4)
-    object More : BottomNavItem("more_tab", "More", Icons.Default.MoreHoriz, 5)
+    object Mingle : BottomNavItem("mingle_tab", "Mingle", Icons.Default.Groups, 3)
+    object Stream : BottomNavItem("stream_tab", "Stream", Icons.Default.MusicNote, 4)
+    object Ride : BottomNavItem("ride_tab", "Ride", Icons.Default.DirectionsCar, 5)
+    object More : BottomNavItem("more_tab", "More", Icons.Default.MoreHoriz, 6)
 
     companion object {
-        val items = java.util.Arrays.asList(Chat, Social, Scroll, Stream, Ride, More)
+        val items = java.util.Arrays.asList(Chat, Social, Scroll, Mingle, More)
+        val allItems = java.util.Arrays.asList(Chat, Social, Scroll, Mingle, Stream, Ride, More)
+        
         fun fromIndex(index: Int): BottomNavItem {
-            for (item in items) {
+            for (item in allItems) {
                 if (item.index == index) return item
             }
             return Chat

@@ -67,11 +67,13 @@ fun NavGraphBuilder.profileNavGraph(
         route = Screen.UserProfile.route,
         arguments = listOf(
             navArgument("userId") { type = NavType.StringType },
-            navArgument("isGroup") { type = NavType.BoolType; defaultValue = false }
+            navArgument("isGroup") { type = NavType.BoolType; defaultValue = false },
+            navArgument("tab") { type = NavType.StringType; nullable = true; defaultValue = "Posts" }
         )
     ) { backStackEntry ->
         val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
         val isGroup = backStackEntry.arguments?.getBoolean("isGroup") ?: false
+        val initialTab = backStackEntry.arguments?.getString("tab") ?: "Posts"
         
         val userViewModel: UserViewModel = hiltViewModel()
         val mediaViewModel: MediaViewModel = hiltViewModel()
@@ -96,6 +98,7 @@ fun NavGraphBuilder.profileNavGraph(
         ProfileView(
             userId = userId,
             isGroup = isGroup,
+            initialTab = initialTab,
             adManager = adManager,
             onBack = { navController.popBackStack() },
             posts = pagedPosts,

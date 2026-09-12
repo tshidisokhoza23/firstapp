@@ -73,6 +73,7 @@ fun ShortItem(
     adManager: com.example.firstapp.common.data.ads.AdManager,
     short: com.example.firstapp.media.model.Post,
     currentUserAvatarUrl: String? = null,
+    ownUserId: String? = null,
     isOwnPost: Boolean = false,
     isVisible: Boolean,
     bottomInset: Dp,
@@ -91,22 +92,24 @@ fun ShortItem(
     val context = LocalContext.current
     val rawUrl = short.mediaUrls.firstOrNull()?.takeIf { it.isNotBlank() }
     val videoUrl = remember(rawUrl) { com.example.firstapp.common.util.MediaUtils.formatUrl(rawUrl) }
-    
     var startTime by remember { mutableLongStateOf(0L) }
-    
+    var isPlaying by remember { mutableStateOf(true) }
+
     LaunchedEffect(isVisible) {
         if (isVisible) {
+            isPlaying = true
             startTime = System.currentTimeMillis()
             // REQUIREMENT: Track explicit view for shorts as well
             onEngagement(short.id, "view", 0, false)
-        } else if (startTime > 0) {
-            val watchTime = (System.currentTimeMillis() - startTime).toInt()
-            onEngagement(short.id, "dwell", watchTime, false)
-            startTime = 0
+        } else {
+            isPlaying = false
+            if (startTime > 0) {
+                val watchTime = (System.currentTimeMillis() - startTime).toInt()
+                onEngagement(short.id, "dwell", watchTime, false)
+                startTime = 0
+            }
         }
     }
-    
-    var isPlaying by remember { mutableStateOf(true) }
     var showPlayerControls by remember { mutableStateOf(false) }
     var controlsTimer by remember { mutableLongStateOf(0L) }
     
@@ -160,6 +163,12 @@ fun ShortItem(
                 delay(100)
             }
         }
+    }
+
+    var isMuted by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isMuted, exoPlayer) {
+        exoPlayer?.volume = if (isMuted) 0f else 1f
     }
 
     LaunchedEffect(isPlaying, isAppInBackground, isVisible, isGlobalPaused) {
@@ -359,33 +368,34 @@ fun ShortItem(
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 32.dp, end = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF3A4B57))
-                        .border(2.dp, Color.White, CircleShape)
+                        .border(1.5.dp, Color.White, CircleShape)
                         .clickable { 
-                            onCreatorClick(short.authorId)
+                            val myId = ownUserId?.takeIf { it.isNotBlank() } ?: short.authorId
+                            onCreatorClick(myId)
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(short.authorAvatarUrl)
+                    val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(currentUserAvatarUrl ?: short.authorAvatarUrl)
                     if (formattedUrl != null) {
                         AsyncImage(
                             model = formattedUrl,
-                            contentDescription = "Me",
+                            contentDescription = "My Profile",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
                         Icon(
                             Icons.Default.Person,
-                            contentDescription = null,
+                            contentDescription = "My Profile",
                             tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -721,15 +731,15 @@ fun ShortActionButton(
             imageVector = icon,
             contentDescription = null,
             tint = iconColor,
-            modifier = Modifier.size(35.dp)
+            modifier = Modifier.size(25.dp)
                 .shadow(elevation = if (isPressed) 0.dp else 2.dp, shape = CircleShape)
         )
         if (text.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = text,
                 color = Color.White,
-                fontSize = 13.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 style = androidx.compose.ui.text.TextStyle(
                     shadow = androidx.compose.ui.graphics.Shadow(

@@ -45,6 +45,9 @@ class RewardViewModel @Inject constructor(
     private val _cooldownSeconds = MutableStateFlow(0)
     val cooldownSeconds = _cooldownSeconds.asStateFlow()
 
+    private val _hourlyAdCount = MutableStateFlow(0)
+    val hourlyAdCount = _hourlyAdCount.asStateFlow()
+
     private val prefs: SharedPreferences = context.getSharedPreferences("reward_prefs", Context.MODE_PRIVATE)
     private var timerJob: Job? = null
 
@@ -160,9 +163,27 @@ class RewardViewModel @Inject constructor(
         }
     }
 
+    private var adsWatchedWindowCount = 0
+
     private fun handleAdCompleted(taskId: String) {
-        // Start the cooldown immediately, and award 10 points via backend
-        startCooldownTimer(120)
+        val targetEpoch = prefs.getLong("target_cooldown_epoch", 0L)
+        val now = System.currentTimeMillis()
+        if (targetEpoch > 0 && now >= targetEpoch) {
+            adsWatchedWindowCount = 0
+            prefs.edit().remove("target_cooldown_epoch").remove("ads_watched_window").apply()
+        } else {
+            adsWatchedWindowCount = prefs.getInt("ads_watched_window", 0)
+        }
+
+        adsWatchedWindowCount++
+        prefs.edit().putInt("ads_watched_window", adsWatchedWindowCount).apply()
+
+        if (adsWatchedWindowCount >= 3) {
+            // 3 ads completed! Start 1-hour (3600s) cooldown
+            startCooldownTimer(3600)
+            adsWatchedWindowCount = 0
+            prefs.edit().putInt("ads_watched_window", 0).apply()
+        }
 
         viewModelScope.launch {
             try {

@@ -308,7 +308,7 @@ fun MessageItemUnique(
             if (messageItem.reactions.isNotEmpty()) {
                 Row(
                     modifier = Modifier
-                        .padding(top = (-10).dp)
+                        .offset(y = (-10).dp)
                         .align(if (messageItem.isFromMe) Alignment.End else Alignment.Start),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {

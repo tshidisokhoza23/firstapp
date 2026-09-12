@@ -1,0 +1,70 @@
+name: SonarCloud
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sonar:
+    name: Analyze
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || 'firstapp' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradlew Executable
+        run: chmod +x ./gradlew
+
+      - name: Skip if SONAR_TOKEN is missing
+        if: env.SONAR_TOKEN == ''
+        run: |
+          echo "SONAR_TOKEN is not set. Add the GitHub Actions secret and SONAR_ORGANIZATION variable."
+          echo "See docs/sonarqube.md"
+
+      - name: Unit tests and lint
+        if: env.SONAR_TOKEN != ''
+        run: ./gradlew testBetaDebugUnitTest lintBetaDebug --no-daemon
+
+      - name: SonarCloud
+        if: env.SONAR_TOKEN != ''
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ env.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
+        run: ./gradlew sonar --no-daemon -Dsonar.gradle.skipCompile=true
+
+      - name: Quality Gate
+        if: env.SONAR_TOKEN != '' && github.event_name == 'pull_request'
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+        with:
+          scanMetadataReportFile: build/sonar/report-task.txt

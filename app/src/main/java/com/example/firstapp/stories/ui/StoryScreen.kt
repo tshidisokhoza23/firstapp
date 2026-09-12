@@ -57,7 +57,8 @@ fun StoryScreen(
     onDeleteStory: (String) -> Unit,
     onStoryViewed: (String, String) -> Unit,
     onMuteStory: (String, Boolean) -> Unit,
-    onNavigateToNewStory: () -> Unit = {}
+    onNavigateToNewStory: () -> Unit = {},
+    onGetStoryViewers: (String) -> kotlinx.coroutines.flow.Flow<com.example.firstapp.common.util.Resource<List<com.example.firstapp.media.data.api.ApiViewer>>> = { kotlinx.coroutines.flow.flowOf() }
 ) {
     val context = LocalContext.current
     
@@ -67,6 +68,7 @@ fun StoryScreen(
     var viewingStoryIndex by remember { mutableIntStateOf(0) }
 
     var storyToMute by remember { mutableStateOf<UserStory?>(null) }
+    var selectedStoryForViewers by remember { mutableStateOf<StoryItem?>(null) }
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var showViewedFirst by remember { mutableStateOf(false) }
@@ -364,7 +366,7 @@ fun StoryScreen(
             modifier = Modifier.statusBarsPadding(),
             topBar = {
                 TopAppBar(
-                    title = { Text("My stories", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
+                    title = { Text("Posted stories", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
@@ -431,28 +433,29 @@ fun StoryScreen(
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                  items(myStory.stories.reversed(), key = { it.id }) { story ->
                                      Column(
-                                         horizontalAlignment = Alignment.CenterHorizontally,
-                                         modifier = Modifier.clickable {
-                                             val idx = myStory.stories.indexOf(story)
-                                             if (idx != -1) {
-                                                 viewingUserStory = myStory
-                                                 viewingStoryIndex = idx
-                                             }
-                                         }
+                                         horizontalAlignment = Alignment.CenterHorizontally
                                      ) {
                                          Box(
                                              modifier = Modifier
-                                                 .size(65.dp)
+                                                 .size(68.dp)
                                                  .clip(CircleShape)
                                                  .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                                                  .padding(3.dp)
                                                  .clip(CircleShape)
-                                                 .background(Color.Gray)
+                                                 .background(Color.DarkGray)
+                                                 .clickable {
+                                                     val idx = myStory.stories.indexOf(story)
+                                                     if (idx != -1) {
+                                                         viewingUserStory = myStory
+                                                         viewingStoryIndex = idx
+                                                     }
+                                                 },
+                                             contentAlignment = Alignment.Center
                                          ) {
                                              if (!story.contentUrl.isNullOrBlank()) {
                                                  AsyncImage(
@@ -461,25 +464,67 @@ fun StoryScreen(
                                                      modifier = Modifier.fillMaxSize(),
                                                      contentScale = ContentScale.Crop
                                                  )
+                                                 if (story.type == StoryType.VIDEO) {
+                                                     Box(
+                                                         modifier = Modifier
+                                                             .fillMaxSize()
+                                                             .background(Color.Black.copy(alpha = 0.25f)),
+                                                         contentAlignment = Alignment.Center
+                                                     ) {
+                                                         Icon(
+                                                             imageVector = Icons.Default.PlayArrow,
+                                                             contentDescription = "Video",
+                                                             tint = Color.White,
+                                                             modifier = Modifier.size(20.dp)
+                                                         )
+                                                     }
+                                                 }
                                              } else {
                                                  Box(
-                                                     modifier = Modifier.fillMaxSize().background(story.backgroundColor),
+                                                     modifier = Modifier
+                                                         .fillMaxSize()
+                                                         .background(story.backgroundColor),
                                                      contentAlignment = Alignment.Center
                                                  ) {
                                                      Text(
-                                                         story.content.take(1),
+                                                         story.content.take(12),
                                                          color = Color.White,
                                                          fontWeight = FontWeight.Bold,
-                                                         fontSize = 20.sp
+                                                         fontSize = 13.sp,
+                                                         textAlign = TextAlign.Center,
+                                                         modifier = Modifier.padding(4.dp)
                                                      )
                                                  }
                                              }
                                          }
+                                         Row(
+                                             verticalAlignment = Alignment.CenterVertically,
+                                             horizontalArrangement = Arrangement.Center,
+                                             modifier = Modifier
+                                                 .padding(top = 4.dp)
+                                                 .clickable {
+                                                     selectedStoryForViewers = story
+                                                 }
+                                         ) {
+                                             Icon(
+                                                 imageVector = Icons.Default.RemoveRedEye,
+                                                 contentDescription = "Views",
+                                                 tint = MaterialTheme.colorScheme.primary,
+                                                 modifier = Modifier.size(13.dp)
+                                             )
+                                             Spacer(modifier = Modifier.width(3.dp))
+                                             Text(
+                                                 text = "${story.viewsCount} views",
+                                                 fontSize = 12.sp,
+                                                 fontWeight = FontWeight.SemiBold,
+                                                 color = MaterialTheme.colorScheme.primary
+                                             )
+                                         }
                                          Text(
-                                             "Story",
-                                             fontSize = 12.sp,
-                                             modifier = Modifier.padding(top = 4.dp),
-                                             color = MaterialTheme.colorScheme.onSurface
+                                             text = story.timestamp.ifBlank { "Just now" },
+                                             fontSize = 11.sp,
+                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                             modifier = Modifier.padding(top = 1.dp)
                                          )
                                      }
                                  }
@@ -490,7 +535,7 @@ fun StoryScreen(
 
                 item(key = "posted_stories_header_section") {
                     Text(
-                        "Posted stories",
+                        "Recent updates",
                         modifier = Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp,
@@ -569,6 +614,14 @@ fun StoryScreen(
                     Text("CANCEL", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+        )
+    }
+
+    if (selectedStoryForViewers != null) {
+        StoryViewersSheet(
+            storyItem = selectedStoryForViewers!!,
+            onDismiss = { selectedStoryForViewers = null },
+            getViewersFlow = onGetStoryViewers
         )
     }
 }

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import coil.compose.AsyncImage
+import coil.request.videoFrameMillis
 import com.example.firstapp.common.data.ads.AdManager
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.ui.theme.*
@@ -137,48 +138,99 @@ fun PostItem(
 
 @Composable
 fun ShortGridItem(post: Post, onClick: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val rawModel = if (!post.thumbnailUrl.isNullOrBlank()) post.thumbnailUrl else post.mediaUrls.firstOrNull()
+    val model = com.example.firstapp.common.util.MediaUtils.formatUrl(rawModel)
+
+    val imageRequest = remember(model) {
+        if (model != null) {
+            coil.request.ImageRequest.Builder(context)
+                .data(model)
+                .decoderFactory(coil.decode.VideoFrameDecoder.Factory())
+                .videoFrameMillis(1000)
+                .crossfade(true)
+                .build()
+        } else {
+            null
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(9f / 16f)
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color.Black)
+            .aspectRatio(3f / 4f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF1A1A1A))
             .clickable { onClick() }
     ) {
-        val rawModel = if (post.thumbnailUrl?.isNotEmpty() == true) post.thumbnailUrl else if (post.mediaUrls.isNotEmpty()) post.mediaUrls[0] else null
-        val model = com.example.firstapp.common.util.MediaUtils.formatUrl(rawModel)
-
-        AsyncImage(
-            model = model,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        if (imageRequest != null) {
+            AsyncImage(
+                model = imageRequest,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF2C3E50), Color(0xFF000000))
+                        )
+                    )
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = post.content.take(40),
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
+                        colors = listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.75f))
                     )
                 )
         )
 
-        Icon(
-            imageVector = Icons.Default.PlayArrow,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.align(Alignment.Center).size(24.dp)
-        )
-        
-        Text(
-            text = "${post.views}",
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "Views",
+                tint = Color.White,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = formatShortGridViews(post.views),
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+private fun formatShortGridViews(number: Long): String {
+    return when {
+        number >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", number / 1_000_000.0)
+        number >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", number / 1_000.0)
+        else -> number.toString()
     }
 }
 

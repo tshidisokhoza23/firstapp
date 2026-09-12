@@ -28,6 +28,7 @@ fun WalletScreen(
     advertsViewModel: AdvertsViewModel
 ) {
     val points by advertsViewModel.points.collectAsState()
+    val hourlyAdCount by advertsViewModel.hourlyAdCount.collectAsState()
 
     Scaffold(
         topBar = {
@@ -172,6 +173,9 @@ fun WalletScreen(
                 )
             }
             
+            item {
+                RewardBenefitItem("Mingle Secret Chatting", "Use points to match & chat on Mingle. Watch up to 3 rewarded ads/hour ($hourlyAdCount/3 watched this hour).", Icons.Default.Groups)
+            }
             item {
                 RewardBenefitItem("Remove Ads", "Use points to browse ad-free for 24 hours.", Icons.Default.Block)
             }

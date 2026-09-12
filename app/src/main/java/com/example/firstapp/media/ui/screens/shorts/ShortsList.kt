@@ -102,6 +102,7 @@ fun ShortsList(
 
     VerticalPager(
         state = pagerState, 
+        beyondViewportPageCount = 1,
         modifier = Modifier.fillMaxSize(),
         key = { page -> 
             if (isAdPage(page)) "ad_$page"
@@ -143,6 +144,7 @@ fun ShortsList(
                     adManager = adManager,
                     short = currentShort,
                     currentUserAvatarUrl = currentUserAvatarUrl,
+                    ownUserId = ownUserId,
                     isOwnPost = isOwn,
                     isVisible = pagerState.currentPage == page, 
                     bottomInset = bottomPadding, 

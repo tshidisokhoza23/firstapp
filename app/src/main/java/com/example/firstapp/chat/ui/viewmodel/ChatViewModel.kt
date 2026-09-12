@@ -41,6 +41,13 @@ class ChatViewModel @Inject constructor(
     private val _activeChatId = MutableStateFlow<String?>(null)
     val activeChatId: StateFlow<String?> = _activeChatId.asStateFlow()
 
+    private val _activeSubTab = MutableStateFlow(0) // 0: Chats, 1: Channels, 2: Jobs, 3: Rewards, 4: DM
+    val activeSubTab: StateFlow<Int> = _activeSubTab.asStateFlow()
+
+    fun setActiveSubTab(tabIndex: Int) {
+        _activeSubTab.value = tabIndex
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val activeChat: StateFlow<ChatMessage?> = _activeChatId
         .flatMapLatest { id ->

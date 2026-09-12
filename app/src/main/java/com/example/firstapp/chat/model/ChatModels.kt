@@ -95,5 +95,6 @@ data class ChatMessage(
     val disappearingMessagesDuration: Int = 0,
     val publicKey: String? = null,
     val phoneNumber: String? = null,
-    val otherUserId: String? = null
+    val otherUserId: String? = null,
+    val isMingle: Boolean = false
 )

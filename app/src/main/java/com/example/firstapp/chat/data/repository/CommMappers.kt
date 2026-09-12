@@ -104,7 +104,8 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
             createdAt = it.created_at ?: System.currentTimeMillis(),
             backgroundColorArgb = 0xBF546E7A,
             isViewed = it.is_viewed ?: false, 
-            durationMs = it.duration_ms ?: 5000
+            durationMs = it.duration_ms ?: 5000,
+            viewsCount = it.views_count ?: it.viewers_count ?: 0
         ) 
     }.sortedBy { it.createdAt }
 

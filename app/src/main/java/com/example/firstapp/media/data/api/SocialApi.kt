@@ -241,7 +241,16 @@ data class ApiPost(
     val replies: List<ApiPost>? = null,
     @SerializedName("original_post") val original_post: ApiPost? = null,
     val poll: ApiPostPoll? = null,
-    val ad: ApiAdvert? = null
+    val ad: ApiAdvert? = null,
+    val media: List<ApiPostMedia>? = null
+)
+
+data class ApiPostMedia(
+    val id: String? = null,
+    @SerializedName("post_id") val post_id: String? = null,
+    @SerializedName("media_url") val media_url: String? = null,
+    @SerializedName("thumbnail_url") val thumbnail_url: String? = null,
+    @SerializedName("media_type") val media_type: String? = null
 )
 
 data class UserIdRequest(val user_id: String)
@@ -322,7 +331,9 @@ data class ApiStoryItem(
     val story_type: String?,
     val created_at: Long?,
     val duration_ms: Int?,
-    val is_viewed: Boolean?
+    val is_viewed: Boolean?,
+    @SerializedName("views_count") val views_count: Int? = null,
+    @SerializedName("viewers_count") val viewers_count: Int? = null
 )
 
 data class ApiStoryResponse(
@@ -340,7 +351,7 @@ data class StoriesResponse(val stories: List<ApiStoryResponse>)
 data class CreateStoryResponse(val story: ApiStoryItem)
 
 data class ViewersResponse(val viewers: List<ApiViewer>)
-data class ApiViewer(val id: String, val display_name: String, val avatar_url: String?, val viewed_at: String)
+data class ApiViewer(val id: String, val display_name: String, val avatar_url: String?, val viewed_at: String? = null)
 
 data class ApiChannel(
     val id: String,

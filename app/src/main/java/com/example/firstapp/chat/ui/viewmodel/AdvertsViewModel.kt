@@ -90,7 +90,40 @@ class AdvertsViewModel @Inject constructor(
         }
     }
 
+    private val _hourlyAdCount = MutableStateFlow(0)
+    val hourlyAdCount = _hourlyAdCount.asStateFlow()
+
+    private val _hourlyAdWindowStart = MutableStateFlow(System.currentTimeMillis())
+
+    private val MAX_HOURLY_ADS = 3
+    private val HOURLY_WINDOW_MILLIS = 3600_000L // 1 hour
+
+    fun checkHourlyAdLimit() {
+        val now = System.currentTimeMillis()
+        if (now - _hourlyAdWindowStart.value >= HOURLY_WINDOW_MILLIS) {
+            _hourlyAdWindowStart.value = now
+            _hourlyAdCount.value = 0
+        }
+    }
+
+    fun canWatchHourlyAd(): Boolean {
+        checkHourlyAdLimit()
+        return _hourlyAdCount.value < MAX_HOURLY_ADS
+    }
+
+    fun remainingMinutesInHourlyWindow(): Int {
+        checkHourlyAdLimit()
+        val elapsed = System.currentTimeMillis() - _hourlyAdWindowStart.value
+        val remainingMillis = (HOURLY_WINDOW_MILLIS - elapsed).coerceAtLeast(0L)
+        return ((remainingMillis / 60_000L) + 1).toInt()
+    }
+
     fun showRewardedAd(activity: Activity, adUnitId: String, advertId: String) {
+        if (!canWatchHourlyAd()) {
+            _toastMessage.value = "Hourly ad limit reached (3/3). Try again in ${remainingMinutesInHourlyWindow()} mins!"
+            return
+        }
+
         viewModelScope.launch {
             val user = userRepository.observeCurrentUser().firstOrNull()
             if (user != null) {
@@ -99,12 +132,14 @@ class AdvertsViewModel @Inject constructor(
                     adUnitId = adUnitId,
                     userId = user.id,
                     onRewardEarned = {
+                        checkHourlyAdLimit()
+                        _hourlyAdCount.value = _hourlyAdCount.value + 1
                         markAdvertAsViewed(advertId)
                         viewModelScope.launch {
                             try {
                                 val success = com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad")
                                 if (success) {
-                                    _toastMessage.value = "Earned 10 reward points!"
+                                    _toastMessage.value = "Earned 10 points! (${_hourlyAdCount.value}/3 ads watched this hour)"
                                 }
                             } catch (e: Exception) {
                                 android.util.Log.e("AdvertsViewModel", "Failed to award points", e)

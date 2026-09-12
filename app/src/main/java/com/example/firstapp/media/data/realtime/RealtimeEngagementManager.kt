@@ -35,31 +35,55 @@ class RealtimeEngagementManager @Inject constructor(
         likes: Long?,
         reposts: Long?,
         shares: Long?,
-        views: Long?
+        views: Long?,
+        replies: Long?
     ) {
-        if (postId == null) return
-        
+        applyCounts(postId, likes, reposts, shares, views, replies)
+    }
+
+    override fun onShortsEvent(
+        action: String,
+        shortId: String?,
+        likes: Long?,
+        reposts: Long?,
+        shares: Long?,
+        views: Long?,
+        replies: Long?
+    ) {
+        applyCounts(shortId, likes, reposts, shares, views, replies)
+    }
+
+    private fun applyCounts(
+        postId: String?,
+        likes: Long?,
+        reposts: Long?,
+        shares: Long?,
+        views: Long?,
+        replies: Long?
+    ) {
+        if (postId.isNullOrBlank()) return
+
         scope.launch {
             try {
                 if (likes != null) {
                     postDao.updateLikeCountOnly(postId, likes)
                 }
                 if (reposts != null) {
-                    // Note: Local DAO uses repostCount field
                     postDao.updateRepostCountOnly(postId, reposts)
                 }
                 if (shares != null) {
                     postDao.updateShareStatus(postId, shares)
                 }
-                // Views count update if needed
+                if (views != null) {
+                    postDao.updateViewCount(postId, views)
+                }
+                if (replies != null) {
+                    postDao.updateRepliesCount(postId, replies)
+                }
             } catch (e: Exception) {
                 Log.e("RealtimeEngagement", "Error updating post $postId engagement", e)
             }
         }
-    }
-
-    override fun onShortsEvent(action: String, shortId: String?) {
-        // Shorts are also posts, onPostsEvent handles them if they use same ID space
     }
 
     override fun onStoriesEvent(action: String, storyId: String?) {}

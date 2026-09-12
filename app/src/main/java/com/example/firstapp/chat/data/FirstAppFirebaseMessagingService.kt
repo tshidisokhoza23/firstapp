@@ -59,8 +59,41 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
                 "new_chat" -> {
                     if (settingsRepository.privateChatsEnabled.first()) handleNewChat(data)
                 }
+                "mingle_like", "mingle_match", "mingle" -> {
+                    handleMingleNotification(data)
+                }
             }
         }
+    }
+
+    private fun handleMingleNotification(data: Map<String, String>) {
+        val title = data["title"] ?: "Mingle Notification"
+        val body = data["body"] ?: "Someone interacted with your Mingle profile"
+
+        createMessagesChannel()
+
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_mingle_notif", true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            ("mingle_" + System.currentTimeMillis()).hashCode(),
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(("mingle_" + System.currentTimeMillis()).hashCode(), notification)
     }
 
     private fun handleNewChat(data: Map<String, String>) {
