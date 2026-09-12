@@ -15,6 +15,7 @@ import com.example.firstapp.media.data.api.SocialApi
 import com.example.firstapp.stories.data.api.StoryApi
 import com.example.firstapp.channels.data.api.ChannelApi
 import com.example.firstapp.music.data.api.MusicApi
+import com.example.firstapp.mingle.data.api.MingleApi
 import com.example.firstapp.common.data.network.NetworkConstants
 import dagger.Module
 import dagger.Provides
@@ -232,4 +233,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideSystemApi(retrofit: Retrofit): SystemApi = retrofit.create(SystemApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideMingleApi(retrofit: Retrofit): MingleApi = retrofit.create(MingleApi::class.java)
 }

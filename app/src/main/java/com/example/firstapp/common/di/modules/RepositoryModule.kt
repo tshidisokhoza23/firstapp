@@ -40,6 +40,8 @@ import com.example.firstapp.vocab.data.repository.MockLessonRepositoryImpl
 import com.example.firstapp.vocab.data.repository.UserRepositoryImpl
 import com.example.firstapp.vocab.domain.repository.LessonRepository
 import com.example.firstapp.vocab.domain.repository.UserRepository
+import com.example.firstapp.mingle.data.repository.MingleRepositoryImpl
+import com.example.firstapp.mingle.domain.repository.MingleRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -114,4 +116,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMingleRepository(impl: MingleRepositoryImpl): MingleRepository
 }

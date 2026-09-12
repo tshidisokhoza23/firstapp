@@ -51,11 +51,11 @@ fun MainScreen(
 
     // Scoped ChatViewModel to sync state across the app flow
     val navHostController = navController as? androidx.navigation.NavHostController
-    val chatViewModel: ChatViewModel = if (navHostController != null) {
-        val entry = remember(navHostController) { navHostController.getBackStackEntry("app_root") }
-        hiltViewModel(entry)
-    } else {
-        hiltViewModel()
+    val chatViewModel: ChatViewModel = run {
+        val entry = remember(navHostController) { 
+            runCatching { navHostController?.getBackStackEntry("app_root") }.getOrNull() 
+        }
+        if (entry != null) hiltViewModel(entry) else hiltViewModel()
     }
 
     LaunchedEffect(Unit) {
@@ -69,10 +69,11 @@ fun MainScreen(
         }
     }
 
-    // Remember the last active tab before switching to "More" overlay (index 5)
+    // Remember the last active tab before switching to "More" overlay (More index)
+    val moreIndex = BottomNavItem.More.index
     val lastActiveTab = remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedIndex) {
-        if (selectedIndex != 5) {
+        if (selectedIndex != moreIndex) {
             lastActiveTab.intValue = selectedIndex
         }
     }
@@ -83,6 +84,7 @@ fun MainScreen(
             val tabRouteName = when(item) {
                 BottomNavItem.Social -> "social"
                 BottomNavItem.Scroll -> "scroll"
+                BottomNavItem.Mingle -> "mingle"
                 BottomNavItem.Stream -> "stream"
                 BottomNavItem.Ride -> "ride"
                 else -> "home"
@@ -98,10 +100,10 @@ fun MainScreen(
     }
 
     val hasHistory = viewModel.hasTabHistory()
-    BackHandler(enabled = initialShortId != null && initialShortId.isNotBlank() || (selectedIndex != 0 && selectedIndex != 5) || (selectedIndex == 5) || hasHistory) {
+    BackHandler(enabled = initialShortId != null && initialShortId.isNotBlank() || (selectedIndex != 0 && selectedIndex != moreIndex) || (selectedIndex == moreIndex) || hasHistory) {
         if (initialShortId != null && initialShortId.isNotBlank()) {
             navController.popBackStack()
-        } else if (selectedIndex == 5) {
+        } else if (selectedIndex == moreIndex) {
             // Dismiss "More" sheet overlay and return to prior tab
             viewModel.setSelectedBottomItem(lastActiveTab.intValue)
         } else {
@@ -145,7 +147,7 @@ fun MainScreen(
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    val tabToDisplay = if (selectedIndex == 5) {
+                    val tabToDisplay = if (selectedIndex == moreIndex) {
                         BottomNavItem.fromIndex(lastActiveTab.intValue)
                     } else {
                         currentTab
@@ -181,6 +183,11 @@ fun MainScreen(
                                 initialShortId = initialShortId,
                                 mediaViewModel = hiltViewModel(key = "shorts_feed")
                             )
+                            BottomNavItem.Mingle -> com.example.firstapp.mingle.ui.MingleScreen(
+                                navController = navController,
+                                userViewModel = userViewModel,
+                                bottomPadding = innerPadding.calculateBottomPadding()
+                            )
                             BottomNavItem.Stream -> MusicTabScreen(
                                 navController = navController,
                                 bottomPadding = innerPadding.calculateBottomPadding()
@@ -202,7 +209,7 @@ fun MainScreen(
                     }
 
                     // "More" Shortcuts Sheet Overlay
-                    if (selectedIndex == 5) {
+                    if (selectedIndex == moreIndex) {
                         MoreShortcutsSheet(
                             isVisible = true,
                             bottomPadding = innerPadding.calculateBottomPadding(),

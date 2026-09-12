@@ -37,6 +37,7 @@ sealed class Screen(val route: String) {
     object AccountSettings : Screen("account_settings")
     object ChatSettings : Screen("chat_settings")
     object NotificationSettings : Screen("notification_settings")
+    object MingleNotification : Screen("mingle_notification")
     object StorageSettings : Screen("storage_settings")
     object HelpSettings : Screen("help_settings")
     object LanguageSettings : Screen("language_settings")
@@ -45,8 +46,8 @@ sealed class Screen(val route: String) {
     object EditWorkExperience : Screen("edit_work_experience?experienceId={experienceId}") {
         fun createRoute(experienceId: String? = null) = "edit_work_experience?experienceId=${experienceId ?: ""}"
     }
-    object UserProfile : Screen("user_profile/{userId}?isGroup={isGroup}") {
-        fun createRoute(userId: String, isGroup: Boolean = false) = "user_profile/${android.net.Uri.encode(userId)}?isGroup=$isGroup"
+    object UserProfile : Screen("user_profile/{userId}?isGroup={isGroup}&tab={tab}") {
+        fun createRoute(userId: String, isGroup: Boolean = false, tab: String? = null) = "user_profile/${android.net.Uri.encode(userId)}?isGroup=$isGroup${if (!tab.isNullOrBlank()) "&tab=$tab" else ""}"
     }
     object ChatProfile : Screen("chat_profile/{userId}?isGroup={isGroup}") {
         fun createRoute(userId: String, isGroup: Boolean = false) = "chat_profile/${android.net.Uri.encode(userId)}?isGroup=$isGroup"
@@ -86,6 +87,8 @@ sealed class Screen(val route: String) {
         fun createRoute(advertId: String) = "advert_detail/$advertId"
     }
     object Wallet : Screen("wallet")
+    object Stream : Screen("stream")
+    object Ride : Screen("ride")
     object PostJob : Screen("post_job")
     object CreateChannel : Screen("create_channel")
     object MediaMessages : Screen("media_messages")

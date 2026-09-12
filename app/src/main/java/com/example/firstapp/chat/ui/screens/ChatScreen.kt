@@ -681,7 +681,7 @@ fun ChatMessagesScreen(
                         val myUserId = uiState.currentUser?.id
                         val isConversationClosed = uiState.closedConversationIds.contains(currentChat.id)
                         val canPost = when (currentChat.type) {
-                            ConversationType.DIRECT, ConversationType.GROUP, ConversationType.JOB_CHAT -> true
+                            ConversationType.DIRECT, ConversationType.GROUP, ConversationType.JOB_CHAT, ConversationType.MINGLE -> true
                             ConversationType.CHANNEL -> {
                                 val isCreator = currentChat.createdBy != null && currentChat.createdBy == myUserId
                                 isCreator || (currentChat.isAdmin && (currentChat.adminsCanPost || currentChat.createdBy == null))
@@ -1026,7 +1026,16 @@ fun ChatMessagesScreen(
                     .clickable { showEmojiPicker = false },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                ReactionPicker) {
+                EmojiPicker(
+                    onEmojiSelect = {
+                        messageText += it
+                        showEmojiPicker = false
+                    }
+                )
+            }
+        }
+
+        if (showReactionPicker) {
             ReactionPickerOverlay(
                 onDismiss = { showReactionPicker = false },
                 onEmojiSelect = { emoji ->
@@ -1061,13 +1070,6 @@ fun ChatMessagesScreen(
                     TextButton(onClick = { showReportDialog = false }) { Text("Cancel") }
                 }
             )
-        }
-
-        if (showEmojiPicker(onEmojiSelect = {
-                    messageText += it
-                    showEmojiPicker = false
-                })
-            }
         }
 
         if (showForwardDialog) {

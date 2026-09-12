@@ -1,5 +1,6 @@
 package com.example.firstapp.chat.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -141,14 +143,21 @@ fun ChatTopBar(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     
+                    val context = LocalContext.current
+                    val handleProfileClick = {
+                        if (chat.type == ConversationType.MINGLE) {
+                            Toast.makeText(context, "🔒 Secret Mingle Chat - Profiles and contacts are kept private.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
+                            onShowProfile(targetId, chat.isGroup)
+                        }
+                    }
+
                     Row(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
-                                onShowProfile(targetId, chat.isGroup)
-                            }
+                            .clickable { handleProfileClick() }
                             .padding(horizontal = 4.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -162,8 +171,12 @@ fun ChatTopBar(
                             textColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray) 
                                 Color.White else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable {
-                                val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
-                                onAvatarClick(targetId)
+                                if (chat.type == ConversationType.MINGLE) {
+                                    Toast.makeText(context, "🔒 Secret Mingle Chat - Profiles and contacts are kept private.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
+                                    onAvatarClick(targetId)
+                                }
                             }
                         )
                         
@@ -172,10 +185,7 @@ fun ChatTopBar(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable {
-                                    val targetId = if (chat.type == ConversationType.DIRECT) (chat.otherUserId ?: chat.id) else chat.id
-                                    onShowProfile(targetId, chat.isGroup)
-                                }
+                                .clickable { handleProfileClick() }
                         ) {
                             Text(
                                 text = sanitizedName,
@@ -187,6 +197,7 @@ fun ChatTopBar(
                             )
                             val presenceText = when {
                                 isTyping -> "typing..."
+                                chat.type == ConversationType.MINGLE -> "🔒 Secret Mingle Chat"
                                 chat.type == ConversationType.CHANNEL -> "channel · tap for details"
                                 chat.type == ConversationType.GROUP || chat.isGroup -> "group · tap for info"
                                 chat.isOnline -> "online"
@@ -196,7 +207,7 @@ fun ChatTopBar(
                             Text(
                                 text = presenceText,
                                 fontSize = 11.sp,
-                                color = if (isTyping || chat.isOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isTyping || chat.isOnline || chat.type == ConversationType.MINGLE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )

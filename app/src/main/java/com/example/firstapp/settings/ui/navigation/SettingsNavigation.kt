@@ -72,7 +72,17 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
         val notificationViewModel: NotificationSettingsViewModel = hiltViewModel()
         NotificationSettingsScreen(
             onBack = { navController.popBackStack() },
+            onNavigateToChat = { chatId ->
+                navController.navigate(Screen.Chat.createRoute(chatId, "mingle"))
+            },
             viewModel = notificationViewModel
+        )
+    }
+
+    composable(Screen.MingleNotification.route) {
+        com.example.firstapp.mingle.ui.MingleNotificationScreen(
+            navController = navController,
+            onBack = { navController.popBackStack() }
         )
     }
 

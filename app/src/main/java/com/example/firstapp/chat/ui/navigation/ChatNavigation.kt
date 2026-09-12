@@ -84,7 +84,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onDeleteStory = { storyId -> storyViewModel.deleteStory(storyId) },
             onStoryViewed = { userId, storyId -> storyViewModel.markStoryAsViewed(userId, storyId) },
             onMuteStory = { userId, isMuted -> storyViewModel.muteStory(userId, isMuted) },
-            onNavigateToNewStory = { navController.navigate(Screen.NewStory.route) }
+            onNavigateToNewStory = { navController.navigate(Screen.NewStory.route) },
+            onGetStoryViewers = { storyId -> storyViewModel.getStoryViewers(storyId) }
         )
     }
 
@@ -268,10 +269,12 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val jobTitle = backStackEntry.arguments?.getString("jobTitle")?.takeIf { it.isNotBlank() }
         val companyName = backStackEntry.arguments?.getString("companyName")?.takeIf { it.isNotBlank() }
         
+        val context = androidx.compose.ui.platform.LocalContext.current
         val type = when (typeStr.trim().lowercase()) {
             "group" -> ConversationType.GROUP
             "channel", "hiring_channel" -> ConversationType.CHANNEL
             "job_chat", "job_application" -> ConversationType.JOB_CHAT
+            "mingle" -> ConversationType.MINGLE
             else -> ConversationType.DIRECT
         }
 
@@ -326,20 +329,18 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val channelsState by channelsViewModel.channels.collectAsState()
         val channelFromRepo = channelsState.data?.find { it.id == resolvedChatId || it.conversationId == resolvedChatId }
 
-        // Use conversationId as the primary key for the chat screen if it's a channel
-        val effectiveChatId = if (type == ConversationType.CHANNEL) {
-            channelFromRepo?.conversationId ?: resolvedChatId!!
-        } else {
-            resolvedChatId!!
+        // Use distinct conversationId for channels and Mingle secret chats
+        val effectiveChatId = when (type) {
+            ConversationType.CHANNEL -> channelFromRepo?.conversationId ?: resolvedChatId!!
+            ConversationType.MINGLE -> resolvedChatId!!
+            else -> resolvedChatId!!
         }
 
-        // Channels can resolve their real conversationId after the initial fetch above
-        // (e.g. channel list still syncing), so re-fetch once effectiveChatId settles to
-        // avoid showing message history/real-time updates for the wrong conversation.
+        val realUserId = existingChat?.otherUserId ?: targetUserId ?: effectiveChatId.removePrefix("mingle_")
+
+        // Ensure Mingle secret chats fetch their distinct conversation messages
         LaunchedEffect(effectiveChatId) {
-            if (!isInitiate && effectiveChatId != chatId) {
-                chatViewModel.fetchMessages(effectiveChatId)
-            }
+            chatViewModel.fetchMessages(effectiveChatId)
         }
 
         val baseName = if (type == ConversationType.GROUP) {
@@ -348,15 +349,15 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             existingChat?.senderName ?: channelFromRepo?.name ?: ""
         } else {
             // Priority: Local DB Name > Contact Cache Name > Phone Number
-            existingChat?.senderName?.takeIf { it.isNotBlank() && it != effectiveChatId }
-                ?: GlobalCallState.getContactName(effectiveChatId)
-                ?: GlobalCallState.getContactPhone(effectiveChatId) 
+            existingChat?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("mingle_") }
+                ?: GlobalCallState.getContactName(realUserId)
+                ?: GlobalCallState.getContactPhone(realUserId) 
                 ?: existingChat?.phoneNumber
                 ?: ""
         }
         
         val sanitizedName = if (baseName == "" || baseName.lowercase() == "unknown" || baseName.lowercase() == "null") {
-            effectiveChatId
+            realUserId
         } else {
             baseName
         }
@@ -375,14 +376,18 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             adminsCanPost = channelFromRepo?.adminsCanPost ?: false,
             followers = channelFromRepo?.followers ?: "0",
             createdBy = channelFromRepo?.createdBy,
-            otherUserId = targetUserId
+            otherUserId = realUserId,
+            isMingle = type == ConversationType.MINGLE
         )).copy(
             type = type,
+            isMingle = type == ConversationType.MINGLE,
             isAdmin = existingChat?.isAdmin ?: channelFromRepo?.isAdmin ?: false,
             isSubscribed = existingChat?.isSubscribed ?: channelFromRepo?.isSubscribed ?: false,
             adminsCanPost = existingChat?.adminsCanPost ?: channelFromRepo?.adminsCanPost ?: false,
             createdBy = existingChat?.createdBy ?: channelFromRepo?.createdBy
         )
+
+        val isSocialDm = typeStr.trim().lowercase() == "dm" || typeStr.trim().lowercase() == "media" || typeStr.trim().lowercase() == "social"
 
         ChatMessagesScreen(
             chat = chat,
@@ -390,16 +395,20 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onBack = { navController.popBackStack() },
             onShowProfile = { userId, isGroup ->
                 when {
+                    type == ConversationType.MINGLE -> android.widget.Toast.makeText(context, "🔒 Secret Mingle Chat - Profiles and contacts are kept private.", android.widget.Toast.LENGTH_SHORT).show()
                     type == ConversationType.GROUP || isGroup -> navController.navigate(Screen.GroupDetail.createRoute(userId))
                     type == ConversationType.CHANNEL -> navController.navigate(Screen.ChannelDetail.createRoute(channelFromRepo?.id ?: userId))
+                    isSocialDm -> navController.navigate(Screen.UserProfile.createRoute(userId))
                     else -> navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
             },
             onAvatarClick = { userId ->
                 when {
+                    type == ConversationType.MINGLE -> android.widget.Toast.makeText(context, "🔒 Secret Mingle Chat - Profiles and contacts are kept private.", android.widget.Toast.LENGTH_SHORT).show()
                     chat.avatarUrl != null -> navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
                     type == ConversationType.GROUP || chat.isGroup -> navController.navigate(Screen.GroupDetail.createRoute(userId))
                     type == ConversationType.CHANNEL -> navController.navigate(Screen.ChannelDetail.createRoute(channelFromRepo?.id ?: userId))
+                    isSocialDm -> navController.navigate(Screen.UserProfile.createRoute(userId))
                     else -> navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
             },
@@ -437,13 +446,19 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             chatViewModel = chatViewModel,
             onBack = { navController.popBackStack() },
             onShowProfile = { userId, isGroup -> 
-                navController.navigate(Screen.ChatProfile.createRoute(userId, isGroup)) 
+                if (isGroup) {
+                    navController.navigate(Screen.GroupDetail.createRoute(userId))
+                } else {
+                    navController.navigate(Screen.ChatProfile.createRoute(userId, false))
+                }
             },
             onAvatarClick = { userId ->
                 if (chat.avatarUrl != null) {
                     navController.navigate(Screen.MediaViewer.createRoute(chat.avatarUrl, "image", 0L))
+                } else if (chat.isGroup) {
+                    navController.navigate(Screen.GroupDetail.createRoute(userId))
                 } else {
-                    navController.navigate(Screen.ChatProfile.createRoute(userId, chat.isGroup))
+                    navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
             }
         )

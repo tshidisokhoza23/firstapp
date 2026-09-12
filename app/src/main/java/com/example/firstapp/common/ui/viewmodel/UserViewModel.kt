@@ -95,6 +95,20 @@ class UserViewModel @Inject constructor(
         sessionManager.updateCurrentUser(user)
     }
 
+    fun deductWalletPoints(amount: Double) {
+        val current = currentUser.value
+        if (current != null) {
+            val newBalance = (current.walletBalance - amount).coerceAtLeast(0.0)
+            val updatedUser = current.copy(walletBalance = newBalance)
+            sessionManager.updateCurrentUser(updatedUser)
+            viewModelScope.launch {
+                userRepository.updateUserLocally(updatedUser)
+                com.example.firstapp.chat.rewards.data.RewardsManager.addOptimisticReward(-amount)
+                com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(-amount, "MINGLE_LIKE", "Liked a Mingle profile")
+            }
+        }
+    }
+
     fun getUserById(userId: String): kotlinx.coroutines.flow.Flow<Resource<User>> {
         val normalizedId = if (userId == "null" || userId.length == 0) sessionManager.getUserId() ?: "" else userId
         return accountRepository.getUserById(normalizedId)

@@ -32,6 +32,7 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
     Log.d("Mappers", "mapApiChatSummary: id=$id, rawType='$rawType', title='${chat.title}'")
     
     val type = when {
+        rawType.contains("MINGLE") || id.startsWith("mingle_") -> ConversationType.MINGLE
         rawType.contains("GROUP") -> ConversationType.GROUP
         rawType.contains("CHANNEL") -> ConversationType.CHANNEL
         rawType.contains("JOB") -> ConversationType.JOB_CHAT
@@ -231,7 +232,8 @@ fun ChatEntity.toModel() = ChatMessage(
     lastMessageRead = lastMessageRead,
     publicKey = publicKey,
     phoneNumber = phoneNumber,
-    otherUserId = otherUserId
+    otherUserId = otherUserId,
+    isMingle = type == ConversationType.MINGLE || id.startsWith("mingle_")
 )
 
 fun Message.toEntity(chatId: String) = MessageEntity(

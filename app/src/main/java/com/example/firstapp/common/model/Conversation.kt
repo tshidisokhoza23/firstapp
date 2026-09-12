@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.example.firstapp.chat.model.Message
 
 enum class ConversationType {
-    DIRECT, GROUP, CHANNEL, JOB_CHAT
+    DIRECT, GROUP, CHANNEL, JOB_CHAT, MINGLE
 }
 
 data class Conversation(
@@ -36,7 +36,7 @@ data class Conversation(
 
 fun Conversation.canPost(myUserId: String?): Boolean {
     return when (type) {
-        ConversationType.DIRECT, ConversationType.JOB_CHAT -> true
+        ConversationType.DIRECT, ConversationType.JOB_CHAT, ConversationType.MINGLE -> true
         ConversationType.GROUP -> true // Default to true, or add a 'anyoneCanPost' flag
         ConversationType.CHANNEL -> isAdmin || (createdBy != null && createdBy == myUserId)
     }
