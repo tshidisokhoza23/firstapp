@@ -154,9 +154,11 @@ fun PostDetailScreen(
                     items = flattenedItems,
                     key = { _, item -> item.post.id }
                 ) { index, item ->
+                    val isPostByMe = item.post.authorId == ownProfileId
                     PostItem(
                         adManager = adManager,
                         post = item.post,
+                        isOwnPost = isPostByMe,
                         showThreadLine = true,
                         showLineAbove = item.hasVerticalLineAbove,
                         showLineBelow = item.hasVerticalLineBelow,
