@@ -149,36 +149,7 @@ fun PostDetailScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
-                // 1. ANCESTORS (If any)
-                post.originalPost?.let { parent ->
-                    item {
-                        PostItem(
-                            adManager = adManager,
-                            post = parent,
-                            showThreadLine = true,
-                            showLineAbove = false,
-                            showLineBelow = true,
-                            depth = 0,
-                            activePostId = postId,
-                            autoplayEnabled = autoplayEnabled,
-                            autoplayGifsEnabled = autoplayGifsEnabled,
-                            onLike = { id, likes, liked -> mediaViewModel.likePost(id, likes, liked) },
-                            onReplyClick = { p, _ -> replyingToPost = p },
-                            onRepostClick = { mediaViewModel.repostPost(parent.id, parent.repostCount, parent.isReposted) },
-                            onShareClick = { 
-                                mediaViewModel.sharePost(parent.id, parent.shares)
-                                com.example.firstapp.common.util.ShareUtils.sharePost(com.example.firstapp.common.util.ContextProvider.context, parent) 
-                            },
-                            onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
-                            onProfileClick = onProfileClick,
-                            onMediaClick = onMediaClick,
-                            onQuotedPostClick = { quotedPost -> onReplyDetailClick(quotedPost.id) },
-                            onClick = { onReplyDetailClick(parent.id) }
-                        )
-                    }
-                }
-
-                // 2. MAIN THREAD (Root + Replies)
+                // MAIN THREAD (Root + Replies)
                 itemsIndexed(
                     items = flattenedItems,
                     key = { _, item -> item.post.id }
