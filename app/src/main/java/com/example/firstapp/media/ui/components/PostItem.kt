@@ -304,8 +304,8 @@ fun VerticalFeedPostCard(
         ) {
             val contentPadding = if (showThreadLine) 0.dp else 12.dp
 
-            // Repost Header
-            if (post.repostOfId != null && post.originalPost != null) {
+            // Repost Header (Only shown for simple reposts without custom caption)
+            if (post.repostOfId != null && post.originalPost != null && post.content.isBlank()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
