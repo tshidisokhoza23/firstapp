@@ -602,6 +602,11 @@ class ChatRepositoryImpl @Inject constructor(
             Resource.Success(deduplicated.map { it.toModel() })
         }.distinctUntilChanged()
 
+    override fun getMingleChats(): Flow<Resource<List<ChatMessage>>> =
+        chatDaoProvider.get().getChatsByType(com.example.firstapp.common.model.ConversationType.MINGLE).map { list ->
+            Resource.Success(list.map { it.toModel() })
+        }.distinctUntilChanged()
+
     override fun getChatById(chatId: String): Flow<Resource<ChatMessage>> =
         chatDaoProvider.get().getChatById(chatId).map { entity ->
             if (entity != null) Resource.Success(entity.toModel())

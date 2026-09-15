@@ -8,6 +8,7 @@ import kotlin.collections.emptyList
 
 interface ChatRepository {
     fun getChats(): Flow<Resource<List<ChatMessage>>>
+    fun getMingleChats(): Flow<Resource<List<ChatMessage>>>
     fun getChatById(chatId: String): Flow<Resource<ChatMessage>>
     fun syncChats(): Flow<Resource<Boolean>>
     fun syncDelta(): Flow<Resource<Long>>

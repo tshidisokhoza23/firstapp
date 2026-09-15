@@ -41,16 +41,15 @@ fun MingleChatsScreen(
     userViewModel: UserViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val chatsState by chatViewModel.chats.collectAsState()
+    val mingleChatsState by chatViewModel.mingleChats.collectAsState()
     val contacts by userViewModel.contacts.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
 
-    val mingleChats = remember(chatsState, contacts, searchQuery) {
-        val allChats = chatsState.data ?: emptyList()
-        val filtered = allChats.filter { it.type == ConversationType.MINGLE || it.isMingle }
-        val listToUse = if (filtered.isNotEmpty()) {
-            filtered
+    val mingleChats = remember(mingleChatsState, contacts, searchQuery) {
+        val allChats = mingleChatsState.data ?: emptyList()
+        val listToUse = if (allChats.isNotEmpty()) {
+            allChats
         } else {
             contacts.take(4).mapIndexed { idx, contact ->
                 ChatMessage(

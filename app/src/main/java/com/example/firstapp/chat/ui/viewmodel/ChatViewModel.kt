@@ -78,6 +78,7 @@ class ChatViewModel @Inject constructor(
 
     // UI Compatibility flows
     val chats = uiState.map { it.chats }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, Resource.Loading())
+    val mingleChats = repository.getMingleChats().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val messages = uiState.map { it.messages }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val contacts = repository.getContacts().distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val archivedChats = uiState.map { it.archivedChats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())

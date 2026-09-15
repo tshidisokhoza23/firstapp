@@ -51,7 +51,7 @@ interface ChatDao {
             c.otherUserId AS otherUserId
         FROM chats c
         LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
-        WHERE c.isArchived = 0
+        WHERE c.isArchived = 0 AND (c.type IS NULL OR c.type != 'MINGLE')
         ORDER BY c.isPinned DESC, c.timestamp DESC
     """)
     fun getChats(): Flow<List<ChatEntity>>
