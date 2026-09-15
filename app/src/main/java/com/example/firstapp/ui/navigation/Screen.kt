@@ -12,9 +12,9 @@ sealed class Screen(val route: String) {
     }
     object CompleteProfile : Screen("complete_profile")
 
-    object Chat : Screen("chat/{chatId}?type={type}&jobId={jobId}&jobTitle={jobTitle}&companyName={companyName}") {
-        fun createRoute(chatId: String, type: String = "direct", jobId: String? = null, jobTitle: String? = null, companyName: String? = null) = 
-            "chat/$chatId?type=$type&jobId=${jobId ?: ""}&jobTitle=${android.net.Uri.encode(jobTitle ?: "")}&companyName=${android.net.Uri.encode(companyName ?: "")}"
+    object Chat : Screen("chat/{chatId}?type={type}&jobId={jobId}&jobTitle={jobTitle}&companyName={companyName}&displayName={displayName}") {
+        fun createRoute(chatId: String, type: String = "direct", jobId: String? = null, jobTitle: String? = null, companyName: String? = null, displayName: String? = null) = 
+            "chat/$chatId?type=$type&jobId=${jobId ?: ""}&jobTitle=${android.net.Uri.encode(jobTitle ?: "")}&companyName=${android.net.Uri.encode(companyName ?: "")}&displayName=${android.net.Uri.encode(displayName ?: "")}"
     }
     object Vocab : Screen("vocab")
     object Files : Screen("files")
@@ -38,6 +38,7 @@ sealed class Screen(val route: String) {
     object ChatSettings : Screen("chat_settings")
     object NotificationSettings : Screen("notification_settings")
     object MingleNotification : Screen("mingle_notification")
+    object MingleChats : Screen("mingle_chats")
     object StorageSettings : Screen("storage_settings")
     object HelpSettings : Screen("help_settings")
     object LanguageSettings : Screen("language_settings")

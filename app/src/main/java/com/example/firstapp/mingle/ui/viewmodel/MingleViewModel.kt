@@ -376,7 +376,6 @@ class MingleViewModel @Inject constructor(
                     }
                     is Resource.Error -> {
                         _uiState.value = _uiState.value.copy(error = result.message)
-                        onComplete()
                     }
                     is Resource.Loading -> Unit
                 }

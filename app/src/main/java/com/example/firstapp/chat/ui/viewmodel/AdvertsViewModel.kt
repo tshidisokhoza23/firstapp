@@ -96,7 +96,7 @@ class AdvertsViewModel @Inject constructor(
     private val _hourlyAdWindowStart = MutableStateFlow(System.currentTimeMillis())
 
     private val MAX_HOURLY_ADS = 3
-    private val HOURLY_WINDOW_MILLIS = 3600_000L // 1 hour
+    private val HOURLY_WINDOW_MILLIS = 1800_000L // 30 minutes window
 
     fun checkHourlyAdLimit() {
         val now = System.currentTimeMillis()
@@ -120,7 +120,7 @@ class AdvertsViewModel @Inject constructor(
 
     fun showRewardedAd(activity: Activity, adUnitId: String, advertId: String) {
         if (!canWatchHourlyAd()) {
-            _toastMessage.value = "Hourly ad limit reached (3/3). Try again in ${remainingMinutesInHourlyWindow()} mins!"
+            _toastMessage.value = "Ad limit reached (3/3). Try again in ${remainingMinutesInHourlyWindow()} mins!"
             return
         }
 

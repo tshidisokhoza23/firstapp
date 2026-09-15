@@ -172,6 +172,7 @@ fun PostDetailScreen(
                             onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                             onProfileClick = onProfileClick,
                             onMediaClick = onMediaClick,
+                            onQuotedPostClick = { quotedPost -> onReplyDetailClick(quotedPost.id) },
                             onClick = { onReplyDetailClick(parent.id) }
                         )
                     }
@@ -203,6 +204,7 @@ fun PostDetailScreen(
                         onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                         onProfileClick = onProfileClick,
                         onMediaClick = onMediaClick,
+                        onQuotedPostClick = { quotedPost -> onReplyDetailClick(quotedPost.id) },
                         onClick = {
                             if (item.post.id != post.id) {
                                 onReplyDetailClick(item.post.id)

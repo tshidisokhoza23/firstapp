@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -350,6 +351,12 @@ fun MediaScreen(
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
+                    ListItem(
+                        headlineContent = { Text("Vocab", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+                        modifier = Modifier.clickable(enabled = false) { },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
                 }
             }
         }
@@ -431,6 +438,13 @@ fun MediaScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
+
+                    ListItem(
+                        headlineContent = { Text("Vocab", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+                        modifier = Modifier.clickable(enabled = false) { },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
                 }
             }
         }
@@ -602,6 +616,7 @@ fun MainFeedSection(
                             autoplayEnabled = autoplayEnabled,
                             autoplayGifsEnabled = autoplayGifsEnabled,
                             onClick = { onPostClick(post) },
+                            onQuotedPostClick = { quotedPost -> onPostClick(quotedPost) },
                             onLike = { id, likes, liked -> onLike(id, likes, liked) },
                             onRepostClick = { p -> onRepostClick(p) },
                             onBookmark = { id -> onBookmark(id) },

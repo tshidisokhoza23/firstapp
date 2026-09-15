@@ -43,6 +43,7 @@ fun MoreShortcutsSheet(
 ) {
     val shortcuts = java.util.Arrays.asList(
         ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
+        ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route, isEnabled = true),
         ShortcutItem("Stream", Icons.Default.MusicNote, Color(0xFF9C27B0), Screen.Stream.route, isEnabled = false),
         ShortcutItem("Ride", Icons.Default.DirectionsCar, Color(0xFF00BCD4), Screen.Ride.route, isEnabled = false)
     )

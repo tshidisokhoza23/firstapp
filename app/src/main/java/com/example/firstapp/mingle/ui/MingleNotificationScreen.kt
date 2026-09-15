@@ -96,7 +96,7 @@ fun MingleNotificationScreen(
                 onDismiss = { selectedNotificationForPreview = null },
                 onNavigateToChat = { conversationId ->
                     selectedNotificationForPreview = null
-                    navController.navigate(Screen.Chat.createRoute(conversationId, "mingle"))
+                    navController.navigate(Screen.Chat.createRoute(conversationId, type = "mingle", displayName = item.actorName))
                 }
             )
         }

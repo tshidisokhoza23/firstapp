@@ -150,7 +150,7 @@ fun RewardsScreen(
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("Today", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                     Text(
-                                        "${dash.ads_watched_today}/${dash.max_daily_ads}",
+                                        if (dash.max_daily_ads == 0) "${dash.ads_watched_today}" else "${dash.ads_watched_today}/${dash.max_daily_ads}",
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Medium
@@ -173,12 +173,12 @@ fun RewardsScreen(
 
                         items(availableTasks.indices.toList()) { index ->
                             val task = availableTasks[index]
-                            val canWatch = cooldownSeconds <= 0 && dash.ads_watched_today < dash.max_daily_ads
+                            val canWatch = cooldownSeconds <= 0 && (dash.max_daily_ads == 0 || dash.ads_watched_today < dash.max_daily_ads)
 
                             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 TaskRow(
                                     task = task,
-                                    dailyLimitReached = dash.ads_watched_today >= dash.max_daily_ads,
+                                    dailyLimitReached = dash.max_daily_ads > 0 && dash.ads_watched_today >= dash.max_daily_ads,
                                     cooldownSeconds = cooldownSeconds,
                                     isLocked = false,
                                     onWatchClick = {

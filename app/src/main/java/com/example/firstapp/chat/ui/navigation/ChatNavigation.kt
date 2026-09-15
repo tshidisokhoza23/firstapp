@@ -257,7 +257,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             navArgument("type") { type = NavType.StringType; defaultValue = "direct" },
             navArgument("jobId") { type = NavType.StringType; nullable = true; defaultValue = "" },
             navArgument("jobTitle") { type = NavType.StringType; nullable = true; defaultValue = "" },
-            navArgument("companyName") { type = NavType.StringType; nullable = true; defaultValue = "" }
+            navArgument("companyName") { type = NavType.StringType; nullable = true; defaultValue = "" },
+            navArgument("displayName") { type = NavType.StringType; nullable = true; defaultValue = "" }
         )
     ) { backStackEntry ->
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
@@ -268,6 +269,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val jobId = backStackEntry.arguments?.getString("jobId")?.takeIf { it.isNotBlank() }
         val jobTitle = backStackEntry.arguments?.getString("jobTitle")?.takeIf { it.isNotBlank() }
         val companyName = backStackEntry.arguments?.getString("companyName")?.takeIf { it.isNotBlank() }
+        val displayNameNavParam = backStackEntry.arguments?.getString("displayName")?.takeIf { it.isNotBlank() }?.let { android.net.Uri.decode(it) }
         
         val context = androidx.compose.ui.platform.LocalContext.current
         val type = when (typeStr.trim().lowercase()) {
@@ -347,9 +349,14 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             existingChat?.senderName ?: chatViewModel.getCachedGroupName(effectiveChatId) ?: ""
         } else if (type == ConversationType.CHANNEL) {
             existingChat?.senderName ?: channelFromRepo?.name ?: ""
+        } else if (type == ConversationType.MINGLE) {
+            existingChat?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("mingle_") }
+                ?: displayNameNavParam
+                ?: "Mingle User"
         } else {
             // Priority: Local DB Name > Contact Cache Name > Phone Number
             existingChat?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("mingle_") }
+                ?: displayNameNavParam
                 ?: GlobalCallState.getContactName(realUserId)
                 ?: GlobalCallState.getContactPhone(realUserId) 
                 ?: existingChat?.phoneNumber

@@ -9,17 +9,62 @@ import java.io.File
 import java.io.FileOutputStream
 
 object MediaUtils {
-    fun compressImage(context: Context, uri: Uri): File {
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val bitmap = BitmapFactory.decodeStream(inputStream)
-        
-        val outFile = File(context.cacheDir, "compressed_${System.currentTimeMillis()}.jpg")
-        val outStream = FileOutputStream(outFile)
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, outStream)
-        outStream.flush()
-        outStream.close()
-        
-        return outFile
+    fun compressImage(context: Context, uri: Uri): File? {
+        return try {
+            val resolver = context.contentResolver
+            
+            // Calculate inSampleSize to prevent OOM on high-resolution camera photos
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            resolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)
+            }
+            
+            var sampleSize = 1
+            val maxDim = Math.max(options.outWidth, options.outHeight)
+            if (maxDim > 1920) {
+                sampleSize = maxDim / 1080
+            }
+            
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = Math.max(1, sampleSize)
+            }
+            
+            val bitmap = resolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOptions)
+            }
+            
+            val outFile = File(context.cacheDir, "mingle_${java.util.UUID.randomUUID()}.jpg")
+            
+            if (bitmap != null) {
+                FileOutputStream(outFile).use { outStream ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outStream)
+                    outStream.flush()
+                }
+                bitmap.recycle()
+                outFile
+            } else {
+                // Fallback: Copy direct bytes from Uri if bitmap decoding fails
+                resolver.openInputStream(uri)?.use { inputStream ->
+                    FileOutputStream(outFile).use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                if (outFile.length() > 0) outFile else null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try {
+                val fallbackFile = File(context.cacheDir, "fallback_${java.util.UUID.randomUUID()}.jpg")
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    FileOutputStream(fallbackFile).use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                if (fallbackFile.length() > 0) fallbackFile else null
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
 
     fun processImageForAvatar(context: Context, uri: Uri): File? {

@@ -13,6 +13,7 @@ data class MingleProfileDto(
     val age: Int = 0,
     val gender: String? = null,
     val looking_for: String? = null,
+    val target_age_range: String? = null,
     val max_distance_km: Int = 25,
     val is_discoverable: Boolean = true,
     val has_location: Boolean = false,
@@ -21,6 +22,15 @@ data class MingleProfileDto(
 
 data class MingleProfileResponse(
     val profile: MingleProfileDto?
+)
+
+data class MingleUpdateProfileRequest(
+    val name: String? = null,
+    val bio: String? = null,
+    val age: Int? = null,
+    val gender: String? = null,
+    val looking_for: String? = null,
+    val target_age_range: String? = null
 )
 
 data class MingleCandidateDto(

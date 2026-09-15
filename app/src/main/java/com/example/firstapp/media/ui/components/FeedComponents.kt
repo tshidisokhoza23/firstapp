@@ -264,12 +264,14 @@ fun MediaGrid(
 fun QuotedPostCard(
     post: Post,
     onProfileClick: (String) -> Unit,
-    onMediaClick: (String, String, Long) -> Unit
+    onMediaClick: (String, String, Long) -> Unit,
+    onPostClick: (Post) -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
+            .clickable { onPostClick(post) }
             .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
         color = MaterialTheme.colorScheme.surface
     ) {

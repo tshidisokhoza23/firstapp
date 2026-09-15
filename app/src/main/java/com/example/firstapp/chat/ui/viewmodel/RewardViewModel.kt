@@ -179,8 +179,8 @@ class RewardViewModel @Inject constructor(
         prefs.edit().putInt("ads_watched_window", adsWatchedWindowCount).apply()
 
         if (adsWatchedWindowCount >= 3) {
-            // 3 ads completed! Start 1-hour (3600s) cooldown
-            startCooldownTimer(3600)
+            // 3 ads completed! Start 30-minute (1800s) cooldown
+            startCooldownTimer(1800)
             adsWatchedWindowCount = 0
             prefs.edit().putInt("ads_watched_window", 0).apply()
         }

@@ -86,6 +86,13 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
         )
     }
 
+    composable(Screen.MingleChats.route) {
+        com.example.firstapp.mingle.ui.MingleChatsScreen(
+            navController = navController,
+            onBack = { navController.popBackStack() }
+        )
+    }
+
     composable(Screen.StorageSettings.route) {
         val storageViewModel: StorageSettingsViewModel = hiltViewModel()
         StorageSettingsScreen(

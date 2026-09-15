@@ -75,6 +75,7 @@ fun PostItem(
     autoplayGifsEnabled: Boolean = true,
     displayMode: PostDisplayMode = PostDisplayMode.FEED,
     onClick: () -> Unit,
+    onQuotedPostClick: (Post) -> Unit = {},
     onLike: (String, Long, Boolean) -> Unit = { _, _, _ -> },
     onRepostClick: (Post) -> Unit = {},
     onBookmark: (String) -> Unit = {},
@@ -125,6 +126,7 @@ fun PostItem(
                     onMoreClick = { onMoreClick(post) },
                     onProfileClick = { onProfileClick(displayPost.authorId) },
                     onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
+                    onQuotedPostClick = onQuotedPostClick,
                     onVotePoll = onVotePoll,
                     modifier = Modifier.clickable(onClick = onClick)
                 )
@@ -256,6 +258,7 @@ fun VerticalFeedPostCard(
     onMoreClick: () -> Unit,
     onProfileClick: (String) -> Unit,
     onMediaClick: (String, String, Long) -> Unit,
+    onQuotedPostClick: (Post) -> Unit = {},
     onVotePoll: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -269,7 +272,7 @@ fun VerticalFeedPostCard(
 
     val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.isBlank()
     val displayPost = if (isSimpleRepost) post.originalPost!! else post
-    val quotedPost = if (!isSimpleRepost) post.originalPost else null
+    val quotedPost = displayPost.originalPost
 
     val haptic = LocalHapticFeedback.current
     
@@ -478,7 +481,12 @@ fun VerticalFeedPostCard(
             if (quotedPost != null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Box(modifier = Modifier.padding(start = contentPadding)) {
-                    QuotedPostCard(post = quotedPost, onProfileClick = onProfileClick, onMediaClick = onMediaClick)
+                    QuotedPostCard(
+                        post = quotedPost,
+                        onProfileClick = onProfileClick,
+                        onMediaClick = onMediaClick,
+                        onPostClick = onQuotedPostClick
+                    )
                 }
             }
 

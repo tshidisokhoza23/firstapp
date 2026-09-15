@@ -3,6 +3,7 @@ package com.example.firstapp.media
 import com.example.firstapp.channels.ui.ChannelsViewModel
 import com.example.firstapp.channels.domain.ChannelRepository
 import com.example.firstapp.domain.repository.ChatRepository
+import com.example.firstapp.account.domain.repository.AccountRepository
 import com.example.firstapp.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -21,13 +22,14 @@ class ChannelsViewModelTest {
     private lateinit var viewModel: ChannelsViewModel
     private val repository: ChannelRepository = mockk(relaxed = true)
     private val chatRepository: ChatRepository = mockk(relaxed = true)
+    private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { repository.getChannels() } returns flowOf(Resource.Success(emptyList()))
-        viewModel = ChannelsViewModel(repository, chatRepository)
+        viewModel = ChannelsViewModel(repository, chatRepository, accountRepository)
     }
 
     @After

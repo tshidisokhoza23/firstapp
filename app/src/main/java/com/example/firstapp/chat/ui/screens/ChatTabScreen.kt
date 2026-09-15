@@ -92,30 +92,26 @@ fun ChatsListScreen(
     var selectedTabItem by rememberSaveable(initialTab) {
         mutableIntStateOf(
             if (!initialTab.isNullOrBlank()) {
-                when(initialTab) {
+                when(initialTab.lowercase()) {
                     "chats" -> 0
-                    "mingle" -> 1
-                    "channels" -> 2
-                    "jobs" -> 3
-                    "rewards" -> 4
-                    "dm" -> 5
+                    "channels" -> 1
+                    "jobs" -> 2
+                    "rewards" -> 3
                     else -> 0
                 }
             } else {
-                activeSubTab
+                activeSubTab.coerceIn(0, 3)
             }
         )
     }
     
     LaunchedEffect(initialTab) {
         if (!initialTab.isNullOrBlank()) {
-            val idx = when(initialTab) {
+            val idx = when(initialTab.lowercase()) {
                 "chats" -> 0
-                "mingle" -> 1
-                "channels" -> 2
-                "jobs" -> 3
-                "rewards" -> 4
-                "dm" -> 5
+                "channels" -> 1
+                "jobs" -> 2
+                "rewards" -> 3
                 else -> 0
             }
             selectedTabItem = idx
@@ -183,12 +179,12 @@ fun ChatsListScreen(
     // }
 
     LaunchedEffect(selectedTabItem) {
-        if (selectedTabItem == 4) {
+        if (selectedTabItem == 3) {
             advertsViewModel.initializePool(context, AdUnitConfig.REWARDED_POINTS_ID)
         }
     }
 
-    val tabs = listOf("Chats", "Mingle", "Channels", "Jobs", "Rewards", "DM")
+    val tabs = listOf("Chats", "Channels", "Jobs", "Rewards")
 
     Scaffold(
         topBar = {
@@ -213,10 +209,9 @@ fun ChatsListScreen(
 
                         if (isSearchActive) {
                             val searchType = when (selectedTabItem) {
-                                0, 1 -> SearchType.CHATS
-                                2 -> SearchType.CHANNELS
-                                3 -> SearchType.JOBS
-                                5 -> SearchType.GLOBAL
+                                0 -> SearchType.CHATS
+                                1 -> SearchType.CHANNELS
+                                2 -> SearchType.JOBS
                                 else -> SearchType.GLOBAL
                             }
                             TextField(
@@ -228,10 +223,8 @@ fun ChatsListScreen(
                                 placeholder = { 
                                     val hint = when (selectedTabItem) {
                                         0 -> "Search chats, contacts, messages..."
-                                        1 -> "Search secret Mingle chats..."
-                                        2 -> "Search channels..."
-                                        3 -> "Search jobs, companies..."
-                                        5 -> "Search people by name or username..."
+                                        1 -> "Search channels..."
+                                        2 -> "Search jobs, companies..."
                                         else -> "Search..."
                                     }
                                     Text(hint, color = Color.Gray) 
@@ -320,7 +313,7 @@ fun ChatsListScreen(
         floatingActionButton = {
             if (!isSearchActive) {
                 when (selectedTabItem) {
-                    0, 5 -> FloatingActionButton(
+                    0 -> FloatingActionButton(
                         onClick = { navController.navigate(Screen.ContactPicker.route) },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -329,14 +322,6 @@ fun ChatsListScreen(
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
                     }
                     1 -> FloatingActionButton(
-                        onClick = { navController.navigate(Screen.Main.createRoute(tab = "mingle")) },
-                        containerColor = Color(0xFFE91E63),
-                        contentColor = Color.White,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(Icons.Default.Favorite, contentDescription = "Explore Mingle")
-                    }
-                    2 -> FloatingActionButton(
                         onClick = { navController.navigate(Screen.CreateChannel.route) },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -344,7 +329,7 @@ fun ChatsListScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Create Channel")
                     }
-                    3 -> FloatingActionButton(
+                    2 -> FloatingActionButton(
                         onClick = { navController.navigate(Screen.PostJob.route) },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -657,98 +642,6 @@ fun ChatsListScreen(
                             }
                         }
                         1 -> {
-                            val contacts by userViewModel.contacts.collectAsState()
-                            val mingleChats = remember(sanitizedChats, contacts) {
-                                val filtered = sanitizedChats.filter { it.type == ConversationType.MINGLE || it.isMingle }
-                                if (filtered.isNotEmpty()) {
-                                    filtered
-                                } else {
-                                    contacts.take(4).mapIndexed { idx, contact ->
-                                        ChatMessage(
-                                            id = contact.id,
-                                            type = ConversationType.MINGLE,
-                                            senderName = contact.displayName,
-                                            lastMessage = if (idx == 0) "Hey! We matched on Mingle ❤️" else "You both liked each other! Say hi 👋",
-                                            timestamp = System.currentTimeMillis() - (idx * 3600000L),
-                                            unreadCount = if (idx == 0) 1 else 0,
-                                            avatarUrl = contact.avatarUrl,
-                                            avatarColor = Color(0xFFE91E63),
-                                            otherUserId = contact.id,
-                                            isMingle = true
-                                        )
-                                    }
-                                }
-                            }
-
-                            if (mingleChats.isEmpty()) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.padding(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Favorite,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE91E63),
-                                            modifier = Modifier.size(64.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Text(
-                                            text = "No Mingle Secret Chats",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 18.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "Match with people on Mingle to start private, secret chats.",
-                                            textAlign = TextAlign.Center,
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(modifier = Modifier.height(20.dp))
-                                        Button(
-                                            onClick = { navController.navigate(Screen.Main.createRoute(tab = "mingle")) },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
-                                            shape = RoundedCornerShape(24.dp)
-                                        ) {
-                                            Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Explore Mingle", color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            } else {
-                                ChatList(
-                                    chats = mingleChats,
-                                    archivedChatsCount = 0,
-                                    stories = emptyList(),
-                                    chatViewModel = chatViewModel,
-                                    navController = navController,
-                                    topBarHeight = 0.dp,
-                                    bottomPadding = bottomPadding,
-                                    currentUserId = currentUser?.id,
-                                    initialScrollDone = true,
-                                    showStories = false,
-                                    onInitialScrollDone = {},
-                                    onChatClick = { chat ->
-                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = "mingle"))
-                                    },
-                                    onStoryClick = {},
-                                    onMediaStoryClick = {},
-                                    onTextStoryClick = {},
-                                    onArchivedClick = {},
-                                    onPostedStoriesClick = {},
-                                    onAvatarClick = { _ ->
-                                        Toast.makeText(context, "🔒 Secret Mingle Profile - Profile details are kept private.", Toast.LENGTH_SHORT).show()
-                                    }
-                                )
-                            }
-                        }
-                        2 -> {
                             val searchResults by searchViewModel.searchResults.collectAsState()
                             val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
                             val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
@@ -783,7 +676,7 @@ fun ChatsListScreen(
                                 }
                             }
                         }
-                        3 -> {
+                        2 -> {
                             val searchResults by searchViewModel.searchResults.collectAsState()
                             val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
                             val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
@@ -812,71 +705,11 @@ fun ChatsListScreen(
                                 }
                             }
                         }
-                        4 -> {
+                        3 -> {
                             RewardsScreen(
                                 viewModel = rewardViewModel,
                                 topBarHeight = 0.dp
                             )
-                        }
-                        5 -> {
-                            val searchResults by searchViewModel.searchResults.collectAsState()
-                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
-                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
-                            if (isSearchActive && searchQuery.length > 0) {
-                                SearchResultsView(
-                                    results = searchResults,
-                                    type = SearchType.GLOBAL,
-                                    autoplayEnabled = autoplayEnabled,
-                                    autoplayGifsEnabled = autoplayGifsEnabled,
-                                    currentUserId = currentUser?.id,
-                                    onChatClick = { chat ->
-                                        navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
-                                    },
-                                    onMessageClick = { msg ->
-                                        navController.navigate(Screen.Chat.createRoute(msg.conversationId, type = "direct"))
-                                    },
-                                    onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
-                                    onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                                )
-                            } else {
-                                DataStateHandler(dmState) { dmChats ->
-                                    if (dmChats.isEmpty()) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "No direct messages yet",
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    } else {
-                                        LazyColumn(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentPadding = PaddingValues(bottom = 80.dp)
-                                        ) {
-                                            items(dmChats, key = { it.id }) { chat ->
-                                                Box(
-                                                    modifier = Modifier.combinedClickable(
-                                                        onClick = {
-                                                            navController.navigate(
-                                                                Screen.Chat.createRoute(
-                                                                    chat.id,
-                                                                    type = "dm"
-                                                                )
-                                                            )
-                                                        },
-                                                        onLongClick = { selectedDmForMenu = chat }
-                                                    )
-                                                ) {
-                                                    ChatItem(chat = chat)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
                 }
