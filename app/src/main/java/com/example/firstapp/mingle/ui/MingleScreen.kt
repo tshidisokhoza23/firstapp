@@ -1024,8 +1024,9 @@ private fun MingleCard(
                     .clickable { onProfileClick() }
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val ageText = if (profile.age > 0) "${profile.name}, ${profile.age}" else profile.name
                     Text(
-                        text = "${profile.name}, ${profile.age}",
+                        text = ageText,
                         color = Color.White,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 26.sp
@@ -1049,8 +1050,9 @@ private fun MingleCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
+                    val distanceText = if (profile.distanceKm > 0) "${profile.distanceKm} km away" else "Nearby"
                     Text(
-                        text = "${profile.distanceKm} km away",
+                        text = distanceText,
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
