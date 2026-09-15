@@ -20,11 +20,13 @@ import com.example.firstapp.mingle.ui.MingleProfile
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import com.example.firstapp.vocab.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.TimeUnit
@@ -47,12 +49,21 @@ data class MingleUiState(
     val error: String? = null,
     val needsPoints: Boolean = false,
     val lastMatchConversationId: String? = null,
-    val lastMatchName: String? = null
-)
+    val lastMatchName: String? = null,
+    val myName: String = "",
+    val myBio: String = "",
+    val myAge: Int = 25,
+    val myGender: String = "Other",
+    val myLookingFor: String = "Everyone",
+    val myTargetAgeRange: String = "18 - 35"
+) {
+    val hasUploadedPhotos: Boolean get() = myPhotos.any { !it.url.isNullOrBlank() }
+}
 
 @HiltViewModel
 class MingleViewModel @Inject constructor(
     private val repository: MingleRepository,
+    private val userRepository: UserRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -60,10 +71,30 @@ class MingleViewModel @Inject constructor(
     val uiState: StateFlow<MingleUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            userRepository.observeCurrentUser().collect { user ->
+                if (user != null) {
+                    _uiState.value = _uiState.value.copy(
+                        balance = user.walletBalance
+                    )
+                }
+            }
+        }
         refreshPermission()
         loadProfile()
         if (_uiState.value.hasLocationPermission) {
             refreshLocationAndFeed()
+        }
+    }
+
+    private var excludedContactIds: Set<String> = emptySet()
+
+    fun setExcludedContactIds(ids: Set<String>) {
+        excludedContactIds = ids
+        if (_uiState.value.profiles.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                profiles = _uiState.value.profiles.filterNot { candidate -> excludedContactIds.contains(candidate.id) }
+            )
         }
     }
 
@@ -113,58 +144,133 @@ class MingleViewModel @Inject constructor(
         viewModelScope.launch {
             refreshPermission()
             if (!_uiState.value.hasLocationPermission) {
-                _uiState.value = _uiState.value.copy(error = "Location permission is required to find people nearby")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Location permission is required to find people nearby"
+                )
                 return@launch
             }
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val location = currentLocation()
             if (location == null) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = "Unable to read your location")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Unable to read your location"
+                )
                 return@launch
             }
+            val lat = location.latitude
+            val lng = location.longitude
             val radius = _uiState.value.radiusKm.roundToInt()
+            
             _uiState.value = _uiState.value.copy(
-                latitude = location.latitude,
-                longitude = location.longitude,
-                hasLocation = true
+                latitude = lat,
+                longitude = lng,
+                hasLocation = location != null
             )
-            repository.updateLocation(location.latitude, location.longitude, radius).collect { }
-            repository.getFeed(location.latitude, location.longitude, radius).collect { result ->
+            var locationUpdated = false
+            var locationError: String? = null
+            repository.updateLocation(lat, lng, radius).collect { result ->
+                when (result) {
+                    is Resource.Success -> locationUpdated = true
+                    is Resource.Error -> locationError = result.message
+                    is Resource.Loading -> Unit
+                }
+            }
+            if (!locationUpdated) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = locationError ?: "Unable to update your location"
+                )
+                return@launch
+            }
+            repository.getFeed(lat, lng, radius).collect { result ->
                 when (result) {
                     is Resource.Success -> {
                         val feed = result.data
+                        val targetRange = _uiState.value.myTargetAgeRange
+                        val rawItems = feed?.items ?: emptyList()
+                        val candidatesList = rawItems.mapNotNull { candidate ->
+                            val candidateId = candidate.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                            MingleProfile(
+                                id = candidateId,
+                                name = candidate.name.orEmpty().ifBlank { "Mingle user" },
+                                age = candidate.age,
+                                distanceKm = candidate.distance_km.roundToInt(),
+                                bio = candidate.bio.orEmpty(),
+                                photos = candidate.photos?.mapNotNull { it.url } ?: emptyList(),
+                                isLiked = candidate.is_liked
+                            )
+                        }
+
+                        val nonExcluded = candidatesList.filterNot { candidate ->
+                            excludedContactIds.contains(candidate.id)
+                        }
+                        val filteredItems = nonExcluded.filter { candidate ->
+                            isAgeInRange(candidate.age, targetRange)
+                        }
+
+                        val feedBalance = feed?.balance
+                        if (feedBalance != null) {
+                            updateUserBalance(feedBalance)
+                        }
+
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            profiles = (feed?.items ?: emptyList()).map { candidate ->
-                                MingleProfile(
-                                    id = candidate.id.orEmpty(),
-                                    name = candidate.name.orEmpty().ifBlank { "Mingle user" },
-                                    age = candidate.age,
-                                    distanceKm = candidate.distance_km.roundToInt(),
-                                    bio = candidate.bio.orEmpty(),
-                                    photos = candidate.photos?.mapNotNull { it.url } ?: emptyList(),
-                                    isLiked = candidate.is_liked
-                                )
-                            },
+                            profiles = filteredItems,
                             radiusKm = (feed?.radius_km ?: radius).toFloat(),
-                            balance = feed?.balance ?: _uiState.value.balance,
+                            balance = feedBalance ?: _uiState.value.balance,
                             likeCost = feed?.like_cost ?: 10.0,
                             error = null
                         )
                     }
-                    is Resource.Error -> _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                    is Resource.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            profiles = emptyList(),
+                            error = result.message
+                        )
+                    }
                     is Resource.Loading -> _uiState.value = _uiState.value.copy(isLoading = true)
                 }
             }
         }
     }
 
-    fun swipe(profile: MingleProfile, action: String, onMatched: (String) -> Unit, onInsufficientPoints: () -> Unit) {
+    fun updateUserBalance(newBalance: Double) {
         viewModelScope.launch {
-            repository.swipe(profile.id, action).collect { result ->
+            val user = userRepository.observeCurrentUser().firstOrNull()
+            if (user != null) {
+                userRepository.updateUserLocally(user.copy(walletBalance = newBalance))
+                com.example.firstapp.chat.rewards.data.RewardsManager.onBalanceUpdate(newBalance)
+                _uiState.value = _uiState.value.copy(balance = newBalance)
+            }
+        }
+    }
+
+    fun deductLikePoints(amount: Double = 10.0) {
+        viewModelScope.launch {
+            val user = userRepository.observeCurrentUser().firstOrNull()
+            if (user != null) {
+                val newBalance = (user.walletBalance - amount).coerceAtLeast(0.0)
+                val updatedUser = user.copy(walletBalance = newBalance)
+                userRepository.updateUserLocally(updatedUser)
+                com.example.firstapp.chat.rewards.data.RewardsManager.addOptimisticReward(-amount)
+                _uiState.value = _uiState.value.copy(balance = newBalance)
+            }
+        }
+    }
+
+    fun swipe(profile: MingleProfile, action: String, candidateName: String? = null, onMatched: (String) -> Unit, onInsufficientPoints: () -> Unit) {
+        viewModelScope.launch {
+            val nameToUse = candidateName ?: profile.name
+            repository.swipe(profile.id, action, candidateName = nameToUse).collect { result ->
                 when (result) {
                     is Resource.Success -> {
                         val swipe = result.data
+                        if (swipe != null) {
+                            updateUserBalance(swipe.balance)
+                        }
                         _uiState.value = _uiState.value.copy(
                             profiles = _uiState.value.profiles.filterNot { it.id == profile.id },
                             balance = swipe?.balance ?: _uiState.value.balance,
@@ -193,9 +299,9 @@ class MingleViewModel @Inject constructor(
         }
     }
 
-    fun openChat(userId: String, onOpened: (String) -> Unit, onError: (String) -> Unit) {
+    fun openChat(userId: String, candidateName: String? = null, onOpened: (String) -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            repository.openChat(userId).collect { result ->
+            repository.openChat(userId, candidateName = candidateName).collect { result ->
                 when (result) {
                     is Resource.Success -> result.data?.let(onOpened)
                     is Resource.Error -> onError(result.message ?: "Match required before chatting")
@@ -207,14 +313,84 @@ class MingleViewModel @Inject constructor(
 
     fun uploadPhotos(uris: List<Uri>) {
         viewModelScope.launch {
-            uris.take(5).forEach { uri ->
-                val file = MediaUtils.compressImage(context, uri)
-                repository.uploadPhoto(file).collect { result ->
-                    when (result) {
-                        is Resource.Success -> loadProfile()
-                        is Resource.Error -> _uiState.value = _uiState.value.copy(error = result.message)
-                        is Resource.Loading -> Unit
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            var successCount = 0
+            var lastError: String? = null
+
+            for (uri in uris.take(5)) {
+                val file = try {
+                    MediaUtils.compressImage(context, uri)
+                } catch (e: Exception) {
+                    lastError = e.message ?: "Failed to process image file"
+                    null
+                }
+
+                if (file != null && file.exists()) {
+                    repository.uploadPhoto(file).collect { result ->
+                        when (result) {
+                            is Resource.Success -> {
+                                successCount++
+                                result.data?.let { photoDto ->
+                                    val currentList = _uiState.value.myPhotos.toMutableList()
+                                    if (currentList.none { it.id == photoDto.id || (it.url != null && it.url == photoDto.url) }) {
+                                        currentList.add(photoDto)
+                                        _uiState.value = _uiState.value.copy(myPhotos = currentList)
+                                    }
+                                }
+                            }
+                            is Resource.Error -> {
+                                lastError = result.message
+                            }
+                            is Resource.Loading -> Unit
+                        }
                     }
+                } else if (lastError == null) {
+                    lastError = "Unable to prepare image file for upload"
+                }
+            }
+
+            _uiState.value = _uiState.value.copy(isLoading = false)
+            loadProfile()
+
+            if (successCount == 0 && lastError != null) {
+                _uiState.value = _uiState.value.copy(error = lastError)
+            }
+        }
+    }
+
+    fun updateProfile(name: String, bio: String, age: Int, gender: String, lookingFor: String, targetAgeRange: String = "18 - 35", onComplete: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                myName = name,
+                myBio = bio,
+                myAge = age,
+                myGender = gender,
+                myLookingFor = lookingFor,
+                myTargetAgeRange = targetAgeRange
+            )
+            repository.updateProfile(name, bio, age, gender, lookingFor, targetAgeRange).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        result.data?.let { applyProfile(it) }
+                        onComplete()
+                    }
+                    is Resource.Error -> {
+                        _uiState.value = _uiState.value.copy(error = result.message)
+                        onComplete()
+                    }
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun deletePhoto(photoId: String) {
+        viewModelScope.launch {
+            repository.deletePhoto(photoId).collect { result ->
+                when (result) {
+                    is Resource.Success -> loadProfile()
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(error = result.message)
+                    is Resource.Loading -> Unit
                 }
             }
         }
@@ -229,10 +405,23 @@ class MingleViewModel @Inject constructor(
     }
 
     private fun applyProfile(profile: MingleProfileDto) {
+        val photosToUse = if (!profile.photos.isNullOrEmpty()) {
+            profile.photos
+        } else if (_uiState.value.myPhotos.isNotEmpty()) {
+            _uiState.value.myPhotos
+        } else {
+            emptyList()
+        }
         _uiState.value = _uiState.value.copy(
-            myPhotos = profile.photos ?: emptyList(),
+            myPhotos = photosToUse,
             radiusKm = profile.max_distance_km.toFloat().coerceIn(1f, 100f),
-            hasLocation = profile.has_location
+            hasLocation = profile.has_location,
+            myName = profile.name.orEmpty(),
+            myBio = profile.bio.orEmpty(),
+            myAge = if (profile.age > 0) profile.age else 25,
+            myGender = profile.gender.orEmpty().ifBlank { "Other" },
+            myLookingFor = profile.looking_for.orEmpty().ifBlank { "Everyone" },
+            myTargetAgeRange = profile.target_age_range.orEmpty().ifBlank { "18 - 35" }
         )
     }
 
@@ -255,6 +444,18 @@ class MingleViewModel @Inject constructor(
         } catch (_: SecurityException) {
             if (cont.isActive) cont.resume(null)
         }
+    }
+
+    private fun isAgeInRange(age: Int, rangeStr: String): Boolean {
+        if (age <= 0) return true
+        if (rangeStr.contains("18+")) return age >= 18
+        val parts = rangeStr.split("-").mapNotNull { it.trim().filter { c -> c.isDigit() }.toIntOrNull() }
+        if (parts.size == 2) {
+            val minAge = parts[0]
+            val maxAge = parts[1]
+            return age in minAge..maxAge
+        }
+        return true
     }
 }
 

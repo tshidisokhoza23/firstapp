@@ -8,6 +8,9 @@ interface MingleApi {
     @GET("mingle/me")
     suspend fun getMe(): Response<MingleProfileResponse>
 
+    @PUT("mingle/me")
+    suspend fun updateProfile(@Body request: MingleUpdateProfileRequest): Response<MingleProfileResponse>
+
     @POST("mingle/location")
     suspend fun updateLocation(@Body request: MingleLocationRequest): Response<MingleProfileResponse>
 

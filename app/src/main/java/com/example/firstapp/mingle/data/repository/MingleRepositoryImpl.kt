@@ -1,5 +1,6 @@
 package com.example.firstapp.mingle.data.repository
 
+import android.util.Log
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.mingle.data.api.*
 import com.example.firstapp.mingle.domain.repository.MingleRepository
@@ -12,7 +13,8 @@ import java.io.File
 import javax.inject.Inject
 
 class MingleRepositoryImpl @Inject constructor(
-    private val api: MingleApi
+    private val api: MingleApi,
+    private val chatDaoProvider: javax.inject.Provider<com.example.firstapp.chat.data.local.dao.ChatDao>
 ) : MingleRepository {
 
     override fun getMe(): Flow<Resource<MingleProfileDto>> = flow {
@@ -23,11 +25,36 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful && profile != null) {
                 emit(Resource.Success(profile))
             } else {
-                emit(Resource.Error(response.errorBody()?.string() ?: "Unable to load mingle profile"))
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to load mingle profile")))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.message ?: "Unable to load mingle profile"))
+        }
+    }
+
+    override fun updateProfile(name: String?, bio: String?, age: Int?, gender: String?, lookingFor: String?, targetAgeRange: String?): Flow<Resource<MingleProfileDto>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = api.updateProfile(
+                MingleUpdateProfileRequest(
+                    name = name,
+                    bio = bio,
+                    age = age,
+                    gender = gender,
+                    looking_for = lookingFor,
+                    target_age_range = targetAgeRange
+                )
+            )
+            val profile = response.body()?.profile
+            if (response.isSuccessful && profile != null) {
+                emit(Resource.Success(profile))
+            } else {
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to update profile")))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Unable to update profile"))
         }
     }
 
@@ -38,7 +65,7 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful && profile != null) {
                 emit(Resource.Success(profile))
             } else {
-                emit(Resource.Error("Unable to update location"))
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to update location")))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -54,7 +81,7 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful && body != null) {
                 emit(Resource.Success(body))
             } else {
-                emit(Resource.Error(response.errorBody()?.string() ?: "Unable to load people nearby"))
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to load people nearby")))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -62,7 +89,7 @@ class MingleRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun swipe(targetUserId: String, action: String): Flow<Resource<MingleSwipeResultDto>> = flow {
+    override fun swipe(targetUserId: String, action: String, candidateName: String?): Flow<Resource<MingleSwipeResultDto>> = flow {
         try {
             val response = api.swipe(MingleSwipeRequest(target_user_id = targetUserId, action = action))
             val body = response.body()
@@ -71,13 +98,37 @@ class MingleRepositoryImpl @Inject constructor(
                 return@flow
             }
             if (response.isSuccessful && body != null) {
+                val conversationId = body.conversation_id
+                if (body.matched && !conversationId.isNullOrBlank()) {
+                    saveMingleChatLocally(conversationId, candidateName, targetUserId)
+                }
                 emit(Resource.Success(body))
             } else {
-                emit(Resource.Error(body?.error ?: response.errorBody()?.string() ?: "Swipe failed"))
+                val err = parseError(body?.error ?: response.errorBody()?.string(), "Swipe failed")
+                emit(Resource.Error(err))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             emit(Resource.Error(e.message ?: "Swipe failed"))
+        }
+    }
+
+    private fun parseError(raw: String?, fallback: String): String {
+        if (raw.isNullOrBlank()) return fallback
+        return try {
+            val json = org.json.JSONObject(raw)
+            val extracted = when {
+                json.has("error") -> json.getString("error")
+                json.has("message") -> json.getString("message")
+                else -> ""
+            }
+            if (extracted.isNotBlank() && !extracted.contains("mingle request failed", ignoreCase = true)) {
+                extracted
+            } else {
+                fallback
+            }
+        } catch (_: Exception) {
+            if (raw.length < 80 && !raw.startsWith("{")) raw else fallback
         }
     }
 
@@ -91,7 +142,7 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful && photo != null) {
                 emit(Resource.Success(photo))
             } else {
-                emit(Resource.Error(response.errorBody()?.string() ?: "Unable to upload photo"))
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to upload photo")))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -105,7 +156,7 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 emit(Resource.Success(true))
             } else {
-                emit(Resource.Error("Unable to delete photo"))
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to delete photo")))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -120,7 +171,7 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 emit(Resource.Success(response.body()?.items ?: emptyList()))
             } else {
-                emit(Resource.Error("Unable to load activity"))
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to load activity")))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -128,18 +179,45 @@ class MingleRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun openChat(userId: String): Flow<Resource<String>> = flow {
+    override fun openChat(userId: String, candidateName: String?): Flow<Resource<String>> = flow {
         try {
             val response = api.openChat(userId)
             val conversationId = response.body()?.conversation_id
             if (response.isSuccessful && !conversationId.isNullOrBlank()) {
+                saveMingleChatLocally(conversationId, candidateName, userId)
                 emit(Resource.Success(conversationId))
             } else {
                 emit(Resource.Error(response.body()?.error ?: "Match required before chatting"))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error(e.message ?: "Unable to open chat"))
+            emit(Resource.Error(e.message ?: "Unable to open Mingle chat"))
+        }
+    }
+
+    private suspend fun saveMingleChatLocally(conversationId: String, candidateName: String?, targetUserId: String) {
+        if (conversationId.isBlank()) return
+        try {
+            val chatDao = chatDaoProvider.get()
+            val existing = chatDao.searchChatsById(conversationId)
+            val nameToUse = candidateName.orEmpty().ifBlank { existing?.senderName.orEmpty().ifBlank { "Mingle User" } }
+            val chatEntity = com.example.firstapp.chat.data.local.entity.ChatEntity(
+                id = conversationId,
+                type = com.example.firstapp.common.model.ConversationType.MINGLE,
+                senderName = nameToUse,
+                lastMessage = existing?.lastMessage ?: "You matched on Mingle ❤️",
+                timestamp = System.currentTimeMillis(),
+                unreadCount = existing?.unreadCount ?: 0,
+                avatarUrl = existing?.avatarUrl,
+                isOnline = false,
+                isMuted = false,
+                isPinned = false,
+                isTyping = false,
+                otherUserId = targetUserId
+            )
+            chatDao.insertChats(listOf(chatEntity))
+        } catch (error: Exception) {
+            Log.e("MingleRepository", "Unable to cache matched Mingle chat $conversationId", error)
         }
     }
 }

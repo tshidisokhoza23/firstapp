@@ -2,6 +2,7 @@ package com.example.firstapp.mingle.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -34,7 +35,6 @@ import coil.compose.AsyncImage
 import com.example.firstapp.common.util.MediaUtils
 import com.example.firstapp.mingle.ui.viewmodel.MingleViewModel
 import kotlinx.coroutines.launch
-import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,29 +47,25 @@ fun MingleProfilePreviewDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val uiState by mingleViewModel.uiState.collectAsState()
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val hasUploadedProfile = remember(uiState.myPhotos, currentUser) {
+        uiState.myPhotos.any { !it.url.isNullOrBlank() } || !currentUser?.avatarUrl.isNullOrBlank()
+    }
 
     var isMatched by remember(item.id) { mutableStateOf(item.type == MingleActivityType.MATCH) }
     var showMatchOverlay by remember(item.id) { mutableStateOf(false) }
     var matchConversationId by remember(item.id) { mutableStateOf<String?>(null) }
 
-    // Photos list for profile preview (up to 5 photos)
+    // Only show media actually returned by the activity response.
     val photos = remember(item) {
-        val list = mutableListOf<String>()
-        if (!item.actorAvatarUrl.isNullOrBlank()) {
-            list.add(item.actorAvatarUrl)
-        }
-        val seed = item.actorId.hashCode().absoluteValue
-        list.add("https://picsum.photos/400/700?random=${seed + 1}")
-        list.add("https://picsum.photos/400/700?random=${seed + 2}")
-        list.add("https://picsum.photos/400/700?random=${seed + 3}")
-        list.add("https://picsum.photos/400/700?random=${seed + 4}")
-        list.take(5)
+        listOfNotNull(item.actorAvatarUrl, item.photoUrl)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(5)
     }
 
-    val horizontalPagerState = rememberPagerState(pageCount = { photos.size })
-
-    val age = remember(item.actorId) { 21 + (item.actorId.hashCode().absoluteValue % 10) }
-    val distanceKm = remember(item.actorId) { 2 + (item.actorId.hashCode().absoluteValue % 18) }
+    val horizontalPagerState = rememberPagerState(pageCount = { photos.size.coerceAtLeast(1) })
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -241,136 +237,131 @@ fun MingleProfilePreviewDialog(
                             )
                     )
 
-                    // Profile Details
+                    // Unified Bottom Overlay (Profile Details + Action Controls)
                     Column(
                         modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(start = 20.dp, end = 20.dp, bottom = 96.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "${item.actorName}, $age",
-                                color = Color.White,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 24.sp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Verified",
-                                tint = Color(0xFF2196F3),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.NearMe,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.8f),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "$distanceKm km away",
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = "Looking to meet fun people & mingle! 👋 Tap left/right on photo to view all pictures.",
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 13.sp,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    // Bottom Action Controls
-                    Row(
-                        modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(bottom = 20.dp)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = 24.dp)
                     ) {
-                        if (!isMatched) {
-                            // Pass Button
-                            FloatingActionButton(
-                                onClick = onDismiss,
-                                containerColor = Color.White.copy(alpha = 0.25f),
-                                contentColor = Color.White,
-                                shape = CircleShape,
-                                modifier = Modifier.size(54.dp)
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = "Pass", modifier = Modifier.size(26.dp))
+                        // Profile Details
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = item.actorName,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 24.sp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Verified",
+                                    tint = Color(0xFF2196F3),
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
 
-                            // Like Back Button (Triggers match celebration)
-                            Button(
-                                onClick = {
-                                    mingleViewModel.swipe(
-                                        profile = MingleProfile(
-                                            id = item.actorId,
-                                            name = item.actorName,
-                                            age = age,
-                                            distanceKm = distanceKm,
-                                            bio = "",
-                                            photos = photos
-                                        ),
-                                        action = "like",
-                                        onMatched = { conversationId ->
-                                            isMatched = true
-                                            showMatchOverlay = true
-                                            Toast.makeText(context, "It's a Match with ${item.actorName}! 🎉", Toast.LENGTH_SHORT).show()
-                                            matchConversationId = conversationId
-                                        },
-                                        onInsufficientPoints = {
-                                            Toast.makeText(context, "Liking a profile costs 10 Wallet Points!", Toast.LENGTH_SHORT).show()
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = if (photos.size > 1) "Tap left/right on the photo to view more pictures." else "Mingle activity",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 13.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // Bottom Action Controls Bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(32.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(32.dp))
+                                .padding(vertical = 8.dp, horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (!isMatched) {
+                                // Pass Button
+                                FloatingActionButton(
+                                    onClick = onDismiss,
+                                    containerColor = Color.White.copy(alpha = 0.25f),
+                                    contentColor = Color.White,
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(52.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Pass", modifier = Modifier.size(26.dp))
+                                }
+
+                                // Like Back Button (Triggers match celebration)
+                                Button(
+                                    onClick = {
+                                        if (!hasUploadedProfile) {
+                                            Toast.makeText(context, "You must upload or complete your Mingle profile before you can like people!", Toast.LENGTH_LONG).show()
+                                            return@Button
                                         }
-                                    )
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
-                                shape = RoundedCornerShape(28.dp),
-                                modifier = Modifier
-                                    .height(52.dp)
-                                    .padding(horizontal = 8.dp)
-                            ) {
-                                Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Like Back ❤️", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
-                            }
-                        } else {
-                            // Send Message Button when Matched
-                            Button(
-                                onClick = {
-                                    mingleViewModel.openChat(
-                                        userId = item.actorId,
-                                        onOpened = { conversationId ->
-                                            onDismiss()
-                                            onNavigateToChat(conversationId)
-                                        },
-                                        onError = { message ->
-                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
-                                shape = RoundedCornerShape(28.dp),
-                                modifier = Modifier
-                                    .height(52.dp)
-                                    .fillMaxWidth(0.8f)
-                            ) {
-                                Icon(Icons.Default.ChatBubble, contentDescription = null, tint = Color.White)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Send Message 💬", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                                        mingleViewModel.swipe(
+                                            profile = MingleProfile(
+                                                id = item.actorId,
+                                                name = item.actorName,
+                                                age = 0,
+                                                distanceKm = 0,
+                                                bio = "",
+                                                photos = photos
+                                            ),
+                                            action = "like",
+                                            onMatched = { conversationId ->
+                                                isMatched = true
+                                                showMatchOverlay = true
+                                                Toast.makeText(context, "It's a Match with ${item.actorName}! 🎉", Toast.LENGTH_SHORT).show()
+                                                matchConversationId = conversationId
+                                            },
+                                            onInsufficientPoints = {
+                                                Toast.makeText(context, "Liking a profile costs 10 Wallet Points!", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                                    shape = RoundedCornerShape(28.dp),
+                                    modifier = Modifier
+                                        .height(52.dp)
+                                        .padding(horizontal = 8.dp)
+                                ) {
+                                    Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Like Back ❤️", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                                }
+                            } else {
+                                // Send Message Button when Matched
+                                Button(
+                                    onClick = {
+                                        mingleViewModel.openChat(
+                                            userId = item.actorId,
+                                            candidateName = item.actorName,
+                                            onOpened = { conversationId ->
+                                                onDismiss()
+                                                onNavigateToChat(conversationId)
+                                            },
+                                            onError = { message ->
+                                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                                    shape = RoundedCornerShape(28.dp),
+                                    modifier = Modifier
+                                        .height(52.dp)
+                                        .fillMaxWidth(0.85f)
+                                ) {
+                                    Icon(Icons.Default.ChatBubble, contentDescription = null, tint = Color.White)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Send Message 💬", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                                }
                             }
                         }
                     }
@@ -425,6 +416,7 @@ fun MingleProfilePreviewDialog(
                                         } else {
                                             mingleViewModel.openChat(
                                                 userId = item.actorId,
+                                                candidateName = item.actorName,
                                                 onOpened = { openedId ->
                                                     onDismiss()
                                                     onNavigateToChat(openedId)
