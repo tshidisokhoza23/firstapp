@@ -352,9 +352,12 @@ fun MediaScreen(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                     ListItem(
-                        headlineContent = { Text("Vocab", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
-                        leadingContent = { Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
-                        modifier = Modifier.clickable(enabled = false) { },
+                        headlineContent = { Text("Saved Posts", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Bookmark, null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            onCategorySelected("saved")
+                        },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
