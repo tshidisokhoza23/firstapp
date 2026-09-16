@@ -542,7 +542,7 @@ fun VerticalFeedPostCard(
                         textColor = pillTextColor
                     )
                     PostPill(
-                        text = if (post.isBookmarked) "Saved" else "Save", 
+                        text = if (post.isBookmarked) "Saved ${formatCount(post.quoteCount)}" else "Save ${formatCount(post.quoteCount)}", 
                         onClick = onBookmarkClick,
                         isSelected = post.isBookmarked,
                         selectedColor = Color(0xFF1D9BF0),
@@ -550,7 +550,7 @@ fun VerticalFeedPostCard(
                         textColor = pillTextColor
                     )
                     PostPill(
-                        text = "Share", 
+                        text = "Share ${formatCount(post.shares)}", 
                         onClick = onShareClick,
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
@@ -562,10 +562,11 @@ fun VerticalFeedPostCard(
 }
 
 private fun formatCount(count: Long): String {
+    val nonNegative = count.coerceAtLeast(0)
     return when {
-        count >= 1_000_000 -> String.format(Locale.US, "%.1fM", count / 1_000_000f)
-        count >= 1_000 -> String.format(Locale.US, "%.1fK", count / 1_000f)
-        else -> count.toString()
+        nonNegative >= 1_000_000 -> String.format(Locale.US, "%.1fM", nonNegative / 1_000_000f)
+        nonNegative >= 1_000 -> String.format(Locale.US, "%.1fK", nonNegative / 1_000f)
+        else -> nonNegative.toString()
     }
 }
 
