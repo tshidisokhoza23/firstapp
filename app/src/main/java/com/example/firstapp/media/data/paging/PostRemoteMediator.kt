@@ -60,7 +60,6 @@ class PostRemoteMediator(
                         val response = socialApi.getShorts(page = page, categoryId = categoryId)
                         ensureSuccessful(response)
                         val data = response.body() ?: emptyList()
-                        if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
                         val mapped = data.map { mapApiPost(it) }
                         mapped.filter { it.type == PostType.SHORT }
                     }
@@ -68,7 +67,6 @@ class PostRemoteMediator(
                         val response = socialApi.getMediaFeed(page = page, categoryId = categoryId)
                         ensureSuccessful(response)
                         val data = response.body() ?: emptyList()
-                        if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
                         data.map { mapApiPost(it) }
                     }
                     else -> {
@@ -77,7 +75,6 @@ class PostRemoteMediator(
                         val response = socialApi.getFeed(limit = limit, offset = offset, categoryId = categoryId)
                         ensureSuccessful(response)
                         val data = response.body()?.items ?: emptyList()
-                        if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
                         mapMediaFeedItems(data)
                     }
                 }
@@ -85,7 +82,6 @@ class PostRemoteMediator(
                 val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = apiFeedType, categoryId = categoryId)
                 ensureSuccessful(response)
                 val data = response.body() ?: emptyList()
-                if (data.isEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
                 val mapped = data.map { mapApiPost(it) }
                 if (apiFeedType == "short") {
                     mapped.filter { it.type == PostType.SHORT }
@@ -101,14 +97,16 @@ class PostRemoteMediator(
                     appDatabase.postRemoteKeysDao().clearRemoteKeys(dbFeedType)
                     appDatabase.postDao().clearPosts(dbFeedType)
                 }
-                val prevKey = if (page == 1) null else page - 1
-                val nextKey = if (endOfPaginationReached) null else page + 1
-                val keys = apiPosts.map {
-                    PostRemoteKeys(postId = it.id, feedType = dbFeedType, prevKey = prevKey, nextKey = nextKey)
+                if (apiPosts.isNotEmpty()) {
+                    val prevKey = if (page == 1) null else page - 1
+                    val nextKey = if (endOfPaginationReached) null else page + 1
+                    val keys = apiPosts.map {
+                        PostRemoteKeys(postId = it.id, feedType = dbFeedType, prevKey = prevKey, nextKey = nextKey)
+                    }
+                    appDatabase.postRemoteKeysDao().insertAll(keys)
+                    val entities = apiPosts.map { it.toPostEntity(dbFeedType) }
+                    appDatabase.postDao().insertPosts(entities)
                 }
-                appDatabase.postRemoteKeysDao().insertAll(keys)
-                val entities = apiPosts.map { it.toPostEntity(dbFeedType) }
-                appDatabase.postDao().insertPosts(entities)
             }
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
         } catch (exception: IOException) {
