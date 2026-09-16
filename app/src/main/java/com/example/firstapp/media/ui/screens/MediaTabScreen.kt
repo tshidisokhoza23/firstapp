@@ -86,6 +86,7 @@ fun MediaTabScreen(
             onRefresh = { mediaViewModel.refreshAll() },
             refreshTrigger = uiState.refreshTrigger,
             onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
+            onSavedPostsClick = { navController.navigate(Screen.SavedPosts.route) },
             onAdRevenueLogged = { pid, rev, uid -> mediaViewModel.onAdRevenueLogged(pid, rev, uid) },
             onShortClick = { short ->
                 // REQUIREMENT: Universal Entry Point for shorts

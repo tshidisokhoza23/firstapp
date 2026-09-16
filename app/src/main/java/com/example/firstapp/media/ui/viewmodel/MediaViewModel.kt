@@ -205,6 +205,10 @@ class MediaViewModel @Inject constructor(
         return socialRepository.getPostsPaging(following = false, authorId = normalizedId, feedType = type).cachedIn(viewModelScope)
     }
 
+    fun getSavedPostsPaging(): Flow<PagingData<Post>> {
+        return socialRepository.getPostsPaging(following = false, authorId = "", feedType = "standard", categoryId = "saved").cachedIn(viewModelScope)
+    }
+
     fun fetchTrendingTopics() {
         viewModelScope.launch {
             socialRepository.getTrendingTopics().collect { res ->

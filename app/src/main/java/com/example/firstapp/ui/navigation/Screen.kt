@@ -17,6 +17,7 @@ sealed class Screen(val route: String) {
             "chat/$chatId?type=$type&jobId=${jobId ?: ""}&jobTitle=${android.net.Uri.encode(jobTitle ?: "")}&companyName=${android.net.Uri.encode(companyName ?: "")}&displayName=${android.net.Uri.encode(displayName ?: "")}"
     }
     object Vocab : Screen("vocab")
+    object SavedPosts : Screen("saved_posts")
     object Files : Screen("files")
     object Calendar : Screen("calendar")
     object Story : Screen("story?userId={userId}&showComposer={showComposer}&play={play}") {

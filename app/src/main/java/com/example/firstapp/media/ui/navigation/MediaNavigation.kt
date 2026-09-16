@@ -131,4 +131,29 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onBack = { navController.popBackStack() }
         )
     }
+
+    composable(route = Screen.SavedPosts.route) {
+        val mediaViewModel: MediaViewModel = hiltViewModel()
+        val adManager = (navController.context as? com.example.firstapp.MainActivity)?.adManager 
+            ?: com.example.firstapp.common.data.ads.AdMobManagerImpl()
+
+        SavedPostsScreen(
+            onBack = { navController.popBackStack() },
+            adManager = adManager,
+            mediaViewModel = mediaViewModel,
+            onPostClick = { postId ->
+                navController.navigate(Screen.PostDetail.createRoute(postId))
+            },
+            onProfileClick = { userId ->
+                navController.navigate(Screen.UserProfile.createRoute(userId))
+            },
+            onMediaClick = { url, type, pos ->
+                navController.navigate(Screen.MediaViewer.createRoute(url, type, pos))
+            },
+            onShareClick = { post ->
+                mediaViewModel.sharePost(post.id, post.shares)
+                com.example.firstapp.common.util.ShareUtils.sharePost(navController.context, post)
+            }
+        )
+    }
 }

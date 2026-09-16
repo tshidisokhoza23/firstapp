@@ -119,6 +119,7 @@ fun MediaScreen(
     onRefresh: () -> Unit = {},
     refreshTrigger: Int = 0,
     onDirectMessagesClick: () -> Unit = {},
+    onSavedPostsClick: () -> Unit = {},
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
@@ -356,7 +357,7 @@ fun MediaScreen(
                         leadingContent = { Icon(Icons.Default.Bookmark, null, tint = MaterialTheme.colorScheme.primary) },
                         modifier = Modifier.clickable {
                             showTopMoreSheet = false
-                            onCategorySelected("saved")
+                            onSavedPostsClick()
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
