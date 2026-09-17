@@ -150,7 +150,7 @@ fun MingleScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Left section: Envelope + Bell
+                        // Left section: Envelope + Bell + Rewind
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { navController.navigate(Screen.MingleChats.route) }) {
                                 Icon(
@@ -164,6 +164,17 @@ fun MingleScreen(
                                     imageVector = Icons.Default.Notifications,
                                     contentDescription = "Notifications",
                                     tint = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                            IconButton(onClick = { 
+                                mingleViewModel.rewind { 
+                                    Toast.makeText(context, "Restored previous candidate", Toast.LENGTH_SHORT).show() 
+                                } 
+                            }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.RotateLeft,
+                                    contentDescription = "Rewind Swipe",
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -194,18 +205,6 @@ fun MingleScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                            }
-
-                            IconButton(onClick = { 
-                                mingleViewModel.rewind { 
-                                    Toast.makeText(context, "Restored previous candidate", Toast.LENGTH_SHORT).show() 
-                                } 
-                            }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.RotateLeft,
-                                    contentDescription = "Rewind Swipe",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
                             }
 
                             IconButton(onClick = { showUploadPhotosSheet = true }) {
