@@ -18,6 +18,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.example.firstapp.auth.ui.components.CountryPickerField
+import com.example.firstapp.common.util.Country
+import com.example.firstapp.common.util.CountryUtils
 import com.example.firstapp.auth.ui.viewmodel.AuthViewModel
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.media.model.DefaultCategories
@@ -28,6 +32,7 @@ fun CompleteProfileScreen(
     onCompleteSuccess: () -> Unit,
     viewModel: AuthViewModel
 ) {
+    val context = LocalContext.current
     val currentUser = com.example.firstapp.LocalCurrentUser.current
     val authState by viewModel.authState.collectAsState()
 
@@ -37,6 +42,12 @@ fun CompleteProfileScreen(
         ) 
     }
     var phoneNumber by remember { mutableStateOf(currentUser.phoneNumber) }
+    var selectedCountry by remember {
+        mutableStateOf<Country>(
+            CountryUtils.allCountries.find { it.dialCode.isNotBlank() && currentUser.phoneNumber.startsWith(it.dialCode) }
+                ?: CountryUtils.getDefaultCountry(context)
+        )
+    }
     var selectedCategories by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(authState) {
@@ -77,19 +88,34 @@ fun CompleteProfileScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
 
-            // Forced visible Phone Number
-            OutlinedTextField(
-                value = phoneNumber,
-                onValueChange = { phoneNumber = it },
-                label = { Text("Phone Number") },
+            // Forced visible Phone Number with Country Code selector
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("+27...") },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone,
-                    imeAction = ImeAction.Done
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CountryPickerField(
+                    selectedCountry = selectedCountry,
+                    onCountrySelected = { selectedCountry = it },
+                    modifier = Modifier.width(100.dp)
                 )
-            )
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = { input ->
+                        if (input.all { char -> char.isDigit() || char == '+' }) {
+                            phoneNumber = input
+                        }
+                    },
+                    label = { Text("Phone Number") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text("e.g. 821234567") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = ImeAction.Done
+                    )
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -146,10 +172,16 @@ fun CompleteProfileScreen(
 
             Button(
                 onClick = {
+                    val rawPhone = phoneNumber.trim()
+                    val cleanPhone = if (rawPhone.isBlank()) null else if (rawPhone.startsWith("+")) rawPhone else {
+                        val dialCode = selectedCountry.dialCode
+                        val formatted = if (rawPhone.startsWith("0")) rawPhone.substring(1) else rawPhone
+                        dialCode + formatted
+                    }
                     viewModel.completeProfile(
                         displayName = null, // Handled later in settings
                         username = username.takeIf { it.isNotBlank() },
-                        phoneNumber = phoneNumber.takeIf { it.isNotBlank() },
+                        phoneNumber = cleanPhone,
                         categories = selectedCategories.toList().takeIf { it.isNotEmpty() }
                     )
                 },

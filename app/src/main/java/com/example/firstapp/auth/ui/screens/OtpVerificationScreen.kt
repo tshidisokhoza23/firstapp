@@ -47,11 +47,14 @@ fun OtpVerificationScreen(
 
     DisposableEffect(Unit) {
         val intentFilter = IntentFilter(SmsRetriever.SMS_RETRIEVED_ACTION)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(smsReceiver, intentFilter, SmsRetriever.SEND_PERMISSION, null, Context.RECEIVER_EXPORTED)
-        } else {
-            context.registerReceiver(smsReceiver, intentFilter, SmsRetriever.SEND_PERMISSION, null)
-        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context,
+            smsReceiver,
+            intentFilter,
+            SmsRetriever.SEND_PERMISSION,
+            null,
+            androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+        )
 
         smsReceiver.setListener(object : SmsBroadcastReceiver.SmsBroadcastReceiverListener {
             override fun onSuccess(message: String) {
