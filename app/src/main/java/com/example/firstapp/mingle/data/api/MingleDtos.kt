@@ -96,3 +96,31 @@ data class MingleChatResponse(
     val type: String? = null,
     val error: String? = null
 )
+
+data class MingleRewindResultDto(
+    val rewound: Boolean = false,
+    val target_user_id: String? = null,
+    val balance: Double = 0.0
+)
+
+data class MingleSwipeSyncItemDto(
+    val target_user_id: String,
+    val action: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+data class MingleSwipeSyncRequest(
+    val swipes: List<MingleSwipeSyncItemDto>
+)
+
+data class MingleSwipeSyncResultDto(
+    val target_user_id: String,
+    val status: String,
+    val matched: Boolean = false,
+    val conversation_id: String? = null
+)
+
+data class MingleSwipeSyncResponse(
+    val results: List<MingleSwipeSyncResultDto>? = emptyList(),
+    val balance: Double = 0.0
+)

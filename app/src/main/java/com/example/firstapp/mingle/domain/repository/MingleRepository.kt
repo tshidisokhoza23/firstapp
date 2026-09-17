@@ -11,6 +11,8 @@ interface MingleRepository {
     fun updateLocation(lat: Double, lng: Double, radiusKm: Int): Flow<Resource<MingleProfileDto>>
     fun getFeed(lat: Double, lng: Double, radiusKm: Int, offset: Int = 0): Flow<Resource<MingleFeedResponse>>
     fun swipe(targetUserId: String, action: String, candidateName: String? = null): Flow<Resource<MingleSwipeResultDto>>
+    fun syncSwipes(swipes: List<MingleSwipeSyncItemDto>): Flow<Resource<MingleSwipeSyncResponse>>
+    fun rewind(): Flow<Resource<MingleRewindResultDto>>
     fun uploadPhoto(file: File): Flow<Resource<MinglePhotoDto>>
     fun deletePhoto(photoId: String): Flow<Resource<Boolean>>
     fun getActivity(): Flow<Resource<List<MingleActivityDto>>>

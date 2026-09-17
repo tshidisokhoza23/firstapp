@@ -113,6 +113,41 @@ class MingleRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun syncSwipes(swipes: List<MingleSwipeSyncItemDto>): Flow<Resource<MingleSwipeSyncResponse>> = flow {
+        try {
+            val response = api.syncSwipes(MingleSwipeSyncRequest(swipes = swipes))
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                for (item in body.results.orEmpty()) {
+                    if (item.matched && !item.conversation_id.isNullOrBlank()) {
+                        saveMingleChatLocally(item.conversation_id, null, item.target_user_id)
+                    }
+                }
+                emit(Resource.Success(body))
+            } else {
+                emit(Resource.Error("Failed to sync swipes"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Sync failed"))
+        }
+    }
+
+    override fun rewind(): Flow<Resource<MingleRewindResultDto>> = flow {
+        try {
+            val response = api.rewind()
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                emit(Resource.Success(body))
+            } else {
+                emit(Resource.Error("Unable to rewind swipe"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Unable to rewind swipe"))
+        }
+    }
+
     private fun parseError(raw: String?, fallback: String): String {
         if (raw.isNullOrBlank()) return fallback
         return try {

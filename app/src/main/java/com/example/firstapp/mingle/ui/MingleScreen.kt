@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -96,6 +97,7 @@ fun MingleScreen(
 
     LaunchedEffect(Unit) {
         mingleViewModel.refreshPermission()
+        mingleViewModel.flushPendingSwipes()
         if (!uiState.hasLocationPermission) {
             locationPermissionLauncher.launch(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -192,6 +194,18 @@ fun MingleScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
+
+                            IconButton(onClick = { 
+                                mingleViewModel.rewind { 
+                                    Toast.makeText(context, "Restored previous candidate", Toast.LENGTH_SHORT).show() 
+                                } 
+                            }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.RotateLeft,
+                                    contentDescription = "Rewind Swipe",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
 
                             IconButton(onClick = { showUploadPhotosSheet = true }) {

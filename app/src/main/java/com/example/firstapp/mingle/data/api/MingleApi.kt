@@ -26,6 +26,12 @@ interface MingleApi {
     @POST("mingle/swipe")
     suspend fun swipe(@Body request: MingleSwipeRequest): Response<MingleSwipeResultDto>
 
+    @POST("mingle/swipes/sync")
+    suspend fun syncSwipes(@Body request: MingleSwipeSyncRequest): Response<MingleSwipeSyncResponse>
+
+    @POST("mingle/rewind")
+    suspend fun rewind(): Response<MingleRewindResultDto>
+
     @POST("mingle/like/{userId}")
     suspend fun like(@Path("userId") userId: String): Response<MingleSwipeResultDto>
 

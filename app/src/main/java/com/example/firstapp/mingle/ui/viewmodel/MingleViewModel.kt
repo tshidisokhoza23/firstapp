@@ -261,7 +261,53 @@ class MingleViewModel @Inject constructor(
         }
     }
 
+    private var lastSwipedProfile: MingleProfile? = null
+    private val pendingSwipes = mutableListOf<com.example.firstapp.mingle.data.api.MingleSwipeSyncItemDto>()
+
+    fun rewind(onRewound: () -> Unit = {}) {
+        val lastProfile = lastSwipedProfile ?: return
+        viewModelScope.launch {
+            repository.rewind().collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        lastSwipedProfile = null
+                        val currentProfiles = _uiState.value.profiles.toMutableList()
+                        if (currentProfiles.none { it.id == lastProfile.id }) {
+                            currentProfiles.add(0, lastProfile)
+                            _uiState.value = _uiState.value.copy(
+                                profiles = currentProfiles,
+                                balance = result.data?.balance ?: _uiState.value.balance
+                            )
+                        }
+                        onRewound()
+                    }
+                    is Resource.Error -> {
+                        _uiState.value = _uiState.value.copy(error = result.message)
+                    }
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun flushPendingSwipes() {
+        if (pendingSwipes.isEmpty()) return
+        val batch = pendingSwipes.toList()
+        viewModelScope.launch {
+            repository.syncSwipes(batch).collect { result ->
+                if (result is Resource.Success) {
+                    pendingSwipes.removeAll(batch)
+                    result.data?.let { updateUserBalance(it.balance) }
+                }
+            }
+        }
+    }
+
     fun swipe(profile: MingleProfile, action: String, candidateName: String? = null, onMatched: (String) -> Unit, onInsufficientPoints: () -> Unit) {
+        lastSwipedProfile = profile
+        _uiState.value = _uiState.value.copy(
+            profiles = _uiState.value.profiles.filterNot { it.id == profile.id }
+        )
         viewModelScope.launch {
             val nameToUse = candidateName ?: profile.name
             repository.swipe(profile.id, action, candidateName = nameToUse).collect { result ->
@@ -272,7 +318,6 @@ class MingleViewModel @Inject constructor(
                             updateUserBalance(swipe.balance)
                         }
                         _uiState.value = _uiState.value.copy(
-                            profiles = _uiState.value.profiles.filterNot { it.id == profile.id },
                             balance = swipe?.balance ?: _uiState.value.balance,
                             needsPoints = false
                         )
@@ -290,7 +335,8 @@ class MingleViewModel @Inject constructor(
                             _uiState.value = _uiState.value.copy(needsPoints = true)
                             onInsufficientPoints()
                         } else {
-                            _uiState.value = _uiState.value.copy(error = result.message)
+                            // Queue offline swipe for background sync
+                            pendingSwipes.add(com.example.firstapp.mingle.data.api.MingleSwipeSyncItemDto(target_user_id = profile.id, action = action))
                         }
                     }
                     is Resource.Loading -> Unit
