@@ -1,5 +1,7 @@
 package com.example.firstapp.media.ui.components
 
+import com.example.firstapp.LocalCurrentUser
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -103,12 +105,14 @@ fun PostItem(
                 ShortGridItem(post = post, onClick = onClick)
             }
             PostDisplayMode.FEED -> {
+                val currentUser = LocalCurrentUser.current
                 val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.isBlank()
                 val displayPost = if (isSimpleRepost) post.originalPost!! else post
+                val isPostMine = isOwnPost || displayPost.authorId == currentUser.id || displayPost.authorHandle.equals(currentUser.username, ignoreCase = true)
                 
                 VerticalFeedPostCard(
                     post = post,
-                    isOwnPost = isOwnPost,
+                    isOwnPost = isPostMine,
                     activePostId = activePostId,
                     showThreadLine = showThreadLine,
                     showLineAbove = showLineAbove,

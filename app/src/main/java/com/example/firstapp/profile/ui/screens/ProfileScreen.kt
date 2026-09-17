@@ -86,13 +86,13 @@ fun ProfileView(
         uri?.let { userViewModel.onAvatarSelected(context, it) }
     }
 
-    // Single Source of Truth for ID comparison
-    val isMyProfile = remember(userId, currentUser.id) { 
-        val u = userId.toString()
-        u.length == 0 || u == "null" || u == currentUser.id
-    }
-    
     var remoteUser by remember(userId) { mutableStateOf<User?>(null) }
+
+    // Single Source of Truth for ID comparison
+    val isMyProfile = remember(userId, currentUser.id, currentUser.username, remoteUser) { 
+        val u = userId.toString().trim()
+        u.isEmpty() || u == "null" || u == currentUser.id || u.equals(currentUser.username, ignoreCase = true) || (remoteUser != null && (remoteUser?.id == currentUser.id || remoteUser?.username.equals(currentUser.username, ignoreCase = true)))
+    }
     var profileRefreshNonce by remember(userId) { mutableIntStateOf(0) }
     var isFollowUpdating by remember(userId) { mutableStateOf(false) }
     val dismissedSuggestedUserIds = remember { mutableStateListOf<String>() }
