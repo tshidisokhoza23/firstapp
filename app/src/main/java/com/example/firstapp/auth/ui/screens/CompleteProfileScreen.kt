@@ -109,7 +109,8 @@ fun CompleteProfileScreen(
                     label = { Text("Phone Number") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    placeholder = { Text("e.g. 821234567") },
+                    placeholder = { Text("e.g. 821234567 or 0821234567") },
+                    supportingText = { Text("Supports 9/10 digits or country code", fontSize = 11.sp) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Phone,
                         imeAction = ImeAction.Done
@@ -173,11 +174,7 @@ fun CompleteProfileScreen(
             Button(
                 onClick = {
                     val rawPhone = phoneNumber.trim()
-                    val cleanPhone = if (rawPhone.isBlank()) null else if (rawPhone.startsWith("+")) rawPhone else {
-                        val dialCode = selectedCountry.dialCode
-                        val formatted = if (rawPhone.startsWith("0")) rawPhone.substring(1) else rawPhone
-                        dialCode + formatted
-                    }
+                    val cleanPhone = if (rawPhone.isBlank()) null else CountryUtils.formatE164PhoneNumber(rawPhone, selectedCountry.dialCode)
                     viewModel.completeProfile(
                         displayName = null, // Handled later in settings
                         username = username.takeIf { it.isNotBlank() },

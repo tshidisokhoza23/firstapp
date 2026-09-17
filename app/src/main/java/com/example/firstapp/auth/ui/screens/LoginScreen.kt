@@ -202,11 +202,7 @@ fun LoginScreen(
                 hasError = true
             }
 
-            val cleanPhone = if (rawPhone.startsWith("+")) rawPhone else {
-                val dialCode = selectedCountry?.dialCode ?: ""
-                val formatted = if (rawPhone.startsWith("0")) rawPhone.substring(1) else rawPhone
-                dialCode + formatted
-            }
+            val cleanPhone = CountryUtils.formatE164PhoneNumber(rawPhone, selectedCountry?.dialCode ?: "")
 
             if (rawPhone.isNotBlank() && cleanPhone.length < 10) {
                 viewModel.setFieldError("phone", "Enter a valid phone number")
@@ -445,7 +441,8 @@ fun LoginScreen(
                             viewModel.setFieldError("phone", null)
                         },
                         label = { Text("Phone Number") },
-                        placeholder = { Text("e.g. 812345678") },
+                        placeholder = { Text("e.g. 821234567 or 0821234567") },
+                        supportingText = { Text("Supports 9/10 digits or country code", fontSize = 11.sp) },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Phone,

@@ -376,7 +376,7 @@ fun StoryViewer(
                         fontSize = 16.sp
                     )
                     Text(
-                        if (currentStory.type == StoryType.AD) "Promoted" else currentStory.timestamp,
+                        if (currentStory.type == StoryType.AD) "Promoted" else if (currentStory.createdAt > 0) com.example.firstapp.chat.data.repository.formatTimeAgo(currentStory.createdAt) else currentStory.timestamp,
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 12.sp
                     )

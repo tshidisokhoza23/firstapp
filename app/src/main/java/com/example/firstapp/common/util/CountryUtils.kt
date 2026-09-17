@@ -204,4 +204,31 @@ object CountryUtils {
         val secondLetter = Character.codePointAt(countryCode, 1) - 0x41 + 0x1F1E6
         return String(Character.toChars(firstLetter)) + String(Character.toChars(secondLetter))
     }
+
+    fun formatE164PhoneNumber(rawInput: String, selectedDialCode: String): String {
+        val trimmed = rawInput.trim()
+        if (trimmed.isEmpty()) return ""
+        
+        // 1. If user typed full E.164 with "+": "+27821234567"
+        if (trimmed.startsWith("+")) {
+            return trimmed.replace(" ", "")
+        }
+
+        val dialDigits = selectedDialCode.replace("+", "").trim()
+        val digitsOnly = trimmed.filter { it.isDigit() }
+
+        if (digitsOnly.isEmpty()) return ""
+
+        // 2. If user typed national number starting with country code digits without "+": "27821234567"
+        if (dialDigits.isNotEmpty() && digitsOnly.startsWith(dialDigits) && digitsOnly.length > dialDigits.length + 5) {
+            return "+$digitsOnly"
+        }
+
+        // 3. If user typed national number with leading "0": "0821234567" -> "821234567"
+        val nationalDigits = if (digitsOnly.startsWith("0")) digitsOnly.substring(1) else digitsOnly
+
+        // 4. Combine selected dial code + national digits: "+27" + "821234567" = "+27821234567"
+        val prefix = if (selectedDialCode.startsWith("+")) selectedDialCode else "+$selectedDialCode"
+        return prefix + nationalDigits
+    }
 }

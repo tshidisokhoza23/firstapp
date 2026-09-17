@@ -257,7 +257,7 @@ class StoryRepositoryImpl @Inject constructor(
                 "image" -> StoryType.IMAGE
                 else -> StoryType.TEXT
             },
-            timestamp = "Just now",
+            timestamp = com.example.firstapp.chat.data.repository.formatTimeAgo(now),
             createdAt = now,
             backgroundColorArgb = 0xBF546E7A,
             isViewed = true,
@@ -275,7 +275,7 @@ class StoryRepositoryImpl @Inject constructor(
                     userAvatarUrl = me?.avatarUrl ?: existing?.userAvatarUrl,
                     userAvatarColor = existing?.userAvatarColor ?: 0xFF455A64.toInt(),
                     stories = mergedStories,
-                    lastUpdated = "Just now",
+                    lastUpdated = com.example.firstapp.chat.data.repository.formatTimeAgo(now),
                     lastUpdatedMillis = now,
                     isMuted = existing?.isMuted ?: false
                 )

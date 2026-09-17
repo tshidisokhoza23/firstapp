@@ -167,6 +167,8 @@ fun ChangePhoneDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
                             }
                         },
                         label = { Text("New Number") },
+                        placeholder = { Text("e.g. 821234567 or 0821234567") },
+                        supportingText = { Text("Supports 9/10 digits or country code", fontSize = 11.sp) },
                         modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -184,9 +186,8 @@ fun ChangePhoneDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         confirmButton = {
             TextButton(onClick = {
                 val currentPhone = phoneNumber
-                if (currentPhone.length > 0) {
-                    val formatted = if (currentPhone.startsWith("0")) currentPhone.substring(1) else currentPhone
-                    onConfirm(selectedCountry.dialCode + formatted)
+                if (currentPhone.isNotBlank()) {
+                    onConfirm(CountryUtils.formatE164PhoneNumber(currentPhone, selectedCountry.dialCode))
                 }
             }) {
                 Text("Change", color = MaterialTheme.colorScheme.primary)

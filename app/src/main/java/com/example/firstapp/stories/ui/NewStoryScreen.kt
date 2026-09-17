@@ -1,13 +1,11 @@
 package com.example.firstapp.stories.ui
 
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -25,8 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import androidx.activity.result.PickVisualMediaRequest
-import com.example.firstapp.common.ui.theme.*
+import com.example.firstapp.common.util.VideoTrimmerUtil
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +38,7 @@ fun NewStoryScreen(
     var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
     var caption by remember { mutableStateOf("") }
     var mediaType by remember { mutableStateOf("text") }
+    var showTrimmerDialog by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -48,14 +49,6 @@ fun NewStoryScreen(
             
             selectedMediaUri = it
             mediaType = if (isVideo) "video" else "image"
-        }
-    }
-
-    val editorLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            result.data?.data?.let { selectedMediaUri = it }
         }
     }
 
@@ -93,23 +86,10 @@ fun NewStoryScreen(
                     }
                 },
                 actions = {
-                    if (selectedMediaUri != null) {
-                        IconButton(onClick = { 
-                            try {
-                                val intent = Intent(Intent.ACTION_EDIT).apply {
-                                    setDataAndType(selectedMediaUri, if (mediaType == "video") "video/*" else "image/*")
-                                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                }
-                                editorLauncher.launch(intent)
-                            } catch (e: Exception) {
-                                android.widget.Toast.makeText(context, "No editor found on device.", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit Media", tint = if (isVideoTooLong) Color.Red else Color.White)
+                    if (selectedMediaUri != null && mediaType == "video") {
+                        IconButton(onClick = { showTrimmerDialog = true }) {
+                            Icon(Icons.Default.ContentCut, contentDescription = "Trim Video", tint = if (isVideoTooLong) Color.Yellow else Color.White)
                         }
-                    }
-                    IconButton(onClick = { /* Download logic */ }) {
-                        Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -142,13 +122,6 @@ fun NewStoryScreen(
                             unfocusedTextColor = Color.White
                         )
                     )
-                    
-                    IconButton(onClick = { /* Timer logic */ }) {
-                        Icon(Icons.Default.Timer, contentDescription = "Timer", tint = Color.White)
-                    }
-                    IconButton(onClick = { /* More logic */ }) {
-                        Icon(Icons.Default.MoreHoriz, contentDescription = "More", tint = Color.White)
-                    }
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -158,37 +131,30 @@ fun NewStoryScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        val onEdit = {
-                            if (selectedMediaUri != null) {
-                                try {
-                                    val intent = Intent(Intent.ACTION_EDIT).apply {
-                                        setDataAndType(selectedMediaUri, if (mediaType == "video") "video/*" else "image/*")
-                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                    }
-                                        editorLauncher.launch(intent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "No editor found", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                    if (mediaType == "video") {
+                        OutlinedButton(
+                            onClick = { showTrimmerDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                        ) {
+                            Icon(Icons.Default.ContentCut, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Trim Video")
                         }
-                        IconButton(onClick = onEdit) { Icon(Icons.Default.Brush, null, tint = Color.White) }
-                        IconButton(onClick = onEdit) { Icon(Icons.Default.Face, null, tint = Color.White) }
-                        IconButton(onClick = onEdit) { Icon(Icons.Default.TextFields, null, tint = Color.White) }
-                        IconButton(onClick = onEdit) { Icon(Icons.Default.Tune, null, tint = Color.White) }
+                    } else {
+                        Spacer(Modifier.width(1.dp))
                     }
                     
                     Button(
                         onClick = { 
                             if (isVideoTooLong) {
-                                android.widget.Toast.makeText(context, "Please trim video to under 2 minutes first.", android.widget.Toast.LENGTH_LONG).show()
+                                showTrimmerDialog = true
                             } else {
                                 onNext(caption, selectedMediaUri?.toString() ?: "", mediaType)
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isVideoTooLong) Color.Gray else MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
+                            containerColor = if (isVideoTooLong) Color.Yellow else MaterialTheme.colorScheme.primary,
+                            contentColor = if (isVideoTooLong) Color.Black else MaterialTheme.colorScheme.onPrimary
                         ),
                         shape = RoundedCornerShape(24.dp)
                     ) {
@@ -222,8 +188,8 @@ fun NewStoryScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Surface(
-                            color = Color.Black.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(12.dp)
+                            color = Color.Black.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Column(
                                 modifier = Modifier.padding(24.dp),
@@ -235,22 +201,12 @@ fun NewStoryScreen(
                                 Text("${videoDurationMs / 1000}s selected (Max 120s)", color = Color.LightGray, fontSize = 14.sp)
                                 Spacer(Modifier.height(24.dp))
                                 Button(
-                                    onClick = { 
-                                        try {
-                                            val intent = Intent(Intent.ACTION_EDIT).apply {
-                                                setDataAndType(selectedMediaUri, "video/*")
-                                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                            }
-                                            editorLauncher.launch(intent)
-                                        } catch (e: Exception) {
-                                            android.widget.Toast.makeText(context, "No video editor found", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
+                                    onClick = { showTrimmerDialog = true },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
                                 ) {
-                                    Icon(Icons.Default.Edit, null)
+                                    Icon(Icons.Default.ContentCut, null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("TRIM VIDEO")
+                                    Text("TRIM VIDEO NOW")
                                 }
                             }
                         }
@@ -268,4 +224,190 @@ fun NewStoryScreen(
             }
         }
     }
+
+    if (showTrimmerDialog && selectedMediaUri != null) {
+        VideoTrimmerDialog(
+            videoUri = selectedMediaUri!!,
+            totalDurationMs = videoDurationMs,
+            onDismiss = { showTrimmerDialog = false },
+            onTrimmed = { trimmedUri ->
+                selectedMediaUri = trimmedUri
+                showTrimmerDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+fun VideoTrimmerDialog(
+    videoUri: Uri,
+    totalDurationMs: Long,
+    onDismiss: () -> Unit,
+    onTrimmed: (Uri) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isTrimming by remember { mutableStateOf(false) }
+
+    val maxAllowedMs = 120_000L // 2 minutes
+    var rangeValues by remember(totalDurationMs) {
+        val initialEnd = totalDurationMs.coerceAtMost(maxAllowedMs).toFloat()
+        mutableStateOf(0f..initialEnd.coerceAtLeast(1000f))
+    }
+
+    val startMs = rangeValues.start.toLong()
+    val endMs = rangeValues.endInclusive.toLong()
+    val selectedDurationMs = endMs - startMs
+
+    val exoPlayer = remember(videoUri) {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(videoUri))
+            prepare()
+            repeatMode = androidx.media3.common.Player.REPEAT_MODE_OFF
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
+    LaunchedEffect(startMs, endMs, exoPlayer) {
+        exoPlayer.seekTo(startMs)
+        while (isActive) {
+            delay(100)
+            if (exoPlayer.currentPosition >= endMs || exoPlayer.currentPosition < startMs) {
+                exoPlayer.seekTo(startMs)
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isTrimming) onDismiss() },
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                "Trim Video Story",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black)
+                ) {
+                    androidx.compose.ui.viewinterop.AndroidView(
+                        factory = { ctx ->
+                            androidx.media3.ui.PlayerView(ctx).apply {
+                                player = exoPlayer
+                                useController = false
+                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Start: ${VideoTrimmerUtil.formatDurationMs(startMs)}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "End: ${VideoTrimmerUtil.formatDurationMs(endMs)}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                RangeSlider(
+                    value = rangeValues,
+                    onValueChange = { newRange ->
+                        val duration = newRange.endInclusive - newRange.start
+                        if (duration <= maxAllowedMs && duration >= 1000f) {
+                            rangeValues = newRange
+                        } else if (duration > maxAllowedMs) {
+                            val newEnd = (newRange.start + maxAllowedMs).coerceAtMost(totalDurationMs.toFloat())
+                            rangeValues = newRange.start..newEnd
+                        }
+                    },
+                    valueRange = 0f..totalDurationMs.coerceAtLeast(1000L).toFloat(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text(
+                    "Trimmed Length: ${VideoTrimmerUtil.formatDurationMs(selectedDurationMs)} (Max 2:00)",
+                    fontSize = 12.sp,
+                    color = if (selectedDurationMs > maxAllowedMs) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (isTrimming) {
+                    Spacer(Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Trimming video...", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !isTrimming && selectedDurationMs > 0 && selectedDurationMs <= maxAllowedMs,
+                onClick = {
+                    isTrimming = true
+                    scope.launch {
+                        try {
+                            val trimmedUri = VideoTrimmerUtil.trimVideo(
+                                context = context,
+                                inputUri = videoUri,
+                                startMs = startMs,
+                                endMs = endMs
+                            )
+                            onTrimmed(trimmedUri)
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "Trim failed: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                        } finally {
+                            isTrimming = false
+                        }
+                    }
+                }
+            ) {
+                Text("APPLY TRIM")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !isTrimming,
+                onClick = onDismiss
+            ) {
+                Text("CANCEL")
+            }
+        }
+    )
 }

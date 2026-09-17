@@ -521,7 +521,7 @@ fun StoryScreen(
                                              )
                                          }
                                          Text(
-                                             text = story.timestamp.ifBlank { "Just now" },
+                                             text = if (story.createdAt > 0) com.example.firstapp.chat.data.repository.formatTimeAgo(story.createdAt) else story.timestamp.ifBlank { "Just now" },
                                              fontSize = 11.sp,
                                              color = MaterialTheme.colorScheme.onSurfaceVariant,
                                              modifier = Modifier.padding(top = 1.dp)
