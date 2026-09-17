@@ -60,199 +60,111 @@ fun MediaGrid(
     autoplayGifsEnabled: Boolean = true,
     onMediaClick: (String) -> Unit = {}
 ) {
-    val shape = RoundedCornerShape(12.dp)
-    val modifier = if (urls.size == 1) {
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 200.dp, max = 500.dp)
-            .clip(shape)
-            .border(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), shape)
-            .background(Color.Black)
-    } else {
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(1.77f)
-            .clip(shape)
-            .border(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), shape)
-            .background(Color.Black.copy(alpha = 0.2f))
-    }
+    if (urls.isEmpty()) return
 
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        when {
-            urls.isEmpty() -> {}
-            urls.size == 1 -> {
-                val rawUrl = urls[0]
-                val urlString = com.example.firstapp.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
-                val isVideo = com.example.firstapp.common.util.MediaUtils.isVideo(rawUrl)
-                if (isVideo) {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        VideoPlayer(
-                            videoUrl = urlString,
-                            isPlaying = true, // Auto-play single videos in grid
-                            modifier = Modifier.fillMaxWidth(),
-                            useController = false,
-                            autoplayEnabled = autoplayEnabled,
-                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                        )
-                        Icon(
-                            imageVector = Icons.Default.PlayCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp).align(Alignment.Center),
-                            tint = Color.White.copy(alpha = 0.5f)
-                        )
-                        // Overlay click area
-                        Box(modifier = Modifier.matchParentSize().clickable { onMediaClick(urlString) })
-                    }
-                } else {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(urlString)
-                            .crossfade(true)
-                            .apply {
-                                val isGif = urlString.lowercase().endsWith(".gif")
-                                if (isGif && !autoplayGifsEnabled) {
-                                    setParameter("play_animated", false)
-                                }
-                            }
-                            .build(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color.DarkGray.copy(alpha = 0.2f))
-                            .clickable { onMediaClick(urlString) },
-                        contentScale = ContentScale.Crop,
-                        placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.1f))
+    val shape = RoundedCornerShape(12.dp)
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+    ) {
+        if (urls.size == 1) {
+            val rawUrl = urls[0]
+            val urlString = com.example.firstapp.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+            val isVideo = com.example.firstapp.common.util.MediaUtils.isVideo(rawUrl)
+
+            if (isVideo) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 200.dp, max = 500.dp)
+                        .clip(shape)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    VideoPlayer(
+                        videoUrl = urlString,
+                        isPlaying = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        useController = false,
+                        autoplayEnabled = autoplayEnabled,
+                        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     )
+                    Icon(
+                        imageVector = Icons.Default.PlayCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp).align(Alignment.Center),
+                        tint = Color.White.copy(alpha = 0.5f)
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { onMediaClick(urlString) })
                 }
-            }
-            urls.size == 2 -> {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        AsyncImage(
-                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[0]),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.DarkGray.copy(alpha = 0.2f))
-                                .clickable { onMediaClick(urls[0]) },
-                            contentScale = ContentScale.Crop,
-                            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.1f))
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(1.dp))
-                    Box(modifier = Modifier.weight(1f)) {
-                        AsyncImage(
-                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[1]),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.DarkGray.copy(alpha = 0.2f))
-                                .clickable { onMediaClick(urls[1]) },
-                            contentScale = ContentScale.Crop,
-                            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.1f))
-                        )
-                    }
-                }
-            }
-            urls.size == 3 -> {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        AsyncImage(
-                            model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[0]),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable { onMediaClick(urls[0]) },
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(1.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            AsyncImage(
-                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[1]),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { onMediaClick(urls[1]) },
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(1.dp))
-                        Box(modifier = Modifier.weight(1f)) {
-                            AsyncImage(
-                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[2]),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { onMediaClick(urls[2]) },
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    }
-                }
-            }
-            else -> { // 4 or more
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Row(modifier = Modifier.weight(1f)) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            AsyncImage(
-                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[0]),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { onMediaClick(urls[0]) },
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(1.dp))
-                        Box(modifier = Modifier.weight(1f)) {
-                            AsyncImage(
-                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[1]),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { onMediaClick(urls[1]) },
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(1.dp))
-                    Row(modifier = Modifier.weight(1f)) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            AsyncImage(
-                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[2]),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { onMediaClick(urls[2]) },
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(1.dp))
-                        Box(modifier = Modifier.weight(1f)) {
-                            AsyncImage(
-                                model = com.example.firstapp.common.util.MediaUtils.formatUrl(urls[3]),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { onMediaClick(urls[3]) },
-                                contentScale = ContentScale.Crop
-                            )
-                            if (urls.size > 4) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "+${urls.size - 4}",
-                                        color = Color.White,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+            } else {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(urlString)
+                        .crossfade(true)
+                        .apply {
+                            val isGif = urlString.lowercase().endsWith(".gif")
+                            if (isGif && !autoplayGifsEnabled) {
+                                setParameter("play_animated", false)
                             }
                         }
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 200.dp, max = 500.dp)
+                        .clip(shape)
+                        .background(Color.DarkGray.copy(alpha = 0.2f))
+                        .clickable { onMediaClick(urlString) },
+                    contentScale = ContentScale.Crop,
+                    placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.2f)),
+                    error = androidx.compose.ui.graphics.painter.ColorPainter(Color.DarkGray.copy(alpha = 0.4f))
+                )
+            }
+        } else {
+            // Show ALL images in rows of 2 without any +N indicator or truncation
+            val chunked = urls.chunked(2)
+            chunked.forEachIndexed { rowIndex, rowUrls ->
+                if (rowIndex > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                ) {
+                    rowUrls.forEachIndexed { colIndex, rawUrl ->
+                        if (colIndex > 0) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        val formattedUrl = com.example.firstapp.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.DarkGray.copy(alpha = 0.2f))
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(formattedUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onMediaClick(formattedUrl) },
+                                contentScale = ContentScale.Crop,
+                                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.2f)),
+                                error = androidx.compose.ui.graphics.painter.ColorPainter(Color.DarkGray.copy(alpha = 0.4f))
+                            )
+                        }
+                    }
+                    if (rowUrls.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

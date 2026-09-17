@@ -95,7 +95,7 @@ class AdvertsViewModel @Inject constructor(
 
     private val _hourlyAdWindowStart = MutableStateFlow(System.currentTimeMillis())
 
-    private val MAX_HOURLY_ADS = 3
+    private val MAX_HOURLY_ADS = 4
     private val HOURLY_WINDOW_MILLIS = 1800_000L // 30 minutes window
 
     fun checkHourlyAdLimit() {
@@ -120,7 +120,7 @@ class AdvertsViewModel @Inject constructor(
 
     fun showRewardedAd(activity: Activity, adUnitId: String, advertId: String) {
         if (!canWatchHourlyAd()) {
-            _toastMessage.value = "Ad limit reached (3/3). Try again in ${remainingMinutesInHourlyWindow()} mins!"
+            _toastMessage.value = "Ad limit reached (4/4). Try again in ${remainingMinutesInHourlyWindow()} mins!"
             return
         }
 
@@ -139,7 +139,7 @@ class AdvertsViewModel @Inject constructor(
                             try {
                                 val success = com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad")
                                 if (success) {
-                                    _toastMessage.value = "Earned 10 points! (${_hourlyAdCount.value}/3 ads watched this hour)"
+                                    _toastMessage.value = "Earned 10 points! (${_hourlyAdCount.value}/4 ads watched)"
                                 }
                             } catch (e: Exception) {
                                 android.util.Log.e("AdvertsViewModel", "Failed to award points", e)

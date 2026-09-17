@@ -33,8 +33,8 @@ class RewardedAdPoolManager @Inject constructor() {
         private const val AD_TTL_MS = 45 * 60 * 1000L // 45 Minutes
         private const val INITIAL_BACKOFF_DELAY_MS = 2000L
         private const val MAX_BACKOFF_DELAY_MS = 64000L
-        private const val AD_COOLDOWN_MS = 1800_000L // 30 minutes cooldown (1800s) after 3 ads
-        private const val BATCH_LIMIT = 3
+        private const val AD_COOLDOWN_MS = 1800_000L // 30 minutes cooldown (1800s) after 4 ads
+        private const val BATCH_LIMIT = 4
     }
 
     private data class CachedAd(

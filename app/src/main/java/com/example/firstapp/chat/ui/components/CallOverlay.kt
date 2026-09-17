@@ -189,12 +189,12 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
                         } else {
                             callManager.attachLocalRenderer(view)
                         }
+                        view.post {
+                            view.invalidate()
+                            view.requestLayout()
+                        }
                     },
-                    modifier = Modifier.fillMaxSize(),
-                    onRelease = {
-                        callManager.detachLocalRenderer()
-                        callManager.detachRemoteRenderer()
-                    }
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 
