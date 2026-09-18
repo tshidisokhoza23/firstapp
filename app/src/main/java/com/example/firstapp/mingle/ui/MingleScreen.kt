@@ -391,16 +391,7 @@ fun MingleScreen(
                                     )
                                 },
                                 onChat = {
-                                    mingleViewModel.openChat(
-                                        userId = profile.id,
-                                        candidateName = profile.name,
-                                        onOpened = { conversationId ->
-                                            navController.navigate(Screen.Chat.createRoute(conversationId, type = "mingle", displayName = profile.name))
-                                        },
-                                        onError = { message ->
-                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
+                                    Toast.makeText(context, "Match required before chatting. Like this profile to match! ❤️", Toast.LENGTH_SHORT).show()
                                 },
                                 onProfileClick = {
                                     Toast.makeText(context, "🔒 Secret Mingle Profile - Profile details are kept private.", Toast.LENGTH_SHORT).show()
