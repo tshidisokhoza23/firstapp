@@ -10,6 +10,9 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import com.example.firstapp.common.util.isIdString
+import com.example.firstapp.common.util.sanitizeDisplayName
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.common.ui.theme.*
 import com.example.firstapp.common.util.formatWhatsAppTime
@@ -32,6 +36,18 @@ fun ChatItem(
     allStoriesViewed: Boolean = false,
     onAvatarClick: () -> Unit = {}
 ) {
+    val displayName = remember(chat.senderName, chat.otherUserId, chat.phoneNumber) {
+        val phone = chat.phoneNumber?.takeIf { it.isNotBlank() }
+            ?: chat.otherUserId?.let { GlobalCallState.getContactPhone(it) }
+        val sanitized = sanitizeDisplayName(chat.senderName, chat.otherUserId, phone)
+        when {
+            sanitized.isNotBlank() -> sanitized
+            !phone.isNullOrBlank() -> phone
+            !chat.senderName.isBlank() && !isIdString(chat.senderName, chat.otherUserId) -> chat.senderName
+            else -> phone.orEmpty()
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -72,7 +88,7 @@ fun ChatItem(
 
             ChatAvatar(
                 imageUrl = chat.avatarUrl,
-                name = chat.senderName,
+                name = displayName,
                 size = 56.dp,
                 fontSize = 20.sp,
                 backgroundColor = backgroundColor,
@@ -89,7 +105,7 @@ fun ChatItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = chat.senderName,
+                    text = chat.displayName,
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,

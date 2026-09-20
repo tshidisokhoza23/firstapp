@@ -28,6 +28,8 @@ import com.example.firstapp.media.ui.screens.SharedMediaScreen
 import com.example.firstapp.media.ui.viewmodel.SharedMediaViewModel
 import com.example.firstapp.media.ui.viewmodel.MediaViewModel
 import com.example.firstapp.common.ui.theme.BoyishPurple
+import com.example.firstapp.common.util.isIdString
+import com.example.firstapp.common.util.sanitizeDisplayName
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.ui.navigation.Screen
 import com.example.firstapp.common.model.ConversationType
@@ -363,10 +365,12 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 ?: ""
         }
         
-        val sanitizedName = if (baseName == "" || baseName.lowercase() == "unknown" || baseName.lowercase() == "null") {
-            realUserId
-        } else {
-            baseName
+        val sanitizedName = sanitizeDisplayName(
+            baseName,
+            realUserId,
+            GlobalCallState.getContactPhone(realUserId) ?: existingChat?.phoneNumber
+        ).ifEmpty {
+            if (type == ConversationType.GROUP) "Group" else if (type == ConversationType.CHANNEL) "Channel" else existingChat?.phoneNumber.orEmpty()
         }
 
         val chat = (existingChat ?: ChatMessage(
@@ -439,7 +443,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chat = existingChat ?: ChatMessage(
             id = chatId,
             type = ConversationType.DIRECT,
-            senderName = GlobalCallState.getContactName(chatId) ?: chatId,
+            senderName = sanitizeDisplayName(GlobalCallState.getContactName(chatId), chatId, GlobalCallState.getContactPhone(chatId) ?: existingChat?.phoneNumber),
             lastMessage = "",
             timestamp = 0L,
             unreadCount = 0,
@@ -764,7 +768,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 isGroup -> ConversationType.GROUP
                 else -> ConversationType.DIRECT
             },
-            senderName = channelFromRepo?.name ?: GlobalCallState.getContactName(userId) ?: GlobalCallState.getContactPhone(userId) ?: "",
+            senderName = channelFromRepo?.name ?: sanitizeDisplayName(GlobalCallState.getContactName(userId), userId, GlobalCallState.getContactPhone(userId)),
             isGroup = isGroup || channelFromRepo != null,
             createdBy = channelFromRepo?.createdBy,
             followers = channelFromRepo?.followers ?: "0",

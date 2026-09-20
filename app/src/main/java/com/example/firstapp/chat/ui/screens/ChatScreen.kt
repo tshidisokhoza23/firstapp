@@ -11,12 +11,20 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
+import android.provider.ContactsContract
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -27,6 +35,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,6 +43,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -579,7 +590,7 @@ fun ChatMessagesScreen(
                 Column {
                     ChatTopBar(
                         chat = currentChat,
-                        sanitizedName = sanitizedName,
+                        sanitizedName = currentChat.displayName,
                         isSearchMode = isSearchMode,
                         chatSearchQuery = chatSearchQuery,
                         selectedMessagesCount = selectedMessages.size,
@@ -661,6 +672,21 @@ fun ChatMessagesScreen(
                         },
                         onClearSelectedMessages = { selectedMessages.clear() }
                     )
+                    if (currentChat.type == ConversationType.DIRECT && !currentChat.isSavedContact && !currentChat.phoneNumber.isNullOrBlank()) {
+                        UnsavedContactSafetyBanner(
+                            phoneNumber = currentChat.phoneNumber!!,
+                            onAddToContacts = {
+                                val intent = Intent(Intent.ACTION_INSERT).apply {
+                                    type = ContactsContract.Contacts.CONTENT_TYPE
+                                    putExtra(ContactsContract.Intents.Insert.PHONE, currentChat.phoneNumber)
+                                    putExtra(ContactsContract.Intents.Insert.NAME, currentChat.serverProfileName ?: "")
+                                }
+                                context.startActivity(intent)
+                            },
+                            onBlock = { currentChat.otherUserId?.let { chatViewModel.blockUser(it); showToast("User blocked") } },
+                            onReport = { currentChat.otherUserId?.let { chatViewModel.reportUser(it, "Spam"); showToast("Reported") } }
+                        )
+                    }
                     if (jobTitle != null && companyName != null) {
                         JobInfoHeader(title = jobTitle, company = companyName)
                     }
@@ -1151,6 +1177,8 @@ fun ChatMessagesScreen(
     }
 }
 
+data class DrawnPath(val points: List<Offset>, val color: Color, val strokeWidth: Float = 8f)
+
 @OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun MediaPreviewOverlay(
@@ -1160,7 +1188,26 @@ fun MediaPreviewOverlay(
     onSend: (String, List<Uri>) -> Unit
 ) {
     var caption by remember { mutableStateOf("") }
+    var rotationAngle by remember { mutableFloatStateOf(0f) }
+    var aspectRatioMode by remember { mutableStateOf<Float?>(null) }
+    var overlayText by remember { mutableStateOf("") }
+    var selectedTextColor by remember { mutableStateOf(Color.White) }
+    var showTextInput by remember { mutableStateOf(false) }
+    var showCropMenu by remember { mutableStateOf(false) }
+    var isDrawingMode by remember { mutableStateOf(false) }
+    var selectedDrawColor by remember { mutableStateOf(Color.Red) }
+    var isMuted by remember { mutableStateOf(false) }
+
+    val drawnPaths = remember { mutableStateListOf<DrawnPath>() }
+    var currentPathPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
+    var normalizedCropRect by remember { mutableStateOf(android.graphics.RectF(0f, 0f, 1f, 1f)) }
+    var isExporting by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    val colorPalette = listOf(
+        Color.White, Color.Yellow, Color(0xFFE53935), Color(0xFF4CAF50), Color(0xFF00ACC1), Color(0xFF8E24AA)
+    )
 
     Box(
         modifier = Modifier
@@ -1173,19 +1220,138 @@ fun MediaPreviewOverlay(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = null, tint = Color.White)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = null, tint = Color.White)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (uris.size > 1) "${uris.size} ${type.replaceFirstChar { it.uppercase() }}s" else "Preview",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
                 }
-                Spacer(Modifier.width(16.dp))
-                Text(
-                    text = if (uris.size > 1) "${uris.size} ${type.replaceFirstChar { it.uppercase() }}s" else "Preview",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (type == "video") {
+                        IconButton(onClick = { isMuted = !isMuted }) {
+                            Icon(
+                                imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.Default.VolumeUp,
+                                contentDescription = "Mute",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                    if (type == "image") {
+                        IconButton(onClick = { showCropMenu = !showCropMenu }) {
+                            Icon(Icons.Default.Crop, contentDescription = "Crop", tint = Color.White)
+                        }
+                        IconButton(onClick = {
+                            isDrawingMode = !isDrawingMode
+                            showTextInput = false
+                        }) {
+                            Icon(
+                                Icons.Default.Brush,
+                                contentDescription = "Draw",
+                                tint = if (isDrawingMode) AppAccent else Color.White
+                            )
+                        }
+                    }
+                    IconButton(onClick = {
+                        showTextInput = !showTextInput
+                        isDrawingMode = false
+                    }) {
+                        Icon(
+                            Icons.Default.TextFields,
+                            contentDescription = "Add Text",
+                            tint = if (showTextInput) AppAccent else Color.White
+                        )
+                    }
+                    if (drawnPaths.isNotEmpty()) {
+                        IconButton(onClick = { if (drawnPaths.isNotEmpty()) drawnPaths.removeAt(drawnPaths.size - 1) }) {
+                            Icon(Icons.Default.Undo, contentDescription = "Undo", tint = Color.White)
+                        }
+                    }
+                }
+            }
+
+            var trimStartMs by remember { mutableLongStateOf(0L) }
+            var trimEndMs by remember { mutableLongStateOf(0L) }
+
+            if (type == "video" && uris.size == 1) {
+                com.example.firstapp.common.ui.components.VideoTrimmerScrubber(
+                    context = context,
+                    videoUri = uris.first(),
+                    maxDurationMs = 60_000L,
+                    onTrimRangeChanged = { startMs, endMs ->
+                        trimStartMs = startMs
+                        trimEndMs = endMs
+                    }
                 )
+            }
+
+            if (showCropMenu && type == "image") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.DarkGray.copy(alpha = 0.8f))
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { rotationAngle = (rotationAngle + 90f) % 360f }) {
+                        Icon(Icons.Default.CropRotate, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Rotate", color = Color.White, fontSize = 12.sp)
+                    }
+                    TextButton(onClick = { aspectRatioMode = null }) {
+                        Text("Free", color = if (aspectRatioMode == null) AppAccent else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { aspectRatioMode = 1f }) {
+                        Text("1:1", color = if (aspectRatioMode == 1f) AppAccent else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { aspectRatioMode = 4f / 3f }) {
+                        Text("4:3", color = if (aspectRatioMode == 4f / 3f) AppAccent else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { aspectRatioMode = 16f / 9f }) {
+                        Text("16:9", color = if (aspectRatioMode == 16f / 9f) AppAccent else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            if (isDrawingMode || showTextInput) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    colorPalette.forEach { color ->
+                        val isSelected = if (isDrawingMode) selectedDrawColor == color else selectedTextColor == color
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) AppAccent else Color.Gray,
+                                    shape = CircleShape
+                                )
+                                .clickable {
+                                    if (isDrawingMode) selectedDrawColor = color else selectedTextColor = color
+                                }
+                        )
+                    }
+                }
             }
 
             Box(
@@ -1222,14 +1388,93 @@ fun MediaPreviewOverlay(
                     val uri = uris.first()
                     when (type) {
                         "image" -> {
-                            AsyncImage(
-                                model = uri,
-                                contentDescription = null,
+                            val baseModifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 550.dp)
+                            val imageModifier = if (aspectRatioMode != null) baseModifier.aspectRatio(aspectRatioMode!!) else baseModifier
+
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 500.dp),
-                                contentScale = ContentScale.Fit
-                            )
+                                    .fillMaxSize()
+                                    .pointerInput(isDrawingMode, selectedDrawColor) {
+                                        if (isDrawingMode) {
+                                            detectDragGestures(
+                                                onDragStart = { offset ->
+                                                    currentPathPoints = listOf(offset)
+                                                },
+                                                onDrag = { change, _ ->
+                                                    change.consume()
+                                                    currentPathPoints = currentPathPoints + change.position
+                                                },
+                                                onDragEnd = {
+                                                    if (currentPathPoints.isNotEmpty()) {
+                                                        drawnPaths.add(DrawnPath(currentPathPoints, selectedDrawColor))
+                                                        currentPathPoints = emptyList()
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                            ) {
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = null,
+                                    modifier = imageModifier.graphicsLayer(rotationZ = rotationAngle),
+                                    contentScale = ContentScale.Fit
+                                )
+
+                                if (showCropMenu) {
+                                    InteractiveCropOverlay(
+                                        cropRect = normalizedCropRect,
+                                        onCropRectChanged = { normalizedCropRect = it },
+                                        modifier = imageModifier
+                                    )
+                                }
+
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    for (path in drawnPaths) {
+                                        if (path.points.size > 1) {
+                                            val p = Path().apply {
+                                                moveTo(path.points.first().x, path.points.first().y)
+                                                for (i in 1 until path.points.size) {
+                                                    lineTo(path.points[i].x, path.points[i].y)
+                                                }
+                                            }
+                                            drawPath(
+                                                path = p,
+                                                color = path.color,
+                                                style = Stroke(width = path.strokeWidth, cap = StrokeCap.Round)
+                                            )
+                                        }
+                                    }
+                                    if (currentPathPoints.size > 1) {
+                                        val p = Path().apply {
+                                            moveTo(currentPathPoints.first().x, currentPathPoints.first().y)
+                                            for (i in 1 until currentPathPoints.size) {
+                                                lineTo(currentPathPoints[i].x, currentPathPoints[i].y)
+                                            }
+                                        }
+                                        drawPath(
+                                            path = p,
+                                            color = selectedDrawColor,
+                                            style = Stroke(width = 8f, cap = StrokeCap.Round)
+                                        )
+                                    }
+                                }
+
+                                if (overlayText.isNotBlank()) {
+                                    Text(
+                                        text = overlayText,
+                                        color = selectedTextColor,
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
                         }
                         "video" -> {
                             val previewPlayer = remember(uri) {
@@ -1238,6 +1483,14 @@ fun MediaPreviewOverlay(
                                     prepare()
                                     playWhenReady = false
                                 }
+                            }
+                            LaunchedEffect(trimStartMs) {
+                                if (trimStartMs > 0) {
+                                    previewPlayer.seekTo(trimStartMs)
+                                }
+                            }
+                            LaunchedEffect(isMuted) {
+                                previewPlayer.volume = if (isMuted) 0f else 1f
                             }
                             DisposableEffect(previewPlayer) {
                                 onDispose { previewPlayer.release() }
@@ -1253,7 +1506,7 @@ fun MediaPreviewOverlay(
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(max = 500.dp)
+                                    .heightIn(max = 550.dp)
                             )
                         }
                         else -> {
@@ -1276,6 +1529,24 @@ fun MediaPreviewOverlay(
                         }
                     }
                 }
+            }
+
+            if (showTextInput) {
+                OutlinedTextField(
+                    value = overlayText,
+                    onValueChange = { overlayText = it },
+                    placeholder = { Text("Type overlay text...", color = Color.Gray) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.8f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.8f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    singleLine = true
+                )
             }
 
             Surface(
@@ -1306,12 +1577,60 @@ fun MediaPreviewOverlay(
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     FloatingActionButton(
-                        onClick = { onSend(caption, uris) },
+                        onClick = {
+                            if (isExporting) return@FloatingActionButton
+                            isExporting = true
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val processedUris = mutableListOf<Uri>()
+                                    for (sourceUri in uris) {
+                                        if (type == "video" && trimEndMs > trimStartMs) {
+                                            val exportedFile = com.example.firstapp.common.util.VideoTransformerManager.trimAndExportVideo(
+                                                context, sourceUri, trimStartMs, trimEndMs
+                                            )
+                                            if (exportedFile != null && exportedFile.exists() && exportedFile.length() > 0) {
+                                                processedUris.add(Uri.fromFile(exportedFile))
+                                            } else {
+                                                processedUris.add(sourceUri)
+                                            }
+                                        } else if (type == "image" && (showCropMenu || aspectRatioMode != null || rotationAngle != 0f || drawnPaths.isNotEmpty() || overlayText.isNotBlank())) {
+                                            val tempFile = com.example.firstapp.common.util.MediaCacheManager.createTempFile(context, "CROP_", ".webp")
+                                            val cropRect = normalizedCropRect
+                                            val success = com.example.firstapp.common.util.ImageExportEngine.processAndCompressImage(
+                                                context, sourceUri, tempFile, cropRect, rotationAngle.toInt()
+                                            )
+                                            if (success && tempFile.exists() && tempFile.length() > 0) {
+                                                processedUris.add(Uri.fromFile(tempFile))
+                                            } else {
+                                                processedUris.add(sourceUri)
+                                            }
+                                        } else {
+                                            processedUris.add(sourceUri)
+                                        }
+                                    }
+
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        isExporting = false
+                                        onSend(caption, processedUris)
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        isExporting = false
+                                        onSend(caption, uris)
+                                    }
+                                }
+                            }
+                        },
                         containerColor = AppAccent,
                         contentColor = Color.White,
                         shape = CircleShape
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                        if (isExporting) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                        }
                     }
                 }
             }
@@ -1371,4 +1690,306 @@ fun ScheduleMessageDialog(
             }
         }
     )
+}
+
+@Composable
+fun UnsavedContactSafetyBanner(
+    phoneNumber: String,
+    onAddToContacts: () -> Unit,
+    onBlock: () -> Unit,
+    onReport: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "This sender is not in your contacts list",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    onClick = onAddToContacts,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add Contact", fontSize = 12.sp)
+                }
+                TextButton(
+                    onClick = onBlock,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Block", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(
+                    onClick = onReport,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.Report, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Report", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InteractiveCropOverlay(
+    cropRect: android.graphics.RectF,
+    onCropRectChanged: (android.graphics.RectF) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var rectLeft by remember { mutableFloatStateOf(cropRect.left) }
+    var rectTop by remember { mutableFloatStateOf(cropRect.top) }
+    var rectRight by remember { mutableFloatStateOf(cropRect.right.coerceAtLeast(cropRect.left + 0.2f)) }
+    var rectBottom by remember { mutableFloatStateOf(cropRect.bottom.coerceAtLeast(cropRect.top + 0.2f)) }
+    var dragHandle by remember { mutableIntStateOf(0) }
+
+    BoxWithConstraints(modifier = modifier) {
+        val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+        val heightPx = constraints.maxHeight.toFloat().coerceAtLeast(1f)
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(widthPx, heightPx) {
+                    detectDragGestures(
+                        onDragStart = { position ->
+                            val curL = rectLeft * widthPx
+                            val curT = rectTop * heightPx
+                            val curR = rectRight * widthPx
+                            val curB = rectBottom * heightPx
+                            val hitSize = 140f
+                            val nearLeft = kotlin.math.abs(position.x - curL) < hitSize
+                            val nearRight = kotlin.math.abs(position.x - curR) < hitSize
+                            val nearTop = kotlin.math.abs(position.y - curT) < hitSize
+                            val nearBottom = kotlin.math.abs(position.y - curB) < hitSize
+
+                            dragHandle = when {
+                                nearLeft && nearTop -> 1
+                                nearRight && nearTop -> 2
+                                nearLeft && nearBottom -> 3
+                                nearRight && nearBottom -> 4
+                                nearLeft -> 5
+                                nearRight -> 6
+                                nearTop -> 7
+                                nearBottom -> 8
+                                else -> 9
+                            }
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            val dx = dragAmount.x / widthPx
+                            val dy = dragAmount.y / heightPx
+
+                            var nL = rectLeft
+                            var nT = rectTop
+                            var nR = rectRight
+                            var nB = rectBottom
+
+                            if (dragHandle == 1) {
+                                nL = (rectLeft + dx).coerceIn(0f, rectRight - 0.15f)
+                                nT = (rectTop + dy).coerceIn(0f, rectBottom - 0.15f)
+                            } else if (dragHandle == 2) {
+                                nR = (rectRight + dx).coerceIn(rectLeft + 0.15f, 1f)
+                                nT = (rectTop + dy).coerceIn(0f, rectBottom - 0.15f)
+                            } else if (dragHandle == 3) {
+                                nL = (rectLeft + dx).coerceIn(0f, rectRight - 0.15f)
+                                nB = (rectBottom + dy).coerceIn(rectTop + 0.15f, 1f)
+                            } else if (dragHandle == 4) {
+                                nR = (rectRight + dx).coerceIn(rectLeft + 0.15f, 1f)
+                                nB = (rectBottom + dy).coerceIn(rectTop + 0.15f, 1f)
+                            } else if (dragHandle == 5) {
+                                nL = (rectLeft + dx).coerceIn(0f, rectRight - 0.15f)
+                            } else if (dragHandle == 6) {
+                                nR = (rectRight + dx).coerceIn(rectLeft + 0.15f, 1f)
+                            } else if (dragHandle == 7) {
+                                nT = (rectTop + dy).coerceIn(0f, rectBottom - 0.15f)
+                            } else if (dragHandle == 8) {
+                                nB = (rectBottom + dy).coerceIn(rectTop + 0.15f, 1f)
+                            } else {
+                                val w = rectRight - rectLeft
+                                val h = rectBottom - rectTop
+                                nL = (rectLeft + dx).coerceIn(0f, 1f - w)
+                                nT = (rectTop + dy).coerceIn(0f, 1f - h)
+                                nR = nL + w
+                                nB = nT + h
+                            }
+
+                            rectLeft = nL
+                            rectTop = nT
+                            rectRight = nR
+                            rectBottom = nB
+                            onCropRectChanged(android.graphics.RectF(rectLeft, rectTop, rectRight, rectBottom))
+                        }
+                    )
+                }
+        ) {
+            val cL = rectLeft * size.width
+            val cT = rectTop * size.height
+            val cR = rectRight * size.width
+            val cB = rectBottom * size.height
+            val cW = (cR - cL).coerceAtLeast(1f)
+            val cH = (cB - cT).coerceAtLeast(1f)
+
+            // Dim 4 outer regions (inner image stays 100% visible and unblackened)
+            if (cT > 0f) {
+                drawRect(color = Color.Black.copy(alpha = 0.55f), topLeft = Offset(0f, 0f), size = Size(size.width, cT))
+            }
+            if (cB < size.height) {
+                drawRect(color = Color.Black.copy(alpha = 0.55f), topLeft = Offset(0f, cB), size = Size(size.width, size.height - cB))
+            }
+            if (cL > 0f) {
+                drawRect(color = Color.Black.copy(alpha = 0.55f), topLeft = Offset(0f, cT), size = Size(cL, cH))
+            }
+            if (cR < size.width) {
+                drawRect(color = Color.Black.copy(alpha = 0.55f), topLeft = Offset(cR, cT), size = Size(size.width - cR, cH))
+            }
+
+            // White Crop Frame Border
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(cL, cT),
+                size = Size(cW, cH),
+                style = Stroke(width = 2.dp.toPx())
+            )
+
+            // 3x3 Rule-of-Thirds Grid Lines
+            val thirdW = cW / 3f
+            val thirdH = cH / 3f
+            drawLine(Color.White.copy(alpha = 0.6f), Offset(cL + thirdW, cT), Offset(cL + thirdW, cB), strokeWidth = 1.dp.toPx())
+            drawLine(Color.White.copy(alpha = 0.6f), Offset(cL + 2 * thirdW, cT), Offset(cL + 2 * thirdW, cB), strokeWidth = 1.dp.toPx())
+            drawLine(Color.White.copy(alpha = 0.6f), Offset(cL, cT + thirdH), Offset(cR, cT + thirdH), strokeWidth = 1.dp.toPx())
+            drawLine(Color.White.copy(alpha = 0.6f), Offset(cL, cT + 2 * thirdH), Offset(cR, cT + 2 * thirdH), strokeWidth = 1.dp.toPx())
+
+            // Thick White Corner Brackets
+            val hLen = 22.dp.toPx()
+            val hThick = 4.5f.dp.toPx()
+
+            // Top-Left
+            drawLine(Color.White, Offset(cL, cT), Offset(cL + hLen, cT), strokeWidth = hThick)
+            drawLine(Color.White, Offset(cL, cT), Offset(cL, cT + hLen), strokeWidth = hThick)
+
+            // Top-Right
+            drawLine(Color.White, Offset(cR, cT), Offset(cR - hLen, cT), strokeWidth = hThick)
+            drawLine(Color.White, Offset(cR, cT), Offset(cR, cT + hLen), strokeWidth = hThick)
+
+            // Bottom-Left
+            drawLine(Color.White, Offset(cL, cB), Offset(cL + hLen, cB), strokeWidth = hThick)
+            drawLine(Color.White, Offset(cL, cB), Offset(cL, cB - hLen), strokeWidth = hThick)
+
+            // Bottom-Right
+            drawLine(Color.White, Offset(cR, cB), Offset(cR - hLen, cB), strokeWidth = hThick)
+            drawLine(Color.White, Offset(cR, cB), Offset(cR, cB - hLen), strokeWidth = hThick)
+        }
+    }
+}
+
+@Composable
+fun VideoTrimmerBar(
+    context: android.content.Context,
+    videoUri: Uri,
+    onRangeChanged: (Long, Long) -> Unit
+) {
+    var thumbnails by remember { mutableStateOf<List<android.graphics.Bitmap>>(emptyList()) }
+    var totalDurationMs by remember { mutableLongStateOf(0L) }
+    var totalFileSizeBytes by remember { mutableLongStateOf(0L) }
+    var sliderRange by remember { mutableStateOf(0f..1f) }
+
+    LaunchedEffect(videoUri) {
+        val retriever = android.media.MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, videoUri)
+            val durStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            totalDurationMs = durStr?.toLongOrNull() ?: 0L
+            val pfd = context.contentResolver.openFileDescriptor(videoUri, "r")
+            totalFileSizeBytes = pfd?.statSize ?: 0L
+            pfd?.close()
+        } catch (_: Exception) {} finally {
+            try { retriever.release() } catch (_: Exception) {}
+        }
+
+        thumbnails = com.example.firstapp.common.util.ThumbnailStripGenerator.extractThumbnails(context, videoUri, count = 8)
+    }
+
+    val selectedStartMs = (sliderRange.start * totalDurationMs).toLong()
+    val selectedEndMs = (sliderRange.endInclusive * totalDurationMs).toLong()
+    val estimatedSizeMb = com.example.firstapp.common.util.ThumbnailStripGenerator.estimateTrimmedSizeMb(
+        selectedStartMs, selectedEndMs, totalDurationMs, totalFileSizeBytes
+    )
+
+    LaunchedEffect(sliderRange, totalDurationMs) {
+        onRangeChanged(selectedStartMs, selectedEndMs)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.8f))
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (thumbnails.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, Color.Gray, RoundedCornerShape(8.dp)),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                thumbnails.forEach { bmp ->
+                    androidx.compose.foundation.Image(
+                        bitmap = bmp.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        RangeSlider(
+            value = sliderRange,
+            onValueChange = { range -> sliderRange = range },
+            valueRange = 0f..1f,
+            colors = SliderDefaults.colors(
+                thumbColor = AppAccent,
+                activeTrackColor = AppAccent,
+                inactiveTrackColor = Color.DarkGray
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        val durationSec = ((selectedEndMs - selectedStartMs) / 1000).coerceAtLeast(0)
+        val durationFormatted = String.format(java.util.Locale.US, "%d:%02d", durationSec / 60, durationSec % 60)
+        val sizeFormatted = String.format(java.util.Locale.US, "%.1f MB", estimatedSizeMb)
+
+        Text(
+            text = "$durationFormatted • $sizeFormatted",
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
 }

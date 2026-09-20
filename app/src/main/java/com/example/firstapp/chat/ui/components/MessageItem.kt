@@ -386,7 +386,10 @@ fun AttachmentPreview(
     onPlayAudio: (String?) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val rawFirstMedia = message.mediaUrls.firstOrNull() ?: ""
+    val rawFirstMedia = message.mediaUrls.firstOrNull()
+        ?: if (message.content.startsWith("http") || message.content.startsWith("file:") || message.content.startsWith("content:") || message.content.startsWith("uploads/") || message.content.startsWith("/")) message.content
+        else if (!message.fileName.isNullOrBlank() && message.type != MessageType.TEXT) "chat/${message.fileName}"
+        else ""
     val firstMedia = com.example.firstapp.common.util.MediaUtils.formatUrl(rawFirstMedia) ?: ""
     
     when (message.type) {

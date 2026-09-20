@@ -10,6 +10,8 @@ import com.example.firstapp.chat.data.local.entity.ContactEntity
 import com.example.firstapp.chat.model.*
 import com.example.firstapp.chat.data.GlobalCallState
 import com.example.firstapp.common.util.CryptoUtils
+import com.example.firstapp.common.util.isIdString
+import com.example.firstapp.common.util.sanitizeDisplayName
 import kotlin.collections.map
 import android.util.Base64
 import android.util.Log
@@ -39,7 +41,7 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         else -> ConversationType.DIRECT
     }
 
-    val name = if (chat.title.isNotBlank() && chat.title.lowercase() != "unknown" && chat.title != "null" && chat.title != chat.contact_id) {
+    val name = if (!isIdString(chat.title, chat.contact_id)) {
         chat.title
     } else {
         ""
@@ -98,7 +100,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         apiMessage.direction == "outgoing"
     }
 
-    val sName = if (apiMessage.sender_name.isNotBlank() && apiMessage.sender_name.lowercase() != "unknown" && apiMessage.sender_name != "null" && apiMessage.sender_name != apiMessage.sender_id) {
+    val sName = if (!isIdString(apiMessage.sender_name, apiMessage.sender_id)) {
         apiMessage.sender_name
     } else {
         apiMessage.contact_phone ?: ""
@@ -125,14 +127,17 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
             "job_post" -> MessageType.JOB_POST
             else -> MessageType.TEXT
         },
-        mediaUrls = if (apiMessage.media_urls != null && apiMessage.media_urls.isNotEmpty()) {
-            apiMessage.media_urls.map { formatUrl(it) }
-        } else if (!apiMessage.file_name.isNullOrBlank() && apiMessage.media_type.lowercase() != "text") {
-            // Heuristic: reconstruct URL if media_urls is missing but file_name is present
-            // Server structure: /uploads/chat/FILENAME
-            listOf(formatUrl("chat/${apiMessage.file_name}"))
-        } else {
-            emptyList()
+        mediaUrls = when {
+            !apiMessage.media_urls.isNullOrEmpty() -> apiMessage.media_urls.map { formatUrl(it) }
+            !apiMessage.media_url.isNullOrBlank() -> listOf(formatUrl(apiMessage.media_url))
+            !apiMessage.file_name.isNullOrBlank() && apiMessage.media_type.lowercase() != "text" -> listOf(formatUrl("chat/${apiMessage.file_name}"))
+            !apiMessage.message_text.isNullOrBlank() && (
+                apiMessage.message_text.startsWith("http") ||
+                apiMessage.message_text.startsWith("/") ||
+                apiMessage.message_text.startsWith("uploads/") ||
+                apiMessage.message_text.startsWith("chat/")
+            ) -> listOf(formatUrl(apiMessage.message_text))
+            else -> emptyList()
         },
         isRead = false,
         isDelivered = true,
@@ -200,10 +205,12 @@ fun ChatMessage.toEntity(): ChatEntity {
     )
 }
 
-fun ChatEntity.toModel() = ChatMessage(
+fun ChatEntity.toModel(localContactName: String? = null, serverProfileName: String? = null) = ChatMessage(
     id = id,
     type = type,
     senderName = senderName,
+    localContactName = localContactName,
+    serverProfileName = serverProfileName ?: senderName,
     lastMessage = lastMessage,
     timestamp = timestamp,
     unreadCount = unreadCount,

@@ -13,6 +13,7 @@ import com.example.firstapp.MainActivity
 import com.example.firstapp.R
 import com.example.firstapp.IncomingCallActivity
 import com.example.firstapp.common.domain.auth.SessionManager
+import com.example.firstapp.common.util.sanitizeDisplayName
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -228,9 +229,11 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private suspend fun handleNewMessage(data: Map<String, String>) {
-        val senderName = data["sender_name"] ?: "New Message"
-        val body = data["body"] ?: ""
         val chatId = data["contact_id"] ?: "0"
+        val rawSenderName = data["sender_name"].orEmpty()
+        val senderPhone = data["sender_phone"] ?: data["contact_phone"]
+        val senderName = sanitizeDisplayName(rawSenderName, chatId, senderPhone).ifEmpty { "New Message" }
+        val body = data["body"] ?: ""
         val messageId = data["message_id"] ?: ""
         
         // Respect settings

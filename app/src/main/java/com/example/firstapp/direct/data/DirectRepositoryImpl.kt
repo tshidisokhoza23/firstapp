@@ -15,6 +15,7 @@ import com.example.firstapp.common.data.realtime.WebSocketManager
 import com.example.firstapp.common.model.ConversationType
 import com.example.firstapp.common.model.User
 import com.example.firstapp.common.util.DisplayNameResolver
+import com.example.firstapp.common.util.sanitizeDisplayName
 import com.example.firstapp.common.util.Resource
 import com.example.firstapp.direct.domain.DirectRepository
 import kotlinx.coroutines.CancellationException
@@ -79,15 +80,16 @@ class DirectRepositoryImpl @Inject constructor(
                 val conversationId = response.body()!!.conversation_id
                 val contact = contactDao.getContactById(contactId)
                 val resolvedName = displayNameResolver.resolve(
-                    User(id = contactId, displayName = contact?.displayName ?: ""),
+                    User(id = contactId, displayName = contact?.displayName ?: "", phoneNumber = contact?.phoneNumber ?: ""),
                     contact?.phoneNumber ?: ""
                 )
+                val sanitizedName = sanitizeDisplayName(resolvedName, contactId, contact?.phoneNumber)
                 chatDao.insertChats(
                     listOf(
                         ChatEntity(
                             id = conversationId,
                             type = ConversationType.DIRECT,
-                            senderName = resolvedName,
+                            senderName = sanitizedName,
                             lastMessage = "",
                             timestamp = System.currentTimeMillis(),
                             unreadCount = 0,

@@ -126,11 +126,6 @@ object MediaUtils {
         if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("file:") || url.startsWith("local:") || url.startsWith("content:")) {
             var formatted = url
             
-            // Fix legacy port 5000 -> 8082
-            if (formatted.contains(":5000")) {
-                formatted = formatted.replace(":5000", ":8082")
-            }
-            
             // Fix localhost/127.0.0.1 -> real IP
             if (formatted.contains("://localhost") || formatted.contains("://127.0.0.1")) {
                 formatted = formatted.replace("localhost", targetHost).replace("127.0.0.1", targetHost)

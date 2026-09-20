@@ -1,5 +1,7 @@
 package com.example.firstapp.groups.ui
 
+import com.example.firstapp.common.util.sanitizeDisplayName
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -319,12 +321,12 @@ fun GroupDetailScreen(
 
             val visibleMembers = memberIds.filter { id ->
                 val contact = contacts.find { it.id == id }
-                val name = if (id == currentUserId) "You" else contact?.displayName ?: id
+                val name = if (id == currentUserId) "You" else sanitizeDisplayName(contact?.displayName, id, contact?.phoneNumber)
                 memberQuery.isBlank() || name.contains(memberQuery, ignoreCase = true)
             }
             items(visibleMembers, key = { it }) { memberId ->
                 val contact = contacts.find { it.id == memberId }
-                val name = if (memberId == currentUserId) "You" else contact?.displayName ?: memberId
+                val name = if (memberId == currentUserId) "You" else sanitizeDisplayName(contact?.displayName, memberId, contact?.phoneNumber)
                 val memberIsAdmin = adminIds.contains(memberId)
                 var showMemberMenu by remember { mutableStateOf(false) }
                 ListItem(

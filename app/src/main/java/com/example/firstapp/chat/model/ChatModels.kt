@@ -67,6 +67,8 @@ data class ChatMessage(
     val id: String,
     val type: ConversationType = ConversationType.DIRECT,
     val senderName: String = "",
+    val localContactName: String? = null,
+    val serverProfileName: String? = null,
     val lastMessage: String = "",
     val timestamp: Long = 0,
     val unreadCount: Int = 0,
@@ -97,4 +99,50 @@ data class ChatMessage(
     val phoneNumber: String? = null,
     val otherUserId: String? = null,
     val isMingle: Boolean = false
-)
+) {
+    /**
+     * True if the contact is saved in the local device contacts / address book or has a known profile name.
+     */
+    val isSavedContact: Boolean
+        get() = !localContactName.isNullOrBlank() 
+            || (!senderName.isBlank() && !com.example.firstapp.common.util.isIdString(senderName, otherUserId ?: id))
+            || (!serverProfileName.isNullOrBlank() && !com.example.firstapp.common.util.isIdString(serverProfileName, otherUserId ?: id))
+
+    /**
+     * Display Name Resolution Hierarchy:
+     * 1. Local Device Contact Name (Address Book)
+     * 2. Server Profile Name / User Display Name
+     * 3. Formatted E.164 Phone Number
+     * 4. Conversation Type Default (Group / Channel)
+     */
+    val displayName: String
+        get() {
+            if (!localContactName.isNullOrBlank()) {
+                return localContactName.trim()
+            }
+            val profile = serverProfileName?.takeIf { !com.example.firstapp.common.util.isIdString(it, otherUserId ?: id) }
+                ?: senderName.takeIf { !com.example.firstapp.common.util.isIdString(it, otherUserId ?: id) }
+            if (!profile.isNullOrBlank()) {
+                return profile.trim()
+            }
+            if (!phoneNumber.isNullOrBlank()) {
+                return com.example.firstapp.common.util.ContactUtils.formatDisplayPhone(phoneNumber)
+            }
+            return when (type) {
+                ConversationType.GROUP -> "Group"
+                ConversationType.CHANNEL -> "Channel"
+                else -> ""
+            }
+        }
+
+    /**
+     * Profile name hint (~Name) shown alongside unsaved phone numbers.
+     */
+    val profileHint: String?
+        get() {
+            if (isSavedContact) return null
+            val profile = serverProfileName?.takeIf { !com.example.firstapp.common.util.isIdString(it, otherUserId ?: id) }
+                ?: senderName.takeIf { !com.example.firstapp.common.util.isIdString(it, otherUserId ?: id) }
+            return if (!profile.isNullOrBlank() && profile != displayName) "~$profile" else null
+        }
+}

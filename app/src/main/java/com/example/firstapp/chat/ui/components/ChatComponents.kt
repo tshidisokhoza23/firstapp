@@ -389,7 +389,7 @@ private fun AttachmentIcon(icon: androidx.compose.ui.graphics.vector.ImageVector
         Box(modifier = Modifier.size(50.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = Color.White)
         }
-        Text(label, color = Color.White, fontSize = 12.sp)
+        Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
     }
 }
 

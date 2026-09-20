@@ -1,5 +1,7 @@
 package com.example.firstapp.chat.data
 
+import com.example.firstapp.common.util.isIdString
+import com.example.firstapp.common.util.sanitizeDisplayName
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,28 +71,30 @@ object GlobalCallState {
     private val contactPhones = mutableMapOf<String, String>()
 
     fun updateContactInfo(userId: String, name: String, phone: String?) {
-        if (name.isBlank() || name.lowercase() == "unknown" || name == userId) return
-        contactNames[userId] = name
-        // Also map the phone number if available
-        phone?.let { contactPhones[userId] = it }
+        if (!isIdString(name, userId)) {
+            contactNames[userId] = name
+        }
+        phone?.takeIf { it.isNotBlank() }?.let { contactPhones[userId] = it }
     }
 
     fun getContactName(id: String): String? {
         val name = contactNames[id]
-        if (name != null) return name
-        
-        // If id is a phone number, it might be the key itself
+        if (name != null && !isIdString(name, id)) return name
         return null
     }
     fun getContactPhone(userId: String): String? = contactPhones[userId]
 
     fun onCallInvite(event: CallEvent) {
         val senderIdStr = event.senderId
-        val enriched = if (event.senderName.isBlank() || event.senderName == senderIdStr) {
-            val name = contactNames[senderIdStr] ?: contactPhones[senderIdStr] ?: ""
-            event.copy(senderName = name)
-        } else event
-        _incomingCall.value = enriched
+        val sanitized = sanitizeDisplayName(
+            event.senderName,
+            senderIdStr,
+            contactPhones[senderIdStr]
+        )
+        val finalName = sanitized.ifEmpty {
+            contactNames[senderIdStr] ?: contactPhones[senderIdStr] ?: ""
+        }
+        _incomingCall.value = event.copy(senderName = finalName)
     }
 
     fun clearIncomingCall() {

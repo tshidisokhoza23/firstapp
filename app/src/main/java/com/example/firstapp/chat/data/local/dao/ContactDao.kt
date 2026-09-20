@@ -12,6 +12,9 @@ interface ContactDao {
     @Query("SELECT * FROM contacts WHERE id = :id LIMIT 1")
     suspend fun getContactById(id: String): ContactEntity?
 
+    @Query("SELECT * FROM contacts WHERE phoneNumber = :phoneNumber OR (LENGTH(:phoneNumber) >= 9 AND LENGTH(phoneNumber) >= 9 AND SUBSTR(REPLACE(:phoneNumber, ' ', ''), -9) = SUBSTR(REPLACE(phoneNumber, ' ', ''), -9)) LIMIT 1")
+    suspend fun getContactByPhoneNumber(phoneNumber: String): ContactEntity?
+
     @Query("SELECT * FROM contacts ORDER BY isRegistered DESC, displayName ASC")
     fun getContacts(): Flow<List<ContactEntity>>
 

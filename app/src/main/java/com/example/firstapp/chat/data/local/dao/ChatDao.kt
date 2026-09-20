@@ -19,9 +19,9 @@ interface ChatDao {
         SELECT 
             c.id AS id,
             c.type AS type,
-            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
-            c.description AS description,
-            c.lastMessage AS lastMessage,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, ''), '') AS senderName,
+            COALESCE(c.description, '') AS description,
+            COALESCE(c.lastMessage, '') AS lastMessage,
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
@@ -47,10 +47,20 @@ interface ChatDao {
             c.lastMessageIsFromMe AS lastMessageIsFromMe,
             c.lastMessageRead AS lastMessageRead,
             COALESCE(u.publicKey, c.publicKey) AS publicKey,
-            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            COALESCE(NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, '')) AS phoneNumber,
             c.otherUserId AS otherUserId
         FROM chats c
-        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        LEFT JOIN contacts u ON (
+            c.otherUserId = u.id 
+            OR c.id = u.id 
+            OR (
+                c.phoneNumber IS NOT NULL 
+                AND u.phoneNumber IS NOT NULL 
+                AND LENGTH(c.phoneNumber) >= 9 
+                AND LENGTH(u.phoneNumber) >= 9 
+                AND SUBSTR(REPLACE(c.phoneNumber, ' ', ''), -9) = SUBSTR(REPLACE(u.phoneNumber, ' ', ''), -9)
+            )
+        )
         WHERE c.isArchived = 0 AND (c.type IS NULL OR c.type != 'MINGLE')
         ORDER BY c.isPinned DESC, c.timestamp DESC
     """)
@@ -60,9 +70,9 @@ interface ChatDao {
         SELECT 
             c.id AS id,
             c.type AS type,
-            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
-            c.description AS description,
-            c.lastMessage AS lastMessage,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, ''), '') AS senderName,
+            COALESCE(c.description, '') AS description,
+            COALESCE(c.lastMessage, '') AS lastMessage,
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
@@ -88,10 +98,20 @@ interface ChatDao {
             c.lastMessageIsFromMe AS lastMessageIsFromMe,
             c.lastMessageRead AS lastMessageRead,
             COALESCE(u.publicKey, c.publicKey) AS publicKey,
-            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            COALESCE(NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, '')) AS phoneNumber,
             c.otherUserId AS otherUserId
         FROM chats c
-        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        LEFT JOIN contacts u ON (
+            c.otherUserId = u.id 
+            OR c.id = u.id 
+            OR (
+                c.phoneNumber IS NOT NULL 
+                AND u.phoneNumber IS NOT NULL 
+                AND LENGTH(c.phoneNumber) >= 9 
+                AND LENGTH(u.phoneNumber) >= 9 
+                AND SUBSTR(REPLACE(c.phoneNumber, ' ', ''), -9) = SUBSTR(REPLACE(u.phoneNumber, ' ', ''), -9)
+            )
+        )
         WHERE c.isArchived = 0 AND c.type = :type
         ORDER BY c.isPinned DESC, c.timestamp DESC
     """)
@@ -101,9 +121,9 @@ interface ChatDao {
         SELECT 
             c.id AS id,
             c.type AS type,
-            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
-            c.description AS description,
-            c.lastMessage AS lastMessage,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, ''), '') AS senderName,
+            COALESCE(c.description, '') AS description,
+            COALESCE(c.lastMessage, '') AS lastMessage,
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
@@ -129,10 +149,20 @@ interface ChatDao {
             c.lastMessageIsFromMe AS lastMessageIsFromMe,
             c.lastMessageRead AS lastMessageRead,
             COALESCE(u.publicKey, c.publicKey) AS publicKey,
-            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            COALESCE(NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, '')) AS phoneNumber,
             c.otherUserId AS otherUserId
         FROM chats c
-        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        LEFT JOIN contacts u ON (
+            c.otherUserId = u.id 
+            OR c.id = u.id 
+            OR (
+                c.phoneNumber IS NOT NULL 
+                AND u.phoneNumber IS NOT NULL 
+                AND LENGTH(c.phoneNumber) >= 9 
+                AND LENGTH(u.phoneNumber) >= 9 
+                AND SUBSTR(REPLACE(c.phoneNumber, ' ', ''), -9) = SUBSTR(REPLACE(u.phoneNumber, ' ', ''), -9)
+            )
+        )
         WHERE c.isArchived = 0 AND c.type = :type
         ORDER BY c.isPinned DESC, c.timestamp DESC
     """)
@@ -142,9 +172,9 @@ interface ChatDao {
         SELECT 
             c.id AS id,
             c.type AS type,
-            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), c.phoneNumber, c.id) AS senderName,
-            c.description AS description,
-            c.lastMessage AS lastMessage,
+            COALESCE(NULLIF(u.displayName, ''), NULLIF(c.senderName, ''), NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, ''), '') AS senderName,
+            COALESCE(c.description, '') AS description,
+            COALESCE(c.lastMessage, '') AS lastMessage,
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
@@ -170,10 +200,20 @@ interface ChatDao {
             c.lastMessageIsFromMe AS lastMessageIsFromMe,
             c.lastMessageRead AS lastMessageRead,
             COALESCE(u.publicKey, c.publicKey) AS publicKey,
-            COALESCE(u.phoneNumber, c.phoneNumber) AS phoneNumber,
+            COALESCE(NULLIF(u.phoneNumber, ''), NULLIF(c.phoneNumber, '')) AS phoneNumber,
             c.otherUserId AS otherUserId
         FROM chats c
-        LEFT JOIN contacts u ON (c.otherUserId = u.id OR c.id = u.id)
+        LEFT JOIN contacts u ON (
+            c.otherUserId = u.id 
+            OR c.id = u.id 
+            OR (
+                c.phoneNumber IS NOT NULL 
+                AND u.phoneNumber IS NOT NULL 
+                AND LENGTH(c.phoneNumber) >= 9 
+                AND LENGTH(u.phoneNumber) >= 9 
+                AND SUBSTR(REPLACE(c.phoneNumber, ' ', ''), -9) = SUBSTR(REPLACE(u.phoneNumber, ' ', ''), -9)
+            )
+        )
         WHERE c.isArchived = 1
         ORDER BY c.timestamp DESC
     """)
@@ -297,10 +337,33 @@ interface ChatDao {
      */
     @Transaction
     suspend fun confirmSentMessage(clientId: String, serverMsg: MessageEntity) {
-        if (clientId != serverMsg.id) {
+        val existing = getMessageById(clientId) ?: getMessageByClientId(clientId)
+        val targetConversationId = existing?.conversationId ?: serverMsg.conversationId
+        val targetMediaUrls = if (serverMsg.mediaUrls.isNotEmpty()) {
+            serverMsg.mediaUrls
+        } else if (!existing?.mediaUrls.isNullOrEmpty()) {
+            existing.mediaUrls
+        } else if (serverMsg.content.isNotBlank() && (
+            serverMsg.content.startsWith("http") ||
+            serverMsg.content.startsWith("/") ||
+            serverMsg.content.startsWith("file:") ||
+            serverMsg.content.startsWith("content:") ||
+            serverMsg.content.startsWith("uploads/")
+        )) {
+            listOf(serverMsg.content)
+        } else {
+            emptyList()
+        }
+
+        if (clientId != serverMsg.id && clientId.isNotBlank()) {
             deleteMessage(clientId)
         }
-        insertMessage(serverMsg)
+        val reconciledMsg = serverMsg.copy(
+            conversationId = targetConversationId,
+            mediaUrls = targetMediaUrls,
+            clientId = if (serverMsg.clientId.isNullOrBlank()) clientId else serverMsg.clientId
+        )
+        insertMessage(reconciledMsg)
     }
 
     @Query("SELECT * FROM messages WHERE status IN ('PENDING', 'FAILED') ORDER BY timestamp ASC")

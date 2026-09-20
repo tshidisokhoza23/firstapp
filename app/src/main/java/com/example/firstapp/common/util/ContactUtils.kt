@@ -362,6 +362,20 @@ object ContactUtils {
         return "+$clean"
     }
 
+    fun formatDisplayPhone(number: String?): String {
+        if (number.isNullOrBlank()) return ""
+        val clean = number.replace(Regex("[^0-9+]"), "")
+        if (!clean.startsWith("+")) return clean
+
+        val digits = clean.substring(1)
+        return when {
+            digits.length == 11 -> "+${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}"
+            digits.length == 10 -> "+${digits.substring(0, 1)} ${digits.substring(1, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}"
+            digits.length > 7 -> "+${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}"
+            else -> clean
+        }
+    }
+
     private fun isValidPhoneNumber(number: String): Boolean {
         // Basic check for E.164: + followed by 7-15 digits
         return number.matches(Regex("^\\+[1-9]\\d{6,14}$"))
