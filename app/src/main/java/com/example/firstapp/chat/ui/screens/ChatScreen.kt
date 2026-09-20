@@ -64,6 +64,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.firstapp.R
 import com.example.firstapp.chat.model.ChatMessage
 import com.example.firstapp.chat.model.Message
@@ -1376,7 +1377,10 @@ fun MediaPreviewOverlay(
                                     .background(Color.DarkGray)
                             ) {
                                 AsyncImage(
-                                    model = uri,
+                                    model = ImageRequest.Builder(context)
+                                        .data(uri)
+                                        .crossfade(true)
+                                        .build(),
                                     contentDescription = null,
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
@@ -1418,10 +1422,14 @@ fun MediaPreviewOverlay(
                                     }
                             ) {
                                 AsyncImage(
-                                    model = uri,
+                                    model = ImageRequest.Builder(context)
+                                        .data(uri)
+                                        .crossfade(true)
+                                        .build(),
                                     contentDescription = null,
                                     modifier = imageModifier.graphicsLayer(rotationZ = rotationAngle),
-                                    contentScale = ContentScale.Fit
+                                    contentScale = ContentScale.Fit,
+                                    error = androidx.compose.ui.graphics.painter.ColorPainter(Color.DarkGray)
                                 )
 
                                 if (showCropMenu) {

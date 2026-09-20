@@ -55,19 +55,50 @@ object ImageExportEngine {
                 inSampleSize *= 2
             }
 
-            // 4. Region Decoding: Decode ONLY the cropped region
-            val decoderStream = context.contentResolver.openInputStream(inputUri) ?: return@withContext false
-            val regionDecoder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                BitmapRegionDecoder.newInstance(decoderStream)
-            } else {
-                @Suppress("DEPRECATION")
-                BitmapRegionDecoder.newInstance(decoderStream, false)
+            // 4. Region Decoding with fallback
+            var croppedBitmap: Bitmap? = null
+            try {
+                val decoderStream = context.contentResolver.openInputStream(inputUri)
+                if (decoderStream != null) {
+                    val regionDecoder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        BitmapRegionDecoder.newInstance(decoderStream)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        BitmapRegionDecoder.newInstance(decoderStream, false)
+                    }
+                    val decodeOpts = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
+                    croppedBitmap = regionDecoder?.decodeRegion(pixelCrop, decodeOpts)
+                    decoderStream.close()
+                    regionDecoder?.recycle()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
 
-            val decodeOpts = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
-            val croppedBitmap = regionDecoder?.decodeRegion(pixelCrop, decodeOpts)
-            decoderStream.close()
-            regionDecoder?.recycle()
+            if (croppedBitmap == null) {
+                // Fallback: decode full bitmap and crop in memory
+                val fallbackStream = context.contentResolver.openInputStream(inputUri) ?: return@withContext false
+                val fullOpts = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
+                val fullBitmap = BitmapFactory.decodeStream(fallbackStream, null, fullOpts)
+                fallbackStream.close()
+                if (fullBitmap != null) {
+                    val cL = (cropRectNormalized.left * fullBitmap.width).toInt().coerceIn(0, fullBitmap.width - 1)
+                    val cT = (cropRectNormalized.top * fullBitmap.height).toInt().coerceIn(0, fullBitmap.height - 1)
+                    val cR = (cropRectNormalized.right * fullBitmap.width).toInt().coerceIn(cL + 1, fullBitmap.width)
+                    val cB = (cropRectNormalized.bottom * fullBitmap.height).toInt().coerceIn(cT + 1, fullBitmap.height)
+                    
+                    croppedBitmap = Bitmap.createBitmap(
+                        fullBitmap,
+                        cL,
+                        cT,
+                        (cR - cL).coerceAtLeast(1),
+                        (cB - cT).coerceAtLeast(1)
+                    )
+                    if (croppedBitmap != fullBitmap) {
+                        fullBitmap.recycle()
+                    }
+                }
+            }
 
             if (croppedBitmap == null) return@withContext false
 
