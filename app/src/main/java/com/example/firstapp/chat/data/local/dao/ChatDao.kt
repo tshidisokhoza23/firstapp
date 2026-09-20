@@ -273,7 +273,20 @@ interface ChatDao {
     fun getMessagesPaging(chatId: String): PagingSource<Int, MessageEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertMessages(messages: List<MessageEntity>)
+    suspend fun insertMessagesRaw(messages: List<MessageEntity>)
+
+    @Transaction
+    suspend fun insertMessages(messages: List<MessageEntity>) {
+        messages.forEach { incoming ->
+            val existing = getMessageById(incoming.id)
+            val mediaUrls = if (incoming.mediaUrls.isNotEmpty()) {
+                incoming.mediaUrls
+            } else {
+                existing?.mediaUrls.orEmpty()
+            }
+            insertMessage(incoming.copy(mediaUrls = mediaUrls))
+        }
+    }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: MessageEntity): Long

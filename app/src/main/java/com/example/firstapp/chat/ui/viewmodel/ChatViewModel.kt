@@ -685,6 +685,10 @@ class ChatViewModel @Inject constructor(
             accountRepository.uploadFile(file, "chat/$type").collect { res ->
                 if (res is Resource.Success && res.data != null) {
                     val serverUrl = res.data.url
+                    repository.updateMessageInCache(
+                        chatId,
+                        optimisticMsg.copy(mediaUrls = listOf(serverUrl))
+                    )
                     // 3. Send via API with the real URL, using the SAME clientId to replace the optimistic one
                     sendMessage(chatId, bodyText, finalType, listOf(serverUrl), duration, file.name, null, null, null, null, null, null, null, null, clientUuid, audioAmplitudes)
                     file.delete()
@@ -777,6 +781,10 @@ class ChatViewModel @Inject constructor(
                 uploadJobs.joinAll()
                 
                 if (uploadedUrls.size == files.size) {
+                    repository.updateMessageInCache(
+                        chatId,
+                        optimisticMsg.copy(mediaUrls = uploadedUrls.toList())
+                    )
                     // 3. Send via API
                     sendMessage(chatId, bodyText, finalType, uploadedUrls, null, null, null, null, null, null, null, null, null, null, clientUuid)
                     files.forEach { it.delete() }
