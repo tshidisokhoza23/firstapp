@@ -938,20 +938,44 @@ class ChatRepositoryImpl @Inject constructor(
             ApiMessage()
         }
         val text = parsed.message_text.ifBlank {
-            payload["content"]?.jsonPrimitive?.contentOrNull
+            payload["message_text"]?.jsonPrimitive?.contentOrNull
+                ?: payload["content"]?.jsonPrimitive?.contentOrNull
                 ?: payload["body"]?.jsonPrimitive?.contentOrNull
                 ?: ""
         }
         val id = parsed.id.ifBlank {
-            payload["message_id"]?.jsonPrimitive?.contentOrNull ?: ""
+            payload["id"]?.jsonPrimitive?.contentOrNull
+                ?: payload["message_id"]?.jsonPrimitive?.contentOrNull ?: ""
         }
         val clientUuid = parsed.client_uuid.ifBlank {
-            payload["client_msg_id"]?.jsonPrimitive?.contentOrNull ?: ""
+            payload["client_uuid"]?.jsonPrimitive?.contentOrNull
+                ?: payload["client_msg_id"]?.jsonPrimitive?.contentOrNull ?: ""
         }
+        val mediaType = parsed.media_type.takeIf { it.isNotBlank() && it != "TEXT" }
+            ?: payload["media_type"]?.jsonPrimitive?.contentOrNull
+            ?: payload["type"]?.jsonPrimitive?.contentOrNull
+            ?: "TEXT"
+        val mediaUrl = parsed.media_url
+            ?: payload["media_url"]?.jsonPrimitive?.contentOrNull
+            ?: payload["mediaUrl"]?.jsonPrimitive?.contentOrNull
+        val mediaUrls = if (!parsed.media_urls.isNullOrEmpty()) {
+            parsed.media_urls
+        } else {
+            payload["media_urls"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                ?: payload["mediaUrls"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
+        }
+        val fileName = parsed.file_name
+            ?: payload["file_name"]?.jsonPrimitive?.contentOrNull
+            ?: payload["fileName"]?.jsonPrimitive?.contentOrNull
+
         return parsed.copy(
             id = id,
             client_uuid = clientUuid,
             message_text = text,
+            media_type = mediaType,
+            media_url = mediaUrl,
+            media_urls = mediaUrls,
+            file_name = fileName,
             conversation_id = parsed.conversation_id.ifBlank {
                 payload["conversation_id"]?.jsonPrimitive?.contentOrNull ?: ""
             },

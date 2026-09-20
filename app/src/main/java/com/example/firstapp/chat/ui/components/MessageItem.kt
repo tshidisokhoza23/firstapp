@@ -222,7 +222,17 @@ fun MessageItemUnique(
                     if (messageItem.type == MessageType.VOICE_CALL || (messageItem.content != null && messageItem.content.contains("Voice call"))) {
                         CallLogItem(messageItem, contentColor)
                     } else {
+                        val rawMediaCheck = messageItem.mediaUrls.firstOrNull()
+                            ?: if (messageItem.content.startsWith("http") || messageItem.content.startsWith("file:") || messageItem.content.startsWith("content:") || messageItem.content.startsWith("uploads/") || messageItem.content.startsWith("/")) messageItem.content
+                            else if (!messageItem.fileName.isNullOrBlank() && messageItem.type != MessageType.TEXT) "chat/${messageItem.fileName}"
+                            else ""
+
                         if (messageItem.mediaUrls.isNotEmpty() ||
+                            rawMediaCheck.isNotEmpty() ||
+                            messageItem.type == MessageType.IMAGE ||
+                            messageItem.type == MessageType.VIDEO ||
+                            messageItem.type == MessageType.AUDIO_MESSAGE ||
+                            messageItem.type == MessageType.DOCUMENT ||
                             messageItem.type == MessageType.LOCATION || 
                             messageItem.type == MessageType.APPLICATION_LINK) {
                             AttachmentPreview(
@@ -416,6 +426,17 @@ fun AttachmentPreview(
                     error = androidx.compose.ui.graphics.painter.ColorPainter(Color.Red.copy(alpha = 0.2f)),
                     placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.2f))
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.DarkGray.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("📷 Photo", color = contentColor, fontSize = 14.sp)
+                }
             }
             Spacer(Modifier.height(4.dp))
         }
