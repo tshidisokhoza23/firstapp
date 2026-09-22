@@ -1,13 +1,13 @@
-package com.example.firstapp.media.ui
+package com.tpsk.tj.media.ui
 
-import com.example.firstapp.common.ui.viewmodel.UserViewModel
-import com.example.firstapp.vocab.domain.repository.UserRepository
-import com.example.firstapp.account.domain.repository.AccountRepository
-import com.example.firstapp.domain.repository.ChatRepository
-import com.example.firstapp.common.domain.repository.SystemRepository
+import com.tpsk.tj.common.ui.viewmodel.UserViewModel
+import com.tpsk.tj.vocab.domain.repository.UserRepository
+import com.tpsk.tj.account.domain.repository.AccountRepository
+import com.tpsk.tj.domain.repository.ChatRepository
+import com.tpsk.tj.common.domain.repository.SystemRepository
 import android.content.Context
-import com.example.firstapp.common.model.User
-import com.example.firstapp.common.util.Resource
+import com.tpsk.tj.common.model.User
+import com.tpsk.tj.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,8 +26,8 @@ class UserProfileTests {
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val chatRepository: ChatRepository = mockk(relaxed = true)
     private val systemRepository: SystemRepository = mockk(relaxed = true)
-    private val socialRepository: com.example.firstapp.media.domain.repository.SocialRepository = mockk(relaxed = true)
-    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
+    private val socialRepository: com.tpsk.tj.media.domain.repository.SocialRepository = mockk(relaxed = true)
+    private val sessionManager: com.tpsk.tj.common.domain.auth.SessionManager = mockk(relaxed = true)
     private val context: Context = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
     private val currentUserFlow = kotlinx.coroutines.flow.MutableStateFlow<User?>(null)

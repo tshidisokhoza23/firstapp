@@ -1,11 +1,11 @@
-package com.example.firstapp.media
+package com.tpsk.tj.media
 
-import com.example.firstapp.common.data.ads.AdManager
-import com.example.firstapp.chat.domain.repository.AdRepository
-import com.example.firstapp.chat.ui.viewmodel.AdvertsViewModel
-import com.example.firstapp.chat.model.Advert
-import com.example.firstapp.vocab.domain.repository.UserRepository
-import com.example.firstapp.common.util.Resource
+import com.tpsk.tj.common.data.ads.AdManager
+import com.tpsk.tj.chat.domain.repository.AdRepository
+import com.tpsk.tj.chat.ui.viewmodel.AdvertsViewModel
+import com.tpsk.tj.chat.model.Advert
+import com.tpsk.tj.vocab.domain.repository.UserRepository
+import com.tpsk.tj.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,16 +25,16 @@ class AdvertsViewModelTest {
     private val adRepository: AdRepository = mockk(relaxed = true)
     private val userRepository: UserRepository = mockk(relaxed = true)
     private val adManager: AdManager = mockk(relaxed = true)
-    private val poolManager: com.example.firstapp.common.data.ads.RewardedAdPoolManager = mockk(relaxed = true)
+    private val poolManager: com.tpsk.tj.common.data.ads.RewardedAdPoolManager = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        mockkObject(com.example.firstapp.chat.rewards.data.RewardsManager)
-        every { com.example.firstapp.chat.rewards.data.RewardsManager.addOptimisticReward(any()) } just Runs
-        coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.refreshBalance() } returns true
-        coEvery { com.example.firstapp.chat.rewards.data.RewardsManager.awardPoints(any(), any(), any()) } returns true
+        mockkObject(com.tpsk.tj.chat.rewards.data.RewardsManager)
+        every { com.tpsk.tj.chat.rewards.data.RewardsManager.addOptimisticReward(any()) } just Runs
+        coEvery { com.tpsk.tj.chat.rewards.data.RewardsManager.refreshBalance() } returns true
+        coEvery { com.tpsk.tj.chat.rewards.data.RewardsManager.awardPoints(any(), any(), any()) } returns true
 
         every { adRepository.getAdverts() } returns flowOf(Resource.Success(emptyList<Advert>()))
         every { adRepository.getViewedAdverts() } returns flowOf(Resource.Success(emptyList<Advert>()))

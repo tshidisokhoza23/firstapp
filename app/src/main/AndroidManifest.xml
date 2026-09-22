@@ -18,7 +18,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
@@ -62,7 +61,7 @@
         android:networkSecurityConfig="@xml/network_security_config">
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="${admobAppId}"/>
 
         <meta-data
             android:name="com.google.android.gms.ads.flag.NATIVE_AD_DEBUGGER_ENABLED"
@@ -182,7 +181,7 @@
             android:name=".chat.data.CallListenerService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync|phoneCall|microphone|camera|remoteMessaging" />
+            android:foregroundServiceType="phoneCall|microphone|camera|remoteMessaging" />
 
         <service
             android:name=".chat.data.FirstAppFirebaseMessagingService"
@@ -209,8 +208,8 @@
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.firstapp.CALL_ACCEPT" />
-                <action android:name="com.example.firstapp.CALL_DECLINE" />
+                <action android:name="com.tpsk.tj.CALL_ACCEPT" />
+                <action android:name="com.tpsk.tj.CALL_DECLINE" />
             </intent-filter>
         </receiver>
 

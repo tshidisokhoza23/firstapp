@@ -1,4 +1,4 @@
-package com.example.firstapp
+package com.tpsk.tj
 
 import org.junit.Test
 

@@ -11,11 +11,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.firstapp"
+    namespace = "com.tpsk.tj"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.firstapp"
+        applicationId = "com.tpsk.tj"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -23,6 +23,7 @@ android {
         multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
     }
 
     flavorDimensions += "environment"
@@ -51,6 +52,7 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-4322207563956922~1108788212"
         }
         create("prod") {
             dimension = "environment"
@@ -59,6 +61,7 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "false")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-4322207563956922~1108788212"
         }
     }
 

@@ -1,13 +1,13 @@
-package com.example.firstapp.media.ui
+package com.tpsk.tj.media.ui
 
-import com.example.firstapp.account.domain.repository.AccountRepository
-import com.example.firstapp.chat.model.Message
-import com.example.firstapp.chat.model.MessageType
-import com.example.firstapp.domain.repository.ChatRepository
-import com.example.firstapp.media.ui.viewmodel.MediaChatViewModel
-import com.example.firstapp.vocab.domain.repository.UserRepository
-import com.example.firstapp.common.util.Resource
-import com.example.firstapp.common.model.User
+import com.tpsk.tj.account.domain.repository.AccountRepository
+import com.tpsk.tj.chat.model.Message
+import com.tpsk.tj.chat.model.MessageType
+import com.tpsk.tj.domain.repository.ChatRepository
+import com.tpsk.tj.media.ui.viewmodel.MediaChatViewModel
+import com.tpsk.tj.vocab.domain.repository.UserRepository
+import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.common.model.User
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,7 +63,7 @@ class MediaChatViewModelTest {
         val userId = "user1"
         val chatId = "chat123"
         val file = mockk<File>(relaxed = true)
-        val uploadResponse = com.example.firstapp.common.data.api.UploadResponse("https://url.com", "file.jpg", 100)
+        val uploadResponse = com.tpsk.tj.common.data.api.UploadResponse("https://url.com", "file.jpg", 100)
 
         // Pre-setup for chatId
         coEvery { chatRepository.initiateDM(userId) } returns flowOf(Resource.Success(chatId))

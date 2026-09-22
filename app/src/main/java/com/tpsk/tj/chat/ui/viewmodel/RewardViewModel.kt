@@ -1,0 +1,206 @@
+package com.tpsk.tj.chat.ui.viewmodel
+
+import android.app.Activity
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.tpsk.tj.chat.model.RewardDashboard
+import com.tpsk.tj.chat.model.RewardTask
+import com.tpsk.tj.chat.rewards.data.api.RewardsApi
+import com.tpsk.tj.common.data.ads.AdManager
+import com.tpsk.tj.common.data.ads.RewardedAdPoolManager
+import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.vocab.domain.repository.UserRepository
+import com.tpsk.tj.common.data.ads.AdUnitConfig
+import com.tpsk.tj.common.data.realtime.WebSocketManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+sealed class RewardUiState {
+    object Loading : RewardUiState()
+    data class Success(val dashboard: RewardDashboard) : RewardUiState()
+    data class Error(val message: String) : RewardUiState()
+}
+
+@HiltViewModel
+class RewardViewModel @Inject constructor(
+    private val rewardsApi: RewardsApi,
+    private val userRepository: UserRepository,
+    private val poolManager: RewardedAdPoolManager,
+    private val webSocketManager: WebSocketManager,
+    private val sessionManager: com.tpsk.tj.common.domain.auth.SessionManager,
+    @ApplicationContext private val context: Context
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow<RewardUiState>(RewardUiState.Loading)
+    val uiState = _uiState.asStateFlow()
+
+    private val _cooldownSeconds = MutableStateFlow(0)
+    val cooldownSeconds = _cooldownSeconds.asStateFlow()
+
+    private val _hourlyAdCount = MutableStateFlow(0)
+    val hourlyAdCount = _hourlyAdCount.asStateFlow()
+
+    private val prefs: SharedPreferences = context.getSharedPreferences("reward_prefs", Context.MODE_PRIVATE)
+    private var timerJob: Job? = null
+
+    init {
+        fetchDashboard()
+        checkStoredCooldown()
+        initializePool()
+        observeRealtimeUpdates()
+    }
+
+    private fun observeRealtimeUpdates() {
+        webSocketManager.events
+            .filter { it.type == "reward_update" }
+            .onEach {
+                android.util.Log.i("RewardViewModel", "Reward update received via WS, refreshing dashboard")
+                fetchDashboard()
+                userRepository.getCurrentUser().collectLatest { }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun initializePool() {
+        viewModelScope.launch {
+            val userId = sessionManager.getUserId()
+            if (userId != null) {
+                android.util.Log.d("RewardViewModel", "Initializing ad pool for user: $userId")
+                poolManager.initialize(context, AdUnitConfig.REWARDED_POINTS_ID, userId)
+            } else {
+                android.util.Log.w("RewardViewModel", "Cannot initialize pool: No user ID found in session")
+            }
+        }
+    }
+
+    fun fetchDashboard() {
+        viewModelScope.launch {
+            _uiState.value = RewardUiState.Loading
+            try {
+                val response = rewardsApi.getDashboard()
+                if (response.isSuccessful && response.body() != null) {
+                    val dash = response.body()!!
+                    _uiState.value = RewardUiState.Success(dash)
+                    
+                    if (dash.cooldown_remaining_seconds > 0) {
+                        startCooldownTimer(dash.cooldown_remaining_seconds)
+                    }
+                } else {
+                    _uiState.value = RewardUiState.Error("Failed to load rewards")
+                }
+            } catch (e: Exception) {
+                _uiState.value = RewardUiState.Error(e.localizedMessage ?: "Unknown error")
+            }
+        }
+    }
+
+    private fun checkStoredCooldown() {
+        val targetEpoch = prefs.getLong("target_cooldown_epoch", 0L)
+        val now = System.currentTimeMillis()
+        if (targetEpoch > now) {
+            val remaining = ((targetEpoch - now) / 1000).toInt()
+            startCooldownTimer(remaining)
+        }
+    }
+
+    private fun startCooldownTimer(seconds: Int) {
+        timerJob?.cancel()
+        _cooldownSeconds.value = seconds
+        
+        // Persist target epoch
+        val targetEpoch = System.currentTimeMillis() + (seconds * 1000L)
+        prefs.edit().putLong("target_cooldown_epoch", targetEpoch).apply()
+
+        timerJob = viewModelScope.launch {
+            var current = seconds
+            while (current > 0) {
+                delay(1000)
+                current--
+                _cooldownSeconds.value = current
+            }
+            // Cleanup persistence when done
+            prefs.edit().remove("target_cooldown_epoch").apply()
+        }
+    }
+
+    fun watchAd(activity: Activity, adUnitId: String, taskId: String) {
+        android.util.Log.d("RewardViewModel", "watchAd called for task: $taskId")
+        viewModelScope.launch {
+            val userId = sessionManager.getUserId()
+            if (userId == null) {
+                android.util.Log.e("RewardViewModel", "Cannot watch ad: No active session")
+                _uiState.value = RewardUiState.Error("Please log in again to earn rewards")
+                return@launch
+            }
+            
+            // Show loading toast if pool is empty
+            if (!poolManager.hasAvailableAds.value) {
+                android.widget.Toast.makeText(context, "Loading ad... please wait.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+
+            android.util.Log.d("RewardViewModel", "Showing ad for user: $userId...")
+            poolManager.showAd(
+                activity = activity,
+                adUnitId = adUnitId,
+                userId = userId,
+                taskId = taskId,
+                onRewardEarned = {
+                    android.util.Log.i("RewardViewModel", "Reward earned for task: $taskId")
+                    handleAdCompleted(taskId)
+                },
+                onAdClosed = {
+                    android.util.Log.d("RewardViewModel", "Ad session completed for task: $taskId")
+                }
+            )
+        }
+    }
+
+    private var adsWatchedWindowCount = 0
+
+    private fun handleAdCompleted(taskId: String) {
+        val targetEpoch = prefs.getLong("target_cooldown_epoch", 0L)
+        val now = System.currentTimeMillis()
+        if (targetEpoch > 0 && now >= targetEpoch) {
+            adsWatchedWindowCount = 0
+            prefs.edit().remove("target_cooldown_epoch").remove("ads_watched_window").apply()
+        } else {
+            adsWatchedWindowCount = prefs.getInt("ads_watched_window", 0)
+        }
+
+        adsWatchedWindowCount++
+        prefs.edit().putInt("ads_watched_window", adsWatchedWindowCount).apply()
+
+        if (adsWatchedWindowCount >= 4) {
+            // 4 ads completed! Start 30-minute (1800s) cooldown
+            startCooldownTimer(1800)
+            adsWatchedWindowCount = 0
+            prefs.edit().putInt("ads_watched_window", 0).apply()
+        }
+
+        viewModelScope.launch {
+            try {
+                com.tpsk.tj.chat.rewards.data.RewardsManager.awardPoints(
+                    amount = 10.0,
+                    source = "REWARDED_AD",
+                    description = "Watched rewarded ad task: $taskId",
+                    taskId = taskId
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("RewardViewModel", "Failed to award points", e)
+            }
+            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                android.widget.Toast.makeText(context, "Earned 10 reward points!", android.widget.Toast.LENGTH_LONG).show()
+            }
+            fetchDashboard()
+            userRepository.getCurrentUser().firstOrNull()
+        }
+    }
+}

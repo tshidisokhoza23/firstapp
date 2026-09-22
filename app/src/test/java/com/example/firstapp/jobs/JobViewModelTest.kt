@@ -1,9 +1,9 @@
-package com.example.firstapp.chat.jobs
+package com.tpsk.tj.chat.jobs
 
-import com.example.firstapp.chat.jobs.ui.viewmodel.JobViewModel
-import com.example.firstapp.domain.repository.JobRepository
-import com.example.firstapp.chat.jobs.model.Job
-import com.example.firstapp.common.util.Resource
+import com.tpsk.tj.chat.jobs.ui.viewmodel.JobViewModel
+import com.tpsk.tj.domain.repository.JobRepository
+import com.tpsk.tj.chat.jobs.model.Job
+import com.tpsk.tj.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

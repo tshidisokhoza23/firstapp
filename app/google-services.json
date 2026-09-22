@@ -14,13 +14,34 @@
       },
       "oauth_client": [
         {
-          "client_id": "303703683011-qvcu9abfv4867hkmb65jq72ukkl48vkj.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.firstapp",
-            "certificate_hash": "a0f4c66b1d54b8aee2076367fe968b264e0e98af"
-          }
-        },
+          "client_id": "303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvArA2Ykp3Q6EsQMVSre4piq9SvARF7H4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:303703683011:android:a5460e1caeb668f6ad5776",
+        "android_client_info": {
+          "package_name": "com.tpsk.tj"
+        }
+      },
+      "oauth_client": [
         {
           "client_id": "303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com",
           "client_type": 3

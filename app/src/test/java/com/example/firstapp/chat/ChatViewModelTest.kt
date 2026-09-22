@@ -1,13 +1,13 @@
-package com.example.firstapp.chat
+package com.tpsk.tj.chat
 
-import com.example.firstapp.chat.data.CallTonePlayer
-import com.example.firstapp.chat.data.WebRtcCallManager
-import com.example.firstapp.chat.model.ChatMessage
-import com.example.firstapp.chat.model.Contact
-import com.example.firstapp.chat.ui.viewmodel.ChatViewModel
-import com.example.firstapp.domain.repository.ChatRepository
-import com.example.firstapp.vocab.domain.repository.UserRepository
-import com.example.firstapp.common.util.Resource
+import com.tpsk.tj.chat.data.CallTonePlayer
+import com.tpsk.tj.chat.data.WebRtcCallManager
+import com.tpsk.tj.chat.model.ChatMessage
+import com.tpsk.tj.chat.model.Contact
+import com.tpsk.tj.chat.ui.viewmodel.ChatViewModel
+import com.tpsk.tj.domain.repository.ChatRepository
+import com.tpsk.tj.vocab.domain.repository.UserRepository
+import com.tpsk.tj.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,8 +18,8 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import com.example.firstapp.account.domain.repository.AccountRepository
-import com.example.firstapp.domain.repository.SettingsRepository
+import com.tpsk.tj.account.domain.repository.AccountRepository
+import com.tpsk.tj.domain.repository.SettingsRepository
 import java.io.File
 import kotlin.collections.*
 
@@ -33,9 +33,9 @@ class ChatViewModelTest {
     private val settingsRepository: SettingsRepository = mockk(relaxed = true)
     private val webRtcCallManager: WebRtcCallManager = mockk(relaxed = true)
     private val callTonePlayer: CallTonePlayer = mockk(relaxed = true)
-    private val webSocketManager: com.example.firstapp.common.data.realtime.WebSocketManager = mockk(relaxed = true)
-    private val callWebSocketClient: com.example.firstapp.chat.data.CallWebSocketClient = mockk(relaxed = true)
-    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
+    private val webSocketManager: com.tpsk.tj.common.data.realtime.WebSocketManager = mockk(relaxed = true)
+    private val callWebSocketClient: com.tpsk.tj.chat.data.CallWebSocketClient = mockk(relaxed = true)
+    private val sessionManager: com.tpsk.tj.common.domain.auth.SessionManager = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
@@ -114,7 +114,7 @@ class ChatViewModelTest {
     @Test
     fun `sendMediaMessage uploads file and then sends message`() = runTest {
         val file = File("test.jpg")
-        val uploadResponse = com.example.firstapp.common.data.api.UploadResponse("https://example.com/test.jpg", "test.jpg", 1024L)
+        val uploadResponse = com.tpsk.tj.common.data.api.UploadResponse("https://example.com/test.jpg", "test.jpg", 1024L)
         coEvery { accountRepository.uploadFile(any(), any()) } returns flowOf(Resource.Success(uploadResponse))
         
         viewModel.sendMediaMessage("chat1", file, "image")

@@ -1,10 +1,10 @@
-package com.example.firstapp.auth
+package com.tpsk.tj.auth
 
-import com.example.firstapp.auth.ui.viewmodel.AuthViewModel
-import com.example.firstapp.common.data.api.AuthResponse
-import com.example.firstapp.common.model.User
-import com.example.firstapp.common.util.Resource
-import com.example.firstapp.vocab.domain.repository.UserRepository
+import com.tpsk.tj.auth.ui.viewmodel.AuthViewModel
+import com.tpsk.tj.common.data.api.AuthResponse
+import com.tpsk.tj.common.model.User
+import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.vocab.domain.repository.UserRepository
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,8 +22,8 @@ class AuthViewModelTest {
 
     private lateinit var viewModel: AuthViewModel
     private val userRepository: UserRepository = mockk(relaxed = true)
-    private val sessionManager: com.example.firstapp.common.domain.auth.SessionManager = mockk(relaxed = true)
-    private val authApi: com.example.firstapp.auth.data.api.AuthApi = mockk(relaxed = true)
+    private val sessionManager: com.tpsk.tj.common.domain.auth.SessionManager = mockk(relaxed = true)
+    private val authApi: com.tpsk.tj.auth.data.api.AuthApi = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before

@@ -1,4 +1,4 @@
-package com.example.firstapp.common.util
+package com.tpsk.tj.common.util
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

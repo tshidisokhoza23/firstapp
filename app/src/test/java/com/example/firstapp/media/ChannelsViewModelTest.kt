@@ -1,10 +1,10 @@
-package com.example.firstapp.media
+package com.tpsk.tj.media
 
-import com.example.firstapp.channels.ui.ChannelsViewModel
-import com.example.firstapp.channels.domain.ChannelRepository
-import com.example.firstapp.domain.repository.ChatRepository
-import com.example.firstapp.account.domain.repository.AccountRepository
-import com.example.firstapp.common.util.Resource
+import com.tpsk.tj.channels.ui.ChannelsViewModel
+import com.tpsk.tj.channels.domain.ChannelRepository
+import com.tpsk.tj.domain.repository.ChatRepository
+import com.tpsk.tj.account.domain.repository.AccountRepository
+import com.tpsk.tj.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

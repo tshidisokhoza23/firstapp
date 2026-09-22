@@ -1,4 +1,4 @@
-package com.example.firstapp.media.ui
+package com.tpsk.tj.media.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

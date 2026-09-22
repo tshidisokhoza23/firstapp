@@ -1,11 +1,11 @@
-package com.example.firstapp.media.ui
+package com.tpsk.tj.media.ui
 
-import com.example.firstapp.media.ui.viewmodel.MediaViewModel
-import com.example.firstapp.media.domain.repository.SocialRepository
-import com.example.firstapp.account.domain.repository.AccountRepository
-import com.example.firstapp.common.util.Resource
-import com.example.firstapp.media.model.Post
-import com.example.firstapp.common.data.ads.AdManager
+import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
+import com.tpsk.tj.media.domain.repository.SocialRepository
+import com.tpsk.tj.account.domain.repository.AccountRepository
+import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.media.model.Post
+import com.tpsk.tj.common.data.ads.AdManager
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -28,7 +28,7 @@ class MediaNavAndToolbarTests {
     private val socialRepository: SocialRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
     private val adManager: AdManager = mockk(relaxed = true)
-    private val postWebSocketClient: com.example.firstapp.media.data.realtime.PostWebSocketClient = mockk(relaxed = true)
+    private val postWebSocketClient: com.tpsk.tj.media.data.realtime.PostWebSocketClient = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before

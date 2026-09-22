@@ -1,11 +1,11 @@
-package com.example.firstapp.media
+package com.tpsk.tj.media
 
 import android.content.Context
-import com.example.firstapp.stories.ui.StoryViewModel
-import com.example.firstapp.stories.domain.StoryRepository
-import com.example.firstapp.chat.model.UserStory
-import com.example.firstapp.account.domain.repository.AccountRepository
-import com.example.firstapp.common.util.Resource
+import com.tpsk.tj.stories.ui.StoryViewModel
+import com.tpsk.tj.stories.domain.StoryRepository
+import com.tpsk.tj.chat.model.UserStory
+import com.tpsk.tj.account.domain.repository.AccountRepository
+import com.tpsk.tj.common.util.Resource
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,7 +22,7 @@ class StoryViewModelTest {
     private lateinit var viewModel: StoryViewModel
     private val repository: StoryRepository = mockk(relaxed = true)
     private val accountRepository: AccountRepository = mockk(relaxed = true)
-    private val chatRepository: com.example.firstapp.domain.repository.ChatRepository = mockk(relaxed = true)
+    private val chatRepository: com.tpsk.tj.domain.repository.ChatRepository = mockk(relaxed = true)
     private val context: Context = mockk(relaxed = true)
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -30,7 +30,7 @@ class StoryViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { repository.observeStories() } returns flowOf(Resource.Success(emptyList<UserStory>()))
-        every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<com.example.firstapp.chat.model.Contact>()))
+        every { chatRepository.getContacts() } returns flowOf(Resource.Success(emptyList<com.tpsk.tj.chat.model.Contact>()))
         viewModel = StoryViewModel(repository, accountRepository, chatRepository, context)
     }
 

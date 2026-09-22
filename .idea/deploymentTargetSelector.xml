@@ -39,7 +39,7 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=R92W30G4LGH" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=CTKS270H25070807156" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">

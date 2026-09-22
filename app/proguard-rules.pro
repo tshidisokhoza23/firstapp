@@ -2,7 +2,7 @@
 
 # Keep Room generated classes
 -keep class androidx.room.RoomDatabase { *; }
--keep class com.example.firstapp.data.local.** { *; }
+-keep class com.tpsk.tj.data.local.** { *; }
 
 # Keep Retrofit and Gson classes
 -keep class retrofit2.** { *; }
@@ -20,6 +20,11 @@
 
 # Keep AndroidX lifecycle
 -keep class androidx.lifecycle.** { *; }
+
+# AppLovin / Amazon PrivacyPass
+-dontwarn com.amazon.privacypass.**
+-dontwarn com.iab.omid.library.applovin.**
+-dontwarn com.applovin.**
 
 # Optimization for performance
 -optimizationpasses 5
