@@ -714,6 +714,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to fetch messages: ${response.code()}"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Sync error"))
         }
     }
@@ -879,6 +880,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Chat sync failed: ${response.code()}"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Chat sync error"))
         }
     }
@@ -929,6 +931,7 @@ class ChatRepositoryImpl @Inject constructor(
             chatApi.markAsRead(chatId, ReadReceiptRequest(""))
             emit(Resource.Success(true))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to mark read"))
         }
     }
@@ -950,6 +953,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Server failed: ${response.code()}"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Deletion error"))
         }
     }
@@ -1165,6 +1169,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to initiate DM"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Error"))
         }
     }
@@ -1330,7 +1335,10 @@ class ChatRepositoryImpl @Inject constructor(
                 chatDaoProvider.get().insertChats(listOf(group.toEntity()))
                 emit(Resource.Success(group))
             } else emit(Resource.Error("Failed to create group"))
-        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Error"))
+        }
     }
 
     override fun deleteMessage(messageId: String, deleteForEveryone: Boolean): Flow<Resource<Boolean>> = flow {
@@ -1342,7 +1350,10 @@ class ChatRepositoryImpl @Inject constructor(
                 chatApi.deleteMessage(chatId, messageId)
             }
             emit(Resource.Success(true))
-        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Error")) }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Error"))
+        }
     }
 
     override fun editMessage(messageId: String, newBody: String): Flow<Resource<Message>> = flow {
@@ -1357,7 +1368,10 @@ class ChatRepositoryImpl @Inject constructor(
                 val myUserId = sessionManager.getUserId()
                 emit(Resource.Success(mapApiMessage(response.body()!!.message, privKey, myUserId)))
             } else emit(Resource.Error("Failed to edit on server"))
-        } catch (e: Exception) { emit(Resource.Error(e.message ?: "Edit error")) }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Edit error"))
+        }
     }
 
     override fun reactToMessage(messageId: String, emoji: String): Flow<Resource<Boolean>> = flow {
@@ -1382,6 +1396,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Success(true))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to react"))
         }
     }
@@ -1456,6 +1471,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to fetch older messages: ${response.code()}"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to fetch older messages"))
         }
     }
@@ -1469,6 +1485,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to load group"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to load group"))
         }
     }
@@ -1480,6 +1497,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Only admins can add members"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to add member"))
         }
     }
@@ -1491,6 +1509,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Only admins can remove members"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to remove member"))
         }
     }
@@ -1502,6 +1521,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Only admins can promote members"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to promote"))
         }
     }
@@ -1513,6 +1533,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Only admins can dismiss admins"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to demote"))
         }
     }
@@ -1526,6 +1547,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Success(true))
             } else emit(Resource.Error("Only admins can update the group icon"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to update icon"))
         }
     }
@@ -1539,6 +1561,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Success(true))
             } else emit(Resource.Error("Only admins can update the channel icon"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to update icon"))
         }
     }
@@ -1552,6 +1575,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Success(true))
             } else emit(Resource.Error("Failed to leave group"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to leave group"))
         }
     }
@@ -1564,6 +1588,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && !code.isNullOrBlank()) emit(Resource.Success(code))
             else emit(Resource.Error("Only admins can create invite links"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to create invite link"))
         }
     }
@@ -1578,6 +1603,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful && !joinedId.isNullOrBlank()) emit(Resource.Success(joinedId))
             else emit(Resource.Error("Invalid invite link"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to join group"))
         }
     }
@@ -1589,6 +1615,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Failed to pin message"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to pin message"))
         }
     }
@@ -1599,6 +1626,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(response.body() ?: emptyList()))
             else emit(Resource.Error("Failed to load readers"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to load readers"))
         }
     }
@@ -1609,6 +1637,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Failed to report message"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to report message"))
         }
     }
@@ -1622,6 +1651,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to initiate call: ${response.code()}"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e("ChatRepository", "Error initiating call", e)
             emit(Resource.Error(e.message ?: "Network error"))
         }
@@ -1633,6 +1663,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(true))
             else emit(Resource.Error("Failed to update application status"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to update application status"))
         }
     }
@@ -1643,6 +1674,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) emit(Resource.Success(response.body() ?: emptyList()))
             else emit(Resource.Error("Failed to load members"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to load members"))
         }
     }
@@ -1673,6 +1705,7 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Failed to update subscription"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Failed to update subscription"))
         }
     }
