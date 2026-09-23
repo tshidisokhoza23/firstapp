@@ -199,7 +199,7 @@ fun MingleScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "${selectedRadiusKm.toInt()} km",
+                                        text = if (selectedRadiusKm >= 100f) "100+ km" else "${selectedRadiusKm.toInt()} km",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -363,8 +363,10 @@ fun MingleScreen(
                                         showUploadPhotosSheet = true
                                         return@MingleCard
                                     }
-                                    val available = maxOf(uiState.balance, points)
-                                    if (available < uiState.likeCost) {
+                                    val walletBalance = currentUser?.walletBalance ?: 0.0
+                                    val available = maxOf(uiState.balance, points.toDouble(), walletBalance)
+                                    val requiredToMaintain40 = 40.0 + uiState.likeCost // At least 50 points required so >= 40 remain after liking
+                                    if (available < requiredToMaintain40) {
                                         showPointsGateDialog = true
                                         return@MingleCard
                                     }
@@ -402,6 +404,76 @@ fun MingleScreen(
                 }
             }
         }
+    }
+
+    val walletBalance = currentUser?.walletBalance ?: 0.0
+    val availableWalletPoints = maxOf(uiState.balance, points.toDouble(), walletBalance)
+    var show40PointsRequiredDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(availableWalletPoints) {
+        if (availableWalletPoints < 40.0) {
+            show40PointsRequiredDialog = true
+        }
+    }
+
+    if (show40PointsRequiredDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                show40PointsRequiredDialog = false
+                navController.navigate(Screen.Main.createRoute(tab = "chats"))
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Stars,
+                    contentDescription = null,
+                    tint = com.tpsk.tj.common.ui.theme.NiceOrange,
+                    modifier = Modifier.size(40.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "40 Points Required",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "You need at least 40 points in your wallet to enter Mingle. " +
+                            "You currently have ${availableWalletPoints.toInt()} points.\n\n" +
+                            "Earn free points by watching ads or completing tasks in Rewards!",
+                    textAlign = TextAlign.Center,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        show40PointsRequiredDialog = false
+                        navController.navigate(Screen.Main.createRoute(tab = "chats", subTab = "rewards"))
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Stars, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Go to Rewards", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        show40PointsRequiredDialog = false
+                        navController.navigate(Screen.Main.createRoute(tab = "chats"))
+                    }
+                ) {
+                    Text("Go Back")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 
     if (showProfileRequiredDialog) {
@@ -481,58 +553,77 @@ fun MingleScreen(
         )
     }
 
-    // Radius Filter Sheet
+    // Radius Filter Sheet (Section 5.1 Discovery Radius Sheet)
     if (showRadiusSheet) {
+        val displayValue = selectedRadiusKm.toInt()
         ModalBottomSheet(
             onDismissRequest = { showRadiusSheet = false },
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Discovery Radius",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Show people within ${selectedRadiusKm.toInt()} km of your location",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = if (displayValue >= 100) {
+                        "Showing people everywhere (expanding beyond 100 km)"
+                    } else {
+                        "Show people within $displayValue km of your location"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(24.dp))
-
+                Spacer(modifier = Modifier.height(28.dp))
                 Slider(
                     value = selectedRadiusKm,
                     onValueChange = { mingleViewModel.setRadius(it) },
                     valueRange = 1f..100f,
-                    steps = 99
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF0F3995),
+                        activeTrackColor = Color(0xFF0F3995),
+                        inactiveTrackColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("1 km", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${selectedRadiusKm.toInt()} km", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("100 km", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("1 km", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = if (displayValue >= 100) "100+ km" else "$displayValue km",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F3995)
+                    )
+                    Text("100 km", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 Button(
                     onClick = {
                         showRadiusSheet = false
                         mingleViewModel.applyRadiusAndReload()
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F3995))
                 ) {
-                    Text("Apply Filter")
+                    Text("Apply Filter", style = MaterialTheme.typography.titleMedium, color = Color.White)
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -745,7 +836,7 @@ fun MingleScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Gender Selection
+                // Gender Selection (LazyRow ensures chips fit cleanly without text clipping)
                 Text(
                     text = "Gender",
                     fontSize = 13.sp,
@@ -753,16 +844,16 @@ fun MingleScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
+                LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    listOf("Male", "Female", "Non-binary", "Other").forEach { g ->
+                    items(listOf("Male", "Female", "Non-binary", "Other")) { g ->
                         val selected = editGender.equals(g, ignoreCase = true)
                         FilterChip(
                             selected = selected,
                             onClick = { editGender = g },
-                            label = { Text(g, fontSize = 12.sp) },
+                            label = { Text(g, fontSize = 12.sp, softWrap = false) },
                             shape = RoundedCornerShape(16.dp)
                         )
                     }
@@ -778,16 +869,16 @@ fun MingleScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
+                LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    listOf("Men", "Women", "Everyone").forEach { option ->
+                    items(listOf("Men", "Women", "Everyone")) { option ->
                         val selected = editLookingFor.equals(option, ignoreCase = true)
                         FilterChip(
                             selected = selected,
                             onClick = { editLookingFor = option },
-                            label = { Text(option, fontSize = 12.sp) },
+                            label = { Text(option, fontSize = 12.sp, softWrap = false) },
                             shape = RoundedCornerShape(16.dp)
                         )
                     }

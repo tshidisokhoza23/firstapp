@@ -7,7 +7,6 @@ import com.tpsk.tj.common.util.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,14 +30,17 @@ class ChannelsViewModel @Inject constructor(
         fetchChannels()
     }
 
+    private var fetchJob: kotlinx.coroutines.Job? = null
+
     fun fetchChannels() {
-        viewModelScope.launch {
-            launch {
-                chatRepository.syncChats().first {
-                    it is Resource.Success || it is Resource.Error
-                }
-            }
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             repository.getChannels().collect { _channels.value = it }
+        }
+        viewModelScope.launch {
+            runCatching {
+                chatRepository.syncChats().collect {}
+            }
         }
     }
 

@@ -37,6 +37,7 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import kotlinx.coroutines.launch
 
 fun NavGraphBuilder.chatsNav(navController: NavHostController) {
     composable(
@@ -70,6 +71,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             }
         }
 
+        val chatViewModel: ChatViewModel = hiltViewModel()
+        val scope = rememberCoroutineScope()
+
         StoryScreen(
             stories = storiesState.data ?: emptyList(),
             contacts = contactsState.data ?: emptyList(),
@@ -87,7 +91,45 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onStoryViewed = { userId, storyId -> storyViewModel.markStoryAsViewed(userId, storyId) },
             onMuteStory = { userId, isMuted -> storyViewModel.muteStory(userId, isMuted) },
             onNavigateToNewStory = { navController.navigate(Screen.NewStory.route) },
-            onGetStoryViewers = { storyId -> storyViewModel.getStoryViewers(storyId) }
+            onGetStoryViewers = { storyId -> storyViewModel.getStoryViewers(storyId) },
+            onReplyStory = { userId, storyId, text, storySummary, authorName ->
+                if (userId.isNotBlank()) {
+                    val targetUser = userId.removePrefix("user_")
+                    val chats = chatViewModel.chats.value.data.orEmpty()
+                    val existingChat = chats.find {
+                        it.otherUserId == targetUser || it.id == targetUser ||
+                        it.otherUserId == userId || it.id == userId
+                    }
+                    val replyId = if (storyId.startsWith("story_")) storyId else "story_$storyId"
+                    val replyText = "[Story] $storySummary"
+
+                    if (existingChat != null) {
+                        chatViewModel.sendMessage(
+                            chatId = existingChat.id,
+                            body = text,
+                            messageType = "text",
+                            replyToId = replyId,
+                            replyToText = replyText,
+                            replyToSenderName = authorName
+                        )
+                    } else {
+                        scope.launch {
+                            chatViewModel.initiateDM(targetUser).collect { res ->
+                                if (res is com.tpsk.tj.common.util.Resource.Success && !res.data.isNullOrBlank()) {
+                                    chatViewModel.sendMessage(
+                                        chatId = res.data,
+                                        body = text,
+                                        messageType = "text",
+                                        replyToId = replyId,
+                                        replyToText = replyText,
+                                        replyToSenderName = authorName
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         )
     }
 
@@ -423,6 +465,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     else -> navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
             },
+            onOpenStory = { storyUserId -> navController.navigate(Screen.Story.createRoute(userId = storyUserId, play = true)) },
             jobId = jobId,
             jobTitle = jobTitle,
             companyName = companyName
@@ -471,7 +514,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 } else {
                     navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
-            }
+            },
+            onOpenStory = { storyUserId -> navController.navigate(Screen.Story.createRoute(userId = storyUserId, play = true)) }
         )
     }
 

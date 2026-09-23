@@ -39,7 +39,8 @@ fun ChatMessageList(
     onMediaClick: (String, String) -> Unit,
     playingAudioUri: String? = null,
     onPlayAudio: (String?) -> Unit = {},
-    highlightId: String? = null
+    highlightId: String? = null,
+    onQuoteClick: (replyToId: String, replyToText: String?) -> Unit = { _, _ -> }
 ) {
     Box(
         modifier = modifier
@@ -129,7 +130,12 @@ fun ChatMessageList(
                         onReply = onReply,
                         onMediaClick = onMediaClick,
                         playingAudioUri = playingAudioUri,
-                        onPlayAudio = onPlayAudio
+                        onPlayAudio = onPlayAudio,
+                        onQuoteClick = { rId, rText ->
+                            if (!rId.isNullOrBlank() || !rText.isNullOrBlank()) {
+                                onQuoteClick(rId.orEmpty(), rText)
+                            }
+                        }
                     )
                 }
             }

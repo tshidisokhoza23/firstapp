@@ -80,7 +80,8 @@ fun MessageItemUnique(
     onMediaClick: (String, String) -> Unit = { _, _ -> },
     playingAudioUri: String? = null,
     onPlayAudio: (String?) -> Unit = {},
-    isHighlighted: Boolean = false
+    isHighlighted: Boolean = false,
+    onQuoteClick: (replyToId: String?, replyToText: String?) -> Unit = { _, _ -> }
 ) {
     val alignment = if (messageItem.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
     val bubbleColor = if (messageItem.isFromMe) MaterialTheme.colorScheme.primary else Color.White
@@ -173,7 +174,13 @@ fun MessageItemUnique(
                         Surface(
                             modifier = Modifier
                                 .padding(bottom = 8.dp)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .clickable {
+                                    onQuoteClick(
+                                        messageItem.replyToId ?: referencedMessage?.id,
+                                        messageItem.replyToText ?: referencedMessage?.content
+                                    )
+                                },
                             color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.05f),
                             shape = RoundedCornerShape(10.dp)
                         ) {

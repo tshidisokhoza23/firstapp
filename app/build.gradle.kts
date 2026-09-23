@@ -31,18 +31,18 @@ android {
     productFlavors {
         create("sit") {
             dimension = "environment"
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://sit-active-api.yourapp.com\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://sit-passive-api.yourapp.com\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://sit-active-api.yourapp.com\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://sit-active-api.yourapp.com\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
         }
         create("uat") {
             dimension = "environment"
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://uat-active-api.yourapp.com\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://uat-passive-api.yourapp.com\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://uat-active-api.yourapp.com\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://uat-active-api.yourapp.com\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
         }
         create("beta") {
@@ -76,6 +76,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

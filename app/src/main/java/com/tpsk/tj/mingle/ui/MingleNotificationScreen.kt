@@ -110,7 +110,12 @@ fun MingleNotificationScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 16.dp,
+                    bottom = 80.dp // Ensure last activity item is never obscured by banner ad
+                ),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(mingleNotifications, key = { it.id }) { item ->

@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.Send
 import coil.compose.AsyncImage
 import com.tpsk.tj.chat.model.UserStory
 import com.tpsk.tj.chat.model.StoryType
@@ -51,7 +54,8 @@ fun StoryViewer(
     onAdTriggered: () -> Unit = {},
     onFinish: () -> Unit,
     onClose: () -> Unit,
-    onNavigateToUser: (Int) -> Unit = {}
+    onNavigateToUser: (Int) -> Unit = {},
+    onReplyStory: (storyId: String, text: String, storySummary: String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -104,6 +108,9 @@ fun StoryViewer(
     val progress = remember { Animatable(0f) }
     var isPaused by remember { mutableStateOf(false) }
     var videoDuration by remember { mutableLongStateOf(10000L) }
+    var showReplySheet by remember { mutableStateOf(false) }
+    var replyText by remember { mutableStateOf("") }
+    val emojis = remember { listOf("❤️", "🔥", "😂", "😮", "😢", "👏", "🙌", "💯", "😍", "🎉", "👍", "🙏") }
     val scope = rememberCoroutineScope()
 
     DisposableEffect(lifecycleOwner) {
@@ -194,6 +201,9 @@ fun StoryViewer(
                             offsetX += dragAmount.x
                         } else if (dragAmount.y > 0 || offsetY > 0) {
                             offsetY += dragAmount.y
+                        } else if (dragAmount.y < -15f && !isOwnStory && currentStory.type != StoryType.AD) {
+                            showReplySheet = true
+                            isPaused = true
                         }
                     },
                     onDragEnd = {
@@ -296,6 +306,27 @@ fun StoryViewer(
                         )
                     }
                 }
+            }
+        }
+
+        // Story Media Caption Overlay (For Image/Video)
+        if (currentStory.type != StoryType.TEXT && currentStory.type != StoryType.AD && currentStory.content.isNotBlank()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = if (!isOwnStory) 88.dp else 28.dp, start = 20.dp, end = 20.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = currentStory.content,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
             }
         }
 
@@ -421,6 +452,180 @@ fun StoryViewer(
                     }
                 }
             )
+        }
+
+        // Bottom Reply trigger bar (when sheet is closed)
+        if (!showReplySheet && !isOwnStory && currentStory.type != StoryType.AD) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .clickable {
+                        showReplySheet = true
+                        isPaused = true
+                    }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Swipe up to reply",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Send message...",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        // Reply & Emoji Reactions Overlay Sheet
+        if (showReplySheet) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable {
+                        showReplySheet = false
+                        isPaused = false
+                    },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            detectTapGestures { } // Consume all tap gestures inside sheet so story viewer tap gestures are not triggered
+                        }
+                        .clickable(enabled = false) {}, // prevent click-through
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    color = Color(0xFF1E1E1E)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(16.dp)
+                    ) {
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "React or reply to ${userStory.userName}",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = {
+                                showReplySheet = false
+                                isPaused = false
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Emoji Reactions (Horizontal Scrollable Row)
+                        androidx.compose.foundation.lazy.LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            items(emojis.size) { index ->
+                                val emoji = emojis[index]
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.1f))
+                                        .clickable {
+                                            val storySummary = when {
+                                                currentStory.content.isNotBlank() -> currentStory.content
+                                                currentStory.type == StoryType.VIDEO -> "Video story"
+                                                currentStory.type == StoryType.IMAGE -> "Photo story"
+                                                else -> "Story"
+                                            }
+                                            onReplyStory(currentStory.id, emoji, storySummary)
+                                            android.widget.Toast.makeText(context, "Reaction sent $emoji", android.widget.Toast.LENGTH_SHORT).show()
+                                            showReplySheet = false
+                                            isPaused = false
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = emoji, fontSize = 22.sp)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Reply Input & Send
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = replyText,
+                                onValueChange = { replyText = it },
+                                placeholder = { Text("Send message...", color = Color.Gray, fontSize = 14.sp) },
+                                modifier = Modifier.weight(1f),
+                                shape = CircleShape,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AppAccent,
+                                    unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedContainerColor = Color(0xFF2C2C2C),
+                                    unfocusedContainerColor = Color(0xFF2C2C2C)
+                                ),
+                                maxLines = 3
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(
+                                onClick = {
+                                    val body = replyText.trim()
+                                    if (body.isNotEmpty()) {
+                                        val storySummary = when {
+                                            currentStory.content.isNotBlank() -> currentStory.content
+                                            currentStory.type == StoryType.VIDEO -> "Video story"
+                                            currentStory.type == StoryType.IMAGE -> "Photo story"
+                                            else -> "Story"
+                                        }
+                                        onReplyStory(currentStory.id, body, storySummary)
+                                        android.widget.Toast.makeText(context, "Reply sent", android.widget.Toast.LENGTH_SHORT).show()
+                                        replyText = ""
+                                        showReplySheet = false
+                                        isPaused = false
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(AppAccent)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = "Send",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
     }

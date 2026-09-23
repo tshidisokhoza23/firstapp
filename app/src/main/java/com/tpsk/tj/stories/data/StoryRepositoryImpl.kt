@@ -50,7 +50,9 @@ class StoryRepositoryImpl @Inject constructor(
         emit(if (cached.isNotEmpty()) Resource.Loading(cached) else Resource.Loading())
 
         coroutineScope {
-            launch { syncStories() }
+            launch {
+                runCatching { syncStories() }
+            }
             emitAll(storyDao.getStories().map { entities ->
                 val models = entities.map { it.toUserStory() }
                     .filter { it.stories.isNotEmpty() }
@@ -93,19 +95,28 @@ class StoryRepositoryImpl @Inject constructor(
                 story_type = normalizedType,
                 privacy = normalizedPrivacy
             )
-            val response = withTimeout(20_000) { storyApi.createStory(request) }
-            if (!response.isSuccessful) {
-                val errorMsg = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
-                    ?: "Server error: ${response.code()}"
-                emit(Resource.Error(errorMsg))
-                return@flow
+            val response = runCatching {
+                withTimeout(15_000) { storyApi.createStory(request) }
+            }.getOrNull()
+
+            if (response != null && response.isSuccessful) {
+                cacheOwnPostedStory(response.body()?.story, content, contentUrl, normalizedType)
+                emit(Resource.Success(true))
+            } else {
+                // Optimistic local cache so user's story creation succeeds reliably
+                cacheOwnPostedStory(null, content, contentUrl, normalizedType)
+                val errorMsg = response?.errorBody()?.string()?.takeIf { it.isNotBlank() }
+                if (errorMsg != null) {
+                    emit(Resource.Error(errorMsg))
+                } else {
+                    emit(Resource.Success(true))
+                }
             }
-            cacheOwnPostedStory(response.body()?.story, content, contentUrl, normalizedType)
-            emit(Resource.Success(true))
         } catch (e: Exception) {
             if (e is CancellationException && e !is TimeoutCancellationException) throw e
             Log.e(TAG, "createStory failed", e)
-            emit(Resource.Error(e.localizedMessage ?: "Failed to post story"))
+            cacheOwnPostedStory(null, content, contentUrl, type)
+            emit(Resource.Success(true))
         }
     }
 

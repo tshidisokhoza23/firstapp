@@ -42,8 +42,7 @@ class RewardViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<RewardUiState>(RewardUiState.Loading)
     val uiState = _uiState.asStateFlow()
 
-    private val _cooldownSeconds = MutableStateFlow(0)
-    val cooldownSeconds = _cooldownSeconds.asStateFlow()
+    val cooldownSeconds: StateFlow<Int> = poolManager.cooldownRemainingSeconds
 
     private val _hourlyAdCount = MutableStateFlow(0)
     val hourlyAdCount = _hourlyAdCount.asStateFlow()
@@ -53,7 +52,6 @@ class RewardViewModel @Inject constructor(
 
     init {
         fetchDashboard()
-        checkStoredCooldown()
         initializePool()
         observeRealtimeUpdates()
     }
@@ -89,45 +87,12 @@ class RewardViewModel @Inject constructor(
                 if (response.isSuccessful && response.body() != null) {
                     val dash = response.body()!!
                     _uiState.value = RewardUiState.Success(dash)
-                    
-                    if (dash.cooldown_remaining_seconds > 0) {
-                        startCooldownTimer(dash.cooldown_remaining_seconds)
-                    }
                 } else {
                     _uiState.value = RewardUiState.Error("Failed to load rewards")
                 }
             } catch (e: Exception) {
                 _uiState.value = RewardUiState.Error(e.localizedMessage ?: "Unknown error")
             }
-        }
-    }
-
-    private fun checkStoredCooldown() {
-        val targetEpoch = prefs.getLong("target_cooldown_epoch", 0L)
-        val now = System.currentTimeMillis()
-        if (targetEpoch > now) {
-            val remaining = ((targetEpoch - now) / 1000).toInt()
-            startCooldownTimer(remaining)
-        }
-    }
-
-    private fun startCooldownTimer(seconds: Int) {
-        timerJob?.cancel()
-        _cooldownSeconds.value = seconds
-        
-        // Persist target epoch
-        val targetEpoch = System.currentTimeMillis() + (seconds * 1000L)
-        prefs.edit().putLong("target_cooldown_epoch", targetEpoch).apply()
-
-        timerJob = viewModelScope.launch {
-            var current = seconds
-            while (current > 0) {
-                delay(1000)
-                current--
-                _cooldownSeconds.value = current
-            }
-            // Cleanup persistence when done
-            prefs.edit().remove("target_cooldown_epoch").apply()
         }
     }
 
@@ -163,28 +128,7 @@ class RewardViewModel @Inject constructor(
         }
     }
 
-    private var adsWatchedWindowCount = 0
-
     private fun handleAdCompleted(taskId: String) {
-        val targetEpoch = prefs.getLong("target_cooldown_epoch", 0L)
-        val now = System.currentTimeMillis()
-        if (targetEpoch > 0 && now >= targetEpoch) {
-            adsWatchedWindowCount = 0
-            prefs.edit().remove("target_cooldown_epoch").remove("ads_watched_window").apply()
-        } else {
-            adsWatchedWindowCount = prefs.getInt("ads_watched_window", 0)
-        }
-
-        adsWatchedWindowCount++
-        prefs.edit().putInt("ads_watched_window", adsWatchedWindowCount).apply()
-
-        if (adsWatchedWindowCount >= 4) {
-            // 4 ads completed! Start 30-minute (1800s) cooldown
-            startCooldownTimer(1800)
-            adsWatchedWindowCount = 0
-            prefs.edit().putInt("ads_watched_window", 0).apply()
-        }
-
         viewModelScope.launch {
             try {
                 com.tpsk.tj.chat.rewards.data.RewardsManager.awardPoints(

@@ -58,18 +58,28 @@ class RewardedAdPoolManager @Inject constructor() {
     private var retryAttempt = 0
     private var lastRewardTimestamp = 0L
     private var adBatchCount = 0
+    private var prefs: android.content.SharedPreferences? = null
 
     private fun recordAdReward() {
-        val elapsed = System.currentTimeMillis() - lastRewardTimestamp
+        val now = System.currentTimeMillis()
+        val elapsed = now - lastRewardTimestamp
         if (lastRewardTimestamp > 0 && elapsed >= AD_COOLDOWN_MS) {
             adBatchCount = 0
             lastRewardTimestamp = 0L
         }
         adBatchCount++
+        Log.i(TAG, "Ad reward recorded: $adBatchCount / $BATCH_LIMIT")
         if (adBatchCount >= BATCH_LIMIT) {
-            lastRewardTimestamp = System.currentTimeMillis()
+            lastRewardTimestamp = now
             adBatchCount = 0
+            _cooldownRemainingSeconds.value = (AD_COOLDOWN_MS / 1000).toInt()
+            Log.i(TAG, "4 ads completed! Starting 30-minute (1800s) cooldown.")
         }
+        
+        prefs?.edit()
+            ?.putLong("last_reward_timestamp", lastRewardTimestamp)
+            ?.putInt("ad_batch_count", adBatchCount)
+            ?.apply()
     }
     
     private val managerScope = MainScope()
@@ -86,6 +96,11 @@ class RewardedAdPoolManager @Inject constructor() {
                     val elapsed = System.currentTimeMillis() - lastRewardTimestamp
                     val remaining = (AD_COOLDOWN_MS - elapsed).coerceAtLeast(0L)
                     _cooldownRemainingSeconds.value = (remaining / 1000).toInt()
+                    if (remaining <= 0L) {
+                        lastRewardTimestamp = 0L
+                        adBatchCount = 0
+                        prefs?.edit()?.putLong("last_reward_timestamp", 0L)?.putInt("ad_batch_count", 0)?.apply()
+                    }
                     updateAvailability()
                 }
                 delay(1000)
@@ -97,7 +112,19 @@ class RewardedAdPoolManager @Inject constructor() {
      * Entry point to ensure the pool is healthy.
      */
     fun initialize(context: Context, adUnitId: String, userId: String) {
-        Log.i(TAG, "!!! initialize called !!! unitId: $adUnitId, userId: $userId")
+        if (prefs == null) {
+            prefs = context.applicationContext.getSharedPreferences("rewarded_ad_pool_prefs", Context.MODE_PRIVATE)
+            lastRewardTimestamp = prefs?.getLong("last_reward_timestamp", 0L) ?: 0L
+            adBatchCount = prefs?.getInt("ad_batch_count", 0) ?: 0
+            
+            val elapsed = System.currentTimeMillis() - lastRewardTimestamp
+            if (lastRewardTimestamp > 0 && elapsed >= AD_COOLDOWN_MS) {
+                lastRewardTimestamp = 0L
+                adBatchCount = 0
+                prefs?.edit()?.putLong("last_reward_timestamp", 0L)?.putInt("ad_batch_count", 0)?.apply()
+            }
+        }
+        Log.i(TAG, "!!! initialize called !!! unitId: $adUnitId, userId: $userId, adBatchCount: $adBatchCount")
         managerScope.launch {
             refillPool(context.applicationContext, adUnitId, userId)
         }

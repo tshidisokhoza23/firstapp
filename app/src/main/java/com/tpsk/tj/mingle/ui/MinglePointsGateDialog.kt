@@ -74,7 +74,7 @@ fun MinglePointsGateDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Liking a profile on Mingle costs 10 Wallet Points. Watch rewarded ads to earn points!",
+                    text = "Liking a profile costs 10 Points. You must maintain at least 40 points in your wallet to continue minging. Watch rewarded ads to earn points!",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -113,7 +113,7 @@ fun MinglePointsGateDialog(
                             color = Color(0xFFE91E63).copy(alpha = 0.2f)
                         ) {
                             Text(
-                                text = "3 Ads / Hour",
+                                text = "4 Ads / Window",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFE91E63),
@@ -134,12 +134,12 @@ fun MinglePointsGateDialog(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Hourly Rewarded Ads",
+                            text = "Rewarded Ads",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "$hourlyAdCount / 3 watched",
+                            text = "$hourlyAdCount / 4 watched",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (canWatchAd) MaterialTheme.colorScheme.primary else Color.Red
@@ -162,7 +162,7 @@ fun MinglePointsGateDialog(
                         Icon(Icons.Default.OndemandVideo, contentDescription = null, tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (canWatchAd) "Watch Rewarded Ad (+10 Pts)" else "Hourly Limit Reached (3/3)",
+                            text = if (canWatchAd) "Watch Rewarded Ad (+10 Pts)" else "Ad Limit Reached (4/4)",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                             color = Color.White

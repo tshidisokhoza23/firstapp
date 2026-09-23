@@ -58,7 +58,8 @@ fun StoryScreen(
     onStoryViewed: (String, String) -> Unit,
     onMuteStory: (String, Boolean) -> Unit,
     onNavigateToNewStory: () -> Unit = {},
-    onGetStoryViewers: (String) -> kotlinx.coroutines.flow.Flow<com.tpsk.tj.common.util.Resource<List<com.tpsk.tj.media.data.api.ApiViewer>>> = { kotlinx.coroutines.flow.flowOf() }
+    onGetStoryViewers: (String) -> kotlinx.coroutines.flow.Flow<com.tpsk.tj.common.util.Resource<List<com.tpsk.tj.media.data.api.ApiViewer>>> = { kotlinx.coroutines.flow.flowOf() },
+    onReplyStory: (userId: String, storyId: String, text: String, storySummary: String, authorName: String) -> Unit = { _, _, _, _, _ -> }
 ) {
     val context = LocalContext.current
     
@@ -288,71 +289,36 @@ fun StoryScreen(
             onDeleteStory = { storyId ->
                 onDeleteStory(storyId)
             },
-            onFinish = { 
-                if (viewingUserStory?.id != "system_ad") {
-                    usersViewedCount++
+            onReplyStory = { storyId, text, summary ->
+                val targetUser = viewingUserStory?.userId?.ifBlank { viewingUserStory?.id }.orEmpty()
+                val authorName = viewingUserStory?.userName.orEmpty()
+                if (targetUser.isNotBlank() && viewingUserStory?.id != "system_ad") {
+                    onReplyStory(targetUser, storyId, text, summary, authorName)
                 }
-
-                val adObj = loadedAdObject
-                val isAdTriggered = usersViewedCount > 0 && usersViewedCount % 4 == 0
-
-                if (isAdTriggered && adObj != null && viewingUserStory?.id != "system_ad") {
-                    nextUserIndexAfterAd = (storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id } + 1)
-                    viewingUserStory = UserStory(
-                        id = "system_ad",
-                        userName = "Sponsored",
-                        userAvatarColor = Color.DarkGray,
-                        lastUpdated = "Promoted",
-                        stories = listOf(
-                            StoryItem(
-                                id = "ad_${System.currentTimeMillis()}",
-                                content = "",
-                                type = StoryType.AD,
-                                timestamp = "Promoted",
-                                durationMs = 10000, // Fixed 10s for ad
-                                adObject = adObj
-                            )
-                        )
-                    )
-                    viewingStoryIndex = 0
-                    loadedAdObject = null // Consumed
+            },
+            onFinish = { 
+                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                    onBack()
                 } else {
-                    val currentIndex = storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id }
-                    if (currentIndex != -1 && currentIndex < storiesWithAds.size - 1) {
-                        viewingUserStory = storiesWithAds[currentIndex + 1]
+                    viewingUserStory = null 
+                }
+            },
+            onNavigateToUser = { direction ->
+                val currentIndex = storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id }
+                if (currentIndex != -1) {
+                    val nextIndex = currentIndex + direction
+                    if (nextIndex in storiesWithAds.indices) {
+                        viewingUserStory = storiesWithAds[nextIndex]
                         viewingStoryIndex = 0
-                    } else if (viewingUserStory?.id == "system_ad") {
-                        val nextIndex = nextUserIndexAfterAd
-                        nextUserIndexAfterAd = -1
-                        if (nextIndex in storiesWithAds.indices) {
-                            viewingUserStory = storiesWithAds[nextIndex]
-                            viewingStoryIndex = 0
-                        } else {
-                            viewingUserStory = null
-                        }
                     } else {
                         if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                             onBack()
                         } else {
-                            viewingUserStory = null 
+                            viewingUserStory = null
                         }
                     }
                 }
             },
-              onNavigateToUser = { direction ->
-                  val currentIndex = storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id }
-                  val nextIndex = currentIndex + direction
-                  if (nextIndex in storiesWithAds.indices) {
-                      viewingUserStory = storiesWithAds[nextIndex]
-                      viewingStoryIndex = 0
-                  } else {
-                      if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                          onBack()
-                      } else {
-                          viewingUserStory = null
-                      }
-                  }
-              },
             onClose = {
                 if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                     onBack()

@@ -269,15 +269,15 @@ class AccountRepositoryImpl @Inject constructor(
             val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
             val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
             
-            val response = mediaApi.uploadMedia(body, folderBody)
+            val response = withTimeout(45_000) { mediaApi.uploadMedia(body, folderBody) }
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!))
             } else {
                 emit(Resource.Error("Upload failed: ${response.code()}"))
             }
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error("Upload error: ${e.localizedMessage}"))
+            if (e is kotlinx.coroutines.CancellationException && e !is TimeoutCancellationException) throw e
+            emit(Resource.Error("Upload error: ${e.localizedMessage ?: "Timeout"}"))
         }
     }
 

@@ -36,6 +36,12 @@ object DatabaseModule {
     fun provideChatDao(database: AppDatabase): ChatDao = database.chatDao()
 
     @Provides
+    fun provideMingleDao(database: AppDatabase): MingleDao = database.mingleDao()
+
+    @Provides
+    fun provideSocialDao(database: AppDatabase): SocialDao = database.socialDao()
+
+    @Provides
     fun provideSongDao(database: AppDatabase): SongDao = database.songDao()
 
     @Provides

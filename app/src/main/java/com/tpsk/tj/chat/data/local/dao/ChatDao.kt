@@ -61,7 +61,10 @@ interface ChatDao {
                 AND SUBSTR(REPLACE(c.phoneNumber, ' ', ''), -9) = SUBSTR(REPLACE(u.phoneNumber, ' ', ''), -9)
             )
         )
-        WHERE c.isArchived = 0 AND (c.type IS NULL OR c.type != 'MINGLE')
+        WHERE c.isArchived = 0 
+          AND (c.type IS NULL OR (c.type != 'MINGLE' AND c.type != 'mingle' AND c.type != 'CHANNEL' AND c.type != 'channel')) 
+          AND c.id NOT LIKE 'mingle_%' 
+          AND c.id NOT LIKE 'channel_%'
         ORDER BY c.isPinned DESC, c.timestamp DESC
     """)
     fun getChats(): Flow<List<ChatEntity>>
@@ -247,13 +250,8 @@ interface ChatDao {
     @Query("""
         SELECT * FROM messages 
         WHERE conversationId = :chatId 
-           OR (
-                (SELECT type FROM chats WHERE id = :chatId LIMIT 1) = 'DIRECT'
-                AND (
-                    conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
-                    OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId AND type = 'DIRECT' LIMIT 1)
-                )
-           )
+           OR conversationId = (SELECT id FROM chats WHERE (otherUserId = :chatId OR id = :chatId) LIMIT 1)
+           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
         ORDER BY timestamp ASC
     """)
     fun getMessages(chatId: String): Flow<List<MessageEntity>>
@@ -261,13 +259,8 @@ interface ChatDao {
     @Query("""
         SELECT * FROM messages 
         WHERE conversationId = :chatId 
-           OR (
-                (SELECT type FROM chats WHERE id = :chatId LIMIT 1) = 'DIRECT'
-                AND (
-                    conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
-                    OR conversationId = (SELECT id FROM chats WHERE otherUserId = :chatId AND type = 'DIRECT' LIMIT 1)
-                )
-           )
+           OR conversationId = (SELECT id FROM chats WHERE (otherUserId = :chatId OR id = :chatId) LIMIT 1)
+           OR conversationId = (SELECT otherUserId FROM chats WHERE id = :chatId LIMIT 1)
         ORDER BY timestamp DESC
     """)
     fun getMessagesPaging(chatId: String): PagingSource<Int, MessageEntity>

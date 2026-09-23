@@ -50,6 +50,8 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
+    abstract fun mingleDao(): MingleDao
+    abstract fun socialDao(): SocialDao
     abstract fun songDao(): SongDao
     abstract fun jobDao(): JobDao
     abstract fun advertDao(): AdvertDao

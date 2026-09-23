@@ -140,6 +140,8 @@ class MingleViewModel @Inject constructor(
         refreshLocationAndFeed()
     }
 
+    private var lastBackendLocation: Location? = null
+
     fun refreshLocationAndFeed() {
         viewModelScope.launch {
             refreshPermission()
@@ -166,23 +168,33 @@ class MingleViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 latitude = lat,
                 longitude = lng,
-                hasLocation = location != null
+                hasLocation = true
             )
-            var locationUpdated = false
-            var locationError: String? = null
-            repository.updateLocation(lat, lng, radius).collect { result ->
-                when (result) {
-                    is Resource.Success -> locationUpdated = true
-                    is Resource.Error -> locationError = result.message
-                    is Resource.Loading -> Unit
+
+            // Battery Optimization: Update backend location only if moved >= 500 meters or first time
+            val shouldUpdateBackend = lastBackendLocation == null ||
+                    location.distanceTo(lastBackendLocation!!) >= 500f
+
+            if (shouldUpdateBackend) {
+                var locationUpdated = false
+                var locationError: String? = null
+                repository.updateLocation(lat, lng, radius).collect { result ->
+                    when (result) {
+                        is Resource.Success -> {
+                            locationUpdated = true
+                            lastBackendLocation = location
+                        }
+                        is Resource.Error -> locationError = result.message
+                        is Resource.Loading -> Unit
+                    }
                 }
-            }
-            if (!locationUpdated) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = locationError ?: "Unable to update your location"
-                )
-                return@launch
+                if (!locationUpdated && lastBackendLocation == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = locationError ?: "Unable to update your location"
+                    )
+                    return@launch
+                }
             }
             repository.getFeed(lat, lng, radius).collect { result ->
                 when (result) {
@@ -364,6 +376,13 @@ class MingleViewModel @Inject constructor(
             var lastError: String? = null
 
             for (uri in uris.take(5)) {
+                // Optimistic Local Preview: Add local Uri string immediately so user sees their photo
+                val localId = "local_${System.currentTimeMillis()}_${uri.hashCode()}"
+                val localPhotoDto = MinglePhotoDto(id = localId, url = uri.toString())
+                val optimisticList = _uiState.value.myPhotos.toMutableList()
+                optimisticList.add(localPhotoDto)
+                _uiState.value = _uiState.value.copy(myPhotos = optimisticList)
+
                 val file = try {
                     MediaUtils.compressImage(context, uri)
                 } catch (e: Exception) {
@@ -378,6 +397,7 @@ class MingleViewModel @Inject constructor(
                                 successCount++
                                 result.data?.let { photoDto ->
                                     val currentList = _uiState.value.myPhotos.toMutableList()
+                                    currentList.removeAll { it.id == localId }
                                     if (currentList.none { it.id == photoDto.id || (it.url != null && it.url == photoDto.url) }) {
                                         currentList.add(photoDto)
                                         _uiState.value = _uiState.value.copy(myPhotos = currentList)
@@ -386,12 +406,18 @@ class MingleViewModel @Inject constructor(
                             }
                             is Resource.Error -> {
                                 lastError = result.message
+                                val currentList = _uiState.value.myPhotos.toMutableList()
+                                currentList.removeAll { it.id == localId }
+                                _uiState.value = _uiState.value.copy(myPhotos = currentList)
                             }
                             is Resource.Loading -> Unit
                         }
                     }
-                } else if (lastError == null) {
-                    lastError = "Unable to prepare image file for upload"
+                } else {
+                    if (lastError == null) lastError = "Unable to prepare image file for upload"
+                    val currentList = _uiState.value.myPhotos.toMutableList()
+                    currentList.removeAll { it.id == localId }
+                    _uiState.value = _uiState.value.copy(myPhotos = currentList)
                 }
             }
 

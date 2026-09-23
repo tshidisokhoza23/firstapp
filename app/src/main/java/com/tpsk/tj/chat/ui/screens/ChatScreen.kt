@@ -139,6 +139,7 @@ fun ChatMessagesScreen(
     onBack: () -> Unit,
     onShowProfile: (String, Boolean) -> Unit,
     onAvatarClick: (String) -> Unit = {},
+    onOpenStory: ((String) -> Unit)? = null,
     jobId: String? = null,
     jobTitle: String? = null,
     companyName: String? = null
@@ -992,7 +993,25 @@ fun ChatMessagesScreen(
                 },
                 playingAudioUri = playingAudioUri,
                 onPlayAudio = { chatViewModel.setPlayingAudio(it) },
-                highlightId = activeSearchId
+                highlightId = activeSearchId,
+                onQuoteClick = { replyToId, replyToText ->
+                    val isStoryReply = replyToId.startsWith("story_") ||
+                        replyToText?.contains("[Story]", ignoreCase = true) == true
+                    if (isStoryReply) {
+                        val storyUser = currentChat.otherUserId ?: currentChat.id
+                        onOpenStory?.invoke(storyUser)
+                    } else {
+                        val targetIdx = messages.indexOfFirst { it.id == replyToId }
+                        if (targetIdx != -1) {
+                            scope.launch {
+                                messagesLazyListState.animateScrollToItem(targetIdx)
+                                activeSearchId = replyToId
+                                delay(2500)
+                                if (activeSearchId == replyToId) activeSearchId = null
+                            }
+                        }
+                    }
+                }
             )
         }
 

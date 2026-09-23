@@ -37,40 +37,32 @@ import com.tpsk.tj.ui.navigation.Screen
 fun MingleChatsScreen(
     navController: NavController,
     onBack: () -> Unit,
-    chatViewModel: ChatViewModel = hiltViewModel(),
-    userViewModel: UserViewModel = hiltViewModel()
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+
+    // Play Store Compliance & Screen Privacy: Enforce FLAG_SECURE for Secret Chats
+    DisposableEffect(Unit) {
+        val activity = context as? android.app.Activity
+        activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
     val mingleChatsState by chatViewModel.mingleChats.collectAsState()
-    val contacts by userViewModel.contacts.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
 
-    val mingleChats = remember(mingleChatsState, contacts, searchQuery) {
-        val allChats = mingleChatsState.data ?: emptyList()
-        val listToUse = if (allChats.isNotEmpty()) {
-            allChats
-        } else {
-            contacts.take(4).mapIndexed { idx, contact ->
-                ChatMessage(
-                    id = contact.id,
-                    type = ConversationType.MINGLE,
-                    senderName = contact.displayName,
-                    lastMessage = if (idx == 0) "Hey! We matched on Mingle ❤️" else "You both liked each other! Say hi 👋",
-                    timestamp = System.currentTimeMillis() - (idx * 3600000L),
-                    unreadCount = if (idx == 0) 1 else 0,
-                    avatarUrl = contact.avatarUrl,
-                    avatarColor = Color(0xFFE91E63),
-                    otherUserId = contact.id,
-                    isMingle = true
-                )
-            }
+    val mingleChats = remember(mingleChatsState, searchQuery) {
+        val allChats = (mingleChatsState.data ?: emptyList()).filter {
+            it.type == ConversationType.MINGLE || it.isMingle || it.id.startsWith("mingle_")
         }
 
         if (searchQuery.isBlank()) {
-            listToUse
+            allChats
         } else {
-            listToUse.filter {
+            allChats.filter {
                 it.senderName.contains(searchQuery, ignoreCase = true) ||
                 it.lastMessage.contains(searchQuery, ignoreCase = true)
             }
@@ -88,9 +80,11 @@ fun MingleChatsScreen(
                             fontSize = 18.sp
                         )
                         Text(
-                            text = "Private secret chats with your matches",
+                            text = "Private secret chats with your mutual matches",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 },
@@ -218,7 +212,12 @@ fun MingleChatsScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 80.dp // Ensure last conversation item is not obscured by banner ad
+                    ),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(mingleChats, key = { it.id }) { chat ->

@@ -45,8 +45,12 @@ class ChannelDetailViewModel @Inject constructor(
                     val convId = res.data.conversationId ?: res.data.id
                     loadMessages(convId)
                     loadMembers(convId)
+                } else if (res is Resource.Error) {
+                    _channel.value = Resource.Error(res.message ?: "Channel not found")
                 }
             }
+        }
+        viewModelScope.launch {
             repository.getChannels().collect { resource ->
                 if (resource is Resource.Success) {
                     val ch = resource.data?.find { it.id == channelId || it.conversationId == channelId }
@@ -55,7 +59,7 @@ class ChannelDetailViewModel @Inject constructor(
                         val convId = ch.conversationId ?: ch.id
                         loadMessages(convId)
                         loadMembers(convId)
-                    } else {
+                    } else if (_channel.value !is Resource.Success) {
                         val searched = repository.searchChannels(channelId).firstOrNull()
                             ?.find { it.id == channelId || it.conversationId == channelId }
                         if (searched != null) {
@@ -67,7 +71,7 @@ class ChannelDetailViewModel @Inject constructor(
                             _channel.value = Resource.Error("Channel not found")
                         }
                     }
-                } else if (resource is Resource.Error) {
+                } else if (resource is Resource.Error && _channel.value !is Resource.Success) {
                     _channel.value = Resource.Error(resource.message ?: "Failed to load")
                 }
             }

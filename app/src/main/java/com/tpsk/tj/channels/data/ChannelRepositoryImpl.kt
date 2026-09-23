@@ -47,37 +47,47 @@ class ChannelRepositoryImpl @Inject constructor(
         val cached = channelDao.getChannelsOnce().map { it.toModel() }
         emit(if (cached.isNotEmpty()) Resource.Loading(cached) else Resource.Loading())
         coroutineScope {
-            launch { syncChannels() }
-            emitAll(
-            combine(channelDao.getChannels(), chatDao.getChatsByType(ConversationType.CHANNEL)) { channelEntities, chatEntities ->
-                val fromChannelDao = channelEntities.map { it.toModel() }
-                val fromChatDao = chatEntities.map { chatEntity ->
-                    Channel(
-                        id = chatEntity.id,
-                        name = chatEntity.senderName.ifBlank { "Channel" },
-                        description = chatEntity.lastMessage,
-                        followers = "0",
-                        avatarUrl = chatEntity.avatarUrl,
-                        avatarColor = BoyishPurple,
-                        isSubscribed = chatEntity.isSubscribed,
-                        isAdmin = chatEntity.isAdmin,
-                        isMuted = chatEntity.isMuted,
-                        adminsCanPost = chatEntity.adminsCanPost,
-                        conversationId = chatEntity.id,
-                        createdBy = chatEntity.createdBy
-                    )
-                }
-                Resource.Success((fromChannelDao + fromChatDao).distinctBy { it.conversationId ?: it.id })
+            launch {
+                runCatching { syncChannels() }
             }
+            emitAll(
+                combine(channelDao.getChannels(), chatDao.getChatsByType(ConversationType.CHANNEL)) { channelEntities, chatEntities ->
+                    val fromChannelDao = channelEntities.map { it.toModel() }
+                    val fromChatDao = chatEntities.map { chatEntity ->
+                        Channel(
+                            id = chatEntity.id,
+                            name = chatEntity.senderName.ifBlank { "Channel" },
+                            description = chatEntity.lastMessage,
+                            followers = "0",
+                            avatarUrl = chatEntity.avatarUrl,
+                            avatarColor = BoyishPurple,
+                            isSubscribed = chatEntity.isSubscribed,
+                            isAdmin = chatEntity.isAdmin,
+                            isMuted = chatEntity.isMuted,
+                            adminsCanPost = chatEntity.adminsCanPost,
+                            conversationId = chatEntity.id,
+                            createdBy = chatEntity.createdBy
+                        )
+                    }
+                    Resource.Success((fromChannelDao + fromChatDao).distinctBy { it.conversationId ?: it.id })
+                }
             )
         }
     }
 
     override suspend fun syncChannels(): Boolean {
         return try {
-            val response = kotlinx.coroutines.withTimeout(15_000) { channelApi.getChatsChannels() }
+            val response = kotlinx.coroutines.withTimeout(15_000) {
+                val primary = runCatching { channelApi.getChatsChannels() }.getOrNull()
+                if (primary != null && primary.isSuccessful && primary.body() != null) {
+                    primary
+                } else {
+                    channelApi.getChannels()
+                }
+            }
             if (!response.isSuccessful || response.body() == null) return false
-            val channels = response.body()!!.channels
+            val rawChannels = response.body()?.channels.orEmpty()
+            val channels = rawChannels
                 .map { mapApiChannel(it) }
                 .distinctBy { it.conversationId ?: it.id }
             if (channels.isNotEmpty()) {

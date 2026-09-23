@@ -341,11 +341,11 @@ fun ChatsListScreen(
             }
         },
         bottomBar = {
-            if (selectedTabItem != 0 && selectedTabItem != 1) {
+            if (selectedTabItem != 0) {
                 val adUnitId = when (selectedTabItem) {
-                    2 -> AdUnitConfig.BANNER_CHANNELS_ID
-                    3 -> AdUnitConfig.BANNER_JOBS_ID
-                    4 -> AdUnitConfig.BANNER_REWARDS_ID
+                    1 -> AdUnitConfig.BANNER_CHANNELS_ID
+                    2 -> AdUnitConfig.BANNER_JOBS_ID
+                    3 -> AdUnitConfig.BANNER_REWARDS_ID
                     else -> AdUnitConfig.BANNER_MAIN_ID
                 }
                 Column {
@@ -582,7 +582,9 @@ fun ChatsListScreen(
                                     }
                                     else -> {
                                         val standardChats = remember(sanitizedChats) {
-                                            sanitizedChats.filter { it.type != ConversationType.MINGLE && !it.isMingle }
+                                            sanitizedChats.filter {
+                                                it.type != ConversationType.MINGLE && !it.isMingle && !it.id.startsWith("mingle_")
+                                            }
                                         }
                                         ChatList(
                                             chats = standardChats,

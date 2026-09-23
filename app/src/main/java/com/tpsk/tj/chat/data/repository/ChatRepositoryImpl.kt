@@ -53,6 +53,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val userApi: UserApi,
     private val socialApi: SocialApi,
     private val chatDaoProvider: Provider<ChatDao>,
+    private val mingleDaoProvider: Provider<MingleDao>,
     private val channelDaoProvider: Provider<ChannelDao>,
     private val contactDaoProvider: Provider<ContactDao>,
     private val syncCursorDaoProvider: Provider<SyncCursorDao>,
@@ -551,9 +552,25 @@ class ChatRepositoryImpl @Inject constructor(
         val db = dbProvider.get()
 
         db.withTransaction {
-            chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
             val displaySummary = formatLastMessageSummary(body, type)
-            chatDao.updateLastMessage(chatId, displaySummary, pendingMsg.timestamp, isFromMe = true, isRead = false)
+            val existing = chatDao.searchChatsById(chatId)
+            if (existing == null) {
+                val newChat = com.tpsk.tj.chat.data.local.entity.ChatEntity(
+                    id = chatId,
+                    type = if (chatId.startsWith("mingle_")) com.tpsk.tj.common.model.ConversationType.MINGLE else com.tpsk.tj.common.model.ConversationType.DIRECT,
+                    senderName = contactName ?: contactPhone ?: "Chat",
+                    lastMessage = displaySummary,
+                    timestamp = pendingMsg.timestamp,
+                    unreadCount = 0,
+                    lastMessageIsFromMe = true,
+                    lastMessageRead = false,
+                    otherUserId = if (!chatId.startsWith("mingle_")) chatId else null
+                )
+                chatDao.insertChats(listOf(newChat))
+            } else {
+                chatDao.updateLastMessage(chatId, displaySummary, pendingMsg.timestamp, isFromMe = true, isRead = false)
+            }
+            chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
         }
 
         // Live text goes over the socket. Do NOT also enqueue the outbox for
@@ -565,6 +582,9 @@ class ChatRepositoryImpl @Inject constructor(
                 put("conversation_id", chatId)
                 put("content", body)
                 put("media_type", messageType.uppercase())
+                if (!replyToId.isNullOrBlank()) put("reply_to_id", replyToId)
+                if (!replyToText.isNullOrBlank()) put("reply_to_text", replyToText)
+                if (!replyToSenderName.isNullOrBlank()) put("reply_to_sender_name", replyToSenderName)
             }
         )
         if (sentLive) {
@@ -662,7 +682,7 @@ class ChatRepositoryImpl @Inject constructor(
         }.distinctUntilChanged()
 
     override fun getMingleChats(): Flow<Resource<List<ChatMessage>>> =
-        chatDaoProvider.get().getChatsByType(com.tpsk.tj.common.model.ConversationType.MINGLE).map { list ->
+        mingleDaoProvider.get().getMingleChats().map { list ->
             Resource.Success(list.map { it.toModel() })
         }.distinctUntilChanged()
 

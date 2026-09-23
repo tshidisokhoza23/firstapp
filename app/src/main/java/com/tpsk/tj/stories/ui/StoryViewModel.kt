@@ -76,31 +76,8 @@ class StoryViewModel @Inject constructor(
                     var uploadedUrl: String? = null
                     var uploadError: String? = null
 
-                    withTimeout(120_000) {
-                        if (finalType == "image") {
-                            val compressedFile = com.tpsk.tj.common.util.MediaUtils.compressImage(context, uri)
-                            if (compressedFile != null) {
-                                try {
-                                    accountRepository.uploadFile(compressedFile, "stories").collect { uploadRes ->
-                                        when (uploadRes) {
-                                            is Resource.Success -> uploadedUrl = uploadRes.data?.url
-                                            is Resource.Error -> uploadError = uploadRes.message ?: "Failed to upload story image"
-                                            else -> {}
-                                        }
-                                    }
-                                } finally {
-                                    compressedFile.delete()
-                                }
-                            } else {
-                                accountRepository.uploadUri(context, uri, "stories").collect { uploadRes ->
-                                    when (uploadRes) {
-                                        is Resource.Success -> uploadedUrl = uploadRes.data?.url
-                                        is Resource.Error -> uploadError = uploadRes.message ?: "Failed to upload story media"
-                                        else -> {}
-                                    }
-                                }
-                            }
-                        } else {
+                    try {
+                        withTimeout(45_000) {
                             accountRepository.uploadUri(context, uri, "stories").collect { uploadRes ->
                                 when (uploadRes) {
                                     is Resource.Success -> uploadedUrl = uploadRes.data?.url
@@ -109,6 +86,8 @@ class StoryViewModel @Inject constructor(
                                 }
                             }
                         }
+                    } catch (e: Exception) {
+                        uploadError = e.localizedMessage ?: "Upload timed out"
                     }
 
                     if (!uploadError.isNullOrBlank() || uploadedUrl.isNullOrBlank()) {
@@ -123,16 +102,20 @@ class StoryViewModel @Inject constructor(
                     finalType = "image"
                 }
 
-                val result = withTimeout(30_000) {
-                    repository.createStory(
-                        content = content.trim(),
-                        contentUrl = finalContentUrl,
-                        type = finalType,
-                        privacy = privacy.ifBlank { "contacts" }
-                    ).firstOrNull { it !is Resource.Loading }
+                val result = try {
+                    withTimeout(25_000) {
+                        repository.createStory(
+                            content = content.trim(),
+                            contentUrl = finalContentUrl,
+                            type = finalType,
+                            privacy = privacy.ifBlank { "contacts" }
+                        ).firstOrNull { it !is Resource.Loading }
+                    }
+                } catch (e: Exception) {
+                    Resource.Error(e.localizedMessage ?: "Failed to post story")
                 }
 
-                _postResult.value = result ?: Resource.Error("Failed to post story: timed out")
+                _postResult.value = result ?: Resource.Error("Failed to post story")
             } catch (e: Exception) {
                 if (e is CancellationException && e !is TimeoutCancellationException) throw e
                 val errorMsg = when (e) {

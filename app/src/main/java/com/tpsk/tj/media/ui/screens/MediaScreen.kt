@@ -442,13 +442,6 @@ fun MediaScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
-
-                    ListItem(
-                        headlineContent = { Text("Vocab", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
-                        leadingContent = { Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
-                        modifier = Modifier.clickable(enabled = false) { },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
                 }
             }
         }
