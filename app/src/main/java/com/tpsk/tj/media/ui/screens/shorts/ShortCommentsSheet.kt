@@ -127,14 +127,17 @@ fun ShortCommentsOverlay(
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = bottomPadding) // FIX: Pushes input above app's bottom nav
+                    .padding(bottom = bottomPadding)
                     .navigationBarsPadding()
                     .imePadding()
             ) {
                 Column {
                     if (replyingTo != null) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.1f))
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -146,10 +149,17 @@ fun ShortCommentsOverlay(
                     }
                     
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                        ) {
                             AsyncImage(
                                 model = currentUserAvatarUrl,
                                 contentDescription = null,
@@ -158,26 +168,28 @@ fun ShortCommentsOverlay(
                             )
                         }
                         
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(10.dp))
                         
-                        TextField(
+                        OutlinedTextField(
                             value = replyText,
                             onValueChange = { replyText = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Join the conversation...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
+                            placeholder = { Text("Add a comment...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(24.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 cursorColor = MaterialTheme.colorScheme.primary
-                            ),
-                            trailingIcon = {
-                                Icon(Icons.Default.Gif, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 8.dp))
-                            }
+                            )
                         )
                         
                         if (replyText.isNotBlank()) {
+                            Spacer(Modifier.width(8.dp))
                             IconButton(
                                 onClick = {
                                     onSendReply(replyText, replyingTo?.id)
@@ -225,7 +237,11 @@ fun CommentItem(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(text = "2w", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text(
+                    text = comment.timestamp.ifBlank { "Just now" }, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    fontSize = 12.sp
+                )
             }
             Spacer(Modifier.height(2.dp))
             Text(comment.content, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, lineHeight = 18.sp)

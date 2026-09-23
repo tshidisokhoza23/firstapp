@@ -497,32 +497,21 @@ fun ShortItem(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (short.content.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "Original Audio - ${short.authorName}",
+                        text = short.content,
                         color = Color.White,
-                        fontSize = 13.sp,
-                        maxLines = 1
+                        fontSize = 15.sp,
+                        maxLines = if (isExpanded) Int.MAX_VALUE else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { isExpanded = !isExpanded }
                     )
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = short.content,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    maxLines = if (isExpanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { isExpanded = !isExpanded }
-                )
             }
             
             if (duration > 0) {
