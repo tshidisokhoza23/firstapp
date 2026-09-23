@@ -23,7 +23,7 @@ fun ShortMoreMenuSheet(
     onAction: (String) -> Unit
 ) {
     val currentUser = com.tpsk.tj.LocalCurrentUser.current
-    val isOwner = short.authorId == currentUser.id
+    val isOwner = currentUser != null && short.authorId == currentUser.id
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

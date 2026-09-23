@@ -96,7 +96,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             postId = postId,
             mediaViewModel = mediaViewModel,
             adManager = adManager,
-            ownProfileId = currentUser.id,
+            ownProfileId = currentUser?.id.orEmpty(),
             onBack = { 
                 mediaViewModel.selectPost(null)
                 navController.popBackStack() 

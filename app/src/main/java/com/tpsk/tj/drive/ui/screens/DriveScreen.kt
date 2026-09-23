@@ -409,9 +409,9 @@ fun DriveDrawerContent(
                                     .background(MaterialTheme.colorScheme.primary),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (user?.avatarUrl != null) {
+                                if (!user?.avatarUrl.isNullOrBlank()) {
                                     coil.compose.AsyncImage(
-                                        model = user.avatarUrl,
+                                        model = user?.avatarUrl,
                                         contentDescription = null,
                                         modifier = Modifier.fillMaxSize().clip(CircleShape),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Crop

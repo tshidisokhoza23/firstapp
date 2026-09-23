@@ -969,9 +969,10 @@ fun MingleScreen(
                             lookingFor = normalizedLookingFor,
                             targetAgeRange = normalizedAgeRange,
                             onComplete = {
+                                // REQUIREMENT: Mingle bio remains private to Mingle and does not overwrite main profile bio
                                 userViewModel.updateProfile(
                                     displayName = editName.trim(),
-                                    bio = editBio.ifBlank { null },
+                                    bio = null,
                                     location = null,
                                     avatarUrl = null
                                 )

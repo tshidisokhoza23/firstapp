@@ -56,8 +56,9 @@ fun RecommendationsScreen(
                     else -> "Good evening"
                 }
             }
+            val userDisplayName = currentUser?.displayName?.split(" ")?.firstOrNull().orEmpty()
             Text(
-                text = "$greeting, ${currentUser.displayName.split(" ").firstOrNull() ?: ""}",
+                text = if (userDisplayName.isNotBlank()) "$greeting, $userDisplayName" else greeting,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,

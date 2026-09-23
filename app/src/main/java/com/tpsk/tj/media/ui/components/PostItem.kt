@@ -108,7 +108,9 @@ fun PostItem(
                 val currentUser = LocalCurrentUser.current
                 val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.isBlank()
                 val displayPost = if (isSimpleRepost) post.originalPost!! else post
-                val isPostMine = isOwnPost || displayPost.authorId == currentUser.id || displayPost.authorHandle.equals(currentUser.username, ignoreCase = true)
+                val myUserId = currentUser?.id.orEmpty()
+                val myUsername = currentUser?.username.orEmpty()
+                val isPostMine = isOwnPost || (myUserId.isNotEmpty() && displayPost.authorId == myUserId) || (myUsername.isNotEmpty() && displayPost.authorHandle.equals(myUsername, ignoreCase = true))
                 
                 VerticalFeedPostCard(
                     post = post,

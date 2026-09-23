@@ -397,6 +397,15 @@ fun ChatProfileScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
+                } else if (chat.type == com.tpsk.tj.common.model.ConversationType.MINGLE || chat.isMingle || chat.id.startsWith("mingle_")) {
+                    Text("Secret Chat info", color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "🔒 Secret Mingle Chat - Profile and Mingle bio are kept private.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                 } else {
                     Text("Contact info", color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(8.dp))

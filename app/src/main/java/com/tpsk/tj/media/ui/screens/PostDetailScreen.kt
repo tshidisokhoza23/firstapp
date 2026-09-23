@@ -236,7 +236,7 @@ fun PostDetailScreen(
         val rootId = replyingToPost!!.rootPostId ?: replyingToPost!!.id
         PostComposerDialog(
             replyingTo = replyingToReply ?: replyingToPost,
-            avatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(currentUser.avatarUrl),
+            avatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(currentUser?.avatarUrl),
             onDismiss = { 
                 replyingToPost = null
                 replyingToReply = null
