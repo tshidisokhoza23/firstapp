@@ -18,3 +18,4 @@ app/build/reports/jacoco/
 .artifacts/
 .kotlin/
 *.png
+hs_err_pid*.log
