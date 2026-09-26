@@ -17,5 +17,10 @@ data class Job(
     val isVerified: Boolean = true,
     val isApplied: Boolean = false,
     val isSaved: Boolean = false,
-    val createdBy: String? = null
+    val createdBy: String? = null,
+    val isExternal: Boolean = false,
+    val sourcePartner: String? = null,
+    val trackingApplyUrl: String? = null,
+    val hasAppliedInternal: Boolean = false,
+    val hasClickedExternal: Boolean = false
 )

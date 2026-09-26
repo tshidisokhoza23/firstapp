@@ -1,7 +1,22 @@
 package com.tpsk.tj.common.util
 
+import android.os.Build
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+
+private val threadLocalSdfMap = ThreadLocal.withInitial {
+    HashMap<String, SimpleDateFormat>()
+}
+
+private fun getOrCreateSdf(pattern: String): SimpleDateFormat {
+    val map = threadLocalSdfMap.get()
+    return map.getOrPut(pattern) {
+        SimpleDateFormat(pattern, Locale.getDefault()).apply {
+            isLenient = false
+        }
+    }
+}
 
 /**
  * Formats an ISO 8601 timestamp string the WhatsApp way:
@@ -36,10 +51,10 @@ fun formatWhatsAppTime(date: Date): String {
     val daysDiff = ((now.timeInMillis - cal.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
 
     return when {
-        isToday -> SimpleDateFormat("h:mm a", Locale.getDefault()).format(date)
+        isToday -> getOrCreateSdf("h:mm a").format(date)
         isYesterday -> "Yesterday"
-        daysDiff < 7 -> SimpleDateFormat("EEEE", Locale.getDefault()).format(date) // e.g. "Monday"
-        else -> SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(date)
+        daysDiff < 7 -> getOrCreateSdf("EEEE").format(date) // e.g. "Monday"
+        else -> getOrCreateSdf("yyyy/MM/dd").format(date)
     }
 }
 
@@ -132,7 +147,7 @@ fun formatTwitterTime(isoTimestamp: String?): String {
         mins < 60 -> "${mins}m"
         hours < 24 -> "${hours}h"
         days < 7 -> "${days}d"
-        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(date)
+        else -> getOrCreateSdf("MMM d").format(date)
     }
 }
 
@@ -145,12 +160,37 @@ private val ISO_FORMATS = listOf(
     "yyyy-MM-dd HH:mm:ss",
 )
 
+private val isoCache = ConcurrentHashMap<String, Long>()
+
 fun parseIso(s: String): Date? {
+    if (s.isBlank()) return null
+    isoCache[s]?.let { return Date(it) }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        try {
+            val millis = java.time.Instant.parse(s).toEpochMilli()
+            isoCache[s] = millis
+            return Date(millis)
+        } catch (_: Exception) {}
+        try {
+            val millis = java.time.OffsetDateTime.parse(s).toInstant().toEpochMilli()
+            isoCache[s] = millis
+            return Date(millis)
+        } catch (_: Exception) {}
+        try {
+            val millis = java.time.ZonedDateTime.parse(s).toInstant().toEpochMilli()
+            isoCache[s] = millis
+            return Date(millis)
+        } catch (_: Exception) {}
+    }
+
     for (fmt in ISO_FORMATS) {
         try {
-            val sdf = SimpleDateFormat(fmt, Locale.getDefault())
-            sdf.isLenient = false
-            return sdf.parse(s)
+            val date = getOrCreateSdf(fmt).parse(s)
+            if (date != null) {
+                isoCache[s] = date.time
+                return date
+            }
         } catch (_: Exception) {}
     }
     return null

@@ -112,6 +112,9 @@ fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
                     popUpTo(0) { inclusive = true }
                 }
             },
+            onNavigateToTerms = {
+                navController.navigate(Screen.TermsAndPrivacy.createRoute())
+            },
             viewModel = authViewModel
         )
     }

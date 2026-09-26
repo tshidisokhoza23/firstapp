@@ -38,6 +38,7 @@ sealed class Screen(val route: String) {
     object AccountSettings : Screen("account_settings")
     object ChatSettings : Screen("chat_settings")
     object NotificationSettings : Screen("notification_settings")
+    object SocialNotification : Screen("social_notifications")
     object MingleNotification : Screen("mingle_notification")
     object MingleChats : Screen("mingle_chats")
     object StorageSettings : Screen("storage_settings")
@@ -106,5 +107,16 @@ sealed class Screen(val route: String) {
     }
     object MessageInfo : Screen("message_info/{messageId}") {
         fun createRoute(messageId: String) = "message_info/$messageId"
+    }
+    object CreateShort : Screen("create_short?videoUri={videoUri}") {
+        fun createRoute(videoUri: String? = null) = "create_short?videoUri=${android.net.Uri.encode(videoUri ?: "")}"
+    }
+    object CreatePost : Screen("create_post?replyId={replyId}&quoteId={quoteId}") {
+        fun createRoute(replyId: String? = null, quoteId: String? = null) =
+            "create_post?replyId=${android.net.Uri.encode(replyId ?: "")}&quoteId=${android.net.Uri.encode(quoteId ?: "")}"
+    }
+    object TermsAndPrivacy : Screen("terms_and_privacy?url={url}&title={title}") {
+        fun createRoute(url: String = "https://firstappserver.fly.dev/privacy", title: String = "Terms of Service & Privacy Policy") =
+            "terms_and_privacy?url=${android.net.Uri.encode(url)}&title=${android.net.Uri.encode(title)}"
     }
 }

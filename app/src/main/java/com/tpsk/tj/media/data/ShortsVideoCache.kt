@@ -27,8 +27,11 @@ import java.util.concurrent.ConcurrentHashMap
 object ShortsVideoCache {
     @Volatile
     private var simpleCache: SimpleCache? = null
-    private var currentPlayer: ExoPlayer? = null
-    private var currentUrl: String? = null
+
+    // Multi-player pool mapped by URL
+    private val playerPool = ConcurrentHashMap<String, ExoPlayer>()
+    private val poolUrls = java.util.Collections.synchronizedList(mutableListOf<String>())
+    private const val MAX_POOL_SIZE = 4
 
     private val preloadingJobs = ConcurrentHashMap<String, Job>()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -63,21 +66,64 @@ object ShortsVideoCache {
 
     @Synchronized
     fun acquirePlayer(context: Context, url: String): ExoPlayer {
-        val player = currentPlayer ?: ExoPlayer.Builder(appContext(context))
+        val existing = playerPool[url]
+        if (existing != null) {
+            poolUrls.remove(url)
+            poolUrls.add(url)
+            return existing
+        }
+
+        // If pool is full, evict oldest player
+        if (playerPool.size >= MAX_POOL_SIZE && poolUrls.isNotEmpty()) {
+            val oldestUrl = poolUrls.removeAt(0)
+            val oldestPlayer = playerPool.remove(oldestUrl)
+            oldestPlayer?.stop()
+            oldestPlayer?.release()
+        }
+
+        val newPlayer = ExoPlayer.Builder(appContext(context))
             .setMediaSourceFactory(DefaultMediaSourceFactory(createCacheDataSourceFactory(context)))
             .build()
             .apply {
                 repeatMode = Player.REPEAT_MODE_ONE
+                setMediaItem(MediaItem.fromUri(url))
+                prepare()
             }
-        currentPlayer = player
-        
-        if (currentUrl != url) {
-            currentUrl = url
-            player.stop()
-            player.setMediaItem(MediaItem.fromUri(url))
-            player.prepare()
+
+        playerPool[url] = newPlayer
+        poolUrls.add(url)
+        return newPlayer
+    }
+
+    @Synchronized
+    fun releasePlayer(url: String) {
+        val player = playerPool[url]
+        player?.playWhenReady = false
+        // Retain player in pool up to MAX_POOL_SIZE so returning to the short (e.g. from Add Short)
+        // reuses the prepared player seamlessly without reloading from 0s.
+        if (playerPool.size > MAX_POOL_SIZE && poolUrls.isNotEmpty()) {
+            val oldestUrl = poolUrls.removeAt(0)
+            val oldestPlayer = playerPool.remove(oldestUrl)
+            oldestPlayer?.stop()
+            oldestPlayer?.release()
         }
-        return player
+    }
+
+    @Synchronized
+    fun releasePlayer(player: ExoPlayer, url: String) {
+        val existing = playerPool[url]
+        if (existing != null) {
+            existing.playWhenReady = false
+        } else {
+            player.stop()
+            player.release()
+        }
+        if (playerPool.size > MAX_POOL_SIZE && poolUrls.isNotEmpty()) {
+            val oldestUrl = poolUrls.removeAt(0)
+            val oldestPlayer = playerPool.remove(oldestUrl)
+            oldestPlayer?.stop()
+            oldestPlayer?.release()
+        }
     }
 
     fun preload(context: Context, urls: List<String>) {
@@ -118,31 +164,21 @@ object ShortsVideoCache {
     }
 
     @Synchronized
-    fun releasePlayer(player: ExoPlayer, url: String) {
-        if (player === currentPlayer) {
-            if (url == currentUrl) {
-                player.stop()
-                currentUrl = null
-            }
-        } else {
-            player.release()
-        }
-    }
-
-    @Synchronized
     fun onTrimMemory(level: Int) {
         if (level >= 80) { // ComponentCallbacks2.TRIM_MEMORY_COMPLETE
             forceRelease()
         } else if (level >= 20) { // ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-            currentPlayer?.stop()
+            playerPool.values.forEach { it.playWhenReady = false }
         }
     }
 
     @Synchronized
     fun forceRelease() {
-        currentPlayer?.stop()
-        currentPlayer?.release()
-        currentPlayer = null
-        currentUrl = null
+        playerPool.values.forEach {
+            it.stop()
+            it.release()
+        }
+        playerPool.clear()
+        poolUrls.clear()
     }
 }

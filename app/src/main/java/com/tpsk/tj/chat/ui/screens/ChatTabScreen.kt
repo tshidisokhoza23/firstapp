@@ -134,7 +134,6 @@ fun ChatsListScreen(
     }
     
     val sanitizedChats = remember(chatsState) {
-        android.util.Log.d("ChatTabScreen", "Recomposing sanitizedChats: state=${chatsState::class.simpleName}, count=${chatsState.data?.size ?: 0}")
         val data = chatsState.data ?: emptyList()
         data.forEach { chat ->
             if (chat.otherUserId != null && chat.senderName.isNotEmpty()) {
@@ -254,8 +253,21 @@ fun ChatsListScreen(
                                 singleLine = true
                             )
                         } else {
-                            IconButton(onClick = { showTopMoreSheet = true }) { 
-                                Icon(Icons.Default.Menu, contentDescription = "Menu") 
+                            BadgedBox(
+                                badge = {
+                                    if (unreadChatsCount > 0) {
+                                        Badge(
+                                            containerColor = Color.Red,
+                                            contentColor = Color.White
+                                        ) {
+                                            Text(if (unreadChatsCount > 99) "99+" else unreadChatsCount.toString())
+                                        }
+                                    }
+                                }
+                            ) {
+                                IconButton(onClick = { showTopMoreSheet = true }) { 
+                                    Icon(Icons.Default.Menu, contentDescription = "Menu") 
+                                }
                             }
                             
                             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -409,6 +421,14 @@ fun ChatsListScreen(
                             ListItem(
                                 headlineContent = { Text("Mingle Activity", color = MaterialTheme.colorScheme.onSurface) },
                                 leadingContent = { Icon(Icons.Default.Favorite, null, tint = Color(0xFFE91E63)) },
+                                trailingContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.Red)
+                                    )
+                                },
                                 modifier = Modifier.clickable { 
                                     showTopMoreSheet = false
                                     navController.navigate(Screen.MingleNotification.route) 
@@ -781,6 +801,17 @@ fun ChatList(
     
     val uiState by chatViewModel.uiState.collectAsState()
 
+    val storyMap = remember(stories) {
+        val map = mutableMapOf<String, UserStory>()
+        stories.forEach { story ->
+            if (story.id.isNotBlank()) map[story.id] = story
+            if (story.userId.isNotBlank()) map[story.userId] = story
+        }
+        map
+    }
+
+    val distinctChats = remember(chats) { chats.distinctBy { it.id } }
+
     LaunchedEffect(chats, stories, archivedChatsCount, topBarHeight) {
         if (!initialScrollDone && (chats.size > 0 || archivedChatsCount > 0) && topBarHeight.value > 0f) {
             snapshotFlow { lazyListState.layoutInfo.totalItemsCount }.first { it > 2 }
@@ -807,32 +838,15 @@ fun ChatList(
             contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
         ) {
         if (showStories) {
-            item(key = "stories_row_item") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            val firstItemOffset = if (lazyListState.firstVisibleItemIndex == 1) {
-                                lazyListState.firstVisibleItemScrollOffset.toFloat()
-                            } else if (lazyListState.firstVisibleItemIndex > 1) {
-                                1000f
-                            } else {
-                                0f
-                            }
-                            val a = (1f - (firstItemOffset / 300f))
-                            alpha = if (a < 0f) 0f else a
-                            translationY = -firstItemOffset * 0.5f
-                        }
-                ) {
-                    StoriesRow(
-                        stories = stories,
-                        currentUserId = currentUserId,
-                        onStoryClick = onStoryClick,
-                        onMediaStoryClick = onMediaStoryClick,
-                        onTextStoryClick = onTextStoryClick,
-                        onPostedStoriesClick = onPostedStoriesClick
-                    )
-                }
+            item(key = "stories_row_item", contentType = "stories_row") {
+                StoriesRow(
+                    stories = stories,
+                    currentUserId = currentUserId,
+                    onStoryClick = onStoryClick,
+                    onMediaStoryClick = onMediaStoryClick,
+                    onTextStoryClick = onTextStoryClick,
+                    onPostedStoriesClick = onPostedStoriesClick
+                )
             }
         }
 
@@ -894,35 +908,27 @@ fun ChatList(
             }
         }
 
-        items(chats.distinctBy { it.id }, key = { it.id }) { chat ->
-            val story = stories.find { 
-                it.id == chat.id || it.userId == chat.id || (chat.otherUserId != null && (it.id == chat.otherUserId || it.userId == chat.otherUserId))
-            }
+        items(
+            items = distinctChats,
+            key = { it.id },
+            contentType = { "chat_item" }
+        ) { chat ->
+            val story = storyMap[chat.id] ?: chat.otherUserId?.let { storyMap[it] }
             val hasStory = story != null
-            var allStoriesViewed = false
-            if (story != null) {
-                allStoriesViewed = true
-                for (item in story.stories) {
-                    if (item.isViewed == false) {
-                        allStoriesViewed = false
-                        break
-                    }
-                }
+            val allStoriesViewed = remember(story) {
+                story?.stories?.all { it.isViewed == true } ?: false
             }
             
-            Column(
+            ChatItem(
+                chat = chat,
                 modifier = Modifier.combinedClickable(
                     onClick = { onChatClick(chat) },
                     onLongClick = { selectedChatForMenu = chat }
-                )
-            ) {
-                ChatItem(
-                    chat = chat,
-                    hasStory = hasStory,
-                    allStoriesViewed = allStoriesViewed,
-                    onAvatarClick = { onAvatarClick(chat.id) }
-                )
-            }
+                ),
+                hasStory = hasStory,
+                allStoriesViewed = allStoriesViewed,
+                onAvatarClick = { onAvatarClick(chat.id) }
+            )
         }
     }
     }

@@ -1,28 +1,50 @@
 package com.tpsk.tj.chat.jobs.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,20 +52,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material.icons.filled.AttachMoney
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Work
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBarsPadding
 import com.tpsk.tj.chat.jobs.model.Job
-import com.tpsk.tj.common.util.formatPostedTime
+import com.tpsk.tj.chat.jobs.util.CustomTabsHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,11 +66,15 @@ fun JobDetailScreen(
     job: Job,
     onBack: () -> Unit,
     onApply: () -> Unit,
+    onExternalApplyClick: (String) -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
     onReportJob: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
+
+    val isAppliedInternal = job.isApplied || job.hasAppliedInternal
 
     Scaffold(
         topBar = {
@@ -107,7 +126,6 @@ fun JobDetailScreen(
             )
         },
         bottomBar = {
-            // Sticky Banner Ad at the bottom
             com.tpsk.tj.common.ui.components.BannerAdView(
                 modifier = Modifier.navigationBarsPadding()
             )
@@ -165,6 +183,36 @@ fun JobDetailScreen(
             }
 
             Column(modifier = Modifier.padding(20.dp)) {
+                if (job.isExternal) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Public,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Partner Listing • Listed via ${job.sourcePartner ?: "External Source"}",
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -210,26 +258,82 @@ fun JobDetailScreen(
                         }
                     }
                 }
+
+                if (job.isExternal) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Affiliate Disclosure: Listing provided via ${job.sourcePartner ?: "External Source"}. Tapping 'Apply' redirects to employer website.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
                 Button(
-                    onClick = onApply,
-                    enabled = !job.isApplied,
+                    onClick = {
+                        if (job.isExternal) {
+                            onExternalApplyClick(job.id)
+                            val applyUrl = job.trackingApplyUrl.takeIf { !it.isNullOrBlank() }
+                                ?: "${com.tpsk.tj.common.data.network.NetworkConstants.BASE_URL}api/v1/jobs/${job.id}/apply"
+                            CustomTabsHelper.launchUrl(context, applyUrl)
+                        } else {
+                            onApply()
+                        }
+                    },
+                    enabled = job.isExternal || !isAppliedInternal,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
+                        containerColor = if (job.isExternal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                         disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        contentColor = if (job.isExternal) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
                         disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     ),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text(
-                        if (job.isApplied) "Applied" else "Apply Now", 
-                        fontWeight = FontWeight.ExtraBold, 
-                        fontSize = 16.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        if (job.isExternal) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (job.hasClickedExternal) "Open Again (${job.sourcePartner ?: "Partner Site"})" else "Apply on ${job.sourcePartner ?: "Partner Site"}",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp
+                            )
+                        } else {
+                            Text(
+                                text = if (isAppliedInternal) "Applied" else "Apply Now",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -292,7 +396,7 @@ fun JobDetailChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: 
     Surface(
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
         shape = RoundedCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),

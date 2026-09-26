@@ -47,17 +47,34 @@ fun StoriesRow(
     onTextStoryClick: () -> Unit,
     onPostedStoriesClick: () -> Unit = {}
 ) {
-    val myStory = stories.find { 
-        it.id == currentUserId ||
-        it.userId == currentUserId ||
-        it.id == "user_$currentUserId" || 
-        it.userId == "user_$currentUserId" ||
-        (currentUserId != null && (
-            it.id == currentUserId.removePrefix("user_") ||
-            it.userId == currentUserId.removePrefix("user_")
-        )) ||
-        it.userName == "My Story" ||
-        it.userName == "My Number"
+    val myStory = remember(stories, currentUserId) {
+        stories.find { 
+            it.id == currentUserId ||
+            it.userId == currentUserId ||
+            it.id == "user_$currentUserId" || 
+            it.userId == "user_$currentUserId" ||
+            (currentUserId != null && (
+                it.id == currentUserId.removePrefix("user_") ||
+                it.userId == currentUserId.removePrefix("user_")
+            )) ||
+            it.userName == "My Story" ||
+            it.userName == "My Number"
+        }
+    }
+
+    val otherStories = remember(stories, currentUserId) {
+        stories.filter { 
+            it.id != currentUserId &&
+            it.userId != currentUserId &&
+            it.id != "user_$currentUserId" &&
+            it.userId != "user_$currentUserId" &&
+            (currentUserId == null || (
+                it.id != currentUserId.removePrefix("user_") &&
+                it.userId != currentUserId.removePrefix("user_")
+            )) &&
+            it.userName != "My Story" && 
+            it.userName != "My Number"
+        }
     }
 
     Column(
@@ -70,7 +87,7 @@ fun StoriesRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            item {
+            item(contentType = "my_story") {
                 if (myStory != null) {
                     MyStoryThumbnail(
                         story = myStory, 
@@ -88,18 +105,11 @@ fun StoriesRow(
                 }
             }
 
-            items(stories.filter { 
-                it.id != currentUserId &&
-                it.userId != currentUserId &&
-                it.id != "user_$currentUserId" &&
-                it.userId != "user_$currentUserId" &&
-                (currentUserId == null || (
-                    it.id != currentUserId.removePrefix("user_") &&
-                    it.userId != currentUserId.removePrefix("user_")
-                )) &&
-                it.userName != "My Story" && 
-                it.userName != "My Number"
-            }, key = { it.id }) { story ->
+            items(
+                items = otherStories,
+                key = { it.id },
+                contentType = { "story_item" }
+            ) { story ->
                 StoryThumbnail(story = story, onClick = { onStoryClick(story) })
             }
         }
@@ -116,6 +126,11 @@ private fun MyStoryThumbnail(
 ) {
     val allViewed = story.allViewed
     var showMenu by remember { mutableStateOf(false) }
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val borderBrush = remember(allViewed, primaryColor) {
+        if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
+        else Brush.linearGradient(listOf(primaryColor, Color(0xFF7C4DFF), primaryColor))
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
@@ -131,8 +146,7 @@ private fun MyStoryThumbnail(
                     .clickable(onClick = { showMenu = true })
                     .border(
                         width = 2.dp,
-                        brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
-                                else Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFF7C4DFF), MaterialTheme.colorScheme.primary)),
+                        brush = borderBrush,
                         shape = CircleShape
                     )
                     .padding(3.dp),
@@ -291,8 +305,13 @@ private fun StoryContextMenu(
 
 @Composable
 private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
-    val allViewed = story.stories.all { it.isViewed }
+    val allViewed = remember(story.stories) { story.stories.all { it.isViewed } }
     val haptic = LocalHapticFeedback.current
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val borderBrush = remember(allViewed, primaryColor) {
+        if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f)))
+        else Brush.linearGradient(listOf(primaryColor, Color(0xFF7C4DFF), primaryColor))
+    }
     
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -306,32 +325,16 @@ private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
         )
     ) {
         Box(
-            modifier = Modifier
-                .size(68.dp),
+            modifier = Modifier.size(68.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Glow effect for unviewed stories
-            if (!allViewed) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .shadow(
-                            elevation = 8.dp,
-                            shape = CircleShape,
-                            ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            spotColor = MaterialTheme.colorScheme.primary
-                        )
-                )
-            }
-
             Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
                     .border(
                         width = 2.dp,
-                        brush = if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f)))
-                                else Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFF7C4DFF), MaterialTheme.colorScheme.primary)),
+                        brush = borderBrush,
                         shape = CircleShape
                     )
                     .padding(3.dp),

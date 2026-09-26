@@ -67,7 +67,7 @@ fun DynamicAdCard(
         AndroidView(
             modifier = modifier
                 .fillMaxWidth()
-                .then(if (isShortsAd) Modifier.fillMaxHeight() else Modifier.wrapContentHeight()),
+                .then(if (isShortsAd) Modifier.fillMaxHeight() else Modifier.defaultMinSize(minHeight = 120.dp)),
             factory = { ctx ->
                 val layoutRes = if (isShortsAd) R.layout.item_short_native_ad else R.layout.item_media_native_ad
                 val view = LayoutInflater.from(ctx).inflate(layoutRes, null) as NativeAdView

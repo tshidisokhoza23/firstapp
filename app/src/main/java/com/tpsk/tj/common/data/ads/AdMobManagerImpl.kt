@@ -43,6 +43,7 @@ class AdMobManagerImpl : AdManager {
             }
             .withAdListener(object : AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    android.util.Log.w("AdMobManager", "Native ad load failed ($adUnitId): ${error.message}")
                     onAdFailed(error.message)
                 }
             })
@@ -82,6 +83,7 @@ class AdMobManagerImpl : AdManager {
             }
             .withAdListener(object : AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    android.util.Log.w("AdMobManager", "Shorts native ad load failed ($adUnitId): ${error.message}")
                     onAdFailed(error.message)
                 }
             })
@@ -109,6 +111,7 @@ class AdMobManagerImpl : AdManager {
                 onAdLoaded(adView)
             }
             override fun onAdFailedToLoad(error: LoadAdError) {
+                android.util.Log.w("AdMobManager", "Banner ad load failed ($adUnitId): ${error.message}")
                 onAdFailed(error.message)
             }
         }
@@ -131,6 +134,7 @@ class AdMobManagerImpl : AdManager {
                     onAdLoaded(ad)
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    android.util.Log.w("AdMobManager", "Interstitial ad load failed ($adUnitId): ${error.message}")
                     onAdFailed(error.message)
                 }
             })
@@ -172,6 +176,7 @@ class AdMobManagerImpl : AdManager {
                     onAdLoaded(ad)
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    android.util.Log.w("AdMobManager", "Rewarded ad load failed ($adUnitId): ${error.message}")
                     onAdFailed(error.message)
                 }
             })
@@ -213,7 +218,7 @@ class AdMobManagerImpl : AdManager {
         }
         val loadedAds = mutableListOf<NativeAd>()
         var failedCount = 0
-        
+
         val adLoader = AdLoader.Builder(context, adUnitId)
             .forNativeAd { nativeAd ->
                 loadedAds.add(nativeAd)
@@ -223,6 +228,7 @@ class AdMobManagerImpl : AdManager {
             }
             .withAdListener(object : AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    android.util.Log.w("AdMobManager", "Batch native ad load failed ($adUnitId): ${error.message}")
                     failedCount++
                     if (loadedAds.size + failedCount == count) {
                         onAdsLoaded(loadedAds)

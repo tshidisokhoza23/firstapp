@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 interface JobRepository {
     fun getJobs(page: Int = 1): Flow<Resource<List<Job>>>
     fun applyForJob(jobId: String): Flow<Resource<String>> // Returns conversation_id
+    suspend fun markClickedExternalLocally(jobId: String)
     fun getJobApplications(): Flow<Resource<List<JobApplication>>>
     fun getJobProfile(): Flow<Resource<JobProfileData>>
     fun withdrawApplication(applicationId: String): Flow<Resource<Boolean>>

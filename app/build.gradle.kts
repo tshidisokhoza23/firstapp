@@ -23,7 +23,7 @@ android {
         multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+        manifestPlaceholders["admobAppId"] = "ca-app-pub-4322207563956922~3347511713"
     }
 
     flavorDimensions += "environment"
@@ -31,11 +31,13 @@ android {
     productFlavors {
         create("sit") {
             dimension = "environment"
+            isDefault = true
             buildConfigField("String", "ACTIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("String", "PASSIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         }
         create("uat") {
             dimension = "environment"
@@ -44,6 +46,7 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         }
         create("beta") {
             dimension = "environment"
@@ -146,6 +149,7 @@ dependencies {
     implementation(libs.media3.database)
     implementation(libs.media3.ui)
     implementation("androidx.media3:media3-session:1.2.1")
+    implementation("androidx.browser:browser:1.8.0")
     implementation("io.github.webrtc-sdk:android:144.7559.01")
 
     // HTTP Client

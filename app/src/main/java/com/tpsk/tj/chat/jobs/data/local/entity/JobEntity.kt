@@ -17,5 +17,10 @@ data class JobEntity(
     val requirements: List<String>,
     val isVerified: Boolean,
     val isApplied: Boolean,
-    val isSaved: Boolean
+    val isSaved: Boolean,
+    val isExternal: Boolean = false,
+    val sourcePartner: String? = null,
+    val trackingApplyUrl: String? = null,
+    val hasAppliedInternal: Boolean = false,
+    val hasClickedExternal: Boolean = false
 )

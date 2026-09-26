@@ -995,11 +995,16 @@ fun ChatMessagesScreen(
                 onPlayAudio = { chatViewModel.setPlayingAudio(it) },
                 highlightId = activeSearchId,
                 onQuoteClick = { replyToId, replyToText ->
-                    val isStoryReply = replyToId.startsWith("story_") ||
-                        replyToText?.contains("[Story]", ignoreCase = true) == true
+                    val isStoryReply = replyToId?.startsWith("story_") == true ||
+                        replyToText?.contains("[Story]", ignoreCase = true) == true ||
+                        replyToText?.contains("[mediaUrl:", ignoreCase = true) == true
                     if (isStoryReply) {
                         val storyUser = currentChat.otherUserId ?: currentChat.id
-                        onOpenStory?.invoke(storyUser)
+                        if (!storyUser.isNullOrBlank()) {
+                            onOpenStory?.invoke(storyUser)
+                        } else {
+                            android.widget.Toast.makeText(context, "This story has expired or is no longer available.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     } else {
                         val targetIdx = messages.indexOfFirst { it.id == replyToId }
                         if (targetIdx != -1) {

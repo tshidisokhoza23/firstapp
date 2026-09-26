@@ -133,106 +133,7 @@ fun LoginScreen(
 
 
     fun performLogin() {
-        viewModel.clearFieldErrors()
-        val rawIdentity = username.trim()
-        val cleanEmail = email.trim().lowercase()
-        val cleanDisplayName = displayName.trim()
-        val rawPhone = phoneNumber.trim()
-        val cleanPassword = password
-
-        // Smart formatting for login with phone number
-        val loginIdentity = if (!isSignUp && !rawIdentity.startsWith("+") && rawIdentity.all { it.isDigit() }) {
-            val dialCode = selectedCountry?.dialCode ?: ""
-            val formatted = if (rawIdentity.startsWith("0")) rawIdentity.substring(1) else rawIdentity
-            dialCode + formatted
-        } else {
-            rawIdentity
-        }
-
-        var hasError = false
-        if (rawIdentity.isBlank()) {
-            viewModel.setFieldError("username", "${if (isSignUp) "Username" else "Phone number"} is required")
-            hasError = true
-        }
-
-        if (cleanPassword.isBlank()) {
-            viewModel.setFieldError("password", "Password is required")
-            hasError = true
-        }
-
-        if (isSignUp) {
-            val cleanUsername = loginIdentity.lowercase()
-            if (cleanUsername.isBlank()) {
-                viewModel.setFieldError("username", "Username is required")
-                hasError = true
-            } else if (cleanUsername.length < 3) {
-                viewModel.setFieldError("username", "Username must be at least 3 characters")
-                hasError = true
-            } else if (!cleanUsername.matches(Regex("^[a-z0-9._]*$"))) {
-                viewModel.setFieldError("username", "Username can only contain lowercase letters, numbers, dots and underscores")
-                hasError = true
-            }
-
-            if (cleanPassword.isBlank()) {
-                viewModel.setFieldError("password", "Password is required")
-                hasError = true
-            } else if (cleanPassword.length < 8) {
-                viewModel.setFieldError("password", "Password must be at least 8 characters")
-                hasError = true
-            }
-
-            if (cleanDisplayName.isBlank()) {
-                viewModel.setFieldError("displayName", "Display name is required")
-                hasError = true
-            } else if (cleanDisplayName.length < 2) {
-                viewModel.setFieldError("displayName", "Display name is too short")
-                hasError = true
-            }
-
-            if (cleanEmail.isBlank()) {
-                viewModel.setFieldError("email", "Email is required")
-                hasError = true
-            } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
-                viewModel.setFieldError("email", "Enter a valid email address")
-                hasError = true
-            }
-
-            if (rawPhone.isBlank()) {
-                viewModel.setFieldError("phone", "Phone number is required")
-                hasError = true
-            }
-
-            val cleanPhone = CountryUtils.formatE164PhoneNumber(rawPhone, selectedCountry?.dialCode ?: "")
-
-            if (rawPhone.isNotBlank() && cleanPhone.length < 10) {
-                viewModel.setFieldError("phone", "Enter a valid phone number")
-                hasError = true
-            }
-
-            if (password != confirmPassword) {
-                viewModel.setFieldError("confirmPassword", "Passwords do not match")
-                hasError = true
-            }
-
-            if (hasError) return
-
-            // Check availability with backend before requesting OTP
-            viewModel.checkAvailability(cleanUsername, cleanEmail, cleanPhone) { isAvailable ->
-                if (isAvailable) {
-                    val client = SmsRetriever.getClient(context)
-                    client.startSmsRetriever()
-                    viewModel.requestOTP(cleanPhone, selectedCountry?.dialCode)
-                }
-            }
-        } else {
-
-            if (!hasError) {
-                val client = SmsRetriever.getClient(context)
-                client.startSmsRetriever()
-                // Send the phone number in the 'username' field to the backend
-                viewModel.login(loginIdentity, cleanPassword)
-            }
-        }
+        Toast.makeText(context, "Phone and manual login is temporarily disabled. Please sign in with Google.", Toast.LENGTH_SHORT).show()
     }
 
 
@@ -313,10 +214,45 @@ fun LoginScreen(
             )
         }
 
-        // Phone/Username Field
+        // Info Banner for Google Sign-In
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    Toast.makeText(context, "Manual login & phone registration is temporarily disabled. Please tap 'Continue with Google'.", Toast.LENGTH_SHORT).show()
+                },
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Sign in & sign up are currently supported via Google. Tap below to continue.",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Phone/Username Field (Disabled)
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = username,
+                enabled = false,
                 onValueChange = { 
                     username = it
                     viewModel.setFieldError("username", null)
@@ -335,35 +271,23 @@ fun LoginScreen(
                 isError = fieldErrors.containsKey("username"),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                keyboardOptions = if (!isSignUp) {
-                    androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
-                    )
-                } else {
-                    androidx.compose.foundation.text.KeyboardOptions.Default
-                }
+                    disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                )
             )
             ValidationText(fieldErrors["username"])
         }
 
-
-
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isSignUp) {
-            // Email Field
+            // Email Field (Disabled)
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = email,
+                    enabled = false,
                     onValueChange = { email = it; viewModel.setFieldError("email", null) },
                     label = { Text("Email Address") },
                     leadingIcon = {
@@ -378,20 +302,21 @@ fun LoginScreen(
                     isError = fieldErrors.containsKey("email"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                        disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     )
                 )
                 ValidationText(fieldErrors["email"])
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Display Name
+            // Display Name (Disabled)
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = displayName,
+                    enabled = false,
                     onValueChange = { displayName = it; viewModel.setFieldError("displayName", null) },
                     label = { Text("Display Name") },
                     leadingIcon = {
@@ -406,10 +331,10 @@ fun LoginScreen(
                     isError = fieldErrors.containsKey("displayName"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                        disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     )
                 )
                 ValidationText(fieldErrors["displayName"])
@@ -434,6 +359,7 @@ fun LoginScreen(
                     
                     OutlinedTextField(
                         value = phoneNumber,
+                        enabled = false,
                         onValueChange = { input ->
                             if (input.all { char: Char -> char.isDigit() || char == '+' }) {
                                 phoneNumber = input
@@ -455,10 +381,10 @@ fun LoginScreen(
                         isError = fieldErrors.containsKey("phone"),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = LogoBlueDark,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            unfocusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                            focusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                            disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         ),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
@@ -471,10 +397,11 @@ fun LoginScreen(
         }
 
 
-        // Password Field
+        // Password Field (Disabled)
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = password,
+                enabled = false,
                 onValueChange = { 
                     password = it
                     viewModel.setFieldError("password", null)
@@ -503,14 +430,10 @@ fun LoginScreen(
                 shape = RoundedCornerShape(16.dp),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = LogoBlueDark,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    focusedLabelColor = LogoBlueDark,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                    focusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                    disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 )
             )
             ValidationText(fieldErrors["password"])
@@ -521,6 +444,7 @@ fun LoginScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = confirmPassword,
+                    enabled = false,
                     onValueChange = { confirmPassword = it; viewModel.setFieldError("confirmPassword", null) },
                     label = { Text("Confirm Password") },
                     isError = fieldErrors.containsKey("confirmPassword"),
@@ -538,10 +462,10 @@ fun LoginScreen(
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                        disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     )
                 )
                 ValidationText(fieldErrors["confirmPassword"])
@@ -563,47 +487,12 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Gradient Login Button
+        // Gradient Primary Google Sign In Button
         val gradientBrush = Brush.horizontalGradient(
             colors = listOf(Color(0xFF1A237E), Color(0xFF00D1FF))
         )
 
-
         Button(
-            onClick = { performLogin() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .background(gradientBrush, shape = RoundedCornerShape(16.dp)),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent, // Use background gradient
-                contentColor = Color.White
-            ),
-            enabled = !isLoading,
-            contentPadding = PaddingValues() // Important to let gradient fill
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp), 
-                        color = Color.White, 
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    val buttonText = if (!isSignUp) "Login" else "Sign Up"
-                    Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Google Sign In Button
-        OutlinedButton(
             onClick = {
                 scope.launch {
                     val nonce = java.util.UUID.randomUUID().toString()
@@ -648,33 +537,41 @@ fun LoginScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(56.dp)
+                .background(gradientBrush, shape = RoundedCornerShape(16.dp)),
             shape = RoundedCornerShape(16.dp),
-            enabled = !isLoading,
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.onSurface
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color.White
             ),
-            border = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-            )
+            enabled = !isLoading,
+            contentPadding = PaddingValues()
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxSize()
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_google),
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = if (isSignUp) "Sign up with Google" else "Continue with Google",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_google),
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Continue with Google",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
         }
 
@@ -682,20 +579,18 @@ fun LoginScreen(
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = if (isSignUp) "Already have an account? " else "Don't have an account? ",
+                text = "Registration & phone login disabled. ",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp
+                fontSize = 13.sp
             )
             Text(
-                text = if (isSignUp) "Login" else "Sign Up",
+                text = "Use Google",
                 modifier = Modifier.clickable { 
-                    isSignUp = !isSignUp
-                    viewModel.resetState()
-                    viewModel.clearFieldErrors()
+                    Toast.makeText(context, "Registration and login are managed automatically via Google. Please tap 'Continue with Google'.", Toast.LENGTH_SHORT).show()
                 },
                 color = LogoBlueDark,
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
+                fontSize = 13.sp
             )
         }
 

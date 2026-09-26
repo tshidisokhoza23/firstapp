@@ -78,13 +78,15 @@ class StoryViewModel @Inject constructor(
 
                     try {
                         withTimeout(45_000) {
-                            accountRepository.uploadUri(context, uri, "stories").collect { uploadRes ->
-                                when (uploadRes) {
-                                    is Resource.Success -> uploadedUrl = uploadRes.data?.url
-                                    is Resource.Error -> uploadError = uploadRes.message ?: "Failed to upload story media"
-                                    else -> {}
+                            accountRepository.uploadUri(context, uri, "stories")
+                                .firstOrNull { it !is Resource.Loading }
+                                ?.let { uploadRes ->
+                                    when (uploadRes) {
+                                        is Resource.Success -> uploadedUrl = uploadRes.data?.url
+                                        is Resource.Error -> uploadError = uploadRes.message ?: "Failed to upload story media"
+                                        else -> {}
+                                    }
                                 }
-                            }
                         }
                     } catch (e: Exception) {
                         uploadError = e.localizedMessage ?: "Upload timed out"
@@ -113,6 +115,10 @@ class StoryViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                     Resource.Error(e.localizedMessage ?: "Failed to post story")
+                }
+
+                if (result is Resource.Success) {
+                    refreshStories()
                 }
 
                 _postResult.value = result ?: Resource.Error("Failed to post story")

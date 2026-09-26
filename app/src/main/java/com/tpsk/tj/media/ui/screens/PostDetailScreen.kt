@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,10 +47,12 @@ fun PostDetailScreen(
     adManager: AdManager,
     ownProfileId: String,
     mainViewModel: com.tpsk.tj.home.ui.viewmodel.MainViewModel = hiltViewModel(),
+    userViewModel: com.tpsk.tj.common.ui.viewmodel.UserViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onProfileClick: (String) -> Unit,
     onMediaClick: (String, String, Long) -> Unit,
-    onReplyDetailClick: (String) -> Unit = {}
+    onReplyDetailClick: (String) -> Unit = {},
+    onRequestCreatePost: (replyId: String?, quoteId: String?) -> Unit = { _, _ -> }
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
     val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
@@ -114,6 +118,8 @@ fun PostDetailScreen(
     var showRepostOptions by remember { mutableStateOf(false) }
     var replyingToPost by remember { mutableStateOf<Post?>(null) }
     var replyingToReply by remember { mutableStateOf<Post?>(null) }
+    var selectedPostForMore by remember { mutableStateOf<Post?>(null) }
+    var reportingPost by remember { mutableStateOf<Post?>(null) }
 
     val flattenedItems = remember(post) { flattenThread(post) }
 
@@ -177,6 +183,7 @@ fun PostDetailScreen(
                         onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                         onProfileClick = onProfileClick,
                         onMediaClick = onMediaClick,
+                        onMoreClick = { selectedPostForMore = it },
                         onQuotedPostClick = { quotedPost -> onReplyDetailClick(quotedPost.id) },
                         onClick = {
                             if (item.post.id != post.id) {
@@ -223,6 +230,7 @@ fun PostDetailScreen(
                     leadingContent = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) },
                     modifier = Modifier.clickable {
                         showRepostOptions = false
+                        onRequestCreatePost(null, post.id)
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
@@ -230,30 +238,69 @@ fun PostDetailScreen(
         }
     }
 
-    val currentUser = com.tpsk.tj.LocalCurrentUser.current
+    LaunchedEffect(replyingToPost, replyingToReply) {
+        if (replyingToPost != null) {
+            val replyId = replyingToReply?.id ?: replyingToPost?.id
+            replyingToPost = null
+            replyingToReply = null
+            onRequestCreatePost(replyId, null)
+        }
+    }
 
-    if (replyingToPost != null) {
-        val rootId = replyingToPost!!.rootPostId ?: replyingToPost!!.id
-        PostComposerDialog(
-            replyingTo = replyingToReply ?: replyingToPost,
-            avatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(currentUser?.avatarUrl),
-            onDismiss = { 
-                replyingToPost = null
-                replyingToReply = null
+    if (selectedPostForMore != null) {
+        val target = selectedPostForMore!!
+        val context = LocalContext.current
+        val isOwnPost = target.isOwnedBy(ownProfileId)
+
+        PostOptionsMenu(
+            post = target,
+            isOwner = isOwnPost,
+            onReport = {
+                reportingPost = target
+                selectedPostForMore = null
             },
-            onSubmit = { content, media, tags, type, poll, loc ->
-                mediaViewModel.createPost(
-                    content = content,
-                    mediaUris = media,
-                    postType = type ?: "reply",
-                    tags = tags,
-                    pollOptions = poll,
-                    location = loc,
-                    parentPostId = replyingToReply?.id ?: replyingToPost?.id,
-                    rootPostId = rootId
-                )
-                replyingToPost = null
-                replyingToReply = null
+            onBlockUser = {
+                userViewModel.blockUser(target.authorId)
+                Toast.makeText(context, "Blocked @${target.authorHandle}", Toast.LENGTH_SHORT).show()
+                selectedPostForMore = null
+            },
+            onDelete = {
+                if (target.id == post.id) {
+                    mediaViewModel.deletePost(target.id, ownProfileId)
+                    selectedPostForMore = null
+                    onBack()
+                } else {
+                    mediaViewModel.deletePostReply(target.id, post.id, ownProfileId)
+                    selectedPostForMore = null
+                }
+            },
+            onTurnOffComments = {
+                mediaViewModel.toggleCommentsLock(target.id, target.repliesLocked)
+                selectedPostForMore = null
+            },
+            onShare = {
+                mediaViewModel.sharePost(target.id, target.shares)
+                com.tpsk.tj.common.util.ShareUtils.sharePost(context, target)
+                selectedPostForMore = null
+            },
+            onBookmark = {
+                mediaViewModel.bookmarkPost(target.id)
+                selectedPostForMore = null
+            },
+            onDismiss = { selectedPostForMore = null }
+        )
+    }
+
+    if (reportingPost != null) {
+        val context = LocalContext.current
+        val target = reportingPost!!
+        ReportContentDialog(
+            post = target,
+            onDismiss = { reportingPost = null },
+            onSubmitReport = { category, details ->
+                mediaViewModel.reportPost(target.id, "$category: $details")
+                Toast.makeText(context, "Report submitted. Thank you for keeping our community safe.", Toast.LENGTH_LONG).show()
+                reportingPost = null
             }
         )
     }

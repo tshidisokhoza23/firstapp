@@ -171,42 +171,125 @@ fun MessageItemUnique(
                     val replyToContent = referencedMessage?.content ?: messageItem.replyToText
                     
                     if (messageItem.replyToId != null || referencedMessage != null) {
-                        Surface(
-                            modifier = Modifier
-                                .padding(bottom = 8.dp)
-                                .fillMaxWidth()
-                                .clickable {
-                                    onQuoteClick(
-                                        messageItem.replyToId ?: referencedMessage?.id,
-                                        messageItem.replyToText ?: referencedMessage?.content
+                        val isStoryReply = remember(messageItem.replyToId, replyToContent) {
+                            messageItem.replyToId?.startsWith("story_") == true ||
+                                replyToContent?.contains("[Story]", ignoreCase = true) == true ||
+                                replyToContent?.contains("[mediaUrl:", ignoreCase = true) == true
+                        }
+
+                        if (isStoryReply) {
+                            val mediaUrl = remember(replyToContent) {
+                                val match = Regex("\\[mediaUrl:(.*?)\\]").find(replyToContent.orEmpty())
+                                match?.groupValues?.getOrNull(1)?.trim()
+                            }
+                            val cleanText = remember(replyToContent) {
+                                replyToContent.orEmpty()
+                                    .replace(Regex("\\[mediaUrl:.*?\\]"), "")
+                                    .replace("[Story]", "")
+                                    .trim()
+                                    .ifBlank { "Story" }
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .padding(bottom = 8.dp)
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onQuoteClick(
+                                            messageItem.replyToId ?: referencedMessage?.id,
+                                            messageItem.replyToText ?: referencedMessage?.content
+                                        )
+                                    },
+                                color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (!mediaUrl.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = mediaUrl,
+                                            contentDescription = "Story Thumbnail",
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(4.dp)
+                                                .height(40.dp)
+                                                .clip(CircleShape)
+                                                .background(if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary)
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Replying to ${if (replyToSender == "You" || referencedMessage?.isFromMe == true) "You" else (replyToSender ?: "user")}'s story",
+                                            color = if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = cleanText,
+                                            color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 13.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "Tap to view story",
+                                            color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            Surface(
+                                modifier = Modifier
+                                    .padding(bottom = 8.dp)
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onQuoteClick(
+                                            messageItem.replyToId ?: referencedMessage?.id,
+                                            messageItem.replyToText ?: referencedMessage?.content
+                                        )
+                                    },
+                                color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.05f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(modifier = Modifier.padding(8.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(4.dp)
+                                            .height(36.dp)
+                                            .clip(CircleShape)
+                                            .background(if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary)
                                     )
-                                },
-                            color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.05f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Row(modifier = Modifier.padding(8.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(4.dp)
-                                        .height(36.dp)
-                                        .clip(CircleShape)
-                                        .background(if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary)
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = if (replyToSender == "You" || referencedMessage?.isFromMe == true) "You" else (replyToSender ?: "Sender"),
-                                        color = if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        text = replyToContent ?: "Message",
-                                        color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.9f) else Color.DarkGray,
-                                        fontSize = 13.sp,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = if (replyToSender == "You" || referencedMessage?.isFromMe == true) "You" else (replyToSender ?: "Sender"),
+                                            color = if (messageItem.isFromMe) Color.White else MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = replyToContent ?: "Message",
+                                            color = if (messageItem.isFromMe) Color.White.copy(alpha = 0.9f) else Color.DarkGray,
+                                            fontSize = 13.sp,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                         }

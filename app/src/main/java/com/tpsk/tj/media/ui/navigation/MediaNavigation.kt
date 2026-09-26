@@ -109,6 +109,9 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             },
             onReplyDetailClick = { replyId ->
                 navController.navigate(Screen.PostDetail.createRoute(replyId))
+            },
+            onRequestCreatePost = { replyId, quoteId ->
+                navController.navigate(Screen.CreatePost.createRoute(replyId, quoteId))
             }
         )
     }
@@ -154,6 +157,66 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                 mediaViewModel.sharePost(post.id, post.shares)
                 com.tpsk.tj.common.util.ShareUtils.sharePost(navController.context, post)
             }
+        )
+    }
+
+    composable(
+        route = Screen.CreateShort.route,
+        arguments = listOf(navArgument("videoUri") { type = NavType.StringType; defaultValue = "" })
+    ) { backStackEntry ->
+        val videoUriStr = backStackEntry.arguments?.getString("videoUri") ?: ""
+        val videoUri = if (videoUriStr.isNotBlank()) android.net.Uri.parse(videoUriStr) else null
+        val mediaViewModel: MediaViewModel = hiltViewModel()
+
+        com.tpsk.tj.media.ui.screens.shorts.CreateShortScreen(
+            initialVideoUri = videoUri,
+            onBackClick = { navController.popBackStack() },
+            onPostSuccess = { navController.popBackStack() },
+            mediaViewModel = mediaViewModel
+        )
+    }
+
+    composable(
+        route = Screen.CreatePost.route,
+        arguments = listOf(
+            navArgument("replyId") { type = NavType.StringType; defaultValue = "" },
+            navArgument("quoteId") { type = NavType.StringType; defaultValue = "" }
+        )
+    ) { backStackEntry ->
+        val replyId = backStackEntry.arguments?.getString("replyId")?.takeIf { it.isNotBlank() }
+        val quoteId = backStackEntry.arguments?.getString("quoteId")?.takeIf { it.isNotBlank() }
+        val mediaViewModel: MediaViewModel = hiltViewModel()
+
+        var replyPost by remember { mutableStateOf<com.tpsk.tj.media.model.Post?>(null) }
+        var quotePost by remember { mutableStateOf<com.tpsk.tj.media.model.Post?>(null) }
+
+        androidx.compose.runtime.LaunchedEffect(replyId, quoteId) {
+            if (replyId != null) {
+                mediaViewModel.getPostByIdFlow(replyId).collect { res ->
+                    if (res is com.tpsk.tj.common.util.Resource.Success) replyPost = res.data
+                }
+            }
+            if (quoteId != null) {
+                mediaViewModel.getPostByIdFlow(quoteId).collect { res ->
+                    if (res is com.tpsk.tj.common.util.Resource.Success) quotePost = res.data
+                }
+            }
+        }
+
+        com.tpsk.tj.media.ui.screens.CreatePostScreen(
+            replyToPost = replyPost,
+            quotingPost = quotePost,
+            onDismiss = { navController.popBackStack() },
+            onPostCreated = { navController.popBackStack() },
+            mediaViewModel = mediaViewModel
+        )
+    }
+
+    composable(route = Screen.SocialNotification.route) {
+        SocialNotificationsScreen(
+            onBackClick = { navController.popBackStack() },
+            onPostClick = { postId -> navController.navigate(Screen.PostDetail.createRoute(postId)) },
+            onUserProfileClick = { userId -> navController.navigate(Screen.UserProfile.createRoute(userId)) }
         )
     }
 }

@@ -65,6 +65,9 @@ fun MediaTabScreen(
             onCreatePost = { c, m, tags, t, p, l, pId, rId, qId -> 
                 mediaViewModel.createPost(c, m, postType = t ?: "standard", tags = tags, pollOptions = p, location = l, parentPostId = pId, rootPostId = rId, repostOfId = qId) 
             },
+            onRequestCreatePost = { replyId, quoteId ->
+                navController.navigate(Screen.CreatePost.createRoute(replyId, quoteId))
+            },
             onLikePost = { id, l, liked -> mediaViewModel.likePost(id, l, liked) },
             onRepostPost = { post -> mediaViewModel.repostPost(post.id, post.repostCount, post.isReposted) },
             onDeletePost = { mediaViewModel.deletePost(it) },
@@ -87,6 +90,7 @@ fun MediaTabScreen(
             refreshTrigger = uiState.refreshTrigger,
             onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
             onSavedPostsClick = { navController.navigate(Screen.SavedPosts.route) },
+            onNotificationsClick = { navController.navigate(Screen.SocialNotification.route) },
             onAdRevenueLogged = { pid, rev, uid -> mediaViewModel.onAdRevenueLogged(pid, rev, uid) },
             onShortClick = { short ->
                 // REQUIREMENT: Universal Entry Point for shorts

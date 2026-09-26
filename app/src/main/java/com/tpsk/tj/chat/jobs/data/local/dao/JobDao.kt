@@ -15,8 +15,11 @@ interface JobDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertJobs(jobs: List<JobEntity>)
 
-    @Query("UPDATE jobs SET isApplied = :isApplied WHERE id = :jobId")
+    @Query("UPDATE jobs SET isApplied = :isApplied, hasAppliedInternal = :isApplied WHERE id = :jobId")
     suspend fun updateAppliedStatus(jobId: String, isApplied: Boolean)
+
+    @Query("UPDATE jobs SET hasClickedExternal = 1 WHERE id = :jobId")
+    suspend fun markClickedExternalLocally(jobId: String)
 
     @Query("DELETE FROM jobs")
     suspend fun clearJobs()

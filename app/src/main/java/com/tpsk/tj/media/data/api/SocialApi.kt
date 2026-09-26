@@ -89,6 +89,12 @@ interface SocialApi {
     @POST("posts/{postId}/share")
     suspend fun sharePost(@Path("postId") postId: String): Response<StatusResponse>
 
+    @POST("posts/{postId}/report")
+    suspend fun reportPost(
+        @Path("postId") postId: String,
+        @Body request: com.tpsk.tj.common.data.api.ReportRequest
+    ): Response<StatusResponse>
+
     @POST("posts/{postId}/replies")
     suspend fun createPostReply(
         @Path("postId") postId: String,
@@ -131,13 +137,37 @@ interface SocialApi {
     @DELETE("chats/stories/{storyId}")
     suspend fun deleteStory(@Path("storyId") storyId: String): Response<StatusResponse>
 
-    @POST("users/{userId}/mute")
+    @GET("users/{userId}/mute")
     suspend fun muteUser(@Path("userId") userId: String, @Body request: MuteRequest): Response<StatusResponse>
 
     @GET("chats/stories/{storyId}/viewers")
     suspend fun getStoryViewers(@Path("storyId") storyId: String): Response<ViewersResponse>
 
+    @GET("social/notifications")
+    suspend fun getNotifications(
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0
+    ): Response<List<ApiSocialNotification>>
+
+    @POST("social/notifications/{id}/read")
+    suspend fun markNotificationRead(@Path("id") notificationId: String): Response<StatusResponse>
+
+    @POST("social/notifications/read-all")
+    suspend fun markAllNotificationsRead(): Response<StatusResponse>
 }
+
+data class ApiSocialNotification(
+    val id: String?,
+    @SerializedName("actor_id") val actor_id: String?,
+    @SerializedName("actor_name") val actor_name: String?,
+    @SerializedName("action_text") val action_text: String?,
+    @SerializedName("action_type") val action_type: String?,
+    @SerializedName("post_snippet") val post_snippet: String?,
+    @SerializedName("target_post_id") val target_post_id: String?,
+    @SerializedName("time_ago") val time_ago: String?,
+    @SerializedName("created_at") val created_at: Long? = null,
+    @SerializedName("is_read") val is_read: Boolean = false
+)
 
 data class FeedResponse(val items: List<ApiFeedItem>)
 data class AdRevenueRequest(val post_id: String, val revenue: Double, val ad_unit_id: String)

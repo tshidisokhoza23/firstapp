@@ -132,9 +132,9 @@ fun StoryScreen(
         }
     }
     
-    val activeStories = otherStories.filter { !it.isMuted }
-    val recentUpdates = activeStories.filter { !it.allViewed }
-    val viewedUpdates = activeStories.filter { it.allViewed }
+    val activeStories = remember(otherStories) { otherStories.filter { !it.isMuted } }
+    val recentUpdates = remember(activeStories) { activeStories.filter { !it.allViewed } }
+    val viewedUpdates = remember(activeStories) { activeStories.filter { it.allViewed } }
     
     val storiesWithAds = remember(myStory, recentUpdates, viewedUpdates) {
         val baseList = mutableListOf<UserStory>()
@@ -297,10 +297,16 @@ fun StoryScreen(
                 }
             },
             onFinish = { 
-                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                    onBack()
+                val currentIndex = storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id }
+                if (currentIndex != -1 && currentIndex < storiesWithAds.size - 1) {
+                    viewingUserStory = storiesWithAds[currentIndex + 1]
+                    viewingStoryIndex = 0
                 } else {
-                    viewingUserStory = null 
+                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+                        onBack()
+                    } else {
+                        viewingUserStory = null 
+                    }
                 }
             },
             onNavigateToUser = { direction ->
@@ -394,15 +400,16 @@ fun StoryScreen(
                     }
                 }
 
-                item(key = "my_stories_horizontal_row") {
+                item(key = "my_stories_horizontal_row", contentType = "my_stories_row") {
                     if (myStory != null) {
+                        val reversedMyStories = remember(myStory.stories) { myStory.stories.asReversed() }
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                 items(myStory.stories.reversed(), key = { it.id }) { story ->
+                                 items(reversedMyStories, key = { it.id }, contentType = { "my_story_thumb" }) { story ->
                                      Column(
                                          horizontalAlignment = Alignment.CenterHorizontally
                                      ) {
@@ -509,7 +516,11 @@ fun StoryScreen(
                     )
                 }
 
-                itemsIndexed(recentUpdates, key = { _, item -> "recent_v2_${item.id}" }) { idx, item ->
+                itemsIndexed(
+                    recentUpdates, 
+                    key = { _, item -> "recent_v2_${item.id}" },
+                    contentType = { _, _ -> "story_row" }
+                ) { _, item ->
                     StoryListItem(
                         userStory = item, 
                         isOwnStory = false,
@@ -519,16 +530,10 @@ fun StoryScreen(
                         },
                         onLongClick = { storyToMute = item }
                     )
-                    if ((idx + 1) % 4 == 0) {
-                        com.tpsk.tj.common.ui.components.NativeAdCard(
-                            adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
                 }
 
                 if (viewedUpdates.isNotEmpty()) {
-                    item(key = "viewed_updates_header_v3") {
+                    item(key = "viewed_updates_header_v3", contentType = "header") {
                         Text(
                             "Viewed updates",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -537,7 +542,11 @@ fun StoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    itemsIndexed(viewedUpdates, key = { _, item -> "viewed_v3_${item.id}" }) { idx, item ->
+                    itemsIndexed(
+                        viewedUpdates, 
+                        key = { _, item -> "viewed_v3_${item.id}" },
+                        contentType = { _, _ -> "story_row" }
+                    ) { _, item ->
                         StoryListItem(
                             userStory = item, 
                             isOwnStory = false,

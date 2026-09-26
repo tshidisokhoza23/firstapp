@@ -37,16 +37,16 @@ fun MoreTabScreen(
     onAddChannel: () -> Unit
 ) {
     val shortcuts = java.util.Arrays.asList(
-        ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route),
-        ShortcutItem("Channels", Icons.Default.Campaign, Color(0xFF4CAF50), Screen.Main.route + "?tab=chats&subtab=channels"),
-        ShortcutItem("Jobs", Icons.Default.Work, Color(0xFF795548), Screen.Main.route + "?tab=chats&subtab=jobs"),
-        ShortcutItem("Rewards", Icons.Default.Stars, Color(0xFFFF9800), Screen.Main.route + "?tab=chats&subtab=rewards"),
-        ShortcutItem("Updates", Icons.Default.History, Color(0xFF2196F3), Screen.Main.route + "?tab=media"),
-        ShortcutItem("Files", Icons.Default.Folder, Color(0xFFFFC107), Screen.Files.route),
-        ShortcutItem("Calendar", Icons.Default.CalendarToday, Color(0xFFE91E63), Screen.Calendar.route),
-        ShortcutItem("Archived", Icons.Default.Archive, Color(0xFF8BC34A), Screen.ArchivedChats.route),
-        ShortcutItem("Job Profile", Icons.Default.AccountBox, Color(0xFF9C27B0), Screen.JobProfile.route),
-        ShortcutItem("Applications", Icons.AutoMirrored.Filled.Assignment, Color(0xFF00BCD4), Screen.Applications.route)
+        ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
+        ShortcutItem("Channels", Icons.Default.Campaign, Color(0xFF4CAF50), Screen.Main.route + "?tab=chats&subtab=channels", isEnabled = true),
+        ShortcutItem("Jobs", Icons.Default.Work, Color(0xFF795548), Screen.Main.route + "?tab=chats&subtab=jobs", isEnabled = false),
+        ShortcutItem("Rewards", Icons.Default.Stars, Color(0xFFFF9800), Screen.Main.route + "?tab=chats&subtab=rewards", isEnabled = true),
+        ShortcutItem("Updates", Icons.Default.History, Color(0xFF2196F3), Screen.Main.route + "?tab=media", isEnabled = true),
+        ShortcutItem("Files", Icons.Default.Folder, Color(0xFFFFC107), Screen.Files.route, isEnabled = true),
+        ShortcutItem("Calendar", Icons.Default.CalendarToday, Color(0xFFE91E63), Screen.Calendar.route, isEnabled = true),
+        ShortcutItem("Archived", Icons.Default.Archive, Color(0xFF8BC34A), Screen.ArchivedChats.route, isEnabled = true),
+        ShortcutItem("Job Profile", Icons.Default.AccountBox, Color(0xFF9C27B0), Screen.JobProfile.route, isEnabled = false),
+        ShortcutItem("Applications", Icons.AutoMirrored.Filled.Assignment, Color(0xFF00BCD4), Screen.Applications.route, isEnabled = false)
     )
 
     Column(

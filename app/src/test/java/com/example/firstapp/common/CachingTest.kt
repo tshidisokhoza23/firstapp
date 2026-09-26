@@ -12,6 +12,7 @@ import org.junit.Test
 class CachingTest {
 
     private val chatDao: ChatDao = mockk(relaxed = true)
+    private val mingleDao: com.tpsk.tj.chat.data.local.dao.MingleDao = mockk(relaxed = true)
     private val channelDao: com.tpsk.tj.chat.data.local.dao.ChannelDao = mockk(relaxed = true)
     private val chatApi: com.tpsk.tj.chat.data.api.ChatApi = mockk(relaxed = true)
     private val userApi: com.tpsk.tj.common.data.api.UserApi = mockk(relaxed = true)
@@ -32,6 +33,7 @@ class CachingTest {
             userApi,
             socialApi,
             javax.inject.Provider<ChatDao> { chatDao },
+            javax.inject.Provider<com.tpsk.tj.chat.data.local.dao.MingleDao> { mingleDao },
             javax.inject.Provider<com.tpsk.tj.chat.data.local.dao.ChannelDao> { channelDao },
             javax.inject.Provider<com.tpsk.tj.chat.data.local.dao.ContactDao> { contactDao },
             javax.inject.Provider<com.tpsk.tj.chat.data.local.dao.SyncCursorDao> { syncCursorDao },

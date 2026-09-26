@@ -31,7 +31,7 @@ fun VocabAdBlock(
     var nativeAd by remember { mutableStateOf<NativeAd?>(null) }
 
     DisposableEffect(Unit) {
-        val adLoader = AdLoader.Builder(context, "ca-app-pub-3940256099942544/2247696110")
+        val adLoader = AdLoader.Builder(context, com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID)
             .forNativeAd { loadedAd ->
                 nativeAd?.destroy()
                 nativeAd = loadedAd

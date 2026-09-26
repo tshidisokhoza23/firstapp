@@ -60,8 +60,11 @@ class PostRemoteMediator(
                         val response = socialApi.getShorts(page = page, categoryId = categoryId)
                         ensureSuccessful(response)
                         val data = response.body() ?: emptyList()
-                        val mapped = data.map { mapApiPost(it) }
-                        mapped.filter { it.type == PostType.SHORT }
+                        val mapped = data.map { mapApiPost(it, "short") }
+                        mapped.filter { 
+                            (it.type == PostType.SHORT || it.type == PostType.INTERNAL_AD || it.type == PostType.NATIVE_AD || it.type == PostType.AD_UNIT) &&
+                            (it.mediaUrls.isNotEmpty() || it.type == PostType.AD_UNIT)
+                        }
                     }
                     "media" -> {
                         val response = socialApi.getMediaFeed(page = page, categoryId = categoryId)
@@ -82,9 +85,12 @@ class PostRemoteMediator(
                 val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = apiFeedType, categoryId = categoryId)
                 ensureSuccessful(response)
                 val data = response.body() ?: emptyList()
-                val mapped = data.map { mapApiPost(it) }
+                val mapped = data.map { mapApiPost(it, if (apiFeedType == "short") "short" else null) }
                 if (apiFeedType == "short") {
-                    mapped.filter { it.type == PostType.SHORT }
+                    mapped.filter { 
+                        (it.type == PostType.SHORT || it.type == PostType.INTERNAL_AD || it.type == PostType.NATIVE_AD || it.type == PostType.AD_UNIT) &&
+                        (it.mediaUrls.isNotEmpty() || it.type == PostType.AD_UNIT)
+                    }
                 } else {
                     mapped
                 }
@@ -94,8 +100,19 @@ class PostRemoteMediator(
 
             appDatabase.withTransaction {
                 if (loadType == LoadType.REFRESH) {
+                    val existingPosts = appDatabase.postDao().getPostsList(dbFeedType)
+                    val now = System.currentTimeMillis()
+                    val newlyCreatedLocally = existingPosts.filter { entity ->
+                        val ts = entity.timestamp.toLongOrNull() ?: 0L
+                        (now - ts) < 300_000L // Preserve posts created in the last 5 minutes
+                    }
+
                     appDatabase.postRemoteKeysDao().clearRemoteKeys(dbFeedType)
                     appDatabase.postDao().clearPosts(dbFeedType)
+
+                    if (newlyCreatedLocally.isNotEmpty()) {
+                        appDatabase.postDao().insertPosts(newlyCreatedLocally)
+                    }
                 }
                 if (apiPosts.isNotEmpty()) {
                     val prevKey = if (page == 1) null else page - 1

@@ -51,6 +51,12 @@ class JobDetailViewModel @Inject constructor(
         }
     }
 
+    fun markClickedExternal(jobId: String) {
+        viewModelScope.launch {
+            repository.markClickedExternalLocally(jobId)
+        }
+    }
+
     fun resetApplyResult() {
         _applyResult.value = null
     }

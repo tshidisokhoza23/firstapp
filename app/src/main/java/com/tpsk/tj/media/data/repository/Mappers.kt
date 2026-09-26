@@ -88,12 +88,9 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
             itemType == "INTERNAL_AD" || apiPost.post_type == "INTERNAL_AD" -> PostType.INTERNAL_AD
             itemType == "NATIVE_AD" || apiPost.post_type == "NATIVE_AD" -> PostType.NATIVE_AD
             itemType == "AD_UNIT" || apiPost.post_type == "AD_UNIT" -> PostType.AD_UNIT
-            apiPost.post_type?.lowercase() == "short" -> PostType.SHORT
+            itemType == "short" || apiPost.post_type?.lowercase() == "short" -> PostType.SHORT
             apiPost.post_type?.lowercase() == "repost" -> PostType.REPOST
             apiPost.post_type?.lowercase() == "standard" -> PostType.POST
-            // Heuristic: if post_type is missing but it's a video on its own, it might be a short
-            // but we should be careful not to catch standard video posts.
-            // For now, only trust explicit "short" type.
             else -> PostType.POST
         },
         repliesLocked = apiPost.replies_locked,
@@ -265,3 +262,37 @@ fun PostEntity.toPost() = Post(
     originalPost = originalPost,
     updatedAt = updatedAt
 )
+
+fun mapApiSocialNotification(api: ApiSocialNotification): SocialNotificationItem {
+    val actionEnum = when (api.action_type?.uppercase(java.util.Locale.ROOT)) {
+        "LIKE" -> SocialActionType.LIKE
+        "REPLY" -> SocialActionType.REPLY
+        "REPOST" -> SocialActionType.REPOST
+        "FOLLOW" -> SocialActionType.FOLLOW
+        else -> SocialActionType.LIKE
+    }
+
+    val timeFormatted = if (api.time_ago.isNullOrBlank()) {
+        val rawTs = api.created_at
+        if (rawTs != null && rawTs > 0) {
+            val tsMs = if (rawTs < 10000000000L) rawTs * 1000 else rawTs
+            com.tpsk.tj.common.util.formatTwitterTime(tsMs.toString())
+        } else {
+            "Just now"
+        }
+    } else {
+        api.time_ago
+    }
+
+    return SocialNotificationItem(
+        id = api.id ?: java.util.UUID.randomUUID().toString(),
+        actorId = api.actor_id.orEmpty(),
+        actorName = api.actor_name.orEmpty().ifBlank { "Someone" },
+        actionText = api.action_text.orEmpty().ifBlank { "interacted with your profile" },
+        actionType = actionEnum,
+        postSnippet = api.post_snippet,
+        targetPostId = api.target_post_id,
+        timeAgo = timeFormatted,
+        isRead = api.is_read
+    )
+}

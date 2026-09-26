@@ -42,20 +42,23 @@ fun ShortCommentsOverlay(
 ) {
     var replyText by remember(shortId) { mutableStateOf("") }
     var replyingTo by remember(shortId) { mutableStateOf<Post?>(null) }
+    var isSubmitting by remember(shortId) { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.3f))
+            .background(Color.Black.copy(alpha = 0.5f))
             .clickable { onDismiss() }
     ) {
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.65f)
+                .fillMaxHeight(0.85f)
+                .navigationBarsPadding()
+                .imePadding()
                 .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                .background(MaterialTheme.colorScheme.surface)
+                .background(Color(0xFF1A1C1E))
                 .clickable(enabled = false) {}
         ) {
             // Drag handle / Notch
@@ -66,34 +69,41 @@ fun ShortCommentsOverlay(
                     .width(40.dp)
                     .height(4.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                    .background(Color.White.copy(alpha = 0.3f))
             )
 
             // Header
             Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Comments", 
-                    color = MaterialTheme.colorScheme.onSurface, 
+                    color = Color.White, 
                     fontWeight = FontWeight.Bold, 
                     fontSize = 16.sp
                 )
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Close, "Close", tint = Color.White, modifier = Modifier.size(20.dp))
                 }
             }
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
             // List
             Box(modifier = Modifier.weight(1f)) {
                 DataStateHandler(
                     resource = repliesState,
-                    onLoading = { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) } },
-                    onEmpty = { Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No comments yet", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                    onLoading = { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = AppAccent) } },
+                    onEmpty = { Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No comments yet. Be the first!", color = Color.White.copy(alpha = 0.6f)) } }
                 ) { replies: List<Post> ->
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
                         items(replies) { reply ->
                             CommentItem(
                                 comment = reply,
@@ -105,45 +115,26 @@ fun ShortCommentsOverlay(
                 }
             }
 
-            // Quick Reaction Bar (Matching the image)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                val reactions = listOf("❤️", "👏", "🔥", "🙌", "😢", "😍", "😲", "😂")
-                reactions.forEach { emoji ->
-                    Text(
-                        text = emoji,
-                        fontSize = 24.sp,
-                        modifier = Modifier.clickable { onSendReply(emoji, null) }
-                    )
-                }
-            }
-
             // Input field
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = Color(0xFF24272B),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = bottomPadding)
-                    .navigationBarsPadding()
-                    .imePadding()
             ) {
                 Column {
                     if (replyingTo != null) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.Black.copy(alpha = 0.1f))
+                                .background(Color.White.copy(alpha = 0.05f))
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Replying to @${replyingTo?.authorHandle}", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                            Text("Replying to @${replyingTo?.authorHandle}", color = AppAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             IconButton(onClick = { replyingTo = null }, modifier = Modifier.size(20.dp)) {
-                                Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(Icons.Default.Close, null, tint = Color.White.copy(alpha = 0.7f))
                             }
                         }
                     }
@@ -151,21 +142,34 @@ fun ShortCommentsOverlay(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val formattedUserAvatar = remember(currentUserAvatarUrl) {
+                            com.tpsk.tj.common.util.MediaUtils.formatUrl(currentUserAvatarUrl)
+                        }
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                                .background(AppAccent.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            AsyncImage(
-                                model = currentUserAvatarUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
+                            if (!formattedUserAvatar.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = formattedUserAvatar,
+                                    contentDescription = "User Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = AppAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                         
                         Spacer(Modifier.width(10.dp))
@@ -173,31 +177,43 @@ fun ShortCommentsOverlay(
                         OutlinedTextField(
                             value = replyText,
                             onValueChange = { replyText = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("Add a comment...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minHeight = 48.dp),
+                            placeholder = { Text("Add a comment...", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp) },
                             singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
                             shape = RoundedCornerShape(24.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                cursorColor = MaterialTheme.colorScheme.primary
+                                focusedBorderColor = AppAccent,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                                unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = AppAccent
                             )
                         )
                         
                         if (replyText.isNotBlank()) {
                             Spacer(Modifier.width(8.dp))
                             IconButton(
+                                enabled = !isSubmitting,
                                 onClick = {
-                                    onSendReply(replyText, replyingTo?.id)
-                                    replyText = ""
-                                    replyingTo = null
+                                    if (!isSubmitting) {
+                                        isSubmitting = true
+                                        onSendReply(replyText, replyingTo?.id)
+                                        replyText = ""
+                                        replyingTo = null
+                                        isSubmitting = false
+                                    }
                                 }
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.AutoMirrored.Filled.Send, "Send", tint = if (isSubmitting) AppAccent.copy(alpha = 0.5f) else AppAccent)
                             }
                         }
                     }
@@ -213,17 +229,39 @@ fun CommentItem(
     onLike: () -> Unit,
     onReplyClick: () -> Unit
 ) {
-    LaunchedEffect(comment.id) {
-        android.util.Log.d("ShortCommentsSheet", "Rendering comment: ${comment.id} by ${comment.authorHandle}")
-    }
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))) {
-            AsyncImage(
-                model = comment.authorAvatarUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        val formattedAuthorAvatar = remember(comment.authorAvatarUrl) {
+            com.tpsk.tj.common.util.MediaUtils.formatUrl(comment.authorAvatarUrl)
+        }
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!formattedAuthorAvatar.isNullOrBlank()) {
+                AsyncImage(
+                    model = formattedAuthorAvatar,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                val initial = comment.authorName.take(1).uppercase(java.util.Locale.ROOT).ifBlank {
+                    comment.authorHandle.take(1).uppercase(java.util.Locale.ROOT).ifBlank { "U" }
+                }
+                Text(
+                    text = initial,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
         }
         
         Spacer(Modifier.width(12.dp))
@@ -231,25 +269,29 @@ fun CommentItem(
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = comment.authorHandle, 
-                    color = MaterialTheme.colorScheme.onSurface, 
+                    text = "@${comment.authorHandle}", 
+                    color = Color.White, 
                     fontSize = 13.sp, 
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = comment.timestamp.ifBlank { "Just now" }, 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    text = " • ${comment.timestamp.ifBlank { "Just now" }}", 
+                    color = Color.White.copy(alpha = 0.5f), 
                     fontSize = 12.sp
                 )
             }
             Spacer(Modifier.height(2.dp))
-            Text(comment.content, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, lineHeight = 18.sp)
+            Text(
+                text = comment.content, 
+                color = Color.White.copy(alpha = 0.9f), 
+                fontSize = 14.sp, 
+                lineHeight = 18.sp
+            )
             
-            Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Reply", 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    text = "Reply", 
+                    color = Color.White.copy(alpha = 0.5f), 
                     fontSize = 12.sp, 
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { onReplyClick() }
@@ -260,13 +302,19 @@ fun CommentItem(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             IconButton(onClick = onLike, modifier = Modifier.size(24.dp)) {
                 Icon(
-                    if (comment.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    null,
-                    tint = if (comment.isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
+                    imageVector = if (comment.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = "Like",
+                    tint = if (comment.isLiked) Color.Red else Color.White.copy(alpha = 0.5f),
                     modifier = Modifier.size(18.dp)
                 )
             }
-            Text(comment.likes.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+            if (comment.likes > 0) {
+                Text(
+                    text = comment.likes.toString(), 
+                    color = Color.White.copy(alpha = 0.5f), 
+                    fontSize = 11.sp
+                )
+            }
         }
     }
 }

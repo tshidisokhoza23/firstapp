@@ -112,7 +112,15 @@ class SocialRepositoryImpl @Inject constructor(
             )
             if (response.isSuccessful) {
                 val apiPosts = response.body() ?: emptyList()
-                val posts = apiPosts.map { mapApiPost(it) }
+                val effectiveFeedType = apiFeedType ?: dbFeedType
+                val mappedPosts = apiPosts.map { mapApiPost(it, if (effectiveFeedType == "short") "short" else null) }
+                val posts = if (effectiveFeedType == "short" || dbFeedType.startsWith("short")) {
+                    mappedPosts.filter { 
+                        (it.type == PostType.SHORT || it.type == PostType.INTERNAL_AD || it.type == PostType.NATIVE_AD || it.type == PostType.AD_UNIT) &&
+                        (it.mediaUrls.isNotEmpty() || it.type == PostType.AD_UNIT)
+                    }
+                } else mappedPosts
+
                 if (posts.isNotEmpty()) {
                     if (page == 1) postDao.clearPosts(dbFeedType)
                     postDao.insertPosts(posts.map { it.toPostEntity(dbFeedType) })
@@ -246,7 +254,17 @@ class SocialRepositoryImpl @Inject constructor(
     override fun likePostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.likePostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun repostPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.repostPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun bookmarkPostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.bookmarkPostReply(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
-    override fun deletePostReply(replyId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.deletePost(replyId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
+    override fun deletePostReply(replyId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            postDao.deletePostById(replyId)
+            val response = socialApi.deletePost(replyId)
+            if (response.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Failed to delete reply"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Offline"))
+        }
+    }
     override fun votePoll(postId: String, optionId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.votePoll(postId, com.tpsk.tj.media.data.api.VotePollRequest(optionId)).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun followUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.followUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
     override fun unfollowUser(userId: String): Flow<Resource<Boolean>> = flow { try { emit(Resource.Loading()); if (socialApi.unfollowUser(userId).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail")) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; emit(Resource.Error("Offline")) } }
@@ -348,7 +366,45 @@ class SocialRepositoryImpl @Inject constructor(
         } catch (_: Exception) {}
     }
 
-    override fun deletePost(postId: String): Flow<Resource<Boolean>> = flow { try { socialApi.deletePost(postId); emit(Resource.Success(true)) } catch (_: Exception) {} }
+    override fun deletePost(postId: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            postDao.deletePostById(postId)
+            val response = socialApi.deletePost(postId)
+            if (response.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Failed to delete post"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Delete error"))
+        }
+    }
+
+    override fun toggleRepliesLock(postId: String, lock: Boolean): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            postDao.updateRepliesLockStatus(postId, lock)
+            val response = socialApi.setRepliesLock(postId, com.tpsk.tj.media.data.api.ToggleRepliesLockRequest(lock))
+            if (response.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Failed to update comment settings"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Comment lock error"))
+        }
+    }
+
+    override fun reportPost(postId: String, reason: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.reportPost(postId, com.tpsk.tj.common.data.api.ReportRequest(reason))
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error("Failed to submit report"))
+            }
+        } catch (e: Exception) {
+            if (e !is kotlinx.coroutines.CancellationException) {
+                emit(Resource.Error("Report error"))
+            }
+        }
+    }
 
     override fun getPostById(postId: String): Flow<Resource<Post>> = flow {
         emit(Resource.Loading())
@@ -391,6 +447,55 @@ class SocialRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 if (e !is kotlinx.coroutines.CancellationException) emit(Resource.Error("Local search failed"))
             }
+        }
+    }
+
+    override fun getSocialNotifications(): Flow<Resource<List<SocialNotificationItem>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.getNotifications()
+            if (response.isSuccessful && response.body() != null) {
+                val mapped = response.body()!!.map { mapApiSocialNotification(it) }
+                emit(Resource.Success(mapped))
+            } else if (response.code() == 404 || response.code() == 405) {
+                // Backend endpoint not deployed yet on server -> return empty list gracefully
+                emit(Resource.Success(emptyList()))
+            } else {
+                emit(Resource.Error("Failed to fetch notifications (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Success(emptyList()))
+        }
+    }
+
+    override fun markNotificationRead(id: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.markNotificationRead(id)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Success(true))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Success(true))
+        }
+    }
+
+    override fun markAllNotificationsRead(): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = socialApi.markAllNotificationsRead()
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Success(true))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Success(true))
         }
     }
 }

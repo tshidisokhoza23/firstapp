@@ -47,18 +47,22 @@ fun ShortsList(
 
     val context = LocalContext.current
     val validPreloadedAds = preloadedAds.filterIsInstance<NativeAd>()
-    val totalPageCount = if (shorts.itemCount > 0) {
-        shorts.itemCount + minOf(validPreloadedAds.size, shorts.itemCount / 4)
-    } else 0
+    val adCount = minOf(validPreloadedAds.size, shorts.itemCount / 4)
+    val totalPageCount = shorts.itemCount + adCount
 
     val pagerState = rememberPagerState(pageCount = { totalPageCount })
     
-    fun getShortIndex(page: Int): Int {
-        val adsBefore = page / 5
-        return page - adsBefore
+    fun isAdPage(page: Int): Boolean {
+        if (adCount == 0) return false
+        val adIndex = page / 5
+        return page % 5 == 4 && adIndex < adCount
     }
 
-    fun isAdPage(page: Int): Boolean = page % 5 == 4
+    fun getShortIndex(page: Int): Int {
+        if (adCount == 0) return page
+        val adsBefore = minOf(page / 5, adCount)
+        return page - adsBefore
+    }
 
     LaunchedEffect(initialShortId) {
         if (initialShortId != null && shorts.itemCount > 0) {
@@ -72,7 +76,8 @@ fun ShortsList(
             }
             if (foundShortIndex != -1) {
                 // Map short index back to page index
-                val pageIndex = foundShortIndex + (foundShortIndex / 4)
+                val adsBefore = if (adCount > 0) foundShortIndex / 4 else 0
+                val pageIndex = foundShortIndex + minOf(adsBefore, adCount)
                 if (pageIndex < totalPageCount) {
                     pagerState.scrollToPage(pageIndex)
                     onShortDisplayed()

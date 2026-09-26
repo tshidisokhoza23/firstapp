@@ -16,11 +16,17 @@ interface PostDao {
     @Query("SELECT * FROM posts WHERE feedType = :feedType ORDER BY timestamp DESC")
     fun getPostsPaging(feedType: String): PagingSource<Int, PostEntity>
 
+    @Query("SELECT * FROM posts WHERE feedType = :feedType")
+    suspend fun getPostsList(feedType: String): List<PostEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPosts(posts: List<PostEntity>)
 
     @Query("DELETE FROM posts WHERE feedType = :feedType")
     suspend fun clearPosts(feedType: String)
+
+    @Query("DELETE FROM posts WHERE id = :postId")
+    suspend fun deletePostById(postId: String)
 
     @Query("DELETE FROM posts")
     suspend fun clearAllPosts()
@@ -51,6 +57,9 @@ interface PostDao {
 
     @Query("UPDATE posts SET isBookmarked = :isBookmarked WHERE id = :postId")
     suspend fun updateBookmarkStatus(postId: String, isBookmarked: Boolean)
+
+    @Query("UPDATE posts SET repliesLocked = :repliesLocked WHERE id = :postId")
+    suspend fun updateRepliesLockStatus(postId: String, repliesLocked: Boolean)
 
     @Query("UPDATE posts SET isAuthorFollowed = :isFollowed WHERE authorId = :authorId")
     suspend fun updateAuthorFollowStatus(authorId: String, isFollowed: Boolean)

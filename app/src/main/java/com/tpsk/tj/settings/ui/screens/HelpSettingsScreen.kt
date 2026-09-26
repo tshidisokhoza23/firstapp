@@ -30,6 +30,7 @@ import com.tpsk.tj.settings.ui.viewmodel.HelpSettingsViewModel
 @Composable
 fun HelpSettingsScreen(
     onBack: () -> Unit,
+    onNavigateToTerms: () -> Unit = {},
     viewModel: HelpSettingsViewModel = hiltViewModel()
 ) {
     val appVersion by viewModel.appVersion.collectAsState()
@@ -96,17 +97,7 @@ fun HelpSettingsScreen(
                 icon = Icons.Default.Description,
                 title = "Terms and Privacy Policy",
                 subtitle = "Read our terms and privacy policy",
-                onClick = {
-                    try {
-                        val intent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://firstapp.com/privacy")
-                        )
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                        android.widget.Toast.makeText(context, "Unable to open privacy policy link", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
+                onClick = onNavigateToTerms
             )
             HelpItem(Icons.Default.Info, "App info", "Version $appVersion • TPSK", onClick = onAppInfoClick)
 

@@ -63,6 +63,18 @@ data class Post(
     val updatedAt: String? = null
 )
 
+fun Post.isOwnedBy(userId: String?, userHandle: String? = null): Boolean {
+    val cleanUserId = userId?.trim().orEmpty()
+    val cleanUserHandle = userHandle?.trim().orEmpty()
+    val authorId = this.authorId.trim()
+    val authorHandle = this.authorHandle.trim()
+
+    val matchId = cleanUserId.isNotEmpty() && authorId.isNotEmpty() && cleanUserId == authorId
+    val matchHandle = cleanUserHandle.isNotEmpty() && authorHandle.isNotEmpty() && cleanUserHandle.equals(authorHandle, ignoreCase = true)
+
+    return matchId || matchHandle
+}
+
 data class PostPoll(
     val expiresAt: String,
     val options: List<PollOption>,

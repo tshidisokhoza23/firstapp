@@ -32,7 +32,7 @@ fun ShareStoryScreen(
     onBack: () -> Unit,
     onPost: (content: String, url: String, type: String, privacy: String) -> Unit
 ) {
-    var selectedPrivacy by remember { mutableStateOf("Everyone") }
+    var selectedPrivacy by remember { mutableStateOf("Contacts") }
     var allowScreenshots by remember { mutableStateOf(true) }
     var postToProfile by remember { mutableStateOf(true) }
     var selectedAlbum by remember { mutableStateOf("All Stories") }
@@ -64,7 +64,7 @@ fun ShareStoryScreen(
                 Button(
                     onClick = {
                         val privacy = when (selectedPrivacy) {
-                            "Everyone" -> "everyone"
+                            "ContactsExcept" -> "my_contacts_except"
                             "Friends" -> "close_friends"
                             "Selected" -> "selected"
                             else -> "contacts"
@@ -117,34 +117,26 @@ fun ShareStoryScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 PrivacyOption(
-                    title = "Everyone",
-                    subtitle = "exclude people >",
-                    icon = Icons.Default.Campaign,
-                    iconColor = Color(0xFF2196F3),
-                    selected = selectedPrivacy == "Everyone",
-                    onClick = { selectedPrivacy = "Everyone" }
-                )
-                PrivacyOption(
-                    title = "My Contacts",
-                    subtitle = "exclude people >",
+                    title = "All Contacts",
+                    subtitle = "Visible to all contacts",
                     icon = Icons.Default.Person,
-                    iconColor = Color(0xFF9C27B0),
+                    iconColor = Color(0xFF2196F3),
                     selected = selectedPrivacy == "Contacts",
                     onClick = { selectedPrivacy = "Contacts" }
                 )
                 PrivacyOption(
-                    title = "Close Friends",
-                    subtitle = "edit list >",
-                    icon = Icons.Default.Star,
-                    iconColor = Color(0xFF4CAF50),
-                    selected = selectedPrivacy == "Friends",
-                    onClick = { selectedPrivacy = "Friends" }
+                    title = "All Contacts except…",
+                    subtitle = "exclude specific people >",
+                    icon = Icons.Default.GroupOff,
+                    iconColor = Color(0xFF9C27B0),
+                    selected = selectedPrivacy == "ContactsExcept",
+                    onClick = { selectedPrivacy = "ContactsExcept" }
                 )
                 PrivacyOption(
-                    title = "Selected Users",
-                    subtitle = "edit list >",
-                    icon = Icons.Default.Group,
-                    iconColor = Color(0xFFFF9800),
+                    title = "Only share with…",
+                    subtitle = "select specific people >",
+                    icon = Icons.Default.Star,
+                    iconColor = Color(0xFF4CAF50),
                     selected = selectedPrivacy == "Selected",
                     onClick = { selectedPrivacy = "Selected" }
                 )

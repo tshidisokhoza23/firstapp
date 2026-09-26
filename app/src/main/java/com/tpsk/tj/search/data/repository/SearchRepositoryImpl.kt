@@ -173,7 +173,10 @@ class SearchRepositoryImpl @Inject constructor(
             requirements = apiJob.requirements ?: emptyList(),
             isVerified = apiJob.is_verified,
             isApplied = apiJob.is_applied,
-            isSaved = apiJob.is_saved
+            isSaved = apiJob.is_saved,
+            isExternal = apiJob.is_external ?: false,
+            sourcePartner = apiJob.source_partner,
+            trackingApplyUrl = apiJob.getTrackingUrl()
         )
     }
 }

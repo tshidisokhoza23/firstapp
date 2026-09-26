@@ -88,8 +88,11 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
             JobDetailScreen(
                 job = currentJob,
                 onBack = { navController.popBackStack() },
+                onExternalApplyClick = { id ->
+                    jobDetailViewModel.markClickedExternal(id)
+                },
                 onApply = {
-                    if (currentJob.isApplied) {
+                    if (currentJob.isApplied || currentJob.hasAppliedInternal) {
                         android.widget.Toast.makeText(context, "Already applied", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         jobDetailViewModel.applyForJob(currentJob.id, currentJob.title, currentJob.companyName)

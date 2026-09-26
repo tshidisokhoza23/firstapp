@@ -15,6 +15,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
 import coil.memory.MemoryCache
+import coil.disk.DiskCache
 
 import androidx.work.Configuration
 import androidx.hilt.work.HiltWorkerFactory
@@ -46,7 +47,13 @@ class FirstApp : Application(), ImageLoaderFactory, Configuration.Provider {
             }
             .memoryCache {
                 MemoryCache.Builder(this)
-                    .maxSizePercent(0.15)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(250L * 1024 * 1024)
                     .build()
             }
             .crossfade(true)

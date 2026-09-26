@@ -30,6 +30,7 @@ import com.tpsk.tj.media.model.DefaultCategories
 @Composable
 fun CompleteProfileScreen(
     onCompleteSuccess: () -> Unit,
+    onNavigateToTerms: () -> Unit = {},
     viewModel: AuthViewModel
 ) {
     val context = LocalContext.current
@@ -170,6 +171,16 @@ fun CompleteProfileScreen(
                     fontSize = 14.sp
                 )
             }
+
+            Text(
+                text = "By clicking Finish Setup, you agree to FirstApp's Terms of Service & EULA, and acknowledge our Privacy Policy.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .clickable(onClick = onNavigateToTerms)
+            )
 
             Button(
                 onClick = {

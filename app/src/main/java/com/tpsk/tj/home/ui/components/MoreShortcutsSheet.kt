@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
@@ -31,7 +32,8 @@ data class ShortcutItem(
     val icon: ImageVector,
     val color: Color,
     val route: String,
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
+    val hasBadge: Boolean = false
 )
 
 @Composable
@@ -43,7 +45,7 @@ fun MoreShortcutsSheet(
 ) {
     val shortcuts = java.util.Arrays.asList(
         ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
-        ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route, isEnabled = true),
+        ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route, isEnabled = false),
         ShortcutItem("Stream", Icons.Default.MusicNote, Color(0xFF9C27B0), Screen.Stream.route, isEnabled = false),
         ShortcutItem("Ride", Icons.Default.DirectionsCar, Color(0xFF00BCD4), Screen.Ride.route, isEnabled = false)
     )
@@ -128,19 +130,32 @@ fun ShortcutCell(item: ShortcutItem, onClick: () -> Unit) {
             }
         }
     ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(itemColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
+        BadgedBox(
+            badge = {
+                if (item.hasBadge) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color.Red)
+                    )
+                }
+            }
         ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = item.label,
-                tint = itemColor,
-                modifier = Modifier.size(28.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(itemColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = item.label,
+                    tint = itemColor,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(12.dp))
         Text(

@@ -156,6 +156,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val storyViewModel: StoryViewModel = hiltViewModel()
         val postResult by storyViewModel.postResult.collectAsState()
         val context = androidx.compose.ui.platform.LocalContext.current
+        val currentUser = com.tpsk.tj.LocalCurrentUser.current
 
         LaunchedEffect(postResult) {
             when (val res = postResult) {
@@ -166,6 +167,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     if (!popped) {
                         navController.popBackStack(Screen.ShareStory.route, true)
                     }
+                    navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = true))
                 }
                 is com.tpsk.tj.common.util.Resource.Error -> {
                     android.widget.Toast.makeText(context, res.message ?: "Failed to post story", android.widget.Toast.LENGTH_LONG).show()

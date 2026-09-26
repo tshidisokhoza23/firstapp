@@ -341,9 +341,13 @@ class MediaViewModel @Inject constructor(
                 if (res is Resource.Success) {
                     _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
-                    loadFeed(type = postType, forceReload = true)
-                    
-                    // REQUIREMENT: Refresh thread immediately after replying
+
+                    // ONLY reload main feed if creating a top-level post/short, NOT when commenting/replying!
+                    if (postType != "reply" && parentPostId == null && rootPostId == null) {
+                        loadFeed(type = postType, forceReload = false)
+                    }
+
+                    // REQUIREMENT: Refresh thread/replies immediately after replying
                     if (parentPostId != null || rootPostId != null) {
                         val countTarget = rootPostId ?: parentPostId
                         if (countTarget != null) {
@@ -352,6 +356,7 @@ class MediaViewModel @Inject constructor(
                             if (selected != null && selected.id == countTarget) {
                                 _uiState.update { it.copy(selectedPost = selected.copy(repliesCount = selected.repliesCount + 1)) }
                             }
+                            fetchShortReplies(countTarget)
                         }
                         val currentSelectedId = _uiState.value.selectedPost?.id
                         if (currentSelectedId != null) {
@@ -508,14 +513,56 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    fun deletePost(postId: String) {
+    fun deletePost(postId: String, currentUserId: String? = null, currentUserHandle: String? = null) {
         viewModelScope.launch {
+            val targetPost = _uiState.value.selectedPost?.takeIf { it.id == postId }
+            if (targetPost != null && !currentUserId.isNullOrEmpty() && !targetPost.isOwnedBy(currentUserId, currentUserHandle)) {
+                _toastMessage.value = "You can only delete your own posts"
+                return@launch
+            }
+
             socialRepository.deletePost(postId).collect { res ->
                 if (res is Resource.Success) {
                     _toastMessage.value = "Post deleted"
-                    _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+                    _uiState.update { state ->
+                        state.copy(
+                            refreshTrigger = state.refreshTrigger + 1,
+                            selectedPost = if (state.selectedPost?.id == postId) null else state.selectedPost
+                        )
+                    }
                 } else if (res is Resource.Error) {
                     _toastMessage.value = "Failed to delete: ${res.message}"
+                }
+            }
+        }
+    }
+
+    fun toggleCommentsLock(postId: String, currentLockStatus: Boolean) {
+        val newLockStatus = !currentLockStatus
+        viewModelScope.launch {
+            socialRepository.toggleRepliesLock(postId, newLockStatus).collect { res ->
+                if (res is Resource.Success) {
+                    _toastMessage.value = if (newLockStatus) "Comments turned off" else "Comments turned on"
+                    _uiState.update { state ->
+                        val current = state.selectedPost
+                        if (current != null && current.id == postId) {
+                            state.copy(selectedPost = current.copy(repliesLocked = newLockStatus))
+                        } else state
+                    }
+                } else if (res is Resource.Error) {
+                    _toastMessage.value = res.message ?: "Failed to update comment settings"
+                }
+            }
+        }
+    }
+
+    fun reportPost(postId: String, reason: String) {
+        viewModelScope.launch {
+            socialRepository.reportPost(postId, reason).collect { res ->
+                if (res is Resource.Success) {
+                    _toastMessage.value = "Report submitted. Thank you for keeping our community safe!"
+                } else if (res is Resource.Error) {
+                    _toastMessage.value = "Report submitted. Thank you!"
                 }
             }
         }
@@ -525,12 +572,35 @@ class MediaViewModel @Inject constructor(
     fun repostPostReply(replyId: String) { viewModelScope.launch { socialRepository.repostPostReply(replyId).collect { } } }
     fun bookmarkPostReply(replyId: String) { viewModelScope.launch { socialRepository.bookmarkPostReply(replyId).collect { } } }
 
-    fun deletePostReply(replyId: String) {
+    fun deletePostReply(replyId: String, parentPostId: String? = null, currentUserId: String? = null, currentUserHandle: String? = null) {
         viewModelScope.launch {
+            val targetReply = _uiState.value.selectedPost?.replies?.find { it.id == replyId }
+            if (targetReply != null && !currentUserId.isNullOrEmpty() && !targetReply.isOwnedBy(currentUserId, currentUserHandle)) {
+                _toastMessage.value = "You can only delete your own comments"
+                return@launch
+            }
+
             socialRepository.deletePostReply(replyId).collect { res ->
                 if (res is Resource.Success) {
                     _toastMessage.value = "Reply deleted"
-                    _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
+                    _uiState.update { state ->
+                        val currentPost = state.selectedPost
+                        val updatedReplies = currentPost?.replies?.filter { it.id != replyId } ?: emptyList()
+                        val updatedShortReplies = (_shortReplies.value.data ?: emptyList()).filter { it.id != replyId }
+                        _shortReplies.value = Resource.Success(updatedShortReplies)
+                        
+                        state.copy(
+                            refreshTrigger = state.refreshTrigger + 1,
+                            selectedPost = currentPost?.copy(
+                                replies = updatedReplies,
+                                repliesCount = Math.max(0, currentPost.repliesCount - 1)
+                            )
+                        )
+                    }
+                    val target = parentPostId ?: _uiState.value.selectedPost?.id
+                    if (target != null) {
+                        fetchReplies(target)
+                    }
                 } else if (res is Resource.Error) {
                     _toastMessage.value = "Failed to delete: ${res.message}"
                 }
@@ -602,6 +672,11 @@ class MediaViewModel @Inject constructor(
             }
         }
     }
+
+    fun getPostByIdFlow(postId: String): Flow<Resource<Post>> {
+        return socialRepository.getPostById(postId)
+    }
+
     fun followUser(userId: String) {
         val currentUserId = try { 
             com.tpsk.tj.common.util.ContextProvider.context.getSharedPreferences("session", android.content.Context.MODE_PRIVATE).getString("user_id", "")

@@ -137,19 +137,19 @@ fun ShortItem(
         }
     }
 
-    val exoPlayer = remember(videoUrl, isVisible) {
-        if (isVisible && videoUrl != null) {
+    val exoPlayer = remember(videoUrl) {
+        if (videoUrl != null) {
             ShortsVideoCache.acquirePlayer(context, videoUrl)
         } else {
             null
         }
     }
 
-    var isVideoReady by remember(short.id, videoUrl, isVisible) {
-        mutableStateOf(false)
+    var isVideoReady by remember(short.id, videoUrl) {
+        mutableStateOf(exoPlayer?.playbackState == Player.STATE_READY)
     }
-    var isBuffering by remember(short.id, videoUrl, isVisible) {
-        mutableStateOf(isVisible && videoUrl != null)
+    var isBuffering by remember(short.id, videoUrl) {
+        mutableStateOf(exoPlayer != null && exoPlayer.playbackState == Player.STATE_BUFFERING)
     }
     var playerErrorMessage by remember(short.id) { mutableStateOf<String?>(null) }
     var currentPosition by remember { mutableLongStateOf(0L) }
@@ -172,28 +172,19 @@ fun ShortItem(
     }
 
     LaunchedEffect(isPlaying, isAppInBackground, isVisible, isGlobalPaused) {
-        exoPlayer?.setPlayWhenReady(isPlaying && !isAppInBackground && isVisible && !isGlobalPaused)
+        exoPlayer?.playWhenReady = isPlaying && !isAppInBackground && isVisible && !isGlobalPaused
     }
 
-    LaunchedEffect(exoPlayer, videoUrl, isVisible) {
+    DisposableEffect(exoPlayer, videoUrl) {
         val player = exoPlayer
-        if (isVisible && player != null && videoUrl != null) {
-            if (player.currentMediaItem?.localConfiguration?.uri.toString() != videoUrl) {
-                player.setMediaItem(MediaItem.fromUri(videoUrl))
-                player.prepare()
-            }
-            isVideoReady = player.playbackState == Player.STATE_READY
-            isBuffering = player.playbackState == Player.STATE_BUFFERING
-        }
-    }
-
-    DisposableEffect(exoPlayer, videoUrl, isVisible) {
-        val player = exoPlayer
-        if (player == null || videoUrl == null || !isVisible) {
+        if (player == null || videoUrl == null) {
             isVideoReady = false
             isBuffering = false
             onDispose {}
         } else {
+            isVideoReady = player.playbackState == Player.STATE_READY
+            isBuffering = player.playbackState == Player.STATE_BUFFERING
+
             val listener = object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
@@ -226,9 +217,9 @@ fun ShortItem(
             player.addListener(listener)
             
             onDispose {
-                android.util.Log.d("ShortItem", "Releasing player for short: ${short.id}")
+                android.util.Log.d("ShortItem", "Disposing item for videoUrl: $videoUrl")
                 player.removeListener(listener)
-                ShortsVideoCache.releasePlayer(player, videoUrl)
+                ShortsVideoCache.releasePlayer(videoUrl)
             }
         }
     }
@@ -570,7 +561,7 @@ fun ShortItem(
             if (short.type == com.tpsk.tj.media.model.PostType.INTERNAL_AD) {
                 FloatingVideoAdOverlay(
                     adManager = adManager,
-                    adUnitId = "ca-app-pub-3940256099942544/2247696110", // AdMob Native Test ID
+                    adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_SHORTS_ID,
                     isVisible = isVisible && showAdOverlay,
                     onClose = { showAdOverlay = false },
                     modifier = Modifier.align(Alignment.Center)

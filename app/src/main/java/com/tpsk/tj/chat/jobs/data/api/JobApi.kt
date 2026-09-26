@@ -7,7 +7,11 @@ import retrofit2.http.*
 
 interface JobApi {
     @GET("jobs")
-    suspend fun getJobs(@Query("page") page: Int = 1): Response<JobsResponse>
+    suspend fun getJobs(
+        @Query("page") page: Int = 1,
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int = 20
+    ): Response<JobsResponse>
 
     @GET("jobs/search")
     suspend fun search(@Query("query") query: String): Response<JobsResponse>
@@ -40,7 +44,10 @@ interface JobApi {
     suspend fun getSavedJobs(): Response<JobsResponse>
 }
 
-data class JobsResponse(val jobs: List<ApiJob>)
+data class JobsResponse(
+    val jobs: List<ApiJob>,
+    val next_cursor: String? = null
+)
 data class JobApplicationsResponse(val applications: List<ApiJobApplication>)
 data class ConversationResponse(val conversation_id: String)
 data class CreateJobRequest(val title: String, val description: String, val category: String, val skills: List<String>, val duration_days: Int)
@@ -52,15 +59,24 @@ data class ApiJob(
     val company_logo_url: String?,
     val location: String,
     val salary_range: String?,
-    val job_type: String,
+    val job_type: String?,
     val posted_time: Long,
-    val description: String,
+    val description: String?,
     val requirements: List<String>?,
     val is_verified: Boolean,
     val created_by: String?,
     val is_applied: Boolean,
-    val is_saved: Boolean
+    val is_saved: Boolean,
+    val is_external: Boolean? = false,
+    val source_partner: String? = null,
+    val apply_redirect_url: String? = null,
+    val tracking_apply_url: String? = null,
+    val apply_url: String? = null,
+    val has_applied_internal: Boolean? = false,
+    val has_clicked_external: Boolean? = false
 ) {
+    fun getTrackingUrl(): String? = apply_redirect_url ?: tracking_apply_url ?: apply_url
+
     fun toModel(): com.tpsk.tj.chat.jobs.model.Job = com.tpsk.tj.chat.jobs.model.Job(
         id = id,
         title = title,
@@ -69,13 +85,18 @@ data class ApiJob(
         location = location,
         logoColor = androidx.compose.ui.graphics.Color(0xFF2196F3), 
         salaryRange = salary_range ?: "",
-        jobType = job_type,
+        jobType = job_type ?: "Full-time",
         postedTime = posted_time,
-        description = description,
+        description = description ?: "",
         requirements = requirements ?: emptyList(),
         isVerified = is_verified,
-        isApplied = is_applied,
-        isSaved = is_saved
+        isApplied = is_applied || (has_applied_internal ?: false),
+        isSaved = is_saved,
+        isExternal = is_external ?: false,
+        sourcePartner = source_partner,
+        trackingApplyUrl = getTrackingUrl(),
+        hasAppliedInternal = is_applied || (has_applied_internal ?: false),
+        hasClickedExternal = has_clicked_external ?: false
     )
 }
 

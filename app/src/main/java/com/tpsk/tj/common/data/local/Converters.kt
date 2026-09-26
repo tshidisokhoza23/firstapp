@@ -44,7 +44,7 @@ class Converters {
 
     @TypeConverter
     fun toStringList(value: String): List<String>? {
-        val type = object : TypeToken<List<String>>() {}.type
+        val type = TypeToken.getParameterized(List::class.java, String::class.java).type
         return gson.fromJson(value, type)
     }
 
@@ -53,7 +53,7 @@ class Converters {
 
     @TypeConverter
     fun toIntList(value: String): List<Int>? {
-        val type = object : TypeToken<List<Int>>() {}.type
+        val type = TypeToken.getParameterized(List::class.java, Int::class.java).type
         return gson.fromJson(value, type)
     }
 
@@ -75,7 +75,7 @@ class Converters {
     @TypeConverter
     fun toPostList(value: String): List<Post>? {
         return try {
-            val type = object : TypeToken<List<Post>>() {}.type
+            val type = TypeToken.getParameterized(List::class.java, Post::class.java).type
             gson.fromJson(value, type)
         } catch (e: Exception) {
             emptyList()
@@ -88,7 +88,7 @@ class Converters {
     @TypeConverter
     fun toStoryItemList(value: String): List<StoryItem>? {
         return try {
-            val type = object : TypeToken<List<StoryItem>>() {}.type
+            val type = TypeToken.getParameterized(List::class.java, StoryItem::class.java).type
             gson.fromJson(value, type)
         } catch (e: Exception) {
             emptyList()
@@ -101,7 +101,7 @@ class Converters {
     @TypeConverter
     fun toReactionsMap(value: String): Map<String, Int>? {
         return try {
-            val type = object : TypeToken<Map<String, Int>>() {}.type
+            val type = TypeToken.getParameterized(Map::class.java, String::class.java, java.lang.Integer::class.java).type
             gson.fromJson(value, type)
         } catch (e: Exception) {
             emptyMap()

@@ -71,6 +71,7 @@ import androidx.paging.compose.itemContentType
 import androidx.paging.LoadState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.tpsk.tj.common.data.ads.AdManager
 import com.tpsk.tj.common.ui.components.DynamicAdCard
 import com.tpsk.tj.common.data.ads.AdMobManagerImpl // Temporary for non-injected usage if needed
@@ -120,6 +121,7 @@ fun MediaScreen(
     refreshTrigger: Int = 0,
     onDirectMessagesClick: () -> Unit = {},
     onSavedPostsClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
     onAdRevenueLogged: (String, Double, String) -> Unit = { _, _, _ -> },
     onShortClick: (Post) -> Unit = {},
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
@@ -127,6 +129,7 @@ fun MediaScreen(
     onProfileClick: (String) -> Unit = {},
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
+    onRequestCreatePost: (replyId: String?, quoteId: String?) -> Unit = { _, _ -> },
     categories: List<Category> = emptyList(),
     selectedCategoryId: String? = null,
     onCategorySelected: (String?) -> Unit = {},
@@ -140,11 +143,6 @@ fun MediaScreen(
             posts.refresh()
         }
     }
-
-    var showCreatePost by remember { mutableStateOf(false) }
-    var replyingToPost by remember { mutableStateOf<Post?>(null) }
-    var quotingPost by remember { mutableStateOf<Post?>(null) }
-    var replyingToReply by remember { mutableStateOf<Post?>(null) }
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -165,9 +163,11 @@ fun MediaScreen(
         }
     }
 
+    var reportingPost by remember { mutableStateOf<Post?>(null) }
+
     LaunchedEffect(onCreatePostClick) {
         if (onCreatePostClick > 0) {
-            showCreatePost = true
+            onRequestCreatePost(null, null)
         }
     }
 
@@ -194,20 +194,16 @@ fun MediaScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(backgroundBrush)) {
         androidx.activity.compose.BackHandler(
-            enabled = showCreatePost || replyingToPost != null || isSearchActive || showRepostOptions != null || showPostMoreOptions != null
+            enabled = isSearchActive || showRepostOptions != null || showPostMoreOptions != null || reportingPost != null
         ) {
             when {
                 isSearchActive -> {
                     isSearchActive = false
                     searchQuery = ""
                 }
-                showCreatePost -> showCreatePost = false
-                replyingToPost != null -> {
-                    replyingToPost = null
-                    replyingToReply = null
-                }
                 showRepostOptions != null -> showRepostOptions = null
                 showPostMoreOptions != null -> showPostMoreOptions = null
+                reportingPost != null -> reportingPost = null
             }
         }
 
@@ -231,8 +227,29 @@ fun MediaScreen(
                                     AppLogo(size = 36.dp)
                                 },
                                 navigationIcon = {
-                                    IconButton(onClick = { showTopMoreSheet = true }) {
-                                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                    BadgedBox(
+                                        badge = {
+                                            Badge(
+                                                containerColor = Color(0xFFD32F2F),
+                                                contentColor = Color.White
+                                            ) {
+                                                Text(
+                                                    text = "3",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    ) {
+                                        IconButton(onClick = { showTopMoreSheet = true }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Menu,
+                                                contentDescription = "Menu",
+                                                tint = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
                                     }
                                 },
                                 actions = {
@@ -281,8 +298,7 @@ fun MediaScreen(
                             onDeletePost = onDeletePost,
                             onMoreClick = { showPostMoreOptions = it },
                             onReplyClick = { p, r -> 
-                                replyingToPost = p
-                                replyingToReply = r
+                                onRequestCreatePost(r?.id ?: p.id, null)
                             },
                             onProfileClick = { id ->
                                 onProfileClick(id)
@@ -331,7 +347,16 @@ fun MediaScreen(
                         leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
                         modifier = Modifier.clickable {
                             showTopMoreSheet = false
-                            showCreatePost = true
+                            onRequestCreatePost(null, null)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Notifications", color = MaterialTheme.colorScheme.onSurface) },
+                        leadingContent = { Icon(Icons.Default.Notifications, null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            onNotificationsClick()
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
@@ -390,8 +415,8 @@ fun MediaScreen(
                         headlineContent = { Text("Quote Post", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) },
                         modifier = Modifier.clickable {
-                            quotingPost = targetPost
                             showRepostOptions = null
+                            onRequestCreatePost(null, targetPost.id)
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
@@ -401,74 +426,51 @@ fun MediaScreen(
 
         if (showPostMoreOptions != null) {
             val targetPost = showPostMoreOptions!!
-            val isOwnPost = targetPost.authorId == ownProfileId
-            ModalBottomSheet(
-                onDismissRequest = { showPostMoreOptions = null },
-                containerColor = MaterialTheme.colorScheme.surface
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(bottom = 32.dp)
-                ) {
-                    ListItem(
-                        headlineContent = { Text(if (targetPost.isBookmarked) "Remove Bookmark" else "Bookmark", color = MaterialTheme.colorScheme.onSurface) },
-                        leadingContent = { Icon(if (targetPost.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, null) },
-                        modifier = Modifier.clickable {
-                            onBookmarkPost(targetPost.id)
-                            showPostMoreOptions = null
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                    
-                    if (isOwnPost) {
-                        ListItem(
-                            headlineContent = { Text("Delete Post", color = MaterialTheme.colorScheme.error) },
-                            leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                            modifier = Modifier.clickable {
-                                onDeletePost(targetPost.id)
-                                showPostMoreOptions = null
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-                    } else {
-                        ListItem(
-                            headlineContent = { Text("Report Post", color = MaterialTheme.colorScheme.onSurface) },
-                            leadingContent = { Icon(Icons.Default.Report, null) },
-                            modifier = Modifier.clickable {
-                                showPostMoreOptions = null
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-                    }
-                }
-            }
+            val context = LocalContext.current
+            val isOwnPost = targetPost.isOwnedBy(ownProfileId, ownProfileHandle)
+
+            PostOptionsMenu(
+                post = targetPost,
+                isOwner = isOwnPost,
+                onReport = {
+                    reportingPost = targetPost
+                    showPostMoreOptions = null
+                },
+                onBlockUser = {
+                    userViewModel.blockUser(targetPost.authorId)
+                    android.widget.Toast.makeText(context, "Blocked @${targetPost.authorHandle}", android.widget.Toast.LENGTH_SHORT).show()
+                    showPostMoreOptions = null
+                },
+                onDelete = {
+                    mediaViewModel.deletePost(targetPost.id, ownProfileId, ownProfileHandle)
+                    showPostMoreOptions = null
+                },
+                onTurnOffComments = {
+                    mediaViewModel.toggleCommentsLock(targetPost.id, targetPost.repliesLocked)
+                    showPostMoreOptions = null
+                },
+                onShare = {
+                    onShareClick(targetPost)
+                    showPostMoreOptions = null
+                },
+                onBookmark = {
+                    onBookmarkPost(targetPost.id)
+                    showPostMoreOptions = null
+                },
+                onDismiss = { showPostMoreOptions = null }
+            )
         }
 
-        if (showCreatePost || replyingToPost != null || quotingPost != null) {
-            val rootId = replyingToPost?.let { it.rootPostId ?: it.id }
-            PostComposerDialog(
-                replyingTo = replyingToReply ?: replyingToPost,
-                quotingPost = quotingPost,
-                avatarUrl = ownProfileAvatarUrl,
-                avatarColor = ownProfileAvatarColor,
-                onDismiss = { 
-                    showCreatePost = false
-                    replyingToPost = null
-                    replyingToReply = null
-                    quotingPost = null
-                },
-                onSubmit = { content, media, tags, type, poll, loc ->
-                    if (quotingPost != null) {
-                        onCreatePost(content, media, tags, "repost", poll, loc, null, null, quotingPost!!.id)
-                    } else {
-                        onCreatePost(content, media, tags, type, poll, loc, replyingToReply?.id ?: replyingToPost?.id, rootId, null)
-                    }
-                    showCreatePost = false
-                    replyingToPost = null
-                    replyingToReply = null
-                    quotingPost = null
+        if (reportingPost != null) {
+            val context = LocalContext.current
+            val targetPost = reportingPost!!
+            ReportContentDialog(
+                post = targetPost,
+                onDismiss = { reportingPost = null },
+                onSubmitReport = { category, details ->
+                    mediaViewModel.reportPost(targetPost.id, "$category: $details")
+                    android.widget.Toast.makeText(context, "Report submitted. Thank you for keeping our community safe.", android.widget.Toast.LENGTH_LONG).show()
+                    reportingPost = null
                 }
             )
         }
@@ -550,31 +552,36 @@ fun MainFeedSection(
         modifier = Modifier.fillMaxSize()
     ) {
         val listState = rememberLazyListState()
-        // ... (activePostId logic)
-        val activePostId by remember {
-            derivedStateOf {
-                val layoutInfo = listState.layoutInfo
-                val visibleItems = layoutInfo.visibleItemsInfo
-                if (visibleItems.size == 0) return@derivedStateOf null
-                
-                // Find item closest to the middle of the screen
-                val center = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-                var minDistance = Int.MAX_VALUE
-                var closestIndex = -1
-                
-                for (item in visibleItems) {
-                    val itemCenter = item.offset + (item.size / 2)
-                    val distance = Math.abs(itemCenter - center)
-                    if (distance < minDistance) {
-                        minDistance = distance
-                        closestIndex = item.index
+        var activePostId by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(listState) {
+            snapshotFlow { listState.isScrollInProgress }
+                .distinctUntilChanged()
+                .collect { isScrolling ->
+                    if (!isScrolling) {
+                        kotlinx.coroutines.delay(200)
+                        if (!listState.isScrollInProgress) {
+                            val layoutInfo = listState.layoutInfo
+                            val visibleItems = layoutInfo.visibleItemsInfo
+                            if (visibleItems.isNotEmpty()) {
+                                val center = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                                var minDistance = Int.MAX_VALUE
+                                var closestIndex = -1
+                                for (item in visibleItems) {
+                                    val itemCenter = item.offset + (item.size / 2)
+                                    val distance = Math.abs(itemCenter - center)
+                                    if (distance < minDistance) {
+                                        minDistance = distance
+                                        closestIndex = item.index
+                                    }
+                                }
+                                if (closestIndex != -1 && closestIndex < posts.itemCount) {
+                                    activePostId = posts.peek(closestIndex)?.id
+                                }
+                            }
+                        }
                     }
                 }
-                
-                if (closestIndex != -1 && closestIndex < posts.itemCount) {
-                    posts.peek(closestIndex)?.id
-                } else null
-            }
         }
 
         LaunchedEffect(activePostId) {
@@ -587,7 +594,7 @@ fun MainFeedSection(
             contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
         ) {
             if (categories.isNotEmpty()) {
-                item {
+                item(contentType = "categories_bar") {
                     CategoryChipBar(
                         categories = categories,
                         selectedCategoryId = selectedCategoryId,
@@ -598,18 +605,23 @@ fun MainFeedSection(
 
             items(
                 count = posts.itemCount,
-                key = posts.itemKey { it?.id ?: "loading_${it.hashCode()}" },
+                key = posts.itemKey { post -> post?.id ?: "loading_post" },
                 contentType = posts.itemContentType { "post" }
             ) { index ->
                 val post = posts[index]
                 if (post != null) {
+                        val isPlaying = activePostId != null && activePostId == post.id
+                        val isOwn = remember(post.authorId, post.authorHandle, ownProfileId, ownProfileHandle) {
+                            post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle)
+                        }
                         PostItem(
                             adManager = adManager,
                             post = post,
-                            isOwnPost = post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle),
+                            isOwnPost = isOwn,
                             showThreadLine = post.hasThread,
                             isLastInThread = true,
                             activePostId = activePostId,
+                            isVideoPlaying = isPlaying,
                             autoplayEnabled = autoplayEnabled,
                             autoplayGifsEnabled = autoplayGifsEnabled,
                             onClick = { onPostClick(post) },

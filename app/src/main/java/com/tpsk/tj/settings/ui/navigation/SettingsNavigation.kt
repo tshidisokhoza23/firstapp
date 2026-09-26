@@ -22,6 +22,7 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
             onNavigateToStorage = { navController.navigate(Screen.StorageSettings.route) },
             onNavigateToLanguage = { navController.navigate(Screen.LanguageSettings.route) },
             onNavigateToHelp = { navController.navigate(Screen.HelpSettings.route) },
+            onNavigateToTerms = { navController.navigate(Screen.TermsAndPrivacy.createRoute()) },
             onNavigateToDevices = { navController.navigate(Screen.DevicesSettings.route) }
         )
     }
@@ -105,6 +106,7 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
         val helpViewModel: HelpSettingsViewModel = hiltViewModel()
         HelpSettingsScreen(
             onBack = { navController.popBackStack() },
+            onNavigateToTerms = { navController.navigate(Screen.TermsAndPrivacy.createRoute()) },
             viewModel = helpViewModel
         )
     }
@@ -122,6 +124,22 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
         DevicesScreen(
             onBack = { navController.popBackStack() },
             viewModel = devicesViewModel
+        )
+    }
+
+    composable(
+        route = Screen.TermsAndPrivacy.route,
+        arguments = listOf(
+            androidx.navigation.navArgument("url") { type = androidx.navigation.NavType.StringType; defaultValue = "https://firstappserver.fly.dev/privacy" },
+            androidx.navigation.navArgument("title") { type = androidx.navigation.NavType.StringType; defaultValue = "Terms of Service & Privacy Policy" }
+        )
+    ) { backStackEntry ->
+        val url = backStackEntry.arguments?.getString("url") ?: "https://firstappserver.fly.dev/privacy"
+        val title = backStackEntry.arguments?.getString("title") ?: "Terms of Service & Privacy Policy"
+        LegalTermsWebViewScreen(
+            url = url,
+            title = title,
+            onBack = { navController.popBackStack() }
         )
     }
 }

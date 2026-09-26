@@ -151,6 +151,26 @@ class UserViewModel @Inject constructor(
         }
     }
 
+    fun updateFullProfile(displayName: String?, username: String?, phoneNumber: String?, bio: String?, location: String?) {
+        viewModelScope.launch {
+            if (!username.isNullOrBlank() || !phoneNumber.isNullOrBlank() || !displayName.isNullOrBlank()) {
+                userRepository.completeProfile(displayName, username, phoneNumber, null).collect { res ->
+                    if (res is Resource.Success && res.data != null) {
+                        sessionManager.updateCurrentUser(res.data!!)
+                    }
+                }
+            }
+            userRepository.updateUser(displayName, bio, location, null, null, null).collect { resource ->
+                if (resource is Resource.Success && resource.data != null) {
+                    sessionManager.updateCurrentUser(resource.data!!)
+                    _toastMessage.value = "Profile updated successfully"
+                } else if (resource is Resource.Error) {
+                    _toastMessage.value = resource.message ?: "Failed to update profile"
+                }
+            }
+        }
+    }
+
     fun uploadProfilePicture(file: File, isBanner: Boolean = false) {
         viewModelScope.launch {
             val folder = if (isBanner) "banners" else "avatars"

@@ -106,7 +106,7 @@ class HomeViewModel @Inject constructor(
         
         adManager.loadRewardedAd(
             context = activity,
-            adUnitId = "ca-app-pub-3940256099942544/5224354917", // AdMob Rewarded Test ID
+            adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.REWARDED_POINTS_ID,
             onAdLoaded = { adObject ->
                 isLoadingAd = false
                 adManager.showRewardedAd(

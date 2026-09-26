@@ -32,24 +32,35 @@ import com.tpsk.tj.common.util.formatWhatsAppTime
 @Composable
 fun ChatItem(
     chat: ChatMessage,
+    modifier: Modifier = Modifier,
     hasStory: Boolean = false,
     allStoriesViewed: Boolean = false,
     onAvatarClick: () -> Unit = {}
 ) {
-    val displayName = remember(chat.senderName, chat.otherUserId, chat.phoneNumber) {
-        val phone = chat.phoneNumber?.takeIf { it.isNotBlank() }
-            ?: chat.otherUserId?.let { GlobalCallState.getContactPhone(it) }
-        val sanitized = sanitizeDisplayName(chat.senderName, chat.otherUserId, phone)
-        when {
-            sanitized.isNotBlank() -> sanitized
-            !phone.isNullOrBlank() -> phone
-            !chat.senderName.isBlank() && !isIdString(chat.senderName, chat.otherUserId) -> chat.senderName
-            else -> phone.orEmpty()
+    val displayName = remember(chat.displayName, chat.senderName, chat.otherUserId, chat.phoneNumber) {
+        val resolved = chat.displayName
+        if (resolved.isNotBlank()) resolved
+        else {
+            val phone = chat.phoneNumber?.takeIf { it.isNotBlank() }
+                ?: chat.otherUserId?.let { GlobalCallState.getContactPhone(it) }
+            val sanitized = sanitizeDisplayName(chat.senderName, chat.otherUserId, phone)
+            when {
+                sanitized.isNotBlank() -> sanitized
+                !phone.isNullOrBlank() -> phone
+                !chat.senderName.isBlank() && !isIdString(chat.senderName, chat.otherUserId) -> chat.senderName
+                else -> phone.orEmpty()
+            }
         }
     }
 
+    val formattedTime = remember(chat.timestamp) { formatWhatsAppTime(chat.timestamp) }
+
+    val isPhoto = remember(chat.lastMessage) { chat.lastMessage.contains("photo", ignoreCase = true) }
+    val isVideo = remember(chat.lastMessage) { chat.lastMessage.contains("video", ignoreCase = true) }
+    val isSticker = remember(chat.lastMessage) { chat.lastMessage.contains("sticker", ignoreCase = true) }
+
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -105,7 +116,7 @@ fun ChatItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = chat.displayName,
+                    text = displayName,
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
@@ -114,7 +125,7 @@ fun ChatItem(
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 Text(
-                    text = formatWhatsAppTime(chat.timestamp),
+                    text = formattedTime,
                     color = if (chat.unreadCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = if (chat.unreadCount > 0) FontWeight.Bold else FontWeight.Normal
@@ -133,11 +144,6 @@ fun ChatItem(
                     )
                     Spacer(modifier = Modifier.width(3.dp))
                 }
-                
-                // Check if last message is a placeholder for media
-                val isPhoto = chat.lastMessage.lowercase().contains("photo")
-                val isVideo = chat.lastMessage.lowercase().contains("video")
-                val isSticker = chat.lastMessage.lowercase().contains("sticker")
                 
                 if (isPhoto && !chat.isTyping) {
                     Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))

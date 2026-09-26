@@ -40,6 +40,10 @@ import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
 import com.tpsk.tj.media.ui.viewmodel.SharedMediaViewModel
 import com.tpsk.tj.common.util.MediaUtils
 import com.tpsk.tj.media.ui.components.PostItem
+import com.tpsk.tj.media.ui.components.PostOptionsMenu
+import com.tpsk.tj.media.ui.components.ReportContentDialog
+import com.tpsk.tj.media.model.isOwnedBy
+import android.widget.Toast
 import com.tpsk.tj.common.util.Resource
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -125,6 +129,9 @@ fun ProfileView(
     }
 
 
+
+    var selectedPostForMore by remember { mutableStateOf<Post?>(null) }
+    var reportingPost by remember { mutableStateOf<Post?>(null) }
 
     var selectedTabIndex by remember(userId, initialTab) { 
         mutableIntStateOf(
@@ -526,6 +533,7 @@ fun ProfileView(
                                         onRepostClick = { p -> mediaViewModel.repostPost(p.id, p.repostCount, p.isReposted) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
+                                        onMoreClick = { selectedPostForMore = it },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetId ->
                                             if (targetId != userId) {
@@ -574,6 +582,7 @@ fun ProfileView(
                                         onRepostClick = { p -> mediaViewModel.repostPost(p.id, p.repostCount, p.isReposted) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
+                                        onMoreClick = { selectedPostForMore = it },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetId ->
                                             if (targetId != userId) {
@@ -617,6 +626,7 @@ fun ProfileView(
                                         onRepostClick = { p -> mediaViewModel.repostPost(p.id, p.repostCount, p.isReposted) },
                                         onBookmark = { mediaViewModel.bookmarkPost(it) },
                                         onDelete = { mediaViewModel.deletePost(post.id) },
+                                        onMoreClick = { selectedPostForMore = it },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetId ->
                                             if (targetId != userId) {
@@ -681,6 +691,56 @@ fun ProfileView(
                 }
             }
         }
+    }
+
+    if (selectedPostForMore != null) {
+        val target = selectedPostForMore!!
+        val isOwnPost = target.isOwnedBy(currentUser.id, currentUser.username)
+
+        PostOptionsMenu(
+            post = target,
+            isOwner = isOwnPost,
+            onReport = {
+                reportingPost = target
+                selectedPostForMore = null
+            },
+            onBlockUser = {
+                userViewModel.blockUser(target.authorId)
+                Toast.makeText(context, "Blocked @${target.authorHandle}", Toast.LENGTH_SHORT).show()
+                selectedPostForMore = null
+            },
+            onDelete = {
+                mediaViewModel.deletePost(target.id, currentUser.id, currentUser.username)
+                selectedPostForMore = null
+            },
+            onTurnOffComments = {
+                mediaViewModel.toggleCommentsLock(target.id, target.repliesLocked)
+                selectedPostForMore = null
+            },
+            onShare = {
+                mediaViewModel.sharePost(target.id, target.shares)
+                com.tpsk.tj.common.util.ShareUtils.sharePost(context, target)
+                selectedPostForMore = null
+            },
+            onBookmark = {
+                mediaViewModel.bookmarkPost(target.id)
+                selectedPostForMore = null
+            },
+            onDismiss = { selectedPostForMore = null }
+        )
+    }
+
+    if (reportingPost != null) {
+        val target = reportingPost!!
+        ReportContentDialog(
+            post = target,
+            onDismiss = { reportingPost = null },
+            onSubmitReport = { category, details ->
+                mediaViewModel.reportPost(target.id, "$category: $details")
+                Toast.makeText(context, "Report submitted. Thank you for keeping our community safe.", Toast.LENGTH_LONG).show()
+                reportingPost = null
+            }
+        )
     }
 }
 

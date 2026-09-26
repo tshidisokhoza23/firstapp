@@ -73,7 +73,7 @@ fun PrivacySettingsScreen(
         PrivacyOptionDialog(
             title = "Who can see my stories",
             currentOption = settings.who_can_see_stories,
-            options = listOf("everyone", "my_contacts", "my_contacts_except"),
+            options = listOf("my_contacts", "my_contacts_except"),
             onOptionSelected = {
                 if (it == "my_contacts_except") {
                     onNavigateToStoryPrivacy()

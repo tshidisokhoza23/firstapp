@@ -73,6 +73,7 @@ fun PostItem(
     isLastInThread: Boolean = false,
     depth: Int = 0,
     activePostId: String? = null,
+    isVideoPlaying: Boolean = (activePostId != null && activePostId == post.id),
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
     displayMode: PostDisplayMode = PostDisplayMode.FEED,
@@ -116,6 +117,7 @@ fun PostItem(
                     post = post,
                     isOwnPost = isPostMine,
                     activePostId = activePostId,
+                    isVideoPlaying = isVideoPlaying,
                     showThreadLine = showThreadLine,
                     showLineAbove = showLineAbove,
                     showLineBelow = showLineBelow,
@@ -248,6 +250,7 @@ fun VerticalFeedPostCard(
     post: Post,
     isOwnPost: Boolean = false,
     activePostId: String? = null,
+    isVideoPlaying: Boolean = (activePostId != null && activePostId == post.id),
     showThreadLine: Boolean = false,
     showLineAbove: Boolean = true,
     showLineBelow: Boolean = true,
@@ -271,10 +274,6 @@ fun VerticalFeedPostCard(
     var isExpanded by remember { mutableStateOf(false) }
     var currentPlaybackPosition by remember { mutableLongStateOf(0L) }
     var isMuted by remember { mutableStateOf(true) }
-
-    val isVideoPlaying = remember(activePostId, post.id) {
-        activePostId == post.id
-    }
 
     val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.isBlank()
     val displayPost = if (isSimpleRepost) post.originalPost!! else post
@@ -342,6 +341,12 @@ fun VerticalFeedPostCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!showThreadLine) {
+                    val avatarUrl = remember(displayPost.authorAvatarUrl) {
+                        com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl)
+                    }
+                    val avatarPainter = remember(displayPost.authorAvatarColor) {
+                        androidx.compose.ui.graphics.painter.ColorPainter(displayPost.authorAvatarColor)
+                    }
                     Box(
                         modifier = Modifier
                             .size(42.dp)
@@ -350,15 +355,17 @@ fun VerticalFeedPostCard(
                             .clickable { onProfileClick(displayPost.authorId) }
                     ) {
                         AsyncImage(
-                            model = com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl),
+                            model = avatarUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
-                            error = androidx.compose.ui.graphics.painter.ColorPainter(displayPost.authorAvatarColor)
+                            error = avatarPainter
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                 }
+
+                val ts = remember(displayPost.timestamp) { formatTwitterTime(displayPost.timestamp) }
 
                 Column(
                     modifier = Modifier
@@ -379,7 +386,6 @@ fun VerticalFeedPostCard(
                             Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.Verified, "Verified", tint = TwitterBlue, modifier = Modifier.size(14.dp))
                         }
-                        val ts = formatTwitterTime(displayPost.timestamp)
                         if (ts.isNotBlank()) {
                             Text(" · $ts", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
                         }
@@ -408,7 +414,6 @@ fun VerticalFeedPostCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize()
                         .padding(start = contentPadding, top = 4.dp, bottom = 4.dp)
                 ) {
                     Text(
@@ -432,34 +437,57 @@ fun VerticalFeedPostCard(
                 
                 if (isVideo) {
                     val videoUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.mediaUrls[0]) ?: ""
+                    val thumbUrl = if (!displayPost.thumbnailUrl.isNullOrBlank()) {
+                        com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.thumbnailUrl)
+                    } else videoUrl
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = contentPadding) // Avoid overlap with sidebar
-                            .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 1.0f)
+                            .padding(start = contentPadding)
+                            .aspectRatio(displayPost.aspectRatio?.toFloat() ?: 16f / 9f)
                             .clip(RoundedCornerShape(12.dp))
                             .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                             .background(Color.Black)
                             .clickable { onMediaClick(videoUrl, "video", currentPlaybackPosition) }
                     ) {
-                        VideoPlayer(
-                            videoUrl = videoUrl,
-                            isPlaying = isVideoPlaying, 
-                            modifier = Modifier.fillMaxSize(),
-                            useController = false,
-                            isMuted = isMuted,
-                            autoplayEnabled = autoplayEnabled,
-                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT, // Don't crop videos in standard feed
-                            onPositionUpdate = { currentPlaybackPosition = it }
-                        )
-                        if (!isVideoPlaying) {
-                            Icon(Icons.Default.PlayCircle, null, modifier = Modifier.size(48.dp).align(Alignment.Center), tint = Color.White.copy(alpha = 0.8f))
-                        }
-                        IconButton(
-                            onClick = { isMuted = !isMuted },
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(32.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                        ) {
-                            Icon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, "Mute", tint = Color.White, modifier = Modifier.size(16.dp))
+                        if (isVideoPlaying && autoplayEnabled) {
+                            VideoPlayer(
+                                videoUrl = videoUrl,
+                                isPlaying = true,
+                                modifier = Modifier.fillMaxSize(),
+                                useController = false,
+                                isMuted = isMuted,
+                                autoplayEnabled = autoplayEnabled,
+                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
+                                onPositionUpdate = { currentPlaybackPosition = it }
+                            )
+                            IconButton(
+                                onClick = { isMuted = !isMuted },
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(32.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            ) {
+                                Icon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, "Mute", tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                        } else {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val thumbRequest = remember(thumbUrl) {
+                                coil.request.ImageRequest.Builder(context)
+                                    .data(thumbUrl)
+                                    .crossfade(true)
+                                    .build()
+                            }
+                            AsyncImage(
+                                model = thumbRequest,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Icon(
+                                Icons.Default.PlayCircle,
+                                null,
+                                modifier = Modifier.size(48.dp).align(Alignment.Center),
+                                tint = Color.White.copy(alpha = 0.85f)
+                            )
                         }
                     }
                 } else {
@@ -502,6 +530,15 @@ fun VerticalFeedPostCard(
             val pillBgColor = if (isDark) Color(0xFF1A2232) else Color(0xFFF3F4F6)
             val pillTextColor = if (isDark) Color(0xFFD1D5DB) else Color(0xFF4B5563)
 
+            val replyText = remember(displayPost.repliesCount) { "Reply ${formatCount(displayPost.repliesCount)}" }
+            val repostText = remember(post.repostCount) { "Repost ${formatCount(post.repostCount)}" }
+            val likeText = remember(post.likes) { "Like ${formatCount(post.likes)}" }
+            val viewsText = remember(post.views) { "Views ${formatCount(post.views)}" }
+            val saveText = remember(post.isBookmarked, post.quoteCount) {
+                if (post.isBookmarked) "Saved ${formatCount(post.quoteCount)}" else "Save ${formatCount(post.quoteCount)}"
+            }
+            val shareText = remember(post.shares) { "Share ${formatCount(post.shares)}" }
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -517,13 +554,13 @@ fun VerticalFeedPostCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     PostPill(
-                        text = "Reply ${formatCount(displayPost.repliesCount)}", 
+                        text = replyText, 
                         onClick = onCommentClick,
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
                     )
                     PostPill(
-                        text = "Repost ${formatCount(post.repostCount)}", 
+                        text = repostText, 
                         onClick = onRepostClick,
                         isSelected = post.isReposted,
                         selectedColor = Color(0xFF00BA7C),
@@ -531,7 +568,7 @@ fun VerticalFeedPostCard(
                         textColor = pillTextColor
                     )
                     PostPill(
-                        text = "Like ${formatCount(post.likes)}", 
+                        text = likeText, 
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onLikeClick()
@@ -542,13 +579,13 @@ fun VerticalFeedPostCard(
                         textColor = pillTextColor
                     )
                     PostPill(
-                        text = "Views ${formatCount(post.views)}", 
+                        text = viewsText, 
                         onClick = {},
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
                     )
                     PostPill(
-                        text = if (post.isBookmarked) "Saved ${formatCount(post.quoteCount)}" else "Save ${formatCount(post.quoteCount)}", 
+                        text = saveText, 
                         onClick = onBookmarkClick,
                         isSelected = post.isBookmarked,
                         selectedColor = Color(0xFF1D9BF0),
@@ -556,7 +593,7 @@ fun VerticalFeedPostCard(
                         textColor = pillTextColor
                     )
                     PostPill(
-                        text = "Share ${formatCount(post.shares)}", 
+                        text = shareText, 
                         onClick = onShareClick,
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor

@@ -39,7 +39,13 @@ fun EditProfileScreen(
     val context = LocalContext.current
     
     var displayName by remember(user) { mutableStateOf(user.displayName) }
+    var username by remember(user) { mutableStateOf(user.username) }
+    var phoneNumber by remember(user) { mutableStateOf(user.phoneNumber) }
+    var bio by remember(user) { mutableStateOf(user.bio ?: "") }
     var location by remember(user) { mutableStateOf(user.location ?: "") }
+
+    val formattedAvatarUrl = remember(user.avatarUrl) { MediaUtils.formatUrl(user.avatarUrl) }
+    val formattedBannerUrl = remember(user.bannerUrl) { MediaUtils.formatUrl(user.bannerUrl) }
 
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -64,13 +70,12 @@ fun EditProfileScreen(
                 },
                 actions = {
                     TextButton(onClick = {
-                        userViewModel.updateProfile(
-                            displayName = displayName,
-                            bio = null,
-                            location = location,
-                            avatarUrl = null,
-                            bannerUrl = null,
-                            isArtist = null
+                        userViewModel.updateFullProfile(
+                            displayName = displayName.takeIf { it.isNotBlank() },
+                            username = username.takeIf { it.isNotBlank() },
+                            phoneNumber = phoneNumber.takeIf { it.isNotBlank() },
+                            bio = bio,
+                            location = location
                         )
                         onBack()
                     }) {
@@ -96,9 +101,9 @@ fun EditProfileScreen(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable { bannerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
             ) {
-                if (user.bannerUrl != null) {
+                if (!formattedBannerUrl.isNullOrBlank()) {
                     AsyncImage(
-                        model = user.bannerUrl,
+                        model = formattedBannerUrl,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -128,9 +133,9 @@ fun EditProfileScreen(
                         .clickable { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (user.avatarUrl != null) {
+                    if (!formattedAvatarUrl.isNullOrBlank()) {
                         AsyncImage(
-                            model = user.avatarUrl,
+                            model = formattedAvatarUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize().clip(CircleShape),
                             contentScale = ContentScale.Crop
@@ -156,6 +161,7 @@ fun EditProfileScreen(
                     onValueChange = { displayName = it },
                     label = { Text("Display Name") },
                     modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -164,6 +170,55 @@ fun EditProfileScreen(
                     )
                 )
                 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username") },
+                    prefix = { Text("@") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.AlternateEmail, null, tint = MaterialTheme.colorScheme.primary) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = { phoneNumber = it },
+                    label = { Text("Phone Number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.primary) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { bio = it },
+                    label = { Text("Bio") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.EditNote, null, tint = MaterialTheme.colorScheme.primary) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(

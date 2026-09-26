@@ -132,7 +132,7 @@ fun AdvertViewer(
                         AdView(context).apply {
                             setAdSize(AdSize.MEDIUM_RECTANGLE)
                             // This is a Google Test Ad Unit ID
-                            adUnitId = "ca-app-pub-3940256099942544/6300978111"
+                            adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.BANNER_MAIN_ID
                             loadAd(AdRequest.Builder().build())
                         }
                     },

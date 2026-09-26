@@ -45,6 +45,11 @@ interface SocialRepository {
         completed: Boolean? = null
     ): Flow<Resource<Boolean>>
     fun deletePost(postId: String): Flow<Resource<Boolean>>
+    fun toggleRepliesLock(postId: String, lock: Boolean): Flow<Resource<Boolean>>
+    fun reportPost(postId: String, reason: String): Flow<Resource<Boolean>>
     fun getPostById(postId: String): Flow<Resource<Post>>
     fun searchPosts(query: String, isGlobal: Boolean = false): Flow<Resource<List<Post>>>
+    fun getSocialNotifications(): Flow<Resource<List<SocialNotificationItem>>>
+    fun markNotificationRead(id: String): Flow<Resource<Boolean>>
+    fun markAllNotificationsRead(): Flow<Resource<Boolean>>
 }

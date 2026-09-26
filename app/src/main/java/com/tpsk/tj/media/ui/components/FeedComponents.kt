@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,107 +65,243 @@ fun MediaGrid(
 
     val shape = RoundedCornerShape(12.dp)
     val context = LocalContext.current
+    val spacing = 4.dp
+
+    val placeholderPainter = remember { androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.2f)) }
+    val errorPainter = remember { androidx.compose.ui.graphics.painter.ColorPainter(Color.DarkGray.copy(alpha = 0.4f)) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
     ) {
-        if (urls.size == 1) {
-            val rawUrl = urls[0]
-            val urlString = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
-            val isVideo = com.tpsk.tj.common.util.MediaUtils.isVideo(rawUrl)
+        when (urls.size) {
+            1 -> {
+                val rawUrl = urls[0]
+                val urlString = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+                val isVideo = com.tpsk.tj.common.util.MediaUtils.isVideo(rawUrl)
 
-            if (isVideo) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 200.dp, max = 500.dp)
-                        .clip(shape)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    VideoPlayer(
-                        videoUrl = urlString,
-                        isPlaying = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        useController = false,
-                        autoplayEnabled = autoplayEnabled,
-                        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    )
-                    Icon(
-                        imageVector = Icons.Default.PlayCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp).align(Alignment.Center),
-                        tint = Color.White.copy(alpha = 0.5f)
-                    )
-                    Box(modifier = Modifier.matchParentSize().clickable { onMediaClick(urlString) })
-                }
-            } else {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(urlString)
-                        .crossfade(true)
-                        .apply {
-                            val isGif = urlString.lowercase().endsWith(".gif")
-                            if (isGif && !autoplayGifsEnabled) {
-                                setParameter("play_animated", false)
+                if (isVideo) {
+                    val imageRequest = remember(urlString) {
+                        ImageRequest.Builder(context)
+                            .data(urlString)
+                            .crossfade(true)
+                            .build()
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 200.dp, max = 500.dp)
+                            .clip(shape)
+                            .background(Color.Black)
+                            .clickable { onMediaClick(urlString) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = imageRequest,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            placeholder = placeholderPainter,
+                            error = errorPainter
+                        )
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp).align(Alignment.Center),
+                            tint = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                } else {
+                    val isGif = urlString.lowercase().endsWith(".gif")
+                    val imageRequest = remember(urlString, autoplayGifsEnabled) {
+                        ImageRequest.Builder(context)
+                            .data(urlString)
+                            .crossfade(true)
+                            .apply {
+                                if (isGif && !autoplayGifsEnabled) {
+                                    setParameter("play_animated", false)
+                                }
                             }
-                        }
-                        .build(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 200.dp, max = 500.dp)
-                        .clip(shape)
-                        .background(Color.DarkGray.copy(alpha = 0.2f))
-                        .clickable { onMediaClick(urlString) },
-                    contentScale = ContentScale.Crop,
-                    placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.2f)),
-                    error = androidx.compose.ui.graphics.painter.ColorPainter(Color.DarkGray.copy(alpha = 0.4f))
-                )
-            }
-        } else {
-            // Show ALL images in rows of 2 without any +N indicator or truncation
-            val chunked = urls.chunked(2)
-            chunked.forEachIndexed { rowIndex, rowUrls ->
-                if (rowIndex > 0) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                            .build()
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(shape)
+                            .background(Color.DarkGray.copy(alpha = 0.2f))
+                    ) {
+                        AsyncImage(
+                            model = imageRequest,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { onMediaClick(urlString) },
+                            contentScale = ContentScale.Crop,
+                            placeholder = placeholderPainter,
+                            error = errorPainter
+                        )
+                    }
                 }
+            }
+            2 -> {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp)
+                        .height(200.dp),
+                    horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
-                    rowUrls.forEachIndexed { colIndex, rawUrl ->
-                        if (colIndex > 0) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
+                    urls.take(2).forEach { rawUrl ->
                         val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+                        AsyncImage(
+                            model = formattedUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.DarkGray.copy(alpha = 0.2f))
+                                .clickable { onMediaClick(formattedUrl) },
+                            contentScale = ContentScale.Crop,
+                            placeholder = placeholderPainter,
+                            error = errorPainter
+                        )
+                    }
+                }
+            }
+            3 -> {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    horizontalArrangement = Arrangement.spacedBy(spacing)
+                ) {
+                    val url0 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[0]) ?: urls[0]
+                    AsyncImage(
+                        model = url0,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.DarkGray.copy(alpha = 0.2f))
+                            .clickable { onMediaClick(url0) },
+                        contentScale = ContentScale.Crop,
+                        placeholder = placeholderPainter,
+                        error = errorPainter
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.spacedBy(spacing)
+                    ) {
+                        urls.subList(1, 3).forEach { rawUrl ->
+                            val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+                            AsyncImage(
+                                model = formattedUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.DarkGray.copy(alpha = 0.2f))
+                                    .clickable { onMediaClick(formattedUrl) },
+                                contentScale = ContentScale.Crop,
+                                placeholder = placeholderPainter,
+                                error = errorPainter
+                            )
+                        }
+                    }
+                }
+            }
+            else -> {
+                // 4 or more images: 2x2 grid preview layout with +N badge for >4 images
+                val extraCount = urls.size - 4
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                    verticalArrangement = Arrangement.spacedBy(spacing)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(spacing)
+                    ) {
+                        for (i in 0..1) {
+                            val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[i]) ?: urls[i]
+                            AsyncImage(
+                                model = formattedUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.DarkGray.copy(alpha = 0.2f))
+                                    .clickable { onMediaClick(formattedUrl) },
+                                contentScale = ContentScale.Crop,
+                                placeholder = placeholderPainter,
+                                error = errorPainter
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(spacing)
+                    ) {
+                        val url2 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[2]) ?: urls[2]
+                        AsyncImage(
+                            model = url2,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.DarkGray.copy(alpha = 0.2f))
+                                .clickable { onMediaClick(url2) },
+                            contentScale = ContentScale.Crop,
+                            placeholder = placeholderPainter,
+                            error = errorPainter
+                        )
+                        val url3 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[3]) ?: urls[3]
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color.DarkGray.copy(alpha = 0.2f))
+                                .clickable { onMediaClick(url3) },
+                            contentAlignment = Alignment.Center
                         ) {
                             AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(formattedUrl)
-                                    .crossfade(true)
-                                    .build(),
+                                model = url3,
                                 contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { onMediaClick(formattedUrl) },
+                                modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
-                                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(Color.Gray.copy(alpha = 0.2f)),
-                                error = androidx.compose.ui.graphics.painter.ColorPainter(Color.DarkGray.copy(alpha = 0.4f))
+                                placeholder = placeholderPainter,
+                                error = errorPainter
                             )
+                            if (extraCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.6f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "+$extraCount",
+                                        color = Color.White,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
-                    }
-                    if (rowUrls.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -214,43 +351,28 @@ fun QuotedPostCard(
                 )
             }
             
-            Spacer(Modifier.height(4.dp))
-            
-            Text(
-                text = post.content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (post.content.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = post.content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             
             if (post.mediaUrls.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                ) {
-                    val url = post.mediaUrls[0]
-                    val isVideo = com.tpsk.tj.common.util.MediaUtils.isVideo(url)
-                    val displayUrl = if (isVideo && post.thumbnailUrl != null) post.thumbnailUrl else url
-                    
-                    AsyncImage(
-                        model = com.tpsk.tj.common.util.MediaUtils.formatUrl(displayUrl),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    if (isVideo) {
-                        Icon(
-                            Icons.Default.PlayCircle,
-                            null,
-                            modifier = Modifier.align(Alignment.Center).size(32.dp),
-                            tint = Color.White.copy(alpha = 0.8f)
-                        )
+                MediaGrid(
+                    urls = post.mediaUrls,
+                    autoplayEnabled = false,
+                    autoplayGifsEnabled = false,
+                    onMediaClick = { mediaUrl ->
+                        val isVideo = com.tpsk.tj.common.util.MediaUtils.isVideo(mediaUrl)
+                        onMediaClick(mediaUrl, if (isVideo) "video" else "image", 0L)
                     }
-                }
+                )
             }
         }
     }

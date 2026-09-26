@@ -66,6 +66,14 @@ class JobRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Network error: ${e.message}")) }
     }
 
+    override suspend fun markClickedExternalLocally(jobId: String) {
+        try {
+            jobDao.markClickedExternalLocally(jobId)
+        } catch (e: Exception) {
+            Log.e("JobRepo", "Failed to mark external click locally", e)
+        }
+    }
+
     override fun getJobApplications(): Flow<Resource<List<JobApplication>>> = flow {
         val cached = jobApplicationDao.getApplications().first().map { it.toModel() }
         if (cached.isNotEmpty()) {

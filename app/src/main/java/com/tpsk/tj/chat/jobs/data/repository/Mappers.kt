@@ -6,7 +6,6 @@ import com.tpsk.tj.chat.jobs.model.Job
 import com.tpsk.tj.chat.jobs.model.JobApplication
 import com.tpsk.tj.common.ui.theme.AppPrimary
 import com.tpsk.tj.common.ui.theme.AppAccent
-import androidx.compose.ui.graphics.Color
 
 fun Job.toEntity() = JobEntity(
     id = id,
@@ -22,6 +21,11 @@ fun Job.toEntity() = JobEntity(
     isVerified = isVerified,
     isApplied = isApplied,
     isSaved = isSaved,
+    isExternal = isExternal,
+    sourcePartner = sourcePartner,
+    trackingApplyUrl = trackingApplyUrl,
+    hasAppliedInternal = hasAppliedInternal,
+    hasClickedExternal = hasClickedExternal
 )
 
 fun JobEntity.toModel() = Job(
@@ -37,8 +41,13 @@ fun JobEntity.toModel() = Job(
     description = description,
     requirements = requirements,
     isVerified = isVerified,
-    isApplied = isApplied,
+    isApplied = isApplied || hasAppliedInternal,
     isSaved = isSaved,
+    isExternal = isExternal,
+    sourcePartner = sourcePartner,
+    trackingApplyUrl = trackingApplyUrl,
+    hasAppliedInternal = hasAppliedInternal,
+    hasClickedExternal = hasClickedExternal
 )
 
 fun JobApplication.toEntity() = JobApplicationEntity(

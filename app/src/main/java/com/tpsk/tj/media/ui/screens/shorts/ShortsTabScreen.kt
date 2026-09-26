@@ -107,7 +107,7 @@ fun ShortsTabScreen(
                             Text("Be the first to post!", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
                             Spacer(Modifier.height(16.dp))
                             Button(
-                                onClick = { showUploadDialog = true },
+                                onClick = { navController.navigate(com.tpsk.tj.ui.navigation.Screen.CreateShort.createRoute()) },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
@@ -200,8 +200,32 @@ fun ShortsTabScreen(
         }
 
         if (isUploading) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color.White)
+            Surface(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(top = 12.dp)
+                    .align(Alignment.TopCenter),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                color = Color.Black.copy(alpha = 0.8f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        text = "Posting short in background...",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
@@ -249,7 +273,7 @@ fun ShortsTabScreen(
                     if (action == "message") {
                         navController.navigate(com.tpsk.tj.ui.navigation.Screen.MediaChat.createRoute(activeShortForMoreMenu!!.authorId))
                     } else if (action == "add_short") {
-                        showUploadDialog = true
+                        navController.navigate(com.tpsk.tj.ui.navigation.Screen.CreateShort.createRoute())
                     }
                 }
             )
@@ -330,51 +354,137 @@ fun UploadShortDialog(
     var selectedVideoUri by remember { mutableStateOf<android.net.Uri?>(null) }
     
     val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        selectedVideoUri = uri
+        if (uri != null) {
+            selectedVideoUri = uri
+        }
     }
 
-    AlertDialog(
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Upload Short", color = Color.White) },
-        text = {
-            Column {
-                if (selectedVideoUri == null) {
-                    Button(onClick = { videoLauncher.launch("video/*") }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Select Video")
-                    }
-                } else {
-                    Text("Video selected", color = Color.Green)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { videoLauncher.launch("video/*") }) {
-                        Text("Change Video")
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight()
+                .padding(vertical = 24.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "New Short",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
+                if (selectedVideoUri == null) {
+                    OutlinedButton(
+                        onClick = { videoLauncher.launch("video/*") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.VideoLibrary,
+                                contentDescription = null,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Select Video Clip", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            )
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Video selected",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        TextButton(onClick = { videoLauncher.launch("video/*") }) {
+                            Text("Change")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    placeholder = { Text("Write a caption or add #hashtags...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 100.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    maxLines = 4
                 )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Button(
+                    onClick = {
+                        val uri = selectedVideoUri
+                        if (uri != null) {
+                            onUpload(uri, description)
+                        }
+                    },
+                    enabled = selectedVideoUri != null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.CloudUpload, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Post Short", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val uri = selectedVideoUri
-                    if (uri != null) {
-                        onUpload(uri, description)
-                    }
-                },
-                enabled = selectedVideoUri != null
-            ) { Text("Upload") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-        containerColor = com.tpsk.tj.common.ui.theme.AppSecondary
-    )
+        }
+    }
 }

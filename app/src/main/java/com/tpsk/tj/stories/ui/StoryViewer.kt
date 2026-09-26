@@ -551,12 +551,14 @@ fun StoryViewer(
                                         .clip(CircleShape)
                                         .background(Color.White.copy(alpha = 0.1f))
                                         .clickable {
-                                            val storySummary = when {
+                                            val mediaPrefix = if (!currentStory.contentUrl.isNullOrBlank()) "[mediaUrl:${currentStory.contentUrl}] " else ""
+                                            val snippet = when {
                                                 currentStory.content.isNotBlank() -> currentStory.content
                                                 currentStory.type == StoryType.VIDEO -> "Video story"
                                                 currentStory.type == StoryType.IMAGE -> "Photo story"
                                                 else -> "Story"
                                             }
+                                            val storySummary = "$mediaPrefix$snippet"
                                             onReplyStory(currentStory.id, emoji, storySummary)
                                             android.widget.Toast.makeText(context, "Reaction sent $emoji", android.widget.Toast.LENGTH_SHORT).show()
                                             showReplySheet = false
@@ -597,12 +599,14 @@ fun StoryViewer(
                                 onClick = {
                                     val body = replyText.trim()
                                     if (body.isNotEmpty()) {
-                                        val storySummary = when {
+                                        val mediaPrefix = if (!currentStory.contentUrl.isNullOrBlank()) "[mediaUrl:${currentStory.contentUrl}] " else ""
+                                        val snippet = when {
                                             currentStory.content.isNotBlank() -> currentStory.content
                                             currentStory.type == StoryType.VIDEO -> "Video story"
                                             currentStory.type == StoryType.IMAGE -> "Photo story"
                                             else -> "Story"
                                         }
+                                        val storySummary = "$mediaPrefix$snippet"
                                         onReplyStory(currentStory.id, body, storySummary)
                                         android.widget.Toast.makeText(context, "Reply sent", android.widget.Toast.LENGTH_SHORT).show()
                                         replyText = ""

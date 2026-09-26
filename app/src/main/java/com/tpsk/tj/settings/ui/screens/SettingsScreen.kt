@@ -52,6 +52,7 @@ fun SettingsScreen(
     onNavigateToStorage: () -> Unit = {},
     onNavigateToLanguage: () -> Unit = {},
     onNavigateToHelp: () -> Unit = {},
+    onNavigateToTerms: () -> Unit = {},
     onNavigateToDevices: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -115,6 +116,8 @@ fun SettingsScreen(
                     modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    val formattedAvatarUrl = remember(user?.avatarUrl) { com.tpsk.tj.common.util.MediaUtils.formatUrl(user?.avatarUrl) }
+
                     Box(
                         modifier = Modifier
                             .size(100.dp)
@@ -126,9 +129,9 @@ fun SettingsScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (user?.avatarUrl != null) {
+                        if (!formattedAvatarUrl.isNullOrBlank()) {
                             AsyncImage(
-                                model = user?.avatarUrl,
+                                model = formattedAvatarUrl,
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize().clip(CircleShape),
                                 contentScale = ContentScale.Crop
@@ -154,7 +157,22 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 14.sp
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val phoneVal = user?.phoneNumber?.takeIf { it.isNotBlank() }
+                    val locVal = user?.location?.takeIf { it.isNotBlank() } ?: "Pretoria, SA"
+                    val phoneLocLine = listOfNotNull(phoneVal, locVal).joinToString(" • ")
+
+                    if (phoneLocLine.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = phoneLocLine,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = user?.bio ?: "No bio set",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -162,18 +180,6 @@ fun SettingsScreen(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
-            }
-
-            // Quick Info Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                QuickInfoBadge(user?.phoneNumber ?: "No Phone", "Mobile") { onNavigateToAccount() }
-                QuickInfoBadge("Pretoria, SA", "Location") {}
-                QuickInfoBadge("Free Tier", "Account") {}
             }
 
             // Settings Grid-ish Layout
@@ -252,23 +258,42 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.width(12.dp))
                 ModernSettingsCard(
                     modifier = Modifier.weight(1f),
-                    icon = Icons.Default.QuestionAnswer,
-                    title = "FAQ",
-                    color = Color(0xFF4FC3F7),
-                    onClick = onNavigateToHelp
+                    icon = Icons.Default.Description,
+                    title = "Terms & EULA",
+                    color = Color(0xFF26A69A),
+                    onClick = onNavigateToTerms
                 )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Danger Zone
-            Text("Management", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(12.dp))
+            // Management Section
+            SettingsSectionTitle("Management")
+            Row(modifier = Modifier.fillMaxWidth()) {
+                ModernSettingsCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.AccountBox,
+                    title = "Account",
+                    color = Color(0xFF42A5F5),
+                    onClick = onNavigateToAccount
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                ModernSettingsCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.CleaningServices,
+                    title = "Data & Cache",
+                    color = Color(0xFF66BB6A),
+                    onClick = onNavigateToStorage
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
             
             ActionRow(Icons.Default.Sync, "Refresh & Sync", MaterialTheme.colorScheme.primary) { showResetConfirm = true }
-            ActionRow(Icons.Default.DeleteForever, "Terminate Account", Color(0xFFE57373).copy(alpha = 0.6f)) { showDeleteConfirm = true }
+            ActionRow(Icons.AutoMirrored.Filled.Logout, "Log Out", MaterialTheme.colorScheme.onSurface) { onLogout() }
+            ActionRow(Icons.Default.DeleteForever, "Terminate Account", Color(0xFFE57373).copy(alpha = 0.8f)) { showDeleteConfirm = true }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -278,7 +303,7 @@ fun SettingsScreen(
                 Text("v1.0.6-unique", color = MaterialTheme.colorScheme.onBackground.copy(0.1f), fontSize = 10.sp)
             }
 
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.height(140.dp))
         }
     }
 
