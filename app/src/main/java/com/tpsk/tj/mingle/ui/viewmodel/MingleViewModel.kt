@@ -287,8 +287,8 @@ class MingleViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isLoadingMore = false,
-                        pmptyReason = if (append) _uiState.value.emptyReason else "FEED_EXHAUSTED",
-                        erofiles = if (append) _uiState.value.profiles else emptyList(),
+                        emptyReason = if (append) _uiState.value.emptyReason else "FEED_EXHAUSTED",
+                        profiles = if (append) _uiState.value.profiles else emptyList(),
                         error = result.message
                     )
                 }

@@ -66,7 +66,8 @@ class CreateShortViewModel @Inject constructor(
                 var uploadedMediaUrl: String? = null
                 var uploadError: String? = null
 
-                accountRepository.uploadUri(context, videoUri, "shorts")
+                // posts is accepted by the live upload allowlist. post_type stays short, so this is not a feed post.
+                accountRepository.uploadUri(context, videoUri, "posts")
                     .firstOrNull { it !is Resource.Loading }?.let { res ->
                         when (res) {
                             is Resource.Success -> uploadedMediaUrl = res.data?.url

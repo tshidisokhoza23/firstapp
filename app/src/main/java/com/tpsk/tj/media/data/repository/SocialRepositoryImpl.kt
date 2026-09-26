@@ -210,7 +210,8 @@ class SocialRepositoryImpl @Inject constructor(
                 }
                 emit(Resource.Success(true))
             } else {
-                emit(Resource.Error("Failed to create post"))
+                val detail = response.errorBody()?.string()?.trim()?.take(180).orEmpty()
+                emit(Resource.Error(if (detail.isBlank()) "Failed to create post (${response.code()})" else detail))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e

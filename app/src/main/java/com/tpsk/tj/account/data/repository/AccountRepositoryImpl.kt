@@ -273,7 +273,7 @@ class AccountRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!))
             } else {
-                emit(Resource.Error("Upload failed: ${response.code()}"))
+                emit(Resource.Error(uploadFailure(response.code(), response.errorBody()?.string())))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException && e !is TimeoutCancellationException) throw e
@@ -312,13 +312,18 @@ class AccountRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!))
             } else {
-                emit(Resource.Error("Upload failed: ${response.code()}"))
+                emit(Resource.Error(uploadFailure(response.code(), response.errorBody()?.string())))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException && e !is TimeoutCancellationException) throw e
             android.util.Log.e("AccountRepo", "uploadUri failed", e)
             emit(Resource.Error("Upload error: ${e.localizedMessage ?: "Timeout"}"))
         }
+    }
+
+    private fun uploadFailure(code: Int, body: String?): String {
+        val detail = body?.trim()?.take(180).orEmpty()
+        return if (detail.isBlank()) "Upload failed: $code" else "Upload failed: $code $detail"
     }
 
     private fun extensionForMediaType(mediaType: String?): String = when {

@@ -43,18 +43,29 @@ class Converters {
     fun fromStringList(value: List<String>?): String = gson.toJson(value)
 
     @TypeConverter
-    fun toStringList(value: String): List<String>? {
-        val type = TypeToken.getParameterized(List::class.java, String::class.java).type
-        return gson.fromJson(value, type)
+    fun toStringList(value: String?): List<String>? {
+        if (value.isNullOrBlank()) return emptyList()
+        return try {
+            val type = TypeToken.getParameterized(List::class.java, String::class.java).type
+            gson.fromJson(value, type)
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     @TypeConverter
     fun fromIntList(value: List<Int>?): String = gson.toJson(value)
 
     @TypeConverter
-    fun toIntList(value: String): List<Int>? {
-        val type = TypeToken.getParameterized(List::class.java, Int::class.java).type
-        return gson.fromJson(value, type)
+    fun toIntList(value: String?): List<Int>? {
+        if (value.isNullOrBlank()) return emptyList()
+        return try {
+            // Integer, not Int: R8 keeps List's type bound as a reference type, and primitive int crashes chat open.
+            val type = TypeToken.getParameterized(List::class.java, Integer::class.java).type
+            gson.fromJson(value, type)
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     @TypeConverter
