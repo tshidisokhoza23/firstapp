@@ -4,7 +4,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -12,8 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Update
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -36,7 +48,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.tpsk.tj.chat.model.StoryType
 import com.tpsk.tj.chat.model.UserStory
+
+fun formatMediaUrl(url: String?): String? {
+    if (url.isNullOrBlank()) return null
+    if (url.startsWith("http://") || url.startsWith("https://")) return url
+    val cleanPath = url.removePrefix("/")
+    val base = com.tpsk.tj.common.data.network.NetworkConstants.BASE_URL.removeSuffix("/api/v1/").removeSuffix("/")
+    return "$base/$cleanPath"
+}
 
 @Composable
 fun StoriesRow(
@@ -63,7 +84,7 @@ fun StoriesRow(
     }
 
     val otherStories = remember(stories, currentUserId) {
-        stories.filter { 
+        val filtered = stories.filter { 
             it.id != currentUserId &&
             it.userId != currentUserId &&
             it.id != "user_$currentUserId" &&
@@ -75,6 +96,13 @@ fun StoriesRow(
             it.userName != "My Story" && 
             it.userName != "My Number"
         }
+        
+        // Sort: Unviewed first (sorted by latest timestamp), then Viewed (sorted by latest timestamp)
+        val unviewed = filtered.filter { !it.allViewed }
+            .sortedByDescending { it.stories.maxOfOrNull { s -> s.createdAt } ?: 0L }
+        val viewed = filtered.filter { it.allViewed }
+            .sortedByDescending { it.stories.maxOfOrNull { s -> s.createdAt } ?: 0L }
+        unviewed + viewed
     }
 
     Column(
@@ -128,9 +156,12 @@ private fun MyStoryThumbnail(
     var showMenu by remember { mutableStateOf(false) }
     val primaryColor = MaterialTheme.colorScheme.primary
     val borderBrush = remember(allViewed, primaryColor) {
-        if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
+        if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.4f), Color.Gray.copy(alpha = 0.4f)))
         else Brush.linearGradient(listOf(primaryColor, Color(0xFF7C4DFF), primaryColor))
     }
+
+    val latestStory = remember(story.stories) { story.stories.lastOrNull() }
+    val storyThumbnailUrl = remember(latestStory) { formatMediaUrl(latestStory?.contentUrl) ?: story.userAvatarUrl }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
@@ -143,7 +174,13 @@ private fun MyStoryThumbnail(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .clickable(onClick = { showMenu = true })
+                    .clickable(onClick = {
+                        if (story.stories.isNotEmpty()) {
+                            onClick()
+                        } else {
+                            showMenu = true
+                        }
+                    })
                     .border(
                         width = 2.dp,
                         brush = borderBrush,
@@ -156,15 +193,25 @@ private fun MyStoryThumbnail(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
-                        .background(story.userAvatarColor),
+                        .background(if (latestStory?.type == StoryType.TEXT) latestStory.backgroundColor else story.userAvatarColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (story.userAvatarUrl != null) {
+                    if (!storyThumbnailUrl.isNullOrBlank()) {
                         AsyncImage(
-                            model = story.userAvatarUrl,
+                            model = storyThumbnailUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
+                        )
+                    } else if (latestStory?.type == StoryType.TEXT && latestStory.content.isNotBlank()) {
+                        Text(
+                            text = latestStory.content,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            modifier = Modifier.padding(4.dp)
                         )
                     } else {
                         Text(
@@ -280,22 +327,22 @@ private fun StoryContextMenu(
     onTextStory: () -> Unit,
     onPostedStories: () -> Unit
 ) {
-    androidx.compose.material3.DropdownMenu(
+    DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         modifier = Modifier.background(MaterialTheme.colorScheme.surface)
     ) {
-        androidx.compose.material3.DropdownMenuItem(
+        DropdownMenuItem(
             text = { Text("Media story", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onMediaStory,
             leadingIcon = { Icon(Icons.Default.CameraAlt, null, tint = MaterialTheme.colorScheme.onSurface) }
         )
-        androidx.compose.material3.DropdownMenuItem(
+        DropdownMenuItem(
             text = { Text("Text story", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onTextStory,
             leadingIcon = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) }
         )
-        androidx.compose.material3.DropdownMenuItem(
+        DropdownMenuItem(
             text = { Text("Posted stories", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onPostedStories,
             leadingIcon = { Icon(Icons.Default.Update, null, tint = MaterialTheme.colorScheme.onSurface) }
@@ -309,10 +356,13 @@ private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
     val haptic = LocalHapticFeedback.current
     val primaryColor = MaterialTheme.colorScheme.primary
     val borderBrush = remember(allViewed, primaryColor) {
-        if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f)))
+        if (allViewed) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.4f), Color.Gray.copy(alpha = 0.4f)))
         else Brush.linearGradient(listOf(primaryColor, Color(0xFF7C4DFF), primaryColor))
     }
-    
+
+    val latestStory = remember(story.stories) { story.stories.lastOrNull() }
+    val thumbnailMediaUrl = remember(latestStory) { formatMediaUrl(latestStory?.contentUrl) ?: story.userAvatarUrl }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable(
@@ -344,15 +394,25 @@ private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
-                        .background(story.userAvatarColor),
+                        .background(if (latestStory?.type == StoryType.TEXT) latestStory.backgroundColor else story.userAvatarColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (story.userAvatarUrl != null) {
+                    if (!thumbnailMediaUrl.isNullOrBlank()) {
                         AsyncImage(
-                            model = story.userAvatarUrl,
+                            model = thumbnailMediaUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
+                        )
+                    } else if (latestStory?.type == StoryType.TEXT && latestStory.content.isNotBlank()) {
+                        Text(
+                            text = latestStory.content,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            modifier = Modifier.padding(4.dp)
                         )
                     } else {
                         Text(

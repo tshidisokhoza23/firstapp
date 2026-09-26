@@ -1,46 +1,83 @@
 package com.tpsk.tj.stories.ui
 
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.Player
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import com.tpsk.tj.common.ui.theme.AppAccent
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.media3.common.Player
 import coil.compose.AsyncImage
-import com.tpsk.tj.chat.model.UserStory
+import com.tpsk.tj.chat.model.StoryItem
 import com.tpsk.tj.chat.model.StoryType
-import com.tpsk.tj.common.ui.theme.AppAccent
-import kotlinx.coroutines.*
+import com.tpsk.tj.chat.model.UserStory
+import com.tpsk.tj.chat.ui.components.formatMediaUrl
+import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.media.data.api.ApiViewer
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @androidx.media3.common.util.UnstableApi
@@ -55,6 +92,7 @@ fun StoryViewer(
     onFinish: () -> Unit,
     onClose: () -> Unit,
     onNavigateToUser: (Int) -> Unit = {},
+    onGetStoryViewers: (String) -> Flow<Resource<List<ApiViewer>>> = { kotlinx.coroutines.flow.flowOf() },
     onReplyStory: (storyId: String, text: String, storySummary: String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -78,12 +116,13 @@ fun StoryViewer(
         LaunchedEffect(Unit) { finishOnce() }
         return
     }
-    
+
     val currentStory = stories[currentStoryIndex]
-    
+    val formattedMediaUrl = remember(currentStory.contentUrl) { formatMediaUrl(currentStory.contentUrl) }
+
     val exoPlayer = remember(currentStory.id) {
-        if (currentStory.type == StoryType.VIDEO && !currentStory.contentUrl.isNullOrBlank()) {
-            com.tpsk.tj.media.data.ShortsVideoCache.acquirePlayer(context, currentStory.contentUrl!!).apply {
+        if (currentStory.type == StoryType.VIDEO && !formattedMediaUrl.isNullOrBlank()) {
+            com.tpsk.tj.media.data.ShortsVideoCache.acquirePlayer(context, formattedMediaUrl).apply {
                 repeatMode = Player.REPEAT_MODE_OFF
                 playWhenReady = true
             }
@@ -92,22 +131,22 @@ fun StoryViewer(
         }
     }
 
-
-    DisposableEffect(exoPlayer, currentStory.contentUrl) {
+    DisposableEffect(exoPlayer, formattedMediaUrl) {
         onDispose {
             exoPlayer?.let { 
-                val url = currentStory.contentUrl
-                if (url != null) {
-                    com.tpsk.tj.media.data.ShortsVideoCache.releasePlayer(it, url)
+                if (formattedMediaUrl != null) {
+                    com.tpsk.tj.media.data.ShortsVideoCache.releasePlayer(it, formattedMediaUrl)
                 } else {
                     it.release()
                 }
             }
         }
     }
+
     val progress = remember { Animatable(0f) }
     var isPaused by remember { mutableStateOf(false) }
     var videoDuration by remember { mutableLongStateOf(10000L) }
+    var showViewersSheet by remember { mutableStateOf(false) }
     var showReplySheet by remember { mutableStateOf(false) }
     var replyText by remember { mutableStateOf("") }
     val emojis = remember { listOf("❤️", "🔥", "😂", "😮", "😢", "👏", "🙌", "💯", "😍", "🎉", "👍", "🙏") }
@@ -133,8 +172,6 @@ fun StoryViewer(
         }
     }
 
-    
-    // Track horizontal story navigation separately from downward dismissal.
     var offsetY by remember { mutableFloatStateOf(0f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
 
@@ -153,22 +190,20 @@ fun StoryViewer(
                 videoDuration = exoPlayer.duration
             }
         } else {
-            videoDuration = 10000L // Default for images/text
+            videoDuration = 10000L
         }
     }
 
-    LaunchedEffect(currentStoryIndex, isPaused, videoDuration) {
-        if (!isPaused) {
-            // Count as viewed at the start of the story
+    LaunchedEffect(currentStoryIndex, isPaused, videoDuration, showViewersSheet, showReplySheet) {
+        if (!isPaused && !showViewersSheet && !showReplySheet) {
             onStoryViewed(currentStoryIndex)
 
-            // Ensure duration is based on content
             val durationMs = if (currentStory.type == StoryType.VIDEO) {
                 videoDuration
             } else {
                 currentStory.durationMs.toLong().coerceAtLeast(10000L)
             }
-            
+
             progress.snapTo(0f)
 
             progress.animateTo(
@@ -178,7 +213,7 @@ fun StoryViewer(
                     easing = LinearEasing
                 )
             )
-            
+
             if (currentStoryIndex < stories.size - 1) {
                 progress.snapTo(0f)
                 currentStoryIndex++
@@ -192,22 +227,23 @@ fun StoryViewer(
         modifier = Modifier
             .fillMaxSize()
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
-            .background(if (currentStory.type == StoryType.TEXT) Color.DarkGray else Color.Black)
+            .background(if (currentStory.type == StoryType.TEXT) currentStory.backgroundColor else Color.Black)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        if (kotlin.math.abs(dragAmount.x) > kotlin.math.abs(dragAmount.y) && offsetY == 0f) {
+                        if (abs(dragAmount.x) > abs(dragAmount.y) && offsetY == 0f) {
                             offsetX += dragAmount.x
                         } else if (dragAmount.y > 0 || offsetY > 0) {
                             offsetY += dragAmount.y
-                        } else if (dragAmount.y < -15f && !isOwnStory && currentStory.type != StoryType.AD) {
-                            showReplySheet = true
+                        } else if (dragAmount.y < -15f && isOwnStory) {
+                            // Swipe up ONLY on own story triggers Viewers sheet
+                            showViewersSheet = true
                             isPaused = true
                         }
                     },
                     onDragEnd = {
-                        if (kotlin.math.abs(offsetX) > 240f) {
+                        if (abs(offsetX) > 240f) {
                             if (offsetX < 0 && currentStoryIndex < stories.size - 1) {
                                 currentStoryIndex++
                             } else if (offsetX < 0) {
@@ -234,7 +270,9 @@ fun StoryViewer(
                         try {
                             awaitRelease()
                         } finally {
-                            isPaused = false
+                            if (!showViewersSheet && !showReplySheet) {
+                                isPaused = false
+                            }
                         }
                     },
                     onTap = { offset ->
@@ -297,9 +335,9 @@ fun StoryViewer(
                     }
                 }
                 StoryType.IMAGE -> {
-                    if (!currentStory.contentUrl.isNullOrBlank()) {
+                    if (!formattedMediaUrl.isNullOrBlank()) {
                         AsyncImage(
-                            model = currentStory.contentUrl,
+                            model = formattedMediaUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
@@ -309,12 +347,12 @@ fun StoryViewer(
             }
         }
 
-        // Story Media Caption Overlay (For Image/Video)
+        // Story Caption Overlay
         if (currentStory.type != StoryType.TEXT && currentStory.type != StoryType.AD && currentStory.content.isNotBlank()) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = if (!isOwnStory) 88.dp else 28.dp, start = 20.dp, end = 20.dp)
+                    .padding(bottom = if (!isOwnStory) 88.dp else 48.dp, start = 20.dp, end = 20.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(Color.Black.copy(alpha = 0.65f))
                     .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -330,14 +368,13 @@ fun StoryViewer(
             }
         }
 
-        // Overlay UI
+        // Top Header & Progress Indicators
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(top = 12.dp)
         ) {
-            // Progress indicators
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -353,7 +390,7 @@ fun StoryViewer(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(2.dp)
+                            .height(2.5.dp)
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.3f))
                     ) {
@@ -369,7 +406,6 @@ fun StoryViewer(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // User info
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -385,7 +421,7 @@ fun StoryViewer(
                 ) {
                     if (!userStory.userAvatarUrl.isNullOrBlank()) {
                         AsyncImage(
-                            model = userStory.userAvatarUrl,
+                            model = formatMediaUrl(userStory.userAvatarUrl),
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
@@ -454,8 +490,43 @@ fun StoryViewer(
             )
         }
 
-        // Bottom Reply trigger bar (when sheet is closed)
-        if (!showReplySheet && !isOwnStory && currentStory.type != StoryType.AD) {
+        // Bottom Footer (Own Story: Viewers Count & Pill vs Contact Story: Passive Reply Container)
+        if (isOwnStory) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+                    .clickable {
+                        isPaused = true
+                        showViewersSheet = true
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Views",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "${currentStory.viewsCount}",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        } else if (!showReplySheet && currentStory.type != StoryType.AD) {
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -471,24 +542,33 @@ fun StoryViewer(
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
-                    contentDescription = "Swipe up to reply",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Send message...",
+                    text = "Reply to ${userStory.userName}...",
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f)
                 )
+                Text(
+                    text = "❤️  😂  😮  🔥",
+                    fontSize = 15.sp
+                )
             }
         }
 
-        // Reply & Emoji Reactions Overlay Sheet
-        if (showReplySheet) {
+        // Viewers Sheet for Author
+        if (showViewersSheet && isOwnStory) {
+            StoryViewersSheet(
+                storyItem = currentStory,
+                onDismiss = {
+                    showViewersSheet = false
+                    isPaused = false
+                },
+                getViewersFlow = onGetStoryViewers
+            )
+        }
+
+        // Quick Reply Sheet for Contacts
+        if (showReplySheet && !isOwnStory) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -499,204 +579,80 @@ fun StoryViewer(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                Surface(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .pointerInput(Unit) {
-                            detectTapGestures { } // Consume all tap gestures inside sheet so story viewer tap gestures are not triggered
-                        }
-                        .clickable(enabled = false) {}, // prevent click-through
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                    color = Color(0xFF1E1E1E)
+                        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                        .background(Color(0xFF1E2428))
+                        .navigationBarsPadding()
+                        .imePadding()
+                        .padding(20.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(16.dp)
+                    Text(
+                        text = "Quick Reactions",
+                        color = Color.LightGray,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        // Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        emojis.take(6).forEach { emoji ->
                             Text(
-                                text = "React or reply to ${userStory.userName}",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            IconButton(onClick = {
-                                showReplySheet = false
-                                isPaused = false
-                            }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Emoji Reactions (Horizontal Scrollable Row)
-                        androidx.compose.foundation.lazy.LazyRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            items(emojis.size) { index ->
-                                val emoji = emojis[index]
-                                Box(
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.1f))
-                                        .clickable {
-                                            val mediaPrefix = if (!currentStory.contentUrl.isNullOrBlank()) "[mediaUrl:${currentStory.contentUrl}] " else ""
-                                            val snippet = when {
-                                                currentStory.content.isNotBlank() -> currentStory.content
-                                                currentStory.type == StoryType.VIDEO -> "Video story"
-                                                currentStory.type == StoryType.IMAGE -> "Photo story"
-                                                else -> "Story"
-                                            }
-                                            val storySummary = "$mediaPrefix$snippet"
-                                            onReplyStory(currentStory.id, emoji, storySummary)
-                                            android.widget.Toast.makeText(context, "Reaction sent $emoji", android.widget.Toast.LENGTH_SHORT).show()
-                                            showReplySheet = false
-                                            isPaused = false
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(text = emoji, fontSize = 22.sp)
+                                text = emoji,
+                                fontSize = 32.sp,
+                                modifier = Modifier.clickable {
+                                    onReplyStory(currentStory.id, emoji, currentStory.content)
+                                    showReplySheet = false
+                                    isPaused = false
                                 }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Reply Input & Send
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextField(
-                                value = replyText,
-                                onValueChange = { replyText = it },
-                                placeholder = { Text("Send message...", color = Color.Gray, fontSize = 14.sp) },
-                                modifier = Modifier.weight(1f),
-                                shape = CircleShape,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = AppAccent,
-                                    unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedContainerColor = Color(0xFF2C2C2C),
-                                    unfocusedContainerColor = Color(0xFF2C2C2C)
-                                ),
-                                maxLines = 3
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            IconButton(
-                                onClick = {
-                                    val body = replyText.trim()
-                                    if (body.isNotEmpty()) {
-                                        val mediaPrefix = if (!currentStory.contentUrl.isNullOrBlank()) "[mediaUrl:${currentStory.contentUrl}] " else ""
-                                        val snippet = when {
-                                            currentStory.content.isNotBlank() -> currentStory.content
-                                            currentStory.type == StoryType.VIDEO -> "Video story"
-                                            currentStory.type == StoryType.IMAGE -> "Photo story"
-                                            else -> "Story"
-                                        }
-                                        val storySummary = "$mediaPrefix$snippet"
-                                        onReplyStory(currentStory.id, body, storySummary)
-                                        android.widget.Toast.makeText(context, "Reply sent", android.widget.Toast.LENGTH_SHORT).show()
-                                        replyText = ""
-                                        showReplySheet = false
-                                        isPaused = false
-                                    }
-                                },
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(AppAccent)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Send,
-                                    contentDescription = "Send",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = replyText,
+                            onValueChange = { replyText = it },
+                            placeholder = { Text("Send reply...", color = Color.Gray) },
+                            modifier = Modifier.weight(1f),
+                            shape = CircleShape,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        IconButton(
+                            onClick = {
+                                if (replyText.isNotBlank()) {
+                                    onReplyStory(currentStory.id, replyText, currentStory.content)
+                                    replyText = ""
+                                    showReplySheet = false
+                                    isPaused = false
+                                }
+                            },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(AppAccent)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White)
                         }
                     }
                 }
             }
         }
-
-    }
-}
-
-@Composable
-fun InViewerStoryAd(
-    adObject: Any?,
-    onFinish: () -> Unit, 
-    onClose: () -> Unit
-) {
-    val progress = remember { Animatable(0f) }
-    
-    LaunchedEffect(adObject) {
-        // Ads typically show for 10-15 seconds if not interactive
-        progress.snapTo(0f)
-        progress.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 10000, easing = LinearEasing)
-        )
-        onFinish()
-    }
-
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        if (adObject != null) {
-            com.tpsk.tj.common.ui.components.NativeAdCard(
-                adObject = adObject,
-                modifier = Modifier.fillMaxSize(),
-                layoutResId = com.tpsk.tj.R.layout.item_story_native_ad
-            )
-        } else {
-            // Fallback if ad disappeared
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color.White)
-            }
-        }
-        
-        // Progress Bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(top = 12.dp, start = 12.dp, end = 12.dp)
-                .height(2.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.3f))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress.value)
-                    .fillMaxHeight()
-                    .background(Color.White)
-            )
-        }
-
-        IconButton(
-            onClick = onClose,
-            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 20.dp, end = 16.dp)
-        ) {
-            Icon(Icons.Default.Close, null, tint = Color.White)
-        }
-        
-        Text(
-            "Sponsored",
-            color = Color.White.copy(alpha = 0.6f),
-            fontSize = 12.sp,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
-        )
     }
 }

@@ -32,10 +32,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import androidx.compose.ui.viewinterop.AndroidView
 import com.tpsk.tj.chat.model.UserStory
 import com.tpsk.tj.chat.model.StoryItem
 import com.tpsk.tj.chat.model.StoryType
+import com.tpsk.tj.chat.ui.components.formatMediaUrl
 import com.tpsk.tj.common.ui.theme.*
 import com.tpsk.tj.common.data.ads.AdManager
 import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
@@ -62,7 +62,7 @@ fun StoryScreen(
     onReplyStory: (userId: String, storyId: String, text: String, storySummary: String, authorName: String) -> Unit = { _, _, _, _, _ -> }
 ) {
     val context = LocalContext.current
-    
+
     var viewingUserStory by remember { 
         mutableStateOf(if (initialPlay) stories.find { it.id == initialViewingUserId || it.userId == initialViewingUserId } else null)
     }
@@ -77,10 +77,8 @@ fun StoryScreen(
     var composerText by remember { mutableStateOf("") }
 
     // Persistent ad counter across users
-    var usersViewedCount by remember { mutableIntStateOf(0) }
     var loadedAdObject by remember { mutableStateOf<Any?>(null) }
     var isAdLoading by remember { mutableStateOf(false) }
-    var nextUserIndexAfterAd by remember { mutableIntStateOf(-1) }
 
     // Preload ad as soon as we start viewing
     LaunchedEffect(viewingUserStory) {
@@ -108,7 +106,7 @@ fun StoryScreen(
             stories.filter { it.userName.lowercase().contains(q) }
         }
     }
-    
+
     val myStory = remember(stories, currentUserId) {
         stories.find { 
             it.id == currentUserId || 
@@ -118,7 +116,7 @@ fun StoryScreen(
             it.userName == "My Story" || it.userName == "My Number" 
         }
     }
-    
+
     val contactIds = remember(contacts) {
         contacts.map { it.id }.toSet() + contacts.map { "user_${it.id}" }.toSet() + contacts.map { it.id.removePrefix("user_") }.toSet()
     }
@@ -131,11 +129,19 @@ fun StoryScreen(
             true
         }
     }
-    
+
     val activeStories = remember(otherStories) { otherStories.filter { !it.isMuted } }
-    val recentUpdates = remember(activeStories) { activeStories.filter { !it.allViewed } }
-    val viewedUpdates = remember(activeStories) { activeStories.filter { it.allViewed } }
     
+    // WhatsApp-style Chronological Sorting: Unviewed first (sorted descending by latest story timestamp), then Viewed (sorted descending by latest timestamp)
+    val recentUpdates = remember(activeStories) {
+        activeStories.filter { !it.allViewed }
+            .sortedByDescending { it.stories.maxOfOrNull { s -> s.createdAt } ?: 0L }
+    }
+    val viewedUpdates = remember(activeStories) {
+        activeStories.filter { it.allViewed }
+            .sortedByDescending { it.stories.maxOfOrNull { s -> s.createdAt } ?: 0L }
+    }
+
     val storiesWithAds = remember(myStory, recentUpdates, viewedUpdates) {
         val baseList = mutableListOf<UserStory>()
         if (myStory != null) baseList.add(myStory)
@@ -192,7 +198,7 @@ fun StoryScreen(
         }
     }
 
-    // Release an ad when the viewer closes; keep the user cadence for this screen session.
+    // Release an ad when the viewer closes
     LaunchedEffect(viewingUserStory) {
         if (viewingUserStory == null) {
             loadedAdObject?.let { adManager.destroyAd(it) }
@@ -274,15 +280,28 @@ fun StoryScreen(
             }
         }
     } else if (viewingUserStory != null && viewingUserStory!!.stories.isNotEmpty()) {
+        val currentGroup = viewingUserStory!!
+        val isOwnStory = currentGroup.id == currentUserId || 
+                         currentGroup.userId == currentUserId || 
+                         currentGroup.id == myStory?.id ||
+                         (currentUserId != null && (
+                             currentGroup.id == "user_$currentUserId" || 
+                             currentGroup.id == currentUserId.removePrefix("user_") ||
+                             currentGroup.userId == "user_$currentUserId" ||
+                             currentGroup.userId == currentUserId.removePrefix("user_")
+                         )) ||
+                         currentGroup.userName == "My Story" ||
+                         currentGroup.userName == "My Number"
+
         StoryViewer(
-            userStory = viewingUserStory!!,
-            isOwnStory = viewingUserStory!!.id == currentUserId,
+            userStory = currentGroup,
+            isOwnStory = isOwnStory,
             initialStoryIndex = viewingStoryIndex,
             onStoryViewed = { storyIndex -> 
-                val storyId = viewingUserStory?.stories?.getOrNull(storyIndex)?.id
+                val storyId = currentGroup.stories.getOrNull(storyIndex)?.id
                 if (storyId != null) {
-                    if (viewingUserStory?.id != "system_ad") {
-                          onStoryViewed(viewingUserStory!!.userId.ifBlank { viewingUserStory!!.id }, storyId)
+                    if (currentGroup.id != "system_ad") {
+                          onStoryViewed(currentGroup.userId.ifBlank { currentGroup.id }, storyId)
                     }
                 }
             },
@@ -290,14 +309,14 @@ fun StoryScreen(
                 onDeleteStory(storyId)
             },
             onReplyStory = { storyId, text, summary ->
-                val targetUser = viewingUserStory?.userId?.ifBlank { viewingUserStory?.id }.orEmpty()
-                val authorName = viewingUserStory?.userName.orEmpty()
-                if (targetUser.isNotBlank() && viewingUserStory?.id != "system_ad") {
+                val targetUser = currentGroup.userId.ifBlank { currentGroup.id }
+                val authorName = currentGroup.userName
+                if (targetUser.isNotBlank() && currentGroup.id != "system_ad") {
                     onReplyStory(targetUser, storyId, text, summary, authorName)
                 }
             },
             onFinish = { 
-                val currentIndex = storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id }
+                val currentIndex = storiesWithAds.indexOfFirst { it.id == currentGroup.id }
                 if (currentIndex != -1 && currentIndex < storiesWithAds.size - 1) {
                     viewingUserStory = storiesWithAds[currentIndex + 1]
                     viewingStoryIndex = 0
@@ -310,7 +329,7 @@ fun StoryScreen(
                 }
             },
             onNavigateToUser = { direction ->
-                val currentIndex = storiesWithAds.indexOfFirst { it.id == viewingUserStory?.id }
+                val currentIndex = storiesWithAds.indexOfFirst { it.id == currentGroup.id }
                 if (currentIndex != -1) {
                     val nextIndex = currentIndex + direction
                     if (nextIndex in storiesWithAds.indices) {
@@ -325,7 +344,8 @@ fun StoryScreen(
                     }
                 }
             },
-            onClose = {
+            onGetStoryViewers = onGetStoryViewers,
+            onClose = { 
                 if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
                     onBack()
                 } else {
@@ -335,359 +355,295 @@ fun StoryScreen(
         )
     } else {
         Scaffold(
-            modifier = Modifier.statusBarsPadding(),
             topBar = {
                 TopAppBar(
-                    title = { Text("Posted stories", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
+                    title = {
+                        if (showSearch) {
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search updates...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                singleLine = true,
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                )
+                            )
+                        } else {
+                            Text("Updates", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
                     actions = {
-                        IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onBackground) }
-                        IconButton(onClick = { showViewedFirst = !showViewedFirst }) { Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onBackground) }
+                        if (showSearch) {
+                            IconButton(onClick = { showSearch = false; searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close search")
+                            }
+                        } else {
+                            IconButton(onClick = { showSearch = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "Search updates")
+                            }
+                        }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-                )
-            },
-            bottomBar = {
-                com.tpsk.tj.common.ui.components.BannerAdView(
-                    modifier = Modifier.navigationBarsPadding()
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
             },
             floatingActionButton = {
                 Column(
                     horizontalAlignment = Alignment.End,
-                    modifier = Modifier.navigationBarsPadding()
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     SmallFloatingActionButton(
                         onClick = { showComposer = true },
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = "New Text Story")
+                        Icon(Icons.Default.Edit, contentDescription = "Text story")
                     }
                     FloatingActionButton(
-                        onClick = { onNavigateToNewStory() },
+                        onClick = onNavigateToNewStory,
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = "New Camera Story")
+                        Icon(Icons.Default.CameraAlt, contentDescription = "Camera story")
                     }
                 }
             },
-            containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0)
-        ) { padding ->
+            containerColor = MaterialTheme.colorScheme.background
+        ) { paddingValues ->
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (showSearch) {
-                    item {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            label = { Text("Search story") },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
+                item {
+                    Text("Status", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
                 }
 
-                item(key = "my_stories_horizontal_row", contentType = "my_stories_row") {
-                    if (myStory != null) {
-                        val reversedMyStories = remember(myStory.stories) { myStory.stories.asReversed() }
-                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                // My Status
+                item {
+                    val myLatestStory = myStory?.stories?.lastOrNull()
+                    val myThumbnailUrl = remember(myLatestStory) { formatMediaUrl(myLatestStory?.contentUrl) ?: myStory?.userAvatarUrl }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (myStory != null && myStory.stories.isNotEmpty()) {
+                                    viewingUserStory = myStory
+                                    viewingStoryIndex = 0
+                                } else {
+                                    onNavigateToNewStory()
+                                }
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(56.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CircleShape)
+                                    .background(if (myLatestStory?.type == StoryType.TEXT) myLatestStory.backgroundColor else AppPrimary),
+                                contentAlignment = Alignment.Center
                             ) {
-                                 items(reversedMyStories, key = { it.id }, contentType = { "my_story_thumb" }) { story ->
-                                     Column(
-                                         horizontalAlignment = Alignment.CenterHorizontally
-                                     ) {
-                                         Box(
-                                             modifier = Modifier
-                                                 .size(68.dp)
-                                                 .clip(CircleShape)
-                                                 .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                                 .padding(3.dp)
-                                                 .clip(CircleShape)
-                                                 .background(Color.DarkGray)
-                                                 .clickable {
-                                                     val idx = myStory.stories.indexOf(story)
-                                                     if (idx != -1) {
-                                                         viewingUserStory = myStory
-                                                         viewingStoryIndex = idx
-                                                     }
-                                                 },
-                                             contentAlignment = Alignment.Center
-                                         ) {
-                                             if (!story.contentUrl.isNullOrBlank()) {
-                                                 AsyncImage(
-                                                     model = story.contentUrl,
-                                                     contentDescription = null,
-                                                     modifier = Modifier.fillMaxSize(),
-                                                     contentScale = ContentScale.Crop
-                                                 )
-                                                 if (story.type == StoryType.VIDEO) {
-                                                     Box(
-                                                         modifier = Modifier
-                                                             .fillMaxSize()
-                                                             .background(Color.Black.copy(alpha = 0.25f)),
-                                                         contentAlignment = Alignment.Center
-                                                     ) {
-                                                         Icon(
-                                                             imageVector = Icons.Default.PlayArrow,
-                                                             contentDescription = "Video",
-                                                             tint = Color.White,
-                                                             modifier = Modifier.size(20.dp)
-                                                         )
-                                                     }
-                                                 }
-                                             } else {
-                                                 Box(
-                                                     modifier = Modifier
-                                                         .fillMaxSize()
-                                                         .background(story.backgroundColor),
-                                                     contentAlignment = Alignment.Center
-                                                 ) {
-                                                     Text(
-                                                         story.content.take(12),
-                                                         color = Color.White,
-                                                         fontWeight = FontWeight.Bold,
-                                                         fontSize = 13.sp,
-                                                         textAlign = TextAlign.Center,
-                                                         modifier = Modifier.padding(4.dp)
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                         Row(
-                                             verticalAlignment = Alignment.CenterVertically,
-                                             horizontalArrangement = Arrangement.Center,
-                                             modifier = Modifier
-                                                 .padding(top = 4.dp)
-                                                 .clickable {
-                                                     selectedStoryForViewers = story
-                                                 }
-                                         ) {
-                                             Icon(
-                                                 imageVector = Icons.Default.RemoveRedEye,
-                                                 contentDescription = "Views",
-                                                 tint = MaterialTheme.colorScheme.primary,
-                                                 modifier = Modifier.size(13.dp)
-                                             )
-                                             Spacer(modifier = Modifier.width(3.dp))
-                                             Text(
-                                                 text = "${story.viewsCount} views",
-                                                 fontSize = 12.sp,
-                                                 fontWeight = FontWeight.SemiBold,
-                                                 color = MaterialTheme.colorScheme.primary
-                                             )
-                                         }
-                                         Text(
-                                             text = if (story.createdAt > 0) com.tpsk.tj.chat.data.repository.formatTimeAgo(story.createdAt) else story.timestamp.ifBlank { "Just now" },
-                                             fontSize = 11.sp,
-                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                             modifier = Modifier.padding(top = 1.dp)
-                                         )
-                                     }
-                                 }
+                                if (!myThumbnailUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = myThumbnailUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else if (myLatestStory?.type == StoryType.TEXT && myLatestStory.content.isNotBlank()) {
+                                    Text(
+                                        text = myLatestStory.content,
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 2,
+                                        modifier = Modifier.padding(2.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = myStory?.userName?.take(1)?.uppercase() ?: "M",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 20.sp
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .align(Alignment.BottomEnd)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.background, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Add status", tint = Color.White, modifier = Modifier.size(14.dp))
                             }
                         }
-                    }
-                }
 
-                item(key = "posted_stories_header_section") {
-                    Text(
-                        "Recent updates",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                itemsIndexed(
-                    recentUpdates, 
-                    key = { _, item -> "recent_v2_${item.id}" },
-                    contentType = { _, _ -> "story_row" }
-                ) { _, item ->
-                    StoryListItem(
-                        userStory = item, 
-                        isOwnStory = false,
-                        onClick = { 
-                            viewingUserStory = item
-                            viewingStoryIndex = 0
-                        },
-                        onLongClick = { storyToMute = item }
-                    )
-                }
-
-                if (viewedUpdates.isNotEmpty()) {
-                    item(key = "viewed_updates_header_v3", contentType = "header") {
-                        Text(
-                            "Viewed updates",
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    itemsIndexed(
-                        viewedUpdates, 
-                        key = { _, item -> "viewed_v3_${item.id}" },
-                        contentType = { _, _ -> "story_row" }
-                    ) { _, item ->
-                        StoryListItem(
-                            userStory = item, 
-                            isOwnStory = false,
-                            onClick = { 
-                                viewingUserStory = item
-                                viewingStoryIndex = 0
-                            },
-                            onLongClick = { storyToMute = item }
-                        )
-                    }
-                }
-                
-                item { Spacer(modifier = Modifier.height(150.dp)) }
-            }
-        }
-    }
-
-    storyToMute?.let { story ->
-        AlertDialog(
-            onDismissRequest = { storyToMute = null },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text(if (story.isMuted) "Unmute ${story.userName}?" else "Mute ${story.userName}?", color = MaterialTheme.colorScheme.onSurface) },
-            text = { 
-                Text(
-                    if (story.isMuted) "New story updates from ${story.userName} will appear in recent updates." 
-                    else "New story updates from ${story.userName} won't appear under recent updates anymore.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                ) 
-            },
-            confirmButton = {
-                TextButton(onClick = { 
-                    onMuteStory(story.id, !story.isMuted)
-                    storyToMute = null
-                }) {
-                    Text(if (story.isMuted) "UNMUTE" else "MUTE", color = MaterialTheme.colorScheme.primary)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { storyToMute = null }) {
-                    Text("CANCEL", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        )
-    }
-
-    if (selectedStoryForViewers != null) {
-        StoryViewersSheet(
-            storyItem = selectedStoryForViewers!!,
-            onDismiss = { selectedStoryForViewers = null },
-            getViewersFlow = onGetStoryViewers
-        )
-    }
-}
-
-
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-fun StoryListItem(
-    userStory: UserStory,
-    isOwnStory: Boolean = false,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit = {}
-) {
-    val totalStories = userStory.stories.size
-    
-    val viewedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-    val activeColor = MaterialTheme.colorScheme.primary
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = { if (totalStories > 0) onClick() },
-                onLongClick = onLongClick
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .drawBehind {
-                    if (totalStories > 0) {
-                        val strokeWidth = 2.dp.toPx()
-                        val gapAngle = if (totalStories > 1) 4f else 0f
-                        val sweepAngle = (360f / totalStories) - gapAngle
-                        
-                        for (i in 0 until totalStories) {
-                            val color = if (userStory.stories[i].isViewed) viewedColor else activeColor
-                            
-                            drawArc(
-                                color = color,
-                                startAngle = i * (360f / totalStories) - 90f + (gapAngle / 2f),
-                                sweepAngle = sweepAngle,
-                                useCenter = false,
-                                style = Stroke(width = strokeWidth)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("My status", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
+                            Text(
+                                if (myStory != null && myStory.stories.isNotEmpty()) "Tap to view updates" else "Tap to add status update",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
-                .padding(4.dp),
+
+                // Recent updates section (Unviewed)
+                if (recentUpdates.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Recent updates",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+
+                    items(recentUpdates, key = { it.id }) { story ->
+                        UserStoryRowItem(
+                            story = story,
+                            onClick = {
+                                viewingUserStory = story
+                                viewingStoryIndex = 0
+                            }
+                        )
+                    }
+                }
+
+                // Viewed updates section
+                if (viewedUpdates.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Viewed updates",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+
+                    items(viewedUpdates, key = { it.id }) { story ->
+                        UserStoryRowItem(
+                            story = story,
+                            onClick = {
+                                viewingUserStory = story
+                                viewingStoryIndex = 0
+                            }
+                        )
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserStoryRowItem(
+    story: UserStory,
+    onClick: () -> Unit
+) {
+    val latestStory = remember(story.stories) { story.stories.lastOrNull() }
+    val thumbnailUrl = remember(latestStory) { formatMediaUrl(latestStory?.contentUrl) ?: story.userAvatarUrl }
+    val allViewed = story.allViewed
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(56.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .size(54.dp)
                     .clip(CircleShape)
-                    .background(userStory.userAvatarColor),
+                    .border(
+                        width = 2.dp,
+                        color = if (allViewed) Color.Gray.copy(alpha = 0.4f) else primaryColor,
+                        shape = CircleShape
+                    )
+                    .padding(3.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (!userStory.userAvatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = userStory.userAvatarUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize().clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(
-                        userStory.userName.take(1).uppercase(),
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(if (latestStory?.type == StoryType.TEXT) latestStory.backgroundColor else story.userAvatarColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!thumbnailUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = thumbnailUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else if (latestStory?.type == StoryType.TEXT && latestStory.content.isNotBlank()) {
+                        Text(
+                            text = latestStory.content,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            modifier = Modifier.padding(2.dp)
+                        )
+                    } else {
+                        Text(
+                            text = story.userName.take(1).uppercase(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    }
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
+            Text(story.userName, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
             Text(
-                text = if (isOwnStory) "My story" else userStory.userName,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = if (isOwnStory && totalStories == 0) "Tap to add story update" else userStory.lastUpdated,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp
+                story.lastUpdated,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
