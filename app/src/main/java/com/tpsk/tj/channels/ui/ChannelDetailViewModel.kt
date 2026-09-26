@@ -109,7 +109,8 @@ class ChannelDetailViewModel @Inject constructor(
         viewModelScope.launch {
             repository.subscribeToChannel(channelId).collect { res ->
                 if (res is Resource.Success) {
-                    _toast.value = "Channel followed"
+                    val followed = res.data != false
+                    _toast.value = if (followed) "Channel followed" else "Unfollowed channel"
                     loadChannel(channelId)
                     val convId = (_channel.value as? Resource.Success)?.data?.conversationId ?: channelId
                     try {
@@ -188,6 +189,8 @@ class ChannelDetailViewModel @Inject constructor(
                 if (res is Resource.Success) {
                     _toast.value = "Update sent"
                     loadMessages(convId)
+                } else if (res is Resource.Error) {
+                    _toast.value = "Only the owner and allowed admins can post"
                 }
             }
         }

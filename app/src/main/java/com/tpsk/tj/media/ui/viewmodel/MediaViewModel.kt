@@ -65,6 +65,20 @@ class MediaViewModel @Inject constructor(
     private val _isMuted = MutableStateFlow(false)
     val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
 
+    private val _unreadNotificationCount = MutableStateFlow(0)
+    val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount.asStateFlow()
+
+    fun fetchNotificationsCount() {
+        viewModelScope.launch {
+            socialRepository.getSocialNotifications().collect { res ->
+                if (res is Resource.Success) {
+                    val unread = res.data?.count { !it.isRead } ?: 0
+                    _unreadNotificationCount.value = unread
+                }
+            }
+        }
+    }
+
     // Session-based unique view tracking to avoid redundant API calls
     private val viewedPostsThisSession = HashSet<String>()
 
@@ -122,6 +136,7 @@ class MediaViewModel @Inject constructor(
         loadFeed("standard")
         connectPostRealtime()
         fetchSuggestedUsers()
+        fetchNotificationsCount()
     }
 
     private fun preloadAds() {

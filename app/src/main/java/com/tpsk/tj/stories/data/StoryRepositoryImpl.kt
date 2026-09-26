@@ -10,7 +10,6 @@ import com.tpsk.tj.chat.data.repository.toUserStory
 import com.tpsk.tj.chat.model.StoryItem
 import com.tpsk.tj.chat.model.StoryType
 import com.tpsk.tj.chat.model.UserStory
-import com.tpsk.tj.chat.rewards.data.RewardsManager
 import com.tpsk.tj.common.domain.auth.SessionManager
 import com.tpsk.tj.common.util.DisplayNameResolver
 import com.tpsk.tj.common.util.MediaUtils
@@ -103,20 +102,14 @@ class StoryRepositoryImpl @Inject constructor(
                 cacheOwnPostedStory(response.body()?.story, content, contentUrl, normalizedType)
                 emit(Resource.Success(true))
             } else {
-                // Optimistic local cache so user's story creation succeeds reliably
-                cacheOwnPostedStory(null, content, contentUrl, normalizedType)
                 val errorMsg = response?.errorBody()?.string()?.takeIf { it.isNotBlank() }
-                if (errorMsg != null) {
-                    emit(Resource.Error(errorMsg))
-                } else {
-                    emit(Resource.Success(true))
-                }
+                    ?: "Failed to post story"
+                emit(Resource.Error(errorMsg))
             }
         } catch (e: Exception) {
             if (e is CancellationException && e !is TimeoutCancellationException) throw e
             Log.e(TAG, "createStory failed", e)
-            cacheOwnPostedStory(null, content, contentUrl, type)
-            emit(Resource.Success(true))
+            emit(Resource.Error(e.localizedMessage ?: "Failed to post story"))
         }
     }
 
@@ -139,22 +132,26 @@ class StoryRepositoryImpl @Inject constructor(
     override fun markStoryAsViewed(userId: String, storyId: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            val entity = storyDao.getStoriesByUserId(userId).first()
-                ?: storyDao.getStoriesOnce().find { it.id == userId || it.userId == userId }
+            val targetId = userId.removePrefix("user_")
+            val allEntities = storyDao.getStoriesOnce()
+            val entity = allEntities.find { 
+                it.id == userId || 
+                it.userId == userId || 
+                it.id == targetId || 
+                it.userId == targetId ||
+                it.id == "user_$targetId" ||
+                it.userId == "user_$targetId" ||
+                it.stories.any { s -> s.id == storyId }
+            }
             if (entity != null) {
-                var awardPoints = false
                 val updated = entity.stories.map { item ->
-                    if (item.id == storyId) {
-                        if (item.id.startsWith("ad_")) awardPoints = true
-                        item.copy(isViewed = true)
-                    } else item
-                }
-                if (awardPoints) {
-                    runCatching { RewardsManager.awardPoints(0.10, "STORY_AD", "Viewed ad story $storyId") }
+                    if (item.id == storyId) item.copy(isViewed = true) else item
                 }
                 storyDao.insertStories(listOf(entity.copy(stories = updated)))
             }
-            storyApi.markStoryViewed(storyId)
+            if (!storyId.startsWith("local_") && !storyId.startsWith("ad_")) {
+                storyApi.markStoryViewed(storyId)
+            }
             emit(Resource.Success(true))
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -215,39 +212,55 @@ class StoryRepositoryImpl @Inject constructor(
     }
 
     private suspend fun mergeIntoCache(incoming: List<UserStory>) {
-        val myId = sessionManager.getUserId()
-        val existing = storyDao.getStoriesOnce().associateBy { it.userId.ifBlank { it.id } }
-        val merged = linkedMapOf<String, StoryEntity>()
-
-        existing.forEach { (key, entity) -> merged[key] = entity }
-
-        incoming.forEach { bundle ->
+        val myId = sessionManager.getUserId()?.removePrefix("user_")
+        val existing = storyDao.getStoriesOnce()
+        val cutoff = System.currentTimeMillis() - DAY_MS
+        fun sameUser(entityUserId: String, entityId: String, other: String?): Boolean {
+            if (other.isNullOrBlank()) return false
+            val left = entityUserId.ifBlank { entityId }.removePrefix("user_")
+            val right = other.removePrefix("user_")
+            return left == right || entityId == other || entityUserId == other
+        }
+        val merged = incoming.map { bundle ->
             val key = bundle.userId.ifBlank { bundle.id }
-            val old = merged[key]
-            merged[key] = if (old == null) {
-                bundle.toStoryEntity()
+            val old = existing.find { sameUser(it.userId, it.id, key) }
+            val pending = old?.stories.orEmpty().filter { item ->
+                item.id.startsWith("local_") &&
+                    bundle.stories.none { server -> server.id == item.id }
+            }
+            val stories = (bundle.stories + pending)
+                .filter { it.createdAt == 0L || it.createdAt >= cutoff }
+                .distinctBy { it.id }
+                .sortedBy { it.createdAt }
+            if (old == null) {
+                bundle.toStoryEntity().copy(stories = stories)
             } else {
                 old.copy(
                     userName = bundle.userName.ifBlank { old.userName },
                     phoneNumber = bundle.phoneNumber ?: old.phoneNumber,
                     userAvatarUrl = bundle.userAvatarUrl ?: old.userAvatarUrl,
-                    stories = (old.stories + bundle.stories).distinctBy { it.id }.sortedBy { it.createdAt },
+                    stories = stories,
                     lastUpdated = bundle.lastUpdated,
                     lastUpdatedMillis = maxOf(
                         old.lastUpdatedMillis,
-                        bundle.stories.maxOfOrNull { it.createdAt } ?: 0L
+                        stories.maxOfOrNull { it.createdAt } ?: 0L
                     ),
                     isMuted = bundle.isMuted
                 )
             }
+        }.filter { it.stories.isNotEmpty() }.toMutableList()
+
+        if (myId != null && merged.none { sameUser(it.userId, it.id, myId) }) {
+            val oldMine = existing.find { sameUser(it.userId, it.id, myId) }
+            val pending = oldMine?.stories.orEmpty().filter {
+                it.id.startsWith("local_") && (it.createdAt == 0L || it.createdAt >= cutoff)
+            }
+            if (oldMine != null && pending.isNotEmpty()) {
+                merged += oldMine.copy(stories = pending)
+            }
         }
 
-        val cutoff = System.currentTimeMillis() - DAY_MS
-        val pruned = merged.values.map { entity ->
-            entity.copy(stories = entity.stories.filter { it.createdAt == 0L || it.createdAt >= cutoff })
-        }.filter { it.stories.isNotEmpty() || (myId != null && (it.userId == myId || it.id == myId)) }
-
-        storyDao.replaceStories(pruned)
+        storyDao.replaceStories(merged)
     }
 
     private suspend fun cacheOwnPostedStory(

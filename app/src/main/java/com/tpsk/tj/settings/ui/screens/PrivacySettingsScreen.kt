@@ -72,7 +72,10 @@ fun PrivacySettingsScreen(
     if (showStoriesPrivacyDialog) {
         PrivacyOptionDialog(
             title = "Who can see my stories",
-            currentOption = settings.who_can_see_stories,
+            currentOption = when (settings.who_can_see_stories) {
+                "my_contacts_except", "contacts_except" -> "my_contacts_except"
+                else -> "my_contacts"
+            },
             options = listOf("my_contacts", "my_contacts_except"),
             onOptionSelected = {
                 if (it == "my_contacts_except") {
@@ -132,7 +135,10 @@ fun PrivacySettingsScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
-                    PrivacyItemUnique(title = "Blocked Users", subtitle = "Manage blocked accounts", onClick = onNavigateToBlockedUsers)
+                    PrivacyItemUnique(title = "Blocked Users", subtiwhen (settings.who_can_see_stories) {
+                        "my_contacts_except", "contacts_except" -> "My contacts except"
+                        else -> "My contacts"
+                   
                     PrivacyItemUnique(title = "Phone Number", subtitle = "Everyone", onClick = { showPhoneNumberDialog = true })
                     PrivacyItemUnique(title = "Last Seen & Online", subtitle = settings.show_last_seen.replace("_", " ").replaceFirstChar { it.uppercase() }, onClick = { showLastSeenDialog = true })
                     PrivacyItemUnique(title = "Stories", subtitle = settings.who_can_see_stories.replace("_", " ").replaceFirstChar { it.uppercase() }, onClick = { showStoriesPrivacyDialog = true })

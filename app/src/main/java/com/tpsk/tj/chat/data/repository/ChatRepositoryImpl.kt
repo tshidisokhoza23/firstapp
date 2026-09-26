@@ -801,9 +801,12 @@ class ChatRepositoryImpl @Inject constructor(
                         )
                     } else if (mapped.type == com.tpsk.tj.common.model.ConversationType.MINGLE) {
                         val otherId = chat.contact_id.orEmpty()
-                        val phone = chat.phone_number?.takeIf { it.isNotBlank() }.orEmpty()
-                        val name = if (!isIdString(chat.title, otherId)) chat.title else phone
-                        mapped = mapped.copy(senderName = name, phoneNumber = phone, otherUserId = otherId)
+                        val title = chat.title.trim()
+                        val digitCount = title.count { it.isDigit() }
+                        val phoneLike = digitCount >= 8 && title.isNotEmpty() && digitCount.toDouble() / title.length >= 0.6
+                        val generic = title.isBlank() || title.equals("Mingle", ignoreCase = true) || title.equals("Mingle User", ignoreCase = true) || isIdString(title, otherId) || phoneLike
+                        val name = if (generic) "Mingle User" else title
+                        mapped = mapped.copy(senderName = name, phoneNumber = null, otherUserId = otherId)
                     } else {
                         val name = if (chat.title.isNotBlank() && !isIdString(chat.title, chat.conversation_id)) {
                             chat.title
@@ -842,11 +845,19 @@ class ChatRepositoryImpl @Inject constructor(
 
                     if (local != null && serverEntity.type == com.tpsk.tj.common.model.ConversationType.CHANNEL) {
                         resultEntity.copy(
-                            isSubscribed = local.isSubscribed || serverEntity.isSubscribed,
-                            isAdmin = local.isAdmin || serverEntity.isAdmin,
-                            isMuted = local.isMuted,
-                            adminsCanPost = local.adminsCanPost || serverEntity.adminsCanPost,
+                            isSubscribed = true,
+                            isAdmin = serverEntity.isAdmin || local.isAdmin,
+                            isMuted = serverEntity.isMuted,
+                            adminsCanPost = serverEntity.adminsCanPost || local.adminsCanPost,
                             createdBy = serverEntity.createdBy ?: local.createdBy,
+                            pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId
+                        )
+                    } else if (local != null && serverEntity.type == com.tpsk.tj.common.model.ConversationType.MINGLE) {
+                        val serverName = serverEntity.senderName.trim()
+                        val generic = serverName.isBlank() || serverName.equals("Mingle", ignoreCase = true) || serverName.equals("Mingle User", ignoreCase = true)
+                        resultEntity.copy(
+                            senderName = if (generic && local.senderName.isNotBlank()) local.senderName else serverName.ifBlank { local.senderName },
+                            phoneNumber = null,
                             pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId
                         )
                     } else if (local != null) {

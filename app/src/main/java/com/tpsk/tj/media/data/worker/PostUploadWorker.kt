@@ -5,7 +5,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
-import com.tpsk.tj.media.data.api.CreatePollRequest
 import com.tpsk.tj.media.data.api.CreatePostRequest
 import com.tpsk.tj.media.data.api.SocialApi
 import com.tpsk.tj.media.data.local.dao.PostDao
@@ -131,17 +130,13 @@ class PostUploadWorker @AssistedInject constructor(
             }
 
             // 2. Build CreatePostRequest with clientPostId as Idempotency key
-            val pollRequest = if (!pollOptions.isNullOrEmpty()) {
-                CreatePollRequest(options = pollOptions)
-            } else null
-
             val request = CreatePostRequest(
                 content = text,
                 media_urls = processedImageUrls,
                 post_type = postType,
                 location = location,
                 tags = emptyList(),
-                poll = pollRequest,
+                poll_options = pollOptions,
                 parent_post_id = parentPostId,
                 root_post_id = rootPostId,
                 repost_of_id = repostOfId

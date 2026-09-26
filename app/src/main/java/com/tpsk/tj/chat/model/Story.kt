@@ -15,7 +15,7 @@ data class UserStory(
     val lastUpdated: String,
     val isMuted: Boolean = false
 ) {
-    val allViewed: Boolean get() = stories.all { it.isViewed }
+    val allViewed: Boolean get() = stories.isNotEmpty() && stories.all { it.isViewed }
 }
 
 data class StoryItem(

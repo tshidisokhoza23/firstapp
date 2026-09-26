@@ -83,7 +83,9 @@ fun mapApiChannel(api: ApiChannel): Channel = Channel(
     lastPostImageUrl = MediaUtils.formatUrl(api.last_post_image_url),
     lastPostTime = api.last_post_time?.toString() ?: "",
     avatarColor = Color.Gray,
-    conversationId = api.conversation_id?.takeIf { it.isNotBlank() } ?: api.id
+    conversationId = api.conversation_id?.takeIf { it.isNotBlank() } ?: api.id,
+    isTopInCountry = api.is_top_in_country,
+    countryCode = api.country_code.orEmpty()
 )
 
 fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
@@ -94,11 +96,7 @@ fun mapApiStory(apiStory: ApiStoryResponse): UserStory {
             id = it.id, 
             content = it.content ?: "", 
             contentUrl = MediaUtils.formatUrl(it.content_url), 
-            type = when (it.story_type) { 
-                "video" -> StoryType.VIDEO 
-                "image" -> StoryType.IMAGE 
-                else -> StoryType.TEXT 
-            }, 
+            type = storyTypeFrom(it.story_type, it.content_url, it.content), 
             timestamp = it.created_at?.let { ts -> 
                 formatStoryTimestamp(ts)
             } ?: "", 
@@ -151,5 +149,19 @@ fun formatTimeAgo(timestamp: Long): String {
             val days = hours / 24
             "${days}d ago"
         }
+    }
+}
+
+
+private fun storyTypeFrom(rawType: String?, url: String?, content: String?): StoryType {
+    val type = rawType?.trim()?.lowercase().orEmpty()
+    val path = url?.substringBefore('?')?.lowercase().orEmpty()
+    val video = type == "video" || path.endsWith(".mp4") || path.endsWith(".mov") || path.endsWith(".webm")
+    val image = type == "image" || type == "photo" || path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png") || path.endsWith(".webp")
+    return when {
+        video && !url.isNullOrBlank() -> StoryType.VIDEO
+        image && !url.isNullOrBlank() -> StoryType.IMAGE
+        !url.isNullOrBlank() && content.isNullOrBlank() -> StoryType.IMAGE
+        else -> StoryType.TEXT
     }
 }

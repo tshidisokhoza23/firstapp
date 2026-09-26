@@ -66,7 +66,7 @@ fun mapApiChatSummary(chat: ChatSummary): ChatMessage {
         isAdmin = chat.is_admin,
         adminsCanPost = chat.admins_can_post,
         otherUserId = chat.contact_id,
-        phoneNumber = chat.phone_number, // Ensure this is mapped
+        phoneNumber = if (type == ConversationType.MINGLE) null else chat.phone_number,
         createdBy = chat.created_by
     )
 }

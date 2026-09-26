@@ -227,23 +227,30 @@ fun MediaScreen(
                                     AppLogo(size = 36.dp)
                                 },
                                 navigationIcon = {
+                                    val unreadNotifsCount by mediaViewModel.unreadNotificationCount.collectAsState()
+
                                     BadgedBox(
                                         badge = {
-                                            Badge(
-                                                containerColor = Color(0xFFD32F2F),
-                                                contentColor = Color.White
-                                            ) {
-                                                Text(
-                                                    text = "3",
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        fontSize = 9.sp,
-                                                        fontWeight = FontWeight.Bold
+                                            if (unreadNotifsCount > 0) {
+                                                Badge(
+                                                    containerColor = Color(0xFFD32F2F),
+                                                    contentColor = Color.White
+                                                ) {
+                                                    Text(
+                                                        text = if (unreadNotifsCount > 99) "99+" else "$unreadNotifsCount",
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
                                                     )
-                                                )
+                                                }
                                             }
                                         }
                                     ) {
-                                        IconButton(onClick = { showTopMoreSheet = true }) {
+                                        IconButton(onClick = { 
+                                            mediaViewModel.fetchNotificationsCount()
+                                            showTopMoreSheet = true 
+                                        }) {
                                             Icon(
                                                 imageVector = Icons.Default.Menu,
                                                 contentDescription = "Menu",

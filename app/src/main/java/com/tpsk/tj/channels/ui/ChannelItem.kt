@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpsk.tj.chat.model.Channel
@@ -84,10 +85,24 @@ fun ChannelItem(
                     )
                 }
             }
+            val followerCount = channel.followers.toLongOrNull()
+            val followerLabel = when (followerCount) {
+                null -> "${channel.followers} followers"
+                1L -> "1 follower"
+                else -> "$followerCount followers"
+            }
+            val preview = channel.lastPostText.ifBlank { "No updates yet" }
             Text(
-                text = "${channel.followers} followers",
+                text = preview,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = followerLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
             )
         }
         

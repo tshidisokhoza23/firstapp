@@ -519,7 +519,12 @@ class MainActivity : FragmentActivity() {
                             } else {
                                 val targetId = openChatId ?: senderId
                                 if (targetId != null) {
-                                    val targetRoute = Screen.Chat.createRoute(targetId)
+                                    val openType = intent?.getStringExtra("open_chat_type").orEmpty()
+                                    val targetRoute = if (openType.equals("channel", ignoreCase = true)) {
+                                        Screen.ChannelDetail.createRoute(targetId)
+                                    } else {
+                                        Screen.Chat.createRoute(targetId, type = openType.ifBlank { "direct" })
+                                    }
                                     val currentRoute = navController.currentDestination?.route
                                     if (currentRoute != targetRoute) {
                                         navController.navigate(targetRoute) {
@@ -560,6 +565,16 @@ class MainActivity : FragmentActivity() {
         
         val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
         val isOngoingCallReturn = intent.getBooleanExtra("is_ongoing_call_return", false)
+        val openChatId = intent.getStringExtra("open_chat_id")
+        if (openChatId != null && sessionManager.isLoggedIn()) {
+            val openType = intent.getStringExtra("open_chat_type").orEmpty()
+            val route = if (openType.equals("channel", ignoreCase = true)) {
+                Screen.ChannelDetail.createRoute(openChatId)
+            } else {
+                Screen.Chat.createRoute(openChatId, type = openType.ifBlank { "direct" })
+            }
+            GlobalNavigation.navigateTo(route)
+        }
 
         if (senderId != null && sessionManager.isLoggedIn() && !isOngoingCallReturn) {
             GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId, type = "initiate"))

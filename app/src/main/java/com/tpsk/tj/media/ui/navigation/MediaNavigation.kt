@@ -166,13 +166,11 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
     ) { backStackEntry ->
         val videoUriStr = backStackEntry.arguments?.getString("videoUri") ?: ""
         val videoUri = if (videoUriStr.isNotBlank()) android.net.Uri.parse(videoUriStr) else null
-        val mediaViewModel: MediaViewModel = hiltViewModel()
 
         com.tpsk.tj.media.ui.screens.shorts.CreateShortScreen(
             initialVideoUri = videoUri,
             onBackClick = { navController.popBackStack() },
-            onPostSuccess = { navController.popBackStack() },
-            mediaViewModel = mediaViewModel
+            onPostSuccess = { navController.popBackStack() }
         )
     }
 

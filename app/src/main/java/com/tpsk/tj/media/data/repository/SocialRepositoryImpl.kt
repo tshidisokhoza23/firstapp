@@ -185,19 +185,16 @@ class SocialRepositoryImpl @Inject constructor(
     override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?, repostOfId: String?, thumbnailUrl: String?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val pollRequest = if (pollOptions != null && pollOptions.size > 0) {
-                com.tpsk.tj.media.data.api.CreatePollRequest(options = pollOptions)
-            } else null
             
             val request = com.tpsk.tj.media.data.api.CreatePostRequest(
                 content = content,
                 media_urls = mediaUrls,
-                post_type = postType ?: "text_only",
+                post_type = postType ?: "standard",
                 media_type = mediaType,
                 location = location,
                 tags = tags,
                 channel_id = channelId,
-                poll = pollRequest,
+                poll_options = pollOptions,
                 parent_post_id = parentPostId,
                 root_post_id = rootPostId,
                 category_id = categoryId,

@@ -42,12 +42,16 @@ data class MingleUiState(
     val radiusKm: Float = 25f,
     val balance: Double = 0.0,
     val likeCost: Double = 10.0,
+    val minBalance: Double = 40.0,
     val hasLocationPermission: Boolean = false,
     val hasLocation: Boolean = false,
     val latitude: Double? = null,
     val longitude: Double? = null,
     val error: String? = null,
+    val emptyReason: String? = null,
     val needsPoints: Boolean = false,
+    val hasMore: Boolean = false,
+    val isLoadingMore: Boolean = false,
     val lastMatchConversationId: String? = null,
     val lastMatchName: String? = null,
     val myName: String = "",
@@ -91,9 +95,11 @@ class MingleViewModel @Inject constructor(
 
     fun setExcludedContactIds(ids: Set<String>) {
         excludedContactIds = ids
-        if (_uiState.value.profiles.isNotEmpty()) {
+        val remaining = _uiState.value.profiles.filterNot { candidate -> excludedContactIds.contains(candidate.id) }
+        if (remaining.size != _uiState.value.profiles.size || remaining.isEmpty()) {
             _uiState.value = _uiState.value.copy(
-                profiles = _uiState.value.profiles.filterNot { candidate -> excludedContactIds.contains(candidate.id) }
+                profiles = remaining,
+                emptyReason = if (remaining.isEmpty() && _uiState.value.profiles.isNotEmpty()) "CONTACTS_HIDDEN" else _uiState.value.emptyReason
             )
         }
     }
@@ -122,10 +128,11 @@ class MingleViewModel @Inject constructor(
                 when (result) {
                     is Resource.Success -> {
                         _uiState.value = _uiState.value.copy(
+                            isLoading = false,
                             activities = (result.data ?: emptyList()).map { it.toNotification() }
                         )
                     }
-                    is Resource.Error -> _uiState.value = _uiState.value.copy(error = result.message)
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
                     is Resource.Loading -> _uiState.value = _uiState.value.copy(isLoading = true)
                 }
             }
@@ -143,20 +150,23 @@ class MingleViewModel @Inject constructor(
     private var lastBackendLocation: Location? = null
 
     fun refreshLocationAndFeed() {
+        val generation = ++feedGeneration
         viewModelScope.launch {
             refreshPermission()
             if (!_uiState.value.hasLocationPermission) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    emptyReason = "NO_LOCATION",
                     error = "Location permission is required to find people nearby"
                 )
                 return@launch
             }
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasMore = false, emptyReason = null)
             val location = currentLocation()
             if (location == null) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    emptyReason = "NO_LOCATION",
                     error = "Unable to read your location"
                 )
                 return@launch
@@ -191,60 +201,101 @@ class MingleViewModel @Inject constructor(
                 if (!locationUpdated && lastBackendLocation == null) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        emptyReason = "NO_LOCATION",
                         error = locationError ?: "Unable to update your location"
                     )
                     return@launch
                 }
             }
-            repository.getFeed(lat, lng, radius).collect { result ->
-                when (result) {
-                    is Resource.Success -> {
-                        val feed = result.data
-                        val targetRange = _uiState.value.myTargetAgeRange
-                        val rawItems = feed?.items ?: emptyList()
-                        val candidatesList = rawItems.mapNotNull { candidate ->
-                            val candidateId = candidate.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                            MingleProfile(
-                                id = candidateId,
-                                name = candidate.name.orEmpty().ifBlank { "Mingle user" },
-                                age = candidate.age,
-                                distanceKm = candidate.distance_km.roundToInt(),
-                                bio = candidate.bio.orEmpty(),
-                                photos = candidate.photos?.mapNotNull { it.url } ?: emptyList(),
-                                isLiked = candidate.is_liked
-                            )
-                        }
+            nextFeedOffset = 0
+            collectFeed(lat, lng, radius, offset = 0, append = false, generation = generation)
+        }
+    }
 
-                        val nonExcluded = candidatesList.filterNot { candidate ->
-                            excludedContactIds.contains(candidate.id)
-                        }
-                        val filteredItems = nonExcluded.filter { candidate ->
-                            isAgeInRange(candidate.age, targetRange)
-                        }
+    fun loadMore() {
+        val state = _uiState.value
+        val lat = state.latitude
+        val lng = state.longitude
+        if (lat == null || lng == null || state.isLoading || state.isLoadingMore || !state.hasMore) return
+        val generation = feedGeneration
+        viewModelScope.launch {
+            collectFeed(lat, lng, state.radiusKm.roundToInt(), offset = nextFeedOffset, append = true, generation = generation)
+        }
+    }
 
-                        val feedBalance = feed?.balance
-                        if (feedBalance != null) {
-                            updateUserBalance(feedBalance)
-                        }
+    private var nextFeedOffset = 0
+    private var feedGeneration = 0
 
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            profiles = filteredItems,
-                            radiusKm = (feed?.radius_km ?: radius).toFloat(),
-                            balance = feedBalance ?: _uiState.value.balance,
-                            likeCost = feed?.like_cost ?: 10.0,
-                            error = null
+    private suspend fun collectFeed(lat: Double, lng: Double, radius: Int, offset: Int, append: Boolean, generation: Int) {
+        repository.getFeed(lat, lng, radius, offset = offset).collect { result ->
+            if (generation != feedGeneration) return@collect
+            when (result) {
+                is Resource.Success -> {
+                    val feed = result.data
+                    val rawItems = feed?.items ?: emptyList()
+                    val mapped = rawItems.mapNotNull { candidate ->
+                        val candidateId = candidate.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                        val photos = candidate.photos?.mapNotNull { it.url?.takeIf { url -> url.isNotBlank() } } ?: emptyList()
+                        if (photos.isEmpty()) return@mapNotNull null
+                        MingleProfile(
+                            id = candidateId,
+                            name = candidate.name.orEmpty().ifBlank { "Mingle user" },
+                            age = candidate.age,
+                            distanceKm = candidate.distance_km.roundToInt(),
+                            bio = candidate.bio.orEmpty(),
+                            photos = photos,
+                            isLiked = candidate.is_liked
                         )
                     }
-                    is Resource.Error -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            profiles = emptyList(),
-                            error = result.message
-                        )
+                    val visible = mapped.filterNot { excludedContactIds.contains(it.id) }
+                    val merged = if (append) {
+                        val seen = _uiState.value.profiles.map { it.id }.toSet()
+                        _uiState.value.profiles + visible.filterNot { seen.contains(it.id) }
+                    } else {
+                        visible
                     }
-                    is Resource.Loading -> _uiState.value = _uiState.value.copy(isLoading = true)
+                    val emptyReason = if (merged.isNotEmpty()) {
+                        null
+                    } else if (append) {
+                        _uiState.value.emptyReason
+                    } else if (mapped.isNotEmpty() && visible.isEmpty()) {
+                        "CONTACTS_HIDDEN"
+                    } else if (rawItems.isNotEmpty() && mapped.isEmpty()) {
+                        "NO_PHOTO"
+                    } else {
+                        feed?.status?.takeIf { it.isNotBlank() } ?: "FEED_EXHAUSTED"
+                    }
+                    nextFeedOffset = offset + rawItems.size
+                    val feedBalance = feed?.balance
+                    if (feedBalance != null) {
+                        updateUserBalance(feedBalance)
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isLoadingMore = false,
+                        profiles = merged,
+                        emptyReason = emptyReason,
+                        hasMore = feed?.has_more == true,
+                        radiusKm = (feed?.radius_km ?: radius).toFloat(),
+                        balance = feedBalance ?: _uiState.value.balance,
+                        likeCost = feed?.like_cost ?: 10.0,
+                        minBalance = feed?.min_balance?.takeIf { it > 0 } ?: 40.0,
+                        error = null
+                    )
                 }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isLoadingMore = false,
+                        pmptyReason = if (append) _uiState.value.emptyReason else "FEED_EXHAUSTED",
+                        erofiles = if (append) _uiState.value.profiles else emptyList(),
+                        error = result.message
+                    )
+                }
+                is Resource.Loading -> _uiState.value = _uiState.value.copy(
+                    isLoading = if (append) _uiState.value.isLoading else true,
+                    isLoadingMore = append
+                )
             }
         }
     }
@@ -273,29 +324,54 @@ class MingleViewModel @Inject constructor(
         }
     }
 
-    private var lastSwipedProfile: MingleProfile? = null
+    private data class TrackedSwipe(val profile: MingleProfile, val action: String, val confirmedOnServer: Boolean)
+
+    private var lastSwipe: TrackedSwipe? = null
     private val pendingSwipes = mutableListOf<com.tpsk.tj.mingle.data.api.MingleSwipeSyncItemDto>()
+    private val pendingProfiles = mutableMapOf<String, MingleProfile>()
+    private val locallyCancelled = mutableSetOf<String>()
+
+    private fun restoreProfile(profile: MingleProfile) {
+        if (_uiState.value.profiles.any { it.id == profile.id }) return
+        _uiState.value = _uiState.value.copy(profiles = listOf(profile) + _uiState.value.profiles)
+    }
 
     fun rewind(onRewound: () -> Unit = {}) {
-        val lastProfile = lastSwipedProfile ?: return
+        val last = lastSwipe
+        if (last == null) {
+            _uiState.value = _uiState.value.copy(error = "Nothing to rewind")
+            return
+        }
+        if (!last.confirmedOnServer) {
+            locallyCancelled.add(last.profile.id)
+            pendingSwipes.removeAll { it.target_user_id == last.profile.id }
+            pendingProfiles.remove(last.profile.id)
+            lastSwipe = null
+            restoreProfile(last.profile)
+            onRewound()
+            return
+        }
         viewModelScope.launch {
             repository.rewind().collect { result ->
                 when (result) {
                     is Resource.Success -> {
-                        lastSwipedProfile = null
-                        val currentProfiles = _uiState.value.profiles.toMutableList()
-                        if (currentProfiles.none { it.id == lastProfile.id }) {
-                            currentProfiles.add(0, lastProfile)
-                            _uiState.value = _uiState.value.copy(
-                                profiles = currentProfiles,
-                                balance = result.data?.balance ?: _uiState.value.balance
-                            )
+                        val data = result.data
+                        val targetId = data?.target_user_id
+                        if (data != null && data.rewound && (targetId.isNullOrBlank() || targetId == last.profile.id)) {
+                            lastSwipe = null
+                            restoreProfile(last.profile)
+                            _uiState.value = _uiState.value.copy(balance = data.balance)
+                            updateUserBalance(data.balance)
+                            onRewound()
+                        } else if (data?.rewound == true) {
+                            lastSwipe = null
+                            _uiState.value = _uiState.value.copy(error = "Rewound a different swipe. Refreshing your deck.")
+                            refreshLocationAndFeed()
+                        } else {
+                            _uiState.value = _uiState.value.copy(error = "Nothing to rewind")
                         }
-                        onRewound()
                     }
-                    is Resource.Error -> {
-                        _uiState.value = _uiState.value.copy(error = result.message)
-                    }
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(error = result.message)
                     is Resource.Loading -> Unit
                 }
             }
@@ -307,16 +383,36 @@ class MingleViewModel @Inject constructor(
         val batch = pendingSwipes.toList()
         viewModelScope.launch {
             repository.syncSwipes(batch).collect { result ->
-                if (result is Resource.Success) {
-                    pendingSwipes.removeAll(batch)
-                    result.data?.let { updateUserBalance(it.balance) }
+                if (result !is Resource.Success) return@collect
+                val results = result.data?.results.orEmpty()
+                val returned = results.associateBy { it.target_user_id }
+                var needsPoints = false
+                pendingSwipes.removeAll { item ->
+                    val status = returned[item.target_user_id]?.status ?: return@removeAll false
+                    when (status) {
+                        "INSUFFICIENT_POINTS" -> {
+                            needsPoints = true
+                            pendingProfiles.remove(item.target_user_id)?.let { restoreProfile(it) }
+                            true
+                        }
+                        "RETRYABLE" -> false
+                        else -> {
+                            pendingProfiles.remove(item.target_user_id)
+                            true
+                        }
+                    }
                 }
+                if (needsPoints) {
+                    _uiState.value = _uiState.value.copy(needsPoints = true)
+                }
+                result.data?.let { updateUserBalance(it.balance) }
             }
         }
     }
 
     fun swipe(profile: MingleProfile, action: String, candidateName: String? = null, onMatched: (String) -> Unit, onInsufficientPoints: () -> Unit) {
-        lastSwipedProfile = profile
+        lastSwipe = TrackedSwipe(profile, action, confirmedOnServer = false)
+        locallyCancelled.remove(profile.id)
         _uiState.value = _uiState.value.copy(
             profiles = _uiState.value.profiles.filterNot { it.id == profile.id }
         )
@@ -325,6 +421,14 @@ class MingleViewModel @Inject constructor(
             repository.swipe(profile.id, action, candidateName = nameToUse).collect { result ->
                 when (result) {
                     is Resource.Success -> {
+                        if (locallyCancelled.remove(profile.id)) {
+                            repository.rewind().collect { }
+                            restoreProfile(profile)
+                            return@collect
+                        }
+                        lastSwipe = TrackedSwipe(profile, action, confirmedOnServer = true)
+                        pendingSwipes.removeAll { it.target_user_id == profile.id }
+                        pendingProfiles.remove(profile.id)
                         val swipe = result.data
                         if (swipe != null) {
                             updateUserBalance(swipe.balance)
@@ -343,12 +447,27 @@ class MingleViewModel @Inject constructor(
                         }
                     }
                     is Resource.Error -> {
-                        if (result.message == "INSUFFICIENT_POINTS") {
-                            _uiState.value = _uiState.value.copy(needsPoints = true)
-                            onInsufficientPoints()
-                        } else {
-                            // Queue offline swipe for background sync
-                            pendingSwipes.add(com.tpsk.tj.mingle.data.api.MingleSwipeSyncItemDto(target_user_id = profile.id, action = action))
+                        if (locallyCancelled.remove(profile.id)) {
+                            restoreProfile(profile)
+                            return@collect
+                        }
+                        when (result.message) {
+                            "INSUFFICIENT_POINTS" -> {
+                                lastSwipe = null
+                                restoreProfile(profile)
+                                _uiState.value = _uiState.value.copy(needsPoints = true)
+                                onInsufficientPoints()
+                            }
+                            "RETRYABLE" -> {
+                                pendingSwipes.removeAll { it.target_user_id == profile.id }
+                                pendingSwipes.add(com.tpsk.tj.mingle.data.api.MingleSwipeSyncItemDto(target_user_id = profile.id, action = action))
+                                pendingProfiles[profile.id] = profile
+                            }
+                            else -> {
+                                lastSwipe = null
+                                restoreProfile(profile)
+                                _uiState.value = _uiState.value.copy(error = result.message)
+                            }
                         }
                     }
                     is Resource.Loading -> Unit
@@ -489,7 +608,7 @@ class MingleViewModel @Inject constructor(
             hasLocation = profile.has_location,
             myName = profile.name.orEmpty(),
             myBio = profile.bio.orEmpty(),
-            myAge = if (profile.age > 0) profile.age else 25,
+            myAge = profile.age,
             myGender = profile.gender.orEmpty().ifBlank { "Other" },
             myLookingFor = profile.looking_for.orEmpty().ifBlank { "Everyone" },
             myTargetAgeRange = profile.target_age_range.orEmpty().ifBlank { "18 - 35" }
@@ -498,16 +617,19 @@ class MingleViewModel @Inject constructor(
 
     private suspend fun currentLocation(): Location? = suspendCancellableCoroutine { cont ->
         val client = LocationServices.getFusedLocationProviderClient(context)
+        val maxAgeMs = 2 * 60 * 1000L
+        fun freshEnough(loc: Location?) = loc != null && System.currentTimeMillis() - loc.time <= maxAgeMs
         try {
             client.lastLocation.addOnSuccessListener { last ->
-                if (last != null) {
-                    if (cont.isActive) cont.resume(last)
+                if (!cont.isActive) return@addOnSuccessListener
+                if (freshEnough(last)) {
+                    cont.resume(last)
                     return@addOnSuccessListener
                 }
                 val token = CancellationTokenSource()
-                client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, token.token)
-                    .addOnSuccessListener { current -> if (cont.isActive) cont.resume(current) }
-                    .addOnFailureListener { if (cont.isActive) cont.resume(null) }
+                client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, token.token)
+                    .addOnSuccessListener { current -> if (cont.isActive) cont.resume(current ?: last) }
+                    .addOnFailureListener { if (cont.isActive) cont.resume(last) }
                 cont.invokeOnCancellation { token.cancel() }
             }.addOnFailureListener {
                 if (cont.isActive) cont.resume(null)

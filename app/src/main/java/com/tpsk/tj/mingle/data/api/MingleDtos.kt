@@ -47,8 +47,10 @@ data class MingleFeedResponse(
     val items: List<MingleCandidateDto>? = emptyList(),
     val radius_km: Int = 25,
     val has_more: Boolean = false,
+    val status: String? = null,
     val balance: Double = 0.0,
-    val like_cost: Double = 10.0
+    val like_cost: Double = 10.0,
+    val min_balance: Double = 40.0
 )
 
 data class MingleLocationRequest(

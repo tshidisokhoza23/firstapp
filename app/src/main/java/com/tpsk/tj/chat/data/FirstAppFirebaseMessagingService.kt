@@ -63,8 +63,41 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
                 "mingle_like", "mingle_match", "mingle" -> {
                     handleMingleNotification(data)
                 }
+                "social_like", "social_comment", "social_follow", "social_notification", "social" -> {
+                    handleSocialNotification(data)
+                }
             }
         }
+    }
+
+    private fun handleSocialNotification(data: Map<String, String>) {
+        val title = data["title"] ?: "Social Notification"
+        val body = data["body"] ?: "New activity on your post"
+
+        createMessagesChannel()
+
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_social_notif", true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            ("social_" + System.currentTimeMillis()).hashCode(),
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(("social_" + System.currentTimeMillis()).hashCode(), notification)
     }
 
     private fun handleMingleNotification(data: Map<String, String>) {
@@ -255,6 +288,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("open_chat_id", chatId)
+            putExtra("open_chat_type", data["chat_type"] ?: "direct")
         }
         val pendingIntent = PendingIntent.getActivity(
             this,

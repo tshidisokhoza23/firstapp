@@ -74,7 +74,7 @@ fun MinglePointsGateDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Liking a profile costs 10 Points. You must maintain at least 40 points in your wallet to continue minging. Watch rewarded ads to earn points!",
+                    text = "Mingle needs 40 points to keep viewing. A like costs 10, so at 40 points watch an ad first. Your balance will not drop below 40.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

@@ -22,6 +22,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
@@ -41,6 +42,8 @@ class ChannelRepositoryImpl @Inject constructor(
     private val userApi: UserApi
 ) : ChannelRepository {
 
+    private val topInCountry = MutableStateFlow<List<Channel>>(emptyList())
+
     override fun getChannels(): Flow<Resource<List<Channel>>> = observeChannels()
 
     override fun observeChannels(): Flow<Resource<List<Channel>>> = flow {
@@ -51,9 +54,17 @@ class ChannelRepositoryImpl @Inject constructor(
                 runCatching { syncChannels() }
             }
             emitAll(
-                combine(channelDao.getChannels(), chatDao.getChatsByType(ConversationType.CHANNEL)) { channelEntities, chatEntities ->
+                combine(
+                    channelDao.getChannels(),
+                    chatDao.getChatsByType(ConversationType.CHANNEL),
+                    topInCountry
+                ) { channelEntities, chatEntities, topChannels ->
                     val fromChannelDao = channelEntities.map { it.toModel() }
-                    val fromChatDao = chatEntities.map { chatEntity ->
+                        .filter { it.isSubscribed || it.isAdmin }
+                    val knownConversations = fromChannelDao.mapNotNull { it.conversationId }.toSet()
+                    val knownIds = fromChannelDao.map { it.id }.toSet()
+                    val fromChatDao = chatEntities.mapNotNull { chatEntity ->
+                        if (chatEntity.id in knownConversations) return@mapNotNull null
                         Channel(
                             id = chatEntity.id,
                             name = chatEntity.senderName.ifBlank { "Channel" },
@@ -61,15 +72,22 @@ class ChannelRepositoryImpl @Inject constructor(
                             followers = "0",
                             avatarUrl = chatEntity.avatarUrl,
                             avatarColor = BoyishPurple,
-                            isSubscribed = chatEntity.isSubscribed,
+                            isSubscribed = true,
                             isAdmin = chatEntity.isAdmin,
                             isMuted = chatEntity.isMuted,
                             adminsCanPost = chatEntity.adminsCanPost,
+                            lastPostText = chatEntity.lastMessage,
                             conversationId = chatEntity.id,
                             createdBy = chatEntity.createdBy
                         )
                     }
-                    Resource.Success((fromChannelDao + fromChatDao).distinctBy { it.conversationId ?: it.id })
+                    val followed = (fromChannelDao + fromChatDao).distinctBy { it.conversationId ?: it.id }
+                    val followedKeys = followed.map { it.conversationId ?: it.id }.toSet() + knownIds + knownConversations
+                    val top = topChannels.filter { channel ->
+                        val key = channel.conversationId ?: channel.id
+                        key !in followedKeys && channel.id !in followedKeys
+                    }
+                    Resource.Success(followed + top)
                 }
             )
         }
@@ -86,21 +104,21 @@ class ChannelRepositoryImpl @Inject constructor(
                 }
             }
             if (!response.isSuccessful || response.body() == null) return false
-            val rawChannels = response.body()?.channels.orEmpty()
-            val channels = rawChannels
+            val channels = response.body()?.channels.orEmpty()
                 .map { mapApiChannel(it) }
                 .distinctBy { it.conversationId ?: it.id }
-            if (channels.isNotEmpty()) {
-                val existing = channelDao.getChannelsOnce().associateBy { it.id }
-                val merged = channels.map { incoming ->
-                    val old = existing[incoming.id]
-                    if (old == null) incoming.toEntity() else incoming.toEntity().copy(
-                        isSubscribed = incoming.isSubscribed || old.isSubscribed,
-                        isAdmin = incoming.isAdmin || old.isAdmin,
-                        isMuted = incoming.isMuted || old.isMuted
-                    )
-                }
-                channelDao.insertChannels(merged)
+            val followed = channels.filter { it.isSubscribed || it.isAdmin }
+            topInCountry.value = channels.filter { it.isTopInCountry && !it.isSubscribed && !it.isAdmin }
+            val existing = channelDao.getChannelsOnce()
+            val incomingIds = channels.map { it.id }.toSet()
+            existing.filter { it.isSubscribed && it.id !in incomingIds }.forEach { stale ->
+                channelDao.updateSubscription(stale.id, false)
+            }
+            channels.filter { !it.isSubscribed && !it.isAdmin }.forEach { discovered ->
+                channelDao.updateSubscription(discovered.id, false)
+            }
+            if (followed.isNotEmpty()) {
+                channelDao.insertChannels(followed.map { it.toEntity() })
             }
             true
         } catch (e: Exception) {
@@ -115,18 +133,23 @@ class ChannelRepositoryImpl @Inject constructor(
         try {
             val response = channelApi.subscribeToChannel(channelId)
             if (response.isSuccessful) {
-                val conversationId = channelDao.getChannelsOnce()
-                    .find { it.id == channelId || it.conversationId == channelId }
-                    ?.conversationId
-                    ?: channelId
-                webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$conversationId") })
-                val entity = channelDao.getChannelsOnce().find { it.id == channelId || it.conversationId == channelId }
-                if (entity != null) {
-                    channelDao.updateSubscription(entity.id, !entity.isSubscribed)
+                val refreshed = runCatching { channelApi.getChannel(channelId) }.getOrNull()
+                val channel = refreshed?.takeIf { it.isSuccessful }?.body()?.let { mapApiChannel(it) }
+                if (channel != null) {
+                    channelDao.insertChannel(channel.toEntity())
+                    val conversationId = channel.conversationId ?: channel.id
+                    chatDao.updateSubscribed(conversationId, channel.isSubscribed)
+                    if (channel.id != conversationId) chatDao.updateSubscribed(channel.id, channel.isSubscribed)
+                    if (channel.isSubscribed) {
+                        topInCountry.value = topInCountry.value.filter {
+                            it.id != channel.id && it.conversationId != conversationId
+                        }
+                        webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$conversationId") })
+                    }
                 }
-                emit(Resource.Success(true))
+                emit(Resource.Success(channel?.isSubscribed ?: true))
             } else {
-                emit(Resource.Error(response.errorBody()?.string() ?: "Failed to update subscription"))
+                emit(Resource.Error("Fail"))
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e

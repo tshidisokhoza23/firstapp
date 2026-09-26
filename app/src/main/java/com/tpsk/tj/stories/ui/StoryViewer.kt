@@ -1,8 +1,6 @@
 package com.tpsk.tj.stories.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -76,6 +74,11 @@ import com.tpsk.tj.chat.ui.components.formatMediaUrl
 import com.tpsk.tj.common.util.Resource
 import com.tpsk.tj.media.data.api.ApiViewer
 import kotlinx.coroutines.flow.Flow
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -98,8 +101,8 @@ fun StoryViewer(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var currentStoryIndex by remember(userStory.id, initialStoryIndex) {
-        mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0))) 
+    var currentStoryIndex by remember(userStory.id) {
+        mutableIntStateOf(initialStoryIndex.coerceIn(0, (userStory.stories.size - 1).coerceAtLeast(0)))
     }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var hasFinished by remember(userStory.id) { mutableStateOf(false) }
@@ -113,17 +116,30 @@ fun StoryViewer(
 
     val stories = userStory.stories
     if (stories.isEmpty()) {
-        LaunchedEffect(Unit) { finishOnce() }
+        LaunchedEffect(userStory.id) {
+            kotlinx.coroutines.delay(6_000)
+            if (isActive) finishOnce()
+        }
+        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            Text("Story unavailable", color = Color.White)
+        }
         return
     }
 
     val currentStory = stories[currentStoryIndex]
     val formattedMediaUrl = remember(currentStory.contentUrl) { formatMediaUrl(currentStory.contentUrl) }
+    val visualType = remember(currentStory.id, currentStory.type, formattedMediaUrl, currentStory.content) {
+        storyVisualType(currentStory, formattedMediaUrl)
+    }
 
-    val exoPlayer = remember(currentStory.id) {
-        if (currentStory.type == StoryType.VIDEO && !formattedMediaUrl.isNullOrBlank()) {
-            com.tpsk.tj.media.data.ShortsVideoCache.acquirePlayer(context, formattedMediaUrl).apply {
+    val exoPlayer = remember(currentStory.id, formattedMediaUrl, visualType) {
+        if (visualType == StoryType.VIDEO && !formattedMediaUrl.isNullOrBlank()) {
+            ExoPlayer.Builder(context).build().apply {
                 repeatMode = Player.REPEAT_MODE_OFF
+                setPlaybackSpeed(1f)
+                setMediaItem(MediaItem.fromUri(formattedMediaUrl))
+                prepare()
+                seekTo(0)
                 playWhenReady = true
             }
         } else {
@@ -131,16 +147,8 @@ fun StoryViewer(
         }
     }
 
-    DisposableEffect(exoPlayer, formattedMediaUrl) {
-        onDispose {
-            exoPlayer?.let { 
-                if (formattedMediaUrl != null) {
-                    com.tpsk.tj.media.data.ShortsVideoCache.releasePlayer(it, formattedMediaUrl)
-                } else {
-                    it.release()
-                }
-            }
-        }
+    DisposableEffect(exoPlayer) {
+        onDispose { exoPlayer?.release() }
     }
 
     val progress = remember { Animatable(0f) }
@@ -175,51 +183,81 @@ fun StoryViewer(
     var offsetY by remember { mutableFloatStateOf(0f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
 
-    // Video duration listener
+    var isVideoBuffering by remember(currentStory.id) { mutableStateOf(visualType == StoryType.VIDEO && exoPlayer != null) }
+    var isImageLoading by remember(currentStory.id) { mutableStateOf(visualType == StoryType.IMAGE && !formattedMediaUrl.isNullOrBlank()) }
+    var imageFailed by remember(currentStory.id) { mutableStateOf(false) }
+
+    val isMediaLoading = isVideoBuffering || isImageLoading
+    val effectivePaused = isPaused || isMediaLoading || showViewersSheet || showReplySheet
+    val pausedState = rememberUpdatedState(effectivePaused)
+    val holdDuration = rememberUpdatedState(
+        storyHoldDurationMs(visualType, currentStory.durationMs, videoDuration, videoReady = !isVideoBuffering)
+    )
+
     LaunchedEffect(exoPlayer) {
-        if (exoPlayer != null) {
-            val listener = object : Player.Listener {
-                override fun onPlaybackStateChanged(state: Int) {
-                    if (state == Player.STATE_READY) {
-                        videoDuration = exoPlayer.duration.coerceAtLeast(1000L)
+        val player = exoPlayer ?: run {
+            isVideoBuffering = false
+            return@LaunchedEffect
+        }
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                when (state) {
+                    Player.STATE_BUFFERING -> isVideoBuffering = true
+                    Player.STATE_READY -> {
+                        val reported = player.duration
+                        if (reported in 1..3_600_000) {
+                            videoDuration = reported
+                            isVideoBuffering = false
+                        }
                     }
+                    Player.STATE_ENDED -> player.playWhenReady = false
                 }
             }
-            exoPlayer.addListener(listener)
-            if (exoPlayer.duration > 0) {
-                videoDuration = exoPlayer.duration
-            }
-        } else {
-            videoDuration = 10000L
+        }
+        player.addListener(listener)
+        val reported = player.duration
+        if (player.playbackState == Player.STATE_READY && reported in 1..3_600_000) {
+            videoDuration = reported
+            isVideoBuffering = false
         }
     }
 
-    LaunchedEffect(currentStoryIndex, isPaused, videoDuration, showViewersSheet, showReplySheet) {
-        if (!isPaused && !showViewersSheet && !showReplySheet) {
-            onStoryViewed(currentStoryIndex)
+    LaunchedEffect(effectivePaused, exoPlayer) {
+        exoPlayer?.playWhenReady = !effectivePaused && exoPlayer.playbackState != Player.STATE_ENDED
+    }
 
-            val durationMs = if (currentStory.type == StoryType.VIDEO) {
-                videoDuration
-            } else {
-                currentStory.durationMs.toLong().coerceAtLeast(10000L)
+    LaunchedEffect(currentStory.id, isVideoBuffering) {
+        if (!isVideoBuffering) return@LaunchedEffect
+        kotlinx.coroutines.delay(8_000)
+        if (isVideoBuffering) {
+            isVideoBuffering = false
+            if (videoDuration !in 1..3_600_000) videoDuration = 6_000
+        }
+    }
+
+    LaunchedEffect(currentStory.id) {
+        progress.snapTo(0f)
+        onStoryViewed(currentStoryIndex)
+        var elapsed = 0L
+        var lastFrame = 0L
+        while (isActive) {
+            val frame = withFrameNanos { it }
+            val duration = holdDuration.value
+            val holding = pausedState.value || duration <= 0L
+            if (!holding && lastFrame != 0L) {
+                elapsed += ((frame - lastFrame) / 1_000_000L).coerceAtLeast(0L)
             }
-
-            progress.snapTo(0f)
-
-            progress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = durationMs.toInt(),
-                    easing = LinearEasing
-                )
-            )
-
-            if (currentStoryIndex < stories.size - 1) {
-                progress.snapTo(0f)
-                currentStoryIndex++
-            } else {
-                finishOnce()
+            lastFrame = frame
+            if (duration > 0L) {
+                progress.snapTo((elapsed.toFloat() / duration.toFloat()).coerceIn(0f, 1f))
+                if (elapsed >= duration) break
             }
+        }
+        if (!isActive) return@LaunchedEffect
+        if (currentStoryIndex < stories.lastIndex) {
+            currentStoryIndex++
+        } else {
+            onNavigateToUser(1)
         }
     }
 
@@ -228,7 +266,7 @@ fun StoryViewer(
             .fillMaxSize()
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .background(if (currentStory.type == StoryType.TEXT) currentStory.backgroundColor else Color.Black)
-            .pointerInput(Unit) {
+            .pointerInput(currentStoryIndex) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consume()
@@ -243,15 +281,21 @@ fun StoryViewer(
                         }
                     },
                     onDragEnd = {
-                        if (abs(offsetX) > 240f) {
-                            if (offsetX < 0 && currentStoryIndex < stories.size - 1) {
-                                currentStoryIndex++
-                            } else if (offsetX < 0) {
-                                finishOnce()
-                            } else if (offsetX > 0 && currentStoryIndex > 0) {
-                                currentStoryIndex--
+                        if (abs(offsetX) > 150f) {
+                            if (offsetX < 0) {
+                                // Swiping left -> next user
+                                if (currentStoryIndex < stories.size - 1) {
+                                    currentStoryIndex++
+                                } else {
+                                    onNavigateToUser(1)
+                                }
                             } else if (offsetX > 0) {
-                                onNavigateToUser(-1)
+                                // Swiping right -> previous user
+                                if (currentStoryIndex > 0) {
+                                    currentStoryIndex--
+                                } else {
+                                    onNavigateToUser(-1)
+                                }
                             }
                             scope.launch { progress.snapTo(0f) }
                         } else if (offsetY > 300f) {
@@ -276,7 +320,7 @@ fun StoryViewer(
                         }
                     },
                     onTap = { offset ->
-                        if (offset.x < size.width / 3) {
+                        if (offset.x < size.width * 0.3f) {
                             if (currentStoryIndex > 0) {
                                 scope.launch { progress.snapTo(0f) }
                                 currentStoryIndex--
@@ -288,7 +332,7 @@ fun StoryViewer(
                                 scope.launch { progress.snapTo(0f) }
                                 currentStoryIndex++
                             } else {
-                                finishOnce()
+                                onNavigateToUser(1)
                             }
                         }
                     }
@@ -300,7 +344,7 @@ fun StoryViewer(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            when (currentStory.type) {
+            when (visualType) {
                 StoryType.AD -> {
                     if (currentStory.adObject != null) {
                         com.tpsk.tj.common.ui.components.NativeAdCard(
@@ -323,32 +367,44 @@ fun StoryViewer(
                 StoryType.VIDEO -> {
                     if (exoPlayer != null) {
                         AndroidView(
-                            factory = {
-                                androidx.media3.ui.PlayerView(it).apply {
-                                    player = exoPlayer
+                            factory = { viewContext ->
+                                androidx.media3.ui.PlayerView(viewContext).apply {
                                     useController = false
                                     resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                                 }
                             },
+                            update = { view ->
+                                if (view.player !== exoPlayer) view.player = exoPlayer
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
+                    } else {
+                        StoryUnavailableText(currentStory.content)
                     }
                 }
                 StoryType.IMAGE -> {
-                    if (!formattedMediaUrl.isNullOrBlank()) {
+                    if (!formattedMediaUrl.isNullOrBlank() && !imageFailed) {
                         AsyncImage(
                             model = formattedMediaUrl,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
+                            contentScale = ContentScale.Fit,
+                            onLoading = { isImageLoading = true },
+                            onSuccess = { isImageLoading = false },
+                            onError = {
+                                isImageLoading = false
+                                imageFailed = true
+                            }
                         )
+                    } else {
+                        StoryUnavailableText(currentStory.content)
                     }
                 }
             }
         }
 
         // Story Caption Overlay
-        if (currentStory.type != StoryType.TEXT && currentStory.type != StoryType.AD && currentStory.content.isNotBlank()) {
+        if (visualType != StoryType.TEXT && visualType != StoryType.AD && currentStory.content.isNotBlank() && !imageFailed) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -655,4 +711,37 @@ fun StoryViewer(
             }
         }
     }
+}
+
+
+private fun storyVisualType(story: StoryItem, mediaUrl: String?): StoryType {
+    if (story.type == StoryType.AD) return StoryType.AD
+    val path = mediaUrl?.substringBefore('?')?.lowercase().orEmpty()
+    val video = path.endsWith(".mp4") || path.endsWith(".mov") || path.endsWith(".webm") || path.endsWith(".m3u8")
+    val image = path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png") || path.endsWith(".webp") || path.endsWith(".gif")
+    return when {
+        story.type == StoryType.VIDEO || video -> if (mediaUrl.isNullOrBlank()) StoryType.TEXT else StoryType.VIDEO
+        story.type == StoryType.IMAGE || image -> if (mediaUrl.isNullOrBlank()) StoryType.TEXT else StoryType.IMAGE
+        !mediaUrl.isNullOrBlank() && story.content.isBlank() -> StoryType.IMAGE
+        else -> StoryType.TEXT
+    }
+}
+
+private fun storyHoldDurationMs(type: StoryType, storyDurationMs: Int, videoDurationMs: Long, videoReady: Boolean): Long {
+    return when (type) {
+        StoryType.VIDEO -> if (!videoReady || videoDurationMs !in 1..3_600_000) 0L else videoDurationMs.coerceIn(3_000L, 120_000L)
+        else -> storyDurationMs.toLong().coerceIn(6_000L, 15_000L)
+    }
+}
+
+@Composable
+private fun StoryUnavailableText(content: String) {
+    Text(
+        text = content.ifBlank { "Couldn't load this story" },
+        color = Color.White,
+        fontSize = 28.sp,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(40.dp)
+    )
 }

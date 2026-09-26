@@ -53,7 +53,7 @@ import com.tpsk.tj.chat.model.UserStory
 
 fun formatMediaUrl(url: String?): String? {
     if (url.isNullOrBlank()) return null
-    if (url.startsWith("http://") || url.startsWith("https://")) return url
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("content://") || url.startsWith("file://") || url.startsWith("data:")) return url
     val cleanPath = url.removePrefix("/")
     val base = com.tpsk.tj.common.data.network.NetworkConstants.BASE_URL.removeSuffix("/api/v1/").removeSuffix("/")
     return "$base/$cleanPath"

@@ -20,5 +20,7 @@ data class Channel(
     val lastPostImageUrl: String? = null,
     val lastPostImageColor: Color = Color.Gray,
     val lastPostTime: String = "",
-    val conversationId: String? = null
+    val conversationId: String? = null,
+    val isTopInCountry: Boolean = false,
+    val countryCode: String = ""
 )

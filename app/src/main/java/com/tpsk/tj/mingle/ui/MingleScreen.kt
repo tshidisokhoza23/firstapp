@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,8 +81,8 @@ fun MingleScreen(
     val mingleProfiles = uiState.profiles
     val myPhotos = uiState.myPhotos.mapNotNull { it.url }
 
-    val hasUploadedProfile = remember(myPhotos, currentUser) {
-        myPhotos.isNotEmpty() || !currentUser?.avatarUrl.isNullOrBlank()
+    val hasUploadedProfile = remember(myPhotos) {
+        myPhotos.any { it.isNotBlank() }
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -107,6 +108,12 @@ fun MingleScreen(
         }
     }
 
+    val knownBalance = maxOf(uiState.balance, points.toDouble(), currentUser?.walletBalance ?: 0.0)
+    val canViewMingle = currentUser == null || knownBalance + 0.001 >= uiState.minBalance
+    LaunchedEffect(canViewMingle) {
+        if (!canViewMingle) showPointsGateDialog = true
+    }
+
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -119,6 +126,15 @@ fun MingleScreen(
         else mingleProfiles.size + (mingleProfiles.size / 4)
     }
     val verticalPagerState = rememberPagerState(pageCount = { totalPages.coerceAtLeast(1) })
+
+    LaunchedEffect(verticalPagerState, mingleProfiles.size) {
+        snapshotFlow { verticalPagerState.currentPage }.collect { page ->
+            val profileIndex = page - (page / 5)
+            if (mingleProfiles.isNotEmpty() && profileIndex >= mingleProfiles.size - 3) {
+                mingleViewModel.loadMore()
+            }
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(5)
@@ -288,11 +304,41 @@ fun MingleScreen(
             }
 
             Box(modifier = Modifier.weight(1f)) {
-                if (uiState.isLoading && mingleProfiles.isEmpty()) {
+                if (!canViewMingle) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = "40 points to view Mingle",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "You have ${knownBalance.toInt()} points. Watch an ad to get back to 40. You stay on this screen.",
+                                textAlign = TextAlign.Center,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Button(
+                                onClick = { showPointsGateDialog = true },
+                                shape = RoundedCornerShape(24.dp)
+                            ) {
+                                Text("Watch Ad")
+                            }
+                        }
+                    }
+                } else if (uiState.isLoading && mingleProfiles.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 } else if (mingleProfiles.isEmpty()) {
+                    val reason = if (!uiState.hasLocationPermission) "NO_LOCATION" else uiState.emptyReason
+                    val copy = emptyDeckCopy(reason, selectedRadiusKm.toInt(), uiState.hasLocationPermission)
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -302,40 +348,45 @@ fun MingleScreen(
                             modifier = Modifier.padding(24.dp)
                         ) {
                             Icon(
-                                imageVector = if (uiState.hasLocationPermission) Icons.Default.LocationOff else Icons.Default.LocationOn,
+                                imageVector = if (reason == "NO_LOCATION") Icons.Default.LocationOn else Icons.Default.LocationOff,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                                 modifier = Modifier.size(64.dp)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = if (!uiState.hasLocationPermission) "Enable location to mingle nearby"
-                                else "No one found within ${selectedRadiusKm.toInt()} km",
+                                text = copy.title,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
+                                textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Try increasing your discovery radius to see more people nearby.",
+                                text = copy.body,
                                 textAlign = TextAlign.Center,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Button(
-                                onClick = {
-                                    if (!uiState.hasLocationPermission) {
-                                        locationPermissionLauncher.launch(
-                                            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                                        )
-                                    } else {
-                                        showRadiusSheet = true
-                                    }
-                                },
-                                shape = RoundedCornerShape(24.dp)
-                            ) {
-                                Text(if (!uiState.hasLocationPermission) "Enable Location" else "Increase Radius")
+                            if (copy.action != EmptyDeckAction.NONE) {
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Button(
+                                    onClick = {
+                                        when (copy.action) {
+                                            EmptyDeckAction.ENABLE_LOCATION -> locationPermissionLauncher.launch(
+                                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                            )
+                                            EmptyDeckAction.RETRY_LOCATION -> mingleViewModel.refreshLocationAndFeed()
+                                            EmptyDeckAction.INCREASE_RADIUS -> showRadiusSheet = true
+                                            EmptyDeckAction.EDIT_FILTERS -> showUploadPhotosSheet = true
+                                            EmptyDeckAction.REFRESH -> mingleViewModel.refreshLocationAndFeed()
+                                            EmptyDeckAction.NONE -> Unit
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(24.dp)
+                                ) {
+                                    Text(copy.actionLabel)
+                                }
                             }
                         }
                     }
@@ -365,8 +416,7 @@ fun MingleScreen(
                                     }
                                     val walletBalance = currentUser?.walletBalance ?: 0.0
                                     val available = maxOf(uiState.balance, points.toDouble(), walletBalance)
-                                    val requiredToMaintain40 = 40.0 + uiState.likeCost // At least 50 points required so >= 40 remain after liking
-                                    if (available < requiredToMaintain40) {
+                                    if (available + 0.001 < uiState.minBalance + uiState.likeCost) {
                                         showPointsGateDialog = true
                                         return@MingleCard
                                     }
@@ -404,76 +454,6 @@ fun MingleScreen(
                 }
             }
         }
-    }
-
-    val walletBalance = currentUser?.walletBalance ?: 0.0
-    val availableWalletPoints = maxOf(uiState.balance, points.toDouble(), walletBalance)
-    var show40PointsRequiredDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(availableWalletPoints) {
-        if (availableWalletPoints < 40.0) {
-            show40PointsRequiredDialog = true
-        }
-    }
-
-    if (show40PointsRequiredDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                show40PointsRequiredDialog = false
-                navController.navigate(Screen.Main.createRoute(tab = "chats"))
-            },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Stars,
-                    contentDescription = null,
-                    tint = com.tpsk.tj.common.ui.theme.NiceOrange,
-                    modifier = Modifier.size(40.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = "40 Points Required",
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Text(
-                    text = "You need at least 40 points in your wallet to enter Mingle. " +
-                            "You currently have ${availableWalletPoints.toInt()} points.\n\n" +
-                            "Earn free points by watching ads or completing tasks in Rewards!",
-                    textAlign = TextAlign.Center,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        show40PointsRequiredDialog = false
-                        navController.navigate(Screen.Main.createRoute(tab = "chats", subTab = "rewards"))
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.Stars, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Go to Rewards", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        show40PointsRequiredDialog = false
-                        navController.navigate(Screen.Main.createRoute(tab = "chats"))
-                    }
-                ) {
-                    Text("Go Back")
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp)
-        )
     }
 
     if (showProfileRequiredDialog) {
@@ -637,7 +617,7 @@ fun MingleScreen(
         }
         var nameError by remember { mutableStateOf(false) }
         var editAge by remember(uiState.myAge) {
-            mutableStateOf(if (uiState.myAge > 0) uiState.myAge.toString() else "25")
+            mutableStateOf(if (uiState.myAge in 18..120) uiState.myAge.toString() else "")
         }
         var editBio by remember(uiState.myBio, currentUser) {
             mutableStateOf(uiState.myBio.ifBlank { currentUser?.bio.orEmpty() })
@@ -849,7 +829,7 @@ fun MingleScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(listOf("Male", "Female", "Non-binary", "Other")) { g ->
-                        val selected = editGender.equals(g, ignoreCase = true)
+                        val selected = genderChipSelected(editGender, g)
                         FilterChip(
                             selected = selected,
                             onClick = { editGender = g },
@@ -873,8 +853,8 @@ fun MingleScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(listOf("Men", "Women", "Everyone")) { option ->
-                        val selected = editLookingFor.equals(option, ignoreCase = true)
+                    items(listOf("Men", "Women", "Non-binary", "Everyone")) { option ->
+                        val selected = lookingForChipSelected(editLookingFor, option)
                         FilterChip(
                             selected = selected,
                             onClick = { editLookingFor = option },
@@ -942,7 +922,11 @@ fun MingleScreen(
                             Toast.makeText(context, "Please enter your preferred Mingle display name", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        val parsedAge = editAge.toIntOrNull() ?: 25
+                        val parsedAge = editAge.toIntOrNull()
+                        if (parsedAge == null || parsedAge !in 18..120) {
+                            Toast.makeText(context, "Enter an age from 18 to 120", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
                         val normalizedGender = when (editGender.trim().lowercase()) {
                             "male", "man" -> "male"
                             "female", "woman" -> "female"
@@ -1127,13 +1111,6 @@ private fun MingleCard(
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 26.sp
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = Color(0xFF2196F3),
-                        modifier = Modifier.size(20.dp)
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -1283,5 +1260,102 @@ private fun MingleNativeAdCard(
                 Text("Continue Mingling ➡️", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
             }
         }
+    }
+}
+
+private fun genderChipSelected(stored: String, chip: String): Boolean {
+    val value = stored.trim().lowercase()
+    return when (chip) {
+        "Male" -> value == "male" || value == "man"
+        "Female" -> value == "female" || value == "woman"
+        "Non-binary" -> value == "nonbinary" || value == "non-binary"
+        "Other" -> value.isBlank() || value == "other"
+        else -> stored.equals(chip, ignoreCase = true)
+    }
+}
+
+private fun lookingForChipSelected(stored: String, chip: String): Boolean {
+    val value = stored.trim().lowercase()
+    return when (chip) {
+        "Men" -> value == "men" || value == "male" || value == "man"
+        "Women" -> value == "women" || value == "female" || value == "woman"
+        "Non-binary" -> value == "nonbinary" || value == "non-binary"
+        "Everyone" -> value.isBlank() || value == "everyone" || value == "all"
+        else -> stored.equals(chip, ignoreCase = true)
+    }
+}
+
+private enum class EmptyDeckAction { NONE, ENABLE_LOCATION, RETRY_LOCATION, INCREASE_RADIUS, EDIT_FILTERS, REFRESH }
+
+private data class EmptyDeckCopy(
+    val title: String,
+    val body: String,
+    val action: EmptyDeckAction,
+    val actionLabel: String
+)
+
+private fun emptyDeckCopy(reason: String?, radiusKm: Int, hasLocationPermission: Boolean): EmptyDeckCopy {
+    val resolved = if (reason == "NO_LOCATION" && hasLocationPermission) "RETRY_LOCATION" else reason
+    return when (resolved) {
+        "NO_LOCATION" -> EmptyDeckCopy(
+            title = "Location is required",
+            body = "Mingle can only show people near you after location is on.",
+            action = EmptyDeckAction.ENABLE_LOCATION,
+            actionLabel = "Enable Location"
+        )
+        "RETRY_LOCATION" -> EmptyDeckCopy(
+            title = "Location is not available",
+            body = "Your location could not be read. Try again outside, or check that location is on.",
+            action = EmptyDeckAction.RETRY_LOCATION,
+            actionLabel = "Try again"
+        )
+        "NO_CANDIDATE_LOCATION" -> EmptyDeckCopy(
+            title = "No shared locations yet",
+            body = "Other people are on Mingle, but none of them have shared a location.",
+            action = EmptyDeckAction.REFRESH,
+            actionLabel = "Check again"
+        )
+        "OUT_OF_RADIUS" -> EmptyDeckCopy(
+            title = "No one within $radiusKm km",
+            body = "People with photos are farther away. Increasing your radius will look farther.",
+            action = EmptyDeckAction.INCREASE_RADIUS,
+            actionLabel = "Increase Radius"
+        )
+        "NO_PHOTO" -> EmptyDeckCopy(
+            title = "No photos nearby",
+            body = "People in range have not added a Mingle photo yet, so their cards stay hidden.",
+            action = EmptyDeckAction.REFRESH,
+            actionLabel = "Check again"
+        )
+        "DIFFERENT_COUNTRY" -> EmptyDeckCopy(
+            title = "No one from your country",
+            body = "People in range are in a different country. Mingle only shows the same country.",
+            action = EmptyDeckAction.INCREASE_RADIUS,
+            actionLabel = "Look farther"
+        )
+        "CONTACTS_HIDDEN" -> EmptyDeckCopy(
+            title = "Nearby people are in your contacts",
+            body = "Mingle hides people saved in your contacts, including matching phone numbers.",
+            action = EmptyDeckAction.NONE,
+            actionLabel = ""
+        )
+        "ALREADY_SWIPED" -> EmptyDeckCopy(
+            title = "You've already seen everyone nearby",
+            body = "Passed and liked profiles stay hidden. Increase your radius to look farther.",
+            action = EmptyDeckAction.INCREASE_RADIUS,
+            actionLabel = "Increase Radius"
+        )
+        "PREFERENCES" -> EmptyDeckCopy(
+            title = "No one matches your filters",
+            body = "People nearby are outside the age range or gender you are looking for.",
+            action = EmptyDeckAction.EDIT_FILTERS,
+            actionLabel = "Edit filters"
+        )
+        else -> EmptyDeckCopy(
+            title = "No one else is on Mingle nearby",
+            body = "When someone nearby opens Mingle and adds a photo, they will show up here.",
+            action = EmptyDeckAction.REFRESH,
+            actionLabel = "Check again"
+        )
     }
 }

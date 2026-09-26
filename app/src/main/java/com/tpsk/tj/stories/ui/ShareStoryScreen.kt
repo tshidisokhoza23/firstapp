@@ -37,6 +37,10 @@ fun ShareStoryScreen(
     var postToProfile by remember { mutableStateOf(true) }
     var selectedAlbum by remember { mutableStateOf("All Stories") }
 
+    androidx.activity.compose.BackHandler(enabled = isPosting) {
+        // Intercept back gesture so user cannot exit while posting story
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -65,8 +69,6 @@ fun ShareStoryScreen(
                     onClick = {
                         val privacy = when (selectedPrivacy) {
                             "ContactsExcept" -> "my_contacts_except"
-                            "Friends" -> "close_friends"
-                            "Selected" -> "selected"
                             else -> "contacts"
                         }
                         onPost(content, url, type, privacy)
@@ -132,15 +134,7 @@ fun ShareStoryScreen(
                     selected = selectedPrivacy == "ContactsExcept",
                     onClick = { selectedPrivacy = "ContactsExcept" }
                 )
-                PrivacyOption(
-                    title = "Only share with…",
-                    subtitle = "select specific people >",
-                    icon = Icons.Default.Star,
-                    iconColor = Color(0xFF4CAF50),
-                    selected = selectedPrivacy == "Selected",
-                    onClick = { selectedPrivacy = "Selected" }
-                )
-                
+
                 Text(
                     "Select people who will never see your stories.",
                     color = Color(0xFF2196F3),

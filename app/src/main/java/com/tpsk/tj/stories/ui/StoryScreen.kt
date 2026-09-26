@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,14 +32,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.tpsk.tj.chat.model.UserStory
 import com.tpsk.tj.chat.model.StoryItem
 import com.tpsk.tj.chat.model.StoryType
 import com.tpsk.tj.chat.ui.components.formatMediaUrl
 import com.tpsk.tj.common.ui.theme.*
+import com.tpsk.tj.chat.rewards.data.RewardsManager
+import com.tpsk.tj.chat.ui.components.populateNativeAdView
 import com.tpsk.tj.common.data.ads.AdManager
+import com.tpsk.tj.common.ui.components.BannerAdView
 import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
+import com.google.android.gms.ads.nativead.NativeAd
+import com.google.android.gms.ads.nativead.NativeAdView
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -72,17 +80,19 @@ fun StoryScreen(
     var selectedStoryForViewers by remember { mutableStateOf<StoryItem?>(null) }
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    var showViewedFirst by remember { mutableStateOf(false) }
     var showComposer by remember { mutableStateOf(initialShowComposer) }
     var composerText by remember { mutableStateOf("") }
+    var updatesTabState by remember { mutableIntStateOf(0) }
 
-    // Persistent ad counter across users
+    // Full-screen story ads are preloaded, then shown between other people's stories.
     var loadedAdObject by remember { mutableStateOf<Any?>(null) }
     var isAdLoading by remember { mutableStateOf(false) }
+    var showingStoryAd by remember { mutableStateOf(false) }
+    var usersSinceAd by remember { mutableIntStateOf(0) }
+    val postedArchive = !initialPlay
 
-    // Preload ad as soon as we start viewing
-    LaunchedEffect(viewingUserStory) {
-        if (viewingUserStory != null && loadedAdObject == null && !isAdLoading) {
+    LaunchedEffect(viewingUserStory, postedArchive, showingStoryAd) {
+        if (!postedArchive && viewingUserStory != null && !showingStoryAd && loadedAdObject == null && !isAdLoading) {
             isAdLoading = true
             adManager.loadNativeAd(
                 context = context,
@@ -125,14 +135,15 @@ fun StoryScreen(
     val otherStories = remember(filteredStories, currentUserId, myStory, contactIds, contactNames) {
         filteredStories.filter { story ->
             if (story.id == currentUserId || story.userId == currentUserId || story.id == myStory?.id) return@filter false
-            if (story.id == "system_ad") return@filter true
-            true
+            if (story.id == "system_ad") return@filter false
+            if (contactIds.isEmpty()) return@filter true
+            val keys = listOf(story.id, story.userId, story.id.removePrefix("user_"), story.userId.removePrefix("user_"))
+            keys.any { it.isNotBlank() && it in contactIds }
         }
     }
 
     val activeStories = remember(otherStories) { otherStories.filter { !it.isMuted } }
     
-    // WhatsApp-style Chronological Sorting: Unviewed first (sorted descending by latest story timestamp), then Viewed (sorted descending by latest timestamp)
     val recentUpdates = remember(activeStories) {
         activeStories.filter { !it.allViewed }
             .sortedByDescending { it.stories.maxOfOrNull { s -> s.createdAt } ?: 0L }
@@ -141,24 +152,54 @@ fun StoryScreen(
         activeStories.filter { it.allViewed }
             .sortedByDescending { it.stories.maxOfOrNull { s -> s.createdAt } ?: 0L }
     }
-
-    val storiesWithAds = remember(myStory, recentUpdates, viewedUpdates) {
-        val baseList = mutableListOf<UserStory>()
-        if (myStory != null) baseList.add(myStory)
-        baseList.addAll(recentUpdates)
-        baseList.addAll(viewedUpdates)
-        baseList.distinctBy { it.id }
+    val playbackQueue = remember(postedArchive, myStory, recentUpdates, viewedUpdates) {
+        if (postedArchive) {
+            listOfNotNull(myStory?.takeIf { it.stories.isNotEmpty() })
+        } else {
+            val baseList = mutableListOf<UserStory>()
+            if (myStory != null && myStory.stories.isNotEmpty()) baseList.add(myStory)
+            baseList.addAll(recentUpdates)
+            baseList.addAll(viewedUpdates)
+            baseList.distinctBy { it.id }
+        }
     }
 
-    androidx.activity.compose.BackHandler(enabled = viewingUserStory != null || showComposer || showSearch) {
+    fun leaveViewer() {
+        showingStoryAd = false
+        if (postedArchive || initialViewingUserId.isNullOrBlank()) {
+            viewingUserStory = null
+        } else {
+            onBack()
+        }
+    }
+
+    fun advanceQueue(current: UserStory, direction: Int) {
+        val index = playbackQueue.indexOfFirst { it.id == current.id || it.userId == current.id || it.id == current.userId || it.userId == current.userId }
+        val next = if (index == -1) null else playbackQueue.getOrNull(index + direction)
+        val own = isOwnStoryGroup(current, currentUserId, myStory)
+        if (!postedArchive && direction > 0 && !own) {
+            usersSinceAd += 1
+        }
+        val nativeAd = loadedAdObject as? NativeAd
+        if (!postedArchive && direction > 0 && !own && usersSinceAd >= 3 && nativeAd != null && next != null) {
+            usersSinceAd = 0
+            viewingUserStory = next
+            viewingStoryIndex = 0
+            showingStoryAd = true
+            return
+        }
+        showingStoryAd = false
+        if (next != null) {
+            viewingUserStory = next
+            viewingStoryIndex = 0
+        } else {
+            leaveViewer()
+        }
+    }
+
+    androidx.activity.compose.BackHandler(enabled = showingStoryAd || viewingUserStory != null || showComposer || showSearch) {
         when {
-            viewingUserStory != null -> {
-                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                    onBack()
-                } else {
-                    viewingUserStory = null 
-                }
-            }
+            showingStoryAd || viewingUserStory != null -> leaveViewer()
             showComposer -> showComposer = false
             showSearch -> {
                 showSearch = false
@@ -171,14 +212,18 @@ fun StoryScreen(
     LaunchedEffect(stories) {
         viewingUserStory?.let { current ->
             if (current.id == "system_ad") return@let
-            val updated = stories.find { it.id == current.id }
-            if (updated != null) {
-                viewingUserStory = updated
+            val updated = stories.find {
+                it.id == current.id || it.userId == current.id || it.id == current.userId || it.userId == current.userId
+            }
+            if (updated != null && updated.stories.isNotEmpty()) {
+                if (updated.stories != current.stories || updated.userName != current.userName) {
+                    viewingUserStory = updated
+                }
                 if (viewingStoryIndex >= updated.stories.size) {
                     viewingStoryIndex = (updated.stories.size - 1).coerceAtLeast(0)
                 }
-            } else if (!current.id.isNullOrBlank()) {
-                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
+            } else if (stories.isNotEmpty()) {
+                if (!postedArchive && !initialViewingUserId.isNullOrBlank()) {
                     onBack()
                 } else {
                     viewingUserStory = null
@@ -189,18 +234,17 @@ fun StoryScreen(
 
     // Initial play logic
     LaunchedEffect(initialViewingUserId, initialPlay, stories) {
-        if (initialPlay && initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-            val story = stories.find { it.id == initialViewingUserId || it.userId == initialViewingUserId }
-            if (story != null) {
-                viewingUserStory = story
-                viewingStoryIndex = 0
-            }
+        if (!initialPlay || initialViewingUserId.isNullOrBlank() || viewingUserStory != null) return@LaunchedEffect
+        val story = stories.find { it.id == initialViewingUserId || it.userId == initialViewingUserId }
+        if (story != null && story.stories.isNotEmpty()) {
+            viewingUserStory = story
+            viewingStoryIndex = 0
         }
     }
 
     // Release an ad when the viewer closes
-    LaunchedEffect(viewingUserStory) {
-        if (viewingUserStory == null) {
+    LaunchedEffect(viewingUserStory, showingStoryAd) {
+        if (viewingUserStory == null && !showingStoryAd) {
             loadedAdObject?.let { adManager.destroyAd(it) }
             loadedAdObject = null
             isAdLoading = false
@@ -279,6 +323,17 @@ fun StoryScreen(
                 )
             }
         }
+    } else if (showingStoryAd && loadedAdObject is NativeAd) {
+        StoryNativeAdScreen(
+            nativeAd = loadedAdObject as NativeAd,
+            onContinue = {
+                loadedAdObject?.let { adManager.destroyAd(it) }
+                loadedAdObject = null
+                isAdLoading = false
+                showingStoryAd = false
+            },
+            onClose = { leaveViewer() }
+        )
     } else if (viewingUserStory != null && viewingUserStory!!.stories.isNotEmpty()) {
         val currentGroup = viewingUserStory!!
         val isOwnStory = currentGroup.id == currentUserId || 
@@ -305,53 +360,10 @@ fun StoryScreen(
                     }
                 }
             },
-            onDeleteStory = { storyId ->
-                onDeleteStory(storyId)
-            },
-            onReplyStory = { storyId, text, summary ->
-                val targetUser = currentGroup.userId.ifBlank { currentGroup.id }
-                val authorName = currentGroup.userName
-                if (targetUser.isNotBlank() && currentGroup.id != "system_ad") {
-                    onReplyStory(targetUser, storyId, text, summary, authorName)
-                }
-            },
-            onFinish = { 
-                val currentIndex = storiesWithAds.indexOfFirst { it.id == currentGroup.id }
-                if (currentIndex != -1 && currentIndex < storiesWithAds.size - 1) {
-                    viewingUserStory = storiesWithAds[currentIndex + 1]
-                    viewingStoryIndex = 0
-                } else {
-                    if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                        onBack()
-                    } else {
-                        viewingUserStory = null 
-                    }
-                }
-            },
-            onNavigateToUser = { direction ->
-                val currentIndex = storiesWithAds.indexOfFirst { it.id == currentGroup.id }
-                if (currentIndex != -1) {
-                    val nextIndex = currentIndex + direction
-                    if (nextIndex in storiesWithAds.indices) {
-                        viewingUserStory = storiesWithAds[nextIndex]
-                        viewingStoryIndex = 0
-                    } else {
-                        if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                            onBack()
-                        } else {
-                            viewingUserStory = null
-                        }
-                    }
-                }
-            },
+            onFinish = { advanceQueue(currentGroup, 1) },
+            onNavigateToUser = { direction -> advanceQueue(currentGroup, direction) },
             onGetStoryViewers = onGetStoryViewers,
-            onClose = { 
-                if (initialViewingUserId != null && initialViewingUserId.isNotBlank()) {
-                    onBack()
-                } else {
-                    viewingUserStory = null 
-                }
-            }
+            onClose = { leaveViewer() }
         )
     } else {
         Scaffold(
@@ -362,7 +374,7 @@ fun StoryScreen(
                             TextField(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
-                                placeholder = { Text("Search updates...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                placeholder = { Text("Search stories...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                 singleLine = true,
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
@@ -372,12 +384,7 @@ fun StoryScreen(
                                 )
                             )
                         } else {
-                            Text("Updates", fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Text("Posted stories", fontWeight = FontWeight.Bold, fontSize = 22.sp)
                         }
                     },
                     actions = {
@@ -387,7 +394,10 @@ fun StoryScreen(
                             }
                         } else {
                             IconButton(onClick = { showSearch = true }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search updates")
+                                Icon(Icons.Default.Search, contentDescription = "Search stories")
+                            }
+                            IconButton(onClick = { /* Options menu */ }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
                             }
                         }
                     },
@@ -396,6 +406,9 @@ fun StoryScreen(
                         titleContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
+            },
+            bottomBar = {
+                BannerAdView(modifier = Modifier.fillMaxWidth().navigationBarsPadding())
             },
             floatingActionButton = {
                 Column(
@@ -427,58 +440,151 @@ fun StoryScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                item {
-                    Text("Status", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
-                }
+                // My Posted Stories Horizontal Row
+                if (myStory != null && myStory.stories.isNotEmpty()) {
+                    item {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
+                            itemsIndexed(myStory.stories) { index, storyItem ->
+                                val rawUrl = storyItem.contentUrl
+                                val itemThumb = remember(rawUrl) { formatMediaUrl(rawUrl) }
+                                val imageRequest = remember(itemThumb, context) {
+                                    if (!itemThumb.isNullOrBlank()) {
+                                        coil.request.ImageRequest.Builder(context)
+                                            .data(itemThumb)
+                                            .decoderFactory(coil.decode.VideoFrameDecoder.Factory())
+                                            .crossfade(true)
+                                            .build()
+                                    } else null
+                                }
 
-                // My Status
-                item {
-                    val myLatestStory = myStory?.stories?.lastOrNull()
-                    val myThumbnailUrl = remember(myLatestStory) { formatMediaUrl(myLatestStory?.contentUrl) ?: myStory?.userAvatarUrl }
+                                val postedTime = remember(storyItem.createdAt, storyItem.timestamp) {
+                                    if (storyItem.createdAt > 0L) {
+                                        com.tpsk.tj.chat.data.repository.formatTimeAgo(storyItem.createdAt)
+                                    } else if (storyItem.timestamp.isNotBlank()) {
+                                        storyItem.timestamp
+                                    } else {
+                                        "recently"
+                                    }
+                                }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (myStory != null && myStory.stories.isNotEmpty()) {
-                                    viewingUserStory = myStory
-                                    viewingStoryIndex = 0
-                                } else {
-                                    onNavigateToNewStory()
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.clickable {
+                                        viewingUserStory = myStory
+                                        viewingStoryIndex = index
+                                    }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(72.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(70.dp)
+                                                .clip(CircleShape)
+                                                .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                                .padding(3.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(CircleShape)
+                                                    .background(if (storyItem.type == StoryType.TEXT) storyItem.backgroundColor else myStory.userAvatarColor),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (imageRequest != null) {
+                                                    AsyncImage(
+                                                        model = imageRequest,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                } else if (storyItem.type == StoryType.TEXT && storyItem.content.isNotBlank()) {
+                                                    Text(
+                                                        text = storyItem.content,
+                                                        color = Color.White,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        textAlign = TextAlign.Center,
+                                                        maxLines = 2,
+                                                        modifier = Modifier.padding(2.dp)
+                                                    )
+                                                } else if (!myStory.userAvatarUrl.isNullOrBlank()) {
+                                                    AsyncImage(
+                                                        model = myStory.userAvatarUrl,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                } else {
+                                                    Text(
+                                                        text = myStory.userName.take(1).uppercase(),
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 20.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.RemoveRedEye,
+                                            contentDescription = "Views",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${storyItem.viewsCount} views",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    Text(
+                                        text = postedTime,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier.size(56.dp),
-                            contentAlignment = Alignment.Center
+                        }
+                    }
+                } else {
+                    // Empty My Story placeholder row
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToNewStory() }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
-                                modifier = Modifier
-                                    .size(54.dp)
-                                    .clip(CircleShape)
-                                    .background(if (myLatestStory?.type == StoryType.TEXT) myLatestStory.backgroundColor else AppPrimary),
+                                modifier = Modifier.size(56.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (!myThumbnailUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = myThumbnailUrl,
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else if (myLatestStory?.type == StoryType.TEXT && myLatestStory.content.isNotBlank()) {
-                                    Text(
-                                        text = myLatestStory.content,
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 2,
-                                        modifier = Modifier.padding(2.dp)
-                                    )
-                                } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .clip(CircleShape)
+                                        .background(AppPrimary),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
                                         text = myStory?.userName?.take(1)?.uppercase() ?: "M",
                                         color = Color.White,
@@ -486,77 +592,121 @@ fun StoryScreen(
                                         fontSize = 20.sp
                                     )
                                 }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .align(Alignment.BottomEnd)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                        .border(2.dp, MaterialTheme.colorScheme.background, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Add story", tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .align(Alignment.BottomEnd)
-                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                    .border(2.dp, MaterialTheme.colorScheme.background, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Add status", tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("My Story", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
+                                Text("Tap to add to your story", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
+                    }
+                }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                if (!postedArchive) {
+                item {
+                    TabRow(
+                        selectedTabIndex = updatesTabState,
+                        containerColor = MaterialTheme.colorScheme.background,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        indicator = { tabPositions ->
+                            if (updatesTabState in tabPositions.indices) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    Modifier.tabIndicatorOffset(tabPositions[updatesTabState]),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    ) {
+                        Tab(
+                            selected = updatesTabState == 0,
+                            onClick = { updatesTabState = 0 },
+                            text = {
+                                Text(
+                                    "Recent",
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (updatesTabState == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        )
+                        Tab(
+                            selected = updatesTabState == 1,
+                            onClick = { updatesTabState = 1 },
+                            text = {
+                                Text(
+                                    "Viewed",
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (updatesTabState == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        )
+                    }
+                }
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("My status", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
-                            Text(
-                                if (myStory != null && myStory.stories.isNotEmpty()) "Tap to view updates" else "Tap to add status update",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (updatesTabState == 0) {
+                    if (recentUpdates.isNotEmpty()) {
+                        items(recentUpdates, key = { it.id }) { story ->
+                            UserStoryRowItem(
+                                story = story,
+                                onClick = {
+                                    viewingUserStory = story
+                                    viewingStoryIndex = 0
+                                }
                             )
                         }
+                    } else {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "No recent updates",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    if (viewedUpdates.isNotEmpty()) {
+                        items(viewedUpdates, key = { it.id }) { story ->
+                            UserStoryRowItem(
+                                story = story,
+                                onClick = {
+                                    viewingUserStory = story
+                                    viewingStoryIndex = 0
+                                }
+                            )
+                        }
+                    } else {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "No viewed updates",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
                     }
                 }
 
-                // Recent updates section (Unviewed)
-                if (recentUpdates.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Recent updates",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    items(recentUpdates, key = { it.id }) { story ->
-                        UserStoryRowItem(
-                            story = story,
-                            onClick = {
-                                viewingUserStory = story
-                                viewingStoryIndex = 0
-                            }
-                        )
-                    }
-                }
-
-                // Viewed updates section
-                if (viewedUpdates.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Viewed updates",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    items(viewedUpdates, key = { it.id }) { story ->
-                        UserStoryRowItem(
-                            story = story,
-                            onClick = {
-                                viewingUserStory = story
-                                viewingStoryIndex = 0
-                            }
-                        )
-                    }
                 }
 
                 item {
@@ -645,6 +795,66 @@ private fun UserStoryRowItem(
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+private fun isOwnStoryGroup(group: UserStory, currentUserId: String?, myStory: UserStory?): Boolean {
+    return group.id == currentUserId ||
+        group.userId == currentUserId ||
+        group.id == myStory?.id ||
+        (currentUserId != null && (
+            group.id == "user_$currentUserId" ||
+                group.id == currentUserId.removePrefix("user_") ||
+                group.userId == "user_$currentUserId" ||
+                group.userId == currentUserId.removePrefix("user_")
+            )) ||
+        group.userName == "My Story" ||
+        group.userName == "My Number"
+}
+
+@Composable
+private fun StoryNativeAdScreen(
+    nativeAd: NativeAd,
+    onContinue: () -> Unit,
+    onClose: () -> Unit
+) {
+    var canSkip by remember { mutableStateOf(false) }
+    LaunchedEffect(nativeAd) {
+        delay(3_000)
+        canSkip = true
+        runCatching { RewardsManager.awardPoints(0.10, "STORY_AD", "Viewed story ad") }
+    }
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        AndroidView(
+            factory = { context ->
+                val view = android.view.LayoutInflater.from(context)
+                    .inflate(com.tpsk.tj.R.layout.item_story_ad, null) as NativeAdView
+                populateNativeAdView(nativeAd, view)
+                view
+            },
+            modifier = Modifier.fillMaxSize(),
+            update = { view -> populateNativeAdView(nativeAd, view) }
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Sponsored", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+            Row {
+                if (canSkip) {
+                    TextButton(onClick = onContinue) {
+                        Text("Skip", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                }
+            }
         }
     }
 }

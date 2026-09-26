@@ -336,7 +336,9 @@ data class ApiChannel(
     val last_post_text: String? = null,
     val last_post_image_url: String? = null,
     val last_post_time: Long? = null,
-    val conversation_id: String? = null
+    val conversation_id: String? = null,
+    val is_top_in_country: Boolean = false,
+    val country_code: String? = null
 )
 
 data class ChannelsResponse(val channels: List<ApiChannel>)

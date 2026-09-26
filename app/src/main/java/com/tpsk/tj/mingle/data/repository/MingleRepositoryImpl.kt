@@ -6,6 +6,7 @@ import com.tpsk.tj.mingle.data.api.*
 import com.tpsk.tj.mingle.domain.repository.MingleRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.io.IOException
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -103,13 +104,15 @@ class MingleRepositoryImpl @Inject constructor(
                     saveMingleChatLocally(conversationId, candidateName, targetUserId)
                 }
                 emit(Resource.Success(body))
+            } else if (response.code() >= 500) {
+                emit(Resource.Error("RETRYABLE"))
             } else {
                 val err = parseError(body?.error ?: response.errorBody()?.string(), "Swipe failed")
                 emit(Resource.Error(err))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Error(e.message ?: "Swipe failed"))
+            emit(Resource.Error(if (e is IOException) "RETRYABLE" else (e.message ?: "Swipe failed")))
         }
     }
 
