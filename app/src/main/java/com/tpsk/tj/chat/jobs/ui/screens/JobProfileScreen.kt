@@ -1,38 +1,69 @@
 package com.tpsk.tj.chat.jobs.ui.screens
 
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tpsk.tj.common.ui.theme.*
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.tpsk.tj.chat.jobs.model.JobProfileData
 import com.tpsk.tj.chat.jobs.ui.viewmodel.JobProfileViewModel
-import com.tpsk.tj.common.util.Resource
 import com.tpsk.tj.common.ui.viewmodel.UserViewModel
-import java.util.Date
+import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.profile.model.WorkExperience
 import java.text.SimpleDateFormat
 import java.util.Locale
-import com.tpsk.tj.profile.model.WorkExperience
-import kotlin.collections.List
-import kotlin.collections.emptyList
-import kotlin.collections.sortedWith
-import kotlin.comparisons.compareByDescending
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun JobProfileScreen(
     onClose: () -> Unit,
@@ -46,8 +77,8 @@ fun JobProfileScreen(
     val workExperiencesResource by userViewModel.workExperiences.collectAsState()
     val workExperiences: List<WorkExperience> = if (workExperiencesResource is Resource.Success) {
         val data = (workExperiencesResource as Resource.Success<List<WorkExperience>>).data
-        data ?: emptyList<WorkExperience>()
-    } else emptyList<WorkExperience>()
+        data ?: emptyList()
+    } else emptyList()
 
     val sortedExperiences: List<WorkExperience> = remember(workExperiences) {
         workExperiences.sortedWith(compareByDescending<WorkExperience> { it.isCurrentJob }
@@ -62,20 +93,26 @@ fun JobProfileScreen(
     }
 
     val initialData = (profileResource as? Resource.Success)?.data
-    
+
+    var headline by remember(initialData) { mutableStateOf(initialData?.headline ?: "") }
     var fullName by remember(initialData) { mutableStateOf(initialData?.fullName ?: "") }
     var email by remember(initialData) { mutableStateOf(initialData?.email ?: "") }
     var phone by remember(initialData) { mutableStateOf(initialData?.phone ?: "") }
-    var location by remember(initialData) { mutableStateOf(initialData?.location ?: "") }
-    
+    var city by remember(initialData) { mutableStateOf(initialData?.city?.ifEmpty { initialData.location } ?: initialData?.location ?: "") }
+    var country by remember(initialData) { mutableStateOf(initialData?.country ?: "ZA") }
+
     var education by remember(initialData) { mutableStateOf(initialData?.education ?: "") }
     var experience by remember(initialData) { mutableStateOf(initialData?.experience ?: "") }
-    var skills by remember(initialData) { mutableStateOf(initialData?.skills ?: "") }
+    var noFormalExperience by remember(initialData) { mutableStateOf(initialData?.noFormalExperience ?: false) }
+
+    var skillChips by remember(initialData) { mutableStateOf(initialData?.getParsedSkills() ?: emptyList()) }
+    var newSkillInput by remember { mutableStateOf("") }
+
     var aboutMe by remember(initialData) { mutableStateOf(initialData?.aboutMe ?: "") }
-    
+
     var linkedinUrl by remember(initialData) { mutableStateOf(initialData?.linkedinUrl ?: "") }
     var portfolioUrl by remember(initialData) { mutableStateOf(initialData?.portfolioUrl ?: "") }
-    
+
     var workPreference by remember(initialData) { mutableStateOf(initialData?.workPreference ?: "Remote") }
     var availability by remember(initialData) { mutableStateOf(initialData?.availability ?: "Immediately") }
     var expectedSalary by remember(initialData) { mutableStateOf(initialData?.expectedSalary ?: "") }
@@ -114,17 +151,33 @@ fun JobProfileScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Complete your profile to get discovered by top companies.",
+                    "Complete your profile to get matched with personalized job opportunities.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             }
 
+            SectionHeader("TARGET ROLE & TITLE")
+            ProfileTextField(
+                value = headline,
+                onValueChange = { headline = it },
+                label = "Target Role / Headline",
+                placeholder = "e.g. Senior Software Developer, Driver, Business Analyst"
+            )
+
             SectionHeader("PERSONAL INFORMATION")
             ProfileTextField(value = fullName, onValueChange = { fullName = it }, label = "Full Name")
             ProfileTextField(value = email, onValueChange = { email = it }, label = "Email Address")
             ProfileTextField(value = phone, onValueChange = { phone = it }, label = "Phone Number")
-            ProfileTextField(value = location, onValueChange = { location = it }, label = "Current Location (City, Country)")
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.weight(2f)) {
+                    ProfileTextField(value = city, onValueChange = { city = it }, label = "City / Region", placeholder = "e.g. Johannesburg, Gauteng")
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    ProfileTextField(value = country, onValueChange = { country = it }, label = "Country Code", placeholder = "ZA")
+                }
+            }
 
             SectionHeader("PROFESSIONAL LINKS")
             ProfileTextField(value = linkedinUrl, onValueChange = { linkedinUrl = it }, label = "LinkedIn Profile URL", placeholder = "https://linkedin.com/in/...")
@@ -132,17 +185,17 @@ fun JobProfileScreen(
 
             SectionHeader("PROFESSIONAL SUMMARY")
             ProfileTextField(
-                value = aboutMe, 
-                onValueChange = { aboutMe = it }, 
-                label = "About Me", 
+                value = aboutMe,
+                onValueChange = { aboutMe = it },
+                label = "About Me",
                 placeholder = "Highlight your career achievements and what you're looking for...",
-                minLines = 4
+                minLines = 3
             )
 
             SectionHeader("EXPERIENCE & SKILLS")
             ProfileTextField(value = education, onValueChange = { education = it }, label = "Highest Education")
-            
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -154,42 +207,114 @@ fun JobProfileScreen(
                     }
                 }
 
-                if (sortedExperiences.isEmpty()) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            "No experience added yet. Click + to add your roles.",
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp
-                        )
-                    }
-                } else {
-                    for (exp in sortedExperiences) {
-                        ExperienceItem(
-                            experience = exp,
-                            onEditClick = { onNavigateToEditExperience(exp.id) }
-                        )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { noFormalExperience = !noFormalExperience }
+                ) {
+                    Checkbox(checked = noFormalExperience, onCheckedChange = { noFormalExperience = it })
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("I am a student or career changer (No formal experience yet)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                if (!noFormalExperience) {
+                    if (sortedExperiences.isEmpty()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                "No experience added yet. Click + to add your roles.",
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp
+                            )
+                        }
+                    } else {
+                        for (exp in sortedExperiences) {
+                            ExperienceItem(
+                                experience = exp,
+                                onEditClick = { onNavigateToEditExperience(exp.id) }
+                            )
+                        }
                     }
                 }
             }
 
-            ProfileTextField(
-                value = skills, 
-                onValueChange = { skills = it }, 
-                label = "Key Skills", 
-                placeholder = "e.g. Android Development, Project Management, SQL..."
-            )
+            // Gap 1: Structured Chip Input for Key Skills
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Key Skills (Tap to add tags)", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 14.sp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newSkillInput,
+                        onValueChange = { text ->
+                            if (text.contains(",")) {
+                                val parts = text.split(",")
+                                val added = parts[0].trim()
+                                if (added.isNotBlank() && !skillChips.contains(added)) {
+                                    skillChips = skillChips + added
+                                }
+                                newSkillInput = parts.getOrNull(1)?.trim() ?: ""
+                            } else {
+                                newSkillInput = text
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Type skill & press Add (e.g. Kotlin)", fontSize = 14.sp) },
+                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                        shape = RoundedCornerShape(8.dp),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val trimmed = newSkillInput.trim()
+                            if (trimmed.isNotBlank() && !skillChips.contains(trimmed)) {
+                                skillChips = skillChips + trimmed
+                                newSkillInput = ""
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(56.dp)
+                    ) {
+                        Text("Add")
+                    }
+                }
+
+                if (skillChips.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        skillChips.forEach { chip ->
+                            InputChip(
+                                selected = true,
+                                onClick = { skillChips = skillChips - chip },
+                                label = { Text(chip, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove skill",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             SectionHeader("JOB PREFERENCES")
-            
+
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Work Preference", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val prefs = kotlin.collections.listOf("Remote", "On-site", "Hybrid")
+                    val prefs = listOf("Remote", "On-site", "Hybrid")
                     for (pref in prefs) {
                         FilterChip(
                             selected = workPreference == pref,
@@ -205,22 +330,36 @@ fun JobProfileScreen(
                 }
             }
 
-            ProfileTextField(value = expectedSalary, onValueChange = { expectedSalary = it }, label = "Expected Monthly Salary (Optional)", placeholder = "e.g. $5,000")
-            ProfileTextField(value = availability, onValueChange = { availability = it }, label = "Availability", placeholder = "e.g. 2 weeks notice")
+            // Gap 3 & Polish: Salary Prefix with Currency ZAR/R
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Expected Monthly Salary (ZAR / R)", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 14.sp)
+                OutlinedTextField(
+                    value = expectedSalary,
+                    onValueChange = { expectedSalary = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    prefix = { Text("R ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+                    placeholder = { Text("15,000", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+                    textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
+                )
+            }
+
+            ProfileTextField(value = availability, onValueChange = { availability = it }, label = "Availability", placeholder = "e.g. 2 weeks notice / Immediate")
 
             SectionHeader("RESUME")
             val context = androidx.compose.ui.platform.LocalContext.current
             val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
             ) { uri ->
-                if (uri != null) { 
+                if (uri != null) {
                     android.widget.Toast.makeText(context, "Resume uploaded!", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
             OutlinedButton(
                 onClick = { pdfLauncher.launch("application/pdf") },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) {
@@ -233,11 +372,29 @@ fun JobProfileScreen(
 
             Button(
                 onClick = {
+                    val combinedSkills = skillChips.joinToString(", ")
                     viewModel.updateProfile(
                         JobProfileData(
-                            fullName, email, phone, location, education, experience, 
-                            skills, aboutMe, linkedinUrl, portfolioUrl, 
-                            workPreference, availability, expectedSalary
+                            fullName = fullName,
+                            email = email,
+                            phone = phone,
+                            location = if (city.isNotBlank()) "$city, $country" else country,
+                            city = city,
+                            country = country,
+                            education = education,
+                            experience = experience,
+                            skills = combinedSkills,
+                            skillsList = skillChips,
+                            aboutMe = aboutMe,
+                            linkedinUrl = linkedinUrl,
+                            portfolioUrl = portfolioUrl,
+                            workPreference = workPreference,
+                            availability = availability,
+                            expectedSalary = expectedSalary,
+                            currency = "ZAR",
+                            headline = headline,
+                            targetJobTitles = if (headline.isNotBlank()) listOf(headline) else emptyList(),
+                            noFormalExperience = noFormalExperience
                         )
                     )
                 },
@@ -250,7 +407,7 @@ fun JobProfileScreen(
             ) {
                 Text("SAVE PROFESSIONAL PROFILE", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-            
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -304,12 +461,12 @@ fun ExperienceItem(
     onEditClick: () -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM yyyy", Locale.getDefault()) }
-    
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
         shape = RoundedCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -319,23 +476,33 @@ fun ExperienceItem(
                 Text(
                     text = experience.jobTitle,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${experience.companyName} • ${experience.employmentType}",
-                    color = MaterialTheme.colorScheme.primary,
+                    text = experience.companyName,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
-                val endDateStr = experience.endDate?.let { dateFormat.format(Date(it)) } ?: ""
+                val periodText = if (experience.isCurrentJob) {
+                    "${dateFormat.format(experience.startDate)} - Present"
+                } else if (experience.endDate != null) {
+                    "${dateFormat.format(experience.startDate)} - ${dateFormat.format(experience.endDate)}"
+                } else {
+                    dateFormat.format(experience.startDate)
+                }
                 Text(
-                    text = "${dateFormat.format(Date(experience.startDate))} - ${if (experience.isCurrentJob) "Present" else endDateStr}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = periodText,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     fontSize = 12.sp
                 )
             }
-            IconButton(onClick = onEditClick, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            IconButton(onClick = onEditClick) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit Experience",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
