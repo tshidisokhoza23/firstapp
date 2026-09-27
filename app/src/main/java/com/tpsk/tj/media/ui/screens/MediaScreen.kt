@@ -73,6 +73,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.tpsk.tj.common.data.ads.AdManager
+import com.tpsk.tj.common.data.ads.AdUnitConfig
 import com.tpsk.tj.common.ui.components.DynamicAdCard
 import com.tpsk.tj.common.data.ads.AdMobManagerImpl // Temporary for non-injected usage if needed
 import com.tpsk.tj.ui.navigation.Screen
@@ -676,6 +677,12 @@ fun MainFeedSection(
                             if (adIndex < preloadedAds.size) {
                                 com.tpsk.tj.common.ui.components.StaticAdCard(
                                     nativeAd = preloadedAds[adIndex],
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            } else {
+                                com.tpsk.tj.common.ui.components.DynamicAdCard(
+                                    adManager = adManager,
+                                    adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }
