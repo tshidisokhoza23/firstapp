@@ -47,19 +47,19 @@ android {
         create("sit") {
             dimension = "environment"
             isDefault = true
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstappserver-staging.fly.dev/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstappserver-staging.fly.dev/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://firstappserver-staging.fly.dev/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver-staging.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         }
         create("uat") {
             dimension = "environment"
-            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
-            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://firstappserver.fly.dev/api/v1/\"")
-            buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver.fly.dev/api/v1/\"")
+            buildConfigField("String", "ACTIVE_API_URL", "\"https://firstappserver-staging.fly.dev/api/v1/\"")
+            buildConfigField("String", "PASSIVE_API_URL", "\"https://firstappserver-staging.fly.dev/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://firstappserver-staging.fly.dev/api/v1/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://firstappserver-staging.fly.dev/api/v1/\"")
             buildConfigField("Boolean", "ENABLE_DEV_SWITCH", "true")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         }
