@@ -323,7 +323,8 @@ fun MessageItemUnique(
                             messageItem.type == MessageType.VIDEO ||
                             messageItem.type == MessageType.AUDIO_MESSAGE ||
                             messageItem.type == MessageType.DOCUMENT ||
-                            messageItem.type == MessageType.LOCATION || 
+                            messageItem.type == MessageType.LOCATION ||
+                            messageItem.type == MessageType.CONTACT ||
                             messageItem.type == MessageType.APPLICATION_LINK) {
                             AttachmentPreview(
                                 message = messageItem, 
@@ -338,6 +339,7 @@ fun MessageItemUnique(
                                                    messageItem.content == "Image" || 
                                                    messageItem.content == "Video" || 
                                                    messageItem.content == "Shared Location" ||
+                                                   messageItem.content == "Shared Contact" ||
                                                    messageItem.content == "File"
 
                         if (messageItem.content.isNotBlank() && (messageItem.type == MessageType.TEXT || !isMediaTypePlaceholder)) {
@@ -676,12 +678,17 @@ fun AttachmentPreview(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = message.contactName?.takeIf { it.isNotBlank() } ?: message.contactPhone ?: "", color = contentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text(text = message.contactPhone ?: "", color = contentColor.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Text(text = message.contactName?.takeIf { it.isNotBlank() } ?: message.contactPhone?.takeIf { it.isNotBlank() } ?: "Contact", color = contentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    if (!message.contactPhone.isNullOrBlank()) {
+                        Text(text = message.contactPhone, color = contentColor.copy(alpha = 0.7f), fontSize = 12.sp)
+                    }
                 }
                 IconButton(onClick = {
-                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${message.contactPhone}"))
-                    context.startActivity(intent)
+                    val phone = message.contactPhone
+                    if (!phone.isNullOrBlank()) {
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                        context.startActivity(intent)
+                    }
                 }) {
                     Icon(Icons.Default.Call, null, tint = MaterialTheme.colorScheme.primary)
                 }

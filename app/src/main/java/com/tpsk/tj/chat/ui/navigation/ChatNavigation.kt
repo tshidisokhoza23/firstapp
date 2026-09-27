@@ -45,12 +45,14 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         arguments = listOf(
             navArgument("userId") { type = NavType.StringType; defaultValue = "" },
             navArgument("showComposer") { type = NavType.BoolType; defaultValue = false },
-            navArgument("play") { type = NavType.BoolType; defaultValue = true }
+            navArgument("play") { type = NavType.BoolType; defaultValue = true },
+            navArgument("storyId") { type = NavType.StringType; defaultValue = "" }
         )
     ) { backStackEntry ->
         val initialUserId = backStackEntry.arguments?.getString("userId") ?: ""
         val showComposer = backStackEntry.arguments?.getBoolean("showComposer") ?: false
         val play = backStackEntry.arguments?.getBoolean("play") ?: true
+        val initialStoryId = backStackEntry.arguments?.getString("storyId") ?: ""
         val storyViewModel: StoryViewModel = hiltViewModel()
         val mediaViewModel: MediaViewModel = hiltViewModel()
         val adManager = (navController.context as? com.tpsk.tj.MainActivity)?.adManager 
@@ -81,6 +83,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             mediaViewModel = mediaViewModel,
             adManager = adManager,
             initialViewingUserId = if (initialUserId.isNotBlank()) initialUserId else null,
+            initialStoryId = initialStoryId.takeIf { it.isNotBlank() },
+            storiesReady = storiesState is Resource.Success,
             initialShowComposer = showComposer,
             initialPlay = play,
             onBack = { navController.popBackStack() },
@@ -97,10 +101,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     val targetUser = userId.removePrefix("user_")
                     val chats = chatViewModel.chats.value.data.orEmpty()
                     val existingChat = chats.find {
-                        it.otherUserId == targetUser || it.id == targetUser ||
-                        it.otherUserId == userId || it.id == userId
+                        it.otherUserId == targetUser || it.id == targetUser
                     }
-                    val replyId = if (storyId.startsWith("story_")) storyId else "story_$storyId"
+                    val replyId = com.tpsk.tj.chat.model.MessageMarkers.storyReplyId(storyId, targetUser)
                     val replyText = "[Story] $storySummary"
 
                     if (existingChat != null) {
@@ -467,7 +470,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     else -> navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
             },
-            onOpenStory = { storyUserId -> navController.navigate(Screen.Story.createRoute(userId = storyUserId, play = true)) },
+            onOpenStory = { storyUserId, storyId ->
+                navController.navigate(Screen.Story.createRoute(userId = storyUserId, play = true, storyId = storyId))
+            },
             jobId = jobId,
             jobTitle = jobTitle,
             companyName = companyName
@@ -517,7 +522,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                     navController.navigate(Screen.ChatProfile.createRoute(userId, false))
                 }
             },
-            onOpenStory = { storyUserId -> navController.navigate(Screen.Story.createRoute(userId = storyUserId, play = true)) }
+            onOpenStory = { storyUserId, storyId ->
+                navController.navigate(Screen.Story.createRoute(userId = storyUserId, play = true, storyId = storyId))
+            }
         )
     }
 
@@ -807,7 +814,10 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chatsState by chatViewModel.chats.collectAsState()
         val chats = chatsState.data ?: emptyList()
         
-        val chat = chats.find { it.id == userId || it.otherUserId == userId } ?: ChatMessage(
+        val chat = chats.find {
+            it.id == userId || it.otherUserId == userId ||
+                (!it.phoneNumber.isNullOrBlank() && it.phoneNumber == userId)
+        } ?: ChatMessage(
             id = userId,
             type = when {
                 channelFromRepo != null -> ConversationType.CHANNEL
@@ -843,10 +853,18 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             }
         }
 
+        val matchedContact = contacts.firstOrNull { contact ->
+            contact.id == userId || contact.id == chat.otherUserId ||
+                (!contact.phoneNumber.isNullOrBlank() && contact.phoneNumber == chat.phoneNumber)
+        }
+        val listName = chat.consistentName().takeIf { it.isNotBlank() && !com.tpsk.tj.common.util.looksLikePhone(it) }
+            ?: matchedContact?.displayName?.takeIf { it.isNotBlank() && !com.tpsk.tj.common.util.looksLikePhone(it) && !com.tpsk.tj.common.util.isIdString(it, userId) }
+            ?: chat.consistentName()
         val profileChat = chat.copy(
             phoneNumber = chat.phoneNumber ?: contactUser?.phoneNumber,
             avatarUrl = chat.avatarUrl ?: contactUser?.avatarUrl,
-            senderName = chat.senderName.takeIf { it.isNotBlank() } ?: contactUser?.displayName.orEmpty()
+            localContactName = listName.takeIf { it.isNotBlank() },
+            senderName = listName.ifBlank { chat.senderName }
         )
 
         com.tpsk.tj.chat.ui.screens.ChatProfileScreen(

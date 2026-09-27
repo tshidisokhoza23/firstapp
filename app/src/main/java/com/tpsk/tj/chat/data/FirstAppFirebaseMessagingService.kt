@@ -13,6 +13,7 @@ import com.tpsk.tj.MainActivity
 import com.tpsk.tj.R
 import com.tpsk.tj.IncomingCallActivity
 import com.tpsk.tj.common.domain.auth.SessionManager
+import com.tpsk.tj.chat.model.consistentName
 import com.tpsk.tj.common.util.sanitizeDisplayName
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -262,10 +263,12 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private suspend fun handleNewMessage(data: Map<String, String>) {
-        val chatId = data["contact_id"] ?: "0"
+        val conversationId = data["conversation_id"]?.takeIf { it.isNotBlank() }
+            ?: data["contact_id"]?.takeIf { it.isNotBlank() }
+            ?: "0"
+        val senderId = data["sender_id"].orEmpty()
         val rawSenderName = data["sender_name"].orEmpty()
         val senderPhone = data["sender_phone"] ?: data["contact_phone"]
-        val senderName = sanitizeDisplayName(rawSenderName, chatId, senderPhone).ifEmpty { "New Message" }
         val body = data["body"] ?: ""
         val messageId = data["message_id"] ?: ""
         
@@ -274,25 +277,34 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val soundsEnabled = settingsRepository.soundsEnabled.first()
         val vibrateEnabled = settingsRepository.vibrateEnabled.first()
 
-        // Expert Fix: Trigger background sync on new message FCM
+        // Trigger background sync so the notification title matches the chat list.
         chatRepository.syncDelta().collect {}
         chatRepository.syncChats().collect {}
+        val cachedName = runCatching {
+            kotlinx.coroutines.withTimeoutOrNull(1500) {
+                chatRepository.getChats().first { it !is com.tpsk.tj.common.util.Resource.Loading }.data
+                    ?.firstOrNull { it.id == conversationId || (senderId.isNotBlank() && it.otherUserId == senderId) }
+                    ?.consistentName()
+            }
+        }.getOrNull()
+        val senderName = cachedName?.takeIf { it.isNotBlank() }
+            ?: sanitizeDisplayName(rawSenderName, senderId.ifBlank { conversationId }, senderPhone).ifEmpty { "New Message" }
         
-        // Emit Delivery ACK via repository
-        if (messageId.isNotBlank() && chatId != "0") {
-            chatRepository.sendDeliveryAck(chatId, messageId)
+        // Emit Delivery ACK via repository using the conversation, never the user id.
+        if (messageId.isNotBlank() && conversationId != "0") {
+            chatRepository.sendDeliveryAck(conversationId, messageId)
         }
 
         createMessagesChannel(soundsEnabled, vibrateEnabled)
 
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("open_chat_id", chatId)
+            putExtra("open_chat_id", conversationId)
             putExtra("open_chat_type", data["chat_type"] ?: "direct")
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            chatId.hashCode(),
+            conversationId.hashCode(),
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -308,7 +320,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         if (!soundsEnabled) notification.setSound(null)
 
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(chatId.hashCode(), notification.build())
+        manager.notify(conversationId.hashCode(), notification.build())
     }
 
     private fun createIncomingCallsChannel() {

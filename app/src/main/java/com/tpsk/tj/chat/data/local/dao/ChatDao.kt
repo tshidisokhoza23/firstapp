@@ -5,6 +5,7 @@ import androidx.room.*
 import com.tpsk.tj.chat.data.local.entity.ChatEntity
 import com.tpsk.tj.chat.data.local.entity.MessageEntity
 import com.tpsk.tj.chat.model.MessageStatus
+import com.tpsk.tj.chat.model.MessageType
 import com.tpsk.tj.common.model.ConversationType
 import kotlinx.coroutines.flow.Flow
 
@@ -272,12 +273,37 @@ interface ChatDao {
     suspend fun insertMessages(messages: List<MessageEntity>) {
         messages.forEach { incoming ->
             val existing = getMessageById(incoming.id)
+                ?: incoming.clientId?.takeIf { it.isNotBlank() }?.let { getMessageByClientId(it) }
             val mediaUrls = if (incoming.mediaUrls.isNotEmpty()) {
                 incoming.mediaUrls
             } else {
                 existing?.mediaUrls.orEmpty()
             }
-            insertMessage(incoming.copy(mediaUrls = mediaUrls))
+            val status = higherMessageStatus(existing?.status, incoming.status)
+            val keptType = if (
+                incoming.type == MessageType.TEXT &&
+                existing != null &&
+                existing.type != MessageType.TEXT &&
+                (existing.contactName != null || existing.type == MessageType.CONTACT)
+            ) existing.type else incoming.type
+            val reconciled = incoming.copy(
+                mediaUrls = mediaUrls,
+                status = status,
+                type = keptType,
+                isRead = status == MessageStatus.READ || incoming.isRead,
+                isDelivered = status == MessageStatus.DELIVERED || status == MessageStatus.READ || incoming.isDelivered,
+                replyToId = incoming.replyToId?.takeIf { it.isNotBlank() } ?: existing?.replyToId,
+                replyToText = incoming.replyToText?.takeIf { it.isNotBlank() } ?: existing?.replyToText,
+                replyToSenderName = incoming.replyToSenderName?.takeIf { it.isNotBlank() } ?: existing?.replyToSenderName,
+                contactName = incoming.contactName?.takeIf { it.isNotBlank() } ?: existing?.contactName,
+                contactPhone = incoming.contactPhone?.takeIf { it.isNotBlank() } ?: existing?.contactPhone,
+                latitude = incoming.latitude ?: existing?.latitude,
+                longitude = incoming.longitude ?: existing?.longitude
+            )
+            if (existing != null && existing.id != reconciled.id && existing.id.isNotBlank()) {
+                deleteMessage(existing.id)
+            }
+            insertMessage(reconciled)
         }
     }
 
@@ -415,7 +441,7 @@ interface ChatDao {
     """)
     suspend fun recalculateUnreadCount(chatId: String)
 
-    @Query("UPDATE chats SET lastMessageRead = 1 WHERE id = :chatId AND lastMessageIsFromMe = 1")
+    @Query("UPDATE chats SET lastMessageRead = 1 WHERE lastMessageIsFromMe = 1 AND (id = :chatId OR otherUserId = :chatId)")
     suspend fun markOutgoingLastMessageAsRead(chatId: String)
 
     @Query("UPDATE chats SET lastMessageRead = 1 WHERE id = :chatId AND lastMessageIsFromMe = 0")
@@ -435,11 +461,34 @@ interface ChatDao {
     """)
     suspend fun markIncomingAsRead(chatId: String)
 
-    @Query("UPDATE messages SET isRead = 1, status = 'READ' WHERE conversationId = :chatId AND isFromMe = 1")
+    @Query("""
+        UPDATE messages SET isRead = 1, status = 'READ'
+        WHERE isFromMe = 1 AND (
+            conversationId = :chatId
+            OR conversationId IN (SELECT otherUserId FROM chats WHERE id = :chatId AND otherUserId IS NOT NULL)
+            OR conversationId IN (SELECT id FROM chats WHERE otherUserId = :chatId)
+        )
+    """)
     suspend fun markOutgoingAsRead(chatId: String)
 
-    @Query("UPDATE messages SET isDelivered = 1, status = 'DELIVERED' WHERE conversationId = :chatId AND isFromMe = 1")
+    @Query("""
+        UPDATE messages SET isDelivered = 1, status = 'DELIVERED'
+        WHERE isFromMe = 1 AND status != 'READ' AND (
+            conversationId = :chatId
+            OR conversationId IN (SELECT otherUserId FROM chats WHERE id = :chatId AND otherUserId IS NOT NULL)
+            OR conversationId IN (SELECT id FROM chats WHERE otherUserId = :chatId)
+        )
+    """)
     suspend fun markOutgoingAsDelivered(chatId: String)
+
+    @Query("""
+        SELECT conversationId, status FROM messages
+        WHERE isFromMe = 1 AND timestamp = (
+            SELECT MAX(m2.timestamp) FROM messages m2
+            WHERE m2.conversationId = messages.conversationId AND m2.isFromMe = 1
+        )
+    """)
+    fun observeLatestOutgoingStatuses(): Flow<List<LatestOutgoingStatus>>
 
     @Query("UPDATE messages SET isDelivered = 1, status = 'DELIVERED' WHERE id = :messageId")
     suspend fun markAsDelivered(messageId: String)
@@ -527,4 +576,23 @@ interface ChatDao {
         ORDER BY timestamp DESC
     """)
     fun searchMessagesAcrossAll(query: String): Flow<List<MessageEntity>>
+}
+
+data class LatestOutgoingStatus(
+    val conversationId: String,
+    val status: MessageStatus
+)
+
+private fun MessageStatus.rank(): Int = when (this) {
+    MessageStatus.FAILED -> 0
+    MessageStatus.PENDING -> 1
+    MessageStatus.SENDING -> 2
+    MessageStatus.SENT -> 3
+    MessageStatus.DELIVERED -> 4
+    MessageStatus.READ -> 5
+}
+
+private fun higherMessageStatus(current: MessageStatus?, incoming: MessageStatus): MessageStatus {
+    if (current == null) return incoming
+    return if (current.rank() >= incoming.rank()) current else incoming
 }

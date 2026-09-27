@@ -227,6 +227,16 @@ fun MediaScreen(
                                     AppLogo(size = 36.dp)
                                 },
                                 navigationIcon = {
+                                    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                                    DisposableEffect(lifecycleOwner) {
+                                        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                                            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                                                mediaViewModel.fetchNotificationsCount()
+                                            }
+                                        }
+                                        lifecycleOwner.lifecycle.addObserver(observer)
+                                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                                    }
                                     val unreadNotifsCount by mediaViewModel.unreadNotificationCount.collectAsState()
 
                                     BadgedBox(
@@ -445,7 +455,13 @@ fun MediaScreen(
                 },
                 onBlockUser = {
                     userViewModel.blockUser(targetPost.authorId)
+                    mediaViewModel.hidePost(targetPost.id)
                     android.widget.Toast.makeText(context, "Blocked @${targetPost.authorHandle}", android.widget.Toast.LENGTH_SHORT).show()
+                    showPostMoreOptions = null
+                },
+                onNotInterested = {
+                    mediaViewModel.hidePost(targetPost.id)
+                    android.widget.Toast.makeText(context, "We'll show fewer posts like this", android.widget.Toast.LENGTH_SHORT).show()
                     showPostMoreOptions = null
                 },
                 onDelete = {
@@ -458,6 +474,10 @@ fun MediaScreen(
                 },
                 onShare = {
                     onShareClick(targetPost)
+                    showPostMoreOptions = null
+                },
+                onCopyLink = {
+                    com.tpsk.tj.common.util.ShareUtils.copyPostLink(context, targetPost)
                     showPostMoreOptions = null
                 },
                 onBookmark = {
@@ -612,7 +632,10 @@ fun MainFeedSection(
 
             items(
                 count = posts.itemCount,
-                key = posts.itemKey { post -> post?.id ?: "loading_post" },
+                key = { index ->
+                    val id = posts.peek(index)?.id
+                    if (id.isNullOrBlank()) "loading_post_$index" else "${id}_$index"
+                },
                 contentType = posts.itemContentType { "post" }
             ) { index ->
                 val post = posts[index]

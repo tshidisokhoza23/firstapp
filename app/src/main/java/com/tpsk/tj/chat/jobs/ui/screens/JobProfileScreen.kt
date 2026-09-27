@@ -85,10 +85,22 @@ fun JobProfileScreen(
             .thenByDescending { it.startDate })
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(saveResult) {
-        if (saveResult is Resource.Success<*>) {
-            onClose()
-            viewModel.resetState()
+        when (val result = saveResult) {
+            is Resource.Success<*> -> {
+                onClose()
+                viewModel.resetState()
+            }
+            is Resource.Error -> {
+                android.widget.Toast.makeText(
+                    context,
+                    result.message ?: "Could not save profile",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                viewModel.resetState()
+            }
+            else -> Unit
         }
     }
 
@@ -348,7 +360,6 @@ fun JobProfileScreen(
             ProfileTextField(value = availability, onValueChange = { availability = it }, label = "Availability", placeholder = "e.g. 2 weeks notice / Immediate")
 
             SectionHeader("RESUME")
-            val context = androidx.compose.ui.platform.LocalContext.current
             val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
             ) { uri ->

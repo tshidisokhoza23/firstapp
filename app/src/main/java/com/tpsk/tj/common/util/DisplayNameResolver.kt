@@ -159,3 +159,10 @@ class DisplayNameResolver(private val context: Context) {
         contactCache.clear()
     }
 }
+
+fun looksLikePhone(value: String?): Boolean {
+    if (value.isNullOrBlank()) return false
+    val digits = value.count { it.isDigit() }
+    val compact = value.count { !it.isWhitespace() }
+    return digits >= 8 && compact > 0 && digits * 10 >= compact * 7
+}

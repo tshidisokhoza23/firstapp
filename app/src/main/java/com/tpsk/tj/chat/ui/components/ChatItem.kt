@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tpsk.tj.chat.data.GlobalCallState
 import com.tpsk.tj.chat.model.ChatMessage
+import com.tpsk.tj.chat.model.MessageStatus
+import com.tpsk.tj.chat.model.consistentName
 import com.tpsk.tj.common.ui.theme.*
 import com.tpsk.tj.common.util.formatWhatsAppTime
 
@@ -37,19 +39,11 @@ fun ChatItem(
     allStoriesViewed: Boolean = false,
     onAvatarClick: () -> Unit = {}
 ) {
-    val displayName = remember(chat.displayName, chat.senderName, chat.otherUserId, chat.phoneNumber) {
-        val resolved = chat.displayName
-        if (resolved.isNotBlank()) resolved
-        else {
+    val displayName = remember(chat.displayName, chat.senderName, chat.otherUserId, chat.phoneNumber, chat.id) {
+        chat.consistentName().ifBlank {
             val phone = chat.phoneNumber?.takeIf { it.isNotBlank() }
                 ?: chat.otherUserId?.let { GlobalCallState.getContactPhone(it) }
-            val sanitized = sanitizeDisplayName(chat.senderName, chat.otherUserId, phone)
-            when {
-                sanitized.isNotBlank() -> sanitized
-                !phone.isNullOrBlank() -> phone
-                !chat.senderName.isBlank() && !isIdString(chat.senderName, chat.otherUserId) -> chat.senderName
-                else -> phone.orEmpty()
-            }
+            sanitizeDisplayName(chat.senderName, chat.otherUserId, phone).ifBlank { phone.orEmpty() }
         }
     }
 
@@ -85,26 +79,37 @@ fun ChatItem(
                 .clickable { onAvatarClick() }
         }
 
-        Box(
-            modifier = avatarModifier,
-            contentAlignment = Alignment.Center
-        ) {
-            val backgroundColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray) 
-                chat.avatarColor 
-            else MaterialTheme.colorScheme.surfaceVariant
-            
-            val textColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray)
-                Color.White
-            else MaterialTheme.colorScheme.onSurfaceVariant
+        Box {
+            Box(
+                modifier = avatarModifier,
+                contentAlignment = Alignment.Center
+            ) {
+                val backgroundColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray)
+                    chat.avatarColor
+                else MaterialTheme.colorScheme.surfaceVariant
 
-            ChatAvatar(
-                imageUrl = chat.avatarUrl,
-                name = displayName,
-                size = 56.dp,
-                fontSize = 20.sp,
-                backgroundColor = backgroundColor,
-                textColor = textColor
-            )
+                val textColor = if (chat.avatarColor != Color.Transparent && chat.avatarColor != Color.Gray)
+                    Color.White
+                else MaterialTheme.colorScheme.onSurfaceVariant
+
+                ChatAvatar(
+                    imageUrl = chat.avatarUrl,
+                    name = displayName,
+                    size = 56.dp,
+                    fontSize = 20.sp,
+                    backgroundColor = backgroundColor,
+                    textColor = textColor
+                )
+            }
+            if (chat.isOnline && !chat.isMingle && !chat.isGroup && chat.type != com.tpsk.tj.common.model.ConversationType.CHANNEL) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(14.dp)
+                        .background(Color(0xFF25D366), CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -136,10 +141,26 @@ fun ChatItem(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (chat.unreadCount == 0 && !chat.isTyping && chat.lastMessage.isNotEmpty() && chat.lastMessageIsFromMe) {
+                    val tick = when {
+                        chat.lastMessageStatus == MessageStatus.READ || chat.lastMessageRead -> MessageStatus.READ
+                        chat.lastMessageStatus == MessageStatus.DELIVERED -> MessageStatus.DELIVERED
+                        chat.lastMessageStatus == MessageStatus.FAILED -> MessageStatus.FAILED
+                        chat.lastMessageStatus == MessageStatus.SENDING || chat.lastMessageStatus == MessageStatus.PENDING -> MessageStatus.SENDING
+                        else -> MessageStatus.SENT
+                    }
                     Icon(
-                        imageVector = if (chat.lastMessageRead) Icons.Default.DoneAll else Icons.Default.Done,
+                        imageVector = when (tick) {
+                            MessageStatus.READ, MessageStatus.DELIVERED -> Icons.Default.DoneAll
+                            MessageStatus.FAILED -> Icons.Default.ErrorOutline
+                            MessageStatus.SENDING, MessageStatus.PENDING -> Icons.Default.Schedule
+                            else -> Icons.Default.Done
+                        },
                         contentDescription = null,
-                        tint = if (chat.lastMessageRead) Color(0xFF34B7F1) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = when (tick) {
+                            MessageStatus.READ -> Color(0xFF34B7F1)
+                            MessageStatus.FAILED -> Color(0xFFE53935)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))

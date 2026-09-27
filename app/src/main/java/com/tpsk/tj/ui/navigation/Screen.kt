@@ -20,9 +20,9 @@ sealed class Screen(val route: String) {
     object SavedPosts : Screen("saved_posts")
     object Files : Screen("files")
     object Calendar : Screen("calendar")
-    object Story : Screen("story?userId={userId}&showComposer={showComposer}&play={play}") {
-        fun createRoute(userId: String? = null, showComposer: Boolean = false, play: Boolean = true) = 
-            "story?userId=${userId ?: ""}&showComposer=$showComposer&play=$play"
+    object Story : Screen("story?userId={userId}&showComposer={showComposer}&play={play}&storyId={storyId}") {
+        fun createRoute(userId: String? = null, showComposer: Boolean = false, play: Boolean = true, storyId: String? = null) = 
+            "story?userId=${android.net.Uri.encode(userId ?: "")}&showComposer=$showComposer&play=$play&storyId=${android.net.Uri.encode(storyId ?: "")}"
     }
     object NewStory : Screen("new_story")
     object ShareStory : Screen("share_story?content={content}&url={url}&type={type}") {

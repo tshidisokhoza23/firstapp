@@ -18,13 +18,13 @@ data class DeviceSession(
 @HiltViewModel
 class DevicesViewModel @Inject constructor() : ViewModel() {
     private val _sessions = MutableStateFlow(listOf(
-        DeviceSession("1", "Samsung SM-A546E", "Pretoria, South Africa", "Active now", true),
-        DeviceSession("2", "Windows PC", "Johannesburg, South Africa", "2 hours ago"),
-        DeviceSession("3", "iPhone 13", "Cape Town, South Africa", "Last week")
+        DeviceSession("this-device", android.os.Build.MODEL.ifBlank { "This phone" }, "This device only", "Active now", true)
     ))
     val sessions: StateFlow<List<DeviceSession>> = _sessions
 
     fun terminateSession(sessionId: String) {
+        // Remote session logout is not connected. Never pretend another device was signed out.
+        if (sessionId == "this-device") return
         _sessions.value = _sessions.value.filter { it.id != sessionId }
     }
 }

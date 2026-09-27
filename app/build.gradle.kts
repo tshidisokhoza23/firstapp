@@ -1,4 +1,5 @@
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -24,6 +25,20 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-4322207563956922~3347511713"
+    }
+
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { stream -> keystoreProperties.load(stream) }
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     flavorDimensions += "environment"
@@ -73,13 +88,22 @@ android {
             enableUnitTestCoverage = true
         }
         release {
+            // Shrink unused code and resources for size. Do not obfuscate:
+            // renaming Kotlin suspend signatures made every Retrofit call crash.
             isMinifyEnabled = true
             isShrinkResources = true
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // Debug key lets a release variant install over the debug app on a device.
+            // Drop a keystore.properties at the project root to sign for Play instead.
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {

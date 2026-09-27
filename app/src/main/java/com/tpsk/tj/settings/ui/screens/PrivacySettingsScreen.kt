@@ -90,13 +90,13 @@ fun PrivacySettingsScreen(
     }
 
     if (showPhoneNumberDialog) {
-        PrivacyOptionDialog(
-            title = "Phone number",
-            currentOption = "everyone", // Default mock
-            onOptionSelected = {
-                showPhoneNumberDialog = false
-            },
-            onDismiss = { showPhoneNumberDialog = false }
+        AlertDialog(
+            onDismissRequest = { showPhoneNumberDialog = false },
+            title = { Text("Phone number") },
+            text = { Text("Your phone number is used to sign in. Who can see it cannot be changed yet.") },
+            confirmButton = {
+                TextButton(onClick = { showPhoneNumberDialog = false }) { Text("OK") }
+            }
         )
     }
 
@@ -136,7 +136,7 @@ fun PrivacySettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     PrivacyItemUnique(title = "Blocked Users", subtitle = "Manage blocked accounts", onClick = onNavigateToBlockedUsers)
-                    PrivacyItemUnique(title = "Phone Number", subtitle = "Everyone", onClick = { showPhoneNumberDialog = true })
+                    PrivacyItemUnique(title = "Phone Number", subtitle = "Used to sign in", onClick = { showPhoneNumberDialog = true })
                     PrivacyItemUnique(title = "Last Seen & Online", subtitle = settings.show_last_seen.replace("_", " ").replaceFirstChar { it.uppercase() }, onClick = { showLastSeenDialog = true })
                     PrivacyItemUnique(
                         title = "Stories",
@@ -146,7 +146,13 @@ fun PrivacySettingsScreen(
                         },
                         onClick = { showStoriesPrivacyDialog = true }
                     )
-                    PrivacyItemUnique(title = "Profile Photos", subtitle = "Everyone")
+                    PrivacyItemUnique(
+                        title = "Profile Photos",
+                        subtitle = "Shown on your profile",
+                        onClick = {
+                            android.widget.Toast.makeText(context, "Profile photo audience cannot be changed yet", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }
             }
 
@@ -178,12 +184,22 @@ fun PrivacySettingsScreen(
                             }
                             Switch(
                                 checked = biometricLockEnabled,
-                                onCheckedChange = { viewModel.setBiometricLockEnabled(it) }
+                                onCheckedChange = { viewModel.setBiometricLockEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                )
                             )
                         }
                     }
-                    
-                    PrivacyItemUnique(title = "Two-Step Verification", subtitle = "Off")
+
+                    PrivacyItemUnique(
+                        title = "Two-Step Verification",
+                        subtitle = "Not available yet",
+                        onClick = {
+                            android.widget.Toast.makeText(context, "Two-step verification is not available yet", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }
             }
 

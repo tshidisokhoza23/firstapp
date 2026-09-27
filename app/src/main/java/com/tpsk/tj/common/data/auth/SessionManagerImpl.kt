@@ -124,21 +124,17 @@ class SessionManagerImpl @Inject constructor(
     override fun getRefreshToken(): String? = getPrefs().getString(KEY_REFRESH_TOKEN, null)
 
     override fun getUserId(): String? {
-        val token = getToken() ?: return null
-        return tokenSubject(token)
+        val fromToken = getToken()?.let { tokenSubject(it) }
+        if (!fromToken.isNullOrBlank()) return fromToken
+        return _currentUser.value?.id?.takeIf { it.isNotBlank() }
     }
 
     override fun isLoggedIn(): Boolean = _authState.value
 
     override fun saveSession(token: String, refreshToken: String, user: User?) {
-        // Update in-memory state immediately so navigation never blocks on
-        // (potentially slow) encrypted-preferences / Keystore initialization.
-        _authState.value = true
-        if (user != null) {
-            _currentUser.value = user
-        }
-
-        // Persist session tokens immediately and synchronously so they are never lost
+        // Persist first. Publishing auth state before the token is committed
+        // lets the social tab open Room as "anonymous", then login swaps the
+        // file out from under that instance and SQLCipher crashes on click.
         try {
             val p = getPrefs()
             val editor = p.edit()
@@ -151,6 +147,11 @@ class SessionManagerImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e("SessionManager", "Failed to persist session", e)
         }
+
+        if (user != null) {
+            _currentUser.value = user
+        }
+        _authState.value = true
     }
 
     override fun updateCurrentUser(user: User) {

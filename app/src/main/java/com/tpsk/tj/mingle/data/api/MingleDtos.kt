@@ -86,6 +86,7 @@ data class MingleActivityDto(
     val actor_avatar_url: String? = null,
     val type: String? = null,
     val photo_url: String? = null,
+    val conversation_id: String? = null,
     val created_at: Long = 0
 )
 

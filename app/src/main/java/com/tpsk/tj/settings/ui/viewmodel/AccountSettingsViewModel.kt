@@ -28,7 +28,7 @@ class AccountSettingsViewModel @Inject constructor(
 
     fun changePhoneNumber(newNumber: String) {
         viewModelScope.launch {
-            _toastMessage.value = "Phone number update request sent for $newNumber"
+            _toastMessage.value = "Phone number changes are not available yet. Your login number stays the same."
         }
     }
 

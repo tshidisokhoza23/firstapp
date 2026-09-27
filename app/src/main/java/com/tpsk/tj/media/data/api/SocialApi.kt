@@ -149,12 +149,19 @@ interface SocialApi {
         @Query("offset") offset: Int = 0
     ): Response<List<ApiSocialNotification>>
 
+    @GET("social/notifications/unread-count")
+    suspend fun getUnreadNotificationCount(): Response<UnreadCountResponse>
+
     @POST("social/notifications/{id}/read")
     suspend fun markNotificationRead(@Path("id") notificationId: String): Response<StatusResponse>
 
     @POST("social/notifications/read-all")
     suspend fun markAllNotificationsRead(): Response<StatusResponse>
 }
+
+data class UnreadCountResponse(
+    @SerializedName("unread_count") val unread_count: Int = 0
+)
 
 data class ApiSocialNotification(
     val id: String?,

@@ -261,7 +261,13 @@ fun PostDetailScreen(
             },
             onBlockUser = {
                 userViewModel.blockUser(target.authorId)
+                mediaViewModel.hidePost(target.id)
                 Toast.makeText(context, "Blocked @${target.authorHandle}", Toast.LENGTH_SHORT).show()
+                selectedPostForMore = null
+            },
+            onNotInterested = {
+                mediaViewModel.hidePost(target.id)
+                Toast.makeText(context, "We'll show fewer posts like this", Toast.LENGTH_SHORT).show()
                 selectedPostForMore = null
             },
             onDelete = {
@@ -281,6 +287,10 @@ fun PostDetailScreen(
             onShare = {
                 mediaViewModel.sharePost(target.id, target.shares)
                 com.tpsk.tj.common.util.ShareUtils.sharePost(context, target)
+                selectedPostForMore = null
+            },
+            onCopyLink = {
+                com.tpsk.tj.common.util.ShareUtils.copyPostLink(context, target)
                 selectedPostForMore = null
             },
             onBookmark = {

@@ -20,6 +20,7 @@ import javax.inject.Inject
 import java.util.HashMap
 import java.util.ArrayList
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.tpsk.tj.common.data.ads.AdUnitConfig
 
@@ -67,15 +68,32 @@ class MediaViewModel @Inject constructor(
 
     private val _unreadNotificationCount = MutableStateFlow(0)
     val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount.asStateFlow()
+    private val posting = AtomicBoolean(false)
 
     fun fetchNotificationsCount() {
         viewModelScope.launch {
-            socialRepository.getSocialNotifications().collect { res ->
+            var counted = false
+            socialRepository.getUnreadNotificationCount().collect { res ->
                 if (res is Resource.Success) {
-                    val unread = res.data?.count { !it.isRead } ?: 0
-                    _unreadNotificationCount.value = unread
+                    _unreadNotificationCount.value = res.data ?: 0
+                    counted = true
                 }
             }
+            if (counted) return@launch
+            // Count route is not deployed yet. Fall back to unread rows only, and
+            // never treat a failed fetch as zero.
+            socialRepository.getSocialNotifications().collect { res ->
+                if (res is Resource.Success) {
+                    _unreadNotificationCount.value = res.data.orEmpty().count { !it.isRead && it.id.isNotBlank() }
+                }
+            }
+        }
+    }
+
+    fun hidePost(postId: String) {
+        if (postId.isBlank()) return
+        viewModelScope.launch {
+            socialRepository.hidePostLocally(postId)
         }
     }
 
@@ -287,7 +305,9 @@ class MediaViewModel @Inject constructor(
         repostOfId: String? = null
     ) {
         if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty()) && repostOfId == null) return
+        if (!posting.compareAndSet(false, true)) return
         viewModelScope.launch {
+            try {
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = ArrayList<String>()
             var thumbnailUrl: String? = null
@@ -322,7 +342,17 @@ class MediaViewModel @Inject constructor(
                     try {
                         if (uri != null) {
                             var uploadSuccess = false
-                            accountRepository.uploadUri(context, uri, "posts").collect { res ->
+                            val strippedImage = if (!isVideo) {
+                                runCatching {
+                                    com.tpsk.tj.media.util.MediaProcessor.processAndStripExif(context, uri)
+                                }.getOrNull()
+                            } else null
+                            val uploadFlow = if (strippedImage != null) {
+                                accountRepository.uploadFile(strippedImage, "posts")
+                            } else {
+                                accountRepository.uploadUri(context, uri, "posts")
+                            }
+                            uploadFlow.collect { res ->
                                 if (res is Resource.Success && res.data != null) {
                                     finalUrls.add(res.data.url)
                                     uploadSuccess = true
@@ -330,6 +360,7 @@ class MediaViewModel @Inject constructor(
                                     _toastMessage.value = "Upload failed: ${res.message}"
                                 }
                             }
+                            strippedImage?.delete()
                             if (!uploadSuccess) {
                                 _uiState.update { it.copy(isLoading = false) }
                                 return@launch // Fail early if upload failed
@@ -382,7 +413,10 @@ class MediaViewModel @Inject constructor(
                     _toastMessage.value = "Failed to post: ${res.message}"
                 }
             }
-            _uiState.update { it.copy(isLoading = false) }
+            } finally {
+                posting.set(false)
+                _uiState.update { it.copy(isLoading = false) }
+            }
         }
     }
 
@@ -577,7 +611,7 @@ class MediaViewModel @Inject constructor(
                 if (res is Resource.Success) {
                     _toastMessage.value = "Report submitted. Thank you for keeping our community safe!"
                 } else if (res is Resource.Error) {
-                    _toastMessage.value = "Report submitted. Thank you!"
+                    _toastMessage.value = "Could not submit report. Try again."
                 }
             }
         }

@@ -73,8 +73,8 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
         val notificationViewModel: NotificationSettingsViewModel = hiltViewModel()
         NotificationSettingsScreen(
             onBack = { navController.popBackStack() },
-            onNavigateToChat = { chatId ->
-                navController.navigate(Screen.Chat.createRoute(chatId, "mingle"))
+            onNavigateToChat = { _ ->
+                // Alerts must not open a Mingle chat from a contact id.
             },
             viewModel = notificationViewModel
         )

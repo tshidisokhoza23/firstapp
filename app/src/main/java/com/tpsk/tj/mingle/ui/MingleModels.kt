@@ -20,5 +20,6 @@ data class MingleActivityNotification(
     val type: MingleActivityType,
     val actionText: String,
     val timeAgo: String,
-    val photoUrl: String? = null
+    val photoUrl: String? = null,
+    val conversationId: String? = null
 )

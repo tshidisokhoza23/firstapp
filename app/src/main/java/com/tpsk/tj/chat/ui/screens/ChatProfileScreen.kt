@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tpsk.tj.chat.model.ChatMessage
+import com.tpsk.tj.chat.model.consistentName
 import com.tpsk.tj.chat.model.Message
 import com.tpsk.tj.chat.model.MessageType
 import com.tpsk.tj.chat.model.Contact
@@ -77,6 +78,7 @@ fun ChatProfileScreen(
     val isChannel = chat.type == ConversationType.CHANNEL
     val isGroup = chat.type == ConversationType.GROUP || chat.isGroup
     val isDirect = !isChannel && !isGroup
+    val titleName = chat.consistentName().ifBlank { chat.senderName }
     val isCreator = chat.createdBy != null && chat.createdBy == currentUserId
     
     val canEditAvatar = remember(chat.id, chat.isAdmin, currentUserId, isDirect) {
@@ -119,10 +121,10 @@ fun ChatProfileScreen(
         } else true
 
         if (hasMic && hasCam) {
-            onInitiateCall(targetId, chat.senderName, type)
+            onInitiateCall(targetId, titleName, type)
         } else {
             pendingCallTargetId = targetId
-            pendingCallName = chat.senderName
+            pendingCallName = titleName
             pendingCallType = type
             val perms = if (type == com.tpsk.tj.chat.data.CallType.VIDEO) {
                 arrayOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.CAMERA)
@@ -191,17 +193,19 @@ fun ChatProfileScreen(
                                     onClick = { showMore = false; showReportDialog = true }
                                 )
                             }
-                            DropdownMenuItem(
-                                text = { Text("Share contact") },
-                                onClick = {
-                                    showMore = false
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, chat.senderName + (chat.phoneNumber?.let { "\n$it" } ?: ""))
+                            if (isDirect) {
+                                DropdownMenuItem(
+                                    text = { Text("Share contact") },
+                                    onClick = {
+                                        showMore = false
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, chat.senderName + (chat.phoneNumber?.let { "\n$it" } ?: ""))
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share contact"))
                                     }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share contact"))
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 },
@@ -262,7 +266,7 @@ fun ChatProfileScreen(
                         ) {
                             ChatAvatar(
                                 imageUrl = chat.avatarUrl,
-                                name = chat.senderName,
+                                name = titleName,
                                 size = 110.dp,
                                 fontSize = 42.sp,
                                 backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -301,13 +305,13 @@ fun ChatProfileScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = chat.senderName,
+                        text = titleName,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
 
-                    if (!chat.phoneNumber.isNullOrBlank()) {
+                    if (!chat.phoneNumber.isNullOrBlank() && chat.phoneNumber != titleName) {
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = chat.phoneNumber,
@@ -320,6 +324,7 @@ fun ChatProfileScreen(
                         isBlocked -> "Blocked"
                         chat.isOnline -> "online"
                         chat.lastSeen > 0L -> com.tpsk.tj.chat.ui.components.formatDirectLastSeen(chat.lastSeen)
+                        isDirect && !chat.isMingle -> "offline"
                         else -> null
                     }
 
@@ -421,6 +426,7 @@ fun ChatProfileScreen(
                         isBlocked -> "Blocked"
                         chat.isOnline -> "online"
                         chat.lastSeen > 0L -> com.tpsk.tj.chat.ui.components.formatDirectLastSeen(chat.lastSeen)
+                        isDirect && !chat.isMingle -> "offline"
                         else -> null
                     }
                     if (presenceLabel != null) {

@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tpsk.tj.common.ui.theme.*
-import com.tpsk.tj.common.ui.viewmodel.UserViewModel
 import com.tpsk.tj.mingle.ui.MingleActivityNotification
 import com.tpsk.tj.mingle.ui.MingleActivityType
 import com.tpsk.tj.mingle.ui.MingleProfilePreviewDialog
@@ -39,12 +38,10 @@ import com.tpsk.tj.settings.ui.viewmodel.NotificationSettingsViewModel
 fun NotificationSettingsScreen(
     onBack: () -> Unit,
     onNavigateToChat: (String) -> Unit = {},
-    viewModel: NotificationSettingsViewModel = hiltViewModel(),
-    userViewModel: UserViewModel = hiltViewModel()
+    viewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Mingle Activity, 1: Settings
+    var selectedTab by remember { mutableIntStateOf(1) } // 0: Activity, 1: Preferences
     var selectedNotificationForPreview by remember { mutableStateOf<MingleActivityNotification?>(null) }
-    val contacts by userViewModel.contacts.collectAsState()
 
     val privateChatsEnabled by viewModel.privateChatsEnabled.collectAsState()
     val groupsEnabled by viewModel.groupsEnabled.collectAsState()
@@ -53,114 +50,13 @@ fun NotificationSettingsScreen(
     val vibrateEnabled by viewModel.vibrateEnabled.collectAsState()
     val previewsEnabled by viewModel.previewsEnabled.collectAsState()
 
-    // Generate Mingle activity notifications based on real contacts
-    val mingleNotifications = remember(contacts) {
-        val list = mutableListOf<MingleActivityNotification>()
-        val cList = contacts.take(6)
-
-        cList.getOrNull(0)?.let { c ->
-            list.add(
-                MingleActivityNotification(
-                    id = "m_notif_1",
-                    actorId = c.id,
-                    actorName = c.displayName,
-                    actorAvatarUrl = c.avatarUrl,
-                    type = MingleActivityType.MINGLE_LIKE,
-                    actionText = "liked your Mingle profile ❤️",
-                    timeAgo = "2m ago"
-                )
-            )
-        }
-
-        cList.getOrNull(1)?.let { c ->
-            list.add(
-                MingleActivityNotification(
-                    id = "m_notif_2",
-                    actorId = c.id,
-                    actorName = c.displayName,
-                    actorAvatarUrl = c.avatarUrl,
-                    type = MingleActivityType.MATCH,
-                    actionText = "matched with you! Say hi 👋",
-                    timeAgo = "15m ago"
-                )
-            )
-        }
-
-        cList.getOrNull(2)?.let { c ->
-            list.add(
-                MingleActivityNotification(
-                    id = "m_notif_3",
-                    actorId = c.id,
-                    actorName = c.displayName,
-                    actorAvatarUrl = c.avatarUrl,
-                    type = MingleActivityType.PHOTO_LIKE,
-                    actionText = "liked photo #2 on your profile 📸",
-                    timeAgo = "45m ago",
-                    photoUrl = "https://picsum.photos/200/300?random=11"
-                )
-            )
-        }
-
-        cList.getOrNull(3)?.let { c ->
-            list.add(
-                MingleActivityNotification(
-                    id = "m_notif_4",
-                    actorId = c.id,
-                    actorName = c.displayName,
-                    actorAvatarUrl = c.avatarUrl,
-                    type = MingleActivityType.VIEW,
-                    actionText = "viewed your Mingle profile 👁",
-                    timeAgo = "2h ago"
-                )
-            )
-        }
-
-        cList.getOrNull(4)?.let { c ->
-            list.add(
-                MingleActivityNotification(
-                    id = "m_notif_5",
-                    actorId = c.id,
-                    actorName = c.displayName,
-                    actorAvatarUrl = c.avatarUrl,
-                    type = MingleActivityType.SUPER_LIKE,
-                    actionText = "sent you a Super Like ⭐",
-                    timeAgo = "5h ago"
-                )
-            )
-        }
-
-        if (list.isEmpty()) {
-            list.add(
-                MingleActivityNotification(
-                    id = "m_default_1",
-                    actorId = "u1",
-                    actorName = "Clientelle",
-                    actorAvatarUrl = null,
-                    type = MingleActivityType.MINGLE_LIKE,
-                    actionText = "liked your Mingle profile ❤️",
-                    timeAgo = "10m ago"
-                )
-            )
-            list.add(
-                MingleActivityNotification(
-                    id = "m_default_2",
-                    actorId = "u2",
-                    actorName = "Sbg Number",
-                    actorAvatarUrl = null,
-                    type = MingleActivityType.MATCH,
-                    actionText = "matched with you! Say hi 👋",
-                    timeAgo = "1h ago"
-                )
-            )
-        }
-
-        list
-    }
+    // Do not invent likes from the contact list. Real Mingle activity belongs in Mingle.
+    val mingleNotifications = emptyList<MingleActivityNotification>()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mingle Activity", fontWeight = FontWeight.Bold) },
+                title = { Text(if (selectedTab == 0) "Activity" else "Alerts", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -223,6 +119,15 @@ fun NotificationSettingsScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        if (mingleNotifications.isEmpty()) {
+                            item {
+                                Text(
+                                    "No activity here. Likes and matches stay in Mingle.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 24.dp)
+                                )
+                            }
+                        }
                         items(mingleNotifications, key = { it.id }) { item ->
                             MingleActivityRow(
                                 item = item,

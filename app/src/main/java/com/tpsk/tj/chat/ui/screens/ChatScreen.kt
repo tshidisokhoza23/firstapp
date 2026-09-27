@@ -67,6 +67,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.tpsk.tj.R
 import com.tpsk.tj.chat.model.ChatMessage
+import com.tpsk.tj.chat.model.consistentName
 import com.tpsk.tj.chat.model.Message
 import com.tpsk.tj.chat.model.MessageType
 import com.tpsk.tj.chat.ui.components.*
@@ -139,7 +140,7 @@ fun ChatMessagesScreen(
     onBack: () -> Unit,
     onShowProfile: (String, Boolean) -> Unit,
     onAvatarClick: (String) -> Unit = {},
-    onOpenStory: ((String) -> Unit)? = null,
+    onOpenStory: ((userId: String, storyId: String) -> Unit)? = null,
     jobId: String? = null,
     jobTitle: String? = null,
     companyName: String? = null
@@ -444,29 +445,48 @@ fun ChatMessagesScreen(
                     android.provider.ContactsContract.Contacts.DISPLAY_NAME,
                     android.provider.ContactsContract.Contacts._ID
                 )
+                var name: String? = null
+                var contactId: String? = null
                 context.contentResolver.query(it, projection, null, null, null)?.use { cursor ->
                     if (cursor.moveToFirst()) {
-                        val name = cursor.getString(0)
-                        val id = cursor.getString(1)
-
-                        context.contentResolver.query(
-                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                            arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
-                            "${android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                            arrayOf(id),
-                            null
-                        )?.use { phoneCursor ->
-                            if (phoneCursor.moveToFirst()) {
-                                val phone = phoneCursor.getString(0)
-                                sendToServer(
-                                    body = "Shared Contact",
-                                    messageType = "contact",
-                                    contactName = name,
-                                    contactPhone = phone
-                                )
-                            }
+                        name = cursor.getString(0)
+                        contactId = cursor.getString(1)
+                    }
+                }
+                var phone: String? = null
+                if (!contactId.isNullOrBlank()) {
+                    context.contentResolver.query(
+                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+                        "${android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                        arrayOf(contactId),
+                        null
+                    )?.use { phoneCursor ->
+                        if (phoneCursor.moveToFirst()) phone = phoneCursor.getString(0)
+                    }
+                }
+                if (phone.isNullOrBlank() || name.isNullOrBlank()) {
+                    context.contentResolver.query(
+                        it,
+                        arrayOf(
+                            android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER,
+                            android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                        ),
+                        null, null, null
+                    )?.use { phoneCursor ->
+                        if (phoneCursor.moveToFirst()) {
+                            if (phone.isNullOrBlank()) phone = phoneCursor.getString(0)
+                            if (name.isNullOrBlank()) name = phoneCursor.getString(1)
                         }
                     }
+                }
+                if (!name.isNullOrBlank() || !phone.isNullOrBlank()) {
+                    sendToServer(
+                        body = "Shared Contact",
+                        messageType = "contact",
+                        contactName = name,
+                        contactPhone = phone
+                    )
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -615,7 +635,7 @@ fun ChatMessagesScreen(
                 Column {
                     ChatTopBar(
                         chat = currentChat,
-                        sanitizedName = currentChat.displayName,
+                        sanitizedName = currentChat.consistentName().ifBlank { currentChat.displayName },
                         isSearchMode = isSearchMode,
                         chatSearchQuery = chatSearchQuery,
                         selectedMessagesCount = selectedMessages.size,
@@ -999,9 +1019,14 @@ fun ChatMessagesScreen(
                         replyToText?.contains("[Story]", ignoreCase = true) == true ||
                         replyToText?.contains("[mediaUrl:", ignoreCase = true) == true
                     if (isStoryReply) {
-                        val storyUser = currentChat.otherUserId ?: currentChat.id
-                        if (!storyUser.isNullOrBlank()) {
-                            onOpenStory?.invoke(storyUser)
+                        val parsed = com.tpsk.tj.chat.model.MessageMarkers.parseStoryReplyId(replyToId)
+                        val storyId = parsed?.storyId?.takeIf { it.isNotBlank() }
+                            ?: replyToId?.removePrefix("story_")?.substringBefore("|")?.takeIf { it.isNotBlank() }
+                        val storyUser = parsed?.userId?.takeIf { it.isNotBlank() }
+                            ?: currentChat.otherUserId
+                            ?: currentChat.id
+                        if (!storyUser.isNullOrBlank() && !storyId.isNullOrBlank()) {
+                            onOpenStory?.invoke(storyUser, storyId)
                         } else {
                             android.widget.Toast.makeText(context, "This story has expired or is no longer available.", android.widget.Toast.LENGTH_SHORT).show()
                         }

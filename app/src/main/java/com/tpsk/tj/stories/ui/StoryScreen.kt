@@ -58,6 +58,8 @@ fun StoryScreen(
     mediaViewModel: MediaViewModel,
     adManager: AdManager,
     initialViewingUserId: String? = null,
+    initialStoryId: String? = null,
+    storiesReady: Boolean = false,
     initialShowComposer: Boolean = false,
     initialPlay: Boolean = true,
     onBack: () -> Unit,
@@ -233,12 +235,21 @@ fun StoryScreen(
     }
 
     // Initial play logic
-    LaunchedEffect(initialViewingUserId, initialPlay, stories) {
+    LaunchedEffect(initialViewingUserId, initialStoryId, initialPlay, stories, storiesReady) {
         if (!initialPlay || initialViewingUserId.isNullOrBlank() || viewingUserStory != null) return@LaunchedEffect
-        val story = stories.find { it.id == initialViewingUserId || it.userId == initialViewingUserId }
+        val wantedUser = initialViewingUserId.removePrefix("user_")
+        val story = stories.find {
+            val keys = listOf(it.id, it.userId, it.id.removePrefix("user_"), it.userId.removePrefix("user_"))
+            keys.any { key -> key.isNotBlank() && (key == initialViewingUserId || key == wantedUser) }
+        }
         if (story != null && story.stories.isNotEmpty()) {
+            val wantedStory = initialStoryId?.removePrefix("story_")?.substringBefore("|")
+            val index = if (wantedStory.isNullOrBlank()) 0 else story.stories.indexOfFirst { it.id == wantedStory }.let { if (it >= 0) it else 0 }
+            viewingStoryIndex = index
             viewingUserStory = story
-            viewingStoryIndex = 0
+        } else if (storiesReady) {
+            Toast.makeText(context, "This story has expired or is no longer available.", Toast.LENGTH_SHORT).show()
+            onBack()
         }
     }
 
@@ -352,13 +363,27 @@ fun StoryScreen(
             userStory = currentGroup,
             isOwnStory = isOwnStory,
             initialStoryIndex = viewingStoryIndex,
-            onStoryViewed = { storyIndex -> 
+            onStoryViewed = { storyIndex ->
                 val storyId = currentGroup.stories.getOrNull(storyIndex)?.id
-                if (storyId != null) {
-                    if (currentGroup.id != "system_ad") {
-                          onStoryViewed(currentGroup.userId.ifBlank { currentGroup.id }, storyId)
-                    }
+                if (storyId != null && currentGroup.id != "system_ad") {
+                    onStoryViewed(currentGroup.userId.ifBlank { currentGroup.id }, storyId)
                 }
+            },
+            onReplyStory = { storyId, text, summary ->
+                val item = currentGroup.stories.find { it.id == storyId }
+                val media = item?.contentUrl?.takeIf { it.isNotBlank() }
+                val richSummary = buildString {
+                    append("[Story] ")
+                    append(summary.ifBlank { item?.content?.takeIf { it.isNotBlank() } ?: "Story" })
+                    if (!media.isNullOrBlank()) append(" [mediaUrl:$media]")
+                }
+                onReplyStory(
+                    currentGroup.userId.ifBlank { currentGroup.id },
+                    storyId,
+                    text,
+                    richSummary,
+                    currentGroup.userName
+                )
             },
             onFinish = { advanceQueue(currentGroup, 1) },
             onNavigateToUser = { direction -> advanceQueue(currentGroup, direction) },
@@ -395,9 +420,6 @@ fun StoryScreen(
                         } else {
                             IconButton(onClick = { showSearch = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "Search stories")
-                            }
-                            IconButton(onClick = { /* Options menu */ }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
                             }
                         }
                     },

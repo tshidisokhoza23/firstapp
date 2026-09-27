@@ -28,7 +28,9 @@ class NetworkEnvironmentManager @Inject constructor(
         get() {
             if (!BuildConfig.ENABLE_DEV_SWITCH) return NetworkMode.FORCE_ACTIVE
             val savedMode = prefs.getString("network_mode", null)
-            return if (savedMode != null) NetworkMode.valueOf(savedMode) else defaultMode
+            return savedMode?.let { raw ->
+                NetworkMode.entries.firstOrNull { it.name == raw }
+            } ?: defaultMode
         }
         set(value) {
             if (BuildConfig.ENABLE_DEV_SWITCH) {

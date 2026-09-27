@@ -27,7 +27,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,10 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tpsk.tj.LocalCurrentUser
-import com.tpsk.tj.media.data.worker.PostUploadWorker
 import com.tpsk.tj.media.model.Post
 import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
-import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +46,6 @@ fun CreatePostScreen(
     onPostCreated: () -> Unit,
     mediaViewModel: MediaViewModel
 ) {
-    val context = LocalContext.current
     val currentUser = LocalCurrentUser.current
 
     var postText by remember { mutableStateOf("") }
@@ -95,7 +91,6 @@ fun CreatePostScreen(
                             if (!canPost || isPostingState) return@Button
                             isPostingState = true
 
-                            val clientPostId = UUID.randomUUID().toString()
                             val imageUriStrings = selectedImageUris.map { it.toString() }
                             val postType = when {
                                 showPoll -> "poll"
@@ -105,21 +100,7 @@ fun CreatePostScreen(
                             }
                             val finalPoll = if (showPoll) pollOptions.filter { it.isNotBlank() } else null
 
-                            // 1. Enqueue background EXIF stripping, compression and upload
-                            PostUploadWorker.enqueue(
-                                context = context,
-                                clientPostId = clientPostId,
-                                text = postText,
-                                imageUris = imageUriStrings,
-                                postType = postType,
-                                parentPostId = replyToPost?.id,
-                                rootPostId = replyToPost?.rootPostId ?: replyToPost?.id,
-                                repostOfId = quotingPost?.id,
-                                location = selectedLocation,
-                                pollOptions = finalPoll
-                            )
-
-                            // 2. Submit optimistic update in ViewModel
+                            // One create path only. A second worker upload was publishing a duplicate post.
                             mediaViewModel.createPost(
                                 content = postText,
                                 mediaUris = imageUriStrings,

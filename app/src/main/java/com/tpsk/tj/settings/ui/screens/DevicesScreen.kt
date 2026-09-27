@@ -73,7 +73,7 @@ fun DevicesScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Smartphone, contentDescription = null, tint = AppAccent, modifier = Modifier.size(64.dp))
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Link Desktop Device", color = AppAccent, fontWeight = FontWeight.Bold)
+                    Text("This phone", color = AppAccent, fontWeight = FontWeight.Bold)
                 }
             }
 

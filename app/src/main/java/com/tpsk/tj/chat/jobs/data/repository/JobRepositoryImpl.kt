@@ -120,7 +120,14 @@ class JobRepositoryImpl @Inject constructor(
     override fun updateJobProfile(profile: JobProfileData): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
         try {
-            if (jobApi.updateJobProfile(profile).isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error("Fail"))
+            val response = jobApi.updateJobProfile(profile)
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                val detail = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Could not save profile (${response.code()})"
+                Log.e("JobRepo", "updateJobProfile failed: $detail")
+                emit(Resource.Error(detail))
+            }
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 

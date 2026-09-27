@@ -78,9 +78,12 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var instance: AppDatabase? = null
         private var currentUserId: String? = null
+        @Volatile
+        private var appContext: android.content.Context? = null
 
         @Synchronized
         fun getInstance(context: android.content.Context, sessionManager: com.tpsk.tj.common.domain.auth.SessionManager): AppDatabase {
+            appContext = context.applicationContext
             val userId = sessionManager.getUserId() ?: "anonymous"
             
             // If switching users or instance is closed, close and reset
@@ -114,7 +117,7 @@ abstract class AppDatabase : RoomDatabase() {
                 instance?.close()
                 instance = null
 
-                deleteUserDatabase(context, userId)
+                deleteUserDatabaseFiles(context, userId)
                 
                 // Try building again from scratch
                 val d = buildDatabase(context, sessionManager, dbName)
@@ -128,6 +131,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
             instance = db
             return db
+        }
+
+        /**
+         * Drops the current user's encrypted file after SQLCipher reports it is
+         * not a database. Callers that resolve the DB at use time (social feed)
+         * then get a fresh file instead of crashing on the closed one.
+         */
+        @Synchronized
+        fun invalidateCurrentUser() {
+            val context = appContext ?: return
+            val userId = currentUserId ?: return
+            try {
+                instance?.close()
+            } catch (e: Exception) {
+                android.util.Log.e("AppDatabase", "Error closing corrupt database", e)
+            }
+            instance = null
+            deleteUserDatabaseFiles(context, userId)
         }
 
         private fun getDatabaseNameForUser(userId: String): String {
@@ -162,6 +183,22 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun deleteUserDatabase(context: android.content.Context, userId: String) {
             closeAndClearAllDatabases(context)
+        }
+
+        private fun deleteUserDatabaseFiles(context: android.content.Context, userId: String) {
+            val dbName = getDatabaseNameForUser(userId)
+            try {
+                context.deleteDatabase(dbName)
+            } catch (e: Exception) {
+                android.util.Log.e("AppDatabase", "deleteDatabase failed for $dbName", e)
+            }
+            val dbDir = context.getDatabasePath(dbName).parentFile ?: return
+            dbDir.listFiles()?.forEach { file ->
+                if (file.name == dbName || file.name.startsWith("$dbName-")) {
+                    android.util.Log.w("AppDatabase", "Deleting corrupt database file: ${file.name}")
+                    file.delete()
+                }
+            }
         }
 
         private fun buildDatabase(context: android.content.Context, sessionManager: com.tpsk.tj.common.domain.auth.SessionManager, dbName: String): AppDatabase {

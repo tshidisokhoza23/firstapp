@@ -8,6 +8,7 @@ import androidx.paging.PagingData
 import androidx.paging.map as pagingMap
 import com.tpsk.tj.chat.model.Contact
 import com.tpsk.tj.common.data.local.AppDatabase
+import com.tpsk.tj.media.data.HiddenPosts
 import com.tpsk.tj.media.data.local.dao.PostDao
 import com.tpsk.tj.media.data.local.entity.PostEntity
 import com.tpsk.tj.common.util.Resource
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map as flowMap
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlin.collections.*
 
 class SocialRepositoryImpl @Inject constructor(
@@ -31,7 +33,7 @@ class SocialRepositoryImpl @Inject constructor(
     private val userApi: com.tpsk.tj.common.data.api.UserApi,
     private val postDao: PostDao,
     private val contactDao: com.tpsk.tj.chat.data.local.dao.ContactDao,
-    private val appDatabase: AppDatabase,
+    private val appDatabaseProvider: Provider<AppDatabase>,
     private val displayNameResolver: com.tpsk.tj.common.util.DisplayNameResolver,
     private val realtimeEngagementManager: RealtimeEngagementManager
 ) : SocialRepository {
@@ -51,13 +53,15 @@ class SocialRepositoryImpl @Inject constructor(
         
         Log.d("SocialRepo", "getPostsPaging: following=$following, authorId=$authorId, feedType=$feedType, final=$finalFeedType")
         
-        val pagingSourceFactory = { postDao.getPostsPaging(finalFeedType) }
+        // Resolve at query time. A DB opened before login is closed when the
+        // real user id arrives; holding that instance crashes the social tab.
+        val pagingSourceFactory = { appDatabaseProvider.get().postDao().getPostsPaging(finalFeedType) }
         
         return Pager(
             config = PagingConfig(pageSize = 20, enablePlaceholders = false),
             remoteMediator = PostRemoteMediator(
                 socialApi = socialApi,
-                appDatabase = appDatabase,
+                databaseProvider = { appDatabaseProvider.get() },
                 following = following,
                 authorId = authorId,
                 apiFeedType = feedType,
@@ -205,8 +209,10 @@ class SocialRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val apiPost = response.body()!!
                 val mappedPost = mapApiPost(apiPost, postType)
-                runCatching {
-                    postDao.insertPosts(listOf(mappedPost.toPostEntity(feedType = postType ?: "standard")))
+                if (mappedPost.id.isNotBlank()) {
+                    runCatching {
+                        postDao.insertPosts(listOf(mappedPost.toPostEntity(feedType = postType ?: "standard")))
+                    }
                 }
                 emit(Resource.Success(true))
             } else {
@@ -364,6 +370,12 @@ class SocialRepositoryImpl @Inject constructor(
         } catch (_: Exception) {}
     }
 
+    override suspend fun hidePostLocally(postId: String) {
+        if (postId.isBlank()) return
+        HiddenPosts.ids.add(postId)
+        postDao.deletePostById(postId)
+    }
+
     override fun deletePost(postId: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
@@ -448,6 +460,22 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getUnreadNotificationCount(): Flow<Resource<Int>> = flow {
+        try {
+            val response = socialApi.getUnreadNotificationCount()
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.unread_count.coerceAtLeast(0)))
+            } else if (response.code() == 404 || response.code() == 405) {
+                emit(Resource.Error("unread count unavailable"))
+            } else {
+                emit(Resource.Error("Failed to count notifications (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error("Offline"))
+        }
+    }
+
     override fun getSocialNotifications(): Flow<Resource<List<SocialNotificationItem>>> = flow {
         emit(Resource.Loading())
         try {
@@ -463,7 +491,7 @@ class SocialRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            emit(Resource.Success(emptyList()))
+            emit(Resource.Error("Offline"))
         }
     }
 

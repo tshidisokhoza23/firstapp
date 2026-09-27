@@ -15,4 +15,11 @@ object ShareUtils {
         val shareIntent = Intent.createChooser(sendIntent, null)
         context.startActivity(shareIntent)
     }
+
+    fun copyPostLink(context: Context, post: Post) {
+        val postUrl = "https://firstapp.com/post/${post.id}"
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Post link", postUrl))
+        android.widget.Toast.makeText(context, "Link copied", android.widget.Toast.LENGTH_SHORT).show()
+    }
 }

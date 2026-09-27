@@ -89,14 +89,18 @@ fun AccountSettingsScreen(onBack: () -> Unit, viewModel: AccountSettingsViewMode
             SettingsItem(
                 icon = Icons.Default.Lock,
                 title = "Two-step verification",
-                subtitle = "Extra security for your account",
-                onClick = { }
+                subtitle = "Not available yet",
+                onClick = {
+                    Toast.makeText(context, "Two-step verification is not available yet", Toast.LENGTH_SHORT).show()
+                }
             )
             SettingsItem(
                 icon = Icons.Default.Email,
                 title = "Change Email",
-                subtitle = "Update your recovery email",
-                onClick = { viewModel.requestPasswordReset("user@example.com") }
+                subtitle = "Not available yet",
+                onClick = {
+                    Toast.makeText(context, "Email changes are not available yet", Toast.LENGTH_SHORT).show()
+                }
             )
             
             HorizontalDivider(

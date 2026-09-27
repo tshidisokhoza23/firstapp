@@ -72,22 +72,29 @@ fun ShortMoreMenuSheet(
             }
             
             MoreMenuItem(
-                icon = Icons.Default.Download,
-                text = "Save video",
-                onClick = { onAction("save"); onDismiss() }
-            )
-
-            MoreMenuItem(
                 icon = Icons.Default.ContentCopy,
                 text = "Copy link",
                 onClick = { onAction("copy_link"); onDismiss() }
             )
 
-            if (!isOwner) {
+            if (isOwner) {
                 MoreMenuItem(
-                    icon = Icons.Default.Block,
+                    icon = Icons.Default.Delete,
+                    text = "Delete short",
+                    onClick = { onAction("delete"); onDismiss() },
+                    contentColor = Color.Red
+                )
+            } else {
+                MoreMenuItem(
+                    icon = Icons.Default.VisibilityOff,
                     text = "Not interested",
                     onClick = { onAction("not_interested"); onDismiss() }
+                )
+                MoreMenuItem(
+                    icon = Icons.Default.Block,
+                    text = "Block ${short.authorName}",
+                    onClick = { onAction("block"); onDismiss() },
+                    contentColor = Color.Red
                 )
                 MoreMenuItem(
                     icon = Icons.Default.Report,

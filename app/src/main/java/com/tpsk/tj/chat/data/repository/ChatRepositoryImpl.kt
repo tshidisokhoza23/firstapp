@@ -422,8 +422,10 @@ class ChatRepositoryImpl @Inject constructor(
                     val userId = payload["user_id"]?.jsonPrimitive?.contentOrNull
                     val statusStr = (payload["status"] ?: payload["is_online"])?.jsonPrimitive?.contentOrNull?.lowercase()
                     val isOnline = statusStr == "online" || statusStr == "true"
-                    val lastSeen = payload["last_seen"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis()
-                    if (userId != null) {
+                    var lastSeen = payload["last_seen"]?.jsonPrimitive?.longOrNull ?: 0L
+                    if (lastSeen in 1..9_999_999_999L) lastSeen *= 1000
+                    if (lastSeen <= 0L) lastSeen = System.currentTimeMillis()
+                    if (userId != null && userId != sessionManager.getUserId()) {
                         chatDao.updatePresence(userId, isOnline, lastSeen)
                     }
                 }
@@ -538,9 +540,15 @@ class ChatRepositoryImpl @Inject constructor(
         val clientUuid = clientId ?: UUID.randomUUID().toString()
         val myUserId = sessionManager.getUserId() ?: "0"
         val type = try { MessageType.valueOf(messageType.uppercase()) } catch (_: Exception) { MessageType.TEXT }
+        val wireBody = when {
+            type == MessageType.CONTACT -> com.tpsk.tj.chat.model.MessageMarkers.contactWire(contactName, contactPhone, body)
+            replyToId?.startsWith("story_") == true -> com.tpsk.tj.chat.model.MessageMarkers.storyWire(body, replyToId, replyToText, replyToSenderName)
+            else -> body
+        }
+        val visibleBody = com.tpsk.tj.chat.model.MessageMarkers.strip(wireBody).ifBlank { body }
 
         val pendingMsg = Message(
-            id = clientUuid, conversationId = chatId, content = body, senderId = myUserId,
+            id = clientUuid, conversationId = chatId, content = visibleBody, senderId = myUserId,
             timestamp = System.currentTimeMillis(), isFromMe = true, status = MessageStatus.PENDING,
             clientId = clientUuid, type = type, mediaUrls = mediaUrls, duration = duration,
             fileName = fileName, fileSize = fileSize, contactName = contactName,
@@ -552,7 +560,7 @@ class ChatRepositoryImpl @Inject constructor(
         val db = dbProvider.get()
 
         db.withTransaction {
-            val displaySummary = formatLastMessageSummary(body, type)
+            val displaySummary = formatLastMessageSummary(visibleBody, type)
             val existing = chatDao.searchChatsById(chatId)
             if (existing == null) {
                 val newChat = com.tpsk.tj.chat.data.local.entity.ChatEntity(
@@ -580,8 +588,12 @@ class ChatRepositoryImpl @Inject constructor(
             buildJsonObject {
                 put("client_msg_id", clientUuid)
                 put("conversation_id", chatId)
-                put("content", body)
+                put("content", wireBody)
                 put("media_type", messageType.uppercase())
+                if (!contactName.isNullOrBlank()) put("contact_name", contactName)
+                if (!contactPhone.isNullOrBlank()) put("contact_phone", contactPhone)
+                if (latitude != null) put("latitude", latitude)
+                if (longitude != null) put("longitude", longitude)
                 if (!replyToId.isNullOrBlank()) put("reply_to_id", replyToId)
                 if (!replyToText.isNullOrBlank()) put("reply_to_text", replyToText)
                 if (!replyToSenderName.isNullOrBlank()) put("reply_to_sender_name", replyToSenderName)
@@ -670,7 +682,11 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getChats(): Flow<Resource<List<ChatMessage>>> =
-        chatDaoProvider.get().getChats().map { list ->
+        combine(
+            chatDaoProvider.get().getChats(),
+            chatDaoProvider.get().observeLatestOutgoingStatuses()
+        ) { list, statuses ->
+            val byConversation = statuses.associate { it.conversationId to it.status }
             val deduplicated = list.distinctBy { entity ->
                 if (entity.type == com.tpsk.tj.common.model.ConversationType.DIRECT && !entity.otherUserId.isNullOrBlank()) {
                     "direct_${entity.otherUserId}"
@@ -678,7 +694,15 @@ class ChatRepositoryImpl @Inject constructor(
                     entity.id
                 }
             }
-            Resource.Success(deduplicated.map { it.toModel() })
+            Resource.Success(deduplicated.map { entity ->
+                val status = byConversation[entity.id] ?: entity.otherUserId?.let { byConversation[it] }
+                val model = entity.toModel()
+                if (status == null || !model.lastMessageIsFromMe) model
+                else model.copy(
+                    lastMessageStatus = status,
+                    lastMessageRead = status == MessageStatus.READ || model.lastMessageRead
+                )
+            })
         }.distinctUntilChanged()
 
     override fun getMingleChats(): Flow<Resource<List<ChatMessage>>> =
@@ -990,6 +1014,7 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     private fun formatLastMessageSummary(content: String, type: MessageType? = null): String {
+        val clean = com.tpsk.tj.chat.model.MessageMarkers.strip(content)
         val mType = type?.name?.uppercase() ?: ""
         return when {
             mType.contains("LOCATION") || content.startsWith("loc:") -> "📍 Location"
@@ -998,9 +1023,10 @@ class ChatRepositoryImpl @Inject constructor(
             mType.contains("IMAGE") -> if (content.isNotBlank() && !content.startsWith("http")) content else "📷 Photo"
             mType.contains("VIDEO") -> if (content.isNotBlank() && !content.startsWith("http")) content else "🎥 Video"
             mType.contains("AUDIO") || mType.contains("VOICE") -> if (content.isNotBlank() && !content.startsWith("http")) content else "🎵 Audio"
-            mType.contains("FILE") || mType.contains("DOCUMENT") -> if (content.isNotBlank() && !content.startsWith("http")) content else "📄 Document"
-            content.isBlank() && mType.isNotBlank() -> mType.lowercase().replaceFirstChar { it.uppercase() }
-            else -> content
+            mType.contains("FILE") || mType.contains("DOCUMENT") -> if (clean.isNotBlank() && !clean.startsWith("http")) clean else "📄 Document"
+            mType.contains("CONTACT") -> "👤 Contact"
+            clean.isBlank() && mType.isNotBlank() -> mType.lowercase().replaceFirstChar { it.uppercase() }
+            else -> clean
         }
     }
 
@@ -1220,11 +1246,19 @@ class ChatRepositoryImpl @Inject constructor(
             }
             try {
                 chatDao.updateMessageStatus(entity.clientId ?: entity.id, MessageStatus.SENDING)
+                val wireBody = when (entity.type) {
+                    MessageType.CONTACT -> com.tpsk.tj.chat.model.MessageMarkers.contactWire(
+                        entity.contactName, entity.contactPhone, entity.content
+                    )
+                    else -> com.tpsk.tj.chat.model.MessageMarkers.storyWire(
+                        entity.content, entity.replyToId, entity.replyToText, entity.replyToSenderName
+                    )
+                }
                 val response = chatApi.sendMessage(
                     conversationID = entity.conversationId,
                     request = SendMessageRequest(
                         client_uuid = entity.clientId ?: entity.id,
-                        message_text = entity.content,
+                        message_text = wireBody,
                         media_type = entity.type.name.uppercase(),
                         media_urls = entity.mediaUrls,
                         duration = entity.duration,
@@ -1285,8 +1319,9 @@ class ChatRepositoryImpl @Inject constructor(
         chatDaoProvider.get().clearMessages(chatId)
     }
     override suspend fun clearAllChats() {
-        val db = dbProvider.get()
-        db.clearAllTables()
+        val dao = chatDaoProvider.get()
+        dao.clearAllMessages()
+        dao.clearChats()
     }
     override fun getArchivedChats(): Flow<Resource<List<ChatMessage>>> = chatDaoProvider.get().getArchivedChats().map { list -> Resource.Success(list.map { it.toModel() }) }
     override fun getCallLogs(): Flow<Resource<List<CallLog>>> = callLogDaoProvider.get().getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }

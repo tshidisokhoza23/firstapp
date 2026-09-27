@@ -136,8 +136,10 @@ fun ChatsListScreen(
     val sanitizedChats = remember(chatsState) {
         val data = chatsState.data ?: emptyList()
         data.forEach { chat ->
-            if (chat.otherUserId != null && chat.senderName.isNotEmpty()) {
-                GlobalCallState.updateContactInfo(chat.otherUserId, chat.senderName, chat.phoneNumber)
+            val name = chat.consistentName()
+            if (name.isNotBlank()) {
+                chat.otherUserId?.let { GlobalCallState.updateContactInfo(it, name, chat.phoneNumber) }
+                GlobalCallState.updateContactInfo(chat.id, name, chat.phoneNumber)
             }
         }
         data.filter { it.type != ConversationType.CHANNEL }

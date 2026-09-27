@@ -31,7 +31,7 @@ fun PostOptionsMenu(
     onShare: () -> Unit,
     onCopyLink: () -> Unit = {},
     onBookmark: () -> Unit,
-    onNotInterested: () -> Unit = {},
+    onNotInterested: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -73,14 +73,16 @@ fun PostOptionsMenu(
                         onDismiss()
                     }
                 )
-                MenuActionItem(
-                    icon = Icons.Outlined.VisibilityOff,
-                    label = "Not interested in this post",
-                    onClick = {
-                        onNotInterested()
-                        onDismiss()
-                    }
-                )
+                if (onNotInterested != null) {
+                    MenuActionItem(
+                        icon = Icons.Outlined.VisibilityOff,
+                        label = "Not interested in this post",
+                        onClick = {
+                            onNotInterested()
+                            onDismiss()
+                        }
+                    )
+                }
                 MenuActionItem(
                     icon = Icons.Outlined.PersonOff,
                     label = "Block @${post.authorHandle}",

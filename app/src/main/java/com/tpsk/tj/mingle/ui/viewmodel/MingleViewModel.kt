@@ -675,7 +675,8 @@ private fun MingleActivityDto.toNotification(): MingleActivityNotification {
         type = mappedType,
         actionText = actionText,
         timeAgo = created_at.toRelativeTime(),
-        photoUrl = photo_url
+        photoUrl = photo_url,
+        conversationId = conversation_id
     )
 }
 

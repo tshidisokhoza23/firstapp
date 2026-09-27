@@ -6,6 +6,7 @@ import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import androidx.room.withTransaction
 import com.tpsk.tj.common.data.local.AppDatabase
+import com.tpsk.tj.media.data.HiddenPosts
 import com.tpsk.tj.media.data.local.entity.PostEntity
 import com.tpsk.tj.media.data.local.entity.PostRemoteKeys
 import com.tpsk.tj.media.model.PostType
@@ -13,14 +14,14 @@ import com.tpsk.tj.media.data.api.SocialApi
 import com.tpsk.tj.media.data.repository.toPostEntity
 import com.tpsk.tj.media.data.repository.mapApiPost
 import com.tpsk.tj.media.data.repository.mapMediaFeedItems
+import kotlinx.coroutines.CancellationException
 import retrofit2.Response
 import retrofit2.HttpException
-import java.io.IOException
 
 @OptIn(ExperimentalPagingApi::class)
 class PostRemoteMediator(
     private val socialApi: SocialApi,
-    private val appDatabase: AppDatabase,
+    private val databaseProvider: () -> AppDatabase,
     private val following: Boolean = false,
     private val authorId: String,
     private val apiFeedType: String = "standard",
@@ -32,6 +33,7 @@ class PostRemoteMediator(
         loadType: LoadType,
         state: PagingState<Int, PostEntity>
     ): MediatorResult {
+        try {
         val page = when (loadType) {
             LoadType.REFRESH -> {
                 val remoteKeys = getRemoteKeyClosestToPosition(state)
@@ -51,7 +53,6 @@ class PostRemoteMediator(
             }
         }
 
-        try {
             android.util.Log.d("PostRemoteMediator", "Loading page $page, following=$following, authorId=$authorId, apiFeedType=$apiFeedType, categoryId=$categoryId")
             
             val apiPosts = if (!following && authorId == "") {
@@ -96,15 +97,23 @@ class PostRemoteMediator(
                 }
             }
 
+            val uniquePosts = apiPosts
+                .filter { it.id.isNotBlank() && it.id !in HiddenPosts.ids }
+                .distinctBy { it.id }
             val endOfPaginationReached = apiPosts.isEmpty()
 
+            val appDatabase = databaseProvider()
             appDatabase.withTransaction {
                 if (loadType == LoadType.REFRESH) {
                     val existingPosts = appDatabase.postDao().getPostsList(dbFeedType)
                     val now = System.currentTimeMillis()
+                    val incomingIds = uniquePosts.map { it.id }.toSet()
                     val newlyCreatedLocally = existingPosts.filter { entity ->
                         val ts = entity.timestamp.toLongOrNull() ?: 0L
-                        (now - ts) < 300_000L // Preserve posts created in the last 5 minutes
+                        entity.id.isNotBlank() &&
+                            entity.id !in HiddenPosts.ids &&
+                            entity.id !in incomingIds &&
+                            (now - ts) < 120_000L
                     }
 
                     appDatabase.postRemoteKeysDao().clearRemoteKeys(dbFeedType)
@@ -114,36 +123,58 @@ class PostRemoteMediator(
                         appDatabase.postDao().insertPosts(newlyCreatedLocally)
                     }
                 }
-                if (apiPosts.isNotEmpty()) {
+                if (uniquePosts.isNotEmpty()) {
                     val prevKey = if (page == 1) null else page - 1
                     val nextKey = if (endOfPaginationReached) null else page + 1
-                    val keys = apiPosts.map {
+                    val keys = uniquePosts.map {
                         PostRemoteKeys(postId = it.id, feedType = dbFeedType, prevKey = prevKey, nextKey = nextKey)
                     }
                     appDatabase.postRemoteKeysDao().insertAll(keys)
-                    val entities = apiPosts.map { it.toPostEntity(dbFeedType) }
+                    val entities = uniquePosts.map { it.toPostEntity(dbFeedType) }
                     appDatabase.postDao().insertPosts(entities)
                 }
             }
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
-        } catch (exception: IOException) {
-            return MediatorResult.Error(exception)
-        } catch (exception: HttpException) {
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            android.util.Log.e("PostRemoteMediator", "Feed load failed", exception)
+            if (isCorruptDatabase(exception)) {
+                // Closed pre-login instance, or a file written before the key
+                // existed. Drop it so the next open builds the logged-in DB.
+                runCatching { AppDatabase.invalidateCurrentUser() }
+            }
             return MediatorResult.Error(exception)
         }
+    }
+
+    private fun isCorruptDatabase(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            val name = current.javaClass.simpleName
+            val message = current.message.orEmpty()
+            if (name.contains("NotADatabase") ||
+                message.contains("file is not a database") ||
+                message.contains("code 26")
+            ) {
+                    return true
+            }
+            current = current.cause
+        }
+        return false
     }
 
     private suspend fun getRemoteKeyForLastItem(state: PagingState<Int, PostEntity>): PostRemoteKeys? {
         return state.pages.lastOrNull { it.data.isNotEmpty() }?.data?.lastOrNull()
             ?.let { post ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, dbFeedType)
+                databaseProvider().postRemoteKeysDao().remoteKeysPostId(post.id, dbFeedType)
             }
     }
 
     private suspend fun getRemoteKeyForFirstItem(state: PagingState<Int, PostEntity>): PostRemoteKeys? {
         return state.pages.firstOrNull { it.data.isNotEmpty() }?.data?.firstOrNull()
             ?.let { post ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(post.id, dbFeedType)
+                databaseProvider().postRemoteKeysDao().remoteKeysPostId(post.id, dbFeedType)
             }
     }
 
@@ -152,7 +183,7 @@ class PostRemoteMediator(
     ): PostRemoteKeys? {
         return state.anchorPosition?.let { position ->
             state.closestItemToPosition(position)?.id?.let { postId ->
-                appDatabase.postRemoteKeysDao().remoteKeysPostId(postId, dbFeedType)
+                databaseProvider().postRemoteKeysDao().remoteKeysPostId(postId, dbFeedType)
             }
         }
     }

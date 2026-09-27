@@ -340,6 +340,12 @@ fun MingleProfilePreviewDialog(
                                 // Send Message Button when Matched
                                 Button(
                                     onClick = {
+                                        val knownChat = item.conversationId
+                                        if (!knownChat.isNullOrBlank()) {
+                                            onDismiss()
+                                            onNavigateToChat(knownChat)
+                                            return@Button
+                                        }
                                         mingleViewModel.openChat(
                                             userId = item.actorId,
                                             candidateName = item.actorName,

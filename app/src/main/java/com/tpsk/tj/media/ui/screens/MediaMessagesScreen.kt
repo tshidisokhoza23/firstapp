@@ -31,6 +31,7 @@ import com.tpsk.tj.media.model.MediaConversation
 
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tpsk.tj.chat.ui.viewmodel.ChatViewModel
+import com.tpsk.tj.common.model.ConversationType
 import com.tpsk.tj.common.util.Resource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,17 +44,19 @@ fun MediaMessagesScreen(
     val chatsState by viewModel.chats.collectAsState()
     val conversations: List<MediaConversation> = remember(chatsState) {
         val success = chatsState as? Resource.Success<List<com.tpsk.tj.chat.model.ChatMessage>>
-        val mapped = success?.data?.map { chat ->
+        success?.data?.mapNotNull { chat ->
+            val otherId = chat.otherUserId?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val isMingle = chat.type == ConversationType.MINGLE || chat.isMingle || chat.id.startsWith("mingle_")
+            if (isMingle || chat.isGroup || chat.type != ConversationType.DIRECT) return@mapNotNull null
             MediaConversation(
-                otherUserId = chat.id,
-                otherUserName = chat.senderName,
+                otherUserId = otherId,
+                otherUserName = chat.displayName.ifBlank { chat.senderName },
                 otherUserAvatar = chat.avatarUrl,
                 lastMessage = chat.lastMessage,
                 lastMessageTimestamp = chat.timestamp,
                 unreadCount = chat.unreadCount
             )
-        }
-        mapped ?: emptyList<MediaConversation>()
+        } ?: emptyList()
     }
 
     var searchQuery by remember { mutableStateOf("") }
@@ -101,10 +104,19 @@ fun MediaMessagesScreen(
                 )
             )
 
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(filteredConversations) { conversation ->
-                    ConversationItem(conversation = conversation) {
-                        onConversationClick(conversation.otherUserId)
+            if (filteredConversations.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "No social messages yet",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(filteredConversations, key = { it.otherUserId }) { conversation ->
+                        ConversationItem(conversation = conversation) {
+                            onConversationClick(conversation.otherUserId)
+                        }
                     }
                 }
             }
@@ -155,7 +167,7 @@ fun ConversationItem(
                     fontSize = 16.sp
                 )
                 Text(
-                    text = "1h",
+                    text = formatInboxTime(conversation.lastMessageTimestamp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
@@ -194,5 +206,16 @@ fun ConversationItem(
                 }
             }
         }
+    }
+}
+
+private fun formatInboxTime(timestamp: Long): String {
+    if (timestamp <= 0L) return ""
+    val minutes = (System.currentTimeMillis() - timestamp) / 60000L
+    return when {
+        minutes < 1 -> "now"
+        minutes < 60 -> "${minutes}m"
+        minutes < 1440 -> "${minutes / 60}h"
+        else -> "${minutes / 1440}d"
     }
 }

@@ -14,10 +14,21 @@
 -keepattributes Signature, InnerClasses, EnclosingMethod, RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations, RuntimeVisibleTypeAnnotations, AnnotationDefault, *Annotation*
 
 # 3. Retrofit & OkHttp
+# Every API is a Kotlin suspend function. R8 must keep Continuation<T>, or Retrofit
+# throws "Class cannot be cast to ParameterizedType" on every service call.
 -keep class retrofit2.** { *; }
 -keep interface retrofit2.** { *; }
 -keepclassmembers class retrofit2.** { *; }
 -keepclassmembers interface retrofit2.** { *; }
+-keep,includedescriptorclasses,allowshrinking interface com.tpsk.tj.** { *; }
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-if interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation,includedescriptorclasses interface <1>
+-keepclassmembers,allowobfuscation,includedescriptorclasses interface * {
+    @retrofit2.http.* <methods>;
+}
 -dontwarn retrofit2.**
 -dontwarn okhttp3.**
 
@@ -71,12 +82,35 @@
 -dontwarn com.applovin.**
 
 # 12. Kotlin Coroutines & Retrofit Suspend Function Continuation Signatures
--keepclassmembers class * {
-    *** *(...);
-}
 -keep class kotlin.coroutines.** { *; }
 -keep class kotlin.coroutines.jvm.internal.** { *; }
+-keep class kotlin.Metadata { *; }
 -keepclassmembers class * extends kotlin.coroutines.jvm.internal.ContinuationImpl { *; }
+-keepclassmembers class * extends kotlin.coroutines.jvm.internal.BaseContinuationImpl { *; }
 
-# Disable aggressive R8 class merging optimization passes while preserving code shrinking and obfuscation
+# 13. Reflection used by Gson, Retrofit, Room, and Parcelable
+-keepclassmembers class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+-keepclasseswithmembers class **$$serializer { *; }
+-keep class net.sqlcipher.** { *; }
+-keep class net.zetetic.** { *; }
+-dontwarn net.sqlcipher.**
+-dontwarn net.zetetic.**
+-dontwarn okio.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn javax.annotation.**
+-dontwarn org.slf4j.**
+
+# Do not obfuscate. Renaming Kotlin suspend signatures makes Continuation raw,
+# and every Retrofit service call then crashes in release only.
 -dontoptimize
+-dontobfuscate

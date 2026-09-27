@@ -90,6 +90,11 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         body = "[Encrypted Message]"
     }
 
+    val embeddedStory = com.tpsk.tj.chat.model.MessageMarkers.parseStory(body)
+    val embeddedContact = com.tpsk.tj.chat.model.MessageMarkers.parseContact(body)
+    val visibleBody = com.tpsk.tj.chat.model.MessageMarkers.strip(body).ifBlank {
+        if (embeddedContact != null) "Shared Contact" else body
+    }
     val timestamp = apiMessage.created_at
     val senderId = apiMessage.sender_id
 
@@ -103,19 +108,34 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
     val sName = if (!isIdString(apiMessage.sender_name, apiMessage.sender_id)) {
         apiMessage.sender_name
     } else {
-        apiMessage.contact_phone ?: ""
+        ""
     }
+    val replyFromId = com.tpsk.tj.chat.model.MessageMarkers.parseStoryReplyId(apiMessage.reply_to_id)
+    val story = embeddedStory
+    val replyId = story?.let {
+        com.tpsk.tj.chat.model.MessageMarkers.storyReplyId(it.storyId, it.userId.ifBlank { replyFromId?.userId.orEmpty() })
+    } ?: apiMessage.reply_to_id?.takeIf { it.isNotBlank() }
+    val replySummary = apiMessage.reply_to_text?.takeIf { it.isNotBlank() }
+        ?: story?.let {
+            buildString {
+                append("[Story] ")
+                append(it.summary.ifBlank { "Story" })
+                if (it.mediaUrl.isNotBlank()) append(" [mediaUrl:${it.mediaUrl}]")
+            }
+        }
 
     return Message(
         id = apiMessage.id,
         conversationId = apiMessage.conversation_id,
-        content = body,
+        content = visibleBody,
         senderId = senderId,
         senderName = sName,
         receiverId = apiMessage.receiver_id,
         timestamp = timestamp,
         isFromMe = isFromMe,
-        type = when (apiMessage.media_type.lowercase()) {
+        type = when {
+            embeddedContact != null -> MessageType.CONTACT
+            else -> when (apiMessage.media_type.lowercase()) {
             "image" -> MessageType.IMAGE
             "video", "short_video" -> MessageType.VIDEO
             "audio", "audio_message" -> MessageType.AUDIO_MESSAGE
@@ -126,6 +146,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
             "application_link" -> MessageType.APPLICATION_LINK
             "job_post" -> MessageType.JOB_POST
             else -> MessageType.TEXT
+            }
         },
         mediaUrls = when {
             !apiMessage.media_urls.isNullOrEmpty() && apiMessage.media_urls.any { it.isNotBlank() } -> 
@@ -144,23 +165,29 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
             ) -> listOf(formatUrl(apiMessage.message_text))
             else -> emptyList()
         },
-        isRead = false,
-        isDelivered = true,
+        isRead = apiMessage.is_read == true || apiMessage.status.equals("read", true) || apiMessage.status == "READ",
+        isDelivered = apiMessage.is_delivered == true || apiMessage.is_read == true || apiMessage.status.equals("delivered", true) || apiMessage.status.equals("read", true),
         isStarred = apiMessage.is_starred ?: false,
-        status = MessageStatus.SENT,
+        status = when {
+            apiMessage.is_read == true || apiMessage.status.equals("read", true) || apiMessage.status == "READ" -> MessageStatus.READ
+            apiMessage.is_delivered == true || apiMessage.status.equals("delivered", true) || apiMessage.status == "DELIVERED" -> MessageStatus.DELIVERED
+            apiMessage.status.equals("failed", true) || apiMessage.status == "FAILED" -> MessageStatus.FAILED
+            else -> MessageStatus.SENT
+        },
         reactions = apiMessage.reactions ?: emptyMap(),
         isEncrypted = isEncrypted,
         clientId = apiMessage.client_uuid,
         duration = apiMessage.duration,
         fileName = apiMessage.file_name,
         fileSize = apiMessage.file_size,
-        contactName = apiMessage.contact_name,
-        contactPhone = apiMessage.contact_phone,
+        contactName = apiMessage.contact_name?.takeIf { it.isNotBlank() } ?: embeddedContact?.name,
+        contactPhone = apiMessage.contact_phone?.takeIf { it.isNotBlank() } ?: embeddedContact?.phone,
         latitude = apiMessage.latitude,
         longitude = apiMessage.longitude,
-        replyToId = apiMessage.reply_to_id,
-        replyToText = apiMessage.reply_to_text,
-        replyToSenderName = apiMessage.reply_to_sender_name,
+        replyToId = replyId,
+        replyToText = replySummary,
+        replyToSenderName = apiMessage.reply_to_sender_name?.takeIf { it.isNotBlank() }
+            ?: story?.author?.takeIf { it.isNotBlank() },
         applicantProfile = apiMessage.applicant_profile?.let { 
             ApplicantProfile(it.full_name, it.bio, it.cv_url) 
         },

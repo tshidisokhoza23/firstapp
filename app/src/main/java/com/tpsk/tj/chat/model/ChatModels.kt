@@ -1,6 +1,7 @@
 package com.tpsk.tj.chat.model
 
 import androidx.compose.ui.graphics.Color
+import com.tpsk.tj.chat.data.GlobalCallState
 import com.tpsk.tj.common.model.ConversationType
 import kotlin.collections.emptyMap
 import kotlin.collections.emptyList
@@ -83,6 +84,7 @@ data class ChatMessage(
     val isGroup: Boolean = false,
     val lastMessageIsFromMe: Boolean = false,
     val lastMessageRead: Boolean = false,
+    val lastMessageStatus: MessageStatus = MessageStatus.SENT,
     val isArchived: Boolean = false,
     val isAdmin: Boolean = false,
     val adminsCanPost: Boolean = false,
@@ -145,4 +147,22 @@ data class ChatMessage(
                 ?: senderName.takeIf { !com.tpsk.tj.common.util.isIdString(it, otherUserId ?: id) }
             return if (!profile.isNullOrBlank() && profile != displayName) "~$profile" else null
         }
+}
+
+/**
+ * Same name the chat list shows: saved contact, then profile name, then phone.
+ * A phone is never preferred when a real name is already known.
+ */
+fun ChatMessage.consistentName(): String {
+    val key = otherUserId ?: id
+    val cached = sequenceOf(otherUserId, id)
+        .filterNotNull()
+        .map { GlobalCallState.getContactName(it) }
+        .firstOrNull { !it.isNullOrBlank() && !com.tpsk.tj.common.util.isIdString(it, key) && !com.tpsk.tj.common.util.looksLikePhone(it) }
+    val current = displayName
+    if (!cached.isNullOrBlank() && (current.isBlank() || com.tpsk.tj.common.util.looksLikePhone(current) || com.tpsk.tj.common.util.isIdString(current, key))) {
+        return cached
+    }
+    if (current.isNotBlank() && !com.tpsk.tj.common.util.isIdString(current, key)) return current
+    return cached ?: phoneNumber.orEmpty()
 }

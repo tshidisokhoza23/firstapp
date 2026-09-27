@@ -45,6 +45,7 @@ fun ShortsTabScreen(
     onDirectMessagesClick: () -> Unit = {},
     initialShortId: String? = null
 ) {
+    val context = LocalContext.current
     val currentUser = com.tpsk.tj.LocalCurrentUser.current
     val uiState by mediaViewModel.uiState.collectAsState()
     val shortsPagingItems = uiState.posts.collectAsLazyPagingItems()
@@ -61,6 +62,7 @@ fun ShortsTabScreen(
     var showUploadDialog by remember { mutableStateOf(false) }
     var activeShortIdForComments by remember { mutableStateOf<String?>(null) }
     var activeShortForMoreMenu by remember { mutableStateOf<Post?>(null) }
+    var reportingShort by remember { mutableStateOf<Post?>(null) }
     val shortRepliesState by mediaViewModel.shortReplies.collectAsState()
     val preloadedShortAds by mediaViewModel.preloadedShortAds.collectAsState()
 
@@ -270,11 +272,36 @@ fun ShortsTabScreen(
                     activeShortForMoreMenu = null
                 },
                 onAction = { action ->
-                    if (action == "message") {
-                        navController.navigate(com.tpsk.tj.ui.navigation.Screen.MediaChat.createRoute(activeShortForMoreMenu!!.authorId))
-                    } else if (action == "add_short") {
-                        navController.navigate(com.tpsk.tj.ui.navigation.Screen.CreateShort.createRoute())
+                    val short = activeShortForMoreMenu ?: return@ShortMoreMenuSheet
+                    when (action) {
+                        "message" -> navController.navigate(com.tpsk.tj.ui.navigation.Screen.MediaChat.createRoute(short.authorId))
+                        "add_short" -> navController.navigate(com.tpsk.tj.ui.navigation.Screen.CreateShort.createRoute())
+                        "copy_link" -> com.tpsk.tj.common.util.ShareUtils.copyPostLink(context, short)
+                        "not_interested" -> {
+                            mediaViewModel.hidePost(short.id)
+                            android.widget.Toast.makeText(context, "We'll show fewer shorts like this", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        "block" -> {
+                            userViewModel.blockUser(short.authorId)
+                            mediaViewModel.hidePost(short.id)
+                            android.widget.Toast.makeText(context, "Blocked ${short.authorName}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        "report" -> reportingShort = short
+                        "delete" -> mediaViewModel.deletePost(short.id)
                     }
+                }
+            )
+        }
+
+        reportingShort?.let { short ->
+            com.tpsk.tj.media.ui.components.ReportContentDialog(
+                post = short,
+                onDismiss = { reportingShort = null },
+                onSubmitReport = { category, details ->
+                    mediaViewModel.reportPost(short.id, "$category: $details")
+                    mediaViewModel.hidePost(short.id)
+                    android.widget.Toast.makeText(context, "Report submitted. Thank you for keeping our community safe.", android.widget.Toast.LENGTH_LONG).show()
+                    reportingShort = null
                 }
             )
         }
