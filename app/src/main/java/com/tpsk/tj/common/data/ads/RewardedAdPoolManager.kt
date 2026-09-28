@@ -29,11 +29,12 @@ class RewardedAdPoolManager @Inject constructor() {
 
     companion object {
         private const val TAG = "RewardedAdPool"
-        private const val MAX_CAPACITY = 50
+        private const val MAX_CAPACITY = 2
         private const val AD_TTL_MS = 45 * 60 * 1000L // 45 Minutes
         private const val INITIAL_BACKOFF_DELAY_MS = 2000L
         private const val MAX_BACKOFF_DELAY_MS = 64000L
-        private const val AD_COOLDOWN_MS = 1800_000L // 30 minutes cooldown (1800s) after 4 ads
+        private const val SHORT_COOLDOWN_MS = 10_000L
+        private const val LONG_COOLDOWN_MS = 1_800_000L // 30 minutes after every 4 completed ads
         private const val BATCH_LIMIT = 4
     }
 
@@ -53,33 +54,77 @@ class RewardedAdPoolManager @Inject constructor() {
     private val _cooldownRemainingSeconds = MutableStateFlow(0)
     val cooldownRemainingSeconds = _cooldownRemainingSeconds.asStateFlow()
 
+    private val _batchCount = MutableStateFlow(0)
+    val batchCount = _batchCount.asStateFlow()
+
     private var isRefilling = false
     private var isShowingAd = false
     private var retryAttempt = 0
-    private var lastRewardTimestamp = 0L
+    private var shortCooldownUntil = 0L
+    private var longCooldownUntil = 0L
     private var adBatchCount = 0
     private var prefs: android.content.SharedPreferences? = null
 
     private fun recordAdReward() {
         val now = System.currentTimeMillis()
-        val elapsed = now - lastRewardTimestamp
-        if (lastRewardTimestamp > 0 && elapsed >= AD_COOLDOWN_MS) {
-            adBatchCount = 0
-            lastRewardTimestamp = 0L
-        }
+        clearExpiredCooldowns(now)
         adBatchCount++
-        Log.i(TAG, "Ad reward recorded: $adBatchCount / $BATCH_LIMIT")
         if (adBatchCount >= BATCH_LIMIT) {
-            lastRewardTimestamp = now
             adBatchCount = 0
-            _cooldownRemainingSeconds.value = (AD_COOLDOWN_MS / 1000).toInt()
-            Log.i(TAG, "4 ads completed! Starting 30-minute (1800s) cooldown.")
+            shortCooldownUntil = 0L
+            longCooldownUntil = now + LONG_COOLDOWN_MS
+            Log.i(TAG, "4 ads completed. Starting 30-minute cooldown.")
+        } else {
+            shortCooldownUntil = now + SHORT_COOLDOWN_MS
+            Log.i(TAG, "Ad reward recorded: $adBatchCount / $BATCH_LIMIT. 10s cooldown.")
         }
-        
+        _batchCount.value = adBatchCount
+        persistCooldown()
+        publishCooldown(now)
+    }
+
+    private fun persistCooldown() {
         prefs?.edit()
-            ?.putLong("last_reward_timestamp", lastRewardTimestamp)
+            ?.putLong("short_cooldown_until", shortCooldownUntil)
+            ?.putLong("long_cooldown_until", longCooldownUntil)
             ?.putInt("ad_batch_count", adBatchCount)
             ?.apply()
+    }
+
+    private fun clearExpiredCooldowns(now: Long) {
+        if (shortCooldownUntil in 1..now) shortCooldownUntil = 0L
+        if (longCooldownUntil in 1..now) longCooldownUntil = 0L
+    }
+
+    private fun remainingCooldownMs(now: Long = System.currentTimeMillis()): Long {
+        clearExpiredCooldowns(now)
+        val shortLeft = (shortCooldownUntil - now).coerceAtLeast(0L)
+        val longLeft = (longCooldownUntil - now).coerceAtLeast(0L)
+        return maxOf(shortLeft, longLeft)
+    }
+
+    private fun publishCooldown(now: Long = System.currentTimeMillis()) {
+        _cooldownRemainingSeconds.value = (remainingCooldownMs(now) / 1000L).toInt()
+        _batchCount.value = adBatchCount
+        updateAvailability()
+    }
+
+    private fun cooldownMessage(remainingSec: Int): String {
+        return if (remainingSec >= 60) {
+            val mins = (remainingSec + 59) / 60
+            "Ad limit reached (4/4). Try again in $mins min."
+        } else {
+            "Please wait ${remainingSec.coerceAtLeast(1)}s before the next ad."
+        }
+    }
+
+    private fun loadFailureMessage(error: LoadAdError): String {
+        return when (error.code) {
+            AdRequest.ERROR_CODE_NO_FILL -> "No ad is available right now. No points were added."
+            AdRequest.ERROR_CODE_NETWORK_ERROR -> "Couldn't load the ad. Check your connection. No points were added."
+            AdRequest.ERROR_CODE_INVALID_REQUEST -> "This ad request was rejected. No points were added."
+            else -> "Ad couldn't load. No points were added."
+        }
     }
     
     private val managerScope = MainScope()
@@ -92,16 +137,12 @@ class RewardedAdPoolManager @Inject constructor() {
     private fun startCooldownTimer() {
         managerScope.launch {
             while (isActive) {
-                if (lastRewardTimestamp > 0) {
-                    val elapsed = System.currentTimeMillis() - lastRewardTimestamp
-                    val remaining = (AD_COOLDOWN_MS - elapsed).coerceAtLeast(0L)
-                    _cooldownRemainingSeconds.value = (remaining / 1000).toInt()
-                    if (remaining <= 0L) {
-                        lastRewardTimestamp = 0L
-                        adBatchCount = 0
-                        prefs?.edit()?.putLong("last_reward_timestamp", 0L)?.putInt("ad_batch_count", 0)?.apply()
-                    }
-                    updateAvailability()
+                val now = System.currentTimeMillis()
+                val beforeShort = shortCooldownUntil
+                val beforeLong = longCooldownUntil
+                publishCooldown(now)
+                if ((beforeShort in 1..now) || (beforeLong in 1..now)) {
+                    persistCooldown()
                 }
                 delay(1000)
             }
@@ -114,17 +155,22 @@ class RewardedAdPoolManager @Inject constructor() {
     fun initialize(context: Context, adUnitId: String, userId: String) {
         if (prefs == null) {
             prefs = context.applicationContext.getSharedPreferences("rewarded_ad_pool_prefs", Context.MODE_PRIVATE)
-            lastRewardTimestamp = prefs?.getLong("last_reward_timestamp", 0L) ?: 0L
+            val now = System.currentTimeMillis()
+            shortCooldownUntil = prefs?.getLong("short_cooldown_until", 0L) ?: 0L
+            longCooldownUntil = prefs?.getLong("long_cooldown_until", 0L) ?: 0L
             adBatchCount = prefs?.getInt("ad_batch_count", 0) ?: 0
-            
-            val elapsed = System.currentTimeMillis() - lastRewardTimestamp
-            if (lastRewardTimestamp > 0 && elapsed >= AD_COOLDOWN_MS) {
-                lastRewardTimestamp = 0L
-                adBatchCount = 0
-                prefs?.edit()?.putLong("last_reward_timestamp", 0L)?.putInt("ad_batch_count", 0)?.apply()
+            // Older builds stored the start of a 30-minute lock in last_reward_timestamp.
+            val legacyStart = prefs?.getLong("last_reward_timestamp", 0L) ?: 0L
+            if (longCooldownUntil == 0L && legacyStart > 0L) {
+                val legacyUntil = legacyStart + LONG_COOLDOWN_MS
+                if (legacyUntil > now) longCooldownUntil = legacyUntil
             }
+            clearExpiredCooldowns(now)
+            if (adBatchCount !in 0 until BATCH_LIMIT) adBatchCount = 0
+            persistCooldown()
+            publishCooldown(now)
         }
-        Log.i(TAG, "!!! initialize called !!! unitId: $adUnitId, userId: $userId, adBatchCount: $adBatchCount")
+        Log.i(TAG, "initialize unitId=$adUnitId userId=$userId batch=$adBatchCount")
         managerScope.launch {
             refillPool(context.applicationContext, adUnitId, userId)
         }
@@ -197,7 +243,8 @@ class RewardedAdPoolManager @Inject constructor() {
                         // Exponential Backoff Strategy
                         val base = 2.0
                         val rawDelay = INITIAL_BACKOFF_DELAY_MS * base.pow(retryAttempt.toDouble())
-                        val delayMs = rawDelay.toLong().coerceAtMost(MAX_BACKOFF_DELAY_MS)
+                        val noFillFloor = if (error.code == AdRequest.ERROR_CODE_NO_FILL) 15_000L else 0L
+                        val delayMs = rawDelay.toLong().coerceAtLeast(noFillFloor).coerceAtMost(MAX_BACKOFF_DELAY_MS)
                         
                         Log.e(TAG, "Retrying refill in ${delayMs}ms (Attempt $retryAttempt)")
                         retryAttempt++
@@ -228,13 +275,12 @@ class RewardedAdPoolManager @Inject constructor() {
                 return@launch
             }
 
-            val elapsed = System.currentTimeMillis() - lastRewardTimestamp
-            if (lastRewardTimestamp > 0 && elapsed < AD_COOLDOWN_MS) {
-                val remainingSec = ((AD_COOLDOWN_MS - elapsed) / 1000).coerceAtLeast(1)
-                val remainingMins = (remainingSec / 60) + 1
+            val remainingMs = remainingCooldownMs()
+            if (remainingMs > 0L) {
+                val remainingSec = (remainingMs / 1000L).toInt().coerceAtLeast(1)
                 Log.w(TAG, "Ad requested during cooldown. Remaining: ${remainingSec}s")
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(activity, "Ad limit reached (4/4). Try again in ${remainingMins} mins!", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(activity, cooldownMessage(remainingSec), android.widget.Toast.LENGTH_LONG).show()
                 }
                 return@launch
             }
@@ -265,32 +311,13 @@ class RewardedAdPoolManager @Inject constructor() {
                     RewardedAd.load(activity, adUnitId, adRequest, object : RewardedAdLoadCallback() {
                         override fun onAdLoaded(rewardedAd: RewardedAd) {
                             rewardedAd.setServerSideVerificationOptions(ssvOptions)
-                            rewardedAd.fullScreenContentCallback = object : FullScreenContentCallback() {
-                                override fun onAdDismissedFullScreenContent() {
-                                    isShowingAd = false
-                                    onAdClosed()
-                                }
-
-                                override fun onAdFailedToShowFullScreenContent(err: com.google.android.gms.ads.AdError) {
-                                    isShowingAd = false
-                                    Log.e(TAG, "Failed to show direct ad: ${err.message}, granting fallback points")
-                                    lastRewardTimestamp = System.currentTimeMillis()
-                                    onRewardEarned()
-                                    onAdClosed()
-                                }
-                            }
-                            isShowingAd = true
-                            rewardedAd.show(activity) { _ ->
-                                Log.i(TAG, "User earned reward from direct ad!")
-                                lastRewardTimestamp = System.currentTimeMillis()
-                                onRewardEarned()
-                            }
+                            presentRewardedAd(activity, rewardedAd, adUnitId, userId, onRewardEarned, onAdClosed)
                         }
 
                         override fun onAdFailedToLoad(error: LoadAdError) {
-                            Log.e(TAG, "Direct Ad failed to load: ${error.message}, granting fallback points")
-                            lastRewardTimestamp = System.currentTimeMillis()
-                            onRewardEarned()
+                            isShowingAd = false
+                            Log.e(TAG, "Direct ad failed to load: code=${error.code} ${error.message}. No points granted.")
+                            android.widget.Toast.makeText(activity, loadFailureMessage(error), android.widget.Toast.LENGTH_LONG).show()
                             onAdClosed()
                         }
                     })
@@ -305,30 +332,47 @@ class RewardedAdPoolManager @Inject constructor() {
                 .build()
             cachedAd.ad.setServerSideVerificationOptions(ssvOptions)
 
-            isShowingAd = true
-            val adToShow = cachedAd.ad
-            activity.runOnUiThread {
-                adToShow.fullScreenContentCallback = object : FullScreenContentCallback() {
-                    override fun onAdDismissedFullScreenContent() {
-                        isShowingAd = false
-                        Log.d(TAG, "Ad dismissed. Triggering background refill.")
-                        managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
-                        onAdClosed()
-                    }
+            presentRewardedAd(activity, cachedAd.ad, adUnitId, userId, onRewardEarned, onAdClosed)
+        }
+    }
 
-                    override fun onAdFailedToShowFullScreenContent(err: com.google.android.gms.ads.AdError) {
-                        isShowingAd = false
-                        Log.e(TAG, "Failed to show ad: ${err.message}")
-                        managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
-                        onAdClosed()
+    private fun presentRewardedAd(
+        activity: Activity,
+        rewardedAd: RewardedAd,
+        adUnitId: String,
+        userId: String,
+        onRewardEarned: () -> Unit,
+        onAdClosed: () -> Unit
+    ) {
+        var earned = false
+        isShowingAd = true
+        activity.runOnUiThread {
+            rewardedAd.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    isShowingAd = false
+                    Log.d(TAG, "Ad dismissed. earned=$earned")
+                    managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
+                    if (!earned) {
+                        android.widget.Toast.makeText(activity, "Watch the full ad to earn points.", android.widget.Toast.LENGTH_SHORT).show()
                     }
+                    onAdClosed()
                 }
 
-                adToShow.show(activity) {
-                    Log.i(TAG, "User earned reward!")
-                    recordAdReward()
-                    onRewardEarned()
+                override fun onAdFailedToShowFullScreenContent(err: com.google.android.gms.ads.AdError) {
+                    isShowingAd = false
+                    Log.e(TAG, "Failed to show ad: ${err.message}. No points granted.")
+                    managerScope.launch { refillPool(activity.applicationContext, adUnitId, userId) }
+                    android.widget.Toast.makeText(activity, "The ad couldn't be played. No points were added.", android.widget.Toast.LENGTH_LONG).show()
+                    onAdClosed()
                 }
+            }
+
+            rewardedAd.show(activity) {
+                if (earned) return@show
+                earned = true
+                Log.i(TAG, "User earned reward from a completed ad.")
+                recordAdReward()
+                onRewardEarned()
             }
         }
     }
@@ -348,9 +392,7 @@ class RewardedAdPoolManager @Inject constructor() {
     }
 
     private fun updateAvailability() {
-        val elapsed = System.currentTimeMillis() - lastRewardTimestamp
-        val coolingDown = lastRewardTimestamp > 0 && elapsed < AD_COOLDOWN_MS
-        _hasAvailableAds.value = pool.size > 0 && !coolingDown
+        _hasAvailableAds.value = pool.size > 0 && remainingCooldownMs() <= 0L
     }
 
     private fun startPeriodicCleanup() {

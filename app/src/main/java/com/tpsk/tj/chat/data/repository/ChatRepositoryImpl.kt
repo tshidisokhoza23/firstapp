@@ -207,28 +207,49 @@ class ChatRepositoryImpl @Inject constructor(
 
                             val displaySummary = formatLastMessageSummary(message.content, message.type)
                             val existingChat = chatDao.searchChatsById(message.conversationId)
+                            val incomingType = (payload["conversation_type"]?.jsonPrimitive?.contentOrNull)
+                                .toConversationTypeOrNull()
+                            val groupTitle = payload["conversation_title"]?.jsonPrimitive?.contentOrNull
+                                ?.takeIf { it.isNotBlank() }
 
                             if (existingChat != null) {
+                                val isGroupChat = existingChat.type == com.tpsk.tj.common.model.ConversationType.GROUP ||
+                                    existingChat.type == com.tpsk.tj.common.model.ConversationType.CHANNEL ||
+                                    existingChat.isGroup ||
+                                    incomingType == com.tpsk.tj.common.model.ConversationType.GROUP ||
+                                    incomingType == com.tpsk.tj.common.model.ConversationType.CHANNEL
+                                val listSummary = if (isGroupChat && message.type != MessageType.SYSTEM && !message.isFromMe) {
+                                    val who = resolvedName.ifBlank { senderName }.ifBlank { "Someone" }
+                                    "$who: $displaySummary"
+                                } else {
+                                    displaySummary
+                                }
                                 val resolvedPhone = existingChat.phoneNumber?.takeIf { it.isNotBlank() } ?: phone
-                                val sanitizedName = sanitizeDisplayName(
-                                    existingChat.senderName.ifBlank { resolvedName },
-                                    existingChat.otherUserId ?: otherId,
-                                    resolvedPhone
-                                )
+                                val sanitizedName = if (isGroupChat) {
+                                    groupTitle?.takeIf { it.isNotBlank() } ?: existingChat.senderName
+                                } else {
+                                    sanitizeDisplayName(
+                                        existingChat.senderName.ifBlank { resolvedName },
+                                        existingChat.otherUserId ?: otherId,
+                                        resolvedPhone
+                                    )
+                                }
                                 chatDao.updateLastMessage(
                                     message.conversationId,
-                                    displaySummary,
+                                    listSummary,
                                     message.timestamp,
                                     message.isFromMe,
                                     message.isRead
                                 )
-                                if (resolvedPhone != existingChat.phoneNumber || (sanitizedName.isNotBlank() && sanitizedName != existingChat.senderName)) {
+                                if (!isGroupChat && (resolvedPhone != existingChat.phoneNumber || (sanitizedName.isNotBlank() && sanitizedName != existingChat.senderName))) {
                                     chatDao.insertChat(
                                         existingChat.copy(
                                             senderName = if (sanitizedName.isNotBlank()) sanitizedName else existingChat.senderName,
                                             phoneNumber = resolvedPhone
                                         )
                                     )
+                                } else if (isGroupChat && !groupTitle.isNullOrBlank() && groupTitle != existingChat.senderName) {
+                                    chatDao.insertChat(existingChat.copy(senderName = groupTitle, isGroup = true))
                                 }
                                 if (!message.isFromMe) {
                                     chatDao.incrementUnreadCount(message.conversationId)
@@ -237,8 +258,7 @@ class ChatRepositoryImpl @Inject constructor(
                                 // The server now tags every message with the conversation's real
                                 // type, so a brand-new local chat entity can be created correctly
                                 // on the first message instead of guessing from the sender id.
-                                val conversationType = (payload["conversation_type"]?.jsonPrimitive?.contentOrNull)
-                                    .toConversationTypeOrNull() ?: com.tpsk.tj.common.model.ConversationType.DIRECT
+                                val conversationType = incomingType ?: com.tpsk.tj.common.model.ConversationType.DIRECT
 
                                 val newChat = if (conversationType == com.tpsk.tj.common.model.ConversationType.CHANNEL) {
                                     val channel = channelDaoProvider.get().getChannels().first()
@@ -268,8 +288,9 @@ class ChatRepositoryImpl @Inject constructor(
                                     ChatEntity(
                                         id = message.conversationId,
                                         type = com.tpsk.tj.common.model.ConversationType.GROUP,
-                                        senderName = "Group",
+                                        senderName = groupTitle ?: "Group",
                                         lastMessage = displaySummary,
+                                        isGroup = true,
                                         timestamp = message.timestamp,
                                         unreadCount = if (!message.isFromMe) 1 else 0,
                                         avatarUrl = null,
@@ -311,6 +332,53 @@ class ChatRepositoryImpl @Inject constructor(
                     } catch (e: Exception) {
                         Log.e("ChatRepository", "Failed to decode WS message payload", e)
                     }
+                }
+            }
+
+            "conversation_new", "conversation_updated" -> {
+                envelope.payload?.let { payload ->
+                    val convId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    val rawType = payload["type"]?.jsonPrimitive?.contentOrNull
+                    val convType = rawType.toConversationTypeOrNull()
+                        ?: com.tpsk.tj.common.model.ConversationType.GROUP
+                    if (convType != com.tpsk.tj.common.model.ConversationType.GROUP &&
+                        convType != com.tpsk.tj.common.model.ConversationType.CHANNEL
+                    ) {
+                        return@let
+                    }
+                    val title = payload["title"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: "Group"
+                    val avatar = payload["avatar_url"]?.jsonPrimitive?.contentOrNull
+                    val existing = chatDao.searchChatsById(convId)
+                    if (existing == null) {
+                        chatDao.insertChat(
+                            ChatEntity(
+                                id = convId,
+                                type = convType,
+                                senderName = title,
+                                lastMessage = payload["last_message"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                                timestamp = payload["time"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis(),
+                                isGroup = convType == com.tpsk.tj.common.model.ConversationType.GROUP,
+                                avatarUrl = avatar,
+                                phoneNumber = ""
+                            )
+                        )
+                    } else {
+                        chatDao.insertChat(
+                            existing.copy(
+                                senderName = title,
+                                avatarUrl = avatar?.takeIf { it.isNotBlank() } ?: existing.avatarUrl,
+                                type = convType,
+                                isGroup = convType == com.tpsk.tj.common.model.ConversationType.GROUP || existing.isGroup
+                            )
+                        )
+                    }
+                }
+            }
+
+            "conversation_removed" -> {
+                envelope.payload?.let { payload ->
+                    val convId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    chatDao.deleteChat(convId)
                 }
             }
 
@@ -893,6 +961,10 @@ class ChatRepositoryImpl @Inject constructor(
 
                 db.withTransaction {
                     chatDao.insertChats(finalEntities)
+                    val serverIds = finalEntities.map { it.id }.toSet()
+                    chatDao.getChatsByTypeOnce(com.tpsk.tj.common.model.ConversationType.GROUP)
+                        .filter { it.id !in serverIds }
+                        .forEach { chatDao.deleteChat(it.id) }
                 }
 
                 val chatsNeedingHistory = finalEntities.filter { entity ->
@@ -1546,7 +1618,24 @@ class ChatRepositoryImpl @Inject constructor(
         try {
             val response = chatApi.getGroupInfo(groupId)
             if (response.isSuccessful && response.body() != null) {
-                emit(Resource.Success(response.body()!!))
+                val info = response.body()!!
+                val name = info.title?.takeIf { it.isNotBlank() } ?: info.name?.takeIf { it.isNotBlank() }
+                if (!name.isNullOrBlank()) {
+                    val ids = listOfNotNull(groupId, info.conversation_id).distinct()
+                    for (id in ids) {
+                        val existing = chatDaoProvider.get().searchChatsById(id) ?: continue
+                        chatDaoProvider.get().insertChat(
+                            existing.copy(
+                                senderName = name,
+                                avatarUrl = info.avatar_url?.takeIf { it.isNotBlank() } ?: existing.avatarUrl,
+                                createdBy = info.created_by ?: existing.createdBy,
+                                isGroup = true,
+                                type = com.tpsk.tj.common.model.ConversationType.GROUP
+                            )
+                        )
+                    }
+                }
+                emit(Resource.Success(info))
             } else {
                 emit(Resource.Error("Failed to load group"))
             }

@@ -509,11 +509,16 @@ class MainActivity : FragmentActivity() {
 
                     LaunchedEffect(Unit) {
                         val openChatId = intent?.getStringExtra("open_chat_id")
+                        val openMingleRequests = intent?.getBooleanExtra("open_mingle_requests", false) ?: false
                         val openMingleNotif = intent?.getBooleanExtra("open_mingle_notif", false) ?: false
                         val openSocialNotif = intent?.getBooleanExtra("open_social_notif", false) ?: false
                         val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
                         if (isLoggedIn) {
-                            if (openMingleNotif) {
+                            if (openMingleRequests) {
+                                navController.navigate(Screen.MingleMessageRequests.route) {
+                                    launchSingleTop = true
+                                }
+                            } else if (openMingleNotif) {
                                 navController.navigate(Screen.MingleNotification.route) {
                                     launchSingleTop = true
                                 }

@@ -136,6 +136,7 @@ fun mapApiMessage(apiMessage: ApiMessage, privateKeyStr: String? = null, current
         type = when {
             embeddedContact != null -> MessageType.CONTACT
             else -> when (apiMessage.media_type.lowercase()) {
+            "system" -> MessageType.SYSTEM
             "image" -> MessageType.IMAGE
             "video", "short_video" -> MessageType.VIDEO
             "audio", "audio_message" -> MessageType.AUDIO_MESSAGE

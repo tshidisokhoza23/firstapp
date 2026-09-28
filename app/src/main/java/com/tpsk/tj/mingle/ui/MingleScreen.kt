@@ -72,12 +72,12 @@ fun MingleScreen(
 
     val points by advertsViewModel.points.collectAsState()
     val hourlyAdCount by advertsViewModel.hourlyAdCount.collectAsState()
+    val rewardCooldownSeconds by advertsViewModel.cooldownRemainingSeconds.collectAsState()
     var showPointsGateDialog by remember { mutableStateOf(false) }
     var showProfileRequiredDialog by remember { mutableStateOf(false) }
 
     var showRadiusSheet by remember { mutableStateOf(false) }
     var showUploadPhotosSheet by remember { mutableStateOf(false) }
-    var showRequestsSheet by remember { mutableStateOf(false) }
     var introTarget by remember { mutableStateOf<MingleProfile?>(null) }
     var introText by remember { mutableStateOf("") }
     val selectedRadiusKm = uiState.radiusKm
@@ -102,7 +102,6 @@ fun MingleScreen(
     LaunchedEffect(Unit) {
         mingleViewModel.refreshPermission()
         mingleViewModel.flushPendingSwipes()
-        mingleViewModel.loadIntros()
         if (!uiState.hasLocationPermission) {
             locationPermissionLauncher.launch(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -167,22 +166,6 @@ fun MingleScreen(
                     ) {
                         // Left section: Envelope + Bell + Rewind
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = {
-                                mingleViewModel.loadIntros()
-                                showRequestsSheet = true
-                            }) {
-                                BadgedBox(badge = {
-                                    if (uiState.intros.isNotEmpty()) {
-                                        Badge { Text(uiState.intros.size.toString()) }
-                                    }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Inbox,
-                                        contentDescription = "Message requests",
-                                        tint = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
-                            }
                             IconButton(onClick = { navController.navigate(Screen.MingleChats.route) }) {
                                 Icon(
                                     imageVector = Icons.Default.Email,
@@ -500,6 +483,7 @@ fun MingleScreen(
             hourlyAdCount = hourlyAdCount,
             canWatchAd = advertsViewModel.canWatchHourlyAd(),
             remainingMinutes = advertsViewModel.remainingMinutesInHourlyWindow(),
+            cooldownSeconds = rewardCooldownSeconds,
             onWatchAdClick = {
                 if (activity != null) {
                     advertsViewModel.showRewardedAd(
@@ -570,54 +554,6 @@ fun MingleScreen(
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Text("Send for ${uiState.introCost.toInt()} points")
-                }
-            }
-        }
-    }
-
-    if (showRequestsSheet) {
-        ModalBottomSheet(onDismissRequest = { showRequestsSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Text("Requests", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (uiState.intros.isEmpty()) {
-                    Text(
-                        "No message requests",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                uiState.intros.forEach { intro ->
-                    Column(modifier = Modifier.padding(vertical = 10.dp)) {
-                        Text(intro.sender_name?.ifBlank { "Someone" } ?: "Someone", fontWeight = FontWeight.SemiBold)
-                        Text(intro.message.orEmpty(), fontSize = 14.sp)
-                        Row(modifier = Modifier.padding(top = 8.dp)) {
-                            Button(
-                                onClick = {
-                                    mingleViewModel.respondIntro(intro, "accept") { conversationId ->
-                                        showRequestsSheet = false
-                                        navController.navigate(
-                                            Screen.Chat.createRoute(
-                                                conversationId,
-                                                type = "mingle",
-                                                displayName = intro.sender_name ?: "Mingle"
-                                            )
-                                        )
-                                    }
-                                },
-                                shape = RoundedCornerShape(16.dp)
-                            ) { Text("Accept") }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            TextButton(onClick = { mingleViewModel.respondIntro(intro, "decline") {} }) {
-                                Text("Decline")
-                            }
-                        }
-                    }
                 }
             }
         }

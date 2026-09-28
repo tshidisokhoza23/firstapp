@@ -83,6 +83,24 @@ fun MessageItemUnique(
     isHighlighted: Boolean = false,
     onQuoteClick: (replyToId: String?, replyToText: String?) -> Unit = { _, _ -> }
 ) {
+    if (messageItem.type == MessageType.SYSTEM) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = messageItem.content,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+        }
+        return
+    }
     val alignment = if (messageItem.isFromMe) Alignment.CenterEnd else Alignment.CenterStart
     val bubbleColor = if (messageItem.isFromMe) MaterialTheme.colorScheme.primary else Color.White
     val contentColor = if (messageItem.isFromMe) Color.White else Color.Black

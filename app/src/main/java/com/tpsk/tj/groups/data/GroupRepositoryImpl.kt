@@ -73,8 +73,10 @@ class GroupRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         try {
             val response = chatApi.getGroupInfo(groupId)
-            if (response.isSuccessful && response.body() != null) emit(Resource.Success(response.body()!!))
-            else emit(Resource.Error("Failed to load group"))
+            if (response.isSuccessful && response.body() != null) {
+                persistGroupInfo(groupId, response.body()!!)
+                emit(Resource.Success(response.body()!!))
+            } else emit(Resource.Error("Failed to load group"))
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to load group"))
         }
@@ -121,6 +123,52 @@ class GroupRepositoryImpl @Inject constructor(
             else emit(Resource.Error("Only admins can dismiss admins"))
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to demote"))
+        }
+    }
+
+    override fun renameGroup(groupId: String, name: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) {
+            emit(Resource.Error("Group name is required"))
+            return@flow
+        }
+        try {
+            val response = chatApi.renameGroup(groupId, com.tpsk.tj.chat.data.api.RenameGroupRequest(trimmed))
+            if (response.isSuccessful) {
+                rememberGroupName(groupId, trimmed)
+                emit(Resource.Success(true))
+            } else emit(Resource.Error("Only admins can rename the group"))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Failed to rename group"))
+        }
+    }
+
+    private suspend fun persistGroupInfo(requestedId: String, info: GroupInfoResponse) {
+        val name = info.title?.takeIf { it.isNotBlank() } ?: info.name?.takeIf { it.isNotBlank() } ?: return
+        rememberGroupName(requestedId, name, info.avatar_url, info.conversation_id, info.created_by)
+    }
+
+    private suspend fun rememberGroupName(
+        requestedId: String,
+        name: String,
+        avatarUrl: String? = null,
+        conversationId: String? = null,
+        createdBy: String? = null
+    ) {
+        val ids = listOfNotNull(requestedId, conversationId).distinct()
+        for (id in ids) {
+            val existing = chatDao.searchChatsById(id) ?: continue
+            chatDao.insertChat(
+                existing.copy(
+                    senderName = name,
+                    avatarUrl = avatarUrl?.takeIf { it.isNotBlank() } ?: existing.avatarUrl,
+                    createdBy = createdBy ?: existing.createdBy,
+                    isGroup = true,
+                    type = ConversationType.GROUP
+                )
+            )
         }
     }
 

@@ -41,6 +41,7 @@ sealed class Screen(val route: String) {
     object SocialNotification : Screen("social_notifications")
     object MingleNotification : Screen("mingle_notification")
     object MingleChats : Screen("mingle_chats")
+    object MingleMessageRequests : Screen("mingle_message_requests")
     object StorageSettings : Screen("storage_settings")
     object HelpSettings : Screen("help_settings")
     object LanguageSettings : Screen("language_settings")

@@ -144,6 +144,19 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
+    fun rename(groupId: String, name: String) {
+        viewModelScope.launch {
+            repository.renameGroup(groupId, name).collect { res ->
+                if (res is Resource.Success) {
+                    _toast.value = "Group name updated"
+                    fetchGroupInfo(groupId)
+                } else if (res is Resource.Error) {
+                    _toast.value = res.message ?: "Only admins can rename the group"
+                }
+            }
+        }
+    }
+
     fun generateInvite(groupId: String) {
         viewModelScope.launch {
             repository.generateGroupInviteCode(groupId).collect { res ->

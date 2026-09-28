@@ -130,7 +130,7 @@ class RewardViewModel @Inject constructor(
 
     private fun handleAdCompleted(taskId: String) {
         viewModelScope.launch {
-            try {
+            val awarded = try {
                 com.tpsk.tj.chat.rewards.data.RewardsManager.awardPoints(
                     amount = 10.0,
                     source = "REWARDED_AD",
@@ -139,9 +139,15 @@ class RewardViewModel @Inject constructor(
                 )
             } catch (e: Exception) {
                 android.util.Log.e("RewardViewModel", "Failed to award points", e)
+                false
             }
             withContext(kotlinx.coroutines.Dispatchers.Main) {
-                android.widget.Toast.makeText(context, "Earned 10 reward points!", android.widget.Toast.LENGTH_LONG).show()
+                val message = if (awarded) {
+                    "Earned 10 reward points!"
+                } else {
+                    "The ad finished, but points were not added. Please wait and try again."
+                }
+                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
             }
             fetchDashboard()
             userRepository.getCurrentUser().firstOrNull()

@@ -15,6 +15,7 @@ interface GroupRepository {
     fun promoteToAdmin(groupId: String, userId: String): Flow<Resource<Boolean>>
     fun demoteAdmin(groupId: String, userId: String): Flow<Resource<Boolean>>
     fun updateGroupAvatar(groupId: String, avatarUrl: String): Flow<Resource<Boolean>>
+    fun renameGroup(groupId: String, name: String): Flow<Resource<Boolean>>
     fun leaveGroup(groupId: String): Flow<Resource<Boolean>>
     fun generateGroupInviteCode(groupId: String): Flow<Resource<String>>
     fun joinGroupByInvite(inviteCode: String): Flow<Resource<String>>

@@ -722,6 +722,7 @@ private fun MingleActivityDto.toNotification(): MingleActivityNotification {
         "view" -> MingleActivityType.VIEW
         "photo_like" -> MingleActivityType.PHOTO_LIKE
         "super_like" -> MingleActivityType.SUPER_LIKE
+        "message_request" -> MingleActivityType.MESSAGE_REQUEST
         else -> MingleActivityType.MINGLE_LIKE
     }
     val actionText = when (mappedType) {
@@ -729,6 +730,7 @@ private fun MingleActivityDto.toNotification(): MingleActivityNotification {
         MingleActivityType.VIEW -> "viewed your Mingle profile 👁"
         MingleActivityType.PHOTO_LIKE -> "liked a photo on your profile 📸"
         MingleActivityType.SUPER_LIKE -> "sent you a Super Like ⭐"
+        MingleActivityType.MESSAGE_REQUEST -> "You received a new message request on Mingle"
         MingleActivityType.MINGLE_LIKE -> "liked your Mingle profile ❤️"
     }
     return MingleActivityNotification(

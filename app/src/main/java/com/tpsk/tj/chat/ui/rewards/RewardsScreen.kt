@@ -42,9 +42,9 @@ fun RewardsScreen(
             title = { Text("What are these rewards?", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Text(
-                    "You can earn points by watching short video ads. " +
-                            "These points can be redeemed for various in-app benefits, " +
-                            "exclusive content, or wallet top-ups depending on available offers.",
+                    "You earn 10 points only after a rewarded ad finishes. " +
+                            "If an ad does not load or fails, no points are added. " +
+                            "There is a 10 second wait after each ad, and a 30 minute wait after every 4 ads.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -314,9 +314,13 @@ fun TaskRow(
                 cooldownSeconds > 0 -> {
                     buttonColor = MaterialTheme.colorScheme.surface
                     textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    val mins = cooldownSeconds / 60
-                    val secs = cooldownSeconds % 60
-                    buttonText = String.format("%02d:%02d", mins, secs)
+                    buttonText = if (cooldownSeconds < 60) {
+                        "${cooldownSeconds}s"
+                    } else {
+                        val mins = cooldownSeconds / 60
+                        val secs = cooldownSeconds % 60
+                        String.format("%02d:%02d", mins, secs)
+                    }
                     enabled = false
                 }
                 else -> {

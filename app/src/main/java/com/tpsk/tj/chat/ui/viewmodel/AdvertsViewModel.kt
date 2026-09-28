@@ -34,6 +34,7 @@ class AdvertsViewModel @Inject constructor(
 
     val hasRewardedAdsAvailable: StateFlow<Boolean> = poolManager.hasAvailableAds
     val cooldownRemainingSeconds: StateFlow<Int> = poolManager.cooldownRemainingSeconds
+    val hourlyAdCount: StateFlow<Int> = poolManager.batchCount
 
     val adverts: StateFlow<Resource<List<Advert>>> = combine(
         refreshTrigger.onStart { emit(Unit) }.flatMapLatest { repository.getAdverts() },
@@ -90,39 +91,15 @@ class AdvertsViewModel @Inject constructor(
         }
     }
 
-    private val _hourlyAdCount = MutableStateFlow(0)
-    val hourlyAdCount = _hourlyAdCount.asStateFlow()
-
-    private val _hourlyAdWindowStart = MutableStateFlow(System.currentTimeMillis())
-
-    private val MAX_HOURLY_ADS = 4
-    private val HOURLY_WINDOW_MILLIS = 1800_000L // 30 minutes window
-
-    fun checkHourlyAdLimit() {
-        val now = System.currentTimeMillis()
-        if (now - _hourlyAdWindowStart.value >= HOURLY_WINDOW_MILLIS) {
-            _hourlyAdWindowStart.value = now
-            _hourlyAdCount.value = 0
-        }
-    }
-
-    fun canWatchHourlyAd(): Boolean {
-        checkHourlyAdLimit()
-        return _hourlyAdCount.value < MAX_HOURLY_ADS
-    }
+    fun canWatchHourlyAd(): Boolean = poolManager.cooldownRemainingSeconds.value <= 0
 
     fun remainingMinutesInHourlyWindow(): Int {
-        checkHourlyAdLimit()
-        val elapsed = System.currentTimeMillis() - _hourlyAdWindowStart.value
-        val remainingMillis = (HOURLY_WINDOW_MILLIS - elapsed).coerceAtLeast(0L)
-        return ((remainingMillis / 60_000L) + 1).toInt()
+        val secs = poolManager.cooldownRemainingSeconds.value
+        if (secs <= 0) return 0
+        return ((secs + 59) / 60).coerceAtLeast(1)
     }
 
     fun showRewardedAd(activity: Activity, adUnitId: String, advertId: String) {
-        if (!canWatchHourlyAd()) {
-            _toastMessage.value = "Ad limit reached (4/4). Try again in ${remainingMinutesInHourlyWindow()} mins!"
-            return
-        }
         viewModelScope.launch {
             val user = userRepository.observeCurrentUser().firstOrNull()
             if (user != null) {
@@ -131,17 +108,19 @@ class AdvertsViewModel @Inject constructor(
                     adUnitId = adUnitId,
                     userId = user.id,
                     onRewardEarned = {
-                        checkHourlyAdLimit()
-                        _hourlyAdCount.value = _hourlyAdCount.value + 1
                         markAdvertAsViewed(advertId)
                         viewModelScope.launch {
                             try {
                                 val success = com.tpsk.tj.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad")
-                                if (success) {
-                                    _toastMessage.value = "Earned 10 points! (${_hourlyAdCount.value}/4 ads watched)"
+                                val watched = poolManager.batchCount.value
+                                _toastMessage.value = if (success) {
+                                    "Earned 10 points! ($watched/4 ads before the longer wait)"
+                                } else {
+                                    "The ad finished, but points were not added."
                                 }
                             } catch (e: Exception) {
                                 android.util.Log.e("AdvertsViewModel", "Failed to award points", e)
+                                _toastMessage.value = "The ad finished, but points were not added."
                             }
                             delay(2000)
                             userRepository.getCurrentUser().collectLatest { }
@@ -172,19 +151,10 @@ class AdvertsViewModel @Inject constructor(
     }
 
     fun markAdvertAsViewed(advertId: String) {
+        if (advertId.startsWith("virtual_ad_") || !advertId.contains("-")) return
         viewModelScope.launch {
-            // Optimistically award points for better UX
-            RewardsManager.addOptimisticReward(10.0)
-
-            val isVirtual = advertId.startsWith("virtual_ad_")
-            
-            if (isVirtual) {
-                // Virtual slots are local placeholders and cannot produce a valid AdMob SSV reward.
-                return@launch
-            } else {
-                repository.markAdvertViewed(advertId).collect { result ->
-                    if (result is Resource.Success && result.data == true) fetchAdverts()
-                }
+            repository.markAdvertViewed(advertId).collect { result ->
+                if (result is Resource.Success && result.data == true) fetchAdverts()
             }
         }
     }

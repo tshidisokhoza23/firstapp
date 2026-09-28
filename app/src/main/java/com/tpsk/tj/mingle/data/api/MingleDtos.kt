@@ -85,6 +85,8 @@ data class MingleIntroDto(
     val sender_id: String? = null,
     val sender_name: String? = null,
     val sender_avatar: String? = null,
+    val sender_age: Int = 0,
+    val sender_location: String? = null,
     val message: String? = null,
     val status: String? = null,
     val created_at: Long = 0,

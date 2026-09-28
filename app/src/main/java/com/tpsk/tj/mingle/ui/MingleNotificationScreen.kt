@@ -122,7 +122,11 @@ fun MingleNotificationScreen(
                     MingleActivityRow(
                         item = item,
                         onClick = {
-                            selectedNotificationForPreview = item
+                            if (item.type == MingleActivityType.MESSAGE_REQUEST) {
+                                navController.navigate(Screen.MingleMessageRequests.route)
+                            } else {
+                                selectedNotificationForPreview = item
+                            }
                         }
                     )
                 }
@@ -196,6 +200,7 @@ private fun MingleActivityRow(
                     MingleActivityType.VIEW -> Color(0xFFFF9800)
                     MingleActivityType.PHOTO_LIKE -> Color(0xFF9C27B0)
                     MingleActivityType.SUPER_LIKE -> Color(0xFFFFC107)
+                    MingleActivityType.MESSAGE_REQUEST -> Color(0xFFE91E63)
                 }
 
                 val badgeIcon = when (item.type) {
@@ -204,6 +209,7 @@ private fun MingleActivityRow(
                     MingleActivityType.VIEW -> Icons.Default.RemoveRedEye
                     MingleActivityType.PHOTO_LIKE -> Icons.Default.PhotoCamera
                     MingleActivityType.SUPER_LIKE -> Icons.Default.Star
+                    MingleActivityType.MESSAGE_REQUEST -> Icons.Default.MailOutline
                 }
 
                 Box(
@@ -225,7 +231,9 @@ private fun MingleActivityRow(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                Text(if (item.type == MingleActivityType.MESSAGE_REQUEST) {
+                        androidx.compose.ui.text.AnnotatedString(item.actionText)
+                    } else 
                     text = buildAnnotatedString {
                         withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
                             append(item.actorName)

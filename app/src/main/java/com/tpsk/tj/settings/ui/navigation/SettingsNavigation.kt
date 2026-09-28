@@ -94,6 +94,13 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
         )
     }
 
+    composable(Screen.MingleMessageRequests.route) {
+        com.tpsk.tj.mingle.ui.MingleMessageRequestsScreen(
+            navController = navController,
+            onBack = { navController.popBackStack() }
+        )
+    }
+
     composable(Screen.StorageSettings.route) {
         val storageViewModel: StorageSettingsViewModel = hiltViewModel()
         StorageSettingsScreen(

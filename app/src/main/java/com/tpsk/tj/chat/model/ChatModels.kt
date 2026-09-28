@@ -7,7 +7,7 @@ import kotlin.collections.emptyMap
 import kotlin.collections.emptyList
 
 enum class MessageStatus { PENDING, SENDING, SENT, DELIVERED, READ, FAILED }
-enum class MessageType { TEXT, IMAGE, VIDEO, AUDIO_MESSAGE, LOCATION, CONTACT, DOCUMENT, SHORT_SHARE, JOB_POST, VOICE_CALL, APPLICATION_LINK }
+enum class MessageType { TEXT, SYSTEM, IMAGE, VIDEO, AUDIO_MESSAGE, LOCATION, CONTACT, DOCUMENT, SHORT_SHARE, JOB_POST, VOICE_CALL, APPLICATION_LINK }
 
 data class ApplicantProfile(
     val full_name: String,

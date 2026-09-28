@@ -254,6 +254,7 @@ private fun MingleActivityRow(
                     MingleActivityType.VIEW -> Color(0xFFFF9800)
                     MingleActivityType.PHOTO_LIKE -> Color(0xFF9C27B0)
                     MingleActivityType.SUPER_LIKE -> Color(0xFFFFC107)
+                    MingleActivityType.MESSAGE_REQUEST -> Color(0xFFE91E63)
                 }
 
                 val badgeIcon = when (item.type) {
@@ -262,6 +263,7 @@ private fun MingleActivityRow(
                     MingleActivityType.VIEW -> Icons.Default.RemoveRedEye
                     MingleActivityType.PHOTO_LIKE -> Icons.Default.PhotoCamera
                     MingleActivityType.SUPER_LIKE -> Icons.Default.Star
+                    MingleActivityType.MESSAGE_REQUEST -> Icons.Default.MailOutline
                 }
 
                 Box(

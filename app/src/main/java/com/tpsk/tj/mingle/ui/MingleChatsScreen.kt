@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.tpsk.tj.chat.model.ChatMessage
 import com.tpsk.tj.chat.ui.viewmodel.ChatViewModel
 import com.tpsk.tj.common.model.ConversationType
@@ -37,7 +39,8 @@ import com.tpsk.tj.ui.navigation.Screen
 fun MingleChatsScreen(
     navController: NavController,
     onBack: () -> Unit,
-    chatViewModel: ChatViewModel = hiltViewModel()
+    chatViewModel: ChatViewModel = hiltViewModel(),
+    mingleViewModel: com.tpsk.tj.mingle.ui.viewmodel.MingleViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
 
@@ -50,6 +53,11 @@ fun MingleChatsScreen(
         }
     }
 
+    val mingleUi by mingleViewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        mingleViewModel.loadIntros()
+    }
     val mingleChatsState by chatViewModel.mingleChats.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
@@ -160,7 +168,89 @@ fun MingleChatsScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (searchQuery.isBlank() && mingleChats.isNotEmpty()) {
+                Text(
+                    text = "Matches",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(mingleChats, key = { "match-${it.id}" }) { chat ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .width(72.dp)
+                                .clickable {
+                                    navController.navigate(
+                                        Screen.Chat.createRoute(chat.id, type = "mingle", displayName = chat.senderName)
+                                    )
+                                }
+                        ) {
+                            val photo = com.tpsk.tj.common.util.MediaUtils.formatUrl(chat.avatarUrl)
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE91E63)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (photo != null) {
+                                    AsyncImage(
+                                        model = photo,
+                                        contentDescription = chat.senderName,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(
+                                        text = chat.senderName.take(1).uppercase(),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Text(
+                                text = chat.senderName.ifBlank { "Match" },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (searchQuery.isBlank() && mingleUi.intros.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .clickable { navController.navigate(Screen.MingleMessageRequests.route) },
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.MailOutline, contentDescription = null, tint = Color(0xFFE91E63))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Message Requests (${mingleUi.intros.size})",
+                            modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Icon(Icons.Default.ChevronRight, contentDescription = null)
+                    }
+                }
+            }
 
             if (mingleChats.isEmpty()) {
                 Box(

@@ -328,6 +328,7 @@ fun ChatsListScreen(
             if (!isSearchActive) {
                 when (selectedTabItem) {
                     0 -> Column(
+                        modifier = Modifier.padding(bottom = bottomPadding + 16.dp),
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {

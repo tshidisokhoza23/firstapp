@@ -3,6 +3,7 @@ package com.tpsk.tj.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class BottomNavItem(
@@ -14,7 +15,7 @@ sealed class BottomNavItem(
     object Chat : BottomNavItem("chat_tab", "Chat", Icons.AutoMirrored.Filled.Chat, 0)
     object Social : BottomNavItem("social_tab", "Social", Icons.Default.Public, 1)
     object Scroll : BottomNavItem("scroll_tab", "Scroll", Icons.Default.Videocam, 2)
-    object Mingle : BottomNavItem("mingle_tab", "Mingle", Icons.Default.Groups, 3)
+    object Mingle : BottomNavItem("mingle_tab", "Court", Icons.Outlined.AutoAwesome, 3)
     object Stream : BottomNavItem("stream_tab", "Stream", Icons.Default.MusicNote, 4)
     object Ride : BottomNavItem("ride_tab", "Ride", Icons.Default.DirectionsCar, 5)
     object More : BottomNavItem("more_tab", "More", Icons.Default.MoreHoriz, 6)

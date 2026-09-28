@@ -611,6 +611,29 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             }
         )
     }
+
+    composable(Screen.DirectMessages.route) { backStackEntry ->
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val directViewModel: DirectMessagesViewModel = hiltViewModel(parentEntry)
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
+        DirectMessagesScreen(
+            onBack = { navController.popBackStack() },
+            onChatSelect = { chat ->
+                navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
+            },
+            onCallSelect = { call ->
+            chatViewModel.startVoiceOrVideoCall(
+                receiverId = call.contactId ?: call.calleeId ?: call.callerId ?: "",
+                callType = com.tpsk.tj.chat.data.CallType.VOICE,
+                name = call.contactName ?: "Call"
+            )
+        },
+            onNewDM = {
+                navController.navigate(Screen.ContactPicker.route)
+            },
+            viewModel = directViewModel
+        )
+    }
     
     composable(Screen.CreateGroup.route) { backStackEntry ->
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
@@ -696,6 +719,8 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         arguments = listOf(navArgument("groupId") { type = NavType.StringType })
     ) { backStackEntry ->
         val groupId = android.net.Uri.decode(backStackEntry.arguments?.getString("groupId") ?: return@composable)
+        val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
+        val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val viewModel: GroupDetailViewModel = hiltViewModel()
         val chatState by viewModel.chat.collectAsState()
         val groupInfo by viewModel.groupInfo.collectAsState()
@@ -750,6 +775,11 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 }
             },
             onGenerateInvite = { viewModel.generateInvite(groupId) },
+            onRename = { name -> viewModel.rename(groupId, name) },
+            onChangeAvatar = { uri ->
+                val conversationId = groupInfo.data?.conversation_id?.takeIf { it.isNotBlank() } ?: groupId
+                chatViewModel.updateChatAvatar(conversationId, uri)
+            },
             onSharedMedia = { navController.navigate(Screen.SharedMedia.createRoute(groupId)) },
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
@@ -765,6 +795,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("app_root") }
         val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
         val chatsState by chatViewModel.chats.collectAsState()
+            chatViewModel.fetchGroupInfo(groupId)
         val chats = chatsState.data ?: emptyList()
         val existingChat = chats.firstOrNull { it.id == groupId }
 

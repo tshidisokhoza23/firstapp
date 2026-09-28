@@ -3,7 +3,10 @@ package com.tpsk.tj.groups.ui
 import com.tpsk.tj.common.util.sanitizeDisplayName
 
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -99,6 +103,8 @@ fun GroupDetailScreen(
     onMessageMember: (String) -> Unit,
     onLeaveGroup: () -> Unit,
     onGenerateInvite: () -> Unit,
+    onRename: (String) -> Unit = {},
+    onChangeAvatar: (Uri) -> Unit = {},
     onSharedMedia: () -> Unit,
     onMediaClick: (String, String) -> Unit
 ) {
@@ -117,6 +123,11 @@ fun GroupDetailScreen(
     var showLeaveConfirm by remember { mutableStateOf(false) }
     var memberQuery by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
+    var renameText by remember(groupName) { mutableStateOf(groupName) }
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) onChangeAvatar(uri)
+    }
 
     Scaffold(
         topBar = {
@@ -173,16 +184,34 @@ fun GroupDetailScreen(
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    ChatAvatar(
-                        imageUrl = info?.avatar_url ?: chat.avatarUrl,
-                        name = groupName,
-                        size = 96.dp,
-                        fontSize = 36.sp,
-                        backgroundColor = chat.avatarColor,
-                        textColor = Color.White
-                    )
+                    Box {
+                        ChatAvatar(
+                            imageUrl = info?.avatar_url ?: chat.avatarUrl,
+                            name = groupName,
+                            size = 96.dp,
+                            fontSize = 36.sp,
+                            backgroundColor = chat.avatarColor,
+                            textColor = Color.White
+                        )
+                        if (isAdmin) {
+                            IconButton(
+                                onClick = { avatarPicker.launch("image/*") },
+                                modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(AppAccent)
+                            ) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = "Change group icon", tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(12.dp))
-                    Text(groupName, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        groupName,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(enabled = isAdmin) { renameText = groupName; showRename = true }
+                    )
+                    if (isAdmin) {
+                        Text("Tap the name to rename", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
                     Text(
                         "${memberIds.size.coerceAtLeast(1)} participants",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -446,6 +475,28 @@ fun GroupDetailScreen(
             },
             confirmButton = {},
             dismissButton = { TextButton(onClick = { showAddMember = false }) { Text("Cancel") } }
+        )
+    }
+    if (showRename) {
+        AlertDialog(
+            onDismissRequest = { showRename = false },
+            title = { Text("Group name") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it.take(80) },
+                    singleLine = true,
+                    placeholder = { Text("Group subject") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val next = renameText.trim()
+                    if (next.isNotEmpty()) onRename(next)
+                    showRename = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showRename = false }) { Text("Cancel") } }
         )
     }
 

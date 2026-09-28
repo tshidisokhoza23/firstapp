@@ -25,6 +25,7 @@ fun MinglePointsGateDialog(
     hourlyAdCount: Int,
     canWatchAd: Boolean,
     remainingMinutes: Int,
+    cooldownSeconds: Int = 0,
     onWatchAdClick: () -> Unit,
     onOpenWalletClick: () -> Unit,
     onDismiss: () -> Unit
@@ -162,13 +163,21 @@ fun MinglePointsGateDialog(
                         Icon(Icons.Default.OndemandVideo, contentDescription = null, tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (canWatchAd) "Watch Rewarded Ad (+10 Pts)" else "Ad Limit Reached (4/4)",
+                            text = when {
+                                canWatchAd -> "Watch Rewarded Ad (+10 Pts)"
+                                cooldownSeconds in 1..59 -> "Wait ${cooldownSeconds}s"
+                                else -> "Ad Limit Reached (4/4)"
+                            },
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                             color = Color.White
                         )
                     }
-
+if (cooldownSeconds in 1..59) {
+                                "Next ad available in ${cooldownSeconds}s"
+                            } else {
+                                "Next ad available in $remainingMinutes min"
+                            }
                     if (!canWatchAd) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(

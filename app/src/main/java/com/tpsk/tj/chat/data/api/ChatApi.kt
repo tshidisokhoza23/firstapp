@@ -59,6 +59,9 @@ interface ChatApi {
     @GET("chats/groups/{groupId}")
     suspend fun getGroupInfo(@Path("groupId") groupId: String): Response<GroupInfoResponse>
 
+    @PATCH("chats/groups/{groupId}")
+    suspend fun renameGroup(@Path("groupId") groupId: String, @Body request: RenameGroupRequest): Response<StatusResponse>
+
     @POST("chats/groups/{groupId}/members")
     suspend fun addChatGroupMember(@Path("groupId") groupId: String, @Body request: AddMemberRequest): Response<StatusResponse>
 
@@ -157,6 +160,7 @@ interface ChatApi {
 
 data class AddMemberRequest(val user_id: String)
 data class AvatarUrlRequest(val avatar_url: String)
+data class RenameGroupRequest(val name: String)
 data class EditMessageRequest(val message_text: String)
 data class ReactMessageRequest(val emoji: String)
 data class ReactionsResponse(val reactions: Map<String, Int> = emptyMap())

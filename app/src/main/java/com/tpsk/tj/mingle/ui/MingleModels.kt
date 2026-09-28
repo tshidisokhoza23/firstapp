@@ -10,7 +10,7 @@ data class MingleProfile(
     val isLiked: Boolean = false
 )
 
-enum class MingleActivityType { MINGLE_LIKE, MATCH, VIEW, PHOTO_LIKE, SUPER_LIKE }
+enum class MingleActivityType { MINGLE_LIKE, MATCH, VIEW, PHOTO_LIKE, SUPER_LIKE, MESSAGE_REQUEST }
 
 data class MingleActivityNotification(
     val id: String,
