@@ -8,6 +8,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -360,56 +362,89 @@ fun StoryScreen(
             onClose = { leaveViewer() }
         )
     } else if (viewingUserStory != null && viewingUserStory!!.stories.isNotEmpty()) {
+        val queue = playbackQueue
         val currentGroup = viewingUserStory!!
-        val isOwnStory = currentGroup.id == currentUserId || 
-                         currentGroup.userId == currentUserId || 
-                         currentGroup.id == myStory?.id ||
-                         (currentUserId != null && (
-                             currentGroup.id == "user_$currentUserId" || 
-                             currentGroup.id == currentUserId.removePrefix("user_") ||
-                             currentGroup.userId == "user_$currentUserId" ||
-                             currentGroup.userId == currentUserId.removePrefix("user_")
-                         )) ||
-                         currentGroup.userName == "My Story" ||
-                         currentGroup.userName == "My Number"
+        fun queueIndexOf(story: UserStory): Int = queue.indexOfFirst {
+            it.id == story.id || it.userId == story.id || it.id == story.userId || it.userId == story.userId
+        }
+        val startPage = queueIndexOf(currentGroup).coerceAtLeast(0)
+        val pagerState = rememberPagerState(initialPage = startPage) { queue.size.coerceAtLeast(1) }
 
-        StoryViewer(
-            userStory = currentGroup,
-            isOwnStory = isOwnStory,
-            initialStoryIndex = viewingStoryIndex,
-            onStoryViewed = { storyIndex ->
-                val storyId = currentGroup.stories.getOrNull(storyIndex)?.id
-                if (storyId != null && currentGroup.id != "system_ad") {
-                    onStoryViewed(currentGroup.userId.ifBlank { currentGroup.id }, storyId)
+        LaunchedEffect(currentGroup.id, currentGroup.userId, queue.size) {
+            val target = queueIndexOf(currentGroup)
+            if (target >= 0 && target != pagerState.currentPage && !pagerState.isScrollInProgress) {
+                pagerState.animateScrollToPage(target)
+            }
+        }
+
+        LaunchedEffect(pagerState, queue) {
+            snapshotFlow { pagerState.settledPage to pagerState.isScrollInProgress }
+                .collect { (page, scrolling) ->
+                    if (scrolling) return@collect
+                    val settled = queue.getOrNull(page) ?: return@collect
+                    val current = viewingUserStory ?: return@collect
+                    if (queueIndexOf(current) == page) return@collect
+                    rememberStoryIndex(current, viewingStoryIndex)
+                    viewingStoryIndex = savedStoryIndex(settled)
+                    viewingUserStory = settled
                 }
-            },
-            onReplyStory = { storyId, text, summary ->
-                val item = currentGroup.stories.find { it.id == storyId }
-                val media = item?.contentUrl?.takeIf { it.isNotBlank() }
-                val richSummary = buildString {
-                    append("[Story] ")
-                    append(summary.ifBlank { item?.content?.takeIf { it.isNotBlank() } ?: "Story" })
-                    if (!media.isNullOrBlank()) append(" [mediaUrl:$media]")
-                }
-                onReplyStory(
-                    currentGroup.userId.ifBlank { currentGroup.id },
-                    storyId,
-                    text,
-                    richSummary,
-                    currentGroup.userName
+        }
+
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
+                key = { page -> queue.getOrNull(page)?.userId?.ifBlank { queue.getOrNull(page)?.id } ?: page }
+            ) { page ->
+                val story = queue.getOrNull(page) ?: return@HorizontalPager
+                val pageOffset = storyPagerOffset(
+                    page = page,
+                    currentPage = pagerState.currentPage,
+                    currentPageOffsetFraction = pagerState.currentPageOffsetFraction
                 )
-            },
-            onFinish = { advanceQueue(currentGroup, 1, viewingStoryIndex) },
-            onStoryIndexChanged = { index ->
-                viewingStoryIndex = index
-                rememberStoryIndex(currentGroup, index)
-            },
-            onNavigateToUser = { direction, storyIndex ->
-                advanceQueue(currentGroup, direction, storyIndex)
-            },
-            onGetStoryViewers = onGetStoryViewers,
-            onClose = { leaveViewer() }
-        )
+                Box(Modifier.fillMaxSize().storyCubePage(pageOffset)) {
+                    StoryViewer(
+                        userStory = story,
+                        isOwnStory = isOwnStoryGroup(story, currentUserId, myStory),
+                        initialStoryIndex = savedStoryIndex(story),
+                        isForeground = page == pagerState.settledPage && !pagerState.isScrollInProgress,
+                        onStoryViewed = { storyIndex ->
+                            val storyId = story.stories.getOrNull(storyIndex)?.id
+                            if (storyId != null && story.id != "system_ad") {
+                                onStoryViewed(story.userId.ifBlank { story.id }, storyId)
+                            }
+                        },
+                        onReplyStory = { storyId, text, summary ->
+                            val item = story.stories.find { it.id == storyId }
+                            val media = item?.contentUrl?.takeIf { it.isNotBlank() }
+                            val richSummary = buildString {
+                                append("[Story] ")
+                                append(summary.ifBlank { item?.content?.takeIf { it.isNotBlank() } ?: "Story" })
+                                if (!media.isNullOrBlank()) append(" [mediaUrl:$media]")
+                            }
+                            onReplyStory(
+                                story.userId.ifBlank { story.id },
+                                storyId,
+                                text,
+                                richSummary,
+                                story.userName
+                            )
+                        },
+                        onFinish = { advanceQueue(story, 1, viewingStoryIndex) },
+                        onStoryIndexChanged = { index ->
+                            viewingStoryIndex = index
+                            rememberStoryIndex(story, index)
+                        },
+                        onNavigateToUser = { direction, storyIndex ->
+                            advanceQueue(story, direction, storyIndex)
+                        },
+                        onGetStoryViewers = onGetStoryViewers,
+                        onClose = { leaveViewer() }
+                    )
+                }
+            }
+        }
     } else {
         Scaffold(
             topBar = {

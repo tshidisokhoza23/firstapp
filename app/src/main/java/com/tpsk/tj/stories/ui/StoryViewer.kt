@@ -3,7 +3,8 @@ package com.tpsk.tj.stories.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +56,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -97,6 +100,7 @@ fun StoryViewer(
     onClose: () -> Unit,
     onNavigateToUser: (direction: Int, storyIndex: Int) -> Unit = { _, _ -> },
     onStoryIndexChanged: (Int) -> Unit = {},
+    isForeground: Boolean = true,
     onGetStoryViewers: (String) -> Flow<Resource<List<ApiViewer>>> = { kotlinx.coroutines.flow.flowOf() },
     onReplyStory: (storyId: String, text: String, storySummary: String) -> Unit = { _, _, _ -> }
 ) {
@@ -128,8 +132,8 @@ fun StoryViewer(
         return
     }
 
-    LaunchedEffect(currentStoryIndex) {
-        onStoryIndexChanged(currentStoryIndex)
+    LaunchedEffect(currentStoryIndex, isForeground) {
+        if (isForeground) onStoryIndexChanged(currentStoryIndex)
     }
 
     val currentStory = stories[currentStoryIndex]
@@ -146,7 +150,7 @@ fun StoryViewer(
                 setMediaItem(MediaItem.fromUri(formattedMediaUrl))
                 prepare()
                 seekTo(0)
-                playWhenReady = true
+                playWhenReady = false
             }
         } else {
             null
@@ -187,15 +191,14 @@ fun StoryViewer(
     }
 
     var offsetY by remember { mutableFloatStateOf(0f) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
+    val viewConfiguration = LocalViewConfiguration.current
 
     var isVideoBuffering by remember(currentStory.id) { mutableStateOf(visualType == StoryType.VIDEO && exoPlayer != null) }
     var isImageLoading by remember(currentStory.id) { mutableStateOf(visualType == StoryType.IMAGE && !formattedMediaUrl.isNullOrBlank()) }
     var imageFailed by remember(currentStory.id) { mutableStateOf(false) }
 
     val isMediaLoading = isVideoBuffering || isImageLoading
-    val isDraggingBetweenUsers = abs(offsetX) > 12f
-    val effectivePaused = isPaused || isMediaLoading || showViewersSheet || showReplySheet || isDraggingBetweenUsers
+    val effectivePaused = !isForeground || isPaused || isMediaLoading || showViewersSheet || showReplySheet
     val pausedState = rememberUpdatedState(effectivePaused)
     val holdDuration = rememberUpdatedState(
         storyHoldDurationMs(visualType, currentStory.durationMs, videoDuration, videoReady = !isVideoBuffering)
@@ -248,7 +251,7 @@ fun StoryViewer(
 
     LaunchedEffect(currentStory.id) {
         progress.snapTo(0f)
-        onStoryViewed(currentStoryIndex)
+        if (isForeground) onStoryViewed(currentStoryIndex)
         var elapsed = 0L
         var lastFrame = 0L
         while (isActive) {
@@ -264,7 +267,7 @@ fun StoryViewer(
                 if (elapsed >= duration) break
             }
         }
-        if (!isActive) return@LaunchedEffect
+        if (!isActive || !isForeground) return@LaunchedEffect
         if (currentStoryIndex < stories.lastIndex) {
             currentStoryIndex++
         } else {
@@ -275,35 +278,44 @@ fun StoryViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+            .offset { IntOffset(0, offsetY.roundToInt()) }
             .background(if (currentStory.type == StoryType.TEXT) currentStory.backgroundColor else Color.Black)
-            .pointerInput(currentStoryIndex) {
-                detectDragGestures(
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        if (abs(dragAmount.x) > abs(dragAmount.y) && offsetY == 0f) {
-                            offsetX += dragAmount.x
-                        } else if (dragAmount.y > 0 || offsetY > 0) {
-                            offsetY += dragAmount.y
-                        } else if (dragAmount.y < -15f && isOwnStory) {
-                            // Swipe up ONLY on own story triggers Viewers sheet
-                            showViewersSheet = true
-                            isPaused = true
+            .pointerInput(currentStoryIndex, isOwnStory) {
+                val slop = viewConfiguration.touchSlop
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var totalX = 0f
+                    var totalY = 0f
+                    var verticalDismiss = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) {
+                            if (verticalDismiss && offsetY > 300f) onClose()
+                            offsetY = 0f
+                            break
                         }
-                    },
-                    onDragEnd = {
-                        if (abs(offsetX) > 150f) {
-                            // Horizontal swipe always changes user. Tap still moves within this user's stories.
-                            onNavigateToUser(if (offsetX < 0) 1 else -1, currentStoryIndex)
-                            scope.launch { progress.snapTo(0f) }
-                        } else if (offsetY > 300f) {
-                            onClose()
+                        val delta = change.positionChange()
+                        totalX += delta.x
+                        totalY += delta.y
+                        if (!verticalDismiss && (abs(totalX) > slop || abs(totalY) > slop)) {
+                            if (abs(totalX) > abs(totalY)) {
+                                break
+                            }
+                            if (totalY < 0f && isOwnStory) {
+                                showViewersSheet = true
+                                isPaused = true
+                                change.consume()
+                                break
+                            }
+                            verticalDismiss = totalY > 0f
                         }
-                        offsetX = 0f
-                        offsetY = 0f
-                    },
-                    onDragCancel = { offsetX = 0f; offsetY = 0f }
-                )
+                        if (verticalDismiss) {
+                            change.consume()
+                            offsetY = (offsetY + delta.y).coerceAtLeast(0f)
+                        }
+                    }
+                }
             }
             .pointerInput(currentStoryIndex) {
                 detectTapGestures(
@@ -379,10 +391,8 @@ fun StoryViewer(
                         }
                         AndroidView(
                             factory = { viewContext ->
-                                androidx.media3.ui.PlayerView(viewContext).apply {
-                                    useController = false
-                                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                }
+                                (android.view.LayoutInflater.from(viewContext)
+                                    .inflate(com.tpsk.tj.R.layout.story_player_view, null) as androidx.media3.ui.PlayerView)
                             },
                             update = { view ->
                                 if (view.player !== exoPlayer) view.player = exoPlayer

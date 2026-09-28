@@ -101,7 +101,7 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful && body != null) {
                 val conversationId = body.conversation_id
                 if (body.matched && !conversationId.isNullOrBlank()) {
-                    saveMingleChatLocally(conversationId, candidateName, targetUserId)
+                    saveMingleChatLocally(conversationId, candidateName, targetUserId, "You matched on Mingle")
                 }
                 emit(Resource.Success(body))
             } else if (response.code() >= 500) {
@@ -123,7 +123,7 @@ class MingleRepositoryImpl @Inject constructor(
             if (response.isSuccessful && body != null) {
                 for (item in body.results.orEmpty()) {
                     if (item.matched && !item.conversation_id.isNullOrBlank()) {
-                        saveMingleChatLocally(item.conversation_id, null, item.target_user_id)
+                        saveMingleChatLocally(item.conversation_id, null, item.target_user_id, "You matched on Mingle")
                     }
                 }
                 emit(Resource.Success(body))
@@ -222,7 +222,7 @@ class MingleRepositoryImpl @Inject constructor(
             val response = api.openChat(userId)
             val conversationId = response.body()?.conversation_id
             if (response.isSuccessful && !conversationId.isNullOrBlank()) {
-                saveMingleChatLocally(conversationId, candidateName, userId)
+                saveMingleChatLocally(conversationId, candidateName, userId, "You matched on Mingle")
                 emit(Resource.Success(conversationId))
             } else {
                 emit(Resource.Error(response.body()?.error ?: "Match required before chatting"))
@@ -233,7 +233,59 @@ class MingleRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun saveMingleChatLocally(conversationId: String, candidateName: String?, targetUserId: String) {
+    override fun sendIntro(recipientId: String, message: String): Flow<Resource<MingleIntroDto>> = flow {
+        try {
+            val response = api.sendIntro(MingleIntroRequest(recipient_id = recipientId, message = message))
+            val body = response.body()
+            if (response.code() == 402) {
+                emit(Resource.Error("INSUFFICIENT_POINTS", lastData = body))
+                return@flow
+            }
+            if (response.isSuccessful && body != null) {
+                emit(Resource.Success(body))
+            } else {
+                emit(Resource.Error(parseError(body?.error ?: response.errorBody()?.string(), "Unable to send request")))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Unable to send request"))
+        }
+    }
+
+    override fun listIntros(): Flow<Resource<List<MingleIntroDto>>> = flow {
+        try {
+            val response = api.listIntros()
+            if (response.isSuccessful) {
+                emit(Resource.Success(response.body()?.items ?: emptyList()))
+            } else {
+                emit(Resource.Error(parseError(response.errorBody()?.string(), "Unable to load requests")))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Unable to load requests"))
+        }
+    }
+
+    override fun respondIntro(introId: String, action: String, senderName: String?): Flow<Resource<MingleIntroDto>> = flow {
+        try {
+            val response = api.respondIntro(introId, MingleIntroRespondRequest(action = action))
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                val conversationId = body.conversation_id
+                if (action == "accept" && !conversationId.isNullOrBlank()) {
+                    saveMingleChatLocally(conversationId, senderName, body.sender_id.orEmpty(), body.message ?: "Message request")
+                }
+                emit(Resource.Success(body))
+            } else {
+                emit(Resource.Error(parseError(body?.error ?: response.errorBody()?.string(), "Unable to update request")))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Unable to update request"))
+        }
+    }
+
+    private suspend fun saveMingleChatLocally(conversationId: String, candidateName: String?, targetUserId: String, lastMessage: String) {
         if (conversationId.isBlank()) return
         try {
             val chatDao = chatDaoProvider.get()

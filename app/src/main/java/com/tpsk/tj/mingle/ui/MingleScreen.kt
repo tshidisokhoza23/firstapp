@@ -77,6 +77,9 @@ fun MingleScreen(
 
     var showRadiusSheet by remember { mutableStateOf(false) }
     var showUploadPhotosSheet by remember { mutableStateOf(false) }
+    var showRequestsSheet by remember { mutableStateOf(false) }
+    var introTarget by remember { mutableStateOf<MingleProfile?>(null) }
+    var introText by remember { mutableStateOf("") }
     val selectedRadiusKm = uiState.radiusKm
     val mingleProfiles = uiState.profiles
     val myPhotos = uiState.myPhotos.mapNotNull { it.url }
@@ -99,6 +102,7 @@ fun MingleScreen(
     LaunchedEffect(Unit) {
         mingleViewModel.refreshPermission()
         mingleViewModel.flushPendingSwipes()
+        mingleViewModel.loadIntros()
         if (!uiState.hasLocationPermission) {
             locationPermissionLauncher.launch(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -108,12 +112,6 @@ fun MingleScreen(
         }
     }
 
-    val knownBalance = maxOf(uiState.balance, points.toDouble(), currentUser?.walletBalance ?: 0.0)
-    val canViewMingle = currentUser == null || knownBalance + 0.001 >= uiState.minBalance
-    LaunchedEffect(canViewMingle) {
-        if (!canViewMingle) showPointsGateDialog = true
-    }
-
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -121,15 +119,16 @@ fun MingleScreen(
         }
     }
 
+    val profilesBetweenAds = 8
     val totalPages = remember(mingleProfiles) {
         if (mingleProfiles.isEmpty()) 0
-        else mingleProfiles.size + (mingleProfiles.size / 4)
+        else mingleProfiles.size + (mingleProfiles.size / profilesBetweenAds)
     }
     val verticalPagerState = rememberPagerState(pageCount = { totalPages.coerceAtLeast(1) })
 
     LaunchedEffect(verticalPagerState, mingleProfiles.size) {
         snapshotFlow { verticalPagerState.currentPage }.collect { page ->
-            val profileIndex = page - (page / 5)
+            val profileIndex = page - (page / (profilesBetweenAds + 1))
             if (mingleProfiles.isNotEmpty() && profileIndex >= mingleProfiles.size - 3) {
                 mingleViewModel.loadMore()
             }
@@ -168,6 +167,22 @@ fun MingleScreen(
                     ) {
                         // Left section: Envelope + Bell + Rewind
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = {
+                                mingleViewModel.loadIntros()
+                                showRequestsSheet = true
+                            }) {
+                                BadgedBox(badge = {
+                                    if (uiState.intros.isNotEmpty()) {
+                                        Badge { Text(uiState.intros.size.toString()) }
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Inbox,
+                                        contentDescription = "Message requests",
+                                        tint = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
                             IconButton(onClick = { navController.navigate(Screen.MingleChats.route) }) {
                                 Icon(
                                     imageVector = Icons.Default.Email,
@@ -304,35 +319,7 @@ fun MingleScreen(
             }
 
             Box(modifier = Modifier.weight(1f)) {
-                if (!canViewMingle) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(24.dp)
-                        ) {
-                            Text(
-                                text = "40 points to view Mingle",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "You have ${knownBalance.toInt()} points. Watch an ad to get back to 40. You stay on this screen.",
-                                textAlign = TextAlign.Center,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Button(
-                                onClick = { showPointsGateDialog = true },
-                                shape = RoundedCornerShape(24.dp)
-                            ) {
-                                Text("Watch Ad")
-                            }
-                        }
-                    }
-                } else if (uiState.isLoading && mingleProfiles.isEmpty()) {
+                if (uiState.isLoading && mingleProfiles.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
@@ -395,7 +382,7 @@ fun MingleScreen(
                         state = verticalPagerState,
                         modifier = Modifier.fillMaxSize()
                     ) { pageIndex ->
-                        val isAdPage = (pageIndex + 1) % 5 == 0
+                        val isAdPage = (pageIndex + 1) % (profilesBetweenAds + 1) == 0
                         if (isAdPage) {
                             MingleNativeAdCard(
                                 onContinue = {
@@ -405,7 +392,7 @@ fun MingleScreen(
                                 }
                             )
                         } else {
-                            val profileIndex = pageIndex - (pageIndex / 5)
+                            val profileIndex = pageIndex - (pageIndex / (profilesBetweenAds + 1))
                             val profile = mingleProfiles.getOrNull(profileIndex) ?: return@VerticalPager
                             MingleCard(
                                 profile = profile,
@@ -416,7 +403,9 @@ fun MingleScreen(
                                     }
                                     val walletBalance = currentUser?.walletBalance ?: 0.0
                                     val available = maxOf(uiState.balance, points.toDouble(), walletBalance)
-                                    if (available + 0.001 < uiState.minBalance + uiState.likeCost) {
+                                    val paidLike = uiState.freeLikesRemaining <= 0
+                                    val likePrice = if (paidLike) maxOf(uiState.nextLikeCost, uiState.likeCost) else 0.0
+                                    if (paidLike && available + 0.001 < likePrice) {
                                         showPointsGateDialog = true
                                         return@MingleCard
                                     }
@@ -443,7 +432,8 @@ fun MingleScreen(
                                     )
                                 },
                                 onChat = {
-                                    Toast.makeText(context, "Match required before chatting. Like this profile to match! ❤️", Toast.LENGTH_SHORT).show()
+                                    introText = ""
+                                    introTarget = profile
                                 },
                                 onProfileClick = {
                                     Toast.makeText(context, "🔒 Secret Mingle Profile - Profile details are kept private.", Toast.LENGTH_SHORT).show()
@@ -531,6 +521,106 @@ fun MingleScreen(
                 mingleViewModel.clearPointsGate()
             }
         )
+    }
+
+    introTarget?.let { target ->
+        ModalBottomSheet(onDismissRequest = { introTarget = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 28.dp)
+            ) {
+                Text("Say hi to ${target.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "One message, up to 150 characters. This costs ${uiState.introCost.toInt()} points and cannot be refunded. They will not see that it was paid.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = introText,
+                    onValueChange = { if (it.length <= 150) introText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    placeholder = { Text("Plain text only. No links.") },
+                    supportingText = { Text("${introText.length}/150") }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        val text = introText.trim()
+                        if (text.isEmpty()) return@Button
+                        mingleViewModel.sendIntro(
+                            recipientId = target.id,
+                            message = text,
+                            onSent = {
+                                introTarget = null
+                                Toast.makeText(context, "Request sent", Toast.LENGTH_SHORT).show()
+                            },
+                            onNeedPoints = {
+                                introTarget = null
+                                showPointsGateDialog = true
+                            }
+                        )
+                    },
+                    enabled = introText.trim().isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text("Send for ${uiState.introCost.toInt()} points")
+                }
+            }
+        }
+    }
+
+    if (showRequestsSheet) {
+        ModalBottomSheet(onDismissRequest = { showRequestsSheet = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 28.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text("Requests", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                if (uiState.intros.isEmpty()) {
+                    Text(
+                        "No message requests",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                uiState.intros.forEach { intro ->
+                    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+                        Text(intro.sender_name?.ifBlank { "Someone" } ?: "Someone", fontWeight = FontWeight.SemiBold)
+                        Text(intro.message.orEmpty(), fontSize = 14.sp)
+                        Row(modifier = Modifier.padding(top = 8.dp)) {
+                            Button(
+                                onClick = {
+                                    mingleViewModel.respondIntro(intro, "accept") { conversationId ->
+                                        showRequestsSheet = false
+                                        navController.navigate(
+                                            Screen.Chat.createRoute(
+                                                conversationId,
+                                                type = "mingle",
+                                                displayName = intro.sender_name ?: "Mingle"
+                                            )
+                                        )
+                                    }
+                                },
+                                shape = RoundedCornerShape(16.dp)
+                            ) { Text("Accept") }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(onClick = { mingleViewModel.respondIntro(intro, "decline") {} }) {
+                                Text("Decline")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Radius Filter Sheet (Section 5.1 Discovery Radius Sheet)

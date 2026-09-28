@@ -50,4 +50,16 @@ interface MingleApi {
 
     @POST("mingle/matches/{userId}/chat")
     suspend fun openChat(@Path("userId") userId: String): Response<MingleChatResponse>
+
+    @POST("mingle/intro")
+    suspend fun sendIntro(@Body request: MingleIntroRequest): Response<MingleIntroDto>
+
+    @GET("mingle/intros")
+    suspend fun listIntros(): Response<MingleIntroListResponse>
+
+    @POST("mingle/intro/{introId}/respond")
+    suspend fun respondIntro(
+        @Path("introId") introId: String,
+        @Body request: MingleIntroRespondRequest
+    ): Response<MingleIntroDto>
 }

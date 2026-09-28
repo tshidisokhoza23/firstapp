@@ -74,7 +74,7 @@ fun MinglePointsGateDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Mingle needs 40 points to keep viewing. A like costs 10, so at 40 points watch an ad first. Your balance will not drop below 40.",
+                    text = "You need more points for this. Watch an ad or open your wallet. Browsing Mingle stays free.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

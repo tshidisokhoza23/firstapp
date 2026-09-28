@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.tpsk.tj.common.util.MediaUtils
 import com.tpsk.tj.common.util.Resource
 import com.tpsk.tj.mingle.data.api.MingleActivityDto
+import com.tpsk.tj.mingle.data.api.MingleIntroDto
 import com.tpsk.tj.mingle.data.api.MinglePhotoDto
 import com.tpsk.tj.mingle.data.api.MingleProfileDto
 import com.tpsk.tj.mingle.domain.repository.MingleRepository
@@ -42,7 +43,11 @@ data class MingleUiState(
     val radiusKm: Float = 25f,
     val balance: Double = 0.0,
     val likeCost: Double = 10.0,
-    val minBalance: Double = 40.0,
+    val nextLikeCost: Double = 0.0,
+    val freeLikesRemaining: Int = 20,
+    val introCost: Double = 100.0,
+    val intros: List<MingleIntroDto> = emptyList(),
+    val minBalance: Double = 0.0,
     val hasLocationPermission: Boolean = false,
     val hasLocation: Boolean = false,
     val latitude: Double? = null,
@@ -279,7 +284,10 @@ class MingleViewModel @Inject constructor(
                         radiusKm = (feed?.radius_km ?: radius).toFloat(),
                         balance = feedBalance ?: _uiState.value.balance,
                         likeCost = feed?.like_cost ?: 10.0,
-                        minBalance = feed?.min_balance?.takeIf { it > 0 } ?: 40.0,
+                        nextLikeCost = feed?.next_like_cost ?: if ((feed?.free_likes_remaining ?: 20) > 0) 0.0 else (feed?.like_cost ?: 10.0),
+                        freeLikesRemaining = feed?.free_likes_remaining ?: _uiState.value.freeLikesRemaining,
+                        introCost = feed?.intro_cost?.takeIf { it > 0 } ?: 100.0,
+                        minBalance = feed?.min_balance ?: 0.0,
                         error = null
                     )
                 }
@@ -435,6 +443,8 @@ class MingleViewModel @Inject constructor(
                         }
                         _uiState.value = _uiState.value.copy(
                             balance = swipe?.balance ?: _uiState.value.balance,
+                            freeLikesRemaining = swipe?.free_likes_remaining ?: _uiState.value.freeLikesRemaining,
+                            nextLikeCost = swipe?.next_like_cost ?: _uiState.value.nextLikeCost,
                             needsPoints = false
                         )
                         val conversationId = swipe?.conversation_id
@@ -470,6 +480,60 @@ class MingleViewModel @Inject constructor(
                             }
                         }
                     }
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun loadIntros() {
+        viewModelScope.launch {
+            repository.listIntros().collect { result ->
+                if (result is Resource.Success) {
+                    _uiState.value = _uiState.value.copy(intros = result.data.orEmpty())
+                }
+            }
+        }
+    }
+
+    fun sendIntro(recipientId: String, message: String, onSent: () -> Unit, onNeedPoints: () -> Unit) {
+        viewModelScope.launch {
+            repository.sendIntro(recipientId, message).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        result.data?.balance?.let { updateUserBalance(it) }
+                        _uiState.value = _uiState.value.copy(error = null)
+                        onSent()
+                    }
+                    is Resource.Error -> {
+                        if (result.message == "INSUFFICIENT_POINTS") {
+                            _uiState.value = _uiState.value.copy(needsPoints = true)
+                            onNeedPoints()
+                        } else {
+                            _uiState.value = _uiState.value.copy(error = result.message)
+                        }
+                    }
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun respondIntro(intro: MingleIntroDto, action: String, onAccepted: (String) -> Unit) {
+        val introId = intro.id ?: return
+        viewModelScope.launch {
+            repository.respondIntro(introId, action, intro.sender_name).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            intros = _uiState.value.intros.filterNot { it.id == introId }
+                        )
+                        val conversationId = result.data?.conversation_id
+                        if (action == "accept" && !conversationId.isNullOrBlank()) {
+                            onAccepted(conversationId)
+                        }
+                    }
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(error = result.message)
                     is Resource.Loading -> Unit
                 }
             }

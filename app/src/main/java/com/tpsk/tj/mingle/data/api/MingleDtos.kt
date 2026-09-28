@@ -50,7 +50,10 @@ data class MingleFeedResponse(
     val status: String? = null,
     val balance: Double = 0.0,
     val like_cost: Double = 10.0,
-    val min_balance: Double = 40.0
+    val next_like_cost: Double = 0.0,
+    val min_balance: Double = 40.0,
+    val free_likes_remaining: Int = 20,
+    val intro_cost: Double = 100.0
 )
 
 data class MingleLocationRequest(
@@ -72,7 +75,35 @@ data class MingleSwipeResultDto(
     val action: String? = null,
     val balance: Double = 0.0,
     val like_cost: Double = 10.0,
+    val next_like_cost: Double = 0.0,
+    val free_likes_remaining: Int = 20,
     val error: String? = null
+)
+
+data class MingleIntroDto(
+    val id: String? = null,
+    val sender_id: String? = null,
+    val sender_name: String? = null,
+    val sender_avatar: String? = null,
+    val message: String? = null,
+    val status: String? = null,
+    val created_at: Long = 0,
+    val conversation_id: String? = null,
+    val balance: Double = 0.0,
+    val error: String? = null
+)
+
+data class MingleIntroRequest(
+    val recipient_id: String,
+    val message: String
+)
+
+data class MingleIntroRespondRequest(
+    val action: String
+)
+
+data class MingleIntroListResponse(
+    val items: List<MingleIntroDto>? = emptyList()
 )
 
 data class MinglePhotoResponse(

@@ -17,4 +17,7 @@ interface MingleRepository {
     fun deletePhoto(photoId: String): Flow<Resource<Boolean>>
     fun getActivity(): Flow<Resource<List<MingleActivityDto>>>
     fun openChat(userId: String, candidateName: String? = null): Flow<Resource<String>>
+    fun sendIntro(recipientId: String, message: String): Flow<Resource<MingleIntroDto>>
+    fun listIntros(): Flow<Resource<List<MingleIntroDto>>>
+    fun respondIntro(introId: String, action: String, senderName: String? = null): Flow<Resource<MingleIntroDto>>
 }

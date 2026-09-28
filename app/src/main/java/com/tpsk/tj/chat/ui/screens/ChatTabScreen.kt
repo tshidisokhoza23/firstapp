@@ -327,13 +327,29 @@ fun ChatsListScreen(
         floatingActionButton = {
             if (!isSearchActive) {
                 when (selectedTabItem) {
-                    0 -> FloatingActionButton(
-                        onClick = { navController.navigate(Screen.ContactPicker.route) },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        shape = RoundedCornerShape(16.dp)
+                    0 -> Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New Chat")
+                        // Call Logs Floating Button
+                        SmallFloatingActionButton(
+                            onClick = { navController.navigate(Screen.DirectMessages.route) },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Call, contentDescription = "Call Logs")
+                        }
+
+                        // Contacts Floating Button
+                        FloatingActionButton(
+                            onClick = { navController.navigate(Screen.ContactPicker.route) },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.Contacts, contentDescription = "Contacts")
+                        }
                     }
                     1 -> FloatingActionButton(
                         onClick = { navController.navigate(Screen.CreateChannel.route) },
