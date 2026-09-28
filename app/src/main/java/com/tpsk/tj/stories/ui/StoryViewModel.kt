@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.stories.ui
 
 import android.content.Context
@@ -8,6 +10,9 @@ import com.tpsk.tj.account.domain.repository.AccountRepository
 import com.tpsk.tj.chat.model.Contact
 import com.tpsk.tj.chat.model.UserStory
 import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.common.util.VideoTooLargeException
+import com.tpsk.tj.common.util.VideoTransformerManager
+import com.tpsk.tj.common.util.VideoUploadProfile
 import com.tpsk.tj.domain.repository.ChatRepository
 import com.tpsk.tj.stories.domain.StoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -75,10 +80,31 @@ class StoryViewModel @Inject constructor(
 
                     var uploadedUrl: String? = null
                     var uploadError: String? = null
+                    var compressedFile: java.io.File? = null
 
                     try {
-                        withTimeout(45_000) {
-                            accountRepository.uploadUri(context, uri, "stories")
+                        val uploadUri = when (finalType) {
+                            "video" -> {
+                                val exported = VideoTransformerManager.exportForUpload(
+                                    context, uri, VideoUploadProfile.STORY
+                                )
+                                compressedFile = exported
+                                Uri.fromFile(exported)
+                            }
+                            "image" -> {
+                                val compressed = com.tpsk.tj.common.util.MediaUtils.compressImage(context, uri)
+                                if (compressed != null) {
+                                    compressedFile = compressed
+                                    Uri.fromFile(compressed)
+                                } else {
+                                    uri
+                                }
+                            }
+                            else -> uri
+                        }
+                        val uploadTimeout = if (finalType == "video") 120_000L else 45_000L
+                        withTimeout(uploadTimeout) {
+                            accountRepository.uploadUri(context, uploadUri, "stories")
                                 .firstOrNull { it !is Resource.Loading }
                                 ?.let { uploadRes ->
                                     when (uploadRes) {
@@ -89,7 +115,13 @@ class StoryViewModel @Inject constructor(
                                 }
                         }
                     } catch (e: Exception) {
-                        uploadError = e.localizedMessage ?: "Upload timed out"
+                        uploadError = if (e is VideoTooLargeException) {
+                            e.message ?: "Story video is too long or too large"
+                        } else {
+                            e.localizedMessage ?: "Upload timed out"
+                        }
+                    } finally {
+                        compressedFile?.delete()
                     }
 
                     if (!uploadError.isNullOrBlank() || uploadedUrl.isNullOrBlank()) {

@@ -77,6 +77,7 @@ fun StoryScreen(
         mutableStateOf(if (initialPlay) stories.find { it.id == initialViewingUserId || it.userId == initialViewingUserId } else null)
     }
     var viewingStoryIndex by remember { mutableIntStateOf(0) }
+    val storyPositions = remember { mutableStateMapOf<String, Int>() }
 
     var storyToMute by remember { mutableStateOf<UserStory?>(null) }
     var selectedStoryForViewers by remember { mutableStateOf<StoryItem?>(null) }
@@ -175,7 +176,20 @@ fun StoryScreen(
         }
     }
 
-    fun advanceQueue(current: UserStory, direction: Int) {
+    fun storyPositionKey(story: UserStory): String = story.userId.ifBlank { story.id }
+
+    fun savedStoryIndex(story: UserStory): Int {
+        val saved = storyPositions[storyPositionKey(story)] ?: 0
+        return saved.coerceIn(0, (story.stories.size - 1).coerceAtLeast(0))
+    }
+
+    fun rememberStoryIndex(story: UserStory, index: Int) {
+        if (story.stories.isEmpty()) return
+        storyPositions[storyPositionKey(story)] = index.coerceIn(0, story.stories.lastIndex)
+    }
+
+    fun advanceQueue(current: UserStory, direction: Int, fromIndex: Int = viewingStoryIndex) {
+        rememberStoryIndex(current, fromIndex)
         val index = playbackQueue.indexOfFirst { it.id == current.id || it.userId == current.id || it.id == current.userId || it.userId == current.userId }
         val next = if (index == -1) null else playbackQueue.getOrNull(index + direction)
         val own = isOwnStoryGroup(current, currentUserId, myStory)
@@ -183,17 +197,17 @@ fun StoryScreen(
             usersSinceAd += 1
         }
         val nativeAd = loadedAdObject as? NativeAd
-        if (!postedArchive && direction > 0 && !own && usersSinceAd >= 3 && nativeAd != null && next != null) {
+        if (!postedArchive && direction > 0 && !own && usersSinceAd >= 4 && nativeAd != null && next != null) {
             usersSinceAd = 0
             viewingUserStory = next
-            viewingStoryIndex = 0
+            viewingStoryIndex = savedStoryIndex(next)
             showingStoryAd = true
             return
         }
         showingStoryAd = false
         if (next != null) {
             viewingUserStory = next
-            viewingStoryIndex = 0
+            viewingStoryIndex = savedStoryIndex(next)
         } else {
             leaveViewer()
         }
@@ -385,8 +399,14 @@ fun StoryScreen(
                     currentGroup.userName
                 )
             },
-            onFinish = { advanceQueue(currentGroup, 1) },
-            onNavigateToUser = { direction -> advanceQueue(currentGroup, direction) },
+            onFinish = { advanceQueue(currentGroup, 1, viewingStoryIndex) },
+            onStoryIndexChanged = { index ->
+                viewingStoryIndex = index
+                rememberStoryIndex(currentGroup, index)
+            },
+            onNavigateToUser = { direction, storyIndex ->
+                advanceQueue(currentGroup, direction, storyIndex)
+            },
             onGetStoryViewers = onGetStoryViewers,
             onClose = { leaveViewer() }
         )
@@ -497,6 +517,7 @@ fun StoryScreen(
                                     modifier = Modifier.clickable {
                                         viewingUserStory = myStory
                                         viewingStoryIndex = index
+                                        rememberStoryIndex(myStory, index)
                                     }
                                 ) {
                                     Box(
@@ -684,7 +705,7 @@ fun StoryScreen(
                                 story = story,
                                 onClick = {
                                     viewingUserStory = story
-                                    viewingStoryIndex = 0
+                                    viewingStoryIndex = savedStoryIndex(story)
                                 }
                             )
                         }
@@ -709,7 +730,7 @@ fun StoryScreen(
                                 story = story,
                                 onClick = {
                                     viewingUserStory = story
-                                    viewingStoryIndex = 0
+                                    viewingStoryIndex = savedStoryIndex(story)
                                 }
                             )
                         }

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.media.ui.viewmodel
 
 import android.content.Context
@@ -10,6 +12,9 @@ import androidx.lifecycle.viewModelScope
 import com.tpsk.tj.account.domain.repository.AccountRepository
 import com.tpsk.tj.common.util.MediaUtils
 import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.common.util.VideoTooLargeException
+import com.tpsk.tj.common.util.VideoTransformerManager
+import com.tpsk.tj.common.util.VideoUploadProfile
 import com.tpsk.tj.media.domain.repository.SocialRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -49,7 +54,11 @@ class CreateShortViewModel @Inject constructor(
                 // Stage 1: Local compression & thumbnail preparation
                 uiState = PostShortUiState.Progress("Compressing video...", 0.2f)
 
-                val thumbFile = MediaUtils.getVideoThumbnail(context, videoUri)
+                val compressed = VideoTransformerManager.exportForUpload(
+                    context, videoUri, VideoUploadProfile.SHORT
+                )
+                val uploadUri = Uri.fromFile(compressed)
+                val thumbFile = MediaUtils.getVideoThumbnail(context, uploadUri)
                 var thumbnailUrl: String? = null
                 if (thumbFile != null) {
                     accountRepository.uploadFile(thumbFile, "thumbnails")
@@ -65,16 +74,19 @@ class CreateShortViewModel @Inject constructor(
                 uiState = PostShortUiState.Progress("Uploading to server...", 0.65f)
                 var uploadedMediaUrl: String? = null
                 var uploadError: String? = null
-
-                // posts is accepted by the live upload allowlist. post_type stays short, so this is not a feed post.
-                accountRepository.uploadUri(context, videoUri, "posts")
-                    .firstOrNull { it !is Resource.Loading }?.let { res ->
-                        when (res) {
-                            is Resource.Success -> uploadedMediaUrl = res.data?.url
-                            is Resource.Error -> uploadError = res.message ?: "Failed to upload video"
-                            else -> {}
+                try {
+                    // posts is accepted by the live upload allowlist. post_type stays short, so this is not a feed post.
+                    accountRepository.uploadUri(context, uploadUri, "posts")
+                        .firstOrNull { it !is Resource.Loading }?.let { res ->
+                            when (res) {
+                                is Resource.Success -> uploadedMediaUrl = res.data?.url
+                                is Resource.Error -> uploadError = res.message ?: "Failed to upload video"
+                                else -> {}
+                            }
                         }
-                    }
+                } finally {
+                    if (compressed.exists()) compressed.delete()
+                }
 
                 val mediaUrl = uploadedMediaUrl
                 if (mediaUrl == null) {
@@ -102,10 +114,13 @@ class CreateShortViewModel @Inject constructor(
                     uiState = PostShortUiState.Error(errMsg)
                 }
             } catch (e: Exception) {
-                if (e is CancellationException) {
-                    throw e
+                if (e is CancellationException) throw e
+                val message = if (e is VideoTooLargeException) {
+                    e.message ?: "Short must be 60 seconds or less and under 30 MB"
+                } else {
+                    e.localizedMessage ?: "Network error occurred"
                 }
-                uiState = PostShortUiState.Error(e.localizedMessage ?: "Network error occurred")
+                uiState = PostShortUiState.Error(message)
             }
         }
     }

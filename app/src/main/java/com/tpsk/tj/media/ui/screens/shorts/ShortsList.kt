@@ -47,20 +47,22 @@ fun ShortsList(
 
     val context = LocalContext.current
     val validPreloadedAds = preloadedAds.filterIsInstance<NativeAd>()
-    val adCount = minOf(validPreloadedAds.size, shorts.itemCount / 4)
+    val shortsBetweenAds = 8
+    val adStride = shortsBetweenAds + 1
+    val adCount = minOf(validPreloadedAds.size, shorts.itemCount / shortsBetweenAds)
     val totalPageCount = shorts.itemCount + adCount
 
     val pagerState = rememberPagerState(pageCount = { totalPageCount })
     
     fun isAdPage(page: Int): Boolean {
         if (adCount == 0) return false
-        val adIndex = page / 5
-        return page % 5 == 4 && adIndex < adCount
+        val adIndex = page / adStride
+        return page % adStride == shortsBetweenAds && adIndex < adCount
     }
 
     fun getShortIndex(page: Int): Int {
         if (adCount == 0) return page
-        val adsBefore = minOf(page / 5, adCount)
+        val adsBefore = minOf(page / adStride, adCount)
         return page - adsBefore
     }
 
@@ -76,7 +78,7 @@ fun ShortsList(
             }
             if (foundShortIndex != -1) {
                 // Map short index back to page index
-                val adsBefore = if (adCount > 0) foundShortIndex / 4 else 0
+                val adsBefore = if (adCount > 0) foundShortIndex / shortsBetweenAds else 0
                 val pageIndex = foundShortIndex + minOf(adsBefore, adCount)
                 if (pageIndex < totalPageCount) {
                     pagerState.scrollToPage(pageIndex)
@@ -125,7 +127,7 @@ fun ShortsList(
                     .background(Color.Black)
                     .padding(bottom = bottomPadding) // REQUIREMENT: Avoid nav bar clipping
             ) {
-                val adIndex = page / 5
+                val adIndex = page / adStride
                 if (adIndex < validPreloadedAds.size) {
                     com.tpsk.tj.common.ui.components.StaticAdCard(
                     nativeAd = validPreloadedAds[adIndex],

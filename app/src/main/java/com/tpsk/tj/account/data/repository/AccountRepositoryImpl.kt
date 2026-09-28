@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.account.data.repository
 
 import com.tpsk.tj.account.domain.repository.AccountRepository
@@ -8,8 +10,12 @@ import com.tpsk.tj.chat.data.local.dao.ContactDao
 import com.tpsk.tj.chat.data.repository.mapApiContact
 import com.tpsk.tj.common.model.PrivacySettings
 import com.tpsk.tj.common.model.User
+import com.tpsk.tj.common.util.MediaUtils
 import com.tpsk.tj.common.util.Resource
 import com.tpsk.tj.common.util.UriRequestBody
+import com.tpsk.tj.common.util.VideoTooLargeException
+import com.tpsk.tj.common.util.VideoTransformerManager
+import com.tpsk.tj.common.util.VideoUploadProfile
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -283,6 +289,7 @@ class AccountRepositoryImpl @Inject constructor(
 
     override fun uploadUri(context: Context, uri: Uri, folder: String?): Flow<Resource<UploadResponse>> = flow {
         emit(Resource.Loading())
+        var tempFile: File? = null
         try {
             val resolver = context.contentResolver
             val mediaType = resolver.getType(uri)?.toMediaTypeOrNull()
@@ -305,10 +312,37 @@ class AccountRepositoryImpl @Inject constructor(
                     ?: "upload${extensionForMediaType(mediaType?.toString())}"
             }
 
-            val body = MultipartBody.Part.createFormData("file", name, UriRequestBody(resolver, uri, mediaType))
-            val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val fileName = uri.lastPathSegment?.substringAfterLast('/').orEmpty()
+            val alreadyCompressed = fileName.startsWith("compressed_") || fileName.startsWith("mingle_")
+            var uploadTarget = uri
+            val mime = mediaType?.toString().orEmpty()
+            if (!alreadyCompressed && mime.startsWith("video/")) {
+                val exported = VideoTransformerManager.exportForUpload(
+                    context, uri, VideoUploadProfile.GENERAL
+                )
+                tempFile = exported
+                uploadTarget = Uri.fromFile(exported)
+                name = exported.name
+            } else if (!alreadyCompressed && mime.startsWith("image/") && folder != "avatars") {
+                MediaUtils.compressImage(context, uri)?.let { compressed ->
+                    tempFile = compressed
+                    uploadTarget = Uri.fromFile(compressed)
+                    name = compressed.name
+                }
+            }
 
-            val response = withTimeout(90_000) { mediaApi.uploadMedia(body, folderBody) }
+            val uploadType = when {
+                tempFile != null && mime.startsWith("video/") -> "video/mp4".toMediaTypeOrNull()
+                tempFile != null && mime.startsWith("image/") -> "image/jpeg".toMediaTypeOrNull()
+                else -> mediaType
+            }
+            val body = MultipartBody.Part.createFormData(
+                "file",
+                name,
+                UriRequestBody(resolver, uploadTarget, uploadType)
+            )
+            val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val response = withTimeout(180_000) { mediaApi.uploadMedia(body, folderBody) }
             if (response.isSuccessful && response.body() != null) {
                 emit(Resource.Success(response.body()!!))
             } else {
@@ -317,7 +351,14 @@ class AccountRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException && e !is TimeoutCancellationException) throw e
             android.util.Log.e("AccountRepo", "uploadUri failed", e)
-            emit(Resource.Error("Upload error: ${e.localizedMessage ?: "Timeout"}"))
+            val message = if (e is VideoTooLargeException) {
+                e.message ?: "Video is too long or too large"
+            } else {
+                "Upload error: ${e.localizedMessage ?: "Timeout"}"
+            }
+            emit(Resource.Error(message))
+        } finally {
+            tempFile?.delete()
         }
     }
 

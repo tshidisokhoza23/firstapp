@@ -51,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -94,7 +95,8 @@ fun StoryViewer(
     onAdTriggered: () -> Unit = {},
     onFinish: () -> Unit,
     onClose: () -> Unit,
-    onNavigateToUser: (Int) -> Unit = {},
+    onNavigateToUser: (direction: Int, storyIndex: Int) -> Unit = { _, _ -> },
+    onStoryIndexChanged: (Int) -> Unit = {},
     onGetStoryViewers: (String) -> Flow<Resource<List<ApiViewer>>> = { kotlinx.coroutines.flow.flowOf() },
     onReplyStory: (storyId: String, text: String, storySummary: String) -> Unit = { _, _, _ -> }
 ) {
@@ -124,6 +126,10 @@ fun StoryViewer(
             Text("Story unavailable", color = Color.White)
         }
         return
+    }
+
+    LaunchedEffect(currentStoryIndex) {
+        onStoryIndexChanged(currentStoryIndex)
     }
 
     val currentStory = stories[currentStoryIndex]
@@ -188,7 +194,8 @@ fun StoryViewer(
     var imageFailed by remember(currentStory.id) { mutableStateOf(false) }
 
     val isMediaLoading = isVideoBuffering || isImageLoading
-    val effectivePaused = isPaused || isMediaLoading || showViewersSheet || showReplySheet
+    val isDraggingBetweenUsers = abs(offsetX) > 12f
+    val effectivePaused = isPaused || isMediaLoading || showViewersSheet || showReplySheet || isDraggingBetweenUsers
     val pausedState = rememberUpdatedState(effectivePaused)
     val holdDuration = rememberUpdatedState(
         storyHoldDurationMs(visualType, currentStory.durationMs, videoDuration, videoReady = !isVideoBuffering)
@@ -212,6 +219,10 @@ fun StoryViewer(
                     }
                     Player.STATE_ENDED -> player.playWhenReady = false
                 }
+            }
+
+            override fun onRenderedFirstFrame() {
+                isVideoBuffering = false
             }
         }
         player.addListener(listener)
@@ -257,7 +268,7 @@ fun StoryViewer(
         if (currentStoryIndex < stories.lastIndex) {
             currentStoryIndex++
         } else {
-            onNavigateToUser(1)
+            onNavigateToUser(1, currentStoryIndex)
         }
     }
 
@@ -282,21 +293,8 @@ fun StoryViewer(
                     },
                     onDragEnd = {
                         if (abs(offsetX) > 150f) {
-                            if (offsetX < 0) {
-                                // Swiping left -> next user
-                                if (currentStoryIndex < stories.size - 1) {
-                                    currentStoryIndex++
-                                } else {
-                                    onNavigateToUser(1)
-                                }
-                            } else if (offsetX > 0) {
-                                // Swiping right -> previous user
-                                if (currentStoryIndex > 0) {
-                                    currentStoryIndex--
-                                } else {
-                                    onNavigateToUser(-1)
-                                }
-                            }
+                            // Horizontal swipe always changes user. Tap still moves within this user's stories.
+                            onNavigateToUser(if (offsetX < 0) 1 else -1, currentStoryIndex)
                             scope.launch { progress.snapTo(0f) }
                         } else if (offsetY > 300f) {
                             onClose()
@@ -325,14 +323,14 @@ fun StoryViewer(
                                 scope.launch { progress.snapTo(0f) }
                                 currentStoryIndex--
                             } else {
-                                onNavigateToUser(-1)
+                                onNavigateToUser(-1, currentStoryIndex)
                             }
                         } else {
                             if (currentStoryIndex < stories.size - 1) {
                                 scope.launch { progress.snapTo(0f) }
                                 currentStoryIndex++
                             } else {
-                                onNavigateToUser(1)
+                                onNavigateToUser(1, currentStoryIndex)
                             }
                         }
                     }
@@ -366,6 +364,19 @@ fun StoryViewer(
                 }
                 StoryType.VIDEO -> {
                     if (exoPlayer != null) {
+                        if (isVideoBuffering) {
+                            val poster = userStory.userAvatarUrl?.takeIf { it.isNotBlank() }
+                            if (poster != null) {
+                                AsyncImage(
+                                    model = formatMediaUrl(poster) ?: poster,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(Modifier.fillMaxSize().background(Color.Black))
+                            }
+                        }
                         AndroidView(
                             factory = { viewContext ->
                                 androidx.media3.ui.PlayerView(viewContext).apply {
@@ -376,7 +387,9 @@ fun StoryViewer(
                             update = { view ->
                                 if (view.player !== exoPlayer) view.player = exoPlayer
                             },
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(if (isVideoBuffering) 0f else 1f)
                         )
                     } else {
                         StoryUnavailableText(currentStory.content)

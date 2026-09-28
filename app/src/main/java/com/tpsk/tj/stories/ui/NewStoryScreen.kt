@@ -251,7 +251,7 @@ fun VideoTrimmerDialog(
     val scope = rememberCoroutineScope()
     var isTrimming by remember { mutableStateOf(false) }
 
-    val maxAllowedMs = 120_000L // 2 minutes
+    val maxAllowedMs = 30_000L
     var rangeValues by remember(totalDurationMs) {
         val initialEnd = totalDurationMs.coerceAtMost(maxAllowedMs).toFloat()
         mutableStateOf(0f..initialEnd.coerceAtLeast(1000f))
@@ -360,7 +360,7 @@ fun VideoTrimmerDialog(
                 )
 
                 Text(
-                    "Trimmed Length: ${VideoTrimmerUtil.formatDurationMs(selectedDurationMs)} (Max 2:00)",
+                    "Trimmed Length: ${VideoTrimmerUtil.formatDurationMs(selectedDurationMs)} (Max 0:30)",
                     fontSize = 12.sp,
                     color = if (selectedDurationMs > maxAllowedMs) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
