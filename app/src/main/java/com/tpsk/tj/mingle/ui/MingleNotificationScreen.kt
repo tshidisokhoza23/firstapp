@@ -231,15 +231,17 @@ private fun MingleActivityRow(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(if (item.type == MingleActivityType.MESSAGE_REQUEST) {
+                Text(
+                    text = if (item.type == MingleActivityType.MESSAGE_REQUEST) {
                         androidx.compose.ui.text.AnnotatedString(item.actionText)
-                    } else 
-                    text = buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append(item.actorName)
+                    } else {
+                        buildAnnotatedString {
+                            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                append(item.actorName)
+                            }
+                            append(" ")
+                            append(item.actionText)
                         }
-                        append(" ")
-                        append(item.actionText)
                     },
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,

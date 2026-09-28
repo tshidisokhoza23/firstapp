@@ -301,8 +301,16 @@ class ChatViewModel @Inject constructor(
 
 
     fun startVoiceOrVideoCall(receiverId: String, callType: com.tpsk.tj.chat.data.CallType, name: String? = null) {
-        // Check for Mic/Camera permissions before initiating
-        val context = com.tpsk.tj.common.util.ContextProvider.context
+        if (receiverId.isBlank()) return
+        val context = try {
+            com.tpsk.tj.common.util.ContextProvider.context
+        } catch (_: Exception) {
+            null
+        }
+        if (context == null) {
+            android.util.Log.w("ChatViewModel", "No context available for initiating call")
+            return
+        }
         val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val hasCam = if (callType == com.tpsk.tj.chat.data.CallType.VIDEO) {
             androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
