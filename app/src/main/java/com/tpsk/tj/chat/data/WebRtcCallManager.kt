@@ -232,6 +232,7 @@ class WebRtcCallManager(context: Context) {
                     remoteAudioTrack = track
                     track.setEnabled(true)
                     track.setVolume(1.0)
+                    onConnected?.invoke()
                 }
                 val track = stream.videoTracks.firstOrNull() ?: return
                 if (remoteVideoTrack == track) return
@@ -265,6 +266,7 @@ class WebRtcCallManager(context: Context) {
                     remoteAudioTrack = track
                     track.setEnabled(true)
                     track.setVolume(1.0)
+                    onConnected?.invoke()
                 }
             }
         })

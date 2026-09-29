@@ -911,6 +911,11 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         com.tpsk.tj.chat.ui.screens.ChatProfileScreen(
             chat = profileChat,
             onBack = { navController.popBackStack() },
+            onOpenProfile = { userId ->
+                if (userId.isNotBlank()) {
+                    navController.navigate(Screen.UserProfile.createRoute(userId))
+                }
+            },
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
             },

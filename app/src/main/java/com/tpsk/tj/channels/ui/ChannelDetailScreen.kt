@@ -595,41 +595,48 @@ fun ChannelDetailScreen(
 
             if (displayPosts.isEmpty()) {
                 item {
-                    // Empty State
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 40.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.PermMedia, 
-                                null, 
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f), 
-                                modifier = Modifier.size(80.dp)
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "No updates yet", 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, 
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            if (canPost) {
-                                Text(
-                                    "Share something with your followers", 
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), 
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(top = 4.dp)
+                    if (isCreator) {
+                        ChannelStartGrowingCard(
+                            channelName = channel.name,
+                            onAddDescription = { showInfo = true },
+                            onShare = {
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "Follow ${channel.name} on FirstApp")
+                                }
+                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Channel"))
+                            },
+                            onInviteAdmins = { showAddAdmin = true }
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.PermMedia,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(80.dp)
                                 )
-                            } else if (!isFollower) {
+                                Spacer(Modifier.height(16.dp))
                                 Text(
-                                    "Follow to see updates from this channel",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(top = 4.dp)
+                                    "No updates yet",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
+                                if (!isFollower) {
+                                    Text(
+                                        "Follow to see updates from this channel",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -839,6 +846,78 @@ fun ChannelPostItem(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChannelStartGrowingCard(
+    channelName: String,
+    onAddDescription: () -> Unit,
+    onShare: () -> Unit,
+    onInviteAdmins: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+        ) {
+            Text(
+                "This channel is private. Only people you invite can follow it, and they cannot see each other's phone numbers.",
+                modifier = Modifier.padding(14.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp
+            )
+        }
+        Spacer(Modifier.height(28.dp))
+        Text(
+            "You created this channel, \"$channelName\"",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(16.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Start growing", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Add description",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onAddDescription)
+                        .padding(vertical = 10.dp)
+                )
+                Text(
+                    "Share to my status",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onShare)
+                        .padding(vertical = 10.dp)
+                )
+                Text(
+                    "Invite admins",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onInviteAdmins)
+                        .padding(vertical = 10.dp)
+                )
             }
         }
     }

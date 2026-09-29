@@ -953,7 +953,11 @@ class ChatRepositoryImpl @Inject constructor(
                             pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId
                         )
                     } else if (local != null) {
-                        resultEntity.copy(pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId)
+                        resultEntity.copy(
+                            pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId,
+                            lastSeen = if (serverEntity.lastSeen > 0L) serverEntity.lastSeen else local.lastSeen,
+                            isOnline = if (serverEntity.lastSeen > 0L) serverEntity.isOnline else local.isOnline || serverEntity.isOnline
+                        )
                     } else {
                         resultEntity
                     }

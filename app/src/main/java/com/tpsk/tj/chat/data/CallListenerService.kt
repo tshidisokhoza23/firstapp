@@ -67,7 +67,7 @@ class CallListenerService : Service() {
                 val participantId = GlobalCallState.activeParticipantId.value
                 val callType = GlobalCallState.activeCallType.value
                 if (sessionId != null && participantId != null && callType != null) {
-                    callWebSocketClient.end(participantId, sessionId, callType, 0, "gsm_interruption")
+                    callWebSocketClient.end(participantId, sessionId, callType, GlobalCallState.callDurationSeconds.value, "gsm_interruption")
                     GlobalCallState.onCallEnded(sessionId)
                     webRtcCallManager.end()
                     callTonePlayer.stop()
@@ -186,6 +186,7 @@ class CallListenerService : Service() {
                 "call_accept" -> {
                     callTonePlayer.stop()
                     GlobalCallState.setRinging(false)
+                    GlobalCallState.setAnswered(true)
                     if (GlobalCallState.activeSessionId.value == event.sessionId &&
                         !GlobalCallState.isConnectionEstablished.value
                     ) {
@@ -259,7 +260,7 @@ class CallListenerService : Service() {
                 val callType = GlobalCallState.activeCallType.value
                 if (sessionId != null && participantId != null && callType != null) {
                     Log.w("CallListenerService", "WebRTC Disconnected, ending session")
-                    callWebSocketClient.end(participantId, sessionId, callType, 0, "webrtc_disconnected")
+                    callWebSocketClient.end(participantId, sessionId, callType, GlobalCallState.callDurationSeconds.value, "webrtc_disconnected")
                     GlobalCallState.onCallEnded(sessionId)
                     webRtcCallManager.end()
                     callTonePlayer.stop()
@@ -348,7 +349,7 @@ class CallListenerService : Service() {
             val callType = GlobalCallState.activeCallType.value
             if (sessionId != null && participantId != null && callType != null) {
                 Log.w("CallListenerService", "Call timed out after 30s")
-                callWebSocketClient.end(participantId, sessionId, callType, 0, "timeout")
+                callWebSocketClient.end(participantId, sessionId, callType, GlobalCallState.callDurationSeconds.value, "timeout")
                 GlobalCallState.onCallEnded(sessionId)
                 webRtcCallManager.end()
                 callTonePlayer.stop()

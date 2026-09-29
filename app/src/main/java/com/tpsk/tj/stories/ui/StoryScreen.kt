@@ -259,8 +259,15 @@ fun StoryScreen(
             keys.any { key -> key.isNotBlank() && (key == initialViewingUserId || key == wantedUser) }
         }
         if (story != null && story.stories.isNotEmpty()) {
-            val wantedStory = initialStoryId?.removePrefix("story_")?.substringBefore("|")
-            val index = if (wantedStory.isNullOrBlank()) 0 else story.stories.indexOfFirst { it.id == wantedStory }.let { if (it >= 0) it else 0 }
+            val wantedStory = initialStoryId?.removePrefix("story_")?.substringBefore("|")?.substringBefore("?")
+            val index = if (wantedStory.isNullOrBlank()) {
+                0
+            } else {
+                story.stories.indexOfFirst { item ->
+                    val id = item.id.removePrefix("story_").substringBefore("|").substringBefore("?")
+                    id == wantedStory || item.id == wantedStory || item.id.endsWith(wantedStory) || wantedStory.endsWith(id)
+                }.let { if (it >= 0) it else 0 }
+            }
             viewingStoryIndex = index
             viewingUserStory = story
         } else if (storiesReady) {

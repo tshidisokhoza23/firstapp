@@ -98,9 +98,12 @@ fun VideoPlayer(
         }
     }
 
+    val playerView = remember(videoUrl) { mutableStateOf<PlayerView?>(null) }
+
     DisposableEffect(playerInstance) {
         onDispose {
-            playerInstance.release()
+            ActiveVideoPlayback.detachAndRelease(playerView.value, playerInstance)
+            playerView.value = null
         }
     }
 
@@ -119,11 +122,14 @@ fun VideoPlayer(
                     setShowPreviousButton(false)
                     setShowFastForwardButton(false)
                     setShowRewindButton(false)
+                    playerView.value = this
                 }
             },
             update = { view ->
                 view.useController = useController
                 view.resizeMode = resizeMode
+                if (view.player !== playerInstance) view.player = playerInstance
+                playerView.value = view
             },
             modifier = Modifier.fillMaxSize()
         )

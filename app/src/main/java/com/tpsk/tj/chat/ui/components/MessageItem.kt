@@ -567,7 +567,9 @@ fun AttachmentPreview(
                     .clickable { onMediaClick(firstMedia, "video") },
                 contentAlignment = Alignment.Center
             ) {
-                if (firstMedia.isNotEmpty()) {
+                if (firstMedia.isNotEmpty() && !firstMedia.startsWith("http")) {
+                    // Remote videos are opened only in the viewer. Decoding the
+                    // same URL here starts a second player that has no stop button.
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(firstMedia)

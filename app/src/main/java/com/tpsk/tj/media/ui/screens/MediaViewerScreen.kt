@@ -26,6 +26,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import com.tpsk.tj.media.ui.components.ActiveVideoPlayback
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -47,19 +48,15 @@ fun MediaViewerScreen(
             val exoPlayer = remember(url) {
                 androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
             }
+            val playerView = remember(url) { mutableStateOf<PlayerView?>(null) }
             var isBuffering by remember { mutableStateOf(true) }
             var errorMessage by remember { mutableStateOf<String?>(null) }
 
-            DisposableEffect(lifecycleOwner) {
+            DisposableEffect(lifecycleOwner, exoPlayer) {
                 val observer = LifecycleEventObserver { _, event ->
-                    when (event) {
-                        Lifecycle.Event.ON_PAUSE -> {
-                            exoPlayer.playWhenReady = false
-                        }
-                        Lifecycle.Event.ON_RESUME -> {
-                            exoPlayer.playWhenReady = true
-                        }
-                        else -> {}
+                    if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                        exoPlayer.playWhenReady = false
+                        exoPlayer.pause()
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -69,13 +66,14 @@ fun MediaViewerScreen(
             }
 
             LaunchedEffect(url) {
-                exoPlayer.setRepeatMode(Player.REPEAT_MODE_ONE)
+                ActiveVideoPlayback.claim(exoPlayer)
+                exoPlayer.repeatMode = Player.REPEAT_MODE_OFF
                 exoPlayer.setMediaItem(MediaItem.fromUri(url))
                 if (initialPosition > 0) {
                     exoPlayer.seekTo(initialPosition)
                 }
                 exoPlayer.prepare()
-                exoPlayer.setPlayWhenReady(true)
+                exoPlayer.playWhenReady = true
             }
 
             DisposableEffect(exoPlayer) {
@@ -91,7 +89,9 @@ fun MediaViewerScreen(
                 exoPlayer.addListener(listener)
                 onDispose {
                     exoPlayer.removeListener(listener)
-                    exoPlayer.release()
+                    val view = playerView.value
+                    playerView.value = null
+                    ActiveVideoPlayback.detachAndRelease(view, exoPlayer)
                 }
             }
 
@@ -101,10 +101,14 @@ fun MediaViewerScreen(
                         player = exoPlayer
                         useController = true
                         resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        playerView.value = this
                     }
                 },
                 update = { view ->
-                    view.player = exoPlayer
+                    if (view.player !== exoPlayer) {
+                        view.player = exoPlayer
+                    }
+                    playerView.value = view
                 },
                 modifier = Modifier.fillMaxSize()
             )

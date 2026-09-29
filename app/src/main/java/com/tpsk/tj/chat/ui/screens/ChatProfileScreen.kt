@@ -39,6 +39,7 @@ import com.tpsk.tj.common.util.Resource
 fun ChatProfileScreen(
     chat: ChatMessage,
     onBack: () -> Unit,
+    onOpenProfile: (String) -> Unit = {},
     onMediaClick: (String, String) -> Unit,
     onNavigateToSharedMedia: (String) -> Unit = {},
     sharedMedia: List<Message> = emptyList(),
@@ -308,7 +309,12 @@ fun ChatProfileScreen(
                         text = titleName,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = if (isDirect && !chat.otherUserId.isNullOrBlank()) {
+                            Modifier.clickable { onOpenProfile(chat.otherUserId) }
+                        } else {
+                            Modifier
+                        }
                     )
 
                     if (!chat.phoneNumber.isNullOrBlank() && chat.phoneNumber != titleName) {
@@ -453,7 +459,16 @@ fun ChatProfileScreen(
                         }
                     }
                     if (!username.isNullOrBlank() && !username.equals(chat.senderName, ignoreCase = true)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val profileId = chat.otherUserId?.takeIf { it.isNotBlank() } ?: chat.id
+                                    onOpenProfile(profileId)
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
                             Icon(Icons.Default.AlternateEmail, null, tint = AppAccent, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(16.dp))
                             Column {

@@ -46,6 +46,7 @@ fun CallOverlay(
     val sessionId by GlobalCallState.activeSessionId.collectAsState()
     val isConnectionEstablished by GlobalCallState.isConnectionEstablished.collectAsState()
     val isRinging by GlobalCallState.isRinging.collectAsState()
+    val isAnswered by GlobalCallState.isAnswered.collectAsState()
     val durationSeconds by GlobalCallState.callDurationSeconds.collectAsState()
 
     AnimatedVisibility(
@@ -65,9 +66,9 @@ fun CallOverlay(
                 .background(Color.Black.copy(alpha = 0.95f))
         ) {
             if (activeCallType == CallType.VIDEO) {
-                VideoCallContent(participantName, isConnectionEstablished, isRinging, durationSeconds, callManager)
+                VideoCallContent(participantName, isConnectionEstablished, isRinging, isAnswered, durationSeconds, callManager)
             } else {
-                VoiceCallContent(participantName, isConnectionEstablished, isRinging, durationSeconds)
+                VoiceCallContent(participantName, isConnectionEstablished, isRinging, isAnswered, durationSeconds)
             }
 
             // Banner Ad (only before connection is established)
@@ -93,7 +94,7 @@ fun CallOverlay(
                 onEndCall = {
                     sessionId?.let { sid ->
                         participantId?.let { pid ->
-                            viewModel.callWebSocketClient.end(pid, sid, activeCallType ?: CallType.VOICE, 0)
+                            viewModel.callWebSocketClient.end(pid, sid, activeCallType ?: CallType.VOICE, GlobalCallState.callDurationSeconds.value)
                         }
                         GlobalCallState.onCallEnded(sid)
                     }
@@ -107,7 +108,7 @@ fun CallOverlay(
 }
 
 @Composable
-private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Boolean, durationSeconds: Int) {
+private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Boolean, isAnswered: Boolean, durationSeconds: Int) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -128,6 +129,7 @@ private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Bool
             when {
                 isConnected -> formatDuration(durationSeconds)
                 isRinging -> "Ringing..."
+                isAnswered -> "Connecting..."
                 else -> "Calling..."
             },
             color = Color.Gray,
@@ -137,7 +139,14 @@ private fun VoiceCallContent(name: String, isConnected: Boolean, isRinging: Bool
 }
 
 @Composable
-private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Boolean, durationSeconds: Int, callManager: WebRtcCallManager) {
+private fun VideoCallContent(
+    name: String,
+    isConnected: Boolean,
+    isRinging: Boolean,
+    isAnswered: Boolean,
+    durationSeconds: Int,
+    callManager: WebRtcCallManager
+) {
     var isLocalFullScreen by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -195,7 +204,11 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = if (isRinging) "Ringing $name..." else "Calling $name...",
+                        text = when {
+                            isRinging -> "Ringing $name..."
+                            isAnswered -> "Connecting..."
+                            else -> "Calling $name..."
+                        },
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold

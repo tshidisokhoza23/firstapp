@@ -653,20 +653,28 @@ fun ModernDateHeader(date: String) {
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun FullScreenVideoPlayer(uri: String, onBack: () -> Unit) {
     val context = LocalContext.current
-    val exoPlayer = remember {
+    val playerView = remember(uri) { mutableStateOf<androidx.media3.ui.PlayerView?>(null) }
+    val exoPlayer = remember(uri) {
         androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
             setMediaItem(androidx.media3.common.MediaItem.fromUri(Uri.parse(uri)))
+            repeatMode = androidx.media3.common.Player.REPEAT_MODE_OFF
             prepare()
             playWhenReady = true
         }
     }
 
-    DisposableEffect(Unit) {
+    LaunchedEffect(exoPlayer) {
+        com.tpsk.tj.media.ui.components.ActiveVideoPlayback.claim(exoPlayer)
+    }
+
+    DisposableEffect(exoPlayer) {
         onDispose {
-            exoPlayer.release()
+            com.tpsk.tj.media.ui.components.ActiveVideoPlayback.detachAndRelease(playerView.value, exoPlayer)
+            playerView.value = null
         }
     }
 
@@ -677,7 +685,12 @@ fun FullScreenVideoPlayer(uri: String, onBack: () -> Unit) {
                     player = exoPlayer
                     useController = true
                     setBackgroundColor(android.graphics.Color.BLACK)
+                    playerView.value = this
                 }
+            },
+            update = { view ->
+                if (view.player !== exoPlayer) view.player = exoPlayer
+                playerView.value = view
             },
             modifier = Modifier.fillMaxSize()
         )

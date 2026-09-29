@@ -126,6 +126,16 @@ object ShortsVideoCache {
         }
     }
 
+    @Synchronized
+    fun pauseAll() {
+        playerPool.values.forEach { player ->
+            runCatching {
+                player.playWhenReady = false
+                player.pause()
+            }
+        }
+    }
+
     fun preload(context: Context, urls: List<String>) {
         val cache = getCache(context)
         val httpFactory = DefaultHttpDataSource.Factory()

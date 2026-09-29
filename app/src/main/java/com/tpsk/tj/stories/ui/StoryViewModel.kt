@@ -115,10 +115,11 @@ class StoryViewModel @Inject constructor(
                                 }
                         }
                     } catch (e: Exception) {
-                        uploadError = if (e is VideoTooLargeException) {
-                            e.message ?: "Story video is too long or too large"
-                        } else {
-                            e.localizedMessage ?: "Upload timed out"
+                        if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                        uploadError = when (e) {
+                            is VideoTooLargeException -> e.message ?: "Story video is too long or too large"
+                            is TimeoutCancellationException -> "Upload timed out"
+                            else -> "Failed to upload story media"
                         }
                     } finally {
                         compressedFile?.delete()
@@ -146,7 +147,11 @@ class StoryViewModel @Inject constructor(
                         ).firstOrNull { it !is Resource.Loading }
                     }
                 } catch (e: Exception) {
-                    Resource.Error(e.localizedMessage ?: "Failed to post story")
+                    if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                    Resource.Error(
+                        if (e is TimeoutCancellationException) "Story posting timed out. Please try again."
+                        else "Failed to post story"
+                    )
                 }
 
                 if (result is Resource.Success) {

@@ -1591,8 +1591,12 @@ fun MediaPreviewOverlay(
                             LaunchedEffect(isMuted) {
                                 previewPlayer.volume = if (isMuted) 0f else 1f
                             }
+                            val previewView = remember(uri) { mutableStateOf<PlayerView?>(null) }
                             DisposableEffect(previewPlayer) {
-                                onDispose { previewPlayer.release() }
+                                onDispose {
+                                    com.tpsk.tj.media.ui.components.ActiveVideoPlayback.detachAndRelease(previewView.value, previewPlayer)
+                                    previewView.value = null
+                                }
                             }
                             AndroidView(
                                 factory = { viewContext ->
@@ -1601,8 +1605,10 @@ fun MediaPreviewOverlay(
                                         useController = true
                                         controllerShowTimeoutMs = 2500
                                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                        previewView.value = this
                                     }
                                 },
+                                update = { view -> previewView.value = view },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = 550.dp)
