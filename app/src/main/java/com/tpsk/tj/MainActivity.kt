@@ -146,12 +146,17 @@ class MainActivity : FragmentActivity() {
         
         val sessionId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID) ?: return
         val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID) ?: return
+        if (GlobalCallState.activeSessionId.value == sessionId || GlobalCallState.autoAcceptSessionId.value == sessionId) {
+            return
+        }
         val callType = if (intent.getStringExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE) == "video") {
             CallType.VIDEO
         } else {
             CallType.VOICE
         }
-        val callerName = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME) ?: ""
+        val callerName = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME)
+            ?: intent.getStringExtra("caller_name")
+            ?: ""
 
         GlobalCallState.onCallInvite(
             CallEvent(
@@ -251,6 +256,12 @@ class MainActivity : FragmentActivity() {
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
         printSigningHash()
+        if (intent?.getBooleanExtra("is_ongoing_call_return", false) == true) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            }
+        }
 
         // Initialize AdManager (Rule 1: Always init AdMob/MAX before usage)
         adManager.initialize(this)
@@ -513,6 +524,8 @@ class MainActivity : FragmentActivity() {
                         val openMingleNotif = intent?.getBooleanExtra("open_mingle_notif", false) ?: false
                         val openSocialNotif = intent?.getBooleanExtra("open_social_notif", false) ?: false
                         val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
+                        val callSessionId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID)
+                        val isOngoingCallReturn = intent?.getBooleanExtra("is_ongoing_call_return", false) ?: false
                         if (isLoggedIn) {
                             if (openMingleRequests) {
                                 navController.navigate(Screen.MingleMessageRequests.route) {
@@ -525,7 +538,7 @@ class MainActivity : FragmentActivity() {
                             } else if (openSocialNotif) {
                                 navController.navigate(Screen.SocialNotification.route) {
                                     launchSingleTop = true
-                                }
+                                }if (callSessionId == null && !isOngoingCallReturn) senderId else null
                             } else {
                                 val targetId = openChatId ?: senderId
                                 if (targetId != null) {
@@ -572,6 +585,12 @@ class MainActivity : FragmentActivity() {
         consumeIncomingCallIntent(intent)
         handleDeepLink(intent)
         printSigningHash()
+        if (intent.getBooleanExtra("is_ongoing_call_return", false)) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            }
+        }
         
         val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
         val isOngoingCallReturn = intent.getBooleanExtra("is_ongoing_call_return", false)
@@ -586,7 +605,8 @@ class MainActivity : FragmentActivity() {
             GlobalNavigation.navigateTo(route)
         }
 
-        if (senderId != null && sessionManager.isLoggedIn() && !isOngoingCallReturn) {
+        val callSessionId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID)
+        if (senderId != null && callSessionId == null && sessionManager.isLoggedIn() && !isOngoingCallReturn) {
             GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId, type = "initiate"))
         }
     }

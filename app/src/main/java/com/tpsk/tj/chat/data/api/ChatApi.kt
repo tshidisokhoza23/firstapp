@@ -121,6 +121,9 @@ interface ChatApi {
     @POST("calls/initiate")
     suspend fun initiateCall(@Body request: InitiateCallRequest): Response<InitiateCallResponse>
 
+    @GET("calls")
+    suspend fun getCallLogs(): Response<CallLogsResponse>
+
     @POST("chats/channels/{channelId}/subscribe")
     suspend fun subscribeToChannel(@Path("channelId") channelId: String): Response<StatusResponse>
 
@@ -355,17 +358,21 @@ data class ApiReader(
     val read_at: Long
 )
 
+data class CallLogsResponse(
+    val calls: List<ApiCallLog> = emptyList()
+)
+
 data class ApiCallLog(
-    val id: String,
-    val session_id: String,
-    val caller_id: String,
-    val callee_id: String,
-    val contact_id: String,
-    val contact_name: String,
-    val contact_avatar: String?,
-    val call_type: String,
-    val status: String,
-    val duration_seconds: Int,
-    val started_at: Long,
-    val ended_at: Long?
+    val id: String? = null,
+    val session_id: String? = null,
+    val caller_id: String? = null,
+    val callee_id: String? = null,
+    val contact_id: String? = null,
+    val contact_name: String? = null,
+    val contact_avatar: String? = null,
+    val call_type: String? = null,
+    val status: String? = null,
+    val duration_seconds: Int = 0,
+    val started_at: Long = 0L,
+    val ended_at: Long? = null
 )

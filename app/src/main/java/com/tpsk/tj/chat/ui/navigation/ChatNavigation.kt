@@ -622,12 +622,17 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                 navController.navigate(Screen.Chat.createRoute(chat.id, type = "direct"))
             },
             onCallSelect = { call ->
-            chatViewModel.startVoiceOrVideoCall(
-                receiverId = call.contactId ?: call.calleeId ?: call.callerId ?: "",
-                callType = com.tpsk.tj.chat.data.CallType.VOICE,
-                name = call.contactName ?: "Call"
-            )
-        },
+                val type = if (call.callType.equals("video", ignoreCase = true)) {
+                    com.tpsk.tj.chat.data.CallType.VIDEO
+                } else {
+                    com.tpsk.tj.chat.data.CallType.VOICE
+                }
+                chatViewModel.startVoiceOrVideoCall(
+                    receiverId = call.contactId.ifBlank { call.calleeId.ifBlank { call.callerId } },
+                    callType = type,
+                    name = call.contactName.ifBlank { "Call" }
+                )
+            },
             onNewDM = {
                 navController.navigate(Screen.ContactPicker.route)
             },

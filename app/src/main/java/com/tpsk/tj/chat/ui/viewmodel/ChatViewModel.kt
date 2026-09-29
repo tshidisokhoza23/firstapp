@@ -343,7 +343,14 @@ class ChatViewModel @Inject constructor(
                 if (resource is Resource.Success && resource.data != null) {
                     val sessionId = resource.data
                     GlobalCallState.setCallActive(true, sessionId, receiverId, callType)
-                    webRtcCallManager.start(callType)
+                    try {
+                        webRtcCallManager.start(callType)
+                    } catch (t: Throwable) {
+                        android.util.Log.e("ChatViewModel", "Call start failed", t)
+                        GlobalCallState.setCallActive(false, null, null, callType)
+                        _uiState.update { it.copy(error = "Couldn't start the call. No call was placed.") }
+                        return@collect
+                    }
                     callTonePlayer.playOutgoingRingtone()
                     callWebSocketClient.invite(receiverId, sessionId, callType)
                 } else if (resource is Resource.Error) {

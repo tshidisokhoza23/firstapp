@@ -359,15 +359,15 @@ fun CallLog.toEntity() = CallLogEntity(
 )
 
 fun mapApiCallLog(api: ApiCallLog) = CallLog(
-    id = api.id,
-    sessionId = api.session_id,
-    callerId = api.caller_id,
-    calleeId = api.callee_id,
-    contactId = api.contact_id,
-    contactName = api.contact_name,
+    id = api.id?.takeIf { it.isNotBlank() } ?: api.session_id.orEmpty(),
+    sessionId = api.session_id.orEmpty(),
+    callerId = api.caller_id.orEmpty(),
+    calleeId = api.callee_id.orEmpty(),
+    contactId = api.contact_id.orEmpty(),
+    contactName = api.contact_name.orEmpty(),
     contactAvatar = api.contact_avatar,
-    callType = api.call_type,
-    status = api.status,
+    callType = api.call_type?.ifBlank { "voice" } ?: "voice",
+    status = api.status.orEmpty(),
     durationSeconds = api.duration_seconds,
     timestamp = api.started_at,
     endedAt = api.ended_at?.toString()

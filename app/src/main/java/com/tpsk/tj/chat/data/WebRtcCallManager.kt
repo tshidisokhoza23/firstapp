@@ -30,6 +30,7 @@ import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.SurfaceViewRenderer
+import org.webrtc.VideoSink
 import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
 import java.util.concurrent.CopyOnWriteArrayList
@@ -59,8 +60,8 @@ class WebRtcCallManager(context: Context) {
     private var videoCapturer: CameraVideoCapturer? = null
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
 
-    private var localRenderer: SurfaceViewRenderer? = null
-    private var remoteRenderer: SurfaceViewRenderer? = null
+    private var localRenderer: VideoSink? = null
+    private var remoteRenderer: VideoSink? = null
     private var remoteAudioTrack: AudioTrack? = null
     private var iceServers: List<PeerConnection.IceServer>? = null
     private var audioDeviceModule: org.webrtc.audio.JavaAudioDeviceModule? = null
@@ -199,7 +200,7 @@ class WebRtcCallManager(context: Context) {
                 remoteVideoTrack = track
                 track.setEnabled(true)
                 remoteRenderer?.let { renderer ->
-                    renderer.setMirror(false)
+                    setRendererMirror(renderer, false)
                     track.addSink(renderer)
                 }
             }
@@ -216,7 +217,7 @@ class WebRtcCallManager(context: Context) {
                     remoteVideoTrack = track
                     track.setEnabled(true)
                     remoteRenderer?.let { renderer ->
-                        renderer.setMirror(false)
+                        setRendererMirror(renderer, false)
                         track.addSink(renderer)
                     }
                 } else if (track is AudioTrack) {
@@ -248,7 +249,7 @@ class WebRtcCallManager(context: Context) {
                 localVideoTrack = factory.createVideoTrack("video0", videoSource)
                 peerConnection?.addTrack(localVideoTrack, listOf(streamId))
                 localRenderer?.let { renderer ->
-                    renderer.setMirror(true)
+                    setRendererMirror(renderer, true)
                     localVideoTrack?.addSink(renderer)
                 }
             }
@@ -438,24 +439,15 @@ class WebRtcCallManager(context: Context) {
         videoCapturer?.switchCamera(null)
     }
 
-    fun attachLocalRenderer(renderer: SurfaceViewRenderer) {
+    fun attachLocalRenderer(renderer: VideoSink) {
         if (localRenderer == renderer) {
             localVideoTrack?.addSink(renderer)
             return
         }
-        
+
         localRenderer?.let { localVideoTrack?.removeSink(it) }
         localRenderer = renderer
-        try {
-            renderer.init(eglBase.eglBaseContext, null)
-            renderer.setEnableHardwareScaler(true)
-            renderer.setMirror(true)
-        } catch (e: Exception) {
-            if (e.message?.contains("already initialized") != true) {
-                Log.w("WebRtcCallManager", "Local renderer init info: ${e.message}")
-            }
-        }
-        
+        prepareRenderer(renderer, mirror = true)
         localVideoTrack?.setEnabled(true)
         localVideoTrack?.addSink(renderer)
     }
@@ -465,36 +457,57 @@ class WebRtcCallManager(context: Context) {
         localRenderer = null
     }
 
-    fun attachRemoteRenderer(renderer: SurfaceViewRenderer) {
+    fun attachRemoteRenderer(renderer: VideoSink) {
         if (remoteRenderer == renderer) {
             remoteVideoTrack?.addSink(renderer)
             return
         }
-        
-        observationScope.launch {
-            remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
-            remoteRenderer = renderer
-            try {
-                renderer.init(eglBase.eglBaseContext, null)
-                renderer.setEnableHardwareScaler(true)
-                renderer.setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                renderer.setMirror(false)
-            } catch (e: Exception) {
-                if (e.message?.contains("already initialized") != true) {
-                    Log.w("WebRtcCallManager", "Remote renderer init info: ${e.message}")
-                }
-            }
-            
-            remoteVideoTrack?.let { track ->
-                track.setEnabled(true)
-                track.addSink(renderer)
-            }
+
+        remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
+        remoteRenderer = renderer
+        prepareRenderer(renderer, mirror = false)
+        remoteVideoTrack?.let { track ->
+            track.setEnabled(true)
+            track.addSink(renderer)
         }
     }
 
     fun detachRemoteRenderer() {
         remoteRenderer?.let { remoteVideoTrack?.removeSink(it) }
         remoteRenderer = null
+    }
+
+    fun releaseRenderer(renderer: VideoSink) {
+        if (localRenderer == renderer) detachLocalRenderer()
+        if (remoteRenderer == renderer) detachRemoteRenderer()
+    }
+
+    private fun prepareRenderer(renderer: VideoSink, mirror: Boolean) {
+        when (renderer) {
+            is CallVideoRenderer -> {
+                renderer.init(eglBase.eglBaseContext)
+                renderer.setMirror(mirror)
+            }
+            is SurfaceViewRenderer -> {
+                try {
+                    renderer.init(eglBase.eglBaseContext, null)
+                    renderer.setEnableHardwareScaler(true)
+                    renderer.setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                    renderer.setMirror(mirror)
+                } catch (e: Exception) {
+                    if (e.message?.contains("already initialized") != true) {
+                        Log.w("WebRtcCallManager", "Renderer init info: ${e.message}")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setRendererMirror(renderer: VideoSink, mirror: Boolean) {
+        when (renderer) {
+            is CallVideoRenderer -> renderer.setMirror(mirror)
+            is SurfaceViewRenderer -> renderer.setMirror(mirror)
+        }
     }
 
     private fun requestAudioFocus() {

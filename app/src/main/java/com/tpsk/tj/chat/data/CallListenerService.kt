@@ -46,6 +46,7 @@ class CallListenerService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
     private var callTimeoutJob: Job? = null
     private var callDurationJob: Job? = null
+    private var incomingTimeoutJob: Job? = null
 
     private val telephonyManager by lazy { getSystemService(android.telephony.TelephonyManager::class.java) }
     
@@ -157,6 +158,7 @@ class CallListenerService : Service() {
                         GlobalCallState.onCallInvite(event)
                         showIncomingCallNotification(event)
                         callWebSocketClient.ringing(event.senderId, event.sessionId, event.callType)
+                        openIncomingCallScreen(event)
                     }
                 }
                 "call_ringing" -> {
@@ -205,20 +207,7 @@ class CallListenerService : Service() {
         super.onCreate()
         
         createChannels()
-        val ongoingNotification = buildOngoingNotification()
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
-                startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification, type)
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification, type)
-            } else {
-                startForeground(ONGOING_NOTIFICATION_ID, ongoingNotification)
-            }
-        } catch (e: Exception) {
-            Log.e("CallListenerService", "Failed to start foreground service", e)
-        }
+        startIdleForeground()
 
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
         connectivityManager?.registerDefaultNetworkCallback(networkCallback)
@@ -285,12 +274,23 @@ class CallListenerService : Service() {
 
         serviceScope.launch {
             GlobalCallState.incomingCall.collect { call ->
+                incomingTimeoutJob?.cancel()
                 if (call == null) {
                     val manager = getSystemService(NotificationManager::class.java)
                     activeIncomingNotifications.values.forEach { id ->
                         manager?.cancel(id)
                     }
                     activeIncomingNotifications.clear()
+                } else {
+                    val sessionId = call.sessionId
+                    incomingTimeoutJob = serviceScope.launch {
+                        delay(45_000)
+                        val still = GlobalCallState.incomingCall.value
+                        if (still?.sessionId == sessionId && !GlobalCallState.isCallActive.value) {
+                            callWebSocketClient.reject(still.senderId, sessionId, still.callType, "timeout")
+                            GlobalCallState.onCallEnded(sessionId)
+                        }
+                    }
                 }
             }
         }
@@ -435,16 +435,7 @@ class CallListenerService : Service() {
                 startForeground(ONGOING_NOTIFICATION_ID, n)
             }
         } else {
-            val n = buildOngoingNotification()
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
-                } else {
-                    startForeground(ONGOING_NOTIFICATION_ID, n)
-                }
-            } catch (e: Exception) {
-                Log.e("CallListenerService", "Failed to start idle foreground service", e)
-            }
+            startIdleForeground()
         }
     }
 
@@ -467,14 +458,52 @@ class CallListenerService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun buildOngoingNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_CALL_SERVICE)
+    private fun startIdleForeground() {
+        val quiet = buildIdleNotification(CHANNEL_CALL_SERVICE_QUIET, NotificationCompat.PRIORITY_MIN)
+        try {
+            startIdleForeground(quiet)
+            return
+        } catch (e: Exception) {
+            Log.w("CallListenerService", "Quiet idle notification rejected, using fallback", e)
+        }
+        try {
+            startIdleForeground(buildIdleNotification(CHANNEL_CALL_SERVICE, NotificationCompat.PRIORITY_LOW))
+        } catch (e: Exception) {
+            Log.e("CallListenerService", "Failed to start idle foreground service", e)
+        }
+    }
+
+    private fun startIdleForeground(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                ONGOING_NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                ONGOING_NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            startForeground(ONGOING_NOTIFICATION_ID, notification)
+        }
+    }
+
+    private fun buildIdleNotification(channelId: String, priority: Int): Notification {
+        return NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("TJ call service")
-            .setContentText("Listening for incoming calls")
-            .setPriority(NotificationCompat.PRIORITY_LOW) // Changed from MIN for vendor stability
+            .setContentTitle("TJ")
+            .setContentText("Calls")
+            .setPriority(priority)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_DEFERRED)
             .build()
     }
 
@@ -541,13 +570,56 @@ class CallListenerService : Service() {
                 NotificationCompat.CallStyle.forIncomingCall(
                     caller,
                     actionIntent(CallNotificationActionReceiver.ACTION_DECLINE),
-                    actionIntent(CallNotificationActionReceiver.ACTION_ACCEPT)
+                    acceptActivityIntent(event, callerName, callTypeStr, notificationId)
                 )
             )
             .build()
 
         val manager = getSystemService(NotificationManager::class.java)
         manager?.notify(notificationId, notification)
+    }
+
+    private fun openIncomingCallScreen(event: CallEvent) {
+        val callTypeStr = if (event.callType == CallType.VIDEO) "video" else "voice"
+        val callerName = event.senderName.takeIf { it.isNotBlank() && it != event.senderId }
+            ?: GlobalCallState.getContactName(event.senderId)
+            ?: ""
+        val intent = Intent(this, com.tpsk.tj.IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, event.sessionId)
+            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, event.senderId)
+            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME, callerName)
+            putExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE, callTypeStr)
+            putExtra(CallNotificationActionReceiver.EXTRA_NOTIF_ID, event.sessionId.hashCode())
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.d("CallListenerService", "Incoming screen deferred to full-screen intent: ${e.message}")
+        }
+    }
+
+    private fun acceptActivityIntent(
+        event: CallEvent,
+        callerName: String,
+        callTypeStr: String,
+        notificationId: Int
+    ): PendingIntent {
+        val accept = Intent(this, com.tpsk.tj.IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, event.sessionId)
+            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, event.senderId)
+            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME, callerName)
+            putExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE, callTypeStr)
+            putExtra(CallNotificationActionReceiver.EXTRA_NOTIF_ID, notificationId)
+            putExtra("auto_accept", true)
+        }
+        return PendingIntent.getActivity(
+            this,
+            (event.sessionId + "_accept").hashCode(),
+            accept,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun dismissIncomingCallNotification(sessionId: String) {
@@ -563,7 +635,22 @@ class CallListenerService : Service() {
 
         val manager = getSystemService(NotificationManager::class.java) ?: return
 
-        // FIX: Use IMPORTANCE_LOW. Vendor OSes (Huawei/Xiaomi) often reject Foreground Services with MIN priority.
+        // Quiet channel keeps the listener alive without a shade alert.
+        // A new id is required because Android will not lower an existing channel.
+        val quietChannel = NotificationChannel(
+            CHANNEL_CALL_SERVICE_QUIET,
+            "Call listener",
+            NotificationManager.IMPORTANCE_MIN
+        )
+        quietChannel.description = "Keeps incoming calls connected"
+        quietChannel.setShowBadge(false)
+        quietChannel.setSound(null, null)
+        quietChannel.enableVibration(false)
+        quietChannel.enableLights(false)
+        quietChannel.lockscreenVisibility = Notification.VISIBILITY_SECRET
+        manager.createNotificationChannel(quietChannel)
+
+        // Fallback only. Some vendor OSes reject a min-importance foreground service.
         val serviceChannel = NotificationChannel(
             CHANNEL_CALL_SERVICE,
             "System Service",
@@ -571,6 +658,8 @@ class CallListenerService : Service() {
         )
         serviceChannel.description = "Background connectivity"
         serviceChannel.setShowBadge(false)
+        serviceChannel.setSound(null, null)
+        serviceChannel.enableVibration(false)
         manager.createNotificationChannel(serviceChannel)
 
         val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
@@ -604,6 +693,7 @@ class CallListenerService : Service() {
 
     companion object {
         private const val CHANNEL_CALL_SERVICE = "call_service"
+        private const val CHANNEL_CALL_SERVICE_QUIET = "call_service_quiet"
         private const val CHANNEL_INCOMING_CALLS = "incoming_calls"
         private const val CHANNEL_ONGOING_CALLS = "ongoing_calls"
         private const val ONGOING_NOTIFICATION_ID = 9001

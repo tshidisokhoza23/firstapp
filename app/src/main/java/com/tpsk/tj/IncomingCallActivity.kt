@@ -55,16 +55,17 @@ class IncomingCallActivity : ComponentActivity() {
             )
         }
 
-        val sessionId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID)
-        val senderId  = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID) ?: ""
-        val callTypeStr = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE) ?: "voice"
-        val notifId   = intent.getIntExtra(CallNotificationActionReceiver.EXTRA_NOTIF_ID, 0)
-        val callType  = if (callTypeStr == "video") CallType.VIDEO else CallType.VOICE
+        if (openCallFromIntent(intent)) return
 
         setContent {
             TJTheme {
 
                 val incomingCall by GlobalCallState.incomingCall.collectAsState()
+                val senderId = incomingCall?.senderId.orEmpty()
+                val sessionId = incomingCall?.sessionId
+                val callType = incomingCall?.callType ?: CallType.VOICE
+                val callTypeStr = if (callType == CallType.VIDEO) "video" else "voice"
+                val notifId = intent.getIntExtra(CallNotificationActionReceiver.EXTRA_NOTIF_ID, 0)
                 val callerName = remember(incomingCall, senderId) {
                     incomingCall?.senderName?.takeIf { it.isNotBlank() && !it.startsWith("User ") && it.length < 30 }
                         ?: GlobalCallState.getContactName(senderId)
@@ -162,9 +163,7 @@ class IncomingCallActivity : ComponentActivity() {
                                         }
                                         val mainIntent = Intent(this@IncomingCallActivity, MainActivity::class.java).apply {
                                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                                            if (sessionId != null) putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, sessionId)
-                                            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, senderId)
-                                            putExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE, callTypeStr)
+                                            putExtra("is_ongoing_call_return", true)
                                         }
                                         startActivity(mainIntent)
                                         finish()
@@ -188,5 +187,58 @@ class IncomingCallActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (openCallFromIntent(intent)) return
+    }
+
+    private fun openCallFromIntent(intent: Intent?): Boolean {
+        val sessionId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID) ?: return false
+        val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID) ?: return false
+        val callTypeStr = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE) ?: "voice"
+        val callType = if (callTypeStr == "video") CallType.VIDEO else CallType.VOICE
+        val callerName = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME)
+            ?: intent.getStringExtra("caller_name")
+            ?: ""
+
+        GlobalCallState.onCallInvite(
+            CallEvent(
+                type = "call_invite",
+                senderId = senderId,
+                receiverId = "",
+                sessionId = sessionId,
+                callType = callType,
+                senderName = callerName
+            )
+        )
+
+        if (!intent.getBooleanExtra("auto_accept", false)) return false
+
+        GlobalCallState.setAutoAccept(sessionId)
+        try {
+            GlobalCallState.acceptCall(
+                CallEvent(
+                    type = "call_invite",
+                    senderId = senderId,
+                    receiverId = "",
+                    sessionId = sessionId,
+                    callType = callType,
+                    senderName = callerName
+                ),
+                webRtcCallManager,
+                callWebSocketClient
+            )
+        } catch (t: Throwable) {
+            android.util.Log.e("IncomingCallActivity", "Accept failed", t)
+        }
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("is_ongoing_call_return", true)
+        })
+        finish()
+        return true
     }
 }

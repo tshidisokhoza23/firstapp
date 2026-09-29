@@ -6,9 +6,11 @@ import com.tpsk.tj.chat.data.local.dao.CallLogDao
 import com.tpsk.tj.chat.data.local.dao.ChatDao
 import com.tpsk.tj.chat.data.local.dao.ContactDao
 import com.tpsk.tj.chat.data.local.entity.ChatEntity
+import com.tpsk.tj.chat.data.repository.mapApiCallLog
 import com.tpsk.tj.chat.data.repository.mapApiChatSummary
 import com.tpsk.tj.chat.data.repository.toEntity
 import com.tpsk.tj.chat.data.repository.toModel
+import com.tpsk.tj.common.domain.auth.SessionManager
 import com.tpsk.tj.chat.model.CallLog
 import com.tpsk.tj.chat.model.ChatMessage
 import com.tpsk.tj.common.data.realtime.WebSocketManager
@@ -35,7 +37,8 @@ class DirectRepositoryImpl @Inject constructor(
     private val callLogDao: CallLogDao,
     private val contactDao: ContactDao,
     private val webSocketManager: WebSocketManager,
-    private val displayNameResolver: DisplayNameResolver
+    private val displayNameResolver: DisplayNameResolver,
+    private val sessionManager: SessionManager
 ) : DirectRepository {
 
     override fun observeDirectChats(): Flow<Resource<List<ChatMessage>>> = flow {
@@ -69,8 +72,50 @@ class DirectRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun observeCallLogs(): Flow<Resource<List<CallLog>>> =
-        callLogDao.getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }
+    override fun observeCallLogs(): Flow<Resource<List<CallLog>>> = flow {
+        val cached = callLogDao.getCallLogsOnce()
+        emit(if (cached.isNotEmpty()) Resource.Loading(cached.map { it.toModel() }) else Resource.Loading())
+        syncCallLogs()
+        emitAll(callLogDao.getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) })
+    }
+
+    private suspend fun syncCallLogs() {
+        try {
+            val response = chatApi.getCallLogs()
+            if (!response.isSuccessful) return
+            val me = sessionManager.getUserId().orEmpty()
+            val logs = response.body()?.calls.orEmpty().mapNotNull { api ->
+                val mapped = mapApiCallLog(api)
+                if (mapped.id.isBlank() || mapped.sessionId.isBlank()) return@mapNotNull null
+                val otherId = when {
+                    me.isNotBlank() && mapped.callerId == me -> mapped.calleeId
+                    me.isNotBlank() && mapped.calleeId == me -> mapped.callerId
+                    mapped.contactId.isNotBlank() -> mapped.contactId
+                    else -> mapped.calleeId.ifBlank { mapped.callerId }
+                }
+                val contact = if (otherId.isBlank()) null else contactDao.getContactById(otherId)
+                val name = mapped.contactName.ifBlank {
+                    contact?.displayName?.takeIf { it.isNotBlank() }
+                        ?: contact?.username?.takeIf { it.isNotBlank() }
+                        ?: "Unknown"
+                }
+                val status = when (mapped.status.lowercase()) {
+                    "missed", "rejected" -> "missed"
+                    else -> if (me.isNotBlank() && mapped.callerId == me) "outgoing" else "incoming"
+                }
+                mapped.copy(
+                    contactId = otherId,
+                    contactName = name,
+                    contactAvatar = mapped.contactAvatar ?: contact?.avatarUrl,
+                    status = status
+                )
+            }
+            callLogDao.clearCallLogs()
+            if (logs.isNotEmpty()) callLogDao.insertCallLogs(logs.map { it.toEntity() })
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+        }
+    }
 
     override suspend fun initiateDM(contactId: String): Flow<Resource<String>> = flow {
         emit(Resource.Loading())

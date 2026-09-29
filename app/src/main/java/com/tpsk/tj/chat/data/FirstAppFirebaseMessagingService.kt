@@ -46,6 +46,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         serviceScope.launch {
             when (type) {
                 "call_invite" -> handleIncomingCall(data)
+                "call_end", "call_reject" -> handleCallEnded(data)
                 "new_message" -> {
                     val rawType = data["chat_type"] ?: "direct"
                     val isEnabled = when (rawType.lowercase()) {
@@ -210,24 +211,24 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
 
         createIncomingCallsChannel()
 
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, sessionId)
             putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, senderId)
+            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME, callerName)
             putExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE, callType)
+            putExtra(CallNotificationActionReceiver.EXTRA_NOTIF_ID, sessionId.hashCode())
             putExtra("caller_name", callerName)
         }
-        val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, sessionId)
-            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, senderId)
-            putExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE, callType)
-            putExtra("caller_name", callerName)
+        try {
+            startActivity(fullScreenIntent)
+        } catch (_: Exception) {
+            // Android blocks background activity starts. The full-screen intent below still opens the call screen.
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
             sessionId.hashCode(),
-            launchIntent,
+            fullScreenIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -264,11 +265,35 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setContentIntent(pendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", actionIntent(CallNotificationActionReceiver.ACTION_DECLINE))
-            .addAction(android.R.drawable.ic_menu_call, "Accept", actionIntent(CallNotificationActionReceiver.ACTION_ACCEPT))
+            .addAction(android.R.drawable.ic_menu_call, "Accept", acceptActivityIntent(sessionId, senderId, callerName, callType))
             .build()
 
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(sessionId.hashCode(), notification)
+    }
+
+    private fun acceptActivityIntent(sessionId: String, senderId: String, callerName: String, callType: String): PendingIntent {
+        val accept = Intent(this, IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID, sessionId)
+            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID, senderId)
+            putExtra(CallNotificationActionReceiver.EXTRA_SENDER_NAME, callerName)
+            putExtra(CallNotificationActionReceiver.EXTRA_CALL_TYPE, callType)
+            putExtra(CallNotificationActionReceiver.EXTRA_NOTIF_ID, sessionId.hashCode())
+            putExtra("auto_accept", true)
+        }
+        return PendingIntent.getActivity(
+            this,
+            (sessionId + "_accept").hashCode(),
+            accept,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun handleCallEnded(data: Map<String, String>) {
+        val sessionId = data["session_id"] ?: return
+        getSystemService(NotificationManager::class.java)?.cancel(sessionId.hashCode())
+        GlobalCallState.onCallEnded(sessionId)
     }
 
     private suspend fun handleNewMessage(data: Map<String, String>) {

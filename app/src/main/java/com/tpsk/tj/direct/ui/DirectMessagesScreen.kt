@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallMissed
 import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -46,16 +47,13 @@ fun DirectMessagesScreen(
     onNewDM: () -> Unit,
     viewModel: DirectMessagesViewModel
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val chatsResource by viewModel.chats.collectAsState()
     val callsResource by viewModel.calls.collectAsState()
-    val chats = chatsResource.data ?: emptyList()
     val calls = callsResource.data ?: emptyList()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Direct Messages", fontWeight = FontWeight.Bold) },
+                title = { Text("Calls", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -74,57 +72,11 @@ fun DirectMessagesScreen(
                 )
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNewDM,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape
-            ) {
-                Icon(if (selectedTab == 0) Icons.AutoMirrored.Filled.Chat else Icons.Default.Add, contentDescription = "New")
-            }
-        },
+        floatingActionButton = {},
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.background,
-                contentColor = MaterialTheme.colorScheme.primary,
-                indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { 
-                        Text(
-                            "Messages", 
-                            color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        ) 
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { 
-                        Text(
-                            "Calls", 
-                            color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        ) 
-                    }
-                )
-            }
-
-            if (selectedTab == 0) {
-                DMList(chats = chats, onChatSelect = onChatSelect)
-            } else {
-                CallList(calls = calls, onCallSelect = onCallSelect)
-            }
+            CallList(calls = calls, onCallSelect = onCallSelect)
         }
     }
 }
@@ -229,8 +181,9 @@ fun CallItem(call: CallLog, onClick: () -> Unit) {
             Text(call.contactName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = when(call.status) {
+                    imageVector = when (call.status) {
                         "missed" -> Icons.AutoMirrored.Filled.CallMissed
+                        "outgoing" -> Icons.AutoMirrored.Filled.CallMade
                         else -> Icons.AutoMirrored.Filled.CallReceived
                     },
                     contentDescription = null,
@@ -241,10 +194,10 @@ fun CallItem(call: CallLog, onClick: () -> Unit) {
                 Text(formatWhatsAppTime(call.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
         }
-        IconButton(onClick = { /* Start call */ }) {
+        IconButton(onClick = onClick) {
             Icon(
-                imageVector = if (call.callType == "video") Icons.Default.VideoCall else Icons.Default.Call,
-                contentDescription = null,
+                imageVector = if (call.callType.equals("video", ignoreCase = true)) Icons.Default.VideoCall else Icons.Default.Call,
+                contentDescription = "Call back",
                 tint = MaterialTheme.colorScheme.primary
             )
         }

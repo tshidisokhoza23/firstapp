@@ -65,8 +65,12 @@
 -dontwarn androidx.media3.**
 
 # 8. WebRTC & Call Services
+# Release crashes in JNI_OnLoad with SIGTRAP if R8 removes org.jni_zero.JniInit.
+# Native code looks that class up by name. A missing class aborts the process.
+-keep class org.jni_zero.** { *; }
 -keep class org.webrtc.** { *; }
 -dontwarn org.webrtc.**
+-dontwarn org.jni_zero.**
 
 # 9. Firebase & Google Play Services / AdMob
 -keep class com.google.firebase.** { *; }
