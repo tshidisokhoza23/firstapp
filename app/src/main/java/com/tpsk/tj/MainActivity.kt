@@ -538,7 +538,7 @@ class MainActivity : FragmentActivity() {
                             } else if (openSocialNotif) {
                                 navController.navigate(Screen.SocialNotification.route) {
                                     launchSingleTop = true
-                                }if (callSessionId == null && !isOngoingCallReturn) senderId else null
+                                }
                             } else {
                                 val targetId = openChatId ?: senderId
                                 if (targetId != null) {
