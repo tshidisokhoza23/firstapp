@@ -55,19 +55,20 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
                         "channel" -> settingsRepository.channelsEnabled.first()
                         else -> settingsRepository.privateChatsEnabled.first()
                     }
-                    if (isEnabled) handleNewMessage(data)
+                    if (isEnabled && !isAppInForeground()) handleNewMessage(data)
                 }
                 "new_story" -> {
                     storyRepository.syncStories()
+                    if (!isAppInForeground()) handleStoryNotification(data)
                 }
                 "new_chat" -> {
-                    if (settingsRepository.privateChatsEnabled.first()) handleNewChat(data)
+                    if (settingsRepository.privateChatsEnabled.first() && !isAppInForeground()) handleNewChat(data)
                 }
                 "mingle_like", "mingle_match", "mingle", "mingle_intro" -> {
-                    handleMingleNotification(data)
+                    if (!isAppInForeground()) handleMingleNotification(data)
                 }
                 "social_like", "social_comment", "social_follow", "social_notification", "social" -> {
-                    handleSocialNotification(data)
+                    if (!isAppInForeground()) handleSocialNotification(data)
                 }
             }
         }
@@ -82,6 +83,8 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("open_social_notif", true)
+            data["post_id"]?.let { putExtra("open_post_id", it) }
+            data["actor_id"]?.let { putExtra("open_actor_id", it) }
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -118,7 +121,8 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (isRequest) {
                 putExtra("open_mingle_requests", true)
-            } else {
+            }
+            data["actor_id"]?.let { putExtra("open_actor_id", it) } else {
                 putExtra("open_mingle_notif", true)
             }
         }
@@ -159,6 +163,7 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("open_chat_id", conversationId)
+            putExtra("open_chat_type", data["chat_type"] ?: "direct")
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -180,6 +185,40 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         manager.notify(conversationId.hashCode(), notification)
     }
 
+    private fun handleStoryNotification(data: Map<String, String>) {
+        val userId = data["user_id"] ?: data["actor_id"] ?: return
+        val storyId = data["story_id"]
+        createMessagesChannel()
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_story_id", storyId)
+            putExtra("open_user_id", userId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            userId.hashCode(),
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(data["title"] ?: "New story")
+            .setContentText(data["body"] ?: "Someone posted a story")
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(userId.hashCode(), notification)
+    }
+
+    private fun isAppInForeground(): Boolean {
+        val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        val processes = manager.runningAppProcesses ?: return false
+        return processes.any {
+            it.processName == packageName &&
+                it.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        }
+    }
+
     private fun handleIncomingCall(data: Map<String, String>) {
         val callType = data["call_type"] ?: "voice"
         val callerName = data["caller_name"] ?: "Incoming call"
@@ -191,7 +230,10 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         // Start CallListenerService to ensure WebSocket connection for signaling
         val serviceIntent = Intent(this, CallListenerService::class.java)
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {.apply {
+            putExtra(CallListenerService.EXTRA_INCOMING_CALL, true)
+            putExtra(CallListenerService.EXTRA_CALLER_NAME, callerName)
+        }
                 startForegroundService(serviceIntent)
             } else {
                 startService(serviceIntent)

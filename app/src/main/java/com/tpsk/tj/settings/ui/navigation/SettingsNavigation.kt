@@ -76,6 +76,7 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, onLogout:
             onNavigateToChat = { _ ->
                 // Alerts must not open a Mingle chat from a contact id.
             },
+            onOpenActivity = { navController.navigate(Screen.MingleNotification.route) },
             viewModel = notificationViewModel
         )
     }

@@ -37,7 +37,7 @@ object AdUnitConfig {
     /**
      * Native Ad Unit ID for Vertical Shorts
      */
-    val NATIVE_SHORTS_ID: String get() = if (isRealAdEnvironment) "ca-app-pub-4322207563956922/1859507960" else "ca-app-pub-3940256099942544/2247696110"
+    val NATIVE_SHORTS_ID: String get() = if (isRealAdEnvironment) "ca-app-pub-4322207563956922/1859507960" else "ca-app-pub-3940256099942544/1044960115"
 
     /**
      * Rewarded Ad Unit ID for Earning Points

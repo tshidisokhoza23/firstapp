@@ -171,26 +171,28 @@ class MediaViewModel @Inject constructor(
                 _adsLoaded.value = true
                 return@launch
             }
+            // Visible post/short slots load their own native ad and destroy it when
+            // they leave the screen. Preloading a batch and rebinding those objects
+            // into recycled Compose views blanks the media and burns the fill.
             adManager.loadNativeAds(
                 context = context,
                 adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
-                count = 8, // 30 posts / 4 = 7.5 -> 8 ads
+                count = 2,
                 onAdsLoaded = { ads ->
-                    android.util.Log.d("MediaViewModel", "Successfully preloaded ${ads.size} native ads")
                     _preloadedAds.value = ads
                     _adsLoaded.value = true
                 },
-                onAdFailed = { error ->
-                    android.util.Log.e("MediaViewModel", "Native ad preload failed: $error")
-                    _adsLoaded.value = true // Continue anyway
+                onAdFailed = {
+                    _adsLoaded.value = true
                 }
             )
             adManager.loadNativeAds(
                 context = context,
                 adUnitId = AdUnitConfig.NATIVE_SHORTS_ID,
-                count = 8,
+                count = 2,
                 onAdsLoaded = { ads -> _preloadedShortAds.value = ads },
-                onAdFailed = { _preloadedShortAds.value = emptyList() }
+                onAdFailed = { _preloadedShortAds.value = emptyList() },
+                portrait = true
             )
         }
     }

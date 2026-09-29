@@ -170,7 +170,7 @@ class ChannelRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun createChannel(name: String, description: String, avatarUrl: String?): Flow<Resource<Boolean>> = flow {
+    override fun createChannel(name: String, description: String, avatarUrl: String?): Flow<Resource<Channel>> = flow {
         emit(Resource.Loading())
         try {
             val response = channelApi.createChannel(
@@ -211,7 +211,11 @@ class ChannelRepositoryImpl @Inject constructor(
                     put("avatar_url", avatarUrl)
                 })
             }
-            emit(Resource.Success(true))
+            if (created == null) {
+                emit(Resource.Error("Channel was created but could not be opened"))
+                return@flow
+            }
+            emit(Resource.Success(created))
             runCatching { syncChannels() }
         } catch (e: Exception) {
             if (e is CancellationException) throw e

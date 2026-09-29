@@ -91,7 +91,7 @@ fun MediaGrid(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 200.dp, max = 500.dp)
+                            .heightIn(min = 280.dp, max = 540.dp)
                             .clip(shape)
                             .background(Color.Black)
                             .clickable { onMediaClick(urlString) },
@@ -108,7 +108,7 @@ fun MediaGrid(
                         Icon(
                             imageVector = Icons.Default.PlayCircle,
                             contentDescription = null,
-                            modifier = Modifier.size(48.dp).align(Alignment.Center),
+                            modifier = Modifier.size(56.dp).align(Alignment.Center),
                             tint = Color.White.copy(alpha = 0.85f)
                         )
                     }
@@ -128,7 +128,8 @@ fun MediaGrid(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
+                            .heightIn(min = 280.dp, max = 520.dp)
+                            .aspectRatio(4f / 3f)
                             .clip(shape)
                             .background(Color.DarkGray.copy(alpha = 0.2f))
                     ) {
@@ -149,7 +150,7 @@ fun MediaGrid(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp),
+                        .height(280.dp),
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     urls.take(2).forEach { rawUrl ->
@@ -174,7 +175,7 @@ fun MediaGrid(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp),
+                        .height(300.dp),
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     val url0 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[0]) ?: urls[0]
@@ -217,12 +218,12 @@ fun MediaGrid(
                 }
             }
             else -> {
-                // 4 or more images: 2x2 grid preview layout with +N badge for >4 images
+                // 4 or more images: 2x2 grid preview layout (maximum 4 images displayed) with +N badge for >4 images
                 val extraCount = urls.size - 4
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(260.dp),
+                        .height(320.dp),
                     verticalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     Row(
@@ -296,7 +297,7 @@ fun MediaGrid(
                                     Text(
                                         text = "+$extraCount",
                                         color = Color.White,
-                                        fontSize = 20.sp,
+                                        fontSize = 22.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }

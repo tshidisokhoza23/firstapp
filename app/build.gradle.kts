@@ -166,6 +166,7 @@ dependencies {
     implementation(libs.google.maps.services)
     implementation(libs.coil.compose)
     implementation("io.coil-kt:coil-video:2.5.0")
+    implementation("io.coil-kt:coil-gif:2.5.0")
     implementation(libs.media3.exoplayer)
     implementation("androidx.media3:media3-transformer:1.2.1")
     implementation("androidx.media3:media3-effect:1.2.1")

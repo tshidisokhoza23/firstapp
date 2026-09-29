@@ -72,6 +72,16 @@ class PrivacySettingsViewModel @Inject constructor(
         }
     }
 
+    fun blockUser(userId: String) {
+        viewModelScope.launch {
+            repository.blockUser(userId).collect {
+                if (it is Resource.Success) {
+                    fetchBlockedUsers()
+                }
+            }
+        }
+    }
+
     fun unblockUser(userId: String) {
         viewModelScope.launch {
             repository.unblockUser(userId).collect {

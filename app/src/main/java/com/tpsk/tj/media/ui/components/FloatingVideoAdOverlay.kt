@@ -84,36 +84,12 @@ fun FloatingVideoAdOverlay(
                     .padding(8.dp),
                 factory = { ctx ->
                     val view = LayoutInflater.from(ctx).inflate(R.layout.item_short_native_ad, null) as NativeAdView
-                    
-                    view.headlineView = view.findViewById(R.id.ad_headline)
-                    view.bodyView = view.findViewById(R.id.ad_body)
-                    view.callToActionView = view.findViewById(R.id.ad_call_to_action)
-                    view.iconView = view.findViewById(R.id.ad_app_icon)
-                    view.advertiserView = view.findViewById(R.id.ad_advertiser)
-                    view.mediaView = view.findViewById(R.id.ad_media)
-                    
+                    com.tpsk.tj.common.ui.components.prepareNativeAdView(view, fillParent = false)
                     view
                 },
                 update = { view ->
                     val ad = nativeAd
-                    if (ad != null) {
-                        val headline = ad.headline
-                        if (headline != null) (view.headlineView as? TextView)?.text = headline
-                        
-                        val body = ad.body
-                        if (body != null) (view.bodyView as? TextView)?.text = body
-                        
-                        val cta = ad.callToAction
-                        if (cta != null) (view.callToActionView as? Button)?.text = cta
-                        
-                        val icon = ad.icon
-                        if (icon != null) (view.iconView as? ImageView)?.setImageDrawable(icon.drawable)
-                        
-                        val advertiser = ad.advertiser
-                        if (advertiser != null) (view.advertiserView as? TextView)?.text = advertiser
-                        
-                        view.setNativeAd(ad)
-                    }
+                    if (ad != null) com.tpsk.tj.common.ui.components.bindNativeAd(view, ad)
                 }
             )
 

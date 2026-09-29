@@ -159,7 +159,7 @@ fun SettingsScreen(
                     )
 
                     val phoneVal = user?.phoneNumber?.takeIf { it.isNotBlank() }
-                    val locVal = user?.location?.takeIf { it.isNotBlank() } ?: "Pretoria, SA"
+                    val locVal = user?.location?.takeIf { it.isNotBlank() } ?: "Add location"
                     val phoneLocLine = listOfNotNull(phoneVal, locVal).joinToString(" • ")
 
                     if (phoneLocLine.isNotBlank()) {

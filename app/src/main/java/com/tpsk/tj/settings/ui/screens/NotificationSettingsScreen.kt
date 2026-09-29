@@ -38,6 +38,7 @@ import com.tpsk.tj.settings.ui.viewmodel.NotificationSettingsViewModel
 fun NotificationSettingsScreen(
     onBack: () -> Unit,
     onNavigateToChat: (String) -> Unit = {},
+    onOpenActivity: () -> Unit = {},
     viewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableIntStateOf(1) } // 0: Activity, 1: Preferences
@@ -122,10 +123,13 @@ fun NotificationSettingsScreen(
                         if (mingleNotifications.isEmpty()) {
                             item {
                                 Text(
-                                    "No activity here. Likes and matches stay in Mingle.",
+                                    "Likes and matches stay in Mingle.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 24.dp)
                                 )
+                                TextButton(onClick = onOpenActivity, modifier = Modifier.padding(top = 8.dp)) {
+                                    Text("Open Mingle activity")
+                                }
                             }
                         }
                         items(mingleNotifications, key = { it.id }) { item ->

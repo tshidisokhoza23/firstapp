@@ -57,8 +57,13 @@ class SocialRepositoryImpl @Inject constructor(
         // real user id arrives; holding that instance crashes the social tab.
         val pagingSourceFactory = { appDatabaseProvider.get().postDao().getPostsPaging(finalFeedType) }
         
+        val isShorts = feedType == "shorts"
         return Pager(
-            config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+            config = if (isShorts) {
+                PagingConfig(pageSize = 6, initialLoadSize = 6, prefetchDistance = 2, enablePlaceholders = false)
+            } else {
+                PagingConfig(pageSize = 20, initialLoadSize = 20, prefetchDistance = 10, enablePlaceholders = false)
+            },
             remoteMediator = PostRemoteMediator(
                 socialApi = socialApi,
                 databaseProvider = { appDatabaseProvider.get() },

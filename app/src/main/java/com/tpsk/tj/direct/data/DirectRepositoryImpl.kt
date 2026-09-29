@@ -94,10 +94,11 @@ class DirectRepositoryImpl @Inject constructor(
                     else -> mapped.calleeId.ifBlank { mapped.callerId }
                 }
                 val contact = if (otherId.isBlank()) null else contactDao.getContactById(otherId)
+                if (mapped.status.equals("ongoing", ignoreCase = true)) return@mapNotNull null
                 val name = mapped.contactName.ifBlank {
                     contact?.displayName?.takeIf { it.isNotBlank() }
                         ?: contact?.username?.takeIf { it.isNotBlank() }
-                        ?: "Unknown"
+                        ?: return@mapNotNull null
                 }
                 val status = when (mapped.status.lowercase()) {
                     "missed", "rejected" -> "missed"

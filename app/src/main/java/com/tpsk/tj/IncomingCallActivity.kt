@@ -5,8 +5,11 @@ import android.app.KeyguardManager
 import android.os.Build
 import android.os.Bundle
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import com.tpsk.tj.chat.data.*
 import com.tpsk.tj.common.ui.theme.TJTheme
 
@@ -73,21 +78,64 @@ class IncomingCallActivity : ComponentActivity() {
                         ?: ""
                 }
                 val callLabel = if (callType == CallType.VIDEO) "Incoming video call" else "Incoming voice call"
+                var cameraGranted by remember {
+                    mutableStateOf(
+                        ContextCompat.checkSelfPermission(
+                            this@IncomingCallActivity,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+                    )
+                }
+                val cameraPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission()
+                ) { granted -> cameraGranted = granted }
 
                 // If the call was cancelled while this screen was open, close ourselves
                 LaunchedEffect(incomingCall) {
-                    if (incomingCall == null) finish()
+                    if (incomingCall == null && !GlobalCallState.isCallActive.value) finish()
+                }
+                LaunchedEffect(callType) {
+                    if (callType == CallType.VIDEO && !cameraGranted) {
+                        cameraPermission.launch(Manifest.permission.CAMERA)
+                    }
+                }
+                DisposableEffect(callType, cameraGranted) {
+                    if (callType == CallType.VIDEO && cameraGranted) {
+                        webRtcCallManager.startLocalPreview()
+                    }
+                    onDispose {
+                        if (!GlobalCallState.isCallActive.value) {
+                            webRtcCallManager.stopLocalPreview()
+                        }
+                    }
                 }
 
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFF0D0D0D)),
-                    contentAlignment = Alignment.Center
+                        .background(Color(0xFF0D0D0D))
                 ) {
+                    if (callType == CallType.VIDEO && cameraGranted) {
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { context ->
+                                CallVideoRenderer(context).also { renderer ->
+                                    renderer.init(webRtcCallManager.eglContext())
+                                    webRtcCallManager.attachLocalRenderer(renderer)
+                                }
+                            },
+                            onRelease = { renderer ->
+                                webRtcCallManager.detachLocalRenderer()
+                                renderer.releaseRenderer()
+                            }
+                        )
+                    }
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            .padding(top = 48.dp, start = 24.dp, end = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = callerName,
@@ -97,15 +145,17 @@ class IncomingCallActivity : ComponentActivity() {
                         )
                         Text(
                             text = callLabel,
-                            color = Color(0xFFAAAAAA),
+                            color = Color.White,
                             fontSize = 16.sp
                         )
-
-                        Spacer(modifier = Modifier.height(48.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(64.dp)
-                        ) {
+                    }
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = 48.dp),
+                        horizontalArrangement = Arrangement.spacedBy(64.dp)
+                    ) {
                             // Decline
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 FloatingActionButton(
@@ -182,7 +232,6 @@ class IncomingCallActivity : ComponentActivity() {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("Accept", color = Color.White, fontSize = 14.sp)
                             }
-                        }
                     }
                 }
             }

@@ -26,7 +26,7 @@ import androidx.compose.foundation.clickable
 @Composable
 fun CreateChannelScreen(
     onBack: () -> Unit,
-    onCreated: () -> Unit,
+    onCreated: (String) -> Unit,
     viewModel: ChannelsViewModel,
 ) {
     var name by remember { mutableStateOf("") }
@@ -34,6 +34,7 @@ fun CreateChannelScreen(
     var avatarUri by remember { mutableStateOf<android.net.Uri?>(null) }
     
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val createdChannelId by viewModel.createdChannelId.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -44,7 +45,7 @@ fun CreateChannelScreen(
 
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
-            if (it == "Channel created successfully") {
+            if (it == "ChacreatedChannelId.orEmpty()nnel created successfully") {
                 onCreated()
             } else {
                 android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()

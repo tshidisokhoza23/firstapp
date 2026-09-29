@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.media3.common.util.UnstableApi
-import com.google.android.gms.ads.nativead.NativeAd
 import androidx.paging.compose.LazyPagingItems
 import com.tpsk.tj.media.data.ShortsVideoCache
 import com.tpsk.tj.media.model.Post
@@ -46,10 +45,9 @@ fun ShortsList(
     if (shorts.itemCount == 0) return
 
     val context = LocalContext.current
-    val validPreloadedAds = preloadedAds.filterIsInstance<NativeAd>()
     val shortsBetweenAds = 8
     val adStride = shortsBetweenAds + 1
-    val adCount = minOf(validPreloadedAds.size, shorts.itemCount / shortsBetweenAds)
+    val adCount = shorts.itemCount / shortsBetweenAds
     val totalPageCount = shorts.itemCount + adCount
 
     val pagerState = rememberPagerState(pageCount = { totalPageCount })
@@ -127,14 +125,12 @@ fun ShortsList(
                     .background(Color.Black)
                     .padding(bottom = bottomPadding) // REQUIREMENT: Avoid nav bar clipping
             ) {
-                val adIndex = page / adStride
-                if (adIndex < validPreloadedAds.size) {
-                    com.tpsk.tj.common.ui.components.StaticAdCard(
-                    nativeAd = validPreloadedAds[adIndex],
-                        modifier = Modifier.fillMaxSize(),
-                        layoutResId = com.tpsk.tj.R.layout.item_short_native_ad
-                    )
-                }
+                com.tpsk.tj.common.ui.components.DynamicAdCard(
+                    adManager = adManager,
+                    adUnitId = AdUnitConfig.NATIVE_SHORTS_ID,
+                    modifier = Modifier.fillMaxSize(),
+                    isShortsAd = true
+                )
             }
         } else {
             val shortIndex = getShortIndex(page)

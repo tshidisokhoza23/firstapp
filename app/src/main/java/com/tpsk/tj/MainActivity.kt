@@ -409,7 +409,7 @@ class MainActivity : FragmentActivity() {
                             }
                             try {
                                 val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
-                                ContextCompat.startForegroundService(applicationContext, serviceIntent)
+                                startService(serviceIntent)
                                 PushTokenRegistrar.syncCurrentToken(applicationContext, sessionManager)
                             } catch (e: Exception) {}
                         } else {
@@ -519,42 +519,9 @@ class MainActivity : FragmentActivity() {
                     }
 
                     LaunchedEffect(Unit) {
-                        val openChatId = intent?.getStringExtra("open_chat_id")
-                        val openMingleRequests = intent?.getBooleanExtra("open_mingle_requests", false) ?: false
-                        val openMingleNotif = intent?.getBooleanExtra("open_mingle_notif", false) ?: false
-                        val openSocialNotif = intent?.getBooleanExtra("open_social_notif", false) ?: false
-                        val senderId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
-                        val callSessionId = intent?.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID)
-                        val isOngoingCallReturn = intent?.getBooleanExtra("is_ongoing_call_return", false) ?: false
                         if (isLoggedIn) {
-                            if (openMingleRequests) {
-                                navController.navigate(Screen.MingleMessageRequests.route) {
-                                    launchSingleTop = true
-                                }
-                            } else if (openMingleNotif) {
-                                navController.navigate(Screen.MingleNotification.route) {
-                                    launchSingleTop = true
-                                }
-                            } else if (openSocialNotif) {
-                                navController.navigate(Screen.SocialNotification.route) {
-                                    launchSingleTop = true
-                                }
-                            } else {
-                                val targetId = openChatId ?: senderId
-                                if (targetId != null) {
-                                    val openType = intent?.getStringExtra("open_chat_type").orEmpty()
-                                    val targetRoute = if (openType.equals("channel", ignoreCase = true)) {
-                                        Screen.ChannelDetail.createRoute(targetId)
-                                    } else {
-                                        Screen.Chat.createRoute(targetId, type = openType.ifBlank { "direct" })
-                                    }
-                                    val currentRoute = navController.currentDestination?.route
-                                    if (currentRoute != targetRoute) {
-                                        navController.navigate(targetRoute) {
-                                            launchSingleTop = true
-                                        }
-                                    }
-                                }
+                            routeNotificationIntent(intent)?.let { route ->
+                                navController.navigate(route) { launchSingleTop = true }
                             }
                         }
                     }
@@ -565,10 +532,11 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        clearNonCallNotifications()
         if (sessionManager.isLoggedIn()) {
             val serviceIntent = Intent(applicationContext, CallListenerService::class.java)
             try {
-                ContextCompat.startForegroundService(applicationContext, serviceIntent)
+                startService(serviceIntent)
             } catch (e: Exception) {}
             lifecycleScope.launch {
                 try {
@@ -592,22 +560,52 @@ class MainActivity : FragmentActivity() {
             }
         }
         
-        val senderId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
-        val isOngoingCallReturn = intent.getBooleanExtra("is_ongoing_call_return", false)
-        val openChatId = intent.getStringExtra("open_chat_id")
-        if (openChatId != null && sessionManager.isLoggedIn()) {
-            val openType = intent.getStringExtra("open_chat_type").orEmpty()
-            val route = if (openType.equals("channel", ignoreCase = true)) {
-                Screen.ChannelDetail.createRoute(openChatId)
-            } else {
-                Screen.Chat.createRoute(openChatId, type = openType.ifBlank { "direct" })
-            }
-            GlobalNavigation.navigateTo(route)
+        if (sessionManager.isLoggedIn()) {
+            routeNotificationIntent(intent)?.let { GlobalNavigation.navigateTo(it) }
         }
+    }
 
-        val callSessionId = intent.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID)
-        if (senderId != null && callSessionId == null && sessionManager.isLoggedIn() && !isOngoingCallReturn) {
-            GlobalNavigation.navigateTo(Screen.Chat.createRoute(senderId, type = "initiate"))
+    private fun routeNotificationIntent(source: Intent?): String? {
+        if (source == null) return null
+        val postId = source.getStringExtra("open_post_id")
+        if (!postId.isNullOrBlank()) return Screen.PostDetail.createRoute(postId)
+        val storyUserId = source.getStringExtra("open_user_id")
+        val storyId = source.getStringExtra("open_story_id")
+        if (!storyUserId.isNullOrBlank() || !storyId.isNullOrBlank()) {
+            return Screen.Story.createRoute(userId = storyUserId, storyId = storyId)
+        }
+        if (source.getBooleanExtra("open_mingle_requests", false)) return Screen.MingleMessageRequests.route
+        if (source.getBooleanExtra("open_mingle_notif", false)) return Screen.MingleNotification.route
+        val actorId = source.getStringExtra("open_actor_id")
+        if (source.getBooleanExtra("open_social_notif", false)) {
+            return if (!actorId.isNullOrBlank()) Screen.UserProfile.createRoute(actorId) else Screen.SocialNotification.route
+        }
+        val openChatId = source.getStringExtra("open_chat_id")
+        val senderId = source.getStringExtra(CallNotificationActionReceiver.EXTRA_SENDER_ID)
+        val callSessionId = source.getStringExtra(CallNotificationActionReceiver.EXTRA_SESSION_ID)
+        val isOngoingCallReturn = source.getBooleanExtra("is_ongoing_call_return", false)
+        val targetId = openChatId ?: senderId?.takeIf { callSessionId == null && !isOngoingCallReturn }
+        if (targetId.isNullOrBlank()) return null
+        val openType = source.getStringExtra("open_chat_type").orEmpty()
+        return if (openType.equals("channel", ignoreCase = true)) {
+            Screen.ChannelDetail.createRoute(targetId)
+        } else {
+            Screen.Chat.createRoute(targetId, type = openType.ifBlank { if (openChatId == null) "initiate" else "direct" })
+        }
+    }
+
+    private fun clearNonCallNotifications() {
+        val manager = getSystemService(android.app.NotificationManager::class.java) ?: return
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) return
+        manager.activeNotifications.forEach { status ->
+            val channel = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                status.notification.channelId
+            } else {
+                null
+            }
+            if (channel == null || !channel.contains("call", ignoreCase = true)) {
+                manager.cancel(status.tag, status.id)
+            }
         }
     }
 

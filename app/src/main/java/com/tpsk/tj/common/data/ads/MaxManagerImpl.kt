@@ -149,7 +149,8 @@ class MaxManagerImpl : AdManager {
         adUnitId: String,
         count: Int,
         onAdsLoaded: (List<Any>) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        portrait: Boolean
     ) {
         // Implementation for MAX preloading
         onAdsLoaded(emptyList())

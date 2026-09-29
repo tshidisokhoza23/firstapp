@@ -91,8 +91,12 @@ fun HelpSettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             val context = androidx.compose.ui.platform.LocalContext.current
-            HelpItem(Icons.AutoMirrored.Filled.Help, "Help Center", "Get answers, contact us")
-            HelpItem(Icons.Default.Group, "Contact us", "Questions? Need help?")
+            HelpItem(Icons.AutoMirrored.Filled.Help, "Help Center", "Get answers, contact us", onClick = {
+                openSupportEmail(context, "Help Center")
+            })
+            HelpItem(Icons.Default.Group, "Contact us", "Questions? Need help?", onClick = {
+                openSupportEmail(context, "Contact us")
+            })
             HelpItem(
                 icon = Icons.Default.Description,
                 title = "Terms and Privacy Policy",
@@ -104,6 +108,16 @@ fun HelpSettingsScreen(
             Spacer(modifier = Modifier.height(100.dp))
         }
     }
+}
+
+private fun openSupportEmail(context: android.content.Context, subject: String) {
+    val intent = android.content.Intent(
+        android.content.Intent.ACTION_SENDTO,
+        android.net.Uri.parse("mailto:support@firstapp.com")
+    ).apply {
+        putExtra(android.content.Intent.EXTRA_SUBJECT, subject)
+    }
+    runCatching { context.startActivity(intent) }
 }
 
 @Composable

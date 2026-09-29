@@ -134,11 +134,21 @@ class JobRepositoryImpl @Inject constructor(
     override fun createJob(title: String, description: String, category: String, skills: List<String>, durationDays: Int): Flow<Resource<Job>> = flow {
         emit(Resource.Loading())
         try {
-            val req = CreateJobRequest(title, description, category, skills, durationDays)
+            val req = CreateJobRequest(
+                title = title,
+                description = description,
+                job_category = category.ifBlank { "General" },
+                required_skills = skills,
+                duration_days = durationDays,
+                category = category.ifBlank { "General" },
+                skills = skills
+            )
             val response = jobApi.createJob(req)
             val apiJob = response.body()
             if (response.isSuccessful && apiJob != null) {
-                emit(Resource.Success(apiJob.toModel()))
+                val job = apiJob.toModel()
+                jobDao.insertJobs(listOf(job.toEntity()))
+                emit(Resource.Success(job))
             } else {
                 emit(Resource.Error("Failed to create job"))
             }

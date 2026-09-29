@@ -10,7 +10,7 @@ interface JobApi {
     suspend fun getJobs(
         @Query("page") page: Int = 1,
         @Query("cursor") cursor: String? = null,
-        @Query("limit") limit: Int = 20
+        @Query("limit") limit: Int = 50
     ): Response<JobsResponse>
 
     @GET("jobs/search")
@@ -50,7 +50,17 @@ data class JobsResponse(
 )
 data class JobApplicationsResponse(val applications: List<ApiJobApplication>)
 data class ConversationResponse(val conversation_id: String)
-data class CreateJobRequest(val title: String, val description: String, val category: String, val skills: List<String>, val duration_days: Int)
+data class CreateJobRequest(
+    val title: String,
+    val description: String,
+    val job_category: String,
+    val required_skills: List<String>,
+    val duration_days: Int,
+    val company: String? = null,
+    val location_city: String? = null,
+    val category: String? = null,
+    val skills: List<String>? = null
+)
 
 data class ApiJob(
     val id: String,

@@ -64,7 +64,8 @@ interface AdManager {
         adUnitId: String,
         count: Int,
         onAdsLoaded: (List<Any>) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        portrait: Boolean = false
     )
 
     fun destroyAd(adObject: Any?)

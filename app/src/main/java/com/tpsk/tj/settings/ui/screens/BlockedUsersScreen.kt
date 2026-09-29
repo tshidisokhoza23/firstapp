@@ -29,6 +29,8 @@ import androidx.compose.ui.layout.ContentScale
 fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel = hiltViewModel()) {
     val blockedUsersResource by viewModel.blockedUsers.collectAsState()
     val blockedUsers = (blockedUsersResource as? Resource.Success<List<Contact>>)?.data ?: emptyList()
+    val contacts = (viewModel.contacts.collectAsState().value as? Resource.Success<List<Contact>>)?.data.orEmpty()
+    var showPicker by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -49,7 +51,7 @@ fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel =
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* Show contact picker to block */ },
+                onClick = { showPicker = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
@@ -60,6 +62,28 @@ fun BlockedUsersScreen(onBack: () -> Unit, viewModel: PrivacySettingsViewModel =
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
+        if (showPicker) {
+            AlertDialog(
+                onDismissRequest = { showPicker = false },
+                title = { Text("Block a contact") },
+                text = {
+                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        val blockedIds = blockedUsers.map { it.id }.toSet()
+                        items(contacts.filter { it.id !in blockedIds }, key = { it.id }) { contact ->
+                            TextButton(onClick = {
+                                viewModel.blockUser(contact.id)
+                                showPicker = false
+                            }) {
+                                Text(contact.displayName.ifBlank { contact.username.ifBlank { contact.id } })
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showPicker = false }) { Text("Close") }
+                }
+            )
+        }
         if (blockedUsers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text("No blocked users", color = MaterialTheme.colorScheme.onSurfaceVariant)

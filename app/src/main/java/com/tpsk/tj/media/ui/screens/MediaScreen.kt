@@ -673,26 +673,18 @@ fun MainFeedSection(
 
                         // REQUIREMENT: Inject 1 native ad unit every 4 content posts
                         if ((index + 1) % 4 == 0) {
-                            val adIndex = (index + 1) / 4 - 1
-                            if (adIndex < preloadedAds.size) {
-                                com.tpsk.tj.common.ui.components.StaticAdCard(
-                                    nativeAd = preloadedAds[adIndex],
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            } else {
-                                com.tpsk.tj.common.ui.components.DynamicAdCard(
-                                    adManager = adManager,
-                                    adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            }
+                            com.tpsk.tj.common.ui.components.DynamicAdCard(
+                                adManager = adManager,
+                                adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
                         }
                 }
             }
             
             // Block fetching more until first 30 posts and ads are loaded
-            if (posts.itemCount >= 30 && !adsLoaded) {
-                 item {
+            if (posts.itemCount >= 30 && !adsLoaded && preloadedAds.isEmpty()) {
+                 item(key = "ads_loading", contentType = "ads_loading") {
                      Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                          CircularProgressIndicator(color = AppPrimary)
                      }

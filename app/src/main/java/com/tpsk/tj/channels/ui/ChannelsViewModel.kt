@@ -26,6 +26,9 @@ class ChannelsViewModel @Inject constructor(
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
+    private val _createdChannelId = MutableStateFlow<String?>(null)
+    val createdChannelId: StateFlow<String?> = _createdChannelId.asStateFlow()
+
     init {
         fetchChannels()
     }
@@ -82,7 +85,8 @@ class ChannelsViewModel @Inject constructor(
                 if (avatarUrl == null && _toastMessage.value != null) return@launch
             }
             repository.createChannel(name, description, avatarUrl).collect {
-                if (it is Resource.Success) {
+                if (it is Resource.Success && it.data != null) {
+                    _createdChannelId.value = it.data.conversationId ?: it.data.id
                     _toastMessage.value = "Channel created successfully"
                     fetchChannels()
                     chatRepository.syncChats().collect {}

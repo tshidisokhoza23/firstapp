@@ -180,8 +180,10 @@ fun ChatsListScreen(
     // }
 
     LaunchedEffect(selectedTabItem) {
-        if (selectedTabItem == 3) {
-            advertsViewModel.initializePool(context, AdUnitConfig.REWARDED_POINTS_ID)
+        when (selectedTabItem) {
+            1 -> channelsViewModel.fetchChannels()
+            2 -> jobViewModel.fetchJobs()
+            3 -> advertsViewModel.initializePool(context, AdUnitConfig.REWARDED_POINTS_ID)
         }
     }
 

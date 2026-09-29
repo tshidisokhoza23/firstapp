@@ -201,7 +201,11 @@ private fun VideoCallContent(name: String, isConnected: Boolean, isRinging: Bool
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text("Video will start when answered", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                    Text(
+                        text = if (isRinging) "Camera is on. Waiting for them to answer" else "Connecting video...",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp
+                    )
                 }
             }
         }

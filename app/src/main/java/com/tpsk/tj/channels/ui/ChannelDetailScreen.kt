@@ -117,6 +117,7 @@ fun ChannelDetailScreen(
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
     var showAddAdmin by remember { mutableStateOf(false) }
     var showUnfollowConfirm by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
@@ -124,7 +125,7 @@ fun ChannelDetailScreen(
     var showAttachments by remember { mutableStateOf(false) }
 
     val displayPosts = remember(posts, messages) {
-        val mappedMessages = messages.map { msg ->
+        val mappedMessages = messages.sortedBy { it.timestamp }.map { msg ->
             val timestampLabel = try {
                 val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
                 sdf.format(java.util.Date(msg.timestamp))
@@ -189,7 +190,10 @@ fun ChannelDetailScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { showInfo = true }
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -282,11 +286,10 @@ fun ChannelDetailScreen(
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Open discussion", color = MaterialTheme.colorScheme.onSurface) },
+                            modifier = ModifierChannel info", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
+                                    showMenu = false
+                                    showInfo = true
                                     showMenu = false
                                     if (isFollower) onOpenDiscussion()
                                     else Toast.makeText(context, "Follow this channel first", Toast.LENGTH_SHORT).show()
@@ -473,7 +476,7 @@ fun ChannelDetailScreen(
         ) {
             item {
                 // Channel Info Header
-                Text(
+                if (showInfo) {
                     text = "About this channel",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
@@ -579,10 +582,10 @@ fun ChannelDetailScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                     Spacer(modifier = Modifier.height(24.dp))
                 }
+                }
 
-                // Recent Updates Title
                 Text(
-                    text = "Recent updates",
+                    text = "Updates",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,

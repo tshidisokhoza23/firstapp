@@ -20,29 +20,14 @@ class CallServiceBootstrapReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
+        // Boot used to start a foreground listener, which pinned a "TJ / Calls"
+        // notification on the lock screen. Incoming calls start the service from FCM.
         if (
             action != Intent.ACTION_BOOT_COMPLETED &&
             action != Intent.ACTION_MY_PACKAGE_REPLACED &&
             action != Intent.ACTION_LOCKED_BOOT_COMPLETED
         ) {
             return
-        }
-
-        val entryPoint = EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            SessionManagerEntryPoint::class.java
-        )
-        val sessionManager = entryPoint.sessionManager()
-
-        if (!sessionManager.isLoggedIn()) {
-            return
-        }
-
-        val serviceIntent = Intent(context, CallListenerService::class.java)
-        try {
-            ContextCompat.startForegroundService(context, serviceIntent)
-        } catch (e: Exception) {
-            // Background start not allowed
         }
     }
 }

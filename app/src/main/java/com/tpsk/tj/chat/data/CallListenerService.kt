@@ -143,8 +143,10 @@ class CallListenerService : Service() {
                         serviceScope.launch {
                             val iceResource = repository.getICEServers()
                             if (iceResource is com.tpsk.tj.common.util.Resource.Success) {
-                                val servers = iceResource.data?.map { config: IceServerConfig ->
-                                    val builder = org.webrtc.PeerConnection.IceServer.builder(config.urls)
+                                val servers = iceResource.data?.mapNotNull { config: IceServerConfig ->
+                                    val urls = config.resolvedUrls()
+                                    if (urls.isEmpty()) return@mapNotNull null
+                                    val builder = org.webrtc.PeerConnection.IceServer.builder(urls)
                                     if (config.username != null) builder.setUsername(config.username)
                                     if (config.credential != null) builder.setPassword(config.credential)
                                     builder.createIceServer()
@@ -184,10 +186,9 @@ class CallListenerService : Service() {
                 "call_accept" -> {
                     callTonePlayer.stop()
                     GlobalCallState.setRinging(false)
-                    val wasEstablished = GlobalCallState.isConnectionEstablished.value
-                    GlobalCallState.setConnectionEstablished(true)
-                    
-                    if (GlobalCallState.activeSessionId.value == event.sessionId && !wasEstablished) {
+                    if (GlobalCallState.activeSessionId.value == event.sessionId &&
+                        !GlobalCallState.isConnectionEstablished.value
+                    ) {
                         webRtcCallManager.createOffer()
                     }
                 }
@@ -207,7 +208,6 @@ class CallListenerService : Service() {
         super.onCreate()
         
         createChannels()
-        startIdleForeground()
 
         val connectivityManager = getSystemService(ConnectivityManager::class.java)
         connectivityManager?.registerDefaultNetworkCallback(networkCallback)
@@ -457,47 +457,60 @@ class CallListenerService : Service() {
                     }
                 }
             }
+        } else if (GlobalCallState.incomingCall.value != null) {
+            val caller = GlobalCallState.incomingCall.value?.senderName?.takeIf { it.isNotBlank() } ?: "Incoming call"
+            startTransientCallForeground(caller)
         } else {
-            startIdleForeground()
+            releaseIdleForeground()
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (sessionManager.isLoggedIn()) {
-            callWebSocketClient.connect(listener)
-        } else {
+        if (!sessionManager.isLoggedIn()) {
+            releaseIdleForeground()
             stopSelf()
+            return START_NOT_STICKY
         }
-        return START_STICKY
+        callWebSocketClient.connect(listener)
+        val incoming = intent?.getBooleanExtra(EXTRA_INCOMING_CALL, false) == true
+        when {
+            GlobalCallState.isCallActive.value -> updateServiceNotification(true)
+            incoming || GlobalCallState.incomingCall.value != null -> startTransientCallForeground(
+                intent?.getStringExtra(EXTRA_CALLER_NAME)?.takeIf { it.isNotBlank() }
+                    ?: GlobalCallState.incomingCall.value?.senderName?.takeIf { it.isNotBlank() }
+                    ?: "Incoming call"
+            )
+            else -> releaseIdleForeground()
+        }
+        return START_NOT_STICKY
     }
 
-    override fun onDestroy() {
-        serviceScope.cancel()
-        val connectivityManager = getSystemService(ConnectivityManager::class.java)
-        connectivityManager?.unregisterNetworkCallback(networkCallback)
-        callWebSocketClient.disconnect(listener)
-        super.onDestroy()
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    private fun startIdleForeground() {
-        val quiet = buildIdleNotification(CHANNEL_CALL_SERVICE_QUIET, NotificationCompat.PRIORITY_MIN)
+    private fun releaseIdleForeground() {
         try {
-            startIdleForeground(quiet)
-            return
-        } catch (e: Exception) {
-            Log.w("CallListenerService", "Quiet idle notification rejected, using fallback", e)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+        } catch (_: Exception) {
         }
-        try {
-            startIdleForeground(buildIdleNotification(CHANNEL_CALL_SERVICE, NotificationCompat.PRIORITY_LOW))
-        } catch (e: Exception) {
-            Log.e("CallListenerService", "Failed to start idle foreground service", e)
-            stopSelf()
-        }
+        getSystemService(NotificationManager::class.java)?.cancel(ONGOING_NOTIFICATION_ID)
     }
 
-    private fun startIdleForeground(notification: Notification) {
+    private fun startTransientCallForeground(callerName: String) {
+        val notification = NotificationCompat.Builder(this, CHANNEL_INCOMING_CALLS)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(callerName)
+            .setContentText("Incoming call")
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true)
+            .build()
+        startCallForeground(notification)
+    }
+
+    private fun startCallForeground(notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 startForeground(
@@ -522,22 +535,6 @@ class CallListenerService : Service() {
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
-    }
-
-    private fun buildIdleNotification(channelId: String, priority: Int): Notification {
-        return NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("TJ")
-            .setContentText("Calls")
-            .setPriority(priority)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setOngoing(true)
-            .setSilent(true)
-            .setShowWhen(false)
-            .setOnlyAlertOnce(true)
-            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_DEFERRED)
-            .build()
     }
 
     private fun showIncomingCallNotification(event: CallEvent) {
@@ -730,5 +727,7 @@ class CallListenerService : Service() {
         private const val CHANNEL_INCOMING_CALLS = "incoming_calls"
         private const val CHANNEL_ONGOING_CALLS = "ongoing_calls"
         private const val ONGOING_NOTIFICATION_ID = 9001
+        const val EXTRA_INCOMING_CALL = "incoming_call"
+        const val EXTRA_CALLER_NAME = "caller_name"
     }
 }

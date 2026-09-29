@@ -103,7 +103,7 @@ object GlobalCallState {
 
     fun acceptCall(event: CallEvent, webRtcCallManager: WebRtcCallManager, callWebSocketClient: CallWebSocketClient) {
         setCallActive(true, event.sessionId, event.senderId.toString(), event.callType)
-        setConnectionEstablished(true)
+        setConnectionEstablished(false)
         setRinging(false)
         clearIncomingCall()
         webRtcCallManager.start(event.callType)

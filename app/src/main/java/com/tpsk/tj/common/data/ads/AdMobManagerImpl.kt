@@ -47,7 +47,7 @@ class AdMobManagerImpl : AdManager {
                     onAdFailed(error.message)
                 }
             })
-            .withNativeAdOptions(NativeAdOptions.Builder().build())
+            .withNativeAdOptions(feedNativeAdOptions())
             .build()
 
         adLoader.loadAd(AdRequest.Builder().build())
@@ -219,36 +219,48 @@ class AdMobManagerImpl : AdManager {
         adUnitId: String,
         count: Int,
         onAdsLoaded: (List<Any>) -> Unit,
-        onAdFailed: (String) -> Unit
+        onAdFailed: (String) -> Unit,
+        portrait: Boolean
     ) {
-        if (!isGooglePlayServicesReady(context)) {
-            onAdFailed("Google Play services unavailable")
+        if (!isGooglePlayServicesReady(context) || count <= 0) {
+            onAdsLoaded(emptyList())
             return
         }
         val loadedAds = mutableListOf<NativeAd>()
-        var failedCount = 0
-
-        val adLoader = AdLoader.Builder(context, adUnitId)
+        lateinit var adLoader: AdLoader
+        adLoader = AdLoader.Builder(context, adUnitId)
             .forNativeAd { nativeAd ->
                 loadedAds.add(nativeAd)
-                if (loadedAds.size + failedCount == count) {
-                    onAdsLoaded(loadedAds)
-                }
+                if (!adLoader.isLoading) onAdsLoaded(loadedAds.toList())
             }
             .withAdListener(object : AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     android.util.Log.w("AdMobManager", "Batch native ad load failed ($adUnitId): ${error.message}")
-                    failedCount++
-                    if (loadedAds.size + failedCount == count) {
-                        onAdsLoaded(loadedAds)
+                    if (!adLoader.isLoading) {
+                        if (loadedAds.isEmpty()) onAdFailed(error.message) else onAdsLoaded(loadedAds.toList())
                     }
                 }
             })
+            .withNativeAdOptions(if (portrait) shortsNativeAdOptions() else feedNativeAdOptions())
             .build()
 
-        repeat(count) {
-            adLoader.loadAd(AdRequest.Builder().build())
-        }
+        adLoader.loadAds(AdRequest.Builder().build(), count)
+    }
+
+    private fun feedNativeAdOptions(): NativeAdOptions {
+        return NativeAdOptions.Builder()
+            .setMediaAspectRatio(NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_ANY)
+            .setVideoOptions(VideoOptions.Builder().setStartMuted(true).setCustomControlsRequested(false).build())
+            .setRequestMultipleImages(true)
+            .build()
+    }
+
+    private fun shortsNativeAdOptions(): NativeAdOptions {
+        return NativeAdOptions.Builder()
+            .setMediaAspectRatio(NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_PORTRAIT)
+            .setVideoOptions(VideoOptions.Builder().setStartMuted(false).setCustomControlsRequested(false).build())
+            .setRequestMultipleImages(false)
+            .build()
     }
 
     override fun destroyAd(adObject: Any?) {

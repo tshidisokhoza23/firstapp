@@ -196,7 +196,12 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val channelsViewModel: ChannelsViewModel = hiltViewModel()
         CreateChannelScreen(
             onBack = { navController.popBackStack() },
-            onCreated = { navController.popBackStack() },
+            onCreated = { channelId ->
+                navController.popBackStack()
+                if (channelId.isNotBlank()) {
+                    navController.navigate(Screen.ChannelDetail.createRoute(channelId))
+                }
+            },
             viewModel = channelsViewModel
         )
     }

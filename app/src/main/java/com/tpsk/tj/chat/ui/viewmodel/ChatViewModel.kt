@@ -327,8 +327,10 @@ class ChatViewModel @Inject constructor(
             // 1. Fetch ICE servers first for professional TURN support in outgoing calls
             val iceResource = repository.getICEServers()
             if (iceResource is Resource.Success) {
-                val servers = iceResource.data?.map { config: IceServerConfig ->
-                    val builder = org.webrtc.PeerConnection.IceServer.builder(config.urls)
+                val servers = iceResource.data?.mapNotNull { config: IceServerConfig ->
+                    val urls = config.resolvedUrls()
+                    if (urls.isEmpty()) return@mapNotNull null
+                    val builder = org.webrtc.PeerConnection.IceServer.builder(urls)
                     if (config.username != null) builder.setUsername(config.username)
                     if (config.credential != null) builder.setPassword(config.credential)
                     builder.createIceServer()

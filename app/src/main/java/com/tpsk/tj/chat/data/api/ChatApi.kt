@@ -179,10 +179,29 @@ data class ReadReceiptRequest(val last_read_message_id: String)
 data class StatusUpdateRequest(val status: String)
 
 data class IceServerConfig(
-    val urls: List<String>,
+    @com.google.gson.annotations.JsonAdapter(IceUrlListAdapter::class)
+    val urls: List<String> = emptyList(),
+    val url: String? = null,
     val username: String? = null,
     val credential: String? = null
-)
+) {
+    fun resolvedUrls(): List<String> = urls.ifEmpty { listOfNotNull(url).filter { it.isNotBlank() } }
+}
+
+class IceUrlListAdapter : com.google.gson.JsonDeserializer<List<String>> {
+    override fun deserialize(
+        json: com.google.gson.JsonElement?,
+        typeOfT: java.lang.reflect.Type?,
+        context: com.google.gson.JsonDeserializationContext?
+    ): List<String> {
+        if (json == null || json.isJsonNull) return emptyList()
+        if (json.isJsonPrimitive) return listOf(json.asString).filter { it.isNotBlank() }
+        if (!json.isJsonArray) return emptyList()
+        return json.asJsonArray.mapNotNull { element ->
+            if (element.isJsonPrimitive) element.asString.takeIf { it.isNotBlank() } else null
+        }
+    }
+}
 
 data class IceServersResponse(
     val ice_servers: List<IceServerConfig>
