@@ -104,7 +104,16 @@ class AdMobManagerImpl : AdManager {
             return
         }
         val adView = AdView(context)
-        adView.setAdSize(AdSize.BANNER)
+        val displayMetrics = context.resources.displayMetrics
+        val widthPixels = displayMetrics.widthPixels
+        val density = displayMetrics.density
+        val adWidth = (widthPixels / density).toInt()
+        val adaptiveAdSize = if (adWidth > 0) {
+            AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, adWidth)
+        } else {
+            AdSize.BANNER
+        }
+        adView.setAdSize(adaptiveAdSize)
         adView.adUnitId = adUnitId
         adView.adListener = object : AdListener() {
             override fun onAdLoaded() {

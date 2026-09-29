@@ -380,7 +380,10 @@ fun ChatsListScreen(
                     else -> AdUnitConfig.BANNER_MAIN_ID
                 }
                 Column {
-                    BannerAdView(adUnitId = adUnitId)
+                    BannerAdView(
+                        adUnitId = adUnitId,
+                        modifier = Modifier.navigationBarsPadding()
+                    )
                     Spacer(Modifier.height(bottomPadding)) // FIX: Pushes FAB above the outer bottom navigation
                 }
             }

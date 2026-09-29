@@ -530,6 +530,7 @@ fun DriveDrawerContent(
                 adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.BANNER_DRIVE_ID,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(bottom = bottomPadding)
             )
         }

@@ -28,63 +28,66 @@ fun BannerAdView(
     var adLoaded by remember { mutableStateOf(false) }
     var adError by remember { mutableStateOf<String?>(null) }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 50.dp)
+            .wrapContentHeight()
+            .padding(bottom = 6.dp)
             .background(if (BuildConfig.DEBUG && !adLoaded) Color.Red.copy(alpha = 0.05f) else Color.Transparent),
-        horizontalAlignment = Alignment.CenterHorizontally
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp), // Height matching standard banner
-            contentAlignment = Alignment.Center
-        ) {
-            if (!adLoaded && BuildConfig.DEBUG) {
-                Text(
-                    text = adError ?: "Loading Banner Ad...",
-                    color = Color.Gray,
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp), // Standard Banner Height
-                factory = { ctx ->
-                    AdView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        setAdSize(AdSize.BANNER)
-                        this.adUnitId = adUnitId
-                        adListener = object : AdListener() {
-                            override fun onAdLoaded() {
-                                super.onAdLoaded()
-                                adLoaded = true
-                                android.util.Log.d("BannerAdView", "SUCCESS: Banner loaded for $adUnitId")
-                            }
-
-                            override fun onAdFailedToLoad(error: LoadAdError) {
-                                super.onAdFailedToLoad(error)
-                                adError = "Ad Failed: ${error.message} (${error.code})"
-                                android.util.Log.e("BannerAdView", "FAILURE: Banner failed to load: ${error.message} (code: ${error.code}) for $adUnitId")
-                            }
-                        }
-                        loadAd(AdRequest.Builder().build())
-                    }
-                },
-                update = { view ->
-                    if (view.adUnitId != adUnitId) {
-                        view.adUnitId = adUnitId
-                        view.loadAd(AdRequest.Builder().build())
-                    }
-                }
+        if (!adLoaded && BuildConfig.DEBUG) {
+            Text(
+                text = adError ?: "Loading Banner Ad...",
+                color = Color.Gray,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(8.dp)
             )
         }
+
+        AndroidView(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            factory = { ctx ->
+                AdView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                    val displayMetrics = ctx.resources.displayMetrics
+                    val widthPixels = displayMetrics.widthPixels
+                    val density = displayMetrics.density
+                    val adWidth = (widthPixels / density).toInt()
+                    val adaptiveAdSize = if (adWidth > 0) {
+                        AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(ctx, adWidth)
+                    } else {
+                        AdSize.BANNER
+                    }
+                    setAdSize(adaptiveAdSize)
+                    this.adUnitId = adUnitId
+                    adListener = object : AdListener() {
+                        override fun onAdLoaded() {
+                            super.onAdLoaded()
+                            adLoaded = true
+                            android.util.Log.d("BannerAdView", "SUCCESS: Banner loaded for $adUnitId")
+                        }
+
+                        override fun onAdFailedToLoad(error: LoadAdError) {
+                            super.onAdFailedToLoad(error)
+                            adError = "Ad Failed: ${error.message} (${error.code})"
+                            android.util.Log.e("BannerAdView", "FAILURE: Banner failed to load: ${error.message} (code: ${error.code}) for $adUnitId")
+                        }
+                    }
+                    loadAd(AdRequest.Builder().build())
+                }
+            },
+            update = { view ->
+                if (view.adUnitId != adUnitId) {
+                    view.adUnitId = adUnitId
+                    view.loadAd(AdRequest.Builder().build())
+                }
+            }
+        )
     }
 }
