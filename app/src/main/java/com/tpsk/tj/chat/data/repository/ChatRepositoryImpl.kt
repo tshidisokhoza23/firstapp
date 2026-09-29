@@ -962,9 +962,17 @@ class ChatRepositoryImpl @Inject constructor(
                 db.withTransaction {
                     chatDao.insertChats(finalEntities)
                     val serverIds = finalEntities.map { it.id }.toSet()
-                    chatDao.getChatsByTypeOnce(com.tpsk.tj.common.model.ConversationType.GROUP)
-                        .filter { it.id !in serverIds }
-                        .forEach { chatDao.deleteChat(it.id) }
+                    val serverHasGroups = finalEntities.any {
+                        it.type == com.tpsk.tj.common.model.ConversationType.GROUP || it.isGroup
+                    }
+                    // An empty or direct-only payload must not wipe a group the
+                    // server failed to return. A real leave still arrives as
+                    // conversation_removed.
+                    if (finalEntities.isNotEmpty() && serverHasGroups) {
+                        chatDao.getChatsByTypeOnce(com.tpsk.tj.common.model.ConversationType.GROUP)
+                            .filter { it.id !in serverIds }
+                            .forEach { chatDao.deleteChat(it.id) }
+                    }
                 }
 
                 val chatsNeedingHistory = finalEntities.filter { entity ->

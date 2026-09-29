@@ -62,7 +62,18 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
                     if (!isAppInForeground()) handleStoryNotification(data)
                 }
                 "new_chat" -> {
-                    if (settingsRepository.privateChatsEnabled.first() && !isAppInForeground()) handleNewChat(data)
+                    val rawType = (data["chat_type"] ?: "direct").lowercase()
+                    val isEnabled = when (rawType) {
+                        "group" -> settingsRepository.groupsEnabled.first()
+                        "channel" -> settingsRepository.channelsEnabled.first()
+                        else -> settingsRepository.privateChatsEnabled.first()
+                    }
+                    if (isEnabled) {
+                        // Sync even while the app is open so an added member sees the
+                        // group without waiting for the next manual refresh.
+                        chatRepository.syncChats().collect { }
+                        if (!isAppInForeground()) handleNewChat(data)
+                    }
                 }
                 "mingle_like", "mingle_match", "mingle", "mingle_intro" -> {
                     if (!isAppInForeground()) handleMingleNotification(data)
@@ -122,7 +133,10 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
             if (isRequest) {
                 putExtra("open_mingle_requests", true)
             }
-            data["actor_id"]?.let { putExtra("open_actor_id", it) } else {
+            val actorId = data["actor_id"]
+            if (!actorId.isNullOrEmpty()) {
+                putExtra("open_actor_id", actorId)
+            } else {
                 putExtra("open_mingle_notif", true)
             }
         }
@@ -228,12 +242,12 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
         val typeEnum = if (callType == "video") CallType.VIDEO else CallType.VOICE
 
         // Start CallListenerService to ensure WebSocket connection for signaling
-        val serviceIntent = Intent(this, CallListenerService::class.java)
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {.apply {
+        val serviceIntent = Intent(this, CallListenerService::class.java).apply {
             putExtra(CallListenerService.EXTRA_INCOMING_CALL, true)
             putExtra(CallListenerService.EXTRA_CALLER_NAME, callerName)
         }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent)
             } else {
                 startService(serviceIntent)

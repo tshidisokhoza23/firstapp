@@ -298,12 +298,12 @@ class WebRtcCallManager(context: Context) {
 
     fun createOffer() {
         val pc = peerConnection ?: return
+        ensureSendRecv()
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", (callType == CallType.VIDEO).toString()))
         }
         pc.createOffer(object : BaseSdpObserver() {
-        ensureSendRecv()
             override fun onCreateSuccess(desc: SessionDescription) {
                 pc.setLocalDescription(BaseSdpObserver(), desc)
                 val payload = JsonObject().apply {

@@ -285,14 +285,13 @@ fun ChannelDetailScreen(
                         }
                         DropdownMenu(
                             expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = ModifierChannel info", color = MaterialTheme.colorScheme.onSurface) },
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Channel info", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
                                     showMenu = false
                                     showInfo = true
-                                    showMenu = false
-                                    if (isFollower) onOpenDiscussion()
-                                    else Toast.makeText(context, "Follow this channel first", Toast.LENGTH_SHORT).show()
                                 }
                             )
                             DropdownMenuItem(
@@ -477,6 +476,7 @@ fun ChannelDetailScreen(
             item {
                 // Channel Info Header
                 if (showInfo) {
+                Text(
                     text = "About this channel",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,

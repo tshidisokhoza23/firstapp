@@ -302,7 +302,7 @@ private fun AddStoryItem(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "My Story",
+            text = "Add Story",
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,

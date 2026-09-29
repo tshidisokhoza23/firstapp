@@ -45,8 +45,8 @@ fun CreateChannelScreen(
 
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
-            if (it == "ChacreatedChannelId.orEmpty()nnel created successfully") {
-                onCreated()
+            if (it == "Channel created successfully") {
+                onCreated(createdChannelId.orEmpty())
             } else {
                 android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
             }

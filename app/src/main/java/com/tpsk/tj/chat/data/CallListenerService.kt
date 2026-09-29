@@ -485,6 +485,8 @@ class CallListenerService : Service() {
         return START_NOT_STICKY
     }
 
+    override fun onBind(intent: Intent?): android.os.IBinder? = null
+
     private fun releaseIdleForeground() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {

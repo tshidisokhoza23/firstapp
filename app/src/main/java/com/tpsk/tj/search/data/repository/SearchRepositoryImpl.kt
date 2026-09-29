@@ -68,9 +68,14 @@ class SearchRepositoryImpl @Inject constructor(
                         }
 
 
+                        val remoteChats = body.chats.map { mapApiChatSummary(it) }
+                        remoteChats.forEach { chat ->
+                            if (chat.id.isNotBlank()) chatRepository.saveChat(chat)
+                        }
+                        val allChats = (localChats + remoteChats).associateBy { it.id }.values.toList()
                         val allContacts = (localContacts + remoteUsers).associateBy { it.id }.values.toList()
                         emit(Resource.Success(SearchResult(
-                            chats = localChats,
+                            chats = allChats,
                             contacts = allContacts,
                             messages = localMessages
                         )))
@@ -140,8 +145,12 @@ class SearchRepositoryImpl @Inject constructor(
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
                         val myUserId = sessionManager.getUserId()
+                        val remoteGlobalChats = body.chats.map { mapApiChatSummary(it) }
+                        remoteGlobalChats.forEach { chat ->
+                            if (chat.id.isNotBlank()) chatRepository.saveChat(chat)
+                        }
                         emit(Resource.Success(SearchResult(
-                            chats = (body.chats as List<com.tpsk.tj.chat.data.api.ChatSummary>? ?: emptyList()).map { mapApiChatSummary(it) },
+                            chats = (localChats + remoteGlobalChats).associateBy { it.id }.values.toList(),
                             contacts = (body.contacts as List<com.tpsk.tj.common.data.api.ApiUser>? ?: emptyList()).map { mapApiContact(it) },
                             messages = (body.messages as List<com.tpsk.tj.chat.data.api.ApiMessage>? ?: emptyList()).map { mapApiMessage(it, currentUserId = myUserId) },
                             songs = (body.songs as List<com.tpsk.tj.music.data.api.ApiSong>? ?: emptyList()).map { it.toModel() },
