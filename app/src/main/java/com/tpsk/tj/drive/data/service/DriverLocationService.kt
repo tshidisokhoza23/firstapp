@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Binder
 import android.os.Build
@@ -65,7 +66,19 @@ class DriverLocationService : Service() {
             return START_NOT_STICKY
         }
 
-        startForeground(NOTIFICATION_ID, createNotification())
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                startForeground(NOTIFICATION_ID, createNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            } catch (_: Exception) {
+                stopSelf()
+            }
+        } else {
+            try {
+                startForeground(NOTIFICATION_ID, createNotification())
+            } catch (_: Exception) {
+                stopSelf()
+            }
+        }
         startLocationUpdates()
 
         return START_STICKY

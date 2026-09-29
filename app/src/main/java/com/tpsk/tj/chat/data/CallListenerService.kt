@@ -362,7 +362,6 @@ class CallListenerService : Service() {
     }
 
     private fun updateServiceNotification(isCallActive: Boolean) {
-        val manager = getSystemService(NotificationManager::class.java)
         if (isCallActive) {
             val sessionId = GlobalCallState.activeSessionId.value
             val participantId = GlobalCallState.activeParticipantId.value ?: ""
@@ -419,7 +418,19 @@ class CallListenerService : Service() {
                     try {
                         startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
                     } catch (_: Exception) {
-                        startForeground(ONGOING_NOTIFICATION_ID, n)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            try {
+                                startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+                            } catch (_: Exception) {
+                                stopSelf()
+                            }
+                        } else {
+                            try {
+                                startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
+                            } catch (_: Exception) {
+                                stopSelf()
+                            }
+                        }
                     }
                 }
             } else {
@@ -432,7 +443,19 @@ class CallListenerService : Service() {
                     .setOngoing(true)
                     .setContentIntent(pendingIntent)
                     .build()
-                startForeground(ONGOING_NOTIFICATION_ID, n)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        startForeground(ONGOING_NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
+                    } catch (_: Exception) {
+                        stopSelf()
+                    }
+                } else {
+                    try {
+                        startForeground(ONGOING_NOTIFICATION_ID, n)
+                    } catch (_: Exception) {
+                        stopSelf()
+                    }
+                }
             }
         } else {
             startIdleForeground()
@@ -470,21 +493,31 @@ class CallListenerService : Service() {
             startIdleForeground(buildIdleNotification(CHANNEL_CALL_SERVICE, NotificationCompat.PRIORITY_LOW))
         } catch (e: Exception) {
             Log.e("CallListenerService", "Failed to start idle foreground service", e)
+            stopSelf()
         }
     }
 
     private fun startIdleForeground(notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                ONGOING_NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
-            )
+            try {
+                startForeground(
+                    ONGOING_NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+                )
+            } catch (e: Exception) {
+                Log.w("CallListenerService", "Failed to start foreground with REMOTE_MESSAGING, trying PHONE_CALL", e)
+                startForeground(
+                    ONGOING_NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+                )
+            }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 ONGOING_NOTIFICATION_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
             )
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)

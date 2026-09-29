@@ -8,6 +8,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.tpsk.tj.MainActivity
 import com.tpsk.tj.R
@@ -189,10 +190,14 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
 
         // Start CallListenerService to ensure WebSocket connection for signaling
         val serviceIntent = Intent(this, CallListenerService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            Log.w("FirebaseMessaging", "Failed to start CallListenerService: ${e.message}")
         }
         
         GlobalCallState.onCallInvite(
