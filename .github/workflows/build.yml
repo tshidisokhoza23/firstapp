@@ -19,6 +19,11 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate --spec project.yml
 
+      - name: Ensure Compatibility
+        run: |
+          sed -i '' 's/objectVersion = [0-9]*/objectVersion = 56/g' TJ.xcodeproj/project.pbxproj
+          sed -i '' 's/compatibilityVersion = ".*";/compatibilityVersion = "Xcode 15.0";/g' TJ.xcodeproj/project.pbxproj
+
       - name: Build App (Unsigned)
         run: |
           xcodebuild clean build \
