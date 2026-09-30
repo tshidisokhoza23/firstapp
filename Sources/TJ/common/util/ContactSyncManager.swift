@@ -1,7 +1,7 @@
 import Foundation
 import Contacts
 
-public struct ContactInfo: Codable {
+public struct ContactInfo: Codable, Sendable {
     public let displayName: String
     public let phoneNumber: String
 
@@ -94,7 +94,7 @@ public final class ContactSyncManager {
         let defaultPrefix = getDefaultPhonePrefix()
         let cleanInput = formatPhoneNumber(phoneNumber, defaultPrefix: defaultPrefix)
 
-        let predicate = CNContact.predicateForContacts(matching: CNPhoneNumber(stringValue: phoneNumber))
+        let predicate = CNContact.predicateForContacts(matching: CNPhoneNumber(stringValue: cleanInput))
         let keysToFetch = [CNContactGivenNameKey as CNKeyDescriptor, CNContactFamilyNameKey as CNKeyDescriptor]
 
         do {
@@ -152,7 +152,7 @@ public final class ContactSyncManager {
     // MARK: - Formatting Helpers
 
     public func formatPhoneNumber(_ number: String, defaultPrefix: String) -> String {
-        var clean = number.components(separatedBy: CharacterSet(charactersIn: "0123456789+").inverted).joined()
+        let clean = number.components(separatedBy: CharacterSet(charactersIn: "0123456789+").inverted).joined()
 
         if clean.hasPrefix("+") {
             return clean
@@ -194,7 +194,7 @@ public final class ContactSyncManager {
     }
 
     private func getDefaultPhonePrefix() -> String {
-        let regionCode = Locale.current.regionCode ?? "ZA"
+        let regionCode = Locale.current.region?.identifier ?? "ZA"
         switch regionCode {
         case "US", "CA": return "1"
         case "GB": return "44"

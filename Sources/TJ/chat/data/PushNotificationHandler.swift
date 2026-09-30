@@ -158,6 +158,7 @@ public final class PushNotificationHandler: NSObject, UNUserNotificationCenterDe
         content.title = senderName
         content.body = body
         content.sound = .default
+        content.threadIdentifier = "\(chatType):\(conversationId)"
         content.categoryIdentifier = PushNotificationHandler.categoryNewMessage
         content.userInfo = userInfo
 

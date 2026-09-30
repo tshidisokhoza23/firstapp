@@ -204,12 +204,18 @@ public final class MusicAudioPlayer: ObservableObject {
     private func addTimeObserver() {
         removeTimeObserver()
         let interval = CMTime(seconds: 0.5, preferredTimescale: 1000)
-        timeObserverToken = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self = self else { return }
-            self.currentTime = time.seconds
-            if let duration = self.player?.currentItem?.duration.seconds, !duration.isNaN {
-                self.duration = duration
+        timeObserverToken = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
+            let seconds = time.seconds
+            Task { @MainActor in
+                MusicAudioPlayer.shared.applyPlaybackTime(seconds)
             }
+        }
+    }
+
+    private func applyPlaybackTime(_ seconds: Double) {
+        currentTime = seconds
+        if let itemDuration = player?.currentItem?.duration.seconds, !itemDuration.isNaN {
+            duration = itemDuration
         }
     }
 

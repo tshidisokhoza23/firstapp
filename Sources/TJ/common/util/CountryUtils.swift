@@ -191,7 +191,7 @@ public enum CountryUtils {
     ].sorted { $0.name < $1.name }
 
     public static func getDefaultCountry() -> Country {
-        let regionCode = Locale.current.region?.identifier.uppercased() ?? Locale.current.regionCode?.uppercased() ?? "ZA"
+        let regionCode = Locale.current.region?.identifier.uppercased() ?? "ZA"
         return allCountries.first { $0.code == regionCode } ?? allCountries.first { $0.code == "ZA" } ?? allCountries[0]
     }
 

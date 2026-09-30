@@ -114,7 +114,7 @@ public struct VocabView: View {
 
             Spacer()
 
-            if let card = currentCard {
+            if currentCard != nil {
                 Text("\(currentCardIndex + 1) / \(cards.count)")
                     .font(.subheadline.bold())
                     .foregroundColor(.secondary)

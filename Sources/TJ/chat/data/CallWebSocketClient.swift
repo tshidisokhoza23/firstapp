@@ -111,6 +111,9 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
     private var isConnected = false
     private var isConnecting = false
     private var manualClose = false
+    private var lastBaseUrl: String?
+    private var lastToken: String?
+    private var reconnectWorkItem: DispatchWorkItem?
     private let lock = NSLock()
 
     public override init() {
@@ -148,10 +151,17 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
         }
         isConnecting = true
         manualClose = false
+        lastBaseUrl = baseUrl
+        lastToken = token
         lock.unlock()
+        reconnectWorkItem?.cancel()
+        reconnectWorkItem = nil
 
         let urlString = baseUrl.hasSuffix("/") ? "\(baseUrl)ws/calls?token=\(token)" : "\(baseUrl)/ws/calls?token=\(token)"
         guard let url = URL(string: urlString) else {
+            lock.lock()
+            isConnecting = false
+            lock.unlock()
             notifyError("Invalid WebSocket URL")
             return
         }
@@ -260,6 +270,8 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
     }
 
     public func close() {
+        reconnectWorkItem?.cancel()
+        reconnectWorkItem = nil
         lock.lock()
         manualClose = true
         isConnected = false
@@ -297,13 +309,20 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
         isConnected = false
         isConnecting = false
         let isManual = manualClose
+        let listenerCount = listeners.allObjects.count
+        let baseUrl = lastBaseUrl
+        let token = lastToken
+        webSocketTask = nil
         lock.unlock()
 
-        if !isManual {
-            DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) { [weak self] in
-                // Auto reconnect attempt if listeners exist
-            }
+        reconnectWorkItem?.cancel()
+        guard !isManual, listenerCount > 0, let baseUrl, let token else { return }
+
+        let work = DispatchWorkItem { [weak self] in
+            self?.ensureConnected(baseUrl: baseUrl, token: token)
         }
+        reconnectWorkItem = work
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5.0, execute: work)
     }
 
     // MARK: - Event Dispatching
