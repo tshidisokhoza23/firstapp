@@ -19,7 +19,7 @@ public struct LoginView: View {
     @State private var alertMessage: String? = nil
     @State private var showAlert = false
 
-    public init(
+    @MainActor public init(
         viewModel: AuthViewModel = AuthViewModel(),
         onLoginSuccess: @escaping (AuthResponse?) -> Void,
         onNavigateToOtp: @escaping (String, String?, String?, String?, String?, String?) -> Void
@@ -199,7 +199,7 @@ public struct LoginView: View {
                     .font(.title2.bold())
 
                 Text("Enter your email or username and we'll send you instructions.")
-                    .font(.subview)
+                    .font(.subheadline)
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
 

@@ -5,7 +5,7 @@ public struct ArchivedChatsView: View {
     public var onBack: () -> Void = {}
     public var onChatClick: (ChatMessage) -> Void = { _ in }
 
-    public init(
+    @MainActor public init(
         viewModel: ChatViewModel = ChatViewModel(),
         onBack: @escaping () -> Void = {},
         onChatClick: @escaping (ChatMessage) -> Void = { _ in }

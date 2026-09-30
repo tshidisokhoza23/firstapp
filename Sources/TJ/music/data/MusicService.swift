@@ -104,7 +104,9 @@ public final class MusicAudioPlayer: ObservableObject {
     }
 
     deinit {
-        removeTimeObserver()
+        if let timeObserverToken {
+            player?.removeTimeObserver(timeObserverToken)
+        }
     }
 
     // MARK: - Setup Audio Session

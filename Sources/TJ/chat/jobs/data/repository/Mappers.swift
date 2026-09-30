@@ -33,7 +33,7 @@ public extension JobEntity {
             companyName: companyName,
             companyLogoUrl: companyLogoUrl,
             location: location,
-            logoColorHex: "#2196F3",
+            logoHex: "#2196F3",
             salaryRange: salaryRange,
             jobType: jobType,
             postedTime: postedTime,
@@ -77,7 +77,7 @@ public extension JobApplicationEntity {
             location: location,
             appliedDate: appliedDate,
             status: status,
-            logoColorHex: "#81C784",
+            logoHex: "#81C784",
             conversationId: conversationId
         )
     }

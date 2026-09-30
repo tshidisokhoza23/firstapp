@@ -13,7 +13,7 @@ public struct ChatTabView: View {
     @State private var searchQuery: String = ""
     @State private var isSearchActive: Bool = false
 
-    public init(
+    @MainActor public init(
         viewModel: ChatViewModel = ChatViewModel(),
         rewardViewModel: RewardViewModel = RewardViewModel(),
         onChatSelected: @escaping (ChatMessage) -> Void = { _ in },

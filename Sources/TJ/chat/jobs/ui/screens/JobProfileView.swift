@@ -26,7 +26,7 @@ public struct JobProfileView: View {
     @State private var expectedSalary: String = ""
     @State private var showingFileImporter = false
 
-    public init(
+    @MainActor public init(
         onClose: @escaping () -> Void,
         onNavigateToEditExperience: @escaping (String?) -> Void = { _ in },
         viewModel: JobProfileViewModel = JobProfileViewModel()

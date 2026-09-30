@@ -19,11 +19,11 @@ public enum ApplicationStatus: String, Codable, CaseIterable {
 
     public var color: Color {
         switch self {
-        case .pending: return Color(hex: "#FFB74D") ?? .orange
-        case .reviewing: return Color(hex: "#64B5F6") ?? .blue
-        case .interview: return Color(hex: "#81C784") ?? .green
-        case .rejected: return Color(hex: "#E57373") ?? .red
-        case .offered: return Color(hex: "#BA68C8") ?? .purple
+        case .pending: return Color(hex: "#FFB74D")
+        case .reviewing: return Color(hex: "#64B5F6")
+        case .interview: return Color(hex: "#81C784")
+        case .rejected: return Color(hex: "#E57373")
+        case .offered: return Color(hex: "#BA68C8")
         }
     }
 }
@@ -40,7 +40,7 @@ public struct JobApplication: Identifiable, Hashable, Codable {
     public var conversationId: String?
 
     public var logoColor: Color {
-        Color(hex: logoHex) ?? Color.blue
+        Color(hex: logoHex)
     }
 
     public init(

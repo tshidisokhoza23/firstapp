@@ -27,7 +27,13 @@ public class RewardViewModel: ObservableObject {
     public func fetchDashboard() {
         uiState = .loading
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            let dash = RewardDashboard(points: self?.points ?? 0.0, dailyStreak: 1, tasksCompleted: 5)
+            let dash = RewardDashboard(
+                totalPoints: self?.points ?? 0.0,
+                adsWatchedToday: self?.hourlyAdCount ?? 0,
+                maxDailyAds: 5,
+                cooldownRemainingSeconds: self?.cooldownRemainingSeconds ?? 0,
+                tasks: []
+            )
             self?.uiState = .success(dash)
         }
     }
@@ -38,8 +44,9 @@ public class RewardViewModel: ObservableObject {
             list.append(
                 Advert(
                     id: "virtual_ad_\(i)",
+                    advertiserName: "TJ Rewards",
                     title: "Extra Reward Slot #\(i)",
-                    description: "Watch ad to earn points",
+                    contentText: "Watch ad to earn points",
                     isViewed: false
                 )
             )

@@ -42,7 +42,7 @@ public final class ChannelDetailViewModel: ObservableObject {
             if case .success(let isSubbed) = res {
                 self.toast = isSubbed ? "Channel followed" : "Unfollowed channel"
                 self.loadChannel(channelId: channelId)
-            } else if case .error(let msg) = res {
+            } else if case .error(let msg, _) = res {
                 self.toast = msg
             }
         }

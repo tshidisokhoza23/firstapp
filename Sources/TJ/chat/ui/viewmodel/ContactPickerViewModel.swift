@@ -14,7 +14,7 @@ public class ContactPickerViewModel: ObservableObject {
     }
 
     public func fetchContacts() {
-        contacts = .loading(data: allContacts)
+        contacts = .loading(allContacts)
         // Simulated local or remote contact fetching
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self = self else { return }

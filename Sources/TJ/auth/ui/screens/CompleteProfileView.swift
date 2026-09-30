@@ -86,7 +86,7 @@ public struct CompleteProfileView: View {
 
                 Spacer()
 
-                if case .error(let msg) = viewModel.authState {
+                if case .error(let msg, _) = viewModel.authState {
                     Text(msg)
                         .font(.caption)
                         .foregroundColor(.red)

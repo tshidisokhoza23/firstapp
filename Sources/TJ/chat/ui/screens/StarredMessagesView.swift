@@ -8,7 +8,7 @@ public struct StarredMessagesView: View {
     @State private var selectedMessage: Message? = nil
     @State private var showOptionsAlert: Bool = false
 
-    public init(
+    @MainActor public init(
         viewModel: StarredMessagesViewModel = StarredMessagesViewModel(),
         onBack: @escaping () -> Void = {},
         onMessageClick: @escaping (Message) -> Void = { _ in }

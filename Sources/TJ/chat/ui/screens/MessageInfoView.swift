@@ -8,7 +8,7 @@ public struct MessageInfoView: View {
     @State private var readers: [ApiReader] = []
     @State private var isLoading: Bool = true
 
-    public init(
+    @MainActor public init(
         messageId: String,
         viewModel: ChatViewModel = ChatViewModel(),
         onBack: @escaping () -> Void = {}

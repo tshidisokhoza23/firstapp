@@ -185,7 +185,7 @@ public struct MusicPlayerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color(.systemElevatedBackground))
+        .background(Color(uiColor: .systemBackground))
         .cornerRadius(16)
         .shadow(radius: 8)
         .padding(.horizontal, 12)
