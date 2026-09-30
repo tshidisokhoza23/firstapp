@@ -26,6 +26,9 @@ jobs:
 
       - name: Build App (Unsigned)
         run: |
+          # Absolute BUILD_DIR. A relative path is resolved inside each Swift
+          # package checkout, so Google Sign-In resource bundles never land
+          # where the app copy phase looks for them.
           xcodebuild clean build \
             -project TJ.xcodeproj \
             -scheme TJ \
@@ -34,12 +37,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            BUILD_DIR=build
+            BUILD_DIR="$PWD/build"
 
       - name: Package into .ipa
         run: |
           mkdir -p Payload
-          cp -r build/Release-iphoneos/TJ.app Payload/
+          cp -r "$PWD/build/Release-iphoneos/TJ.app" Payload/
           zip -r TJ.ipa Payload
 
       - name: Upload IPA Artifact
