@@ -47,7 +47,7 @@ public final class TJApplicationState: NSObject, ObservableObject, UNUserNotific
     }
 
     // UNUserNotificationCenterDelegate methods
-    public func userNotificationCenter(
+    nonisolated public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
@@ -55,7 +55,7 @@ public final class TJApplicationState: NSObject, ObservableObject, UNUserNotific
         completionHandler([.banner, .sound, .badge])
     }
 
-    public func userNotificationCenter(
+    nonisolated public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void

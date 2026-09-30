@@ -9,78 +9,7 @@
 import Foundation
 import Combine
 
-// MARK: - Story Models
-
-public enum StoryType: String, Codable, CaseIterable {
-    case text
-    case image
-    case video
-}
-
-public struct StoryItem: Identifiable, Codable, Equatable {
-    public let id: String
-    public let content: String
-    public let contentUrl: String?
-    public let type: StoryType
-    public let timestamp: String
-    public let createdAt: Int64
-    public var isViewed: Bool
-    public let durationMs: Int
-
-    public init(
-        id: String,
-        content: String,
-        contentUrl: String? = nil,
-        type: StoryType = .text,
-        timestamp: String = "Just now",
-        createdAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
-        isViewed: Bool = false,
-        durationMs: Int = 5000
-    ) {
-        self.id = id
-        self.content = content
-        self.contentUrl = contentUrl
-        self.type = type
-        self.timestamp = timestamp
-        self.createdAt = createdAt
-        self.isViewed = isViewed
-        self.durationMs = durationMs
-    }
-}
-
-public struct UserStory: Identifiable, Codable, Equatable {
-    public let id: String
-    public let userId: String
-    public var userName: String
-    public let phoneNumber: String?
-    public let userAvatarUrl: String?
-    public var stories: [StoryItem]
-    public var lastUpdated: String
-    public var lastUpdatedMillis: Int64
-    public var isMuted: Bool
-
-    public init(
-        id: String,
-        userId: String,
-        userName: String,
-        phoneNumber: String? = nil,
-        userAvatarUrl: String? = nil,
-        stories: [StoryItem],
-        lastUpdated: String = "",
-        lastUpdatedMillis: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
-        isMuted: Bool = false
-    ) {
-        self.id = id
-        self.userId = userId
-        self.userName = userName
-        self.phoneNumber = phoneNumber
-        self.userAvatarUrl = userAvatarUrl
-        self.stories = stories
-        self.lastUpdated = lastUpdated
-        self.lastUpdatedMillis = lastUpdatedMillis
-        self.isMuted = isMuted
-    }
-}
+// MARK: - Story Viewer DTO
 
 public struct ApiViewer: Identifiable, Codable, Equatable {
     public let id: String
@@ -202,7 +131,6 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
     // MARK: - Mark Story as Viewed
 
     public func markStoryAsViewed(userId: String, storyId: String) async throws -> Bool {
-        // Local update
         for uIndex in userStories.indices {
             if userStories[uIndex].userId == userId || userStories[uIndex].id == userId {
                 for sIndex in userStories[uIndex].stories.indices {
@@ -285,7 +213,7 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
             return copy
         }.filter { !$0.stories.isEmpty }
 
-        merged.sort { ($0.stories.map(\.createdAt).max() ?? 0) > ($1.stories.map(\.createdAt).max() ?? 0) }
+        merged.sort { ($0.stories.map { $0.createdAt }.max() ?? 0) > ($1.stories.map { $0.createdAt }.max() ?? 0) }
         self.userStories = merged
     }
 
@@ -296,7 +224,7 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
         type: String
     ) {
         let now = apiItem?.createdAt ?? Int64(Date().timeIntervalSince1970 * 1000)
-        let storyType = StoryType(rawValue: type.lowercased()) ?? .text
+        let storyType = StoryType(rawValue: type.uppercased()) ?? .text
 
         let newItem = StoryItem(
             id: apiItem?.id ?? "local_\(now)",
@@ -305,21 +233,22 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
             type: storyType,
             timestamp: "Just now",
             createdAt: now,
+            backgroundColorArgb: 0xFF546E7A,
             isViewed: true,
-            durationMs: apiItem?.durationMs ?? 5000
+            durationMs: apiItem?.durationMs ?? 5000,
+            expiresAt: "",
+            viewsCount: 0
         )
 
         if let index = userStories.firstIndex(where: { $0.userId == currentUserId }) {
             userStories[index].stories.append(newItem)
-            userStories[index].lastUpdatedMillis = now
         } else {
             let newBundle = UserStory(
                 id: currentUserId,
                 userId: currentUserId,
                 userName: "My Story",
                 stories: [newItem],
-                lastUpdated: "Just now",
-                lastUpdatedMillis: now
+                lastUpdated: "Just now"
             )
             userStories.insert(newBundle, at: 0)
         }

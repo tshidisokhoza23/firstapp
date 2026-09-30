@@ -146,8 +146,10 @@ public final class VocabAudioPlayer: NSObject, ObservableObject, AVSpeechSynthes
         isSpeaking = false
     }
 
-    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        isSpeaking = false
+    nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            self.isSpeaking = false
+        }
     }
 }
 

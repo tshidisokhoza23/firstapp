@@ -1,18 +1,7 @@
 import Foundation
 import Combine
 
-// MARK: - Call Types & Data Models
-
-public enum CallType: String, Codable, Sendable {
-    case voice = "voice"
-    case video = "video"
-
-    public var wireValue: String { rawValue }
-
-    public static func fromWire(_ value: String?) -> CallType {
-        return value == "video" ? .video : .voice
-    }
-}
+// MARK: - Call Event & Delegate
 
 public struct CallEvent: Codable, Identifiable, Sendable {
     public var id: String { sessionId }

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Local Data Models
 
-struct StoryItem: Identifiable {
+struct HomeStoryItem: Identifiable {
     let id: String
     let name: String
     let avatarName: String
@@ -36,11 +36,11 @@ public struct HomeView: View {
         var id: String { rawValue }
     }
 
-    private let sampleStories: [StoryItem] = [
-        StoryItem(id: "s1", name: "Alice", avatarName: "person.circle.fill", hasUnread: true),
-        StoryItem(id: "s2", name: "Bob", avatarName: "person.circle.fill", hasUnread: true),
-        StoryItem(id: "s3", name: "Charlie", avatarName: "person.circle.fill", hasUnread: false),
-        StoryItem(id: "s4", name: "Diana", avatarName: "person.circle.fill", hasUnread: true)
+    private let sampleStories: [HomeStoryItem] = [
+        HomeStoryItem(id: "s1", name: "Alice", avatarName: "person.circle.fill", hasUnread: true),
+        HomeStoryItem(id: "s2", name: "Bob", avatarName: "person.circle.fill", hasUnread: true),
+        HomeStoryItem(id: "s3", name: "Charlie", avatarName: "person.circle.fill", hasUnread: false),
+        HomeStoryItem(id: "s4", name: "Diana", avatarName: "person.circle.fill", hasUnread: true)
     ]
 
     private let sampleChats: [ChatSummaryItem] = [
@@ -101,7 +101,7 @@ public struct HomeView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             // Stories Horizontal Row
-                            StoriesRowView(stories: sampleStories)
+                            HomeStoriesRowView(stories: sampleStories)
 
                             Divider()
                                 .padding(.horizontal, 16)
@@ -158,8 +158,8 @@ public struct HomeView: View {
 
 // MARK: - Subcomponents
 
-struct StoriesRowView: View {
-    let stories: [StoryItem]
+struct HomeStoriesRowView: View {
+    let stories: [HomeStoryItem]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

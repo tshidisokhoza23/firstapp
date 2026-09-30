@@ -1,55 +1,5 @@
 import SwiftUI
 
-public struct UserStory: Identifiable, Hashable, Codable {
-    public var id: String
-    public var userId: String
-    public var userName: String
-    public var userAvatarUrl: String?
-    public var allViewed: Bool
-    public var stories: [StoryItem]
-
-    public init(
-        id: String = UUID().uuidString,
-        userId: String = "",
-        userName: String = "",
-        userAvatarUrl: String? = nil,
-        allViewed: Bool = false,
-        stories: [StoryItem] = []
-    ) {
-        self.id = id
-        self.userId = userId
-        self.userName = userName
-        self.userAvatarUrl = userAvatarUrl
-        self.allViewed = allViewed
-        self.stories = stories
-    }
-}
-
-public struct StoryItem: Identifiable, Hashable, Codable {
-    public var id: String
-    public var contentUrl: String?
-    public var content: String
-    public var type: String // TEXT, MEDIA
-    public var isViewed: Bool
-    public var createdAt: Int64
-
-    public init(
-        id: String = UUID().uuidString,
-        contentUrl: String? = nil,
-        content: String = "",
-        type: String = "MEDIA",
-        isViewed: Bool = false,
-        createdAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
-    ) {
-        self.id = id
-        self.contentUrl = contentUrl
-        self.content = content
-        self.type = type
-        self.isViewed = isViewed
-        self.createdAt = createdAt
-    }
-}
-
 public struct StoriesHeaderRow: View {
     public let stories: [UserStory]
     public var currentUserId: String? = nil

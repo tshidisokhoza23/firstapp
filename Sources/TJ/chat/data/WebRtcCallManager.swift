@@ -147,7 +147,9 @@ public final class WebRtcCallManager: NSObject, @unchecked Sendable {
         isMicMuted = !enabled
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setPreferredInputBuiltInMic()
+            if let builtInMic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+                try session.setPreferredInput(builtInMic)
+            }
         } catch {
             print("[WebRtcCallManager] Mic toggle error: \(error.localizedDescription)")
         }

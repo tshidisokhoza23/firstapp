@@ -2,11 +2,6 @@ import SwiftUI
 import AVFoundation
 import AudioToolbox
 
-public enum CallType: String, Codable {
-    case voice = "VOICE"
-    case video = "VIDEO"
-}
-
 public struct IncomingCallInfo: Identifiable, Equatable {
     public let id: String // sessionId
     public let senderId: String
