@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct CreateChannelView: View {
-    @ObservedObject private var viewModel: ChannelsViewModel
+    @ObservedObject public var viewModel: ChannelsViewModel
     public var onBack: () -> Void
     public var onCreated: (String) -> Void
 
@@ -12,7 +12,7 @@ public struct CreateChannelView: View {
     public init(
         viewModel: ChannelsViewModel,
         onBack: @escaping () -> Void,
-        onCreated: @escaping (String) -> Void
+        onCreated: @escaping (String) -> Void = { _ in }
     ) {
         self.viewModel = viewModel
         self.onBack = onBack

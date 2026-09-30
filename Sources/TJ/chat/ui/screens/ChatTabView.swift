@@ -3,6 +3,9 @@ import SwiftUI
 public struct ChatTabView: View {
     @StateObject public var viewModel: ChatViewModel
     @StateObject public var rewardViewModel: RewardViewModel
+    @StateObject private var channelsViewModel = ChannelsViewModel()
+    @StateObject private var jobViewModel = JobViewModel()
+    @StateObject private var storyRepository = StoryRepository.shared
 
     public var onChatSelected: (ChatMessage) -> Void = { _ in }
     public var onNewChatClick: () -> Void = {}
@@ -12,6 +15,10 @@ public struct ChatTabView: View {
     @State private var selectedTab: Int = 0 // 0: Chats, 1: Channels, 2: Jobs, 3: Rewards
     @State private var searchQuery: String = ""
     @State private var isSearchActive: Bool = false
+    @State private var activeChannelDetail: Channel? = nil
+    @State private var activeJobDetail: Job? = nil
+    @State private var showCreateChannel: Bool = false
+    @State private var showPostJob: Bool = false
 
     @MainActor public init(
         viewModel: ChatViewModel? = nil,
@@ -40,6 +47,10 @@ public struct ChatTabView: View {
                  $0.lastMessage.localizedCaseInsensitiveContains(searchQuery))
             }
         }
+    }
+
+    private var archivedCount: Int {
+        (viewModel.uiState.chats.data ?? []).filter { $0.isArchived }.count
     }
 
     public var body: some View {
@@ -88,7 +99,7 @@ public struct ChatTabView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            // Sub Tabs Segmented Picker
+            // Sub Tabs Segmented Picker matching Android (Chats, Channels, Jobs, Rewards)
             Picker("", selection: $selectedTab) {
                 Text("Chats").tag(0)
                 Text("Channels").tag(1)
@@ -118,38 +129,102 @@ public struct ChatTabView: View {
                 chatsTabContent
             }
         }
+        .onAppear {
+            viewModel.fetchChats()
+            channelsViewModel.fetchChannels()
+            jobViewModel.fetchJobs()
+        }
+        .sheet(item: $activeChannelDetail) { ch in
+            ChannelDetailView(
+                channel: ch,
+                onBack: { activeChannelDetail = nil },
+                onSubscribe: { id in
+                    channelsViewModel.subscribeToChannel(channelId: id)
+                }
+            )
+        }
+        .sheet(item: $activeJobDetail) { job in
+            JobDetailView(
+                job: job,
+                onBack: { activeJobDetail = nil },
+                onApply: {
+                    jobViewModel.applyForJob(jobId: job.id)
+                }
+            )
+        }
     }
+
+    // MARK: - Chats Tab Content
 
     private var chatsTabContent: some View {
         ZStack(alignment: .bottomTrailing) {
-            if viewModel.uiState.isChatsFetching && chatsList.isEmpty {
-                ProgressView("Loading chats...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if chatsList.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 48))
-                        .foregroundColor(.gray)
-                    Text("No chats yet")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List {
-                    ForEach(chatsList) { chat in
-                        ChatItemRow(
-                            chat: chat,
-                            onAvatarClick: {
-                                onChatSelected(chat)
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Stories Horizontal Row
+                    StoriesHeaderRow(
+                        stories: storyRepository.userStories,
+                        onStoryClick: { _ in },
+                        onAddStoryClick: {}
+                    )
+                    .padding(.vertical, 8)
+
+                    Divider()
+
+                    // Archived Chats Header Button
+                    if archivedCount > 0 {
+                        Button(action: onArchivedClick) {
+                            HStack {
+                                Image(systemName: "archivebox.fill")
+                                    .foregroundColor(.accentColor)
+                                Text("Archived")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Text("\(archivedCount)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.accentColor)
                             }
-                        )
-                        .onTapGesture {
-                            onChatSelected(chat)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        }
+                        Divider()
+                    }
+
+                    if viewModel.uiState.isChatsFetching && chatsList.isEmpty {
+                        ProgressView("Loading chats...")
+                            .padding(.top, 40)
+                    } else if chatsList.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: 48))
+                                .foregroundColor(.gray)
+                            Text("No chats yet")
+                                .font(.system(size: 16))
+                                .foregroundColor(.secondary)
+                            Button("Start New Chat", action: onNewChatClick)
+                                .buttonStyle(.borderedProminent)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                    } else {
+                        LazyVStack(spacing: 0) {
+                            ForEach(chatsList) { chat in
+                                ChatItemRow(
+                                    chat: chat,
+                                    onAvatarClick: {
+                                        onChatSelected(chat)
+                                    }
+                                )
+                                .onTapGesture {
+                                    onChatSelected(chat)
+                                }
+
+                                Divider()
+                                    .padding(.leading, 72)
+                            }
                         }
                     }
                 }
-                .listStyle(PlainListStyle())
             }
 
             // FAB New Chat Button
@@ -168,51 +243,134 @@ public struct ChatTabView: View {
         }
     }
 
+    // MARK: - Channels Tab Content
+
     private var channelsTabContent: some View {
-        VStack {
-            Text("Channels")
-                .font(.headline)
-                .padding()
-            Spacer()
+        ZStack(alignment: .bottomTrailing) {
+            let channelList = channelsViewModel.channels.data ?? []
+            if channelList.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "megaphone")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    Text("No channels available")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(channelList) { ch in
+                            ChannelItemView(
+                                channel: ch,
+                                onClick: {
+                                    activeChannelDetail = ch
+                                },
+                                onSubscribe: { id in
+                                    channelsViewModel.subscribeToChannel(channelId: id)
+                                }
+                            )
+                            Divider()
+                        }
+                    }
+                }
+            }
+
+            // FAB Create Channel Button
+            Button(action: { showCreateChannel = true }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 56, height: 56)
+                        .shadow(radius: 4)
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(24)
+        }
+        .sheet(isPresented: $showCreateChannel) {
+            CreateChannelView(
+                viewModel: channelsViewModel,
+                onBack: { showCreateChannel = false }
+            )
         }
     }
 
+    // MARK: - Jobs Tab Content
+
     private var jobsTabContent: some View {
-        VStack {
-            Text("Jobs")
-                .font(.headline)
-                .padding()
-            Spacer()
+        ZStack(alignment: .bottomTrailing) {
+            let jobList = jobViewModel.jobs.data ?? []
+            JobListView(
+                jobs: jobList,
+                onJobClick: { job in
+                    activeJobDetail = job
+                }
+            )
+
+            // FAB Post Job Button
+            Button(action: { showPostJob = true }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 56, height: 56)
+                        .shadow(radius: 4)
+                    Image(systemName: "briefcase.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(24)
+        }
+        .sheet(isPresented: $showPostJob) {
+            PostJobView(onBack: { showPostJob = false })
         }
     }
+
+    // MARK: - Rewards Tab Content
 
     private var rewardsTabContent: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 20) {
                 Text("Rewards & Points")
-                    .font(.title2)
-                    .bold()
+                    .font(.title2.bold())
                     .padding(.top)
 
-                Text("Points: \(Int(rewardViewModel.points))")
-                    .font(.system(size: 28, weight: .heavy))
-                    .foregroundColor(.accentColor)
+                VStack(spacing: 8) {
+                    Text("\(Int(rewardViewModel.points))")
+                        .font(.system(size: 36, weight: .black))
+                        .foregroundColor(.accentColor)
+                    Text("Total Reward Points")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(16)
 
                 Button(action: {
                     rewardViewModel.showRewardedAd(taskId: "daily_ad", onReward: {})
                 }) {
-                    Text("Watch Ad (+10 Points)")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.accentColor)
-                        .cornerRadius(12)
+                    HStack {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 22))
+                        Text("Watch Ad (+10 Points)")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.accentColor)
+                    .cornerRadius(12)
                 }
-                .padding(.horizontal, 32)
 
                 Spacer()
             }
+            .padding(.horizontal, 24)
         }
     }
 }
