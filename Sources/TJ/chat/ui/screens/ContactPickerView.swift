@@ -13,7 +13,7 @@ public struct ContactPickerView: View {
     @State private var isSearchActive: Bool = false
     @State private var selectedContacts: Set<Contact> = []
 
-    public init(
+    @MainActor public init(
         viewModel: ContactPickerViewModel = ContactPickerViewModel(),
         initialIsGroupMode: Bool = false,
         onBack: @escaping () -> Void = {},

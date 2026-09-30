@@ -34,7 +34,7 @@ public final class ChannelsViewModel: ObservableObject {
             let res = await repository.subscribeToChannel(channelId: channelId)
             if case .success = res {
                 fetchChannels()
-            } else if case .error(let msg) = res {
+            } else if case .error(let msg, _) = res {
                 toastMessage = msg
             }
         }
@@ -45,7 +45,7 @@ public final class ChannelsViewModel: ObservableObject {
             let res = await repository.muteChannel(channelId: channelId, isMuted: isMuted)
             if case .success = res {
                 fetchChannels()
-            } else if case .error(let msg) = res {
+            } else if case .error(let msg, _) = res {
                 toastMessage = msg
             }
         }
@@ -58,7 +58,7 @@ public final class ChannelsViewModel: ObservableObject {
                 createdChannelId = channel.conversationId ?? channel.id
                 toastMessage = "Channel created successfully"
                 fetchChannels()
-            } else if case .error(let msg) = res {
+            } else if case .error(let msg, _) = res {
                 toastMessage = msg
             }
         }
@@ -70,7 +70,7 @@ public final class ChannelsViewModel: ObservableObject {
             if case .success = res {
                 toastMessage = "Admin added"
                 fetchChannels()
-            } else if case .error(let msg) = res {
+            } else if case .error(let msg, _) = res {
                 toastMessage = msg
             }
         }
@@ -82,7 +82,7 @@ public final class ChannelsViewModel: ObservableObject {
             if case .success = res {
                 toastMessage = "Admin removed"
                 fetchChannels()
-            } else if case .error(let msg) = res {
+            } else if case .error(let msg, _) = res {
                 toastMessage = msg
             }
         }
@@ -94,7 +94,7 @@ public final class ChannelsViewModel: ObservableObject {
             if case .success = res {
                 toastMessage = "Posting permission updated"
                 fetchChannels()
-            } else if case .error(let msg) = res {
+            } else if case .error(let msg, _) = res {
                 toastMessage = msg
             }
         }

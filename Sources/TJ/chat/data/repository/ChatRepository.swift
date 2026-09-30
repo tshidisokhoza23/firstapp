@@ -251,7 +251,7 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
                 await localDb.upsertMessages([confirmedMsg.toEntity(chatId: chatId)])
                 return .success(confirmedMsg)
             } catch {
-                return .error(error.localizedDescription, data: pendingMsg)
+                return .error(error.localizedDescription, pendingMsg)
             }
         }
     }
@@ -427,7 +427,7 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             msg.content = res.message.messageText
             return .success(msg)
         } catch {
-            return .error(error.localizedDescription, data: msg)
+            return .error(error.localizedDescription, msg)
         }
     }
 
@@ -541,6 +541,152 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
         } catch {
             return .error(error.localizedDescription)
         }
+    }
+}
+
+private extension ChatEntity {
+    func toModel() -> ChatMessage {
+        ChatMessage(
+            id: id,
+            type: type,
+            senderName: senderName,
+            lastMessage: lastMessage,
+            timestamp: timestamp,
+            unreadCount: unreadCount,
+            avatarUrl: avatarUrl,
+            isOnline: isOnline,
+            lastSeen: lastSeen,
+            isMuted: isMuted,
+            isPinned: isPinned,
+            pinnedMessageId: pinnedMessageId,
+            isTyping: isTyping,
+            isGroup: isGroup,
+            lastMessageIsFromMe: lastMessageIsFromMe,
+            lastMessageRead: lastMessageRead,
+            isArchived: isArchived,
+            isAdmin: isAdmin,
+            adminsCanPost: adminsCanPost,
+            isSubscribed: isSubscribed,
+            createdBy: createdBy,
+            wallpaperUrl: wallpaperUrl,
+            customNotificationTone: customNotificationTone,
+            mediaVisibility: mediaVisibility,
+            disappearingMessagesDuration: disappearingMessagesDuration,
+            phoneNumber: phoneNumber,
+            otherUserId: otherUserId
+        )
+    }
+}
+
+private extension ChatMessage {
+    func toEntity() -> ChatEntity {
+        ChatEntity(
+            id: id,
+            type: type,
+            senderName: senderName,
+            lastMessage: lastMessage,
+            timestamp: timestamp,
+            unreadCount: unreadCount,
+            avatarUrl: avatarUrl,
+            otherUserId: otherUserId,
+            isOnline: isOnline,
+            isMuted: isMuted,
+            isPinned: isPinned,
+            isTyping: isTyping,
+            isAdmin: isAdmin,
+            isSubscribed: isSubscribed,
+            adminsCanPost: adminsCanPost,
+            createdBy: createdBy,
+            phoneNumber: phoneNumber,
+            lastMessageIsFromMe: lastMessageIsFromMe,
+            lastMessageRead: lastMessageRead,
+            pinnedMessageId: pinnedMessageId,
+            lastSeen: lastSeen,
+            disappearingMessagesDuration: disappearingMessagesDuration,
+            isGroup: isGroup,
+            isArchived: isArchived,
+            wallpaperUrl: wallpaperUrl,
+            customNotificationTone: customNotificationTone,
+            mediaVisibility: mediaVisibility
+        )
+    }
+}
+
+private extension MessageEntity {
+    func toModel() -> Message {
+        Message(
+            id: id,
+            conversationId: conversationId,
+            content: content,
+            senderId: senderId,
+            timestamp: timestamp,
+            isFromMe: isFromMe,
+            status: status,
+            type: type,
+            mediaUrls: mediaUrls,
+            fileName: fileName,
+            fileSize: fileSize,
+            duration: duration,
+            contactName: contactName,
+            contactPhone: contactPhone,
+            latitude: latitude,
+            longitude: longitude,
+            isRead: isRead,
+            isDelivered: isDelivered,
+            isStarred: isStarred,
+            replyToId: replyToId,
+            replyToText: replyToText,
+            replyToSenderName: replyToSenderName,
+            reactions: reactions,
+            clientId: clientId,
+            scheduledAt: scheduledAt
+        )
+    }
+}
+
+private extension Message {
+    func toEntity(chatId: String) -> MessageEntity {
+        MessageEntity(
+            id: id,
+            conversationId: chatId,
+            content: content,
+            senderId: senderId,
+            timestamp: timestamp,
+            isFromMe: isFromMe,
+            status: status,
+            clientId: clientId,
+            type: type,
+            mediaUrls: mediaUrls,
+            duration: duration,
+            fileName: fileName,
+            fileSize: fileSize,
+            contactName: contactName,
+            contactPhone: contactPhone,
+            latitude: latitude,
+            longitude: longitude,
+            replyToId: replyToId,
+            replyToText: replyToText,
+            replyToSenderName: replyToSenderName,
+            isStarred: isStarred,
+            isDelivered: isDelivered,
+            isRead: isRead,
+            reactions: reactions,
+            scheduledAt: scheduledAt
+        )
+    }
+}
+
+private extension AdvertEntity {
+    func toModel() -> Advert {
+        Advert(
+            id: id,
+            advertiserName: title,
+            title: title,
+            contentUrl: imageUrl ?? videoUrl,
+            contentText: description,
+            targetUrl: ctaUrl ?? "",
+            isViewed: isViewed
+        )
     }
 }
 

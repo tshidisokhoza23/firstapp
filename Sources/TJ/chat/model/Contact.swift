@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Contact: Identifiable, Codable, Equatable, Sendable {
+public struct Contact: Identifiable, Codable, Equatable, Hashable, Sendable {
     public var id: String
     public var username: String
     public var displayName: String

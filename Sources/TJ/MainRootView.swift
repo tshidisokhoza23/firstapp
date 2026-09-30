@@ -41,7 +41,7 @@ public struct MainRootView: View {
                 })
             } else {
                 if isAuthenticated {
-                    MainTabView()
+                    AppNavigation()
                         .environmentObject(globalCallState)
                 } else {
                     LoginView(
@@ -71,7 +71,7 @@ public struct MainRootView: View {
 
     private func handleLoginSuccess(response: AuthResponse?) {
         isAuthenticated = true
-        if let user = response?.user, user.displayName == nil || user.displayName?.isEmpty == true {
+        if let user = response?.user, user.displayName.isEmpty {
             isProfileComplete = false
         } else {
             isProfileComplete = true

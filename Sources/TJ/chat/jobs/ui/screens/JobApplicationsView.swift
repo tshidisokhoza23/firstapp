@@ -8,7 +8,7 @@ public struct JobApplicationsView: View {
 
     @StateObject private var viewModel: JobApplicationsViewModel
 
-    public init(
+    @MainActor public init(
         onBack: @escaping () -> Void,
         onViewJobDetails: @escaping (String) -> Void,
         onContactRecruiter: @escaping (String) -> Void,

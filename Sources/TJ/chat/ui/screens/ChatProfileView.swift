@@ -15,7 +15,7 @@ public struct ChatProfileView: View {
     @State private var showReportAlert: Bool = false
     @State private var showEncryptionInfo: Bool = false
 
-    public init(
+    @MainActor public init(
         chat: ChatMessage,
         viewModel: ChatViewModel = ChatViewModel(),
         onBack: @escaping () -> Void = {},

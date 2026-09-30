@@ -16,7 +16,7 @@ public struct ChatView: View {
     @State private var isRecording: Bool = false
     @State private var recordingDuration: Int = 0
 
-    public init(
+    @MainActor public init(
         chat: ChatMessage,
         viewModel: ChatViewModel = ChatViewModel(),
         onBack: @escaping () -> Void = {},

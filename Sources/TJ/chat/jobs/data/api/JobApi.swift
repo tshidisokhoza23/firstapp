@@ -77,7 +77,7 @@ public struct ApiJob: Codable {
             companyName: company_name,
             companyLogoUrl: company_logo_url,
             location: location,
-            logoColorHex: "#2196F3",
+            logoHex: "#2196F3",
             salaryRange: salary_range ?? "",
             jobType: job_type ?? "Full-time",
             postedTime: posted_time,
@@ -116,7 +116,7 @@ public struct ApiJobApplication: Codable {
             location: location ?? "",
             appliedDate: applied_date,
             status: ApplicationStatus(rawValue: status.uppercased()) ?? .pending,
-            logoColorHex: "#2196F3",
+            logoHex: "#2196F3",
             conversationId: conversation_id
         )
     }

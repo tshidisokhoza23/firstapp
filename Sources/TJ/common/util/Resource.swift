@@ -1,9 +1,9 @@
 import Foundation
 
-public enum Resource<T>: Equatable where T: Equatable {
+public enum Resource<T> {
     case success(T)
-    case error(message: String, lastData: T? = nil)
-    case loading(partialData: T? = nil)
+    case error(String, T? = nil)
+    case loading(T? = nil)
 
     public var data: T? {
         switch self {

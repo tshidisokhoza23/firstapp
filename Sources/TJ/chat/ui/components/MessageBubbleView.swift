@@ -96,7 +96,7 @@ public struct MessageBubbleView: View {
                         }
                     }
 
-                    if message.type == .audioMessage || message.type == .audioCall {
+                    if message.type == .audioMessage || message.type == .voiceCall {
                         HStack(spacing: 8) {
                             Button(action: {
                                 if playingAudioUri == message.mediaUrls.first {

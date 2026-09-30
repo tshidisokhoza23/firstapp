@@ -288,7 +288,7 @@ public struct DriveView: View {
         HStack(spacing: 12) {
             Image(systemName: file.iconName)
                 .font(.title2)
-                .foregroundColor(file.isFolder ? .amber : .blue)
+                .foregroundColor(file.isFolder ? .orange : .blue)
                 .frame(width: 40, height: 40)
                 .background(file.isFolder ? Color.orange.opacity(0.12) : Color.blue.opacity(0.12))
                 .cornerRadius(10)
