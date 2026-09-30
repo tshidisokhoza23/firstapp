@@ -320,13 +320,13 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             let res = try await chatApi.getMessages(conversationID: chatId, cursor: nil, limit: 50)
             let myUserId = currentUserIdProvider() ?? ""
             let entities = res.messages.map { api -> MessageEntity in
-                let msg = Message(
-                    id: api.id,
-                    conversationId: chatId,
-                    content: api.messageText,
-                    senderId: api.senderId,
-                    timestamp: api.createdAt,
-                chatMessage(from: api, conversationId: chatId, myUserId: myUserId)
+                chatMessage(from: api, conversationId: chatId, myUserId: myUserId).toEntity(chatId: chatId)
+            }
+            await localDb.upsertMessages(entities)
+            return .success(true)
+        } catch {
+            return .error(error.localizedDescription)
+        }
     }
 
     public func syncChats() async -> Resource<Bool> {

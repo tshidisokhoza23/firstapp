@@ -88,11 +88,11 @@ public struct StoryViewer: View {
         let slides = liveStory.stories.map { item in
             StorySlide(
                 id: item.id,
-                mediaSymbol: item.type == .videonil : item.content,
+                mediaSymbol: item.type == .video ? "video.fill" : (item.type == .image ? "photo.fill" : "text.alignleft"),
+                caption: item.content.isEmpty ? nil : item.content,
                 backgroundGradient: [item.backgroundColor, .black],
                 durationSeconds: max(1, Double(item.durationMs) / 1000.0),
                 mediaURL: item.contentUrl
-                durationSeconds: max(1, Double(item.durationMs) / 1000.0)
             )
         }
         return UserStoryGroup(

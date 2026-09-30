@@ -15,7 +15,7 @@ public class JobViewModel: ObservableObject {
         fetchJobs()
         fetchJobApplications()
         Task {
-            if case .success(let profile) = await repository.getJobProfile() {
+            if case .success(let profile) = await self.repository.getJobProfile() {
                 self.jobProfile = profile
             }
         }

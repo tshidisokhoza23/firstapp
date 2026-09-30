@@ -198,7 +198,7 @@ public struct ChatTabView: View {
                     StoriesHeaderRow(
                         stories: storyRepository.userStories,
                         onStoryClick: { activeStory = $0 },
-                        onAddStoryClick: { showAddStory = true }
+                        onMediaStoryClick: { showAddStory = true }
                     )
                     .padding(.vertical, 8)
 

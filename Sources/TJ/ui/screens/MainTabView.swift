@@ -135,7 +135,7 @@ public struct MainTabView: View {
             // Global Active Call Overlay Banner
             if globalCallState.isCallActive {
                 VStack {
-                    ActiveCallOverlayBanner()
+                    RootActiveCallOverlayBanner(callState: globalCallState)
                     Spacer()
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))

@@ -64,7 +64,10 @@ final class VoiceNoteController: NSObject, ObservableObject, AVAudioPlayerDelega
             isReviewing = false
             timer?.invalidate()
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.duration += 1 }
+                let controller = self
+                Task { @MainActor in
+                    controller?.duration += 1
+                }
             }
         } catch {
             self.error = "Could not record a voice note"

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AVFoundation
 
 // MARK: - Chat UI State & Intent Models
 
@@ -84,6 +85,7 @@ public class ChatViewModel: ObservableObject {
     @Published public var activeChatId: String? = nil
     @Published public var activeSubTab: Int = 0 // 0: Chats, 1: Channels, 2: Jobs, 3: Rewards, 4: DM
     @Published public var currentlyPlayingAudio: String? = nil
+    private var audioPlayer: AVAudioPlayer?
     @Published public var blockedUserIds: Set<String> = []
     @Published public var contactUser: User? = nil
 
@@ -195,22 +197,47 @@ public class ChatViewModel: ObservableObject {
             status: .sending,
             type: MessageType(rawValue: messageType.uppercased()) ?? .text,
             mediaUrls: mediaUrls,
-            replyToId: replyToId,
-            replyToText: replyToText,
-            replyToSenderName: replyToSenderName,
-            duration: duration,
             fileName: fileName,
             fileSize: fileSize,
+            duration: duration,
             contactName: contactName,
             contactPhone: contactPhone,
             latitude: latitude,
             longitude: longitude,
+            replyToId: replyToId,
+            replyToText: replyToText,
+            replyToSenderName: replyToSenderName,
             audioAmplitudes: audioAmplitudes
         )
 
         var currentMsgs = uiState.messages.data ?? []
         currentMsgs.append(msg)
         uiState.messages = .success(currentMsgs)
+        Task {
+            let result = await AppRuntime.chatRepository.sendMessage(
+                chatId: chatId,
+                body: body,
+                messageType: messageType,
+                mediaUrls: mediaUrls,
+                duration: duration,
+                fileName: fileName,
+                fileSize: fileSize,
+                contactName: contactName,
+                contactPhone: contactPhone,
+                latitude: latitude,
+                longitude: longitude,
+                replyToId: replyToId,
+                replyToText: replyToText,
+                replyToSenderName: replyToSenderName,
+                clientId: msg.id,
+                scheduledAt: scheduledAt
+            )
+            if case .error(let message, _) = result {
+                self.uiState.error = message
+            } else {
+                self.fetchMessages(chatId: chatId)
+            }
+        }
     }
 
     public func startVoiceOrVideoCall(receiverId: String, callType: CallType, name: String? = nil) {
@@ -241,7 +268,7 @@ public class ChatViewModel: ObservableObject {
 
     public func reactToMessage(messageId: String, emoji: String) {
         if var msgs = uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == messageId }) {
-            msgs[idx].reactions[uiState.currentUser?.id ?? "me"] = emoji
+            msgs[idx].reactions[emoji, default: 0] += 1
             uiState.messages = .success(msgs)
         }
     }
@@ -265,10 +292,10 @@ public class ChatViewModel: ObservableObject {
     public func createGroup(name: String, contactIds: [String], onSuccess: @escaping (ChatMessage) -> Void) {
         let groupChat = ChatMessage(
             id: UUID().uuidString,
+            type: .group,
             senderName: name,
             lastMessage: "Group created",
             timestamp: Int64(Date().timeIntervalSince1970 * 1000),
-            type: .group,
             isGroup: true
         )
         onSuccess(groupChat)
@@ -299,7 +326,49 @@ public class ChatViewModel: ObservableObject {
         uiState.typingStatus[chatId] = isTyping
     }
 
-    public func setPlayingAudio(_ uri: String?) {
+    publif uri == nil || uri == currentlyPlayingAudio {
+            audioPlayer?.stop()
+            audioPlayer = nil
+            currentlyPlayingAudio = nil
+            return
+        }
+        currentlyPlayingAudio = uri
+        guard let uri else { return }
+        Task { await playAudio(uri) }
+    }
+
+    private func playAudio(_ uri: String) async {
+        let resolved = FeedPost.resolve(uri) ?? URL(string: uri)
+        guard let resolved else {
+            currentlyPlayingAudio = nil
+            uiState.error = "Could not play that voice note"
+            return
+        }
+        do {
+            let fileURL: URL
+            if resolved.isFileURL {
+                fileURL = resolved
+            } else {
+                let (data, response) = try await URLSession.shared.data(from: resolved)
+                let code = (response as? HTTPURLResponse)?.statusCode ?? 200
+                guard (200...299).contains(code), !data.isEmpty else {
+                    throw URLError(.badServerResponse)
+                }
+                let ext = resolved.pathExtension.isEmpty ? "m4a" : resolved.pathExtension
+                fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("play-\(UUID().uuidString).\(ext)")
+                try data.write(to: fileURL)
+            }
+            let player = try AVAudioPlayer(contentsOf: fileURL)
+            guard currentlyPlayingAudio == uri else { return }
+            try AVAudioSession.sharedInstance().setCategory(.playback)
+            try AVAudioSession.sharedInstance().setActive(true)
+            audioPlayer?.stop()
+            audioPlayer = player
+            player.play()
+        } catch {
+            if currentlyPlayingAudio == uri { currentlyPlayingAudio = nil }
+            uiState.error = "Could not play that voice note"
+        }ri: String?) {
         currentlyPlayingAudio = uri
     }
 

@@ -115,7 +115,7 @@ public struct MingleView: View {
                         Image(systemName: "person.2.slash")
                             .font(.system(size: 56))
                             .foregroundColor(.secondary)
-                        Text(feedNote
+                        Text(feedNote)
                             .font(.title3.bold())
                         Text("Try widening your distance filter or changing interest preferences.")
                             .font(.subheadline)
@@ -443,12 +443,12 @@ public struct MingleView: View {
                         }
                     }
                 }
-    Task { await loadFeed() }
-                
+
                 Spacer()
 
                 Button("Apply Filters") {
                     showFilterSheet = false
+                    Task { await loadFeed() }
                 }
                 .fontWeight(.bold)
                 .foregroundColor(.white)
@@ -562,7 +562,7 @@ public struct MingleView: View {
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .background(Color.blue.opacity(0.12))
-                         penMatchChatforegroundColor(.blue)
+                                    .foregroundColor(.blue)
                                     .cornerRadius(10)
                             }
                         }
