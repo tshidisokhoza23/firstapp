@@ -190,7 +190,6 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             timestamp: Int64(Date().timeIntervalSince1970 * 1000),
             isFromMe: true,
             status: .pending,
-            clientId: clientUuid,
             type: mType,
             mediaUrls: mediaUrls,
             fileName: fileName,
@@ -203,6 +202,7 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             replyToId: replyToId,
             replyToText: replyToText,
             replyToSenderName: replyToSenderName,
+            clientId: clientUuid,
             scheduledAt: scheduledAt
         )
 
