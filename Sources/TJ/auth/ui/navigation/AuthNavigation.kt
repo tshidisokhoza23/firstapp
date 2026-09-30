@@ -1,0 +1,121 @@
+package com.tpsk.tj.auth.ui.navigation
+
+import androidx.compose.runtime.remember
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.tpsk.tj.auth.ui.screens.LoginScreen
+import com.tpsk.tj.auth.ui.screens.OtpVerificationScreen
+import com.tpsk.tj.auth.ui.screens.CompleteProfileScreen
+import com.tpsk.tj.auth.ui.viewmodel.AuthViewModel
+import com.tpsk.tj.ui.navigation.Screen
+
+fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
+    composable(Screen.Login.route) {
+        val authViewModel: AuthViewModel = hiltViewModel()
+        LoginScreen(
+            onLoginSuccess = { auth ->
+                if (auth?.user?.isProfileComplete == false) {
+                    navController.navigate(Screen.CompleteProfile.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                } else {
+                    navController.navigate(Screen.Main.createRoute()) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            },
+            onNavigateToOtp = { phone, user, email, name, pass, countryCode ->
+                navController.navigate(Screen.OtpVerification.createRoute(
+                    phone,
+                    user ?: "NONE",
+                    email ?: "NONE",
+                    name ?: "NONE",
+                    pass ?: "NONE",
+                    countryCode
+                )) {
+                    launchSingleTop = true
+                }
+            },
+
+            viewModel = authViewModel
+        )
+    }
+
+    composable(
+        route = Screen.OtpVerification.route,
+        arguments = listOf(
+            navArgument("phoneNumber") { type = NavType.StringType },
+            navArgument("username") { type = NavType.StringType },
+            navArgument("email") { type = NavType.StringType },
+            navArgument("displayName") { type = NavType.StringType },
+            navArgument("password") { type = NavType.StringType },
+            navArgument("countryCode") { type = NavType.StringType; nullable = true }
+        )
+
+    ) { backStackEntry ->
+        // Use the ViewModel from the Login screen if it's still in the backstack
+        val loginEntry = remember(backStackEntry) {
+            try {
+                navController.getBackStackEntry(Screen.Login.route)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        val authViewModel: AuthViewModel = if (loginEntry != null) {
+            hiltViewModel(loginEntry)
+        } else {
+            hiltViewModel()
+        }
+        
+        val phoneNumber = backStackEntry.arguments?.getString("phoneNumber") ?: ""
+        val usernameRaw = backStackEntry.arguments?.getString("username") ?: "NONE"
+        val emailRaw = backStackEntry.arguments?.getString("email") ?: "NONE"
+        val displayNameRaw = backStackEntry.arguments?.getString("displayName") ?: "NONE"
+        val passwordRaw = backStackEntry.arguments?.getString("password") ?: "NONE"
+        val countryCode = backStackEntry.arguments?.getString("countryCode")
+        
+        val username = if (usernameRaw == "NONE") null else usernameRaw
+        val email = if (emailRaw == "NONE") null else emailRaw
+        val displayName = if (displayNameRaw == "NONE") null else displayNameRaw
+        val password = if (passwordRaw == "NONE") null else passwordRaw
+
+        OtpVerificationScreen(
+            phoneNumber = phoneNumber,
+            username = username,
+            email = email,
+            displayName = displayName,
+            password = password,
+            countryCode = countryCode,
+
+            onVerificationSuccess = {
+                navController.navigate(Screen.Main.createRoute()) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            },
+            onBack = { navController.popBackStack() },
+            viewModel = authViewModel
+        )
+    }
+
+    composable(Screen.CompleteProfile.route) {
+        val authViewModel: AuthViewModel = hiltViewModel()
+        CompleteProfileScreen(
+            onCompleteSuccess = {
+                navController.navigate(Screen.Main.createRoute()) {
+                    popUpTo(0) { inclusive = true }
+                }
+            },
+            onNavigateToTerms = {
+                navController.navigate(Screen.TermsAndPrivacy.createRoute())
+            },
+            viewModel = authViewModel
+        )
+    }
+}

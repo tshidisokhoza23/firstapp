@@ -1,18 +1,35 @@
 import Foundation
 
-struct ChatItem: Identifiable, Codable, Hashable {
-    let id: String
-    let name: String
-    let lastMessage: String
-    let timestamp: String
-    let unreadCount: Int
-    let avatarUrl: String
-    let isOnline: Bool
+public struct ChatItem: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var title: String
+    public var subtitle: String
+    public var timestamp: String
+    public var unreadCount: Int
+    public var avatarUrl: String?
+    public var isOnline: Bool
+    public var isMuted: Bool
+    public var isPinned: Bool
 
-    static let samples = [
-        ChatItem(id: "c1", name: "Sarah Connor", lastMessage: "See you at the meeting!", timestamp: "10:42 AM", unreadCount: 2, avatarUrl: "https://i.pravatar.cc/150?u=s1", isOnline: true),
-        ChatItem(id: "c2", name: "Tech Community", lastMessage: "Dave: The new release is live 🚀", timestamp: "9:15 AM", unreadCount: 5, avatarUrl: "https://i.pravatar.cc/150?u=s2", isOnline: false),
-        ChatItem(id: "c3", name: "Michael Scott", lastMessage: "That's what she said!", timestamp: "Yesterday", unreadCount: 0, avatarUrl: "https://i.pravatar.cc/150?u=s3", isOnline: true),
-        ChatItem(id: "c4", name: "Design Guild", lastMessage: "Updated the Figma tokens", timestamp: "Monday", unreadCount: 0, avatarUrl: "https://i.pravatar.cc/150?u=s4", isOnline: false)
-    ]
+    public init(
+        id: String,
+        title: String,
+        subtitle: String = "",
+        timestamp: String = "",
+        unreadCount: Int = 0,
+        avatarUrl: String? = nil,
+        isOnline: Bool = false,
+        isMuted: Bool = false,
+        isPinned: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.timestamp = timestamp
+        self.unreadCount = unreadCount
+        self.avatarUrl = avatarUrl
+        self.isOnline = isOnline
+        self.isMuted = isMuted
+        self.isPinned = isPinned
+    }
 }

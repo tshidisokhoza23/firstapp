@@ -1,17 +1,29 @@
 import Foundation
 
-struct ChannelItem: Identifiable, Codable, Hashable {
-    let id: String
-    let name: String
-    let description: String
-    let subscriberCount: Int
-    let category: String
-    let iconUrl: String
-    var isJoined: Bool = false
+public struct ChannelItem: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var description: String
+    public var followers: String
+    public var avatarUrl: String?
+    public var isVerified: Bool
+    public var isSubscribed: Bool
 
-    static let samples = [
-        ChannelItem(id: "ch1", name: "iOS Developers World", description: "SwiftUI, Swift, and iOS architecture news.", subscriberCount: 14200, category: "Tech", iconUrl: "applelogo", isJoined: true),
-        ChannelItem(id: "ch2", name: "TJ Official Updates", description: "News and feature drops from the TJ team.", subscriberCount: 52000, category: "News", iconUrl: "sparkles", isJoined: false),
-        ChannelItem(id: "ch3", name: "Design & UX Guild", description: "UI/UX trends, Figma tips, and design systems.", subscriberCount: 28400, category: "Design", iconUrl: "paintbrush.fill", isJoined: false)
-    ]
+    public init(
+        id: String,
+        name: String,
+        description: String = "",
+        followers: String = "0",
+        avatarUrl: String? = nil,
+        isVerified: Bool = false,
+        isSubscribed: Bool = false
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.followers = followers
+        self.avatarUrl = avatarUrl
+        self.isVerified = isVerified
+        self.isSubscribed = isSubscribed
+    }
 }

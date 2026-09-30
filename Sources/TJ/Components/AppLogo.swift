@@ -1,35 +1,31 @@
 import SwiftUI
 
-struct AppLogo: View {
-    var size: CGFloat = 36
+public struct AppLogo: View {
+    public var size: CGFloat
 
-    var body: some View {
-        HStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [AppColors.brandPrimary, AppColors.brandAccent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: size, height: size)
+    public init(size: CGFloat = 90) {
+        self.size = size
+    }
 
-                Image(systemName: "sparkles")
-                    .font(.system(size: size * 0.5, weight: .bold))
-                    .foregroundColor(.white)
-            }
-
-            Text("TJ")
-                .font(.system(size: size * 0.75, weight: .black, design: .rounded))
-                .foregroundStyle(
+    public var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.23, style: .continuous)
+                .fill(
                     LinearGradient(
-                        colors: [AppColors.brandPrimary, AppColors.brandAccent],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                        colors: [Color.logoBlueDark, Color.appAccent],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
                 )
+                .frame(width: size, height: size)
+
+            Text("TJ")
+                .font(.system(size: size * 0.42, weight: .black, design: .rounded))
+                .foregroundColor(.white)
         }
     }
+}
+
+#Preview {
+    AppLogo(size: 90)
 }

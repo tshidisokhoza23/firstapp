@@ -1,35 +1,47 @@
 import SwiftUI
 
-struct AppColors {
-    // Unified Brand Palette
-    static let brandPrimary = Color(red: 0.0, green: 0.23, blue: 0.63) // #003BA1 Logo Blue Dark
-    static let brandAccent = Color(red: 0.0, green: 0.82, blue: 1.0)    // #00D1FF Logo Blue Light
-
-    // Base Background Gradients (Dark and Light)
-    static let darkBackgroundTop = Color(red: 0.016, green: 0.082, blue: 0.157) // #041528
-    static let darkBackgroundBottom = Color.black                              // #000000
-    static let lightBackground = Color(red: 0.97, green: 0.98, blue: 0.98)      // #F8F9FA
-
-    // Neutrals
-    static let greyLight = Color(red: 0.94, green: 0.95, blue: 0.96)           // #F0F2F5
-    static let greyMedium = Color(red: 0.56, green: 0.56, blue: 0.58)          // #8E8E93
-    static let greyDark = Color(red: 0.11, green: 0.11, blue: 0.12)            // #1C1C1E
-    static let surfaceColor = Color(red: 0.086, green: 0.094, blue: 0.11)       // #16181C
-    static let dividerColor = Color(red: 0.18, green: 0.20, blue: 0.21)        // #2F3336
-
-    static func backgroundLinearGradient(isDark: Bool) -> LinearGradient {
-        if isDark {
-            return LinearGradient(
-                colors: [darkBackgroundTop, darkBackgroundBottom],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        } else {
-            return LinearGradient(
-                colors: [Color.white, lightBackground],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+public extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
         }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
+
+    static let appBackgroundDarkTop = Color(hex: "0F172A")
+    static let appBackgroundDarkBottom = Color(hex: "1E293B")
+    static let appBackgroundLight = Color(hex: "F8FAFC")
+    static let logoBlueDark = Color(hex: "1A237E")
+    static let boyishPurple = Color(hex: "7C4DFF")
+    static let appAccent = Color(hex: "00D1FF")
+    static let appPrimary = Color(hex: "1A237E")
+    static let appSecondary = Color(hex: "00D1FF")
+}
+
+public struct AppColors {
+    public static let primary = Color.appPrimary
+    public static let secondary = Color.appSecondary
+    public static let accent = Color.appAccent
+    public static let backgroundDarkTop = Color.appBackgroundDarkTop
+    public static let backgroundDarkBottom = Color.appBackgroundDarkBottom
+    public static let backgroundLight = Color.appBackgroundLight
+    public static let logoBlueDark = Color.logoBlueDark
+    public static let boyishPurple = Color.boyishPurple
 }
