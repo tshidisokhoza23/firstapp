@@ -248,9 +248,13 @@ public struct UserIdRequest: Codable, Sendable {
 }
 
 public struct ToggleAdminPostingRequest: Codable, Sendable {
-    public let allowed: Bool
+    public let adminsCanPost: Bool
 
-    public init(allowed: Bool) {
-        self.allowed = allowed
+    enum CodingKeys: String, CodingKey {
+        case adminsCanPost = "admins_can_post"
+    }
+
+    public init(adminsCanPost: Bool) {
+        self.adminsCanPost = adminsCanPost
     }
 }

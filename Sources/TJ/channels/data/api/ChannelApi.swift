@@ -43,42 +43,6 @@ public struct CreateChannelRequest: Codable {
     }
 }
 
-public struct AvatarUrlRequest: Codable {
-    public let avatarUrl: String
-
-    enum CodingKeys: String, CodingKey {
-        case avatarUrl = "avatar_url"
-    }
-
-    public init(avatarUrl: String) {
-        self.avatarUrl = avatarUrl
-    }
-}
-
-public struct ToggleAdminPostingRequest: Codable {
-    public let adminOnlyPosting: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case adminOnlyPosting = "admin_only_posting"
-    }
-
-    public init(adminOnlyPosting: Bool) {
-        self.adminOnlyPosting = adminOnlyPosting
-    }
-}
-
-public struct UserIdRequest: Codable {
-    public let userId: String
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-    }
-
-    public init(userId: String) {
-        self.userId = userId
-    }
-}
-
 public protocol ChannelApiService {
     func getChannels() async throws -> ChannelsResponse
     func getChatsChannels() async throws -> ChannelsResponse
