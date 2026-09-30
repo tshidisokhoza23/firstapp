@@ -5,6 +5,10 @@ struct ChatDetailView: View {
     @EnvironmentObject var chatViewModel: ChatViewModel
     @Environment(\.dismiss) var dismiss
 
+    @State private var showingContactProfile: Bool = false
+    @State private var showingVoiceCall: Bool = false
+    @State private var showingVideoCall: Bool = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Navigation Header
@@ -15,29 +19,34 @@ struct ChatDetailView: View {
                         .foregroundColor(.primary)
                 }
 
-                Image(systemName: "person.crop.circle.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 40, height: 40)
-                    .foregroundColor(AppColors.greyMedium)
+                Button(action: { showingContactProfile = true }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.crop.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 40, height: 40)
+                            .foregroundColor(AppColors.greyMedium)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(chat.name)
-                        .font(.system(size: 16, weight: .bold))
-                    Text(chat.isOnline ? "Online" : "Last seen recently")
-                        .font(.system(size: 12))
-                        .foregroundColor(chat.isOnline ? .green : AppColors.greyMedium)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(chat.name)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.primary)
+                            Text(chat.isOnline ? "Online" : "Last seen recently")
+                                .font(.system(size: 12))
+                                .foregroundColor(chat.isOnline ? .green : AppColors.greyMedium)
+                        }
+                    }
                 }
 
                 Spacer()
 
                 HStack(spacing: 16) {
-                    Button(action: {}) {
+                    Button(action: { showingVoiceCall = true }) {
                         Image(systemName: "phone.fill")
                             .font(.title3)
                             .foregroundColor(AppColors.brandPrimary)
                     }
-                    Button(action: {}) {
+                    Button(action: { showingVideoCall = true }) {
                         Image(systemName: "video.fill")
                             .font(.title3)
                             .foregroundColor(AppColors.brandPrimary)
@@ -114,6 +123,15 @@ struct ChatDetailView: View {
             .padding(.horizontal)
             .padding(.vertical, 10)
             .background(Color(UIColor.secondarySystemBackground))
+        }
+        .sheet(isPresented: $showingContactProfile) {
+            ChatProfileView(chat: chat)
+        }
+        .fullScreenCover(isPresented: $showingVoiceCall) {
+            ActiveCallOverlayView(contactName: chat.name, isVideoCall: false)
+        }
+        .fullScreenCover(isPresented: $showingVideoCall) {
+            ActiveCallOverlayView(contactName: chat.name, isVideoCall: true)
         }
     }
 }

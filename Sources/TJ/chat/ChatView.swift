@@ -4,6 +4,10 @@ struct ChatView: View {
     @EnvironmentObject var chatViewModel: ChatViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var showingSettings: Bool = false
+    @State private var showingNewChatContactPicker: Bool = false
+    @State private var showingCreateStory: Bool = false
+    @State private var showingCreateChannel: Bool = false
+    @State private var showingPostJob: Bool = false
 
     var body: some View {
         NavigationView {
@@ -16,12 +20,12 @@ struct ChatView: View {
                         Spacer()
 
                         HStack(spacing: 16) {
-                            Button(action: {}) {
+                            Button(action: { showingNewChatContactPicker = true }) {
                                 Image(systemName: "magnifyingglass")
                                     .font(.title3)
                                     .foregroundColor(.primary)
                             }
-                            Button(action: {}) {
+                            Button(action: { showingCreateStory = true }) {
                                 Image(systemName: "camera")
                                     .font(.title3)
                                     .foregroundColor(.primary)
@@ -54,17 +58,45 @@ struct ChatView: View {
                         Divider().padding(.vertical, 4)
                         ChatsListView()
                     } else if chatViewModel.activeSubTab == 1 {
-                        ChannelsListView()
+                        VStack(spacing: 0) {
+                            HStack {
+                                Spacer()
+                                Button(action: { showingCreateChannel = true }) {
+                                    Label("Create Channel", systemImage: "plus.circle.fill")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(AppColors.brandPrimary)
+                                }
+                            }
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)
+
+                            ChannelsListView()
+                        }
                     } else if chatViewModel.activeSubTab == 2 {
-                        JobsListView()
+                        VStack(spacing: 0) {
+                            HStack {
+                                Spacer()
+                                Button(action: { showingPostJob = true }) {
+                                    Label("Post a Job", systemImage: "plus.circle.fill")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(AppColors.brandPrimary)
+                                }
+                            }
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)
+
+                            JobsListView()
+                        }
                     } else {
                         RewardsView()
                     }
                 }
 
-                // Floating Action Button
+                // Floating Action Button for New Chat
                 if chatViewModel.activeSubTab == 0 {
-                    Button(action: {}) {
+                    Button(action: { showingNewChatContactPicker = true }) {
                         Image(systemName: "square.and.pencil")
                             .font(.title2)
                             .foregroundColor(.white)
@@ -83,6 +115,18 @@ struct ChatView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showingNewChatContactPicker) {
+                ContactPickerView()
+            }
+            .sheet(isPresented: $showingCreateStory) {
+                CreateStorySheet()
+            }
+            .sheet(isPresented: $showingCreateChannel) {
+                CreateChannelSheet()
+            }
+            .sheet(isPresented: $showingPostJob) {
+                PostJobSheet()
             }
         }
     }
