@@ -11,7 +11,7 @@ public struct CategoryItem: Identifiable, Hashable {
 }
 
 public struct CompleteProfileView: View {
-    @ObservedObject private var viewModel: AuthViewModel
+    @ObservedObject public var viewModel: AuthViewModel
     private var onCompleteSuccess: () -> Void
     private var onNavigateToTerms: () -> Void
 

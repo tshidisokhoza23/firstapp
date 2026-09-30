@@ -10,8 +10,8 @@ public final class ChannelsViewModel: ObservableObject {
 
     private let repository: ChannelRepository
 
-    public init(repository: ChannelRepository = ChannelRepository.shared) {
-        self.repository = repository
+    public init(repository: ChannelRepository? = nil) {
+        self.repository = repository ?? ChannelRepository.shared
         fetchChannels()
     }
 

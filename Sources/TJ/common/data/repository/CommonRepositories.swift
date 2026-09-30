@@ -1,5 +1,17 @@
 import Foundation
 
+public struct DevResetResponse: Codable, Equatable, Sendable {
+    public let status: String
+    public let username: String
+    public let password: String
+
+    public init(status: String = "ok", username: String = "", password: String = "") {
+        self.status = status
+        self.username = username
+        self.password = password
+    }
+}
+
 // MARK: - System Repository Protocol
 public protocol SystemRepository {
     func clearCache() async
@@ -17,7 +29,6 @@ public final class SystemRepositoryImpl: SystemRepository {
 
     public func clearCache() async {
         print("[SystemRepositoryImpl] Clearing cache database and local stores...")
-        // Clear local caches (e.g. CoreData / SwiftData / Realm / URLCache)
         URLCache.shared.removeAllCachedResponses()
     }
 

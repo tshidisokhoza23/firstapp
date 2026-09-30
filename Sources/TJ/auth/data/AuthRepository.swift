@@ -1,18 +1,6 @@
 import Foundation
 import Combine
 
-public struct AuthResponse: Codable, Equatable, Sendable {
-    public let token: String
-    public let refreshToken: String?
-    public let user: User?
-
-    public init(token: String, refreshToken: String? = nil, user: User? = nil) {
-        self.token = token
-        self.refreshToken = refreshToken
-        self.user = user
-    }
-}
-
 public struct AuthUser: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var email: String?

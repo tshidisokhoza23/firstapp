@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct LoginView: View {
-    @ObservedObject public var viewModel: AuthViewModel
+    @StateObject public var viewModel: AuthViewModel
     private var onLoginSuccess: (AuthResponse?) -> Void
     private var onNavigateToOtp: (String, String?, String?, String?, String?, String?) -> Void
 
@@ -24,7 +24,7 @@ public struct LoginView: View {
         onLoginSuccess: @escaping (AuthResponse?) -> Void,
         onNavigateToOtp: @escaping (String, String?, String?, String?, String?, String?) -> Void
     ) {
-        self.viewModel = viewModel ?? AuthViewModel()
+        self._viewModel = StateObject(wrappedValue: viewModel ?? AuthViewModel())
         self.onLoginSuccess = onLoginSuccess
         self.onNavigateToOtp = onNavigateToOtp
     }

@@ -19,9 +19,9 @@ public final class JobRepositoryImpl: JobRepository, @unchecked Sendable {
     private let jobApi: JobApiProtocol
     private let localStore: JobLocalStore
 
-    public init(jobApi: JobApiProtocol = JobApi(), localStore: JobLocalStore = JobLocalStore()) {
-        self.jobApi = jobApi
-        self.localStore = localStore
+    public init(jobApi: JobApiProtocol? = nil, localStore: JobLocalStore? = nil) {
+        self.jobApi = jobApi ?? JobApi()
+        self.localStore = localStore ?? JobLocalStore()
     }
 
     public func getJobs(cursor: String? = nil, limit: Int = 50) -> AsyncStream<Resource<[Job]>> {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct OtpVerificationView: View {
-    @ObservedObject private var viewModel: AuthViewModel
+    @ObservedObject public var viewModel: AuthViewModel
     private var phoneNumber: String
     private var username: String?
     private var email: String?

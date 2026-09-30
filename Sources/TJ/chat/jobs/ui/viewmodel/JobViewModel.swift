@@ -10,8 +10,8 @@ public class JobViewModel: ObservableObject {
 
     private let repository: JobRepository
 
-    public init(repository: JobRepository = JobRepositoryImpl()) {
-        self.repository = repository
+    public init(repository: JobRepository? = nil) {
+        self.repository = repository ?? JobRepositoryImpl()
         fetchJobs()
         fetchJobApplications()
     }

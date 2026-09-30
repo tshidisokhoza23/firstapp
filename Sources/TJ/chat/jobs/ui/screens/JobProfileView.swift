@@ -246,3 +246,90 @@ public struct JobProfileView: View {
         expectedSalary = data.expectedSalary
     }
 }
+
+public struct SectionHeaderView: View {
+    public let title: String
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 12, weight: .black))
+                .foregroundColor(.blue)
+                .tracking(1)
+            Divider()
+                .background(Color.blue.opacity(0.3))
+        }
+        .padding(.top, 8)
+    }
+}
+
+public struct ProfileTextFieldView: View {
+    @Binding public var value: String
+    public let label: String
+    public var placeholder: String = ""
+    public var isMultiline: Bool = false
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+
+            if isMultiline {
+                TextEditor(text: $value)
+                    .frame(minHeight: 80)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
+            } else {
+                TextField(placeholder, text: $value)
+                    .textFieldStyle(.roundedBorder)
+            }
+        }
+    }
+}
+
+public struct FlowLayout: Layout {
+    public var spacing: CGFloat = 8
+
+    public init(spacing: CGFloat = 8) {
+        self.spacing = spacing
+    }
+
+    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var height: CGFloat = 0
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var maxHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > width {
+                x = 0
+                y += maxHeight + spacing
+                maxHeight = 0
+            }
+            x += size.width + spacing
+            maxHeight = max(maxHeight, size.height)
+        }
+        height = y + maxHeight
+        return CGSize(width: width, height: height)
+    }
+
+    public func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var maxHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += maxHeight + spacing
+                maxHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
+            x += size.width + spacing
+            maxHeight = max(maxHeight, size.height)
+        }
+    }
+}

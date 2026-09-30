@@ -21,8 +21,8 @@ public class JobDetailViewModel: ObservableObject {
 
     private let repository: JobRepository
 
-    public init(repository: JobRepository = JobRepositoryImpl()) {
-        self.repository = repository
+    public init(repository: JobRepository? = nil) {
+        self.repository = repository ?? JobRepositoryImpl()
     }
 
     public func loadJob(jobId: String) {
@@ -34,7 +34,7 @@ public class JobDetailViewModel: ObservableObject {
                     } else {
                         self.job = .error("Job not found", nil)
                     }
-                } else if case .error(let message, _) = resource {
+                } else if let message = resource.message {
                     self.job = .error(message, nil)
                 }
             }
