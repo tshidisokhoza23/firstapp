@@ -3,8 +3,8 @@ import LocalAuthentication
 import Contacts
 import UserNotifications
 
-// MARK: - App Navigation Routes
-public enum AppRoute: Hashable {
+// MARK: - Root Navigation Routes
+public enum RootRoute: Hashable {
     case login
     case completeProfile
     case mainTab(selectedTab: String? = nil)
@@ -18,307 +18,185 @@ public enum AppRoute: Hashable {
     case story(userId: String?, storyId: String?)
     case mingleRequests
     case mingleNotification
-    case socialNotification
 }
 
-/// Root SwiftUI View managing authentication state, tab navigation, call banners, deep links, and security locks.
-struct MainRootView: View {
-    @EnvironmentObject var appState: TJApplicationState
-
-    @State private var isLoggedIn: Bool = false
-    @State private var isAppUnlocked: Bool = false
-    @State private var pinLockEnabled: Bool = false
-    @State private var biometricLockEnabled: Bool = false
-    @State private var appPin: String? = nil
+/// Root View managing authentication state, navigation hierarchy, active call banners, deep links, and local biometric security.
+public struct MainRootView: View {
+    @StateObject private var authViewModel = AuthViewModel()
+    @StateObject private var globalCallState = GlobalCallState.shared
 
     @State private var navigationPath = NavigationPath()
-    @State private var activeTab: Int = 0
-    @State private var currentUser: User? = nil
-    @State private var isLoadingUser: Bool = false
-    @State private var showOfflineOption: Bool = false
+    @State private var isAuthenticated: Bool = false
+    @State private var isProfileComplete: Bool = true
+    @State private var isBiometricLocked: Bool = false
+    @State private var selectedTab: Int = 0
 
-    // Incoming / Active Call state
-    @State private var activeCallSessionId: String? = nil
-    @State private var incomingCallSenderName: String? = nil
-    @State private var isCallOverlayVisible: Bool = false
+    public init() {}
 
-    var body: some View {
-        NavigationStack(path: $navigationPath) {
-            ZStack {
-                Color(uiColor: .systemBackground)
-                    .ignoresSafeArea()
-
-                if !isAppUnlocked && pinLockEnabled && appPin != nil {
-                    PinLockView(correctPin: appPin!) {
-                        isAppUnlocked = true
-                    }
-                } else if !isLoggedIn {
-                    LoginRootView(onLoginSuccess: {
-                        isLoggedIn = true
-                        isAppUnlocked = true
-                    })
-                } else if currentUser == nil && isLoadingUser {
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.2)
-                        if showOfflineOption {
-                            Text("Connecting to server...")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Button("Continue Offline") {
-                                // Proceed with cached data
-                                isLoadingUser = false
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                    }
+    public var body: some View {
+        ZStack {
+            if isBiometricLocked {
+                BiometricLockOverlayView(onUnlockSuccess: {
+                    isBiometricLocked = false
+                })
+            } else {
+                if isAuthenticated {
+                    MainTabView()
+                        .environmentObject(globalCallState)
                 } else {
-                    // Main content tab view
-                    MainTabView(selectedTab: $activeTab)
-                        .environment(\.currentUser, currentUser)
+                    LoginView(
+                        viewModel: authViewModel,
+                        onLoginSuccess: { response in
+                            handleLoginSuccess(response: response)
+                        },
+                        onNavigateToOtp: { phone, _, _, _, _, _ in
+                            authViewModel.requestOTP(phoneNumber: phone)
+                        }
+                    )
                 }
+            }
 
-                // Call Banner / Call Overlay at top/bottom
-                if isCallOverlayVisible, let callerName = incomingCallSenderName {
-                    CallBannerOverlayView(callerName: callerName) {
-                        // Accept
-                        isCallOverlayVisible = false
-                    } onDecline: {
-                        // Decline
-                        isCallOverlayVisible = false
-                    }
-                }
+            // Global Active/Incoming Call Overlay Banner
+            if globalCallState.isCallActive {
+                RootActiveCallOverlayBanner(callState: globalCallState)
             }
-            .navigationDestination(for: AppRoute.self) { route in
-                destinationView(for: route)
-            }
-            .onOpenURL { url in
-                handleDeepLink(url)
-            }
-            .onAppear {
-                checkAuthAndLoadUser()
-                requestAppPermissions()
-            }
+        }
+        .onOpenURL { url in
+            handleDeepLink(url: url)
+        }
+        .onAppear {
+            checkAuthAndLockStatus()
         }
     }
 
-    @ViewBuilder
-    private func destinationView(for route: AppRoute) -> some View {
-        switch route {
-        case .login:
-            Text("Login Screen")
-        case .completeProfile:
-            Text("Complete Profile Screen")
-        case .mainTab:
-            MainTabView(selectedTab: $activeTab)
-        case .chat(let id, let type):
-            Text("Chat Screen: \(id), Type: \(type)")
-        case .postDetail(let id):
-            Text("Post Detail: \(id)")
-        case .advertDetail(let id):
-            Text("Advert Detail: \(id)")
-        case .channelDetail(let id):
-            Text("Channel Detail: \(id)")
-        case .groupDetail(let id):
-            Text("Group Detail: \(id)")
-        case .joinGroup(let inviteCode):
-            Text("Join Group: \(inviteCode)")
-        case .userProfile(let id):
-            Text("User Profile: \(id)")
-        case .story(let userId, let storyId):
-            Text("Story View: User \(userId ?? "none"), Story \(storyId ?? "none")")
-        case .mingleRequests:
-            Text("Mingle Message Requests")
-        case .mingleNotification:
-            Text("Mingle Notification")
-        case .socialNotification:
-            Text("Social Notifications")
+    private func handleLoginSuccess(response: AuthResponse?) {
+        isAuthenticated = true
+        if let user = response?.user, user.displayName == nil || user.displayName?.isEmpty == true {
+            isProfileComplete = false
+        } else {
+            isProfileComplete = true
         }
     }
 
-    // MARK: - Deep Link Parser
-    private func handleDeepLink(_ url: URL) {
-        print("[MainRootView] Handling deep link: \(url)")
+    private func checkAuthAndLockStatus() {
+        if UserDefaults.standard.bool(forKey: "enable_biometric_lock") {
+            isBiometricLocked = true
+        }
+    }
 
-        // 1. Custom scheme: firstapp://
-        if url.scheme == "firstapp" {
-            guard let host = url.host else { return }
-            let pathComponents = url.pathComponents.filter { $0 != "/" }
+    private func handleDeepLink(url: URL) {
+        print("[MainRootView] Handling deep link URL: \(url.absoluteString)")
+        let scheme = url.scheme ?? ""
+        let host = url.host ?? ""
+        let path = url.path
 
+        if scheme == "firstapp" || scheme == "tj" {
             switch host {
             case "chat":
-                if let id = pathComponents.first {
-                    navigationPath.append(AppRoute.chat(id: id))
-                }
-            case "post":
-                if let id = pathComponents.first {
-                    navigationPath.append(AppRoute.postDetail(id: id))
-                }
-            case "song":
-                activeTab = 1 // Stream / Music tab
-            case "advert":
-                if let id = pathComponents.first {
-                    navigationPath.append(AppRoute.advertDetail(id: id))
-                }
-            case "channel":
-                if let id = pathComponents.first {
-                    navigationPath.append(AppRoute.channelDetail(id: id))
-                }
-            case "group":
-                if pathComponents.count >= 2 && pathComponents[0] == "invite" {
-                    navigationPath.append(AppRoute.joinGroup(inviteCode: pathComponents[1]))
-                } else if let id = pathComponents.first {
-                    navigationPath.append(AppRoute.groupDetail(id: id))
-                }
+                let conversationId = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                navigationPath.append(RootRoute.chat(id: conversationId))
+            case "join":
+                let inviteCode = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                navigationPath.append(RootRoute.joinGroup(inviteCode: inviteCode))
             default:
                 break
             }
         }
-
-        // 2. Universal links: https://firstapp.com/...
-        if url.scheme == "https" && url.host == "firstapp.com" {
-            let path = url.path
-            if path.hasPrefix("/post/") {
-                if let id = url.pathComponents.last {
-                    navigationPath.append(AppRoute.postDetail(id: id))
-                }
-            }
-        }
-    }
-
-    // MARK: - Permissions Request
-    private func requestAppPermissions() {
-        // Notifications
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
-
-        // Contacts
-        let store = CNContactStore()
-        store.requestAccess(for: .contacts) { _, _ in }
-    }
-
-    private func checkAuthAndLoadUser() {
-        // Mock auth check or token check from UserDefaults/Keychain
-        let token = UserDefaults.standard.string(forKey: "auth_token")
-        if let token = token, !token.isEmpty {
-            isLoggedIn = true
-            isLoadingUser = true
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
-                if isLoadingUser {
-                    showOfflineOption = true
-                }
-            }
-        } else {
-            isLoggedIn = false
-            isAppUnlocked = true
-        }
     }
 }
 
-// MARK: - LocalCurrentUser Environment Key
-private struct CurrentUserKey: EnvironmentKey {
-    static let defaultValue: User? = nil
-}
+// MARK: - Biometric Lock Overlay View
 
-extension EnvironmentValues {
-    var currentUser: User? {
-        get { self[CurrentUserKey.self] }
-        set { self[CurrentUserKey.self] = newValue }
-    }
-}
-
-// MARK: - Helper Views (PIN Lock View & Call Overlay View)
-struct PinLockView: View {
-    let correctPin: String
-    let onUnlocked: () -> Void
-
-    @State private var enteredPin: String = ""
-    @State private var showError: Bool = false
+struct BiometricLockOverlayView: View {
+    let onUnlockSuccess: () -> Void
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Enter PIN")
-                .font(.title2)
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 64))
+                .foregroundColor(.accentColor)
+
+            Text("TJ is Locked")
+                .font(.title)
                 .bold()
 
-            HStack(spacing: 16) {
-                ForEach(0..<4, id: \.self) { index in
-                    Circle()
-                        .fill(index < enteredPin.count ? Color.blue : Color.gray.opacity(0.3))
-                        .frame(width: 16, height: 16)
-                }
-            }
+            Text("Authenticate with Face ID or Touch ID to continue")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
 
-            if showError {
-                Text("Incorrect PIN")
-                    .foregroundColor(.red)
+            if let error = errorMessage {
+                Text(error)
                     .font(.caption)
+                    .foregroundColor(.red)
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(70)), count: 3), spacing: 16) {
-                ForEach(["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "OK"], id: \.self) { key in
-                    Button(action: {
-                        handleKey(key)
-                    }) {
-                        Text(key)
-                            .font(.title3)
-                            .bold()
-                            .frame(width: 64, height: 64)
-                            .background(Color(uiColor: .secondarySystemBackground))
-                            .clipShape(Circle())
+            Button(action: authenticateWithBiometrics) {
+                Label("Unlock with Biometrics", systemImage: "faceid")
+                    .font(.headline)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 40)
+        }
+        .padding()
+        .onAppear {
+            authenticateWithBiometrics()
+        }
+    }
+
+    private func authenticateWithBiometrics() {
+        let context = LAContext()
+        var error: NSError?
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            let reason = "Unlock TJ application"
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authenticationError in
+                DispatchQueue.main.async {
+                    if success {
+                        onUnlockSuccess()
+                    } else {
+                        errorMessage = authenticationError?.localizedDescription ?? "Biometric authentication failed"
                     }
                 }
             }
-        }
-        .padding()
-        .background(Color(uiColor: .systemBackground))
-    }
-
-    private func handleKey(_ key: String) {
-        if key == "C" {
-            if !enteredPin.isEmpty { enteredPin.removeLast() }
-        } else if key == "OK" {
-            if enteredPin == correctPin {
-                onUnlocked()
-            } else {
-                showError = true
-                enteredPin = ""
-            }
-        } else if enteredPin.count < 4 {
-            enteredPin.append(key)
-            showError = false
+        } else {
+            errorMessage = error?.localizedDescription ?? "Biometrics not available on this device"
         }
     }
 }
 
-struct CallBannerOverlayView: View {
-    let callerName: String
-    let onAccept: () -> Void
-    let onDecline: () -> Void
+// MARK: - Active Call Overlay Banner
+
+struct RootActiveCallOverlayBanner: View {
+    @ObservedObject var callState: GlobalCallState
 
     var body: some View {
         VStack {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(callerName)
+                Image(systemName: "phone.fill")
+                    .foregroundColor(.green)
+                VStack(alignment: .leading) {
+                    Text(callState.activeParticipantId ?? "Active Call")
                         .font(.headline)
                         .foregroundColor(.white)
-                    Text("Incoming Call...")
-                        .font(.subheadline)
+                    Text("\(callState.callDurationSeconds) seconds")
+                        .font(.caption)
                         .foregroundColor(.white.opacity(0.8))
                 }
                 Spacer()
-                Button(action: onDecline) {
+                Button(action: {
+                    if let sid = callState.activeSessionId {
+                        callState.onCallEnded(sessionId: sid)
+                    }
+                }) {
                     Image(systemName: "phone.down.fill")
                         .padding()
                         .background(Color.red)
-                        .clipShape(Circle())
-                        .foregroundColor(.white)
-                }
-                Button(action: onAccept) {
-                    Image(systemName: "phone.fill")
-                        .padding()
-                        .background(Color.green)
                         .clipShape(Circle())
                         .foregroundColor(.white)
                 }
@@ -330,34 +208,6 @@ struct CallBannerOverlayView: View {
             .padding()
 
             Spacer()
-        }
-    }
-}
-
-struct MainTabView: View {
-    @Binding var selectedTab: Int
-
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            Text("Chats Tab").tabItem { Label("Chats", systemImage: "message") }.tag(0)
-            Text("Stream Tab").tabItem { Label("Stream", systemImage: "music.note") }.tag(1)
-            Text("Calls Tab").tabItem { Label("Calls", systemImage: "phone") }.tag(2)
-            Text("Settings Tab").tabItem { Label("Settings", systemImage: "gear") }.tag(3)
-        }
-    }
-}
-
-struct LoginRootView: View {
-    let onLoginSuccess: () -> Void
-    var body: some View {
-        VStack {
-            Text("Welcome to TJ")
-                .font(.largeTitle)
-                .bold()
-            Button("Log In") {
-                onLoginSuccess()
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
 }

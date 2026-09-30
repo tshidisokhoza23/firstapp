@@ -53,46 +53,6 @@ public struct DirectChat: Identifiable, Codable, Equatable {
     }
 }
 
-public struct CallLog: Identifiable, Codable, Equatable {
-    public let id: String
-    public let sessionId: String
-    public let callerId: String
-    public let calleeId: String
-    public let contactId: String
-    public let contactName: String
-    public let contactAvatar: String?
-    public let isVideo: Bool
-    public let status: String // "incoming", "outgoing", "missed"
-    public let durationSeconds: Int
-    public let timestamp: Int64
-
-    public init(
-        id: String,
-        sessionId: String,
-        callerId: String,
-        calleeId: String,
-        contactId: String,
-        contactName: String,
-        contactAvatar: String? = nil,
-        isVideo: Bool = false,
-        status: String = "incoming",
-        durationSeconds: Int = 0,
-        timestamp: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
-    ) {
-        self.id = id
-        self.sessionId = sessionId
-        self.callerId = callerId
-        self.calleeId = calleeId
-        self.contactId = contactId
-        self.contactName = contactName
-        self.contactAvatar = contactAvatar
-        self.isVideo = isVideo
-        self.status = status
-        self.durationSeconds = durationSeconds
-        self.timestamp = timestamp
-    }
-}
-
 // MARK: - Direct Repository Protocol & Implementation
 
 public protocol DirectRepositoryProtocol: AnyObject {

@@ -1,103 +1,5 @@
 import SwiftUI
 
-public enum MessageStatus: String, Codable {
-    case pending = "PENDING"
-    case sending = "SENDING"
-    case sent = "SENT"
-    case delivered = "DELIVERED"
-    case read = "READ"
-    case failed = "FAILED"
-}
-
-public enum MessageType: String, Codable {
-    case text = "TEXT"
-    case image = "IMAGE"
-    case video = "VIDEO"
-    case audio = "AUDIO"
-    case audioMessage = "AUDIO_MESSAGE"
-    case document = "DOCUMENT"
-    case location = "LOCATION"
-    case contact = "CONTACT"
-    case sticker = "STICKER"
-    case system = "SYSTEM"
-}
-
-public struct Message: Identifiable, Hashable, Codable {
-    public var id: String
-    public var conversationId: String
-    public var content: String
-    public var senderId: String
-    public var senderName: String
-    public var timestamp: Int64
-    public var isFromMe: Bool
-    public var status: MessageStatus
-    public var type: MessageType
-    public var mediaUrls: [String]
-    public var replyToId: String?
-    public var replyToText: String?
-    public var replyToSenderName: String?
-    public var isStarred: Bool
-    public var reactions: [String: String] // userId: emoji
-    public var duration: String?
-    public var fileName: String?
-    public var fileSize: String?
-    public var contactName: String?
-    public var contactPhone: String?
-    public var latitude: Double?
-    public var longitude: Double?
-    public var audioAmplitudes: [Int]?
-
-    public init(
-        id: String = UUID().uuidString,
-        conversationId: String = "",
-        content: String = "",
-        senderId: String = "",
-        senderName: String = "",
-        timestamp: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
-        isFromMe: Bool = false,
-        status: MessageStatus = .sent,
-        type: MessageType = .text,
-        mediaUrls: [String] = [],
-        replyToId: String? = nil,
-        replyToText: String? = nil,
-        replyToSenderName: String? = nil,
-        isStarred: Bool = false,
-        reactions: [String: String] = [:],
-        duration: String? = nil,
-        fileName: String? = nil,
-        fileSize: String? = nil,
-        contactName: String? = nil,
-        contactPhone: String? = nil,
-        latitude: Double? = nil,
-        longitude: Double? = nil,
-        audioAmplitudes: [Int]? = nil
-    ) {
-        self.id = id
-        self.conversationId = conversationId
-        self.content = content
-        self.senderId = senderId
-        self.senderName = senderName
-        self.timestamp = timestamp
-        self.isFromMe = isFromMe
-        self.status = status
-        self.type = type
-        self.mediaUrls = mediaUrls
-        self.replyToId = replyToId
-        self.replyToText = replyToText
-        self.replyToSenderName = replyToSenderName
-        self.isStarred = isStarred
-        self.reactions = reactions
-        self.duration = duration
-        self.fileName = fileName
-        self.fileSize = fileSize
-        self.contactName = contactName
-        self.contactPhone = contactPhone
-        self.latitude = latitude
-        self.longitude = longitude
-        self.audioAmplitudes = audioAmplitudes
-    }
-}
-
 public struct MessageBubbleView: View {
     public let message: Message
     public var isSelected: Bool = false
@@ -107,7 +9,7 @@ public struct MessageBubbleView: View {
     public var playingAudioUri: String? = nil
     public var onPlayAudio: (String?) -> Void = { _ in }
     public var onReply: (Message) -> Void = { _ in }
-    public var onMediaClick: (String, String) -> Void = { _, _ -> }
+    public var onMediaClick: (String, String) -> Void = { _, _ in }
     public var onLongClick: () -> Void = {}
 
     public init(
@@ -194,7 +96,7 @@ public struct MessageBubbleView: View {
                         }
                     }
 
-                    if message.type == .audioMessage || message.type == .audio {
+                    if message.type == .audioMessage || message.type == .audioCall {
                         HStack(spacing: 8) {
                             Button(action: {
                                 if playingAudioUri == message.mediaUrls.first {

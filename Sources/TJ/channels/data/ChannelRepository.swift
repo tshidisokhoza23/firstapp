@@ -1,189 +1,102 @@
 import Foundation
 import Combine
-import SwiftUI
 
-public protocol ChannelRepository {
-    func getChannels() -> AnyPublisher<Resource<[Channel]>, Never>
-    func observeChannels() -> AnyPublisher<Resource<[Channel]>, Never>
-    func syncChannels() async -> Bool
-    func subscribeToChannel(channelId: String) async -> Resource<Bool>
-    func muteChannel(channelId: String, isMuted: Bool) async -> Resource<Bool>
-    func createChannel(name: String, description: String, avatarUrl: String?) async -> Resource<Channel>
-    func getChannel(channelId: String) async -> Resource<Channel>
-    func updateChannelAvatar(channelId: String, avatarUrl: String) async -> Resource<Bool>
-    func searchChannels(query: String) async -> [Channel]
-    func addAdmin(channelId: String, userId: String) async -> Resource<Bool>
-    func removeAdmin(channelId: String, userId: String) async -> Resource<Bool>
-    func updateAdminPostingPermission(channelId: String, allowed: Bool) async -> Resource<Bool>
+public protocol ChannelRepositoryProtocol: AnyObject {
+    func getChannels() async throws -> [Channel]
+    func getChannelById(id: String) async throws -> Channel?
+    func subscribeToChannel(id: String) async throws -> Bool
+    func unsubscribeFromChannel(id: String) async throws -> Bool
+    func muteChannel(id: String, isMuted: Bool) async throws -> Bool
+    func createChannel(name: String, description: String, category: String) async throws -> Channel
 }
 
-public final class ChannelRepositoryImpl: ChannelRepository, ObservableObject {
-    public static let shared = ChannelRepositoryImpl()
+@MainActor
+public final class ChannelRepository: ObservableObject, ChannelRepositoryProtocol {
+    public static let shared = ChannelRepository()
 
-    @Published public private(set) var channelsList: [Channel] = []
-    private var topInCountry: [Channel] = []
-    private let channelsSubject = CurrentValueSubject<Resource<[Channel]>, Never>(.loading())
+    @Published public private(set) var channels: [Channel] = []
+    private let baseURL: URL
 
-    public init() {}
-
-    public func getChannels() -> AnyPublisher<Resource<[Channel]>, Never> {
-        return observeChannels()
+    public init(baseURL: URL = URL(string: "https://api.tj.app/channels")!) {
+        self.baseURL = baseURL
     }
 
-    public func observeChannels() -> AnyPublisher<Resource<[Channel]>, Never> {
-        return channelsSubject.eraseToAnyPublisher()
-    }
-
-    public func syncChannels() async -> Bool {
-        // Simulated network sync
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        return true
-    }
-
-    public func subscribeToChannel(channelId: String) async -> Resource<Bool> {
-        if let idx = channelsList.firstIndex(where: { $0.id == channelId || $0.conversationId == channelId }) {
-            channelsList[idx].isSubscribed.toggle()
-            channelsSubject.send(.success(channelsList))
-            return .success(channelsList[idx].isSubscribed)
+    public func getChannels() async throws -> [Channel] {
+        let (data, response) = try await URLSession.shared.data(from: baseURL)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw URLError(.badServerResponse)
         }
-        return .error("Channel not found")
+        let list = try JSONDecoder().decode([Channel].self, from: data)
+        self.channels = list
+        return list
     }
 
-    public func muteChannel(channelId: String, isMuted: Bool) async -> Resource<Bool> {
-        if let idx = channelsList.firstIndex(where: { $0.id == channelId }) {
-            channelsList[idx].isMuted = isMuted
-            channelsSubject.send(.success(channelsList))
-            return .success(true)
+    public func getChannelById(id: String) async throws -> Channel? {
+        if let local = channels.first(where: { $0.id == id }) {
+            return local
         }
-        return .error("Channel not found")
+        let url = baseURL.appendingPathComponent(id)
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return try JSONDecoder().decode(Channel.self, from: data)
     }
 
-    public func createChannel(name: String, description: String, avatarUrl: String?) async -> Resource<Channel> {
-        let channel = Channel(
-            id: UUID().uuidString,
-            name: name,
-            description: description,
-            followers: "1",
-            avatarUrl: avatarUrl,
-            isSubscribed: true,
-            isAdmin: true,
-            adminsCanPost: true,
-            conversationId: UUID().uuidString
-        )
-        channelsList.append(channel)
-        channelsSubject.send(.success(channelsList))
-        return .success(channel)
-    }
-
-    public func getChannel(channelId: String) async -> Resource<Channel> {
-        if let ch = channelsList.first(where: { $0.id == channelId || $0.conversationId == channelId }) {
-            return .success(ch)
+    public func subscribeToChannel(id: String) async throws -> Bool {
+        if let index = channels.firstIndex(where: { $0.id == id }) {
+            channels[index].isSubscribed = true
+            channels[index].followers += 1
         }
-        let fallback = Channel(id: channelId, name: "Channel", description: "", followers: "0")
-        return .success(fallback)
+        let url = baseURL.appendingPathComponent("\(id)/subscribe")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let (_, response) = try await URLSession.shared.data(for: request)
+        return (response as? HTTPURLResponse)?.statusCode == 200
     }
 
-    public func updateChannelAvatar(channelId: String, avatarUrl: String) async -> Resource<Bool> {
-        if let idx = channelsList.firstIndex(where: { $0.id == channelId }) {
-            channelsList[idx].avatarUrl = avatarUrl
-            channelsSubject.send(.success(channelsList))
-            return .success(true)
+    public func unsubscribeFromChannel(id: String) async throws -> Bool {
+        if let index = channels.firstIndex(where: { $0.id == id }) {
+            channels[index].isSubscribed = false
+            channels[index].followers = max(0, channels[index].followers - 1)
         }
-        return .error("Channel not found")
+        let url = baseURL.appendingPathComponent("\(id)/unsubscribe")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let (_, response) = try await URLSession.shared.data(for: request)
+        return (response as? HTTPURLResponse)?.statusCode == 200
     }
 
-    public func searchChannels(query: String) async -> [Channel] {
-        return channelsList.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    public func muteChannel(id: String, isMuted: Bool) async throws -> Bool {
+        let url = baseURL.appendingPathComponent("\(id)/mute")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["is_muted": isMuted])
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        return (response as? HTTPURLResponse)?.statusCode == 200
     }
 
-    public func addAdmin(channelId: String, userId: String) async -> Resource<Bool> {
-        return .success(true)
-    }
+    public func createChannel(name: String, description: String, category: String) async throws -> Channel {
+        let url = baseURL.appendingPathComponent("create")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-    public func removeAdmin(channelId: String, userId: String) async -> Resource<Bool> {
-        return .success(true)
-    }
+        let body = ["name": name, "description": description, "category": category]
+        request.httpBody = try JSONEncoder().encode(body)
 
-    public func updateAdminPostingPermission(channelId: String, allowed: Bool) async -> Resource<Bool> {
-        if let idx = channelsList.firstIndex(where: { $0.id == channelId }) {
-            channelsList[idx].adminsCanPost = allowed
-            channelsSubject.send(.success(channelsList))
-            return .success(true)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw URLError(.badServerResponse)
         }
-        return .error("Channel not found")
+
+        let created = try JSONDecoder().decode(Channel.self, from: data)
+        channels.append(created)
+        return created
     }
 }
 
-// MARK: - Supporting Models
-public struct ChannelPost: Identifiable, Codable {
-    public var id: String
-    public var authorId: String
-    public var authorName: String
-    public var authorHandle: String
-    public var authorAvatarUrl: String?
-    public var content: String
-    public var mediaUrls: [String]
-    public var timestamp: String
-    public var likes: Int
-    public var repliesCount: Int
-
-    public init(
-        id: String,
-        authorId: String,
-        authorName: String,
-        authorHandle: String = "@channel",
-        authorAvatarUrl: String? = nil,
-        content: String,
-        mediaUrls: [String] = [],
-        timestamp: String = "Just now",
-        likes: Int = 0,
-        repliesCount: Int = 0
-    ) {
-        self.id = id
-        self.authorId = authorId
-        self.authorName = authorName
-        self.authorHandle = authorHandle
-        self.authorAvatarUrl = authorAvatarUrl
-        self.content = content
-        self.mediaUrls = mediaUrls
-        self.timestamp = timestamp
-        self.likes = likes
-        self.repliesCount = repliesCount
-    }
-}
-
-public struct ChannelChatMessage: Identifiable, Codable {
-    public var id: String
-    public var conversationId: String
-    public var content: String
-    public var senderId: String
-    public var timestamp: Int64
-    public var isFromMe: Bool
-    public var type: String
-    public var mediaUrls: [String]
-
-    public init(
-        id: String = UUID().uuidString,
-        conversationId: String,
-        content: String,
-        senderId: String,
-        timestamp: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
-        isFromMe: Bool = false,
-        type: String = "text",
-        mediaUrls: [String] = []
-    ) {
-        self.id = id
-        self.conversationId = conversationId
-        self.content = content
-        self.senderId = senderId
-        self.timestamp = timestamp
-        self.isFromMe = isFromMe
-        self.type = type
-        self.mediaUrls = mediaUrls
-    }
-}
-
-public struct ChannelContact: Identifiable, Codable {
+public struct ChannelUser: Identifiable, Codable {
     public var id: String
     public var displayName: String
     public var isRegistered: Bool
@@ -192,15 +105,5 @@ public struct ChannelContact: Identifiable, Codable {
         self.id = id
         self.displayName = displayName
         self.isRegistered = isRegistered
-    }
-}
-
-public struct ApiUser: Identifiable, Codable {
-    public var id: String
-    public var display_name: String?
-
-    public init(id: String, display_name: String? = nil) {
-        self.id = id
-        self.display_name = display_name
     }
 }

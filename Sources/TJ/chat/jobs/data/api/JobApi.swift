@@ -1,15 +1,5 @@
 import Foundation
 
-public struct StatusResponse: Codable {
-    public let status: String?
-    public let message: String?
-
-    public init(status: String? = nil, message: String? = nil) {
-        self.status = status
-        self.message = message
-    }
-}
-
 public struct JobsResponse: Codable {
     public let jobs: [ApiJob]
     public let next_cursor: String?
@@ -17,10 +7,6 @@ public struct JobsResponse: Codable {
 
 public struct JobApplicationsResponse: Codable {
     public let applications: [ApiJobApplication]
-}
-
-public struct ConversationResponse: Codable {
-    public let conversation_id: String
 }
 
 public struct CreateJobRequest: Codable {
@@ -91,7 +77,7 @@ public struct ApiJob: Codable {
             companyName: company_name,
             companyLogoUrl: company_logo_url,
             location: location,
-            logoHex: "#2196F3",
+            logoColorHex: "#2196F3",
             salaryRange: salary_range ?? "",
             jobType: job_type ?? "Full-time",
             postedTime: posted_time,
@@ -130,7 +116,7 @@ public struct ApiJobApplication: Codable {
             location: location ?? "",
             appliedDate: applied_date,
             status: ApplicationStatus(rawValue: status.uppercased()) ?? .pending,
-            logoHex: "#2196F3",
+            logoColorHex: "#2196F3",
             conversationId: conversation_id
         )
     }

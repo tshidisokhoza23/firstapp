@@ -145,15 +145,6 @@ public struct ReportRequest: Codable {
     public init(reason: String) { self.reason = reason }
 }
 
-public struct ContactInfo: Codable {
-    public let name: String
-    public let phoneNumber: String
-    enum CodingKeys: String, CodingKey {
-        case name
-        case phoneNumber = "phone_number"
-    }
-}
-
 public struct DevResetRequest: Codable {
     public let contacts: [ContactInfo]
     public init(contacts: [ContactInfo]) { self.contacts = contacts }
@@ -198,25 +189,6 @@ public struct LoginRequest: Codable {
     public init(username: String, password: String) {
         self.username = username
         self.password = password
-    }
-}
-
-public struct User: Codable, Identifiable {
-    public let id: String
-    public let username: String
-    public let displayName: String
-    public let email: String
-    public let phoneNumber: String?
-    public let avatarUrl: String?
-    public let bio: String?
-    public let isProfileComplete: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case id, username, email, bio
-        case displayName = "display_name"
-        case phoneNumber = "phone_number"
-        case avatarUrl = "avatar_url"
-        case isProfileComplete = "is_profile_complete"
     }
 }
 

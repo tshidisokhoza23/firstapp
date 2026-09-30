@@ -6,7 +6,7 @@ public final class ChatService: ObservableObject, @unchecked Sendable {
     public static let shared = ChatService()
 
     // MARK: - Published State
-    @Published public private(set) var activeChats: [ChatMessage] = []
+    @Published public private(set) var activeChats: [ChatServiceMessage] = []
     @Published public private(set) var unreadCount: Int = 0
     @Published public private(set) var isLoading: Bool = false
     @Published public var errorMessage: String? = nil
@@ -32,7 +32,7 @@ public final class ChatService: ObservableObject, @unchecked Sendable {
     public func sendMessage(_ text: String, to recipientId: String) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
-        let message = ChatMessage(
+        let message = ChatServiceMessage(
             id: UUID().uuidString,
             senderId: "currentUser",
             receiverId: recipientId,
@@ -71,7 +71,7 @@ public final class ChatService: ObservableObject, @unchecked Sendable {
 
 // MARK: - Supporting Data Models
 
-public struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
+public struct ChatServiceMessage: Identifiable, Codable, Equatable, Sendable {
     public let id: String
     public let senderId: String
     public let receiverId: String

@@ -1,12 +1,5 @@
 import Foundation
 
-// MARK: - Resource Wrapper
-public enum Resource<T> {
-    case loading
-    case success(T)
-    case error(String)
-}
-
 // MARK: - System Repository Protocol
 public protocol SystemRepository {
     func clearCache() async
@@ -37,7 +30,7 @@ public final class SystemRepositoryImpl: SystemRepository {
     public func devResetAndSeed(contacts: [ContactInfo]) async -> AsyncStream<Resource<DevResetResponse>> {
         return AsyncStream { continuation in
             Task {
-                continuation.yield(.loading)
+                continuation.yield(.loading())
                 do {
                     let response = try await systemApi.devResetAndSeed(contacts: contacts)
                     await clearAllData()

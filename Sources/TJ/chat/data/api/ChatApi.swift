@@ -2,40 +2,6 @@ import Foundation
 
 // MARK: - Common & Response Models
 
-public struct StatusResponse: Codable, Sendable {
-    public let status: String?
-    public let message: String?
-
-    public init(status: String? = nil, message: String? = nil) {
-        self.status = status
-        self.message = message
-    }
-}
-
-public struct ApiUser: Codable, Sendable {
-    public let id: String
-    public let username: String?
-    public let displayName: String?
-    public let avatarUrl: String?
-    public let phoneNumber: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case username
-        case displayName = "display_name"
-        case avatarUrl = "avatar_url"
-        case phoneNumber = "phone_number"
-    }
-
-    public init(id: String, username: String? = nil, displayName: String? = nil, avatarUrl: String? = nil, phoneNumber: String? = nil) {
-        self.id = id
-        self.username = username
-        self.displayName = displayName
-        self.avatarUrl = avatarUrl
-        self.phoneNumber = phoneNumber
-    }
-}
-
 public struct AddMemberRequest: Codable, Sendable {
     public let userId: String
 
@@ -45,18 +11,6 @@ public struct AddMemberRequest: Codable, Sendable {
 
     public init(userId: String) {
         self.userId = userId
-    }
-}
-
-public struct AvatarUrlRequest: Codable, Sendable {
-    public let avatarUrl: String
-
-    enum CodingKeys: String, CodingKey {
-        case avatarUrl = "avatar_url"
-    }
-
-    public init(avatarUrl: String) {
-        self.avatarUrl = avatarUrl
     }
 }
 
@@ -305,27 +259,6 @@ public struct ApiApplicantProfile: Codable, Sendable {
 
 public struct ApiJobDetails: Codable, Sendable {
     public let title: String
-}
-
-public struct LinkPreview: Codable, Sendable {
-    public let url: String
-    public let title: String?
-    public let description: String?
-    public let imageUrl: String?
-
-    enum CodingKeys: String, CodingKey {
-        case url
-        case title
-        case description
-        case imageUrl = "image_url"
-    }
-
-    public init(url: String, title: String? = nil, description: String? = nil, imageUrl: String? = nil) {
-        self.url = url
-        self.title = title
-        self.description = description
-        self.imageUrl = imageUrl
-    }
 }
 
 public struct ApiMessage: Codable, Sendable {
@@ -622,42 +555,6 @@ public struct SendMessageRequest: Codable, Sendable {
     }
 }
 
-public struct GroupInfoResponse: Codable, Sendable {
-    public let id: String
-    public let title: String?
-    public let name: String?
-    public let description: String?
-    public let avatarUrl: String?
-    public let memberIds: [String]
-    public let adminIds: [String]
-    public let createdAt: Int64
-    public let createdBy: String?
-    public let inviteCode: String?
-    public let conversationId: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case title
-        case name
-        case description
-        case avatarUrl = "avatar_url"
-        case memberIds = "member_ids"
-        case adminIds = "admin_ids"
-        case createdAt = "created_at"
-        case createdBy = "created_by"
-        case inviteCode = "invite_code"
-        case conversationId = "conversation_id"
-    }
-}
-
-public struct GroupInviteCodeResponse: Codable, Sendable {
-    public let inviteCode: String
-
-    enum CodingKeys: String, CodingKey {
-        case inviteCode = "invite_code"
-    }
-}
-
 public struct GroupJoinResponse: Codable, Sendable {
     public let status: String?
     public let groupId: String?
@@ -670,98 +567,12 @@ public struct GroupJoinResponse: Codable, Sendable {
     }
 }
 
-public struct CreateChannelRequest: Codable, Sendable {
-    public let name: String
-    public let description: String
-    public let avatarUrl: String?
-    public let isPublic: Bool
-    public let isPrivate: Bool
-    public let type: String
-    public let visibility: String
+public struct GroupInviteCodeResponse: Codable, Sendable {
+    public let inviteCode: String
 
     enum CodingKeys: String, CodingKey {
-        case name
-        case description
-        case avatarUrl = "avatar_url"
-        case isPublic = "is_public"
-        case isPrivate = "is_private"
-        case type
-        case visibility
+        case inviteCode = "invite_code"
     }
-
-    public init(
-        name: String,
-        description: String,
-        avatarUrl: String? = nil,
-        isPublic: Bool = true,
-        isPrivate: Bool = false,
-        type: String = "public",
-        visibility: String = "public"
-    ) {
-        self.name = name
-        self.description = description
-        self.avatarUrl = avatarUrl
-        self.isPublic = isPublic
-        self.isPrivate = isPrivate
-        self.type = type
-        self.visibility = visibility
-    }
-}
-
-public struct ToggleAdminPostingRequest: Codable, Sendable {
-    public let adminsCanPost: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case adminsCanPost = "admins_can_post"
-    }
-
-    public init(adminsCanPost: Bool) {
-        self.adminsCanPost = adminsCanPost
-    }
-}
-
-public struct ApiChannel: Codable, Sendable {
-    public let id: String
-    public let name: String
-    public let description: String?
-    public let followers: Int64
-    public let avatarUrl: String?
-    public let isVerified: Bool
-    public let isSubscribed: Bool
-    public let isAdmin: Bool
-    public let adminsCanPost: Bool
-    public let createdBy: String?
-    public let category: String?
-    public let lastPostText: String?
-    public let lastPostImageUrl: String?
-    public let lastPostTime: Int64?
-    public let conversationId: String?
-    public let isTopInCountry: Bool
-    public let countryCode: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case description
-        case followers
-        case avatarUrl = "avatar_url"
-        case isVerified = "is_verified"
-        case isSubscribed = "is_subscribed"
-        case isAdmin = "is_admin"
-        case adminsCanPost = "admins_can_post"
-        case createdBy = "created_by"
-        case category
-        case lastPostText = "last_post_text"
-        case lastPostImageUrl = "last_post_image_url"
-        case lastPostTime = "last_post_time"
-        case conversationId = "conversation_id"
-        case isTopInCountry = "is_top_in_country"
-        case countryCode = "country_code"
-    }
-}
-
-public struct ChannelsResponse: Codable, Sendable {
-    public let channels: [ApiChannel]
 }
 
 public struct ApiReader: Codable, Sendable {

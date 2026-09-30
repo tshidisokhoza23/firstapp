@@ -2,46 +2,46 @@
 //  MusicService.swift
 //  TJ
 //
-//  Swift 5+ Audio Playback Engine wrapping AVPlayer / AVQueuePlayer
-//  for background streaming and local caching.
+//  Swift 5+ Audio playback engine wrapping AVPlayer / AVQueuePlayer for streaming,
+//  queue management, seeking, playback status observing, and local music caching.
 //
 
 import Foundation
 import AVFoundation
 import Combine
 
-// MARK: - Models
+// MARK: - Music Data Models
 
 public struct Song: Identifiable, Codable, Equatable, Hashable {
     public let id: String
     public let title: String
     public let artist: String
     public let album: String?
-    public let duration: TimeInterval
-    public let audioUrl: String
     public let coverArtUrl: String?
-    public let playsCount: Int
-    public let isLiked: Bool
+    public let audioUrl: String
+    public let durationSeconds: Double
+    public var playCount: Int
+    public var isLiked: Bool
 
     public init(
         id: String,
         title: String,
         artist: String,
         album: String? = nil,
-        duration: TimeInterval = 0.0,
-        audioUrl: String,
         coverArtUrl: String? = nil,
-        playsCount: Int = 0,
+        audioUrl: String,
+        durationSeconds: Double = 0.0,
+        playCount: Int = 0,
         isLiked: Bool = false
     ) {
         self.id = id
         self.title = title
         self.artist = artist
         self.album = album
-        self.duration = duration
-        self.audioUrl = audioUrl
         self.coverArtUrl = coverArtUrl
-        self.playsCount = playsCount
+        self.audioUrl = audioUrl
+        self.durationSeconds = durationSeconds
+        self.playCount = playCount
         self.isLiked = isLiked
     }
 }
@@ -49,27 +49,28 @@ public struct Song: Identifiable, Codable, Equatable, Hashable {
 public struct Playlist: Identifiable, Codable, Equatable {
     public let id: String
     public let name: String
-    public let description: String?
     public let coverArtUrl: String?
+    public let songs: [Song]
     public let isPublic: Bool
-    public let createdAt: Int64
 
-    public init(
-        id: String,
-        name: String,
-        description: String? = nil,
-        coverArtUrl: String? = nil,
-        isPublic: Bool = true,
-        createdAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
-    ) {
+    public init(id: String, name: String, coverArtUrl: String? = nil, songs: [Song] = [], isPublic: Bool = true) {
         self.id = id
         self.name = name
-        self.description = description
         self.coverArtUrl = coverArtUrl
+        self.songs = songs
         self.isPublic = isPublic
-        self.createdAt = createdAt
     }
 }
+
+private struct SongsResponse: Codable {
+    let songs: [Song]
+}
+
+private struct PlaylistsResponse: Codable {
+    let playlists: [Playlist]
+}
+
+// MARK: - Playback State Enum
 
 public enum PlaybackState: Equatable {
     case stopped
@@ -79,67 +80,26 @@ public enum PlaybackState: Equatable {
     case failed(String)
 }
 
-// MARK: - Music Cache Manager
-
-public actor MusicCacheManager {
-    public static let shared = MusicCacheManager()
-
-    private let fileManager = FileManager.default
-    private let cacheDirectory: URL
-
-    private init() {
-        let urls = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)
-        self.cacheDirectory = urls[0].appendingPathComponent("MusicCache", isDirectory: true)
-        try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-    }
-
-    public func cachedURL(for audioURLString: String) -> URL? {
-        guard let url = URL(string: audioURLString) else { return nil }
-        let filename = url.lastPathComponent
-        let localURL = cacheDirectory.appendingPathComponent(filename)
-        return fileManager.fileExists(atPath: localURL.path) ? localURL : nil
-    }
-
-    public func cacheAudio(from remoteURL: URL) async throws -> URL {
-        let filename = remoteURL.lastPathComponent
-        let localURL = cacheDirectory.appendingPathComponent(filename)
-
-        if fileManager.fileExists(atPath: localURL.path) {
-            return localURL
-        }
-
-        let (tempURL, _) = try await URLSession.shared.download(from: remoteURL)
-        try fileManager.moveItem(at: tempURL, to: localURL)
-        return localURL
-    }
-
-    public func clearCache() {
-        try? fileManager.removeItem(at: cacheDirectory)
-        try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-    }
-}
-
-// MARK: - Music Service & Playback Engine
+// MARK: - Audio Player Engine
 
 @MainActor
-public final class MusicService: ObservableObject {
-    public static let shared = MusicService()
+public final class MusicAudioPlayer: ObservableObject {
+    public static let shared = MusicAudioPlayer()
 
-    @Published public private(set) var currentSong: Song?
+    @Published public private(set) var currentState: PlaybackState = .stopped
+    @Published public private(set) var currentSong: Song? = nil
     @Published public private(set) var queue: [Song] = []
-    @Published public private(set) var currentIndex: Int = -1
-    @Published public private(set) var playbackState: PlaybackState = .stopped
-    @Published public private(set) var currentTime: TimeInterval = 0.0
-    @Published public private(set) var duration: TimeInterval = 0.0
-    @Published public private(set) var volume: Float = 1.0 {
-        didSet { player?.volume = volume }
-    }
+    @Published public private(set) var currentQueueIndex: Int = -1
+    @Published public var currentTime: Double = 0.0
+    @Published public var duration: Double = 0.0
+    @Published public var isShuffleEnabled: Bool = false
+    @Published public var isRepeatEnabled: Bool = false
 
-    private var player: AVQueuePlayer?
+    private var player: AVPlayer?
     private var timeObserverToken: Any?
     private var cancellables = Set<AnyCancellable>()
 
-    public init() {
+    private init() {
         setupAudioSession()
     }
 
@@ -147,121 +107,108 @@ public final class MusicService: ObservableObject {
         removeTimeObserver()
     }
 
+    // MARK: - Setup Audio Session
+
     private func setupAudioSession() {
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetooth])
-            try session.setActive(true)
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+            try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            print("[MusicService] Audio session setup error: \(error)")
+            print("[MusicAudioPlayer] Audio session error: \(error.localizedDescription)")
         }
     }
 
-    // MARK: - Playback Controls
+    // MARK: - Queue & Playback Management
 
-    public func setQueue(_ songs: [Song], startAt index: Int = 0) async {
-        self.queue = songs
-        guard index >= 0 && index < songs.count else { return }
-        self.currentIndex = index
-        await playSong(songs[index])
-    }
+    public func play(song: Song, inQueue queue: [Song]? = nil) {
+        if let newQueue = queue {
+            self.queue = newQueue
+            self.currentQueueIndex = newQueue.firstIndex(where: { $0.id == song.id }) ?? 0
+        } else if !self.queue.contains(where: { $0.id == song.id }) {
+            self.queue.append(song)
+            self.currentQueueIndex = self.queue.count - 1
+        }
 
-    public func playSong(_ song: Song) async {
         self.currentSong = song
-        self.playbackState = .buffering
-
-        var audioURL: URL? = URL(string: song.audioUrl)
-        if let localURL = await MusicCacheManager.shared.cachedURL(for: song.audioUrl) {
-            audioURL = localURL
-        } else if let remoteURL = audioURL {
-            Task.detached {
-                _ = try? await MusicCacheManager.shared.cacheAudio(from: remoteURL)
-            }
-        }
-
-        guard let url = audioURL else {
-            self.playbackState = .failed("Invalid audio URL")
+        guard let url = URL(string: song.audioUrl) else {
+            currentState = .failed("Invalid audio URL")
             return
         }
 
+        stop()
+
         let playerItem = AVPlayerItem(url: url)
-        if player == nil {
-            player = AVQueuePlayer(playerItem: playerItem)
-            setupPlayerObservers()
-        } else {
-            player?.removeAllItems()
-            player?.insert(playerItem, after: nil)
-        }
+        player = AVPlayer(playerItem: playerItem)
+        currentState = .buffering
 
+        addTimeObserver()
         player?.play()
-        self.playbackState = .playing
-    }
-
-    public func play() {
-        guard let player = player else { return }
-        player.play()
-        playbackState = .playing
-    }
-
-    public func pause() {
-        guard let player = player else { return }
-        player.pause()
-        playbackState = .paused
+        currentState = .playing
     }
 
     public func togglePlayPause() {
-        if playbackState == .playing {
-            pause()
-        } else {
-            play()
-        }
-    }
-
-    public func next() async {
-        guard !queue.isEmpty, currentIndex + 1 < queue.count else { return }
-        currentIndex += 1
-        await playSong(queue[currentIndex])
-    }
-
-    public func previous() async {
-        guard !queue.isEmpty, currentIndex - 1 >= 0 else { return }
-        currentIndex -= 1
-        await playSong(queue[currentIndex])
-    }
-
-    public func seek(to time: TimeInterval) {
         guard let player = player else { return }
-        let cmTime = CMTime(seconds: time, preferredTimescale: 600)
-        player.seek(to: cmTime) { [weak self] completed in
-            if completed {
-                self?.currentTime = time
-            }
+        if currentState == .playing {
+            player.pause()
+            currentState = .paused
+        } else if currentState == .paused {
+            player.play()
+            currentState = .playing
         }
     }
 
-    // MARK: - Private Player Observers
+    public func pause() {
+        player?.pause()
+        currentState = .paused
+    }
 
-    private func setupPlayerObservers() {
+    public func resume() {
+        player?.play()
+        currentState = .playing
+    }
+
+    public func stop() {
         removeTimeObserver()
-        let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
+        player?.pause()
+        player = nil
+        currentTime = 0.0
+        currentState = .stopped
+    }
+
+    public func seek(to timeInSeconds: Double) {
+        guard let player = player else { return }
+        let cmTime = CMTime(seconds: timeInSeconds, preferredTimescale: 1000)
+        player.seek(to: cmTime)
+    }
+
+    public func next() {
+        guard !queue.isEmpty else { return }
+        if isShuffleEnabled {
+            currentQueueIndex = Int.random(in: 0..<queue.count)
+        } else {
+            currentQueueIndex = (currentQueueIndex + 1) % queue.count
+        }
+        play(song: queue[currentQueueIndex])
+    }
+
+    public func previous() {
+        guard !queue.isEmpty else { return }
+        currentQueueIndex = (currentQueueIndex - 1 + queue.count) % queue.count
+        play(song: queue[currentQueueIndex])
+    }
+
+    // MARK: - Observers
+
+    private func addTimeObserver() {
+        removeTimeObserver()
+        let interval = CMTime(seconds: 0.5, preferredTimescale: 1000)
         timeObserverToken = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self = self else { return }
             self.currentTime = time.seconds
-            if let currentItem = self.player?.currentItem {
-                let itemDuration = currentItem.duration.seconds
-                if !itemDuration.isNaN {
-                    self.duration = itemDuration
-                }
+            if let duration = self.player?.currentItem?.duration.seconds, !duration.isNaN {
+                self.duration = duration
             }
         }
-
-        NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    await self?.next()
-                }
-            }
-            .store(in: &cancellables)
     }
 
     private func removeTimeObserver() {
@@ -272,10 +219,18 @@ public final class MusicService: ObservableObject {
     }
 }
 
-// MARK: - Music Repository API Client
+// MARK: - Music API & Repository Service
 
-public actor MusicRepository {
-    public static let shared = MusicRepository()
+public protocol MusicRepositoryProtocol: AnyObject {
+    func getSongs() async throws -> [Song]
+    func incrementSongPlay(songId: String) async throws
+    func likeSong(songId: String) async throws -> Bool
+    func getPlaylists() async throws -> [Playlist]
+    func createPlaylist(name: String, coverArtUrl: String?, isPublic: Bool) async throws -> String
+    func searchSongs(query: String) async throws -> [Song]
+}
+
+public final class MusicService: MusicRepositoryProtocol, @unchecked Sendable {
     private let baseURL: URL
 
     public init(baseURL: URL = URL(string: "https://api.tj.app/music")!) {
@@ -288,7 +243,6 @@ public actor MusicRepository {
         guard let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
-        struct SongsResponse: Codable { let songs: [Song] }
         let decoded = try JSONDecoder().decode(SongsResponse.self, from: data)
         return decoded.songs
     }
@@ -311,7 +265,6 @@ public actor MusicRepository {
     public func getPlaylists() async throws -> [Playlist] {
         let url = baseURL.appendingPathComponent("playlists")
         let (data, _) = try await URLSession.shared.data(from: url)
-        struct PlaylistsResponse: Codable { let playlists: [Playlist] }
         return try JSONDecoder().decode(PlaylistsResponse.self, from: data).playlists
     }
 
@@ -335,7 +288,6 @@ public actor MusicRepository {
         guard let url = components?.url else { return [] }
 
         let (data, _) = try await URLSession.shared.data(from: url)
-        struct SongsResponse: Codable { let songs: [Song] }
         return try JSONDecoder().decode(SongsResponse.self, from: data).songs
     }
 }

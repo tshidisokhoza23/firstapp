@@ -1,11 +1,5 @@
 import SwiftUI
 
-public struct ApiReader: Identifiable, Codable {
-    public var id: String { user_id }
-    public var user_id: String
-    public var read_at: Int64
-}
-
 public struct MessageInfoView: View {
     public let messageId: String
     @StateObject public var viewModel: ChatViewModel = ChatViewModel()
@@ -58,21 +52,21 @@ public struct MessageInfoView: View {
             } else {
                 List {
                     Section(header: Text("Read By").font(.system(size: 12, weight: .bold)).foregroundColor(.accentColor)) {
-                        ForEach(readers) { reader in
+                        ForEach(readers, id: \.userId) { reader in
                             HStack {
                                 Circle()
                                     .fill(Color.accentColor.opacity(0.15))
                                     .frame(width: 40, height: 40)
                                     .overlay(
-                                        Text(String(reader.user_id.prefix(1)).uppercased())
+                                        Text(String(reader.userId.prefix(1)).uppercased())
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(.accentColor)
                                     )
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(reader.user_id)
+                                    Text(reader.userId)
                                         .font(.system(size: 15, weight: .bold))
-                                    Text(formatFullDate(reader.read_at))
+                                    Text(formatFullDate(reader.readAt))
                                         .font(.system(size: 11))
                                         .foregroundColor(.secondary)
                                 }

@@ -164,7 +164,7 @@ public struct DriverStatus: Identifiable, Codable, Equatable {
     }
 }
 
-public struct ActiveSession: Codable, Equatable {
+public struct DriveActiveSession: Codable, Equatable {
     public let sessionId: String
     public let isDriver: Bool
     public let currentRideId: String?
@@ -209,7 +209,7 @@ public protocol DriveRepositoryProtocol: AnyObject {
     func getVehicleInfo() async throws -> VehicleInfo
     func updateVehicleInfo(vehicle: VehicleInfo) async throws -> VehicleInfo
     func getNearbyDrivers(lat: Double, lng: Double) async throws -> [DriverStatus]
-    func getActiveSession() async throws -> ActiveSession
+    func getActiveSession() async throws -> DriveActiveSession
 }
 
 @MainActor
@@ -475,9 +475,9 @@ public final class DriveRepository: ObservableObject, DriveRepositoryProtocol {
         return try JSONDecoder().decode(NearbyResponse.self, from: data).drivers
     }
 
-    public func getActiveSession() async throws -> ActiveSession {
+    public func getActiveSession() async throws -> DriveActiveSession {
         let url = baseURL.appendingPathComponent("user/active-session")
         let (data, _) = try await URLSession.shared.data(from: url)
-        return try JSONDecoder().decode(ActiveSession.self, from: data)
+        return try JSONDecoder().decode(DriveActiveSession.self, from: data)
     }
 }

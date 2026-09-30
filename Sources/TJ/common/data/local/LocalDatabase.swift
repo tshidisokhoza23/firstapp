@@ -1,39 +1,5 @@
 import Foundation
 
-// MARK: - Enums & Model Types
-
-public enum ConversationType: String, Codable, Sendable {
-    case direct = "DIRECT"
-    case group = "GROUP"
-    case channel = "CHANNEL"
-    case jobChat = "JOB_CHAT"
-    case mingle = "MINGLE"
-}
-
-public enum MessageType: String, Codable, Sendable {
-    case text = "TEXT"
-    case image = "IMAGE"
-    case video = "VIDEO"
-    case audio = "AUDIO"
-    case voice = "VOICE"
-    case file = "FILE"
-    case document = "DOCUMENT"
-    case contact = "CONTACT"
-    case location = "LOCATION"
-    case system = "SYSTEM"
-    case voiceCall = "VOICE_CALL"
-    case videoCall = "VIDEO_CALL"
-}
-
-public enum MessageStatus: String, Codable, Sendable {
-    case pending = "PENDING"
-    case sending = "SENDING"
-    case sent = "SENT"
-    case delivered = "DELIVERED"
-    case read = "READ"
-    case failed = "FAILED"
-}
-
 // MARK: - Local Entities
 
 public struct ChatEntity: Codable, Sendable, Identifiable {

@@ -2,46 +2,6 @@ import Foundation
 import SwiftUI
 import Combine
 
-public struct Advert: Identifiable, Hashable, Codable {
-    public var id: String
-    public var advertiserName: String
-    public var title: String
-    public var actionText: String
-    public var avatarColorHex: String
-    public var contentColorHex: String
-    public var isViewed: Bool
-
-    public init(
-        id: String = UUID().uuidString,
-        advertiserName: String = "Rewards",
-        title: String = "",
-        actionText: String = "Watch",
-        avatarColorHex: String = "#CCCCCC",
-        contentColorHex: String = "#EEEEEE",
-        isViewed: Bool = false
-    ) {
-        self.id = id
-        self.advertiserName = advertiserName
-        self.title = title
-        self.actionText = actionText
-        self.avatarColorHex = avatarColorHex
-        self.contentColorHex = contentColorHex
-        self.isViewed = isViewed
-    }
-}
-
-public struct RewardDashboard: Codable {
-    public var points: Double
-    public var dailyStreak: Int
-    public var tasksCompleted: Int
-
-    public init(points: Double = 0.0, dailyStreak: Int = 0, tasksCompleted: Int = 0) {
-        self.points = points
-        self.dailyStreak = dailyStreak
-        self.tasksCompleted = tasksCompleted
-    }
-}
-
 public enum RewardUiState {
     case loading
     case success(RewardDashboard)
@@ -55,8 +15,8 @@ public class RewardViewModel: ObservableObject {
     @Published public var hasRewardedAdsAvailable: Bool = true
     @Published public var cooldownRemainingSeconds: Int = 0
     @Published public var hourlyAdCount: Int = 0
-    @Published public var adverts: ResourceState<[Advert]> = .loading([])
-    @Published public var viewedAdverts: ResourceState<[Advert]> = .loading([])
+    @Published public var adverts: Resource<[Advert]> = .loading()
+    @Published public var viewedAdverts: Resource<[Advert]> = .loading()
     @Published public var points: Double = 0.0
 
     public init() {
@@ -78,9 +38,8 @@ public class RewardViewModel: ObservableObject {
             list.append(
                 Advert(
                     id: "virtual_ad_\(i)",
-                    advertiserName: "Rewards",
                     title: "Extra Reward Slot #\(i)",
-                    actionText: "Watch",
+                    description: "Watch ad to earn points",
                     isViewed: false
                 )
             )
