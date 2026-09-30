@@ -1,5 +1,13 @@
 import Foundation
 
+public enum HTTPMethod: String, Codable, Sendable {
+    case get = "GET"
+    case post = "POST"
+    case put = "PUT"
+    case patch = "PATCH"
+    case delete = "DELETE"
+}
+
 public final class NetworkClient: @unchecked Sendable {
     public static let shared = NetworkClient()
 
@@ -16,24 +24,67 @@ public final class NetworkClient: @unchecked Sendable {
 
     public func request<T: Decodable>(
         endpoint: String,
-        method: String = "GET",
+        method: HTTPMethod = .get,
         headers: [String: String] = [:],
         body: Data? = nil
     ) async throws -> T {
-        var url = baseURL.appendingPathComponent(endpoint)
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.httpBody = body
+        return try await request(path: endpoint, method: method, queryItems: nil, headers: headers, body: body)
+    }
+
+    public func request<T: Decodable, B: Encodable>(
+        path: String,
+        method: HTTPMethod = .get,
+        queryItems: [URLQueryItem]? = nil,
+        headers: [String: String] = [:],
+        body: B? = nil
+    ) async throws -> T {
+        var encBody: Data? = nil
+        if let body = body {
+            if let dataBody = body as? Data {
+                encBody = dataBody
+            } else {
+                let encoder = JSONEncoder()
+                encBody = try encoder.encode(body)
+            }
+        }
+        return try await request(path: path, method: method, queryItems: queryItems, headers: headers, body: encBody)
+    }
+
+    public func request<T: Decodable>(
+        path: String,
+        method: HTTPMethod = .get,
+        queryItems: [URLQueryItem]? = nil,
+        headers: [String: String] = [:],
+        body: Data? = nil
+    ) async throws -> T {
+        var base = baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if !base.hasPrefix("http://") && !base.hasPrefix("https://") {
+            base = "https://" + base
+        }
+        let fullPath = path.hasPrefix("/") ? path : "/\(path)"
+        guard var components = URLComponents(string: "\(base)\(fullPath)") else {
+            throw URLError(.badURL)
+        }
+        if let queryItems = queryItems, !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else {
+            throw URLError(.badURL)
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = method.rawValue
+        req.httpBody = body
 
         for (key, value) in headers {
-            request.setValue(value, forHTTPHeaderField: key)
+            req.setValue(value, forHTTPHeaderField: key)
         }
 
-        if request.value(forHTTPHeaderField: "Content-Type") == nil {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if req.value(forHTTPHeaderField: "Content-Type") == nil {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: req)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
@@ -49,9 +100,45 @@ public final class NetworkClient: @unchecked Sendable {
     }
 }
 
+// MARK: - Common Network DTOs
+
+public struct StatusResponse: Codable, Equatable, Sendable {
+    public let status: String
+    public let message: String?
+
+    public init(status: String = "ok", message: String? = nil) {
+        self.status = status
+        self.message = message
+    }
+}
+
+public struct ApiUser: Identifiable, Codable, Equatable, Sendable {
+    public let id: String
+    public let username: String
+    public let displayName: String
+    public let avatarUrl: String?
+    public let isOnline: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id, username
+        case displayName = "display_name"
+        case avatarUrl = "avatar_url"
+        case isOnline = "is_online"
+    }
+
+    public init(id: String, username: String, displayName: String = "", avatarUrl: String? = nil, isOnline: Bool? = nil) {
+        self.id = id
+        self.username = username
+        self.displayName = displayName
+        self.avatarUrl = avatarUrl
+        self.isOnline = isOnline
+    }
+}
+
 public struct LoginRequest: Codable, Sendable {
     public let username: String
     public let password: String
+
     public init(username: String, password: String) {
         self.username = username
         self.password = password
@@ -77,6 +164,93 @@ public struct AuthResponse: Codable, Equatable, Sendable {
 
 public struct TokenRefreshRequest: Codable, Sendable {
     public let refreshToken: String
-    enum CodingKeys: String, CodingKey { case refreshToken = "refresh_token" }
-    public init(refreshToken: String) { self.refreshToken = refreshToken }
+
+    enum CodingKeys: String, CodingKey {
+        case refreshToken = "refresh_token"
+    }
+
+    public init(refreshToken: String) {
+        self.refreshToken = refreshToken
+    }
+}
+
+public struct RegisterRequest: Codable, Sendable {
+    public let username: String
+    public let email: String
+    public let displayName: String
+    public let phoneNumber: String
+    public let password: String
+    public let countryCode: String?
+
+    enum CodingKeys: String, CodingKey {
+        case username, email, password
+        case displayName = "display_name"
+        case phoneNumber = "phone_number"
+        case countryCode = "country_code"
+    }
+
+    public init(username: String, email: String, displayName: String, phoneNumber: String, password: String, countryCode: String? = nil) {
+        self.username = username
+        self.email = email
+        self.displayName = displayName
+        self.phoneNumber = phoneNumber
+        self.password = password
+        self.countryCode = countryCode
+    }
+}
+
+public struct ForgotPasswordRequest: Codable, Sendable {
+    public let emailOrUsername: String
+
+    enum CodingKeys: String, CodingKey {
+        case emailOrUsername = "email_or_username"
+    }
+
+    public init(emailOrUsername: String) {
+        self.emailOrUsername = emailOrUsername
+    }
+}
+
+public struct MuteRequest: Codable, Sendable {
+    public let isMuted: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case isMuted = "is_muted"
+    }
+
+    public init(isMuted: Bool) {
+        self.isMuted = isMuted
+    }
+}
+
+public struct AvatarUrlRequest: Codable, Sendable {
+    public let avatarUrl: String
+
+    enum CodingKeys: String, CodingKey {
+        case avatarUrl = "avatar_url"
+    }
+
+    public init(avatarUrl: String) {
+        self.avatarUrl = avatarUrl
+    }
+}
+
+public struct UserIdRequest: Codable, Sendable {
+    public let userId: String
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+    }
+
+    public init(userId: String) {
+        self.userId = userId
+    }
+}
+
+public struct ToggleAdminPostingRequest: Codable, Sendable {
+    public let allowed: Bool
+
+    public init(allowed: Bool) {
+        self.allowed = allowed
+    }
 }
