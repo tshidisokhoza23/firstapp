@@ -12,8 +12,8 @@ targets:
     platform: iOS
     deploymentTarget: "16.0"
     sources:
-      - path: Sources
-      - path: Resources
+      - Sources
+      - Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tpsk.TJ
@@ -28,9 +28,7 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "TJ uses your location to show people nearby on Court."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "TJ uses the microphone to record voice notes and calls."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "TJ uses your photos and videos for chats, stories, posts, and shorts."
-    info:
-      properties:
-        CFBundleURLTypes:
+        INFOPLIST_KEY_CFBundleURLTypes:
           - CFBundleURLName: Google
             CFBundleURLSchemes:
               - com.googleusercontent.apps.303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u
