@@ -34,7 +34,7 @@ public final class JobRepositoryImpl: JobRepository, @unchecked Sendable {
                     await localStore.insertJobs(models.map { $0.toEntity() })
                     continuation.yield(.success(models))
                 } catch {
-                    let cached = await localStore.getJobs()
+                    let cached = await localStore.getJobsList()
                     continuation.yield(.error("Network error: \(error.localizedDescription)", cached.map { $0.toModel() }))
                 }
                 continuation.finish()
@@ -109,7 +109,7 @@ public final class JobRepositoryImpl: JobRepository, @unchecked Sendable {
                     await localStore.insertApplications(models.map { $0.toEntity() })
                     continuation.yield(.success(models))
                 } catch {
-                    let cached = await localStore.getApplications()
+                    let cached = await localStore.getApplicationsList()
                     continuation.yield(.error("Failed to load applications: \(error.localizedDescription)", cached.map { $0.toModel() }))
                 }
                 continuation.finish()
@@ -120,7 +120,7 @@ public final class JobRepositoryImpl: JobRepository, @unchecked Sendable {
     public func withdrawApplication(applicationId: String) async -> Resource<Bool> {
         do {
             _ = try await jobApi.withdrawApplication(applicationId: applicationId)
-            await localStore.deleteApplication(id: applicationId)
+            await localStore.deleteApplication(applicationId: applicationId)
             return .success(true)
         } catch {
             return .error(error.localizedDescription, nil)

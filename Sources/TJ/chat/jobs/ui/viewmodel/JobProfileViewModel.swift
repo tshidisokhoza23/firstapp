@@ -15,17 +15,15 @@ public class JobProfileViewModel: ObservableObject {
 
     public func fetchProfile() {
         Task {
-            for await resource in repository.getJobProfile() {
-                self.profile = resource
-            }
+            let resource = await repository.getJobProfile()
+            self.profile = resource
         }
     }
 
     public func updateProfile(_ profile: JobProfileData) {
         Task {
-            for await result in repository.updateJobProfile(profile: profile) {
-                self.saveResult = result
-            }
+            let result = await repository.updateJobProfile(profile: profile)
+            self.saveResult = result
         }
     }
 

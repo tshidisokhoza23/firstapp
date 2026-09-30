@@ -18,7 +18,7 @@ public class JobViewModel: ObservableObject {
 
     public func fetchJobs() {
         Task {
-            for await result in repository.getJobs(page: 1) {
+            for await result in repository.getJobs(cursor: nil, limit: 50) {
                 self.jobs = result
             }
         }
@@ -45,10 +45,9 @@ public class JobViewModel: ObservableObject {
 
     public func updateJobProfile(_ profile: JobProfileData) {
         Task {
-            for await result in repository.updateJobProfile(profile: profile) {
-                if case .success = result {
-                    self.jobProfile = profile
-                }
+            let result = await repository.updateJobProfile(profile: profile)
+            if case .success = result {
+                self.jobProfile = profile
             }
         }
     }
@@ -56,15 +55,14 @@ public class JobViewModel: ObservableObject {
     public func withdrawApplication(applicationId: String) {
         applications.removeAll { $0.id == applicationId }
         Task {
-            for await _ in repository.withdrawApplication(applicationId: applicationId) {}
+            _ = await repository.withdrawApplication(applicationId: applicationId)
         }
     }
 
     public func createJob(title: String, description: String, category: String, skills: [String], durationDays: Int) {
         Task {
-            for await result in repository.createJob(title: title, description: description, category: category, skills: skills, durationDays: durationDays) {
-                self.createJobResult = result
-            }
+            let result = await repository.createJob(title: title, description: description, category: category, skills: skills, durationDays: durationDays)
+            self.createJobResult = result
         }
     }
 }

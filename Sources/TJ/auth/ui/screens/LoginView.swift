@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct LoginView: View {
-    @StateObject private var viewModel: AuthViewModel
+    @ObservedObject private var viewModel: AuthViewModel
     private var onLoginSuccess: (AuthResponse?) -> Void
     private var onNavigateToOtp: (String, String?, String?, String?, String?, String?) -> Void
 
@@ -24,7 +24,7 @@ public struct LoginView: View {
         onLoginSuccess: @escaping (AuthResponse?) -> Void,
         onNavigateToOtp: @escaping (String, String?, String?, String?, String?, String?) -> Void
     ) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        self.viewModel = viewModel
         self.onLoginSuccess = onLoginSuccess
         self.onNavigateToOtp = onNavigateToOtp
     }
@@ -142,7 +142,7 @@ public struct LoginView: View {
                         viewModel.googleSignIn(idToken: "sample_token")
                     }) {
                         HStack(spacing: 12) {
-                            if case .loading = viewModel.authState {
+                            if viewModel.authState?.isLoading == true {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {

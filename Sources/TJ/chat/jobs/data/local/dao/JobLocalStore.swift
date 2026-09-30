@@ -17,7 +17,7 @@ public actor JobLocalStore {
         jobsSubject.eraseToAnyPublisher()
     }
 
-    public func getJobsSnapshot() -> [JobEntity] {
+    public func getJobsList() -> [JobEntity] {
         Array(jobs.values.sorted { $0.postedTime > $1.postedTime })
     }
 
@@ -32,6 +32,14 @@ public actor JobLocalStore {
         if var job = jobs[jobId] {
             job.isApplied = isApplied
             job.hasAppliedInternal = isApplied
+            jobs[jobId] = job
+            notifyJobsChanged()
+        }
+    }
+
+    public func updateSavedStatus(jobId: String, isSaved: Bool) {
+        if var job = jobs[jobId] {
+            job.isSaved = isSaved
             jobs[jobId] = job
             notifyJobsChanged()
         }
@@ -71,7 +79,7 @@ public actor JobLocalStore {
         applicationsSubject.eraseToAnyPublisher()
     }
 
-    public func getApplicationsSnapshot() -> [JobApplicationEntity] {
+    public func getApplicationsList() -> [JobApplicationEntity] {
         Array(applications.values.sorted { $0.appliedDate > $1.appliedDate })
     }
 
