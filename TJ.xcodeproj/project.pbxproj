@@ -49,6 +49,7 @@
 		BFA41716DEA1352298590FAD /* StoriesRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C4E663CB03579DFF222883 /* StoriesRowView.swift */; };
 		BFDF438D6F3BCBB7A2322364 /* StoryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E0388AF435BF2E55D6CB7E6 /* StoryItem.swift */; };
 		CB63135692B745C44B00AE19 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E0CCC65AB2A31AB3DDA73B4 /* ContentView.swift */; };
+		D2C073ABB598A4E9DAE89E0C /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9588F50764C5834C1CF867AC /* WebSocketManager.swift */; };
 		E4237A3F1747A7F4974EB37E /* ChannelsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B534D73F475D220F210EE8D /* ChannelsViewModel.swift */; };
 		E54F4E5F944571C4E1B768F2 /* SocialPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E238105D75BAC3CD8C25698 /* SocialPost.swift */; };
 		E67B7BC488DC51F17B88C717 /* ChatItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE1F33B492FA3E01F5634E3 /* ChatItem.swift */; };
@@ -98,6 +99,7 @@
 		8C4BD04E627BFB1318BD6361 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		8F9036B8046C14C27CB9798A /* ContactPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPickerView.swift; sourceTree = "<group>"; };
 		90473276319D43EED98CCF95 /* ShortsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortsViewModel.swift; sourceTree = "<group>"; };
+		9588F50764C5834C1CF867AC /* WebSocketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketManager.swift; sourceTree = "<group>"; };
 		98957AFD2A9B4A5FA3EA4F74 /* SocialViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialViewModel.swift; sourceTree = "<group>"; };
 		9A94D8E378224E15D394530E /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		B97FC5096B94F13CA79C2AD4 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
@@ -312,6 +314,7 @@
 			isa = PBXGroup;
 			children = (
 				66A5AB13C883CD1387ADCCE4 /* NetworkClient.swift */,
+				9588F50764C5834C1CF867AC /* WebSocketManager.swift */,
 			);
 			path = Network;
 			sourceTree = "<group>";
@@ -439,6 +442,7 @@
 				3101F032030B2001AA812B20 /* StreamView.swift in Sources */,
 				FBCE481AA6926B3D51B6B467 /* StreamViewModel.swift in Sources */,
 				439C6853C6DF19A5BB182F17 /* TJApp.swift in Sources */,
+				D2C073ABB598A4E9DAE89E0C /* WebSocketManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
