@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct ArchivedChatsView: View {
-    @StateObject public var viewModel: ChatViewModel = ChatViewModel()
+    @StateObject public var viewModel: ChatViewModel
     public var onBack: () -> Void = {}
     public var onChatClick: (ChatMessage) -> Void = { _ in }
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct MessageInfoView: View {
     public let messageId: String
-    @StateObject public var viewModel: ChatViewModel = ChatViewModel()
+    @StateObject public var viewModel: ChatViewModel
     public var onBack: () -> Void = {}
 
     @State private var readers: [ApiReader] = []

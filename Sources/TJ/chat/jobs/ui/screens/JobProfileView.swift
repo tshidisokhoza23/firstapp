@@ -216,17 +216,6 @@ public struct JobProfileView: View {
                     populateFields(data)
                 }
             }
-            .onChange(of: viewModel.profile) { res in
-                if case .success(let data) = res {
-                    populateFields(data)
-                }
-            }
-            .onChange(of: viewModel.saveResult) { res in
-                if case .success = res {
-                    onClose()
-                    viewModel.resetState()
-                }
-            }
             .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [.pdf]) { result in
                 switch result {
                 case .success(let url):

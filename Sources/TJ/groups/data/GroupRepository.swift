@@ -108,7 +108,7 @@ public final class GroupRepository: ObservableObject, GroupRepositoryProtocol {
 
     // MARK: - Observe Groups
 
-    public func observeGroups() -> AsyncStream<[GroupChat]> {
+    nonisolated public func observeGroups() -> AsyncStream<[GroupChat]> {
         AsyncStream { continuation in
             let cancellable = $groups.sink { list in
                 continuation.yield(list)

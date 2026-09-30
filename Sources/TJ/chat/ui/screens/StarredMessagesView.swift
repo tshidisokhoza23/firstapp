@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct StarredMessagesView: View {
-    @StateObject public var viewModel: StarredMessagesViewModel = StarredMessagesViewModel()
+    @StateObject public var viewModel: StarredMessagesViewModel
     public var onBack: () -> Void = {}
     public var onMessageClick: (Message) -> Void = { _ in }
 

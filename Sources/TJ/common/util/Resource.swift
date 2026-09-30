@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Resource<T> {
+public enum Resource<T>: Equatable where T: Equatable {
     case success(T)
     case error(String, T? = nil)
     case loading(T? = nil)

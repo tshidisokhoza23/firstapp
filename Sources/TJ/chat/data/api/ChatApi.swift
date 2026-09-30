@@ -684,7 +684,7 @@ public final class URLSessionChatApi: ChatApi, @unchecked Sendable {
         self.tokenProvider = tokenProvider
     }
 
-    private func request(
+    private func buildURLRequest(
         path: String,
         method: String = "GET",
         queryItems: [URLQueryItem]? = nil,
@@ -730,17 +730,17 @@ public final class URLSessionChatApi: ChatApi, @unchecked Sendable {
     }
 
     public func getChats() async throws -> ChatSummaryResponse {
-        let req = try request(path: "conversations")
+        let req = try buildURLRequest(path: "conversations")
         return try await perform(req)
     }
 
     public func syncDelta(since: Int64) async throws -> SyncDeltaResponse {
-        let req = try request(path: "sync/delta", queryItems: [URLQueryItem(name: "since", value: String(since))])
+        let req = try buildURLRequest(path: "sync/delta", queryItems: [URLQueryItem(name: "since", value: String(since))])
         return try await perform(req)
     }
 
     public func getChatDetails(id: String) async throws -> ChatSummary {
-        let req = try request(path: "conversations/\(id)")
+        let req = try buildURLRequest(path: "conversations/\(id)")
         return try await perform(req)
     }
 
@@ -748,212 +748,212 @@ public final class URLSessionChatApi: ChatApi, @unchecked Sendable {
         var items: [URLQueryItem] = []
         if let cursor = cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
         items.append(URLQueryItem(name: "limit", value: String(limit ?? 50)))
-        let req = try request(path: "conversations/\(conversationID)/messages", queryItems: items)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/messages", queryItems: items)
         return try await perform(req)
     }
 
     public func sendMessage(conversationID: String, request: SendMessageRequest) async throws -> MessageResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(conversationID)/messages", method: "POST", body: body)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/messages", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func markAsRead(conversationID: String, request: ReadReceiptRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(conversationID)/read", method: "POST", body: body)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/read", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func getMembers(conversationID: String) async throws -> [ApiUser] {
-        let req = try request(path: "conversations/\(conversationID)/members")
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/members")
         return try await perform(req)
     }
 
     public func updateApplicationStatus(conversationID: String, request: StatusUpdateRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(conversationID)/application-status", method: "PATCH", body: body)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/application-status", method: "PATCH", body: body)
         return try await perform(req)
     }
 
     public func addGroupMember(groupId: String, request: AddMemberRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(groupId)/members", method: "POST", body: body)
+        let req = try buildURLRequest(path: "conversations/\(groupId)/members", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func removeGroupMember(groupId: String, userId: String) async throws -> StatusResponse {
-        let req = try request(path: "conversations/\(groupId)/members/\(userId)", method: "DELETE")
+        let req = try buildURLRequest(path: "conversations/\(groupId)/members/\(userId)", method: "DELETE")
         return try await perform(req)
     }
 
     public func promoteToAdmin(groupId: String, userId: String) async throws -> StatusResponse {
-        let req = try request(path: "conversations/\(groupId)/admin/\(userId)", method: "POST")
+        let req = try buildURLRequest(path: "conversations/\(groupId)/admin/\(userId)", method: "POST")
         return try await perform(req)
     }
 
     public func leaveGroup(groupId: String) async throws -> StatusResponse {
-        let req = try request(path: "conversations/\(groupId)/leave", method: "POST")
+        let req = try buildURLRequest(path: "conversations/\(groupId)/leave", method: "POST")
         return try await perform(req)
     }
 
     public func initiateDM(request: InitiateDMRequest) async throws -> ConversationResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/dm", method: "POST", body: body)
+        let req = try buildURLRequest(path: "chats/dm", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func createGroup(request: CreateGroupRequest) async throws -> ConversationResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/group", method: "POST", body: body)
+        let req = try buildURLRequest(path: "chats/group", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func getGroupInfo(groupId: String) async throws -> GroupInfoResponse {
-        let req = try request(path: "chats/groups/\(groupId)")
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)")
         return try await perform(req)
     }
 
     public func renameGroup(groupId: String, request: RenameGroupRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/groups/\(groupId)", method: "PATCH", body: body)
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)", method: "PATCH", body: body)
         return try await perform(req)
     }
 
     public func addChatGroupMember(groupId: String, request: AddMemberRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/groups/\(groupId)/members", method: "POST", body: body)
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)/members", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func removeChatGroupMember(groupId: String, request: AddMemberRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/groups/\(groupId)/members", method: "DELETE", body: body)
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)/members", method: "DELETE", body: body)
         return try await perform(req)
     }
 
     public func promoteChatGroupAdmin(groupId: String, request: AddMemberRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/groups/\(groupId)/admins", method: "POST", body: body)
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)/admins", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func demoteChatGroupAdmin(groupId: String, request: AddMemberRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/groups/\(groupId)/admins", method: "DELETE", body: body)
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)/admins", method: "DELETE", body: body)
         return try await perform(req)
     }
 
     public func updateGroupAvatar(groupId: String, request: AvatarUrlRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/groups/\(groupId)/avatar", method: "PATCH", body: body)
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)/avatar", method: "PATCH", body: body)
         return try await perform(req)
     }
 
     public func updateChannelAvatar(channelId: String, request: AvatarUrlRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "chats/channels/\(channelId)/avatar", method: "PATCH", body: body)
+        let req = try buildURLRequest(path: "chats/channels/\(channelId)/avatar", method: "PATCH", body: body)
         return try await perform(req)
     }
 
     public func leaveChatGroup(groupId: String) async throws -> StatusResponse {
-        let req = try request(path: "chats/groups/\(groupId)/leave", method: "POST")
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)/leave", method: "POST")
         return try await perform(req)
     }
 
     public func generateGroupInviteCode(groupId: String) async throws -> GroupInviteCodeResponse {
-        let req = try request(path: "chats/groups/\(groupId)/invite-code", method: "POST")
+        let req = try buildURLRequest(path: "chats/groups/\(groupId)/invite-code", method: "POST")
         return try await perform(req)
     }
 
     public func joinGroupByInvite(inviteCode: String) async throws -> GroupJoinResponse {
-        let req = try request(path: "chats/groups/join/\(inviteCode)", method: "POST")
+        let req = try buildURLRequest(path: "chats/groups/join/\(inviteCode)", method: "POST")
         return try await perform(req)
     }
 
     public func deleteConversation(conversationID: String) async throws -> StatusResponse {
-        let req = try request(path: "conversations/\(conversationID)", method: "DELETE")
+        let req = try buildURLRequest(path: "conversations/\(conversationID)", method: "DELETE")
         return try await perform(req)
     }
 
     public func clearConversation(conversationID: String) async throws -> StatusResponse {
-        let req = try request(path: "conversations/\(conversationID)/clear", method: "POST")
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/clear", method: "POST")
         return try await perform(req)
     }
 
     public func deleteMessage(conversationID: String, messageID: String) async throws -> StatusResponse {
-        let req = try request(path: "conversations/\(conversationID)/messages/\(messageID)", method: "DELETE")
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/messages/\(messageID)", method: "DELETE")
         return try await perform(req)
     }
 
     public func editMessage(conversationID: String, messageID: String, request: EditMessageRequest) async throws -> MessageResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(conversationID)/messages/\(messageID)", method: "PATCH", body: body)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/messages/\(messageID)", method: "PATCH", body: body)
         return try await perform(req)
     }
 
     public func getMessageReaders(messageID: String) async throws -> [ApiReader] {
-        let req = try request(path: "messages/\(messageID)/readers")
+        let req = try buildURLRequest(path: "messages/\(messageID)/readers")
         return try await perform(req)
     }
 
     public func reactToMessage(conversationID: String, messageID: String, request: ReactMessageRequest) async throws -> ReactionsResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(conversationID)/messages/\(messageID)/reactions", method: "POST", body: body)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/messages/\(messageID)/reactions", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func initiateCall(request: InitiateCallRequest) async throws -> InitiateCallResponse {
         let body = try encode(request)
-        let req = try request(path: "calls/initiate", method: "POST", body: body)
+        let req = try buildURLRequest(path: "calls/initiate", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func getCallLogs() async throws -> CallLogsResponse {
-        let req = try request(path: "calls")
+        let req = try buildURLRequest(path: "calls")
         return try await perform(req)
     }
 
     public func subscribeToChannel(channelId: String) async throws -> StatusResponse {
-        let req = try request(path: "chats/channels/\(channelId)/subscribe", method: "POST")
+        let req = try buildURLRequest(path: "chats/channels/\(channelId)/subscribe", method: "POST")
         return try await perform(req)
     }
 
     public func getICEServers() async throws -> IceServersResponse {
-        let req = try request(path: "calls/ice_servers")
+        let req = try buildURLRequest(path: "calls/ice_servers")
         return try await perform(req)
     }
 
     public func updateConversationPrefs(conversationID: String, request: ConversationPrefsRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(conversationID)/prefs", method: "PATCH", body: body)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/prefs", method: "PATCH", body: body)
         return try await perform(req)
     }
 
     public func reportMessage(messageID: String, request: ReportMessageRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "messages/\(messageID)/report", method: "POST", body: body)
+        let req = try buildURLRequest(path: "messages/\(messageID)/report", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func pinMessage(conversationID: String, request: PinMessageRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "conversations/\(conversationID)/pinned-message", method: "PATCH", body: body)
+        let req = try buildURLRequest(path: "conversations/\(conversationID)/pinned-message", method: "PATCH", body: body)
         return try await perform(req)
     }
 
     public func starMessage(messageID: String, request: StarMessageRequest) async throws -> StatusResponse {
         let body = try encode(request)
-        let req = try request(path: "messages/\(messageID)/star", method: "POST", body: body)
+        let req = try buildURLRequest(path: "messages/\(messageID)/star", method: "POST", body: body)
         return try await perform(req)
     }
 
     public func unstarMessage(messageID: String) async throws -> StatusResponse {
-        let req = try request(path: "messages/\(messageID)/star", method: "DELETE")
+        let req = try buildURLRequest(path: "messages/\(messageID)/star", method: "DELETE")
         return try await perform(req)
     }
 
     public func getStarredMessages() async throws -> MessagesResponse {
-        let req = try request(path: "messages/starred")
+        let req = try buildURLRequest(path: "messages/starred")
         return try await perform(req)
     }
 }

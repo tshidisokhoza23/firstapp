@@ -1,10 +1,17 @@
 import Foundation
 import CallKit
 import AVFoundation
+import UIKit
 
-public enum CallType: String, Codable {
+public enum CallType: String, Codable, Sendable {
     case voice = "voice"
     case video = "video"
+
+    public var wireValue: String { rawValue }
+
+    public static func fromWire(_ value: String?) -> CallType {
+        return value == "video" ? .video : .voice
+    }
 }
 
 public struct CallSessionInfo {
@@ -58,7 +65,7 @@ public final class CallKitService: NSObject {
     private(set) public var callDurationSeconds: Int = 0
 
     private override init() {
-        let configuration = CXProviderConfiguration(localizedName: "TJ")
+        let configuration = CXProviderConfiguration()
         configuration.supportsVideo = true
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
@@ -208,8 +215,8 @@ extension CallKitService: CXProviderDelegate {
 
     public func providerDidReset(_ provider: CXProvider) {
         stopDurationTimer()
-        activeSessions.clear()
-        sessionByStringId.clear()
+        activeSessions.removeAll()
+        sessionByStringId.removeAll()
     }
 
     public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
@@ -261,11 +268,5 @@ extension CallKitService: CXProviderDelegate {
         } catch {
             print("[CallKitService] Audio session error: \(error.localizedDescription)")
         }
-    }
-}
-
-private extension Dictionary {
-    mutating func clear() {
-        self.removeAll()
     }
 }

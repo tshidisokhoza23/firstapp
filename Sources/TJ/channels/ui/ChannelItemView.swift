@@ -19,14 +19,12 @@ public struct ChannelItemView: View {
     }
 
     private var isOwnChannel: Bool {
-        channel.isAdmin || (!currentUserId.isEmpty && channel.createdBy == currentUserId)
+        let myId = currentUserId ?? ""
+        return channel.isAdmin || (!myId.isEmpty && channel.createdBy == myId)
     }
 
     private var followerLabel: String {
-        if let count = Int(channel.followers) {
-            return count == 1 ? "1 follower" : "\(count) followers"
-        }
-        return "\(channel.followers) followers"
+        return channel.followers == 1 ? "1 follower" : "\(channel.followers) followers"
     }
 
     public var body: some View {
@@ -34,7 +32,7 @@ public struct ChannelItemView: View {
             // Avatar
             ZStack {
                 Circle()
-                    .fill(channel.avatarColor)
+                    .fill(channel.logoColor)
                     .frame(width: 56, height: 56)
 
                 if let urlString = channel.avatarUrl, let url = URL(string: urlString) {

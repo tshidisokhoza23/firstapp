@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct ContactPickerView: View {
-    @StateObject public var viewModel: ContactPickerViewModel = ContactPickerViewModel()
+    @StateObject public var viewModel: ContactPickerViewModel
     public var initialIsGroupMode: Bool = false
     public var onBack: () -> Void = {}
     public var onContactSelected: (Contact) -> Void = { _ in }

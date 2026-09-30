@@ -1,8 +1,8 @@
 import SwiftUI
 
 public struct ChatTabView: View {
-    @StateObject public var viewModel: ChatViewModel = ChatViewModel()
-    @StateObject public var rewardViewModel: RewardViewModel = RewardViewModel()
+    @StateObject public var viewModel: ChatViewModel
+    @StateObject public var rewardViewModel: RewardViewModel
 
     public var onChatSelected: (ChatMessage) -> Void = { _ in }
     public var onNewChatClick: () -> Void = {}

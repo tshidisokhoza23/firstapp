@@ -94,13 +94,9 @@ public struct ChannelDetailView: View {
         let mapped = messages.map { msg in
             ChannelPost(
                 id: msg.id,
-                authorId: msg.senderId,
-                authorName: channel.name,
-                authorHandle: "@channel",
-                authorAvatarUrl: channel.avatarUrl,
-                content: msg.content,
-                mediaUrls: msg.mediaUrls,
-                timestamp: "Just now"
+                content: msg.message,
+                imageUrl: nil,
+                timestamp: msg.timestamp
             )
         }
         var combined = mapped + posts
@@ -127,7 +123,7 @@ public struct ChannelDetailView: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(channel.avatarColor)
+                                .fill(channel.logoColor)
                                 .frame(width: 40, height: 40)
 
                             if let urlStr = channel.avatarUrl, let url = URL(string: urlStr) {
@@ -297,10 +293,12 @@ public struct ChannelDetailView: View {
                 Text("Add admin")
                     .font(.headline)
                     .padding()
-                List(contacts.filter { $0.isRegistered }) { contact in
-                    Button(contact.displayName) {
+                List(contacts.filter { $0.isRegistered }, id: \.id) { contact in
+                    Button(action: {
                         onAddAdmin(contact.id)
                         showAddAdmin = false
+                    }) {
+                        Text(contact.displayName)
                     }
                 }
             }
@@ -367,7 +365,7 @@ public struct ChannelPostCardView: View {
                 .foregroundColor(.primary)
 
             HStack {
-                Text("❤️ \(post.likes)")
+                Text(post.isLiked ? "❤️ 1" : "🤍 0")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 8)

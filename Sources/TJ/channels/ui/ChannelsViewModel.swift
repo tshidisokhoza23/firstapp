@@ -9,20 +9,20 @@ public final class ChannelsViewModel: ObservableObject {
     @Published public var createdChannelId: String? = nil
 
     private let repository: ChannelRepository
-    private var cancellables = Set<AnyCancellable>()
 
-    public init(repository: ChannelRepository = ChannelRepositoryImpl.shared) {
+    public init(repository: ChannelRepository = ChannelRepository.shared) {
         self.repository = repository
         fetchChannels()
     }
 
     public func fetchChannels() {
-        repository.getChannels()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] resource in
-                self?.channels = resource
+        Task {
+            if let list = try? await repository.getChannels() {
+                self.channels = .success(list)
+            } else {
+                self.channels = .error("Failed to fetch channels")
             }
-            .store(in: &cancellables)
+        }
     }
 
     public func clearToast() {
@@ -31,72 +31,48 @@ public final class ChannelsViewModel: ObservableObject {
 
     public func subscribeToChannel(channelId: String) {
         Task {
-            let res = await repository.subscribeToChannel(channelId: channelId)
-            if case .success = res {
-                fetchChannels()
-            } else if case .error(let msg, _) = res {
-                toastMessage = msg
-            }
+            _ = await repository.subscribeToChannel(channelId: channelId)
+            fetchChannels()
         }
     }
 
     public func muteChannel(channelId: String, isMuted: Bool) {
         Task {
-            let res = await repository.muteChannel(channelId: channelId, isMuted: isMuted)
-            if case .success = res {
-                fetchChannels()
-            } else if case .error(let msg, _) = res {
-                toastMessage = msg
-            }
+            _ = await repository.muteChannel(channelId: channelId, isMuted: isMuted)
+            fetchChannels()
         }
     }
 
     public func createChannel(name: String, description: String, avatarUrl: String? = nil) {
         Task {
-            let res = await repository.createChannel(name: name, description: description, avatarUrl: avatarUrl)
-            if case .success(let channel) = res {
-                createdChannelId = channel.conversationId ?? channel.id
-                toastMessage = "Channel created successfully"
-                fetchChannels()
-            } else if case .error(let msg, _) = res {
-                toastMessage = msg
-            }
+            let channel = await repository.createChannel(name: name, description: description, avatarUrl: avatarUrl)
+            createdChannelId = channel.conversationId ?? channel.id
+            toastMessage = "Channel created successfully"
+            fetchChannels()
         }
     }
 
     public func addAdmin(channelId: String, userId: String) {
         Task {
-            let res = await repository.addAdmin(channelId: channelId, userId: userId)
-            if case .success = res {
-                toastMessage = "Admin added"
-                fetchChannels()
-            } else if case .error(let msg, _) = res {
-                toastMessage = msg
-            }
+            _ = await repository.addAdmin(channelId: channelId, userId: userId)
+            toastMessage = "Admin added"
+            fetchChannels()
         }
     }
 
     public func removeAdmin(channelId: String, userId: String) {
         Task {
-            let res = await repository.removeAdmin(channelId: channelId, userId: userId)
-            if case .success = res {
-                toastMessage = "Admin removed"
-                fetchChannels()
-            } else if case .error(let msg, _) = res {
-                toastMessage = msg
-            }
+            _ = await repository.removeAdmin(channelId: channelId, userId: userId)
+            toastMessage = "Admin removed"
+            fetchChannels()
         }
     }
 
     public func toggleAdminPosting(channelId: String, allowed: Bool) {
         Task {
-            let res = await repository.updateAdminPostingPermission(channelId: channelId, allowed: allowed)
-            if case .success = res {
-                toastMessage = "Posting permission updated"
-                fetchChannels()
-            } else if case .error(let msg, _) = res {
-                toastMessage = msg
-            }
+            _ = await repository.updateAdminPostingPermission(channelId: channelId, allowed: allowed)
+            toastMessage = "Posting permission updated"
+            fetchChannels()
         }
     }
 }

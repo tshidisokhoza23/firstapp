@@ -60,7 +60,7 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
 
     // MARK: - Observe Stories
 
-    public func observeStories() -> AsyncStream<[UserStory]> {
+    nonisolated public func observeStories() -> AsyncStream<[UserStory]> {
         AsyncStream { continuation in
             let cancellable = $userStories.sink { stories in
                 continuation.yield(stories)

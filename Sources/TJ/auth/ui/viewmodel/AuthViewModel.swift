@@ -17,7 +17,6 @@ public final class AuthViewModel: ObservableObject {
     public func login(username: String, password: String) {
         authState = .loading()
         Task {
-            // Simulated login API call
             try? await Task.sleep(nanoseconds: 500_000_000)
             let user = User(id: "1", username: username, displayName: username)
             let response = AuthResponse(token: "token_abc", refreshToken: "refresh_xyz", user: user)
@@ -89,7 +88,7 @@ public final class AuthViewModel: ObservableObject {
                 id: "1",
                 username: username ?? "user",
                 displayName: displayName ?? "User",
-                phoneNumber: phoneNumber
+                phoneNumber: phoneNumber ?? ""
             )
             let response = AuthResponse(token: "session_token", refreshToken: "session_refresh", user: user)
             self.authState = .success(response)

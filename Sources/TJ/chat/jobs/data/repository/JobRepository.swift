@@ -2,52 +2,58 @@ import Foundation
 import Combine
 
 public protocol JobRepository {
-    func getJobs(page: Int) -> AsyncStream<Resource<[Job]>>
-    func applyForJob(jobId: String) -> AsyncStream<Resource<String>>
-    func markClickedExternalLocally(jobId: String) async
-    func getJobApplications() -> AsyncStream<Resource<[JobApplication]>>
-    func getJobProfile() -> AsyncStream<Resource<JobProfileData>>
-    func withdrawApplication(applicationId: String) -> AsyncStream<Resource<Bool>>
-    func updateJobProfile(profile: JobProfileData) -> AsyncStream<Resource<Bool>>
-    func createJob(title: String, description: String, category: String, skills: [String], durationDays: Int) -> AsyncStream<Resource<Job>>
+    func getJobs(cursor: String?, limit: Int) -> AsyncStream<Resource<[Job]>>
     func searchJobs(query: String) -> AsyncStream<Resource<[Job]>>
+    func applyForJob(jobId: String) -> AsyncStream<Resource<String>>
+    func saveJob(jobId: String) async -> Resource<Bool>
+    func unsaveJob(jobId: String) async -> Resource<Bool>
+    func getJobApplications() -> AsyncStream<Resource<[JobApplication]>>
+    func withdrawApplication(applicationId: String) async -> Resource<Bool>
+    func getJobProfile() async -> Resource<JobProfileData>
+    func updateJobProfile(profile: JobProfileData) async -> Resource<Bool>
+    func createJob(title: String, description: String, category: String, skills: [String], durationDays: Int) async -> Resource<Job>
+    func markClickedExternalLocally(jobId: String) async
 }
 
-public class JobRepositoryImpl: JobRepository {
+public final class JobRepositoryImpl: JobRepository, @unchecked Sendable {
     private let jobApi: JobApiProtocol
     private let localStore: JobLocalStore
 
-    public init(jobApi: JobApiProtocol = JobApi(), localStore: JobLocalStore = JobLocalStore.shared) {
+    public init(jobApi: JobApiProtocol = JobApi(), localStore: JobLocalStore = JobLocalStore()) {
         self.jobApi = jobApi
         self.localStore = localStore
     }
 
-    public func getJobs(page: Int = 1) -> AsyncStream<Resource<[Job]>> {
+    public func getJobs(cursor: String? = nil, limit: Int = 50) -> AsyncStream<Resource<[Job]>> {
         AsyncStream { continuation in
             Task {
-                let cachedEntities = await localStore.getJobsSnapshot()
-                let cached = cachedEntities.map { $0.toModel() }
-                if !cached.isEmpty {
-                    continuation.yield(.loading(cached))
-                } else {
-                    continuation.yield(.loading(nil))
-                }
-
+                continuation.yield(.loading(nil))
                 do {
-                    let response = try await jobApi.getJobs(page: page, cursor: nil, limit: 50)
-                    let apiJobs = response.jobs
-                    let jobs = apiJobs.map { $0.toModel() }
-                    if page == 1 {
-                        await localStore.clearJobs()
-                    }
-                    await localStore.insertJobs(jobs.map { $0.toEntity() })
+                    let response = try await jobApi.getJobs(page: 1, cursor: cursor, limit: limit)
+                    let models = response.jobs.map { $0.toModel() }
+                    await localStore.insertJobs(models.map { $0.toEntity() })
+                    continuation.yield(.success(models))
                 } catch {
-                    print("JobRepo: getJobs failed with error: \(error)")
+                    let cached = await localStore.getJobs()
+                    continuation.yield(.error("Network error: \(error.localizedDescription)", cached.map { $0.toModel() }))
                 }
+                continuation.finish()
+            }
+        }
+    }
 
-                let updatedEntities = await localStore.getJobsSnapshot()
-                let models = updatedEntities.map { $0.toModel() }
-                continuation.yield(.success(models))
+    public func searchJobs(query: String) -> AsyncStream<Resource<[Job]>> {
+        AsyncStream { continuation in
+            Task {
+                continuation.yield(.loading(nil))
+                do {
+                    let response = try await jobApi.search(query: query)
+                    let models = response.jobs.map { $0.toModel() }
+                    continuation.yield(.success(models))
+                } catch {
+                    let cached = await localStore.searchJobs(query: query)
+                    continuation.yield(.error("Search failed: \(error.localizedDescription)", cached.map { $0.toModel() }))
+                }
                 continuation.finish()
             }
         }
@@ -60,7 +66,7 @@ public class JobRepositoryImpl: JobRepository {
                 do {
                     let response = try await jobApi.applyForJob(jobId: jobId)
                     await localStore.updateAppliedStatus(jobId: jobId, isApplied: true)
-                    continuation.yield(.success(response.conversation_id))
+                    continuation.yield(.success(response.conversationId))
                 } catch {
                     continuation.yield(.error("Application failed: \(error.localizedDescription)", nil))
                 }
@@ -73,121 +79,87 @@ public class JobRepositoryImpl: JobRepository {
         await localStore.markClickedExternalLocally(jobId: jobId)
     }
 
+    public func saveJob(jobId: String) async -> Resource<Bool> {
+        do {
+            _ = try await jobApi.saveJob(jobId: jobId)
+            await localStore.updateSavedStatus(jobId: jobId, isSaved: true)
+            return .success(true)
+        } catch {
+            return .error(error.localizedDescription, nil)
+        }
+    }
+
+    public func unsaveJob(jobId: String) async -> Resource<Bool> {
+        do {
+            _ = try await jobApi.unsaveJob(jobId: jobId)
+            await localStore.updateSavedStatus(jobId: jobId, isSaved: false)
+            return .success(true)
+        } catch {
+            return .error(error.localizedDescription, nil)
+        }
+    }
+
     public func getJobApplications() -> AsyncStream<Resource<[JobApplication]>> {
         AsyncStream { continuation in
             Task {
-                let cachedEntities = await localStore.getApplicationsSnapshot()
-                let cached = cachedEntities.map { $0.toModel() }
-                if !cached.isEmpty {
-                    continuation.yield(.loading(cached))
-                } else {
-                    continuation.yield(.loading(nil))
-                }
-
+                continuation.yield(.loading(nil))
                 do {
                     let response = try await jobApi.getJobApplications()
-                    let applications = response.applications.map { $0.toModel() }
-                    await localStore.clearApplications()
-                    await localStore.insertApplications(applications.map { $0.toEntity() })
+                    let models = response.applications.map { $0.toModel() }
+                    await localStore.insertApplications(models.map { $0.toEntity() })
+                    continuation.yield(.success(models))
                 } catch {
-                    print("JobRepo: getJobApplications failed: \(error)")
-                }
-
-                let updated = await localStore.getApplicationsSnapshot()
-                continuation.yield(.success(updated.map { $0.toModel() }))
-                continuation.finish()
-            }
-        }
-    }
-
-    public func getJobProfile() -> AsyncStream<Resource<JobProfileData>> {
-        AsyncStream { continuation in
-            Task {
-                continuation.yield(.loading(nil))
-                do {
-                    let profile = try await jobApi.getJobProfile()
-                    continuation.yield(.success(profile))
-                } catch {
-                    continuation.yield(.error("Failed to fetch profile: \(error.localizedDescription)", nil))
+                    let cached = await localStore.getApplications()
+                    continuation.yield(.error("Failed to load applications: \(error.localizedDescription)", cached.map { $0.toModel() }))
                 }
                 continuation.finish()
             }
         }
     }
 
-    public func withdrawApplication(applicationId: String) -> AsyncStream<Resource<Bool>> {
-        AsyncStream { continuation in
-            Task {
-                continuation.yield(.loading(nil))
-                do {
-                    _ = try await jobApi.withdrawApplication(applicationId: applicationId)
-                    await localStore.deleteApplication(applicationId: applicationId)
-                    continuation.yield(.success(true))
-                } catch {
-                    continuation.yield(.error("Withdrawal failed", nil))
-                }
-                continuation.finish()
-            }
+    public func withdrawApplication(applicationId: String) async -> Resource<Bool> {
+        do {
+            _ = try await jobApi.withdrawApplication(applicationId: applicationId)
+            await localStore.deleteApplication(id: applicationId)
+            return .success(true)
+        } catch {
+            return .error(error.localizedDescription, nil)
         }
     }
 
-    public func updateJobProfile(profile: JobProfileData) -> AsyncStream<Resource<Bool>> {
-        AsyncStream { continuation in
-            Task {
-                continuation.yield(.loading(nil))
-                do {
-                    _ = try await jobApi.updateJobProfile(profile: profile)
-                    continuation.yield(.success(true))
-                } catch {
-                    continuation.yield(.error("Could not save profile (\(error.localizedDescription))", nil))
-                }
-                continuation.finish()
-            }
+    public func getJobProfile() async -> Resource<JobProfileData> {
+        do {
+            let profile = try await jobApi.getJobProfile()
+            return .success(profile)
+        } catch {
+            return .error(error.localizedDescription, nil)
         }
     }
 
-    public func createJob(title: String, description: String, category: String, skills: [String], durationDays: Int) -> AsyncStream<Resource<Job>> {
-        AsyncStream { continuation in
-            Task {
-                continuation.yield(.loading(nil))
-                do {
-                    let req = CreateJobRequest(
-                        title: title,
-                        description: description,
-                        job_category: category.isEmpty ? "General" : category,
-                        required_skills: skills,
-                        duration_days: durationDays,
-                        category: category.isEmpty ? "General" : category,
-                        skills: skills
-                    )
-                    let apiJob = try await jobApi.createJob(request: req)
-                    let job = apiJob.toModel()
-                    await localStore.insertJobs([job.toEntity()])
-                    continuation.yield(.success(job))
-                } catch {
-                    continuation.yield(.error("Network error: \(error.localizedDescription)", nil))
-                }
-                continuation.finish()
-            }
+    public func updateJobProfile(profile: JobProfileData) async -> Resource<Bool> {
+        do {
+            _ = try await jobApi.updateJobProfile(profile: profile)
+            return .success(true)
+        } catch {
+            return .error(error.localizedDescription, nil)
         }
     }
 
-    public func searchJobs(query: String) -> AsyncStream<Resource<[Job]>> {
-        AsyncStream { continuation in
-            Task {
-                continuation.yield(.loading(nil))
-                do {
-                    let response = try await jobApi.getJobs(page: 1, cursor: nil, limit: 50)
-                    let filtered = response.jobs.filter {
-                        $0.title.localizedCaseInsensitiveContains(query) ||
-                        $0.company_name.localizedCaseInsensitiveContains(query)
-                    }.map { $0.toModel() }
-                    continuation.yield(.success(filtered))
-                } catch {
-                    continuation.yield(.error(error.localizedDescription, nil))
-                }
-                continuation.finish()
-            }
+    public func createJob(title: String, description: String, category: String, skills: [String], durationDays: Int) async -> Resource<Job> {
+        do {
+            let req = CreateJobRequest(
+                title: title,
+                description: description,
+                job_category: category,
+                required_skills: skills,
+                duration_days: durationDays
+            )
+            let apiJob = try await jobApi.createJob(request: req)
+            let model = apiJob.toModel()
+            await localStore.insertJobs([model.toEntity()])
+            return .success(model)
+        } catch {
+            return .error(error.localizedDescription, nil)
         }
     }
 }

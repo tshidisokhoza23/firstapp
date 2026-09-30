@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-public struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
+public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable {
     public var id: String
     public var type: ConversationType
     public var senderName: String

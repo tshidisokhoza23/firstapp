@@ -80,7 +80,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
 
     // MARK: - Observe Direct Chats
 
-    public func observeDirectChats() -> AsyncStream<[DirectChat]> {
+    nonisolated public func observeDirectChats() -> AsyncStream<[DirectChat]> {
         AsyncStream { continuation in
             let cancellable = $directChats.sink { chats in
                 continuation.yield(chats)
@@ -115,7 +115,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
 
     // MARK: - Observe Call Logs
 
-    public func observeCallLogs() -> AsyncStream<[CallLog]> {
+    nonisolated public func observeCallLogs() -> AsyncStream<[CallLog]> {
         AsyncStream { continuation in
             let cancellable = $callLogs.sink { logs in
                 continuation.yield(logs)

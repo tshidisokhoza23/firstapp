@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct ChatProfileView: View {
     public let chat: ChatMessage
-    @StateObject public var viewModel: ChatViewModel = ChatViewModel()
+    @StateObject public var viewModel: ChatViewModel
 
     public var onBack: () -> Void = {}
     public var onOpenProfile: (String) -> Void = { _ in }

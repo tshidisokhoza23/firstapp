@@ -11,76 +11,60 @@ public final class ChannelDetailViewModel: ObservableObject {
     @Published public var toast: String? = nil
 
     public var currentUserId: String? {
-        return "user1" // Current session user ID
+        return "user1"
     }
 
     private let repository: ChannelRepository
-    private var cancellables = Set<AnyCancellable>()
 
-    public init(repository: ChannelRepository = ChannelRepositoryImpl.shared) {
+    public init(repository: ChannelRepository = ChannelRepository.shared) {
         self.repository = repository
     }
 
     public func loadChannel(channelId: String) {
         Task {
-            let res = await repository.getChannel(channelId: channelId)
-            self.channel = res
-            if case .success(let ch) = res {
-                let convId = ch.conversationId ?? ch.id
-                self.loadMessages(conversationId: convId)
+            if let ch = await repository.getChannel(channelId: channelId) {
+                self.channel = .success(ch)
+            } else {
+                self.channel = .error("Channel not found")
             }
         }
     }
 
-    public func loadMessages(conversationId: String) {
-        // Load messages for channel conversation
-    }
+    public func loadMessages(conversationId: String) {}
 
     public func subscribe(channelId: String) {
         Task {
-            let res = await repository.subscribeToChannel(channelId: channelId)
-            if case .success(let isSubbed) = res {
-                self.toast = isSubbed ? "Channel followed" : "Unfollowed channel"
-                self.loadChannel(channelId: channelId)
-            } else if case .error(let msg, _) = res {
-                self.toast = msg
-            }
+            let isSubbed = await repository.subscribeToChannel(channelId: channelId)
+            self.toast = isSubbed ? "Channel followed" : "Unfollowed channel"
+            self.loadChannel(channelId: channelId)
         }
     }
 
     public func mute(channelId: String, isMuted: Bool) {
         Task {
-            let res = await repository.muteChannel(channelId: channelId, isMuted: isMuted)
-            if case .success = res {
-                self.loadChannel(channelId: channelId)
-            }
+            _ = await repository.muteChannel(channelId: channelId, isMuted: isMuted)
+            self.loadChannel(channelId: channelId)
         }
     }
 
     public func addAdmin(channelId: String, userId: String) {
         Task {
-            let res = await repository.addAdmin(channelId: channelId, userId: userId)
-            if case .success = res {
-                self.loadChannel(channelId: channelId)
-            }
+            _ = await repository.addAdmin(channelId: channelId, userId: userId)
+            self.loadChannel(channelId: channelId)
         }
     }
 
     public func removeAdmin(channelId: String, userId: String) {
         Task {
-            let res = await repository.removeAdmin(channelId: channelId, userId: userId)
-            if case .success = res {
-                self.loadChannel(channelId: channelId)
-            }
+            _ = await repository.removeAdmin(channelId: channelId, userId: userId)
+            self.loadChannel(channelId: channelId)
         }
     }
 
     public func toggleAdminPosting(channelId: String, allowed: Bool) {
         Task {
-            let res = await repository.updateAdminPostingPermission(channelId: channelId, allowed: allowed)
-            if case .success = res {
-                self.loadChannel(channelId: channelId)
-            }
+            _ = await repository.updateAdminPostingPermission(channelId: channelId, allowed: allowed)
+            self.loadChannel(channelId: channelId)
         }
     }
 
@@ -96,11 +80,8 @@ public final class ChannelDetailViewModel: ObservableObject {
         fileName: String? = nil
     ) {
         let newMsg = ChannelChatMessage(
-            conversationId: channelId,
-            content: content,
-            senderId: currentUserId ?? "user1",
-            type: messageType,
-            mediaUrls: mediaUrls
+            senderName: currentUserId ?? "user1",
+            message: content
         )
         messages.append(newMsg)
         toast = "Update sent"

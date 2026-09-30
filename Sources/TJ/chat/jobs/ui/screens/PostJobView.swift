@@ -88,11 +88,6 @@ public struct PostJobView: View {
                     }
                 }
             }
-            .onChange(of: viewModel.createJobResult) { result in
-                if case .success = result {
-                    onBack()
-                }
-            }
         }
     }
 }
