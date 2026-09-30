@@ -326,7 +326,8 @@ public class ChatViewModel: ObservableObject {
         uiState.typingStatus[chatId] = isTyping
     }
 
-    publif uri == nil || uri == currentlyPlayingAudio {
+    public func setPlayingAudio(_ uri: String?) {
+        if uri == nil || uri == currentlyPlayingAudio {
             audioPlayer?.stop()
             audioPlayer = nil
             currentlyPlayingAudio = nil
@@ -368,8 +369,7 @@ public class ChatViewModel: ObservableObject {
         } catch {
             if currentlyPlayingAudio == uri { currentlyPlayingAudio = nil }
             uiState.error = "Could not play that voice note"
-        }ri: String?) {
-        currentlyPlayingAudio = uri
+        }
     }
 
     public func sendMediaMessage(chatId: String, fileUrl: URL, type: String, name: String? = nil, duration: String? = nil) {

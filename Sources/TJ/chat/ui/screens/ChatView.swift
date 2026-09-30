@@ -54,42 +54,87 @@ public struct ChatView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            ChatHeaderView(
-                chat: chat,
-                sanitizedName: sanitizedName,
-                isSearchMode: isSearchMode,
-                chatSearchQuery: chatSearchQuery,
-                selectedMessagesCount: selectedMessageIds.count,
-                isTyping: viewModel.uiState.typingStatus[chat.id] ?? false,
-                onBack: onBack,
-                onSearchQueryChange: { chatSearchQuery = $0 },
-                onSearchModeChange: { isSearchMode = $0 },
-                onClearSearch: {
-                    chatSearchQuery = ""
-                    isSearchMode = false
-                },
-                onShowProfile: onShowProfile,
-                onAvatarClick: onAvatarClick,
-                onClearChat: { clearConversation() },
-                onDeleteChat: { deleteConversation() },
-                onDeleteSelectedMessages: {
-                    selectedMessageIds.forEach { viewModel.deleteMessage(messageId: $0) }
-                    selectedMessageIds.removeAll()
-                },
-                onShowMessageInfo: { infoMessage = selectedMessage() },
-                onStarSelectedMessages: {
-                    selectedMessageIds.forEach { viewModel.starMessage(messageId: $0, isStarred: true) }
-                    selectedMessageIds.removeAll()
-                },
-                onPinSelectedMessage: { pinSelected() },
-                onEditSelectedMessage: { editSelected() },
-                onForwardSelectedMessages: { forwardSelected() },
-                onClearSelectedMessages: { selectedMessageIds.removeAll() }
-            )
-
+            chatHeader
             Divider()
+            messageList
+            composer
+        }
+        .safeAreaInset(edge: .bottom) {
+            emojiStrip
+        }
+        .onAppear {
+            viewModel.fetchMessages(chatId: chat.id)
+        }
+        .onDisappear {
+            viewModel.clearActiveChat()
+        }
+        .photosPicker(isPresented: $showAttach, selection: $attachItem, matching: .any(of: [.images, .videos]))
+        .photosPicker(isPresented: $showCamera, selection: $cameraItem, matching: .images)
+        .onChange(of: attachItem) { item in
+            guard let item else { return }
+            Task { await sendPicked(item) }
+        }
+        .onChange(of: voice.error) { message in
+            if let message, !message.isEmpty { note = message }
+        }
+        .onChange(of: cameraItem) { item in
+            guard let item else { return }
+            Task { await sendPicked(item) }
+        }
+        .sheet(item: $infoMessage) { message in
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Message info").font(.headline)
+                Text(message.content).font(.body)
+                Text(message.isFromMe ? "Sent by you" : "Received").font(.caption).foregroundColor(.secondary)
+                Button("Close") { infoMessage = nil }
+            }
+            .padding()
+            .presentationDetents([.medium])
+        }
+        .alert("Chat", isPresented: Binding(get: { !note.isEmpty }, set: { if !$0 { note = "" } })) {
+            Button("OK", role: .cancel) { note = "" }
+        } message: {
+            Text(note)
+        }
+    }
 
-            ScrollViewReader { proxy in
+    private var chatHeader: some View {
+        ChatHeaderView(
+            chat: chat,
+            sanitizedName: sanitizedName,
+            isSearchMode: isSearchMode,
+            chatSearchQuery: chatSearchQuery,
+            selectedMessagesCount: selectedMessageIds.count,
+            isTyping: viewModel.uiState.typingStatus[chat.id] ?? false,
+            onBack: onBack,
+            onSearchQueryChange: { chatSearchQuery = $0 },
+            onSearchModeChange: { isSearchMode = $0 },
+            onClearSearch: {
+                chatSearchQuery = ""
+                isSearchMode = false
+            },
+            onShowProfile: onShowProfile,
+            onAvatarClick: onAvatarClick,
+            onClearChat: { clearConversation() },
+            onDeleteChat: { deleteConversation() },
+            onDeleteSelectedMessages: {
+                selectedMessageIds.forEach { viewModel.deleteMessage(messageId: $0) }
+                selectedMessageIds.removeAll()
+            },
+            onShowMessageInfo: { infoMessage = selectedMessage() },
+            onStarSelectedMessages: {
+                selectedMessageIds.forEach { viewModel.starMessage(messageId: $0, isStarred: true) }
+                selectedMessageIds.removeAll()
+            },
+            onPinSelectedMessage: { pinSelected() },
+            onEditSelectedMessage: { editSelected() },
+            onForwardSelectedMessages: { forwardSelected() },
+            onClearSelectedMessages: { selectedMessageIds.removeAll() }
+        )
+    }
+
+    private var messageList: some View {
+        ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 4) {
                         ForEach(messagesList) { message in
@@ -130,71 +175,40 @@ public struct ChatView: View {
                         }
                     }
                 }
-            }
+        }
+    }
 
-            ChatInputBarView(
-                text: $inputText,
-                isRecording: voice.isRecording,
-                recordingDuration: voice.duration,
-                isReviewingVoiceNote: voice.isReviewing,
-                isPlayingReview: voice.isPlayingReview,
-                onSend: { sendCurrentText() },
-                onAttachClick: { showAttach = true },
-                onEmojiClick: { showEmoji.toggle() },
-                onCameraClick: { showCamera = true },
-                onMicClick: { voice.toggle() },
-                onSendVoiceNote: { sendVoiceNote() },
-                onDiscardVoiceNote: { voice.discard() },
-                onTogglePlayReview: { voice.toggleReviewPlayback() }
-            )
-        }
-        .safeAreaInset(edge: .bottom) {
-            if showEmoji {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(["😀", "😂", "❤️", "👍", "🔥", "🙏", "😢", "🎉"], id: \.self) { emoji in
-                            Button(emoji) { inputText += emoji }
-                                .font(.title2)
-                        }
+    private var composer: some View {
+        ChatInputBarView(
+            text: $inputText,
+            isRecording: voice.isRecording,
+            recordingDuration: voice.duration,
+            isReviewingVoiceNote: voice.isReviewing,
+            isPlayingReview: voice.isPlayingReview,
+            onSend: { sendCurrentText() },
+            onAttachClick: { showAttach = true },
+            onEmojiClick: { showEmoji.toggle() },
+            onCameraClick: { showCamera = true },
+            onMicClick: { voice.toggle() },
+            onSendVoiceNote: { sendVoiceNote() },
+            onDiscardVoiceNote: { voice.discard() },
+            onTogglePlayReview: { voice.toggleReviewPlayback() }
+        )
+    }
+
+    @ViewBuilder
+    private var emojiStrip: some View {
+        if showEmoji {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    ForEach(["😀", "😂", "❤️", "👍", "🔥", "🙏", "😢", "🎉"], id: \.self) { emoji in
+                        Button(emoji) { inputText += emoji }
+                            .font(.title2)
                     }
-                    .padding(8)
                 }
-                .background(.ultraThinMaterial)
+                .padding(8)
             }
-        }
-        .onAppear {
-            viewModel.fetchMessages(chatId: chat.id)
-        }
-        .onDisappear {
-            viewModel.clearActiveChat()
-        }
-        .photosPicker(isPresented: $showAttach, selection: $attachItem, matching: .any(of: [.images, .videos]))
-        .photosPicker(isPresented: $showCamera, selection: $cameraItem, matching: .images)
-        .onChange(of: attachItem) { item in
-            guard let item else { return }
-            Task { await sendPicked(item) }
-        }
-        .onChange(of: voice.error) { message in
-            if let message, !message.isEmpty { note = message }
-        }
-        .onChange(of: cameraItem) { item in
-            guard let item else { return }
-            Task { await sendPicked(item) }
-        }
-        .sheet(item: $infoMessage) { message in
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Message info").font(.headline)
-                Text(message.content).font(.body)
-                Text(message.isFromMe ? "Sent by you" : "Received").font(.caption).foregroundColor(.secondary)
-                Button("Close") { infoMessage = nil }
-            }
-            .padding()
-            .presentationDetents([.medium])
-        }
-        .alert("Chat", isPresented: Binding(get: { !note.isEmpty }, set: { if !$0 { note = "" } })) {
-            Button("OK", role: .cancel) { note = "" }
-        } message: {
-            Text(note)
+            .background(.ultraThinMaterial)
         }
     }
 

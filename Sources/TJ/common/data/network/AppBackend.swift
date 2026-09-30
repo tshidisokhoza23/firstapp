@@ -147,7 +147,7 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
         config.protocolClasses = []
         return URLSession(configuration: config)
     }()
-    private var task: URLSessionDataTask?
+    private var forwardTask: URLSessionDataTask?
 
     public static func install() {
         URLProtocol.registerClass(TJAPIProtocol.self)
@@ -200,7 +200,7 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
             mutable.setValue("application/json", forHTTPHeaderField: "Accept")
         }
         let client = self.client
-        task = Self.forward.dataTask(with: mutable as URLRequest) { data, response, error in
+        forwardTask = Self.forward.dataTask(with: mutable as URLRequest) { data, response, error in
             if let error {
                 client?.urlProtocol(self, didFailWithError: error)
                 return
@@ -209,11 +209,11 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
             if let data { client?.urlProtocol(self, didLoad: data) }
             client?.urlProtocolDidFinishLoading(self)
         }
-        task?.resume()
+        forwardTask?.resume()
     }
 
     public override func stopLoading() {
-        task?.cancel()
+        forwardTask?.cancel()
     }
 
     private static func normalize(path: String) -> String {

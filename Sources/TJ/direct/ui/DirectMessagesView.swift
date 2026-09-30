@@ -218,10 +218,10 @@ public struct DirectMessagesView: View {
                             .clipShape(Capsule())
                     }
                 }
-         contentShape(Rectangle())
-        .onTapGesture { onConversationClick?(item) }
-        .   }
+            }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onConversationClick?(item) }
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
