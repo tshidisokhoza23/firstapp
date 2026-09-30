@@ -10,11 +10,11 @@ public struct MessageInfoView: View {
 
     @MainActor public init(
         messageId: String,
-        viewModel: ChatViewModel = ChatViewModel(),
+        viewModel: ChatViewModel? = nil,
         onBack: @escaping () -> Void = {}
     ) {
         self.messageId = messageId
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? ChatViewModel())
         self.onBack = onBack
     }
 

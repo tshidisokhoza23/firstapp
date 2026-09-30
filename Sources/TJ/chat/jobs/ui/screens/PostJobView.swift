@@ -10,9 +10,9 @@ public struct PostJobView: View {
     @State private var durationDays: String = "1"
     @State private var skills: String = ""
 
-    @MainActor public init(onBack: @escaping () -> Void, viewModel: JobViewModel = JobViewModel()) {
+    @MainActor public init(onBack: @escaping () -> Void, viewModel: JobViewModel? = nil) {
         self.onBack = onBack
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? JobViewModel())
     }
 
     public var body: some View {

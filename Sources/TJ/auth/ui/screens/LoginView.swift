@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct LoginView: View {
-    @ObservedObject private var viewModel: AuthViewModel
+    @ObservedObject public var viewModel: AuthViewModel
     private var onLoginSuccess: (AuthResponse?) -> Void
     private var onNavigateToOtp: (String, String?, String?, String?, String?, String?) -> Void
 
@@ -20,11 +20,11 @@ public struct LoginView: View {
     @State private var showAlert = false
 
     @MainActor public init(
-        viewModel: AuthViewModel = AuthViewModel(),
+        viewModel: AuthViewModel? = nil,
         onLoginSuccess: @escaping (AuthResponse?) -> Void,
         onNavigateToOtp: @escaping (String, String?, String?, String?, String?, String?) -> Void
     ) {
-        self.viewModel = viewModel
+        self.viewModel = viewModel ?? AuthViewModel()
         self.onLoginSuccess = onLoginSuccess
         self.onNavigateToOtp = onNavigateToOtp
     }

@@ -78,7 +78,7 @@ public struct OtpVerificationView: View {
                 verify()
             }) {
                 HStack {
-                    if case .loading = viewModel.otpState {
+                    if viewModel.otpState?.isLoading == true {
                         ProgressView()
                     } else {
                         Text(isRegistration ? "Verify & Sign Up" : "Verify & Login")

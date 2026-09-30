@@ -14,15 +14,15 @@ public struct ChatTabView: View {
     @State private var isSearchActive: Bool = false
 
     @MainActor public init(
-        viewModel: ChatViewModel = ChatViewModel(),
-        rewardViewModel: RewardViewModel = RewardViewModel(),
+        viewModel: ChatViewModel? = nil,
+        rewardViewModel: RewardViewModel? = nil,
         onChatSelected: @escaping (ChatMessage) -> Void = { _ in },
         onNewChatClick: @escaping () -> Void = {},
         onArchivedClick: @escaping () -> Void = {},
         onProfileClick: @escaping () -> Void = {}
     ) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
-        self._rewardViewModel = StateObject(wrappedValue: rewardViewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? ChatViewModel())
+        self._rewardViewModel = StateObject(wrappedValue: rewardViewModel ?? RewardViewModel())
         self.onChatSelected = onChatSelected
         self.onNewChatClick = onNewChatClick
         self.onArchivedClick = onArchivedClick

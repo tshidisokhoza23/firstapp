@@ -116,7 +116,7 @@ public struct StatusUpdateRequest: Codable, Sendable {
     }
 }
 
-public struct IceServerConfig: Codable, Sendable {
+public struct IceServerConfig: Codable, Equatable, Sendable {
     public let urls: [String]
     public let url: String?
     public let username: String?

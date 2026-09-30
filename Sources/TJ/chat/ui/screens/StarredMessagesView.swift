@@ -9,11 +9,11 @@ public struct StarredMessagesView: View {
     @State private var showOptionsAlert: Bool = false
 
     @MainActor public init(
-        viewModel: StarredMessagesViewModel = StarredMessagesViewModel(),
+        viewModel: StarredMessagesViewModel? = nil,
         onBack: @escaping () -> Void = {},
         onMessageClick: @escaping (Message) -> Void = { _ in }
     ) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? StarredMessagesViewModel())
         self.onBack = onBack
         self.onMessageClick = onMessageClick
     }

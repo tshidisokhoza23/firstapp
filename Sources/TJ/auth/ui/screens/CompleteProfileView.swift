@@ -86,7 +86,7 @@ public struct CompleteProfileView: View {
 
                 Spacer()
 
-                if case .error(let msg, _) = viewModel.authState {
+                if let msg = viewModel.authState?.message {
                     Text(msg)
                         .font(.caption)
                         .foregroundColor(.red)
@@ -111,7 +111,7 @@ public struct CompleteProfileView: View {
                     )
                 }) {
                     HStack {
-                        if case .loading = viewModel.authState {
+                        if viewModel.authState?.isLoading == true {
                             ProgressView()
                         } else {
                             Text("Finish Setup")

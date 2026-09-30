@@ -14,14 +14,14 @@ public struct ContactPickerView: View {
     @State private var selectedContacts: Set<Contact> = []
 
     @MainActor public init(
-        viewModel: ContactPickerViewModel = ContactPickerViewModel(),
+        viewModel: ContactPickerViewModel? = nil,
         initialIsGroupMode: Bool = false,
         onBack: @escaping () -> Void = {},
         onContactSelected: @escaping (Contact) -> Void = { _ in },
         onInviteClicked: @escaping () -> Void = {},
         onGroupCreate: @escaping ([Contact]) -> Void = { _ in }
     ) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? ContactPickerViewModel())
         self.initialIsGroupMode = initialIsGroupMode
         self.onBack = onBack
         self.onContactSelected = onContactSelected

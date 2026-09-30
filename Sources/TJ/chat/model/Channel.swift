@@ -5,7 +5,7 @@ public struct Channel: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var name: String
     public var description: String
-    public var followers: String
+    public var followers: Int
     public var avatarUrl: String?
     public var avatarColorHex: String
     public var isVerified: Bool
@@ -23,11 +23,15 @@ public struct Channel: Identifiable, Codable, Equatable, Sendable {
     public var isTopInCountry: Bool
     public var countryCode: String
 
+    public var logoColor: Color {
+        Color(hex: avatarColorHex)
+    }
+
     public init(
         id: String,
         name: String,
         description: String = "",
-        followers: String,
+        followers: Int = 0,
         avatarUrl: String? = nil,
         avatarColorHex: String = "#808080",
         isVerified: Bool = false,

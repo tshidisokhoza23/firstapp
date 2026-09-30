@@ -22,10 +22,9 @@ public class JobApplicationsViewModel: ObservableObject {
 
     public func withdrawApplication(applicationId: String) {
         Task {
-            for await result in repository.withdrawApplication(applicationId: applicationId) {
-                if case .success = result {
-                    fetchApplications()
-                }
+            let result = await repository.withdrawApplication(applicationId: applicationId)
+            if case .success = result {
+                fetchApplications()
             }
         }
     }

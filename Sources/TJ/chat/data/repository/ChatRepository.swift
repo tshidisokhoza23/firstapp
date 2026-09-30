@@ -146,12 +146,12 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             }
 
         case "presence":
-            if let userId = payload["user_id"]?.stringValue,
-               let isOnline = payload["status"]?.stringValue == "online" || payload["is_online"]?.boolValue == true {
+            if let userId = payload["user_id"]?.stringValue {
+                let statusOnline = (payload["status"]?.stringValue == "online") || (payload["is_online"]?.boolValue == true)
                 let chats = await localDb.getChats()
                 if var chat = chats.first(where: { $0.otherUserId == userId }) {
-                    chat.isOnline = isOnline
-                    await localDb.upsertChats([chat.toEntity()])
+                    chat.isOnline = statusOnline
+                    await localDb.upsertChats([chat])
                 }
             }
 
@@ -699,7 +699,7 @@ public protocol AdRepository: Sendable {
     func trackAdvertClick(advertId: String) async -> Resource<Bool>
     func trackAdvertShare(advertId: String) async -> Resource<Bool>
     func toggleLikeAdvert(advertId: String) async -> Resource<Bool>
-    func resetAds() async -> Resource<Void>
+    func resetAds() async -> Resource<Bool>
 }
 
 public final class AdRepositoryImpl: AdRepository, @unchecked Sendable {
@@ -743,7 +743,7 @@ public final class AdRepositoryImpl: AdRepository, @unchecked Sendable {
         return .success(true)
     }
 
-    public func resetAds() async -> Resource<Void> {
+    public func resetAds() async -> Resource<Bool> {
         let adverts = await localDb.getAdverts()
         let resetEntities = adverts.map { a in
             var updated = a
@@ -751,6 +751,6 @@ public final class AdRepositoryImpl: AdRepository, @unchecked Sendable {
             return updated
         }
         await localDb.upsertAdverts(resetEntities)
-        return .success(())
+        return .success(true)
     }
 }

@@ -30,7 +30,7 @@ public struct ApiViewer: Identifiable, Codable, Equatable {
 // MARK: - Story Repository Protocol & Implementation
 
 public protocol StoryRepositoryProtocol: AnyObject {
-    func observeStories() -> AsyncStream<[UserStory]>
+    func observeStories() async -> AsyncStream<[UserStory]>
     func syncStories() async -> Bool
     func createStory(content: String, contentUrl: String?, type: String, privacy: String) async throws -> Bool
     func markStoryAsViewed(userId: String, storyId: String) async throws -> Bool
@@ -60,7 +60,7 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
 
     // MARK: - Observe Stories
 
-    nonisolated public func observeStories() -> AsyncStream<[UserStory]> {
+    public func observeStories() async -> AsyncStream<[UserStory]> {
         AsyncStream { continuation in
             let cancellable = $userStories.sink { stories in
                 continuation.yield(stories)

@@ -18,14 +18,14 @@ public struct ChatView: View {
 
     @MainActor public init(
         chat: ChatMessage,
-        viewModel: ChatViewModel = ChatViewModel(),
+        viewModel: ChatViewModel? = nil,
         onBack: @escaping () -> Void = {},
         onShowProfile: @escaping (String, Bool) -> Void = { _, _ in },
         onAvatarClick: @escaping (String) -> Void = { _ in },
         onOpenStory: ((_ userId: String, _ storyId: String) -> Void)? = nil
     ) {
         self.chat = chat
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? ChatViewModel())
         self.onBack = onBack
         self.onShowProfile = onShowProfile
         self.onAvatarClick = onAvatarClick

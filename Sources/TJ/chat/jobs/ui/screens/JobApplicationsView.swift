@@ -13,13 +13,13 @@ public struct JobApplicationsView: View {
         onViewJobDetails: @escaping (String) -> Void,
         onContactRecruiter: @escaping (String) -> Void,
         onSetReminder: @escaping (JobApplication) -> Void,
-        viewModel: JobApplicationsViewModel = JobApplicationsViewModel()
+        viewModel: JobApplicationsViewModel? = nil
     ) {
         self.onBack = onBack
         self.onViewJobDetails = onViewJobDetails
         self.onContactRecruiter = onContactRecruiter
         self.onSetReminder = onSetReminder
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? JobApplicationsViewModel())
     }
 
     public var body: some View {

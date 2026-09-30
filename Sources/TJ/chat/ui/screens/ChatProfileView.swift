@@ -17,14 +17,14 @@ public struct ChatProfileView: View {
 
     @MainActor public init(
         chat: ChatMessage,
-        viewModel: ChatViewModel = ChatViewModel(),
+        viewModel: ChatViewModel? = nil,
         onBack: @escaping () -> Void = {},
         onOpenProfile: @escaping (String) -> Void = { _ in },
         onMediaClick: @escaping (String, String) -> Void = { _, _ in },
         onNavigateToSharedMedia: @escaping (String) -> Void = { _ in }
     ) {
         self.chat = chat
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = StateObject(wrappedValue: viewModel ?? ChatViewModel())
         self.onBack = onBack
         self.onOpenProfile = onOpenProfile
         self.onMediaClick = onMediaClick

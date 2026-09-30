@@ -27,7 +27,7 @@ public class JobDetailViewModel: ObservableObject {
 
     public func loadJob(jobId: String) {
         Task {
-            for await resource in repository.getJobs(page: 1) {
+            for await resource in repository.getJobs(cursor: nil, limit: 50) {
                 if case .success(let jobs) = resource {
                     if let found = jobs.first(where: { $0.id == jobId }) {
                         self.job = .success(found)

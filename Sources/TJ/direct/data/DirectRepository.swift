@@ -56,9 +56,9 @@ public struct DirectChat: Identifiable, Codable, Equatable {
 // MARK: - Direct Repository Protocol & Implementation
 
 public protocol DirectRepositoryProtocol: AnyObject {
-    func observeDirectChats() -> AsyncStream<[DirectChat]>
+    func observeDirectChats() async -> AsyncStream<[DirectChat]>
     func syncDirectChats() async -> Bool
-    func observeCallLogs() -> AsyncStream<[CallLog]>
+    func observeCallLogs() async -> AsyncStream<[CallLog]>
     func initiateDM(contactId: String) async throws -> String
     func pinChat(chatId: String, isPinned: Bool) async throws -> Bool
     func muteChat(chatId: String, isMuted: Bool) async throws -> Bool
@@ -80,7 +80,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
 
     // MARK: - Observe Direct Chats
 
-    nonisolated public func observeDirectChats() -> AsyncStream<[DirectChat]> {
+    public func observeDirectChats() async -> AsyncStream<[DirectChat]> {
         AsyncStream { continuation in
             let cancellable = $directChats.sink { chats in
                 continuation.yield(chats)
@@ -115,7 +115,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
 
     // MARK: - Observe Call Logs
 
-    nonisolated public func observeCallLogs() -> AsyncStream<[CallLog]> {
+    public func observeCallLogs() async -> AsyncStream<[CallLog]> {
         AsyncStream { continuation in
             let cancellable = $callLogs.sink { logs in
                 continuation.yield(logs)

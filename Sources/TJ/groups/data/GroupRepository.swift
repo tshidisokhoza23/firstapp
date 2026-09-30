@@ -80,7 +80,7 @@ public struct GroupChat: Identifiable, Codable, Equatable {
 // MARK: - Group Repository Protocol & Implementation
 
 public protocol GroupRepositoryProtocol: AnyObject {
-    func observeGroups() -> AsyncStream<[GroupChat]>
+    func observeGroups() async -> AsyncStream<[GroupChat]>
     func syncGroups() async -> Bool
     func createGroup(name: String, contactIds: [String]) async throws -> GroupChat
     func getGroupInfo(groupId: String) async throws -> GroupInfoResponse
@@ -108,7 +108,7 @@ public final class GroupRepository: ObservableObject, GroupRepositoryProtocol {
 
     // MARK: - Observe Groups
 
-    nonisolated public func observeGroups() -> AsyncStream<[GroupChat]> {
+    public func observeGroups() async -> AsyncStream<[GroupChat]> {
         AsyncStream { continuation in
             let cancellable = $groups.sink { list in
                 continuation.yield(list)
