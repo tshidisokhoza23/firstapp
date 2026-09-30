@@ -1,37 +1,13 @@
 import SwiftUI
 
-struct ShortcutItemView: View {
-    let title: String
-    let iconName: String
-    let color: Color
-    let isEnabled: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(color.opacity(isEnabled ? 0.15 : 0.05))
-                        .frame(width: 64, height: 64)
-
-                    Image(systemName: iconName)
-                        .font(.system(size: 26))
-                        .foregroundColor(isEnabled ? color : AppColors.greyMedium.opacity(0.5))
-                }
-
-                Text(isEnabled ? title : "\(title) (Soon)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(isEnabled ? .primary : AppColors.greyMedium)
-                    .lineLimit(1)
-            }
-        }
-    }
-}
-
 struct MoreShortcutsSheetView: View {
     @Binding var isPresented: Bool
     var onSelectTab: (BottomNavItem) -> Void
+
+    @State private var showingWallet: Bool = false
+    @State private var showingVocab: Bool = false
+    @State private var showingCalendar: Bool = false
+    @State private var showingFiles: Bool = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -67,10 +43,18 @@ struct MoreShortcutsSheetView: View {
                         isPresented = false
                         onSelectTab(.ride)
                     }
-                    ShortcutItemView(title: "Wallet", iconName: "creditcard.fill", color: .orange, isEnabled: false) { }
-                    ShortcutItemView(title: "Vocab", iconName: "book.fill", color: .blue, isEnabled: false) { }
-                    ShortcutItemView(title: "Calendar", iconName: "calendar", color: .green, isEnabled: false) { }
-                    ShortcutItemView(title: "Files", iconName: "folder.fill", color: .indigo, isEnabled: false) { }
+                    ShortcutItemView(title: "Wallet", iconName: "creditcard.fill", color: .orange, isEnabled: true) {
+                        showingWallet = true
+                    }
+                    ShortcutItemView(title: "Vocab", iconName: "book.fill", color: .blue, isEnabled: true) {
+                        showingVocab = true
+                    }
+                    ShortcutItemView(title: "Calendar", iconName: "calendar", color: .green, isEnabled: true) {
+                        showingCalendar = true
+                    }
+                    ShortcutItemView(title: "Files", iconName: "folder.fill", color: .indigo, isEnabled: true) {
+                        showingFiles = true
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 40)
@@ -82,5 +66,9 @@ struct MoreShortcutsSheetView: View {
             .padding(.horizontal, 8)
             .padding(.bottom, 80)
         }
+        .sheet(isPresented: $showingWallet) { WalletView() }
+        .sheet(isPresented: $showingVocab) { VocabView() }
+        .sheet(isPresented: $showingCalendar) { CalendarView() }
+        .sheet(isPresented: $showingFiles) { FilesView() }
     }
 }
