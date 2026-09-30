@@ -203,4 +203,89 @@ public struct User: Identifiable, Codable, Equatable, Sendable {
         self.jobExpectedSalary = jobExpectedSalary
         self.publicKey = publicKey
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        username = (try? c.decodeIfPresent(String.self, forKey: .username)) ?? ""
+        email = (try? c.decodeIfPresent(String.self, forKey: .email)) ?? ""
+        displayName = (try? c.decodeIfPresent(String.self, forKey: .displayName)) ?? ""
+        phoneNumber = (try? c.decodeIfPresent(String.self, forKey: .phoneNumber)) ?? ""
+        if let text = try? c.decode(String.self, forKey: .createdAt) {
+            createdAt = text
+        } else if let millis = try? c.decode(Int64.self, forKey: .createdAt) {
+            createdAt = String(millis)
+        } else {
+            createdAt = ""
+        }
+        avatarUrl = try? c.decodeIfPresent(String.self, forKey: .avatarUrl)
+        bannerUrl = try? c.decodeIfPresent(String.self, forKey: .bannerUrl)
+        bio = try? c.decodeIfPresent(String.self, forKey: .bio)
+        location = try? c.decodeIfPresent(String.self, forKey: .location)
+        isVerified = (try? c.decodeIfPresent(Bool.self, forKey: .isVerified)) ?? false
+        isArtist = (try? c.decodeIfPresent(Bool.self, forKey: .isArtist)) ?? false
+        isDriver = (try? c.decodeIfPresent(Bool.self, forKey: .isDriver)) ?? false
+        isProfileComplete = (try? c.decodeIfPresent(Bool.self, forKey: .isProfileComplete)) ?? false
+        missingFields = try? c.decodeIfPresent([String].self, forKey: .missingFields)
+        followersCount = Self.flexInt(c, .followersCount)
+        followingCount = Self.flexInt(c, .followingCount)
+        isFollowing = (try? c.decodeIfPresent(Bool.self, forKey: .isFollowing)) ?? false
+        xp = Self.flexInt(c, .xp)
+        level = max(1, Self.flexInt(c, .level))
+        streak = Self.flexInt(c, .streak)
+        isPremium = (try? c.decodeIfPresent(Bool.self, forKey: .isPremium)) ?? false
+        lastDailyUnlock = Self.flexInt64(c, .lastDailyUnlock)
+        adsWatchedToday = Self.flexInt(c, .adsWatchedToday)
+        unlockedLessonCount = max(1, Self.flexInt(c, .unlockedLessonCount))
+        nativeLanguage = (try? c.decodeIfPresent(String.self, forKey: .nativeLanguage)) ?? "English"
+        targetLanguage = (try? c.decodeIfPresent(String.self, forKey: .targetLanguage)) ?? "Spanish"
+        completedLessonIds = try? c.decodeIfPresent([String].self, forKey: .completedLessonIds)
+        lessonMastery = try? c.decodeIfPresent([String: Int].self, forKey: .lessonMastery)
+        streakFreezes = Self.flexInt(c, .streakFreezes)
+        lastStreakActivity = Self.flexInt64(c, .lastStreakActivity)
+        walletBalance = (try? c.decodeIfPresent(Double.self, forKey: .walletBalance)) ?? 0
+        jobFullName = try? c.decodeIfPresent(String.self, forKey: .jobFullName)
+        jobEmail = try? c.decodeIfPresent(String.self, forKey: .jobEmail)
+        jobPhone = try? c.decodeIfPresent(String.self, forKey: .jobPhone)
+        jobLocation = try? c.decodeIfPresent(String.self, forKey: .jobLocation)
+        jobEducation = try? c.decodeIfPresent(String.self, forKey: .jobEducation)
+        jobExperience = try? c.decodeIfPresent(String.self, forKey: .jobExperience)
+        jobSkills = try? c.decodeIfPresent(String.self, forKey: .jobSkills)
+        jobAboutMe = try? c.decodeIfPresent(String.self, forKey: .jobAboutMe)
+        jobLinkedinUrl = try? c.decodeIfPresent(String.self, forKey: .jobLinkedinUrl)
+        jobPortfolioUrl = try? c.decodeIfPresent(String.self, forKey: .jobPortfolioUrl)
+        jobWorkPreference = try? c.decodeIfPresent(String.self, forKey: .jobWorkPreference)
+        jobAvailability = try? c.decodeIfPresent(String.self, forKey: .jobAvailability)
+        jobExpectedSalary = try? c.decodeIfPresent(String.self, forKey: .jobExpectedSalary)
+        publicKey = try? c.decodeIfPresent(String.self, forKey: .publicKey)
+    }
+
+    private static func flexInt(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int {
+        if let value = try? c.decode(Int.self, forKey: key) { return value }
+        if let value = try? c.decode(Int64.self, forKey: key) { return Int(value) }
+        if let value = try? c.decode(Double.self, forKey: key) { return Int(value) }
+        return 0
+    }
+
+    private static func flexInt64(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int64 {
+        if let value = try? c.decode(Int64.self, forKey: key) { return value }
+        if let value = try? c.decode(Int.self, forKey: key) { return Int64(value) }
+        if let value = try? c.decode(Double.self, forKey: key) { return Int64(value) }
+        return 0
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(username, forKey: .username)
+        try c.encode(email, forKey: .email)
+        try c.encode(displayName, forKey: .displayName)
+        try c.encode(phoneNumber, forKey: .phoneNumber)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encodeIfPresent(avatarUrl, forKey: .avatarUrl)
+        try c.encodeIfPresent(bio, forKey: .bio)
+        try c.encode(isProfileComplete, forKey: .isProfileComplete)
+        try c.encode(walletBalance, forKey: .walletBalance)
+        try c.encodeIfPresent(publicKey, forKey: .publicKey)
+    }
 }

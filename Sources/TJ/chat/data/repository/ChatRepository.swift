@@ -125,13 +125,22 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
 
             guard !convId.isEmpty else { return }
 
+            let mediaType = payload["media_type"]?.stringValue ?? payload["message_type"]?.stringValue ?? "TEXT"
+            var mediaUrls = payload["media_urls"]?.arrayValue?.compactMap(\.stringValue) ?? []
+            if mediaUrls.isEmpty, let one = payload["media_url"]?.stringValue, !one.isEmpty {
+                mediaUrls = [one]
+            }
             let msg = Message(
                 id: msgId,
                 conversationId: convId,
                 content: text,
                 senderId: senderId,
-                timestamp: Int64(Date().timeIntervalSince1970 * 1000),
-                isFromMe: senderId == myUserId
+                timestamp: payload["created_at"]?.int64Value ?? Int64(Date().timeIntervalSince1970 * 1000),
+                isFromMe: senderId == myUserId,
+                type: chatMediaType(mediaType),
+                mediaUrls: mediaUrls,
+                fileName: payload["file_name"]?.stringValue,
+                duration: payload["duration"]?.stringValue
             )
 
             await localDb.upsertMessages([msg.toEntity(chatId: convId)])
@@ -215,9 +224,17 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             "content": WSAnyCodable(body),
             "media_type": WSAnyCodable(messageType.uppercased())
         ]
+        if !mediaUrls.isEmpty {
+            payload["media_urls"] = WSAnyCodable(mediaUrls.map { WSAnyCodable($0) })
+        }
+        if let duration, !duration.isEmpty { payload["duration"] = WSAnyCodable(duration) }
+        if let fileName, !fileName.isEmpty { payload["file_name"] = WSAnyCodable(fileName) }
         if let replyToId = replyToId { payload["reply_to_id"] = WSAnyCodable(replyToId) }
 
-        let sentLive = webSocketManager.send(type: "send_message", payload: payload)
+        // Voice notes and files must go through REST. The live socket stores
+        // media URLs but drops duration, so a socket-only send would not play back.
+        let needsRest = !mediaUrls.isEmpty || duration != nil
+        let sentLive = needsRest ? false : webSocketManager.send(type: "send_message", payload: payload)
 
         if sentLive {
             var sentMsg = pendingMsg
@@ -262,15 +279,9 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             let since = cursor?.lastSyncedSequence ?? 0
             let response = try await chatApi.syncDelta(since: since)
 
+            let myUserId = currentUserIdProvider() ?? ""
             for apiMsg in response.messages {
-                let msg = Message(
-                    id: apiMsg.id,
-                    conversationId: apiMsg.conversationId,
-                    content: apiMsg.messageText,
-                    senderId: apiMsg.senderId,
-                    timestamp: apiMsg.createdAt,
-                    isFromMe: apiMsg.senderId == currentUserIdProvider()
-                )
+                let msg = chatMessage(from: apiMsg, conversationId: apiMsg.conversationId, myUserId: myUserId)
                 await localDb.upsertMessages([msg.toEntity(chatId: apiMsg.conversationId)])
             }
 
@@ -315,15 +326,7 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
                     content: api.messageText,
                     senderId: api.senderId,
                     timestamp: api.createdAt,
-                    isFromMe: api.senderId == myUserId
-                )
-                return msg.toEntity(chatId: chatId)
-            }
-            await localDb.upsertMessages(entities)
-            return .success(true)
-        } catch {
-            return .error(error.localizedDescription)
-        }
+                chatMessage(from: api, conversationId: chatId, myUserId: myUserId)
     }
 
     public func syncChats() async -> Resource<Bool> {
@@ -576,6 +579,44 @@ private extension ChatEntity {
             otherUserId: otherUserId
         )
     }
+}
+
+private func chatMediaType(_ raw: String) -> MessageType {
+    let upper = raw.uppercased()
+    if upper == "AUDIO" || upper == "AUDIO_MESSAGE" { return .audioMessage }
+    return MessageType(rawValue: upper) ?? .text
+}
+
+private func chatMessage(from api: ApiMessage, conversationId: String, myUserId: String) -> Message {
+    var urls = api.mediaUrls ?? []
+    if urls.isEmpty, let one = api.mediaUrl, !one.isEmpty { urls = [one] }
+    return Message(
+        id: api.id,
+        conversationId: conversationId.isEmpty ? api.conversationId : conversationId,
+        content: api.messageText,
+        senderId: api.senderId,
+        senderName: api.senderName,
+        timestamp: api.createdAt,
+        isFromMe: api.senderId == myUserId,
+        type: chatMediaType(api.mediaType),
+        mediaUrls: urls,
+        fileName: api.fileName,
+        fileSize: api.fileSize,
+        duration: api.duration,
+        contactName: api.contactName,
+        contactPhone: api.contactPhone,
+        latitude: api.latitude,
+        longitude: api.longitude,
+        isRead: api.isRead ?? false,
+        isDelivered: api.isDelivered ?? false,
+        isStarred: api.isStarred ?? false,
+        replyToId: api.replyToId,
+        replyToText: api.replyToText,
+        replyToSenderName: api.replyToSenderName,
+        reactions: api.reactions ?? [:],
+        clientId: api.clientUuid,
+        audioAmplitudes: api.audioAmplitudes
+    )
 }
 
 private extension ChatMessage {

@@ -66,16 +66,13 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     @Published public private(set) var channels: [Channel] = []
     private let baseURL: URL
 
-    public init(baseURL: URL = URL(string: "https://api.tj.app/channels")!) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL + "/channels")!) {
         self.baseURL = baseURL
     }
 
     public func getChannels() async throws -> [Channel] {
-        let (data, response) = try await URLSession.shared.data(from: baseURL)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw URLError(.badServerResponse)
-        }
-        let list = try JSONDecoder().decode([Channel].self, from: data)
+        let data = try await API.data("channels")
+        let list = Self.decodeChannels(data)
         self.channels = list
         return list
     }
@@ -84,10 +81,8 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
         if let local = channels.first(where: { $0.id == id }) {
             return local
         }
-        let url = baseURL.appendingPathComponent(id)
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        return try JSONDecoder().decode(Channel.self, from: data)
+        let data = try await API.data("chats/channels/\(id)")
+        return Self.decodeChannels(data).first
     }
 
     public func getChannel(channelId: String) async -> Channel? {
@@ -95,15 +90,11 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     }
 
     public func subscribeToChannel(id: String) async throws -> Bool {
+        _ = try await API.data("chats/channels/\(id)/subscribe", method: "POST")
         if let index = channels.firstIndex(where: { $0.id == id }) {
-            channels[index].isSubscribed = true
-            channels[index].followers += 1
+            channels[index].isSubscribed.toggle()
         }
-        let url = baseURL.appendingPathComponent("\(id)/subscribe")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        let (_, response) = try await URLSession.shared.data(for: request)
-        return (response as? HTTPURLResponse)?.statusCode == 200
+        return true
     }
 
     public func subscribeToChannel(channelId: String) async -> Bool {
@@ -115,69 +106,94 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
             channels[index].isSubscribed = false
             channels[index].followers = max(0, channels[index].followers - 1)
         }
-        let url = baseURL.appendingPathComponent("\(id)/unsubscribe")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        let (_, response) = try await URLSession.shared.data(for: request)
-        return (response as? HTTPURLResponse)?.statusCode == 200
+        _ = try await API.data("chats/channels/\(id)/subscribe", method: "POST")
+        return true
     }
 
     public func muteChannel(id: String, isMuted: Bool) async throws -> Bool {
-        let url = baseURL.appendingPathComponent("\(id)/mute")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(["is_muted": isMuted])
-
-        let (_, response) = try await URLSession.shared.data(for: request)
-        return (response as? HTTPURLResponse)?.statusCode == 200
+        _ = try await API.data("chats/channels/\(id)/mute", method: "POST", json: ["is_muted": isMuted])
+        if let index = channels.firstIndex(where: { $0.id == id }) {
+            channels[index].isMuted = isMuted
+        }
+        return true
     }
 
     public func muteChannel(channelId: String, isMuted: Bool) async -> Bool {
-        return (try? await muteChannel(id: channelId, isMuted: isMuted)) ?? false
+        (try? await muteChannel(id: channelId, isMuted: isMuted)) ?? false
     }
 
     public func createChannel(name: String, description: String, category: String) async throws -> Channel {
-        let url = baseURL.appendingPathComponent("create")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try await createOnServer(name: name, description: description, avatarUrl: nil)
+    }
 
-        let body = ["name": name, "description": description, "category": category]
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw URLError(.badServerResponse)
+    public func createChannel(name: String, description: String, avatarUrl: String?) async -> Channel {
+        if let created = try? await createOnServer(name: name, description: description, avatarUrl: avatarUrl) {
+            return created
         }
+        return Channel(id: UUID().uuidString, name: name, description: description, avatarUrl: avatarUrl)
+    }
 
-        let created = try JSONDecoder().decode(Channel.self, from: data)
+    public func addAdmin(channelId: String, userId: String) async -> Bool {
+        (try? await API.data("chats/channels/\(channelId)/admins", method: "POST", json: ["user_id": userId])) != nil
+    }
+
+    public func removeAdmin(channelId: String, userId: String) async -> Bool {
+        (try? await API.data("chats/channels/\(channelId)/admins", method: "DELETE", json: ["user_id": userId])) != nil
+    }
+
+    public func updateAdminPostingPermission(channelId: String, allowed: Bool) async -> Bool {
+        (try? await API.data("chats/channels/\(channelId)/admin-posting", method: "POST", json: ["admins_can_post": allowed])) != nil
+    }
+
+    private func createOnServer(name: String, description: String, avatarUrl: String?) async throws -> Channel {
+        var body: [String: Any] = ["name": name, "description": description]
+        if let avatarUrl, !avatarUrl.isEmpty { body["avatar_url"] = avatarUrl }
+        let data = try await API.data("chats/channels", method: "POST", json: body)
+        guard let created = Self.decodeChannels(data).first else {
+            throw URLError(.cannotParseResponse)
+        }
         channels.append(created)
         return created
     }
 
-    public func createChannel(name: String, description: String, avatarUrl: String?) async -> Channel {
-        let newChannel = Channel(
-            id: UUID().uuidString,
+    private static func decodeChannels(_ data: Data) -> [Channel] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return [] }
+        let raw: [Any]
+        if let obj = json as? [String: Any], let list = obj["channels"] as? [Any] {
+            raw = list
+        } else if let list = json as? [Any] {
+            raw = list
+        } else if let obj = json as? [String: Any] {
+            raw = [obj]
+        } else {
+            raw = []
+        }
+        return raw.compactMap { ($0 as? [String: Any]).flatMap(channel(from:)) }
+    }
+
+    private static func channel(from json: [String: Any]) -> Channel? {
+        guard let id = json["id"] as? String ?? (json["id"] as? NSNumber)?.stringValue, !id.isEmpty else { return nil }
+        let name = json["name"] as? String ?? "Channel"
+        return Channel(
+            id: id,
             name: name,
-            description: description,
-            followers: 1,
-            avatarUrl: avatarUrl
+            description: json["description"] as? String ?? "",
+            followers: (json["followers"] as? NSNumber)?.intValue ?? (json["subscriber_count"] as? NSNumber)?.intValue ?? 0,
+            avatarUrl: json["avatar_url"] as? String,
+            isVerified: (json["is_verified"] as? NSNumber)?.boolValue ?? false,
+            isSubscribed: (json["is_subscribed"] as? NSNumber)?.boolValue ?? false,
+            isMuted: (json["is_muted"] as? NSNumber)?.boolValue ?? false,
+            isAdmin: (json["is_admin"] as? NSNumber)?.boolValue ?? false,
+            adminsCanPost: (json["admins_can_post"] as? NSNumber)?.boolValue ?? false,
+            category: json["category"] as? String ?? "Community",
+            createdBy: json["created_by"] as? String,
+            lastPostText: json["last_post_text"] as? String ?? "",
+            lastPostImageUrl: json["last_post_image_url"] as? String,
+            lastPostTime: (json["last_post_time"] as? NSNumber)?.stringValue ?? "",
+            conversationId: json["conversation_id"] as? String,
+            isTopInCountry: (json["is_top_in_country"] as? NSNumber)?.boolValue ?? false,
+            countryCode: json["country_code"] as? String ?? ""
         )
-        channels.append(newChannel)
-        return newChannel
-    }
-
-    public func addAdmin(channelId: String, userId: String) async -> Bool {
-        return true
-    }
-
-    public func removeAdmin(channelId: String, userId: String) async -> Bool {
-        return true
-    }
-
-    public func updateAdminPostingPermission(channelId: String, allowed: Bool) async -> Bool {
-        return true
     }
 }
 

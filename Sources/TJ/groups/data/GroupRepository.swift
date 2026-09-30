@@ -102,7 +102,7 @@ public final class GroupRepository: ObservableObject, GroupRepositoryProtocol {
     @Published public private(set) var groups: [GroupChat] = []
     private let baseURL: URL
 
-    public init(baseURL: URL = URL(string: "https://api.tj.app/chat/groups")!) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL + "/chats/groups")!) {
         self.baseURL = baseURL
     }
 

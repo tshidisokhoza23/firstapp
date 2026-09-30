@@ -26,11 +26,11 @@ public struct SettingsView: View {
                         )
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Alex Morgan")
+                        Text(SessionStore.shared.user?.displayName.isEmpty == false ? SessionStore.shared.user!.displayName : "Your account")
                             .font(.title3)
                             .fontWeight(.bold)
 
-                        Text("@alexmorgan • +1 (555) 019-2834")
+                        Text("@\(SessionStore.shared.user?.username ?? "user")")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
@@ -190,7 +190,10 @@ public struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("Log Out", isPresented: $showLogoutConfirm) {
             Button("Log Out", role: .destructive) {
-                router.popToRoot()
+                Task {
+                    await SessionActions.logout()
+                    router.popToRoot()
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -198,7 +201,7 @@ public struct SettingsView: View {
         }
         .alert("Reset & Sync", isPresented: $showResetConfirm) {
             Button("Sync Now") {
-                // Perform contact sync
+                Task { await SessionActions.syncContacts() }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -206,7 +209,10 @@ public struct SettingsView: View {
         }
         .alert("Delete Account", isPresented: $showDeleteAccountConfirm) {
             Button("Delete Forever", role: .destructive) {
-                router.popToRoot()
+                Task {
+                    await SessionActions.deleteAccount()
+                    router.popToRoot()
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {

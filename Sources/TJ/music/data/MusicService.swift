@@ -241,7 +241,7 @@ public protocol MusicRepositoryProtocol: AnyObject {
 public final class MusicService: MusicRepositoryProtocol, @unchecked Sendable {
     private let baseURL: URL
 
-    public init(baseURL: URL = URL(string: "https://api.tj.app/music")!) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL)!) {
         self.baseURL = baseURL
     }
 

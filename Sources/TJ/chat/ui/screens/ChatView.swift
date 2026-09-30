@@ -1,8 +1,11 @@
 import SwiftUI
+import PhotosUI
+import AVFoundation
 
 public struct ChatView: View {
     public let chat: ChatMessage
     @StateObject public var viewModel: ChatViewModel
+    @Environment(\.openURL) private var openURL
 
     public var onBack: () -> Void = {}
     public var onShowProfile: (String, Bool) -> Void = { _, _ in }
@@ -13,8 +16,16 @@ public struct ChatView: View {
     @State private var isSearchMode: Bool = false
     @State private var chatSearchQuery: String = ""
     @State private var selectedMessageIds: Set<String> = []
-    @State private var isRecording: Bool = false
-    @State private var recordingDuration: Int = 0
+    @StateObject private var voice = VoiceNoteController()
+    @State private var replyTo: Message?
+    @State private var editingMessage: Message?
+    @State private var infoMessage: Message?
+    @State private var showEmoji = false
+    @State private var attachItem: PhotosPickerItem?
+    @State private var cameraItem: PhotosPickerItem?
+    @State private var showAttach = false
+    @State private var showCamera = false
+    @State private var note = ""
 
     @MainActor public init(
         chat: ChatMessage,
@@ -53,26 +64,26 @@ public struct ChatView: View {
                 onBack: onBack,
                 onSearchQueryChange: { chatSearchQuery = $0 },
                 onSearchModeChange: { isSearchMode = $0 },
-                onClearSearch: { chatSearchQuery = "" },
+                onClearSearch: {
+                    chatSearchQuery = ""
+                    isSearchMode = false
+                },
                 onShowProfile: onShowProfile,
                 onAvatarClick: onAvatarClick,
-                onInitiateCall: { receiverId, name, callType in
-                    viewModel.startVoiceOrVideoCall(receiverId: receiverId, callType: callType, name: name)
-                },
-                onClearChat: { viewModel.clearChat(chatId: chat.id) },
-                onDeleteChat: { viewModel.clearChat(chatId: chat.id) },
+                onClearChat: { clearConversation() },
+                onDeleteChat: { deleteConversation() },
                 onDeleteSelectedMessages: {
                     selectedMessageIds.forEach { viewModel.deleteMessage(messageId: $0) }
                     selectedMessageIds.removeAll()
                 },
-                onShowMessageInfo: {},
+                onShowMessageInfo: { infoMessage = selectedMessage() },
                 onStarSelectedMessages: {
                     selectedMessageIds.forEach { viewModel.starMessage(messageId: $0, isStarred: true) }
                     selectedMessageIds.removeAll()
                 },
-                onPinSelectedMessage: {},
-                onEditSelectedMessage: {},
-                onForwardSelectedMessages: {},
+                onPinSelectedMessage: { pinSelected() },
+                onEditSelectedMessage: { editSelected() },
+                onForwardSelectedMessages: { forwardSelected() },
                 onClearSelectedMessages: { selectedMessageIds.removeAll() }
             )
 
@@ -92,10 +103,12 @@ public struct ChatView: View {
                                     viewModel.setPlayingAudio(uri)
                                 },
                                 onReply: { msg in
-                                    // Reply action
+                                    replyTo = msg
+                                    if inputText.isEmpty { inputText = "" }
                                 },
-                                onMediaClick: { url, type in
-                                    // Open media
+                                onMediaClick: { url, _ in
+                                    let resolved = FeedPost.resolve(url) ?? URL(string: url)
+                                    if let resolved { openURL(resolved) }
                                 },
                                 onLongClick: {
                                     if selectedMessageIds.contains(message.id) {
@@ -121,34 +134,193 @@ public struct ChatView: View {
 
             ChatInputBarView(
                 text: $inputText,
-                isRecording: isRecording,
-                recordingDuration: recordingDuration,
-                enterIsSend: viewModel.enterIsSend,
-                onSend: {
-                    let textToSend = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !textToSend.isEmpty else { return }
-                    viewModel.sendMessage(chatId: chat.id, body: textToSend)
-                    inputText = ""
-                },
-                onAttachClick: {
-                    // Attachment picker
-                },
-                onEmojiClick: {
-                    // Emoji picker
-                },
-                onCameraClick: {
-                    // Camera picker
-                },
-                onMicClick: {
-                    isRecording.toggle()
-                }
+                isRecording: voice.isRecording,
+                recordingDuration: voice.duration,
+                isReviewingVoiceNote: voice.isReviewing,
+                isPlayingReview: voice.isPlayingReview,
+                onSend: { sendCurrentText() },
+                onAttachClick: { showAttach = true },
+                onEmojiClick: { showEmoji.toggle() },
+                onCameraClick: { showCamera = true },
+                onMicClick: { voice.toggle() },
+                onSendVoiceNote: { sendVoiceNote() },
+                onDiscardVoiceNote: { voice.discard() },
+                onTogglePlayReview: { voice.toggleReviewPlayback() }
             )
+        }
+        .safeAreaInset(edge: .bottom) {
+            if showEmoji {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack {
+                        ForEach(["😀", "😂", "❤️", "👍", "🔥", "🙏", "😢", "🎉"], id: \.self) { emoji in
+                            Button(emoji) { inputText += emoji }
+                                .font(.title2)
+                        }
+                    }
+                    .padding(8)
+                }
+                .background(.ultraThinMaterial)
+            }
         }
         .onAppear {
             viewModel.fetchMessages(chatId: chat.id)
         }
         .onDisappear {
             viewModel.clearActiveChat()
+        }
+        .photosPicker(isPresented: $showAttach, selection: $attachItem, matching: .any(of: [.images, .videos]))
+        .photosPicker(isPresented: $showCamera, selection: $cameraItem, matching: .images)
+        .onChange(of: attachItem) { item in
+            guard let item else { return }
+            Task { await sendPicked(item) }
+        }
+        .onChange(of: voice.error) { message in
+            if let message, !message.isEmpty { note = message }
+        }
+        .onChange(of: cameraItem) { item in
+            guard let item else { return }
+            Task { await sendPicked(item) }
+        }
+        .sheet(item: $infoMessage) { message in
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Message info").font(.headline)
+                Text(message.content).font(.body)
+                Text(message.isFromMe ? "Sent by you" : "Received").font(.caption).foregroundColor(.secondary)
+                Button("Close") { infoMessage = nil }
+            }
+            .padding()
+            .presentationDetents([.medium])
+        }
+        .alert("Chat", isPresented: Binding(get: { !note.isEmpty }, set: { if !$0 { note = "" } })) {
+            Button("OK", role: .cancel) { note = "" }
+        } message: {
+            Text(note)
+        }
+    }
+
+    private func selectedMessage() -> Message? {
+        guard let id = selectedMessageIds.first else { return messagesList.last }
+        return messagesList.first { $0.id == id }
+    }
+
+    private func sendCurrentText() {
+        let textToSend = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !textToSend.isEmpty else { return }
+        if let editing = editingMessage {
+            let id = editing.id
+            editingMessage = nil
+            inputText = ""
+            Task {
+                _ = try? await API.data("conversations/\(chat.id)/messages/\(id)", method: "PATCH", json: ["message_text": textToSend])
+                viewModel.fetchMessages(chatId: chat.id)
+            }
+            return
+        }
+        viewModel.sendMessage(
+            chatId: chat.id,
+            body: textToSend,
+            replyToId: replyTo?.id,
+            replyToText: replyTo?.content,
+            replyToSenderName: replyTo?.senderName
+        )
+        inputText = ""
+        replyTo = nil
+    }
+
+    private func sendVoiceNote() {
+        guard let picked = voice.takeForSend() else { return }
+        let label = String(format: "%d:%02d", picked.seconds / 60, picked.seconds % 60)
+        let chatId = chat.id
+        Task {
+            do {
+                let data = try Data(contentsOf: picked.url)
+                let url = try await MediaActions.upload(
+                    data: data,
+                    filename: picked.url.lastPathComponent,
+                    mime: "audio/mp4",
+                    folder: "chat/audio_message"
+                )
+                viewModel.sendMessage(
+                    chatId: chatId,
+                    body: "Voice Note",
+                    messageType: "audio_message",
+                    mediaUrls: [url],
+                    duration: label,
+                    fileName: picked.url.lastPathComponent
+                )
+                try? FileManager.default.removeItem(at: picked.url)
+            } catch {
+                note = error.localizedDescription
+            }
+        }
+    }
+
+    private func sendPicked(_ item: PhotosPickerItem) async {
+        defer { attachItem = nil; cameraItem = nil }
+        guard let file = try? await item.loadTransferable(type: PickedFile.self) else {
+            note = "Could not read that file"
+            return
+        }
+        let data = (try? Data(contentsOf: file.url)) ?? Data()
+        let ext = file.url.pathExtension.lowercased()
+        let isVideo = ["mp4", "mov", "m4v"].contains(ext)
+        let mime = isVideo ? "video/mp4" : "image/jpeg"
+        let kind = isVideo ? "video" : "image"
+        guard !data.isEmpty,
+              let url = try? await MediaActions.upload(
+                data: data,
+                filename: file.url.lastPathComponent,
+                mime: mime,
+                folder: "chat/\(kind)"
+              ) else {
+            note = "Upload failed"
+            return
+        }
+        viewModel.sendMessage(
+            chatId: chat.id,
+            body: inputText.isEmpty ? kind.capitalized : inputText,
+            messageType: kind,
+            mediaUrls: [url],
+            fileName: file.url.lastPathComponent
+        )
+        inputText = ""
+    }
+
+    private func pinSelected() {
+        guard let id = selectedMessageIds.first else { return }
+        Task {
+            _ = try? await API.data("conversations/\(chat.id)/pinned-message", method: "PATCH", json: ["message_id": id])
+            selectedMessageIds.removeAll()
+        }
+    }
+
+    private func editSelected() {
+        guard let message = selectedMessage() else { return }
+        inputText = message.content
+        editingMessage = message
+        selectedMessageIds.removeAll()
+    }
+
+    private func forwardSelected() {
+        let text = selectedMessageIds.compactMap { id in messagesList.first { $0.id == id }?.content }.joined(separator: "\n")
+        guard !text.isEmpty else { return }
+        let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = scene.windows.first?.rootViewController {
+            root.present(av, animated: true)
+        }
+        selectedMessageIds.removeAll()
+    }
+
+    private func clearConversation() {
+        viewModel.clearChat(chatId: chat.id)
+        Task { _ = try? await API.data("conversations/\(chat.id)/clear", method: "POST") }
+    }
+
+    private func deleteConversation() {
+        Task {
+            _ = try? await API.data("conversations/\(chat.id)", method: "DELETE")
+            onBack()
         }
     }
 }

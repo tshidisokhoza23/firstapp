@@ -77,9 +77,22 @@ public struct MessageBubbleView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
 
-                    if !message.mediaUrls.isEmpty {
+                    if message.type != .audioMessage && message.type != .voiceCall && !message.mediaUrls.isEmpty {
                         ForEach(message.mediaUrls, id: \.self) { mediaUrl in
-                            if let url = URL(string: mediaUrl) {
+                            let resolved = FeedPost.resolve(mediaUrl) ?? URL(string: mediaUrl)
+                            if message.type == .video {
+                                Button(action: { onMediaClick(resolved?.absoluteString ?? mediaUrl, message.type.rawValue) }) {
+                                    ZStack {
+                                        Rectangle().fill(Color.black.opacity(0.35))
+                                        Image(systemName: "play.circle.fill")
+                                            .font(.system(size: 42))
+                                            .foregroundColor(.white)
+                                    }
+                                    .frame(width: 220, height: 140)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+                                .buttonStyle(.plain)
+                            } else if let url = resolved {
                                 AsyncImage(url: url) { phase in
                                     if let image = phase.image {
                                         image.resizable().scaledToFill()
@@ -90,7 +103,7 @@ public struct MessageBubbleView: View {
                                 .frame(maxWidth: 240, maxHeight: 200)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .onTapGesture {
-                                    onMediaClick(mediaUrl, message.type.rawValue)
+                                    onMediaClick(url.absoluteString, message.type.rawValue)
                                 }
                             }
                         }

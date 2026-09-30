@@ -8,7 +8,32 @@ public protocol AuthApiService {
     func forgotPassword(request: ForgotPasswordRequest) async throws -> StatusResponse
     func requestOTP(body: [String: String]) async throws -> StatusResponse
     func verifyOTP(body: [String: String]) async throws -> StatusResponse
+    func googleSignIn(idToken: String) async throws -> AuthResponse
+    func completeProfile(displayName: String?, username: String?, phoneNumber: String?, categories: [String]?) async throws -> User
     func checkAvailability(username: String?, email: String?, phone: String?) async throws -> [String: Bool]
+}
+
+public struct GoogleSignInBody: Codable, Sendable {
+    public let idToken: String
+    enum CodingKeys: String, CodingKey { case idToken = "id_token" }
+    public init(idToken: String) { self.idToken = idToken }
+}
+
+public struct CompleteProfileBody: Codable, Sendable {
+    public let displayName: String?
+    public let username: String?
+    public let phoneNumber: String?
+    public let categories: [String]?
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case username
+        case phoneNumber = "phone_number"
+        case categories
+    }
+}
+
+public struct UserEnvelope: Codable, Sendable {
+    public let user: User
 }
 
 public final class AuthApi: AuthApiService {
@@ -44,6 +69,16 @@ public final class AuthApi: AuthApiService {
 
     public func verifyOTP(body: [String: String]) async throws -> StatusResponse {
         return try await client.request(path: "auth/verify-otp", method: .post, body: body)
+    }
+
+    public func googleSignIn(idToken: String) async throws -> AuthResponse {
+        return try await client.request(path: "auth/google", method: .post, body: GoogleSignInBody(idToken: idToken))
+    }
+
+    public func completeProfile(displayName: String?, username: String?, phoneNumber: String?, categories: [String]?) async throws -> User {
+        let body = CompleteProfileBody(displayName: displayName, username: username, phoneNumber: phoneNumber, categories: categories)
+        let envelope: UserEnvelope = try await client.request(path: "users/complete-profile", method: .post, body: body)
+        return envelope.user
     }
 
     public func checkAvailability(username: String?, email: String?, phone: String?) async throws -> [String: Bool] {

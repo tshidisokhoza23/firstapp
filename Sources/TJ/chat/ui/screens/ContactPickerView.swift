@@ -12,6 +12,9 @@ public struct ContactPickerView: View {
     @State private var searchQuery: String = ""
     @State private var isSearchActive: Bool = false
     @State private var selectedContacts: Set<Contact> = []
+    @State private var showNewContact = false
+    @State private var newContactName = ""
+    @State private var newContactPhone = ""
 
     @MainActor public init(
         viewModel: ContactPickerViewModel? = nil,
@@ -102,7 +105,7 @@ public struct ContactPickerView: View {
                         }
                     }
 
-                    Button(action: {}) {
+                    Button(action: { showNewContact = true }) {
                         HStack(spacing: 16) {
                             ZStack {
                                 Circle()
@@ -186,5 +189,22 @@ public struct ContactPickerView: View {
                 }
             }
         }
+        .alert("New Contact", isPresented: $showNewContact) {
+            TextField("Name", text: $newContactName)
+            TextField("Phone", text: $newContactPhone)
+            Button("Save") { Task { await saveContact() } }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func saveContact() async {
+        let phone = newContactPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phone.isEmpty else { return }
+        _ = try? await API.data("users/persistent-contacts", method: "POST", json: [
+            "contacts": [["name": newContactName, "phone_number": phone]]
+        ])
+        newContactName = ""
+        newContactPhone = ""
+        viewModel.fetchContacts()
     }
 }

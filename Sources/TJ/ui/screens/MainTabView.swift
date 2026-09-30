@@ -57,6 +57,9 @@ public struct MainTabView: View {
     @State private var selectedIndex: Int = 0
     @State private var lastActiveIndex: Int = 0
     @State private var showMoreSheet: Bool = false
+    @State private var showDirectMessages: Bool = false
+    @State private var showNewChat: Bool = false
+    @State private var showArchived: Bool = false
     @State private var activeSheetRoute: MoreShortcutRoute? = nil
 
     public init(router: NavigationRouter, initialTab: String? = nil, initialSubTab: String? = nil) {
@@ -80,42 +83,27 @@ public struct MainTabView: View {
                             onChatSelected: { chat in
                                 router.navigate(to: .chatDetail(conversationId: chat.id, participantName: chat.displayName))
                             },
-                            onNewChatClick: {
-                                // New chat action
-                            },
-                            onArchivedClick: {
-                                // Archived chats
-                            },
+                            onNewChatClick: { showNewChat = true },
+                            onArchivedClick: { showArchived = true },
                             onProfileClick: {
                                 router.navigate(to: .profile(userId: "me"))
                             }
                         )
 
                     case .social:
-                        DirectMessagesView(
-                            onConversationClick: { item in
-                                router.navigate(to: .chatDetail(conversationId: item.id, participantName: item.contactName))
-                            },
-                            onNewChatClick: {}
-                        )
+                        SocialFeedView()
 
                     case .scroll:
-                        StoryViewer(
-                            sampleStoryGroup: UserStory(
-                                id: "story_feed",
-                                userId: "user_feed",
-                                userName: "Stories Feed",
-                                stories: []
-                            ),
-                            onClose: {
-                                selectedIndex = lastActiveIndex
-                            }
-                        )
+                        ShortsFeedView(onDirectMessages: { showDirectMessages = true })
 
                     case .mingle:
                         MingleView(
-                            onMatchClick: { _ in },
-                            onUpgradeClick: {}
+                            onMatchClick: { conversationId, name in
+                                router.navigate(to: .chatDetail(conversationId: conversationId, participantName: name))
+                            },
+                            onUpgradeClick: {
+                                router.navigate(to: .wallet)
+                            }
                         )
 
                     case .stream:
@@ -155,6 +143,43 @@ public struct MainTabView: View {
             }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .sheet(isPresented: $showDirectMessages) {
+            DirectMessagesView(
+                onConversationClick: { item in
+                    showDirectMessages = false
+                    router.navigate(to: .chatDetail(conversationId: item.id, participantName: item.contactName))
+                },
+                onNewChatClick: {
+                    showDirectMessages = false
+                    showNewChat = true
+                }
+            )
+        }
+        .sheet(isPresented: $showNewChat) {
+            ContactPickerView(
+                onBack: { showNewChat = false },
+                onContactSelected: { contact in
+                    showNewChat = false
+                    router.navigate(to: .chatDetail(conversationId: contact.id, participantName: contact.displayName))
+                },
+                onGroupCreate: { contacts in
+                    showNewChat = false
+                    chatViewModel.createGroup(name: "New Group", contactIds: contacts.map(\.id)) { chat in
+                        router.navigate(to: .chatDetail(conversationId: chat.id, participantName: chat.senderName))
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showArchived) {
+            ArchivedChatsView(
+                viewModel: chatViewModel,
+                onBack: { showArchived = false },
+                onChatClick: { chat in
+                    showArchived = false
+                    router.navigate(to: .chatDetail(conversationId: chat.id, participantName: chat.displayName))
+                }
+            )
+        }
         .sheet(isPresented: $showMoreSheet) {
             MoreShortcutsSheetView(
                 onSelectRoute: { route in

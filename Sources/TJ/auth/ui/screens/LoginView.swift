@@ -61,7 +61,6 @@ public struct LoginView: View {
                             .foregroundColor(.gray.opacity(0.6))
                     }
 
-                    // Info Card for Google Sign In
                     Button(action: {
                         alertMessage = "Manual login & phone registration is temporarily disabled. Please tap 'Continue with Google'."
                         showAlert = true
@@ -82,7 +81,6 @@ public struct LoginView: View {
                         .cornerRadius(12)
                     }
 
-                    // Phone/Username Field (Disabled)
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: isSignUp ? "person" : "phone")
@@ -100,7 +98,6 @@ public struct LoginView: View {
                         }
                     }
 
-                    // Password Field (Disabled)
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "lock")
@@ -137,9 +134,8 @@ public struct LoginView: View {
 
                     Spacer().frame(height: 12)
 
-                    // Continue with Google Button
                     Button(action: {
-                        viewModel.googleSignIn(idToken: "sample_token")
+                        viewModel.signInWithGoogle()
                     }) {
                         HStack(spacing: 12) {
                             if viewModel.authState?.isLoading == true {
@@ -186,6 +182,9 @@ public struct LoginView: View {
         .onReceive(viewModel.$authState) { state in
             if case .success(let response) = state {
                 onLoginSuccess(response)
+            } else if case .error(let message, _) = state {
+                alertMessage = message
+                showAlert = true
             }
         }
         .alert("Notice", isPresented: $showAlert) {

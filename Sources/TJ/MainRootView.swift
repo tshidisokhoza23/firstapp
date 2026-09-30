@@ -30,6 +30,7 @@ public struct MainRootView: View {
     @State private var isProfileComplete: Bool = true
     @State private var isBiometricLocked: Bool = false
     @State private var selectedTab: Int = 0
+    @State private var otpPhone: String? = nil
 
     public init() {}
 
@@ -39,24 +40,39 @@ public struct MainRootView: View {
                 BiometricLockOverlayView(onUnlockSuccess: {
                     isBiometricLocked = false
                 })
-            } else {
-                if isAuthenticated {
-                    AppNavigation()
-                        .environmentObject(globalCallState)
-                } else {
-                    LoginView(
-                        viewModel: authViewModel,
-                        onLoginSuccess: { response in
-                            handleLoginSuccess(response: response)
-                        },
-                        onNavigateToOtp: { phone, _, _, _, _, _ in
-                            authViewModel.requestOTP(phoneNumber: phone)
+            } else if isAuthenticated && !isProfileComplete {
+                CompleteProfileView(
+                    viewModel: authViewModel,
+                    onCompleteSuccess: { isProfileComplete = true },
+                    onNavigateToTerms: {}
+                )
+            } else if isAuthenticated {
+                AppNavigation()
+                    .environmentObject(globalCallState)
+            } else if let phone = otpPhone {
+                OtpVerificationView(
+                    phoneNumber: phone,
+                    viewModel: authViewModel,
+                    onVerificationSuccess: {
+                        otpPhone = nil
+                        if SessionStore.shared.isLoggedIn {
+                            handleLoginSuccess(response: AuthResponse(token: SessionStore.shared.token ?? "", user: SessionStore.shared.user))
                         }
-                    )
-                }
+                    },
+                    onBack: { otpPhone = nil }
+                )
+            } else {
+                LoginView(
+                    viewModel: authViewModel,
+                    onLoginSuccess: { response in
+                        handleLoginSuccess(response: response)
+                    },
+                    onNavigateToOtp: { phone, _, _, _, _, _ in
+                        otpPhone = phone
+                    }
+                )
             }
 
-            // Global Active/Incoming Call Overlay Banner
             if globalCallState.isCallActive {
                 RootActiveCallOverlayBanner(callState: globalCallState)
             }
@@ -67,19 +83,32 @@ public struct MainRootView: View {
         .onAppear {
             checkAuthAndLockStatus()
         }
+        .onReceive(NotificationCenter.default.publisher(for: SessionStore.didChange)) { _ in
+            if SessionStore.shared.isLoggedIn {
+                handleLoginSuccess(response: nil)
+            } else {
+                isAuthenticated = false
+                isProfileComplete = true
+            }
+        }
     }
 
     private func handleLoginSuccess(response: AuthResponse?) {
-        isAuthenticated = true
-        if let user = response?.user, user.displayName.isEmpty {
-            isProfileComplete = false
-        } else {
-            isProfileComplete = true
+        isAuthenticated = SessionStore.shared.isLoggedIn || response?.token.isEmpty == false
+        let user = response?.user ?? SessionStore.shared.user
+        isProfileComplete = user?.isProfileComplete ?? true
+        if isAuthenticated {
+            AppRuntime.connectRealtime()
         }
     }
 
     private func checkAuthAndLockStatus() {
-        if UserDefaults.standard.bool(forKey: "enable_biometric_lock") {
+        if SessionStore.shared.isLoggedIn {
+            isAuthenticated = true
+            isProfileComplete = SessionStore.shared.user?.isProfileComplete ?? true
+            AppRuntime.connectRealtime()
+        }
+        if UserDefaults.standard.bool(forKey: "enable_biometric_lock") && isAuthenticated {
             isBiometricLocked = true
         }
     }

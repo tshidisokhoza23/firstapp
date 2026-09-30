@@ -43,6 +43,8 @@ public struct DriveView: View {
     @State private var showNewFolderAlert: Bool = false
     @State private var newFolderName: String = ""
     @State private var selectedFileForDetails: DriveFileItem? = nil
+    @State private var renameTarget: DriveFileItem?
+    @State private var renameText = ""
 
     enum DriveFilter: String, CaseIterable, Identifiable {
         case all = "All Files"
@@ -232,6 +234,17 @@ public struct DriveView: View {
                     }
                 }
             }
+            .alert("Rename", isPresented: Binding(get: { renameTarget != nil }, set: { if !$0 { renameTarget = nil } })) {
+                TextField("Name", text: $renameText)
+                Button("Save") {
+                    if let target = renameTarget, let index = files.firstIndex(where: { $0.id == target.id }) {
+                        let old = files[index]
+                        files[index] = DriveFileItem(id: old.id, name: renameText, sizeFormatted: old.sizeFormatted, updatedDate: old.updatedDate, isFolder: old.isFolder, fileExtension: old.fileExtension, isStarred: old.isStarred)
+                    }
+                    renameTarget = nil
+                }
+                Button("Cancel", role: .cancel) { renameTarget = nil }
+            }
         }
     }
 
@@ -315,9 +328,9 @@ public struct DriveView: View {
             }
 
             Menu {
-                Button(action: {}) { Label("Download", systemImage: "square.and.arrow.down") }
-                Button(action: {}) { Label("Share Link", systemImage: "square.and.arrow.up") }
-                Button(action: {}) { Label("Rename", systemImage: "pencil") }
+                Button(action: { shareFile(file) }) { Label("Download", systemImage: "square.and.arrow.down") }
+                Button(action: { shareFile(file) }) { Label("Share Link", systemImage: "square.and.arrow.up") }
+                Button(action: { renameFile(file) }) { Label("Rename", systemImage: "pencil") }
                 Button(role: .destructive, action: {
                     files.removeAll { $0.id == file.id }
                 }) { Label("Delete", systemImage: "trash") }
@@ -328,6 +341,19 @@ public struct DriveView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func shareFile(_ file: DriveFileItem) {
+        let av = UIActivityViewController(activityItems: [file.name], applicationActivities: nil)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = scene.windows.first?.rootViewController {
+            root.present(av, animated: true)
+        }
+    }
+
+    private func renameFile(_ file: DriveFileItem) {
+        renameText = file.name
+        renameTarget = file
     }
 
     private func fileGridCard(_ file: DriveFileItem) -> some View {

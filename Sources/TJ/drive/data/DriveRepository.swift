@@ -226,7 +226,7 @@ public final class DriveRepository: ObservableObject, DriveRepositoryProtocol {
 
     private let baseURL: URL
 
-    public init(baseURL: URL = URL(string: "https://api.tj.app/drive")!) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL)!) {
         self.baseURL = baseURL
     }
 

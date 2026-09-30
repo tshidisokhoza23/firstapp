@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 // MARK: - Mingle Models
 
@@ -50,14 +51,19 @@ public struct MingleView: View {
 
     private let availableInterests = ["All", "Coding", "Music", "Startups", "Gaming", "Travel", "Design", "Fitness"]
 
-    @State private var profiles: [MingleProfile] = [
-        MingleProfile(id: "p1", name: "Sophia Lin", age: 25, occupation: "iOS Developer @ TechCorp", distanceKm: 3.2, bio: "Swift & SwiftUI enthusiast. Always looking for coffee & open source collaborators! ☕💻", interests: ["Coding", "Music", "Coffee"], avatarGradient: [.purple, .pink], mutualConnections: 4),
-        MingleProfile(id: "p2", name: "Liam Chen", age: 28, occupation: "Product Designer", distanceKm: 7.5, bio: "Designing dark mode UIs and playing bass guitar in a synthwave band 🎸✨", interests: ["Design", "Music", "Gaming"], avatarGradient: [.blue, .cyan], mutualConnections: 2),
-        MingleProfile(id: "p3", name: "Emma Watson", age: 24, occupation: "AI Researcher", distanceKm: 12.0, bio: "Exploring LLMs & On-device ML. Let's chat tech and innovation 🚀", interests: ["Startups", "Coding", "Travel"], avatarGradient: [.orange, .red], mutualConnections: 8),
-        MingleProfile(id: "p4", name: "Noah Miller", age: 27, occupation: "Fitness Coach & Vlogger", distanceKm: 18.4, bio: "Marathon runner, healthy smoothie maker and travel enthusiast 🏃‍♂️🌴", interests: ["Fitness", "Travel"], avatarGradient: [.green, .teal], mutualConnections: 1)
-    ]
+    @State private var profiles: [MingleProfile] = []
+    @State private var feedNote = "Looking nearby..."
+    @StateObject private var location = MingleLocation()
+    private var onMatchClick: ((String, String) -> Void)?
+    private var onUpgradeClick: (() -> Void)?
 
-    public init() {}
+    public init(
+        onMatchClick: ((String, String) -> Void)? = nil,
+        onUpgradeClick: (() -> Void)? = nil
+    ) {
+        self.onMatchClick = onMatchClick
+        self.onUpgradeClick = onUpgradeClick
+    }
 
     public var body: some View {
         NavigationStack {
@@ -109,7 +115,7 @@ public struct MingleView: View {
                         Image(systemName: "person.2.slash")
                             .font(.system(size: 56))
                             .foregroundColor(.secondary)
-                        Text("No more profiles nearby")
+                        Text(feedNote
                             .font(.title3.bold())
                         Text("Try widening your distance filter or changing interest preferences.")
                             .font(.subheadline)
@@ -133,6 +139,104 @@ public struct MingleView: View {
             }
             .sheet(item: $selectedProfile) { profile in
                 profileDetailModal(profile)
+            }
+            .task { await loadFeed() }
+        }
+    }
+
+    private func loadFeed() async {
+        if let user = SessionStore.shared.user {
+            userCoins = Int(user.walletBalance)
+        }
+        do {
+            let data = try await API.data("rewards/balance")
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let balance = json["balance"] as? Double {
+                userCoins = Int(balance)
+            }
+        } catch {}
+        do {
+            guard let loc = await location.current() else {
+                feedNote = "Turn on location to see people nearby."
+                profiles = []
+                return
+            }
+            let lat = loc.coordinate.latitude
+            let lng = loc.coordinate.longitude
+            _ = try? await API.data("mingle/location", method: "POST", json: [
+                "latitude": lat,
+                "longitude": lng,
+                "radius_km": Int(maxDistanceKm)
+            ])
+            let data = try await API.data("mingle/feed", query: [
+                "lat": String(lat),
+                "lng": String(lng),
+                "radius_km": String(Int(maxDistanceKm)),
+                "limit": "20"
+            ])
+            struct Feed: Decodable {
+                struct Item: Decodable {
+                    let id: String
+                    let name: String?
+                    let age: Int?
+                    let bio: String?
+                    let distanceKm: Double?
+                    enum CodingKeys: String, CodingKey {
+                        case id, name, age, bio
+                        case distanceKm = "distance_km"
+                    }
+                }
+                let items: [Item]?
+                let balance: Double?
+                let status: String?
+            }
+            let feed = try JSONDecoder().decode(Feed.self, from: data)
+            if let balance = feed.balance { userCoins = Int(balance) }
+            profiles = (feed.items ?? []).map { item in
+                MingleProfile(
+                    id: item.id,
+                    name: item.name?.isEmpty == false ? item.name! : "Nearby",
+                    age: item.age ?? 0,
+                    occupation: "",
+                    distanceKm: item.distanceKm ?? 0,
+                    bio: item.bio ?? "",
+                    interests: [],
+                    avatarGradient: [.purple, .blue]
+                )
+            }
+            if profiles.isEmpty {
+                feedNote = feed.status?.isEmpty == false ? (feed.status ?? "") : "No one nearby in this radius."
+            }
+        } catch {
+            feedNote = "Could not load people nearby."
+        }
+    }
+
+    private func swipe(_ profile: MingleProfile, action: String) {
+        profiles.removeAll { $0.id == profile.id }
+        Task {
+            if let data = try? await API.data("mingle/swipe", method: "POST", json: [
+                "target_user_id": profile.id,
+                "action": action
+            ]),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let balance = json["balance"] as? Double { userCoins = Int(balance) }
+                if json["matched"] as? Bool == true, let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+                    onMatchClick?(conversationId, profile.name)
+                }
+            }
+            await loadFeed()
+        }
+    }
+
+    private func openMatchChat(_ profile: MingleProfile) {
+        Task {
+            if let data = try? await API.data("mingle/matches/\(profile.id)/chat", method: "POST"),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+                onMatchClick?(conversationId, profile.name)
+            } else {
+                feedNote = "You can message after you match."
             }
         }
     }
@@ -206,6 +310,7 @@ public struct MingleView: View {
                 .background(Color(.secondarySystemGroupedBackground))
                 .cornerRadius(24)
                 .padding(.horizontal, 20)
+                .onTapGesture { selectedProfile = current }
             }
 
             Spacer()
@@ -214,7 +319,7 @@ public struct MingleView: View {
             HStack(spacing: 24) {
                 // Pass (X)
                 Button(action: {
-                    if !profiles.isEmpty { profiles.removeFirst() }
+                    if let current = profiles.first { swipe(current, action: "pass") }
                 }) {
                     Image(systemName: "xmark")
                         .font(.title.bold())
@@ -226,7 +331,12 @@ public struct MingleView: View {
 
                 // Super Like (Star)
                 Button(action: {
-                    showCoinsGateModal = true
+                    guard let current = profiles.first else { return }
+                    if userCoins < 5 {
+                        onUpgradeClick?()
+                    } else {
+                        swipe(current, action: "super_like")
+                    }
                 }) {
                     Image(systemName: "star.fill")
                         .font(.title2.bold())
@@ -238,7 +348,7 @@ public struct MingleView: View {
 
                 // Like (Heart)
                 Button(action: {
-                    if !profiles.isEmpty { profiles.removeFirst() }
+                    if let current = profiles.first { swipe(current, action: "like") }
                 }) {
                     Image(systemName: "heart.fill")
                         .font(.title.bold())
@@ -333,7 +443,8 @@ public struct MingleView: View {
                         }
                     }
                 }
-
+    Task { await loadFeed() }
+                
                 Spacer()
 
                 Button("Apply Filters") {
@@ -379,10 +490,12 @@ public struct MingleView: View {
                         .foregroundColor(.yellow)
                 }
 
-                Button(action: {
-                    if userCoins >= 5 {
-                        userCoins -= 5
-                        showCoinsGateModal = false
+                  Button(action: {
+                      showCoinsGateModal = false
+                    if userCoins >= 5, let current = profiles.first {
+                        swipe(current, action: "super_like")
+                    } else {
+                        onUpgradeClick?()
                         if !profiles.isEmpty { profiles.removeFirst() }
                     }
                 }) {
@@ -449,7 +562,7 @@ public struct MingleView: View {
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .background(Color.blue.opacity(0.12))
-                                    .foregroundColor(.blue)
+                         penMatchChatforegroundColor(.blue)
                                     .cornerRadius(10)
                             }
                         }
@@ -457,8 +570,71 @@ public struct MingleView: View {
                     .padding(.horizontal)
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                HStack {
+                    Button("Pass") {
+                        swipe(profile, action: "pass")
+                        selectedProfile = nil
+                    }
+                    Button("Like") {
+                        swipe(profile, action: "like")
+                        selectedProfile = nil
+                    }
+                    Button("Message") {
+                        openMatchChat(profile)
+                        selectedProfile = nil
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .padding()
+            }
             .navigationBarItems(trailing: Button("Close") { selectedProfile = nil })
         }
+    }
+}
+
+final class MingleLocation: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var continuation: CheckedContinuation<CLLocation?, Never>?
+
+    func current() async -> CLLocation? {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            manager.delegate = self
+            switch manager.authorizationStatus {
+            case .notDetermined:
+                manager.requestWhenInUseAuthorization()
+            case .authorizedAlways, .authorizedWhenInUse:
+                manager.requestLocation()
+            default:
+                finish(nil)
+            }
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard continuation != nil else { return }
+        switch manager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            manager.requestLocation()
+        case .denied, .restricted:
+            finish(nil)
+        default:
+            break
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        finish(locations.last)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        finish(nil)
+    }
+
+    private func finish(_ location: CLLocation?) {
+        continuation?.resume(returning: location)
+        continuation = nil
     }
 }
 

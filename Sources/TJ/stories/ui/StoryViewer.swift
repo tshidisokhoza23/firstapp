@@ -1,4 +1,5 @@
 import SwiftUI
+import AVKit
 
 // MARK: - Story Item Models
 
@@ -8,13 +9,15 @@ public struct StorySlide: Identifiable, Hashable {
     public let caption: String?
     public let backgroundGradient: [Color]
     public let durationSeconds: Double
+    public let mediaURL: String?
 
-    public init(id: String, mediaSymbol: String, caption: String? = nil, backgroundGradient: [Color], durationSeconds: Double = 5.0) {
+    public init(id: String, mediaSymbol: String, caption: String? = nil, backgroundGradient: [Color], durationSeconds: Double = 5.0, mediaURL: String? = nil) {
         self.id = id
         self.mediaSymbol = mediaSymbol
         self.caption = caption
         self.backgroundGradient = backgroundGradient
         self.durationSeconds = durationSeconds
+        self.mediaURL = mediaURL
     }
 }
 
@@ -43,9 +46,11 @@ public struct StoryViewer: View {
     @State private var slideProgress: Double = 0.0
     @State private var isPaused: Bool = false
     @State private var replyText: String = ""
+    @State private var storyPlayer: AVPlayer?
     @State private var showViewersSheet: Bool = false
     @State private var sentReactionEmoji: String? = nil
 
+    private let liveStory: UserStory?
     private let sampleStoryGroup = UserStoryGroup(
         id: "g1",
         username: "alex_morgan",
@@ -63,11 +68,45 @@ public struct StoryViewer: View {
     private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     public init(onClose: (() -> Void)? = nil) {
+        self.liveStory = nil
         self.onClose = onClose
     }
 
+    public init(story: UserStory, onClose: (() -> Void)? = nil) {
+        self.liveStory = story
+        self.onClose = onClose
+    }
+
+    /// Kept so older call sites can open a real story group.
+    public init(sampleStoryGroup: UserStory, onClose: (() -> Void)? = nil) {
+        self.liveStory = sampleStoryGroup
+        self.onClose = onClose
+    }
+
+    private var displayGroup: UserStoryGroup {
+        guard let liveStory else { return sampleStoryGroup }
+        let slides = liveStory.stories.map { item in
+            StorySlide(
+                id: item.id,
+                mediaSymbol: item.type == .videonil : item.content,
+                backgroundGradient: [item.backgroundColor, .black],
+                durationSeconds: max(1, Double(item.durationMs) / 1000.0),
+                mediaURL: item.contentUrl
+                durationSeconds: max(1, Double(item.durationMs) / 1000.0)
+            )
+        }
+        return UserStoryGroup(
+            id: liveStory.id,
+            username: liveStory.userName,
+            avatarGradient: [.blue, .purple],
+            timeAgo: liveStory.lastUpdated,
+            slides: slides.isEmpty ? [StorySlide(id: liveStory.id, mediaSymbol: "text.alignleft", caption: "No story", backgroundGradient: [.gray, .black])] : slides
+        )
+    }
+
     private var currentSlide: StorySlide {
-        sampleStoryGroup.slides[min(activeSlideIndex, sampleStoryGroup.slides.count - 1)]
+        let slides = displayGroup.slides
+        return slides[min(activeSlideIndex, max(slides.count - 1, 0))]
     }
 
     public var body: some View {
@@ -76,13 +115,28 @@ public struct StoryViewer: View {
             LinearGradient(colors: currentSlide.backgroundGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
                 .ignoresSafeArea()
 
+            if let player = storyPlayer {
+                VideoPlayer(player: player)
+                    .ignoresSafeArea()
+            } else if let raw = currentSlide.mediaURL, let url = FeedPost.resolve(raw), currentSlide.mediaSymbol != "video.fill" {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill().ignoresSafeArea()
+                    } else {
+                        Color.black.ignoresSafeArea()
+                    }
+                }
+            }
+
             VStack {
                 Spacer()
 
-                Image(systemName: currentSlide.mediaSymbol)
-                    .font(.system(size: 130))
-                    .foregroundColor(.white.opacity(0.85))
-                    .shadow(radius: 12)
+                if storyPlayer == nil && currentSlide.mediaURL == nil {
+                    Image(systemName: currentSlide.mediaSymbol)
+                        .font(.system(size: 130))
+                        .foregroundColor(.white.opacity(0.85))
+                        .shadow(radius: 12)
+                }
 
                 if let caption = currentSlide.caption {
                     Text(caption)
@@ -122,7 +176,7 @@ public struct StoryViewer: View {
                 VStack(spacing: 10) {
                     // Segmented Progress Bar
                     HStack(spacing: 4) {
-                        ForEach(0..<sampleStoryGroup.slides.count, id: \.self) { idx in
+                        ForEach(0..<displayGroup.slides.count, id: \.self) { idx in
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
                                     Rectangle()
@@ -141,16 +195,16 @@ public struct StoryViewer: View {
                     // User Header
                     HStack(spacing: 10) {
                         Circle()
-                            .fill(LinearGradient(colors: sampleStoryGroup.avatarGradient, startPoint: .top, endPoint: .bottom))
+                            .fill(LinearGradient(colors: displayGroup.avatarGradient, startPoint: .top, endPoint: .bottom))
                             .frame(width: 38, height: 38)
                             .overlay(Image(systemName: "person.fill").foregroundColor(.white).font(.caption))
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(sampleStoryGroup.username)
+                            Text(displayGroup.username)
                                 .font(.subheadline.bold())
                                 .foregroundColor(.white)
 
-                            Text(sampleStoryGroup.timeAgo)
+                            Text(displayGroup.timeAgo)
                                 .font(.caption2)
                                 .foregroundColor(.white.opacity(0.8))
                         }
@@ -208,7 +262,7 @@ public struct StoryViewer: View {
 
                     // Text Field Row
                     HStack(spacing: 10) {
-                        TextField("Send reply to @\(sampleStoryGroup.username)...", text: $replyText)
+                        TextField("Send reply to @\(displayGroup.username)...", text: $replyText)
                             .textFieldStyle(.plain)
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
@@ -219,8 +273,10 @@ public struct StoryViewer: View {
 
                         if !replyText.isEmpty {
                             Button(action: {
+                                let text = replyText
                                 replyText = ""
                                 sendEmojiReaction("📩")
+                                Task { await sendStoryReply(text) }
                             }) {
                                 Image(systemName: "paperplane.fill")
                                     .font(.headline)
@@ -248,12 +304,43 @@ public struct StoryViewer: View {
         .sheet(isPresented: $showViewersSheet) {
             viewersSheetView
         }
+        .onAppear {
+            markCurrentViewed()
+            loadSlideMedia()
+        }
+        .onChange(of: activeSlideIndex) { _ in
+            markCurrentViewed()
+            loadSlideMedia()
+        }
+        .onDisappear {
+            storyPlayer?.pause()
+            storyPlayer = nil
+        }
+    }
+
+    private func loadSlideMedia() {
+        storyPlayer?.pause()
+        storyPlayer = nil
+        guard currentSlide.mediaSymbol == "video.fill",
+              let raw = currentSlide.mediaURL,
+              let url = FeedPost.resolve(raw) else { return }
+        let player = AVPlayer(url: url)
+        storyPlayer = player
+        player.play()
+    }
+
+    private func markCurrentViewed() {
+        guard let liveStory, liveStory.stories.indices.contains(activeSlideIndex) else { return }
+        let item = liveStory.stories[activeSlideIndex]
+        Task {
+            _ = try? await StoryRepository.shared.markStoryAsViewed(userId: liveStory.userId, storyId: item.id)
+        }
     }
 
     // MARK: - Navigation Logic
 
     private func goToNextSlide() {
-        if activeSlideIndex < sampleStoryGroup.slides.count - 1 {
+        if activeSlideIndex < displayGroup.slides.count - 1 {
             activeSlideIndex += 1
             slideProgress = 0.0
         } else {
@@ -278,6 +365,18 @@ public struct StoryViewer: View {
         } else {
             return 0
         }
+    }
+
+    private func sendStoryReply(_ text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let userId = liveStory?.userId, !userId.isEmpty else { return }
+        guard let data = try? await API.data("chats/dm", method: "POST", json: ["contact_id": userId]),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let convID = json["conversation_id"] as? String, !convID.isEmpty else { return }
+        _ = try? await API.data("conversations/\(convID)/messages", method: "POST", json: [
+            "message_text": trimmed,
+            "message_type": "text"
+        ])
     }
 
     private func sendEmojiReaction(_ emoji: String) {

@@ -137,7 +137,7 @@ public final class SearchRepository: ObservableObject, SearchRepositoryProtocol 
 
     private let baseURL: URL
 
-    public init(baseURL: URL = URL(string: "https://api.tj.app/search")!) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL + "/search")!) {
         self.baseURL = baseURL
     }
 

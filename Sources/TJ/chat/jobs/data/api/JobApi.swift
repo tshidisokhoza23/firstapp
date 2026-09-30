@@ -140,7 +140,7 @@ public class JobApi: JobApiProtocol {
     private let baseURL: URL
     private let session: URLSession
 
-    public init(baseURL: URL = URL(string: "https://api.example.com/v1/")!, session: URLSession = .shared) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL + "/")!, session: URLSession = .shared) {
         self.baseURL = baseURL
         self.session = session
     }
@@ -154,7 +154,7 @@ public class JobApi: JobApiProtocol {
         if let cursor = cursor { queryItems.append(URLQueryItem(name: "cursor", value: cursor)) }
         components.queryItems = queryItems
 
-        let (data, response) = try await session.data(from: components.url!)
+        let (data, response) = try await send(url: components.url!)
         try validateResponse(response)
         return try JSONDecoder().decode(JobsResponse.self, from: data)
     }
@@ -163,7 +163,7 @@ public class JobApi: JobApiProtocol {
         var components = URLComponents(url: baseURL.appendingPathComponent("jobs/search"), resolvingAgainstBaseURL: true)!
         components.queryItems = [URLQueryItem(name: "query", value: query)]
 
-        let (data, response) = try await session.data(from: components.url!)
+        let (data, response) = try await send(url: components.url!)
         try validateResponse(response)
         return try JSONDecoder().decode(JobsResponse.self, from: data)
     }
@@ -173,7 +173,7 @@ public class JobApi: JobApiProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
         try validateResponse(response)
         return try JSONDecoder().decode(ConversationResponse.self, from: data)
     }
@@ -183,7 +183,7 @@ public class JobApi: JobApiProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
         try validateResponse(response)
         return try JSONDecoder().decode(StatusResponse.self, from: data)
     }
@@ -193,14 +193,14 @@ public class JobApi: JobApiProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
         try validateResponse(response)
         return try JSONDecoder().decode(StatusResponse.self, from: data)
     }
 
     public func getJobApplications() async throws -> JobApplicationsResponse {
         let url = baseURL.appendingPathComponent("users/me/applications")
-        let (data, response) = try await session.data(from: url)
+        let (data, response) = try await send(url: url)
         try validateResponse(response)
         return try JSONDecoder().decode(JobApplicationsResponse.self, from: data)
     }
@@ -210,14 +210,14 @@ public class JobApi: JobApiProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
         try validateResponse(response)
         return try JSONDecoder().decode(StatusResponse.self, from: data)
     }
 
     public func getJobProfile() async throws -> JobProfileData {
         let url = baseURL.appendingPathComponent("users/me/job-profile")
-        let (data, response) = try await session.data(from: url)
+        let (data, response) = try await send(url: url)
         try validateResponse(response)
         return try JSONDecoder().decode(JobProfileData.self, from: data)
     }
@@ -229,7 +229,7 @@ public class JobApi: JobApiProtocol {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(profile)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
         try validateResponse(response)
         return try JSONDecoder().decode(StatusResponse.self, from: data)
     }
@@ -241,16 +241,28 @@ public class JobApi: JobApiProtocol {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(request)
 
-        let (data, response) = try await session.data(for: req)
+        let (data, response) = try await send(req)
         try validateResponse(response)
         return try JSONDecoder().decode(ApiJob.self, from: data)
     }
 
     public func getSavedJobs() async throws -> JobsResponse {
         let url = baseURL.appendingPathComponent("users/me/saved-jobs")
-        let (data, response) = try await session.data(from: url)
+        let (data, response) = try await send(url: url)
         try validateResponse(response)
         return try JSONDecoder().decode(JobsResponse.self, from: data)
+    }
+
+    private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        var req = request
+        if req.value(forHTTPHeaderField: "Authorization") == nil, let token = SessionStore.shared.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        return try await session.data(for: req)
+    }
+
+    private func send(url: URL) async throws -> (Data, URLResponse) {
+        try await send(URLRequest(url: url))
     }
 
     private func validateResponse(_ response: URLResponse) throws {

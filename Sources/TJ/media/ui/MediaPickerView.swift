@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Media Item Models
 
@@ -34,6 +35,8 @@ public struct MediaPickerView: View {
     @State private var maxSelectionLimit: Int = 10
     @State private var captionText: String = ""
     @State private var previewItem: MediaPickerItem? = nil
+    @State private var showCameraPicker = false
+    @State private var cameraItem: PhotosPickerItem?
 
     private let albums = ["Recents", "Favorites", "Videos", "Screenshots", "TJ Downloads"]
 
@@ -115,6 +118,11 @@ public struct MediaPickerView: View {
             }
             .navigationTitle("Select Media")
             .navigationBarTitleDisplayMode(.inline)
+            .photosPicker(isPresented: $showCameraPicker, selection: $cameraItem, matching: .images)
+            .onChange(of: cameraItem) { item in
+                guard let item else { return }
+                Task { await importCamera(item) }
+            }
             .sheet(item: $previewItem) { item in
                 mediaPreviewModal(item)
             }
@@ -125,7 +133,7 @@ public struct MediaPickerView: View {
 
     private var cameraTileView: some View {
         Button(action: {
-            // Camera launch handler
+            showCameraPicker = true
         }) {
             VStack(spacing: 6) {
                 Image(systemName: "camera.fill")
@@ -288,6 +296,14 @@ public struct MediaPickerView: View {
             }
             .navigationBarItems(trailing: Button("Done") { previewItem = nil }.foregroundColor(.white))
         }
+    }
+
+    private func importCamera(_ item: PhotosPickerItem) async {
+        defer { cameraItem = nil }
+        guard let file = try? await item.loadTransferable(type: PickedFile.self) else { return }
+        let picked = MediaPickerItem(id: file.url.absoluteString, mediaType: .photo, thumbnailSymbol: "photo.fill")
+        mediaItems.insert(picked, at: 0)
+        toggleSelection(for: picked)
     }
 
     private func toggleSelection(for item: MediaPickerItem) {

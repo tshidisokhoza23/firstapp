@@ -15,6 +15,28 @@ public struct RewardTask: Identifiable, Codable, Equatable, Sendable {
         case isCompleted = "is_completed"
     }
 
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        if let value = try? c.decode(Double.self, forKey: .points) {
+            points = value
+        } else {
+            points = Double(try c.decodeIfPresent(Int.self, forKey: .points) ?? 0)
+        }
+        isActive = try c.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+        isCompleted = try c.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(points, forKey: .points)
+        try c.encode(isActive, forKey: .isActive)
+        try c.encode(isCompleted, forKey: .isCompleted)
+    }
+
     public init(
         id: String,
         title: String,

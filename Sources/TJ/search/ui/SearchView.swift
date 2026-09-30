@@ -41,6 +41,7 @@ public struct SearchResultItem: Identifiable, Hashable {
 // MARK: - SearchView
 
 public struct SearchView: View {
+    @EnvironmentObject private var router: NavigationRouter
     @State private var searchQuery: String = ""
     @State private var selectedCategory: SearchCategory = .all
     @State private var recentSearches: [String] = ["SwiftUI Navigation 3", "Kotlin Multiplatform", "Senior Android Developer", "TJ Announcements"]
@@ -300,6 +301,7 @@ public struct SearchView: View {
 
                 Button("Open \(item.category.rawValue)") {
                     selectedResult = nil
+                    openResult(item)
                 }
                 .fontWeight(.bold)
                 .foregroundColor(.white)
@@ -315,6 +317,15 @@ public struct SearchView: View {
             .navigationBarItems(trailing: Button("Close") { selectedResult = nil })
         }
         .presentationDetents([.height(340)])
+    }
+
+    private func openResult(_ item: SearchResultItem) {
+        switch item.category {
+        case .contacts:
+            router.navigate(to: .profile(userId: item.id))
+        case .messages, .channels, .jobs, .all:
+            router.navigate(to: .chatDetail(conversationId: item.id, participantName: item.title))
+        }
     }
 
     private func categoryColor(_ category: SearchCategory) -> Color {

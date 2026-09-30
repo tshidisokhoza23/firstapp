@@ -48,8 +48,8 @@ public struct WalletTransaction: Identifiable, Hashable {
 // MARK: - WalletView
 
 public struct WalletView: View {
-    @State private var tokenBalance: Double = 1250.75
-    @State private var usdValue: Double = 1250.75 * 0.85
+    @State private var tokenBalance: Double = 0
+    @State private var usdValue: Double = 0
     @State private var selectedFilter: WalletFilter = .all
     @State private var showPayoutSheet: Bool = false
     @State private var payoutAmountText: String = ""
@@ -68,13 +68,7 @@ public struct WalletView: View {
 
     private let payoutMethods = ["Chase Bank (****4821)", "Stripe Connect", "Ethereum Wallet (0x71C...3a9)", "PayPal"]
 
-    @State private var transactions: [WalletTransaction] = [
-        WalletTransaction(id: "tx1", title: "Content Reward Payout", counterparty: "TJ Creator Fund", timestamp: "Today, 2:15 PM", amountFormatted: "+$120.00", isCredit: true, type: .reward),
-        WalletTransaction(id: "tx2", title: "Direct Transfer", counterparty: "To @sconnor", timestamp: "Yesterday", amountFormatted: "-$45.50", isCredit: false, type: .sent),
-        WalletTransaction(id: "tx3", title: "Bank Cashout Payout", counterparty: "Chase Bank ****4821", timestamp: "Sep 27, 2026", amountFormatted: "-$300.00", isCredit: false, type: .payout, status: .completed),
-        WalletTransaction(id: "tx4", title: "Mingle Points Purchase", counterparty: "TJ Store", timestamp: "Sep 24, 2026", amountFormatted: "-$10.00", isCredit: false, type: .sent),
-        WalletTransaction(id: "tx5", title: "Group Tip Received", counterparty: "From @alexmorgan", timestamp: "Sep 20, 2026", amountFormatted: "+$50.00", isCredit: true, type: .received)
-    ]
+    @State private var transactions: [WalletTransaction] = []
 
     public init() {}
 
@@ -107,6 +101,17 @@ public struct WalletView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 20)
+            }
+            .task {
+                if let data = try? await API.data("rewards/balance"),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    let balance = (json["balance"] as? Double) ?? Double(json["balance"] as? Int ?? 0)
+                    tokenBalance = balance
+                    usdValue = balance
+                } else if let cached = SessionStore.shared.user?.walletBalance {
+                    tokenBalance = cached
+                    usdValue = cached
+                }
             }
             .navigationTitle("Digital Wallet")
             .navigationBarTitleDisplayMode(.inline)

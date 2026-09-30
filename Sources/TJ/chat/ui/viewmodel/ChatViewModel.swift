@@ -195,16 +195,16 @@ public class ChatViewModel: ObservableObject {
             status: .sending,
             type: MessageType(rawValue: messageType.uppercased()) ?? .text,
             mediaUrls: mediaUrls,
+            replyToId: replyToId,
+            replyToText: replyToText,
+            replyToSenderName: replyToSenderName,
+            duration: duration,
             fileName: fileName,
             fileSize: fileSize,
-            duration: duration,
             contactName: contactName,
             contactPhone: contactPhone,
             latitude: latitude,
             longitude: longitude,
-            replyToId: replyToId,
-            replyToText: replyToText,
-            replyToSenderName: replyToSenderName,
             audioAmplitudes: audioAmplitudes
         )
 
@@ -241,7 +241,7 @@ public class ChatViewModel: ObservableObject {
 
     public func reactToMessage(messageId: String, emoji: String) {
         if var msgs = uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == messageId }) {
-            msgs[idx].reactions[emoji] = (msgs[idx].reactions[emoji] ?? 0) + 1
+            msgs[idx].reactions[uiState.currentUser?.id ?? "me"] = emoji
             uiState.messages = .success(msgs)
         }
     }
@@ -265,10 +265,10 @@ public class ChatViewModel: ObservableObject {
     public func createGroup(name: String, contactIds: [String], onSuccess: @escaping (ChatMessage) -> Void) {
         let groupChat = ChatMessage(
             id: UUID().uuidString,
-            type: .group,
             senderName: name,
             lastMessage: "Group created",
             timestamp: Int64(Date().timeIntervalSince1970 * 1000),
+            type: .group,
             isGroup: true
         )
         onSuccess(groupChat)

@@ -36,15 +36,17 @@ public struct DirectMessagesView: View {
     @State private var alertToastMessage: String? = nil
     @State private var showAlertToast: Bool = false
 
-    @State private var conversations: [DirectConversationItem] = [
-        DirectConversationItem(id: "d1", contactName: "Alice Smith", contactHandle: "@alice_s", lastMessage: "Hey! Let's catch up on the SwiftUI updates today.", timestamp: "10:45 AM", unreadCount: 3, isOnline: true, isPinned: true, avatarGradient: [.purple, .pink]),
-        DirectConversationItem(id: "d2", contactName: "Sarah Connor", contactHandle: "@sconnor", lastMessage: "The architecture review slides look great 🚀", timestamp: "9:12 AM", unreadCount: 0, isOnline: true, isPinned: true, avatarGradient: [.blue, .teal]),
-        DirectConversationItem(id: "d3", contactName: "Bob Jones", contactHandle: "@bobj", lastMessage: "Sent you the file link in Drive.", timestamp: "Yesterday", unreadCount: 1, isOnline: false, isPinned: false, avatarGradient: [.orange, .red]),
-        DirectConversationItem(id: "d4", contactName: "David Kim", contactHandle: "@dkim", lastMessage: "Can you re-send the meeting invite?", timestamp: "Oct 12", unreadCount: 0, isOnline: false, isPinned: false, avatarGradient: [.green, .teal]),
-        DirectConversationItem(id: "d5", contactName: "Elena Rostova", contactHandle: "@elena_r", lastMessage: "Thanks for the feedback on the PR!", timestamp: "Oct 10", unreadCount: 0, isOnline: true, isPinned: false, avatarGradient: [.indigo, .purple])
-    ]
+    @State private var conversations: [DirectConversationItem] = []
+    private var onConversationClick: ((DirectConversationItem) -> Void)?
+    private var onNewChatClick: (() -> Void)?
 
-    public init() {}
+    public init(
+        onConversationClick: ((DirectConversationItem) -> Void)? = nil,
+        onNewChatClick: (() -> Void)? = nil
+    ) {
+        self.onConversationClick = onConversationClick
+        self.onNewChatClick = onNewChatClick
+    }
 
     private var filteredConversations: [DirectConversationItem] {
         conversations.filter { conv in
@@ -107,7 +109,10 @@ public struct DirectMessagesView: View {
                 }
 
                 // New Direct Message Floating Button
-                Button(action: { showNewChatSheet = true }) {
+                Button(action: {
+                    onNewChatClick?()
+                    showNewChatSheet = true
+                }) {
                     Image(systemName: "square.and.pencil")
                         .font(.title2.bold())
                         .foregroundColor(.white)
@@ -128,7 +133,29 @@ public struct DirectMessagesView: View {
             .sheet(isPresented: $showNewChatSheet) {
                 newDirectMessageSheet
             }
+            .task { await loadDirectChats() }
         }
+    }
+
+    private func loadDirectChats() async {
+        _ = await AppRuntime.chatRepository.syncChats()
+        let loaded = await AppRuntime.chatRepository.getChats()
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        conversations = (loaded.data ?? [])
+            .filter { $0.type == .direct && !$0.isMingle }
+            .map { chat in
+                DirectConversationItem(
+                    id: chat.otherUserId?.isEmpty == false ? chat.otherUserId! : chat.id,
+                    contactName: chat.senderName.isEmpty ? "Direct" : chat.senderName,
+                    contactHandle: chat.phoneNumber ?? "",
+                    lastMessage: chat.lastMessage,
+                    timestamp: chat.timestamp > 0 ? formatter.string(from: Date(timeIntervalSince1970: Double(chat.timestamp) / 1000)) : "",
+                    unreadCount: chat.unreadCount,
+                    isOnline: chat.isOnline,
+                    isPinned: chat.isPinned
+                )
+            }
     }
 
     // MARK: - Subviews
@@ -191,7 +218,9 @@ public struct DirectMessagesView: View {
                             .clipShape(Capsule())
                     }
                 }
-            }
+         contentShape(Rectangle())
+        .onTapGesture { onConversationClick?(item) }
+        .   }
         }
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {

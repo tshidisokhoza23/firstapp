@@ -15,7 +15,7 @@ public final class NetworkClient: @unchecked Sendable {
     private let baseURL: URL
 
     public init(
-        baseURL: URL = URL(string: "https://api.tj.app")!,
+        baseURL: URL = URL(string: AppBackend.apiBaseURL)!,
         session: URLSession = .shared
     ) {
         self.baseURL = baseURL
@@ -82,6 +82,9 @@ public final class NetworkClient: @unchecked Sendable {
 
         if req.value(forHTTPHeaderField: "Content-Type") == nil {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        if req.value(forHTTPHeaderField: "Authorization") == nil, let token = SessionStore.shared.token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response) = try await session.data(for: req)

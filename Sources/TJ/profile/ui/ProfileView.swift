@@ -7,9 +7,18 @@ public struct ProfileView: View {
     @State private var selectedProfileTab: Int = 0
     @State private var showQRCodeSheet: Bool = false
     @State private var isFollowing: Bool = false
+    @State private var loadedUser: User? = nil
+    @State private var tabPosts: [FeedPost] = []
+
+    private var resolvedUserId: String {
+        if userId != "me" && userId != "currentUser" && !userId.isEmpty { return userId }
+        return loadedUser?.id ?? SessionStore.shared.userId ?? ""
+    }
 
     private var isOwnProfile: Bool {
-        userId == "currentUser" || userId.isEmpty
+        if userId == "me" || userId == "currentUser" || userId.isEmpty { return true }
+        if let me = SessionStore.shared.userId, me == userId { return true }
+        return false
     }
 
     private let profileTabs = ["Posts", "Replies", "Media", "Shorts"]
@@ -25,11 +34,11 @@ public struct ProfileView: View {
                 // Header & Avatar Row
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(isOwnProfile ? "Alex Morgan" : "User Profile")
+                        Text(loadedUser?.displayName.isEmpty == false ? loadedUser!.displayName : (isOwnProfile ? "Your profile" : "User Profile"))
                             .font(.title)
                             .fontWeight(.bold)
 
-                        Text(isOwnProfile ? "@alexmorgan" : "@user_\(userId.prefix(6))")
+                        Text(loadedUser?.username.isEmpty == false ? "@\(loadedUser!.username)" : "@user")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -38,14 +47,15 @@ public struct ProfileView: View {
 
                     // Avatar with QR Code Quick Trigger
                     ZStack(alignment: .bottomTrailing) {
-                        Circle()
-                            .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 80, height: 80)
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.white)
-                            )
+                        AsyncImage(url: FeedPost.resolve(loadedUser?.avatarUrl)) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Circle()
+                                .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .overlay(Image(systemName: "person.fill").font(.system(size: 40)).foregroundColor(.white))
+                        }
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
 
                         Button(action: { showQRCodeSheet = true }) {
                             Circle()
@@ -63,7 +73,7 @@ public struct ProfileView: View {
                 .padding(.horizontal, 16)
 
                 // Bio & Status
-                Text("Senior Mobile Engineer & Open Source Contributor. Building awesome iOS & Android applications. 🚀")
+                Text(loadedUser?.bio?.isEmpty == false ? loadedUser!.bio! : "No bio yet.")
                     .font(.body)
                     .foregroundColor(.primary)
                     .padding(.horizontal, 16)
@@ -71,20 +81,20 @@ public struct ProfileView: View {
                 // Stats Row
                 HStack(spacing: 16) {
                     HStack(spacing: 4) {
-                        Text("1,240").fontWeight(.bold)
+                        Text("\(loadedUser?.followersCount ?? 0)").fontWeight(.bold)
                         Text("Followers").foregroundColor(.secondary)
                     }
                     .font(.subheadline)
 
                     HStack(spacing: 4) {
-                        Text("380").fontWeight(.bold)
+                        Text("\(loadedUser?.followingCount ?? 0)").fontWeight(.bold)
                         Text("Following").foregroundColor(.secondary)
                     }
                     .font(.subheadline)
 
                     HStack(spacing: 4) {
-                        Text("12.5K").fontWeight(.bold)
-                        Text("Views").foregroundColor(.secondary)
+                        Text(String(format: "%.0f", loadedUser?.walletBalance ?? 0)).fontWeight(.bold)
+                        Text("Points").foregroundColor(.secondary)
                     }
                     .font(.subheadline)
                 }
@@ -113,7 +123,7 @@ public struct ProfileView: View {
                                 .cornerRadius(20)
                         }
                     } else {
-                        Button(action: { isFollowing.toggle() }) {
+                        Button(action: toggleFollow) {
                             Text(isFollowing ? "Following" : "Follow")
                                 .fontWeight(.semibold)
                                 .frame(maxWidth: .infinity)
@@ -123,7 +133,7 @@ public struct ProfileView: View {
                                 .cornerRadius(20)
                         }
 
-                        Button(action: { router.navigate(to: .chatDetail(conversationId: userId, participantName: "User")) }) {
+                        Button(action: { router.navigate(to: .chatDetail(conversationId: resolvedUserId, participantName: loadedUser?.displayName)) }) {
                             Text("Message")
                                 .fontWeight(.semibold)
                                 .frame(maxWidth: .infinity)
@@ -140,7 +150,10 @@ public struct ProfileView: View {
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
                         ForEach(0..<profileTabs.count, id: \.self) { index in
-                            Button(action: { selectedProfileTab = index }) {
+                            Button(action: {
+                                selectedProfileTab = index
+                                Task { await loadTabPosts() }
+                            }) {
                                 VStack(spacing: 8) {
                                     Text(profileTabs[index])
                                         .font(.subheadline)
@@ -159,38 +172,50 @@ public struct ProfileView: View {
                 }
                 .padding(.top, 8)
 
-                // Tab Content Body
                 VStack(spacing: 16) {
-                    switch selectedProfileTab {
-                    case 0:
-                        ProfilePostItemView(title: "Architecture patterns in Swift 5.9 and SwiftUI", timestamp: "2h ago", likes: 42, comments: 8)
-                        ProfilePostItemView(title: "WebRTC peer connection state handling tips", timestamp: "1d ago", likes: 128, comments: 24)
-                    case 1:
-                        ProfilePostItemView(title: "Replying to @developer: Exactly, SwiftUI state management makes this seamless!", timestamp: "3h ago", likes: 12, comments: 2)
-                    case 2:
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.purple.opacity(0.3))
-                                .frame(height: 120)
-                                .overlay(Image(systemName: "photo.fill").font(.title))
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.blue.opacity(0.3))
-                                .frame(height: 120)
-                                .overlay(Image(systemName: "video.fill").font(.title))
-                        }
-                        .padding(.horizontal, 16)
-                    case 3:
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                            ForEach(0..<3) { idx in
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.orange.opacity(0.3))
-                                    .frame(height: 160)
-                                    .overlay(Image(systemName: "play.circle.fill").font(.title))
+                    if tabPosts.isEmpty {
+                        Text("Nothing here yet")
+                            .foregroundColor(.secondary)
+                            .padding(.top, 24)
+                    } else if selectedProfileTab == 2 || selectedProfileTab == 3 {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: selectedProfileTab == 3 ? 3 : 2), spacing: 8) {
+                            ForEach(tabPosts) { post in
+                                Button {
+                                    Task {
+                                        await MediaActions.like(post.id)
+                                        await loadTabPosts()
+                                    }
+                                } label: {
+                                    AsyncImage(url: post.mediaURL) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Color.gray.opacity(0.2)
+                                    }
+                                    .frame(height: selectedProfileTab == 3 ? 160 : 120)
+                                    .clipped()
+                                    .cornerRadius(12)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 16)
-                    default:
-                        EmptyView()
+                    } else {
+                        ForEach(tabPosts) { post in
+                            Button {
+                                Task {
+                                    await MediaActions.like(post.id)
+                                    await loadTabPosts()
+                                }
+                            } label: {
+                                ProfilePostItemView(
+                                    title: post.content.isEmpty ? post.title : post.content,
+                                    timestamp: "",
+                                    likes: post.likes,
+                                    comments: post.repliesCount
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
@@ -199,15 +224,54 @@ public struct ProfileView: View {
         .navigationTitle(isOwnProfile ? "My Profile" : "Profile")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showQRCodeSheet) {
-            ProfileQRCodeSheetView(handle: "@alexmorgan")
+            ProfileQRCodeSheetView(handle: "@\(loadedUser?.username ?? "user")")
+        }
+        .task { await loadProfile() }
+    }
+
+    private func loadProfile() async {
+        let path = (userId == "me" || userId == "currentUser" || userId.isEmpty) ? "users/me" : "users/\(userId)"
+        if let data = try? await API.data(path),
+           let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: data) {
+            loadedUser = envelope.user
+            isFollowing = envelope.user.isFollowing
+            if path == "users/me" { SessionStore.shared.updateUser(envelope.user) }
+        } else if path == "users/me" {
+            loadedUser = SessionStore.shared.user
+        }
+        await loadTabPosts()
+    }
+
+    private func loadTabPosts() async {
+        let type: String
+        switch selectedProfileTab {
+        case 1: type = "reply"
+        case 2: type = "media"
+        case 3: type = "short"
+        default: type = "standard"
+        }
+        tabPosts = await MediaActions.userPosts(userId: resolvedUserId, type: type)
+    }
+
+    private func toggleFollow() {
+        let id = resolvedUserId
+        guard !id.isEmpty else { return }
+        let next = !isFollowing
+        isFollowing = next
+        Task {
+            let path = next ? "users/\(id)/follow" : "users/\(id)/unfollow"
+            if (try? await API.data(path, method: "POST")) == nil {
+                isFollowing = !next
+            }
         }
     }
 
     private func shareProfile() {
-        let text = "Check out my profile on TJ App: https://tjapp.com/u/alexmorgan"
+        let handle = loadedUser?.username ?? "me"
+        let text = "Check out my profile on TJ: https://tjapp.com/u/\(handle)"
         let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = scene.windows.first?.rootViewController {
             rootVC.present(av, animated: true)
         }
     }

@@ -160,7 +160,7 @@ public final class MingleRepository: ObservableObject, MingleRepositoryProtocol 
 
     private let baseURL: URL
 
-    public init(baseURL: URL = URL(string: "https://api.tj.app/mingle")!) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL + "/mingle")!) {
         self.baseURL = baseURL
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 public struct ChatTabView: View {
     @StateObject public var viewModel: ChatViewModel
@@ -19,6 +20,9 @@ public struct ChatTabView: View {
     @State private var activeJobDetail: Job? = nil
     @State private var showCreateChannel: Bool = false
     @State private var showPostJob: Bool = false
+    @State private var activeStory: UserStory? = nil
+    @State private var showAddStory: Bool = false
+    @State private var storyDraft: String = ""
 
     @MainActor public init(
         viewModel: ChatViewModel? = nil,
@@ -133,6 +137,7 @@ public struct ChatTabView: View {
             viewModel.fetchChats()
             channelsViewModel.fetchChannels()
             jobViewModel.fetchJobs()
+            Task { _ = await storyRepository.syncStories() }
         }
         .sheet(item: $activeChannelDetail) { ch in
             ChannelDetailView(
@@ -152,6 +157,35 @@ public struct ChatTabView: View {
                 }
             )
         }
+        .fullScreenCover(item: $activeStory) { story in
+            StoryViewer(story: story, onClose: { activeStory = nil })
+        }
+        .sheet(isPresented: $showAddStory) {
+            StoryComposerSheet(draft: $storyDraft) { text, file in
+                showAddStory = false
+                storyDraft = ""
+                Task {
+                    do {
+                        var contentURL: String?
+                        var type = "text"
+                        if let file {
+                            let data = try Data(contentsOf: file.url)
+                            let isVideo = ["mp4", "mov", "m4v"].contains(file.url.pathExtension.lowercased())
+                            type = isVideo ? "video" : "image"
+                            contentURL = try await MediaActions.upload(
+                                data: data,
+                                filename: file.url.lastPathComponent,
+                                mime: isVideo ? "video/mp4" : "image/jpeg",
+                                folder: "stories"
+                            )
+                        }
+                        _ = try await storyRepository.createStory(content: text, contentUrl: contentURL, type: type)
+                    } catch {
+                        print("[Story] \(error)")
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Chats Tab Content
@@ -163,8 +197,8 @@ public struct ChatTabView: View {
                     // Stories Horizontal Row
                     StoriesHeaderRow(
                         stories: storyRepository.userStories,
-                        onStoryClick: { _ in },
-                        onAddStoryClick: {}
+                        onStoryClick: { activeStory = $0 },
+                        onAddStoryClick: { showAddStory = true }
                     )
                     .padding(.vertical, 8)
 
@@ -352,6 +386,21 @@ public struct ChatTabView: View {
                 .background(Color(UIColor.secondarySystemBackground))
                 .cornerRadius(16)
 
+                if case .success(let dash) = rewardViewModel.uiState {
+                    Text("Ads today \(dash.adsWatchedToday)/\(max(dash.maxDailyAds, 1))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    ForEach(dash.tasks) { task in
+                        HStack {
+                            Text(task.title)
+                            Spacer()
+                            Text("\(Int(task.points))")
+                                .foregroundColor(task.isCompleted ? .secondary : .accentColor)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                }
+
                 Button(action: {
                     rewardViewModel.showRewardedAd(taskId: "daily_ad", onReward: {})
                 }) {
@@ -371,6 +420,43 @@ public struct ChatTabView: View {
                 Spacer()
             }
             .padding(.horizontal, 24)
+        }
+    }
+}
+
+private struct StoryComposerSheet: View {
+    @Binding var draft: String
+    var onPost: (String, PickedFile?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var photoItem: PhotosPickerItem?
+    @State private var file: PickedFile?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("What's happening?", text: $draft, axis: .vertical)
+                PhotosPicker(selection: $photoItem, matching: .any(of: [.images, .videos])) {
+                    Label(file == nil ? "Add photo or video" : "Media attached", systemImage: "photo")
+                }
+            }
+            .navigationTitle("New story")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Post") {
+                        onPost(draft, file)
+                    }
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && file == nil)
+                }
+            }
+            .onChange(of: photoItem) { item in
+                guard let item else { return }
+                Task {
+                    file = try? await item.loadTransferable(type: PickedFile.self)
+                }
+            }
         }
     }
 }

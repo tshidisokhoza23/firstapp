@@ -51,7 +51,7 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
     private let currentUserId: String
 
     public init(
-        baseURL: URL = URL(string: "https://api.tj.app/stories")!,
+        baseURL: URL = URL(string: AppBackend.apiBaseURL + "/chats/stories")!,
         currentUserId: String = "me"
     ) {
         self.baseURL = baseURL
@@ -76,16 +76,8 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
     @discardableResult
     public func syncStories() async -> Bool {
         do {
-            let url = baseURL.appendingPathComponent("feed")
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
-
-            struct StoryFeedResponse: Codable {
-                let stories: [UserStory]
-            }
-
-            let decoded = try JSONDecoder().decode(StoryFeedResponse.self, from: data)
-            mergeAndPrune(decoded.stories)
+            let data = try await API.data("chats/stories")
+            mergeAndPrune(UserStory.decodeFeed(data))
             return true
         } catch {
             print("[StoryRepository] Sync error: \(error)")
@@ -101,30 +93,16 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
         type: String = "text",
         privacy: String = "contacts"
     ) async throws -> Bool {
-        let url = baseURL.appendingPathComponent("create")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any?] = [
+        var body: [String: Any] = [
             "content": content.trimmingCharacters(in: .whitespacesAndNewlines),
-            "content_url": contentUrl,
             "story_type": type.lowercased(),
             "privacy": privacy
         ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body.compactMapValues { $0 })
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw URLError(.badServerResponse)
-        }
-
-        struct CreateStoryResponse: Codable {
-            let story: StoryItem?
-        }
-
-        let apiItem = (try? JSONDecoder().decode(CreateStoryResponse.self, from: data))?.story
+        if let contentUrl, !contentUrl.isEmpty { body["content_url"] = contentUrl }
+        let data = try await API.data("chats/stories", method: "POST", json: body)
+        let apiItem = UserStory.decodeFeed(data).first?.stories.first
         cacheOwnPostedStory(apiItem: apiItem, content: content, contentUrl: contentUrl, type: type)
+        _ = await syncStories()
         return true
     }
 
@@ -143,30 +121,23 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
 
         guard !storyId.hasPrefix("local_") && !storyId.hasPrefix("ad_") else { return true }
 
-        let url = baseURL.appendingPathComponent("\(storyId)/view")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        let (_, response) = try await URLSession.shared.data(for: request)
-        return (response as? HTTPURLResponse)?.statusCode == 200
+        _ = try await API.data("chats/stories/\(storyId)/view", method: "POST")
+        return true
     }
 
     // MARK: - Delete Story
 
     public func deleteStory(storyId: String) async throws -> Bool {
-        let url = baseURL.appendingPathComponent(storyId)
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-
-        let (_, response) = try await URLSession.shared.data(for: request)
-        let success = (response as? HTTPURLResponse)?.statusCode == 200
-
-        if success {
-            for index in userStories.indices {
-                userStories[index].stories.removeAll { $0.id == storyId }
-            }
-            userStories.removeAll { $0.stories.isEmpty }
+        do {
+            _ = try await API.data("chats/stories/\(storyId)", method: "DELETE")
+        } catch {
+            return false
         }
-        return success
+        for index in userStories.indices {
+            userStories[index].stories.removeAll { $0.id == storyId }
+        }
+        userStories.removeAll { $0.stories.isEmpty }
+        return true
     }
 
     // MARK: - Mute Story

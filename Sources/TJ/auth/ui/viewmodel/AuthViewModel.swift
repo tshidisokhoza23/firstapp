@@ -11,16 +11,20 @@ public final class AuthViewModel: ObservableObject {
 
     public private(set) var lastRequestedPhone: String = ""
     private var pendingAuthResponse: AuthResponse? = nil
+    private let api = AuthApi()
 
     public init() {}
 
     public func login(username: String, password: String) {
         authState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            let user = User(id: "1", username: username, displayName: username)
-            let response = AuthResponse(token: "token_abc", refreshToken: "refresh_xyz", user: user)
-            self.authState = .success(response)
+            do {
+                let response = try await api.login(request: LoginRequest(username: username, password: password))
+                self.saveToken(response)
+                self.authState = .success(response)
+            } catch {
+                self.authState = .error(error.localizedDescription)
+            }
         }
     }
 
@@ -28,20 +32,26 @@ public final class AuthViewModel: ObservableObject {
         lastRequestedPhone = phoneNumber
         otpState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            self.otpState = .success("OTP sent to \(phoneNumber)")
+            do {
+                var body = ["phone_number": phoneNumber]
+                if let countryCode, !countryCode.isEmpty { body["country_code"] = countryCode }
+                let response = try await api.requestOTP(body: body)
+                self.otpState = .success(response.message ?? response.status)
+            } catch {
+                self.otpState = .error(error.localizedDescription)
+            }
         }
     }
 
     public func verifyOTP(phoneNumber: String, code: String, onVerified: @escaping () -> Void) {
         otpState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            if code.count == 6 {
+            do {
+                _ = try await api.verifyOTP(body: ["phone_number": phoneNumber, "code": code])
                 self.otpState = .success("Verified")
                 onVerified()
-            } else {
-                self.otpState = .error("Verification failed. Invalid code.")
+            } catch {
+                self.otpState = .error(error.localizedDescription)
             }
         }
     }
@@ -56,22 +66,47 @@ public final class AuthViewModel: ObservableObject {
     ) {
         authState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            let user = User(id: UUID().uuidString, username: username, email: email, displayName: displayName, phoneNumber: phoneNumber)
-            let response = AuthResponse(token: "token_reg", refreshToken: "refresh_reg", user: user)
-            self.saveToken(response)
-            self.authState = .success(response)
+            do {
+                let response = try await api.register(request: RegisterRequest(
+                    username: username,
+                    email: email,
+                    displayName: displayName,
+                    phoneNumber: phoneNumber,
+                    password: password,
+                    countryCode: countryCode
+                ))
+                self.saveToken(response)
+                self.authState = .success(response)
+            } catch {
+                self.authState = .error(error.localizedDescription)
+            }
         }
     }
 
     public func googleSignIn(idToken: String) {
         authState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            let user = User(id: "google_123", username: "google_user", email: "user@gmail.com", displayName: "Google User")
-            let response = AuthResponse(token: "google_token", refreshToken: "google_refresh", user: user)
-            self.saveToken(response)
-            self.authState = .success(response)
+            do {
+                let response = try await api.googleSignIn(idToken: idToken)
+                self.saveToken(response)
+                self.authState = .success(response)
+            } catch {
+                self.authState = .error(error.localizedDescription)
+            }
+        }
+    }
+
+    public func signInWithGoogle() {
+        authState = .loading()
+        Task {
+            do {
+                let idToken = try await GoogleSignInService.shared.signIn()
+                let response = try await api.googleSignIn(idToken: idToken)
+                self.saveToken(response)
+                self.authState = .success(response)
+            } catch {
+                self.authState = .error(error.localizedDescription)
+            }
         }
     }
 
@@ -83,24 +118,36 @@ public final class AuthViewModel: ObservableObject {
     ) {
         authState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            let user = User(
-                id: "1",
-                username: username ?? "user",
-                displayName: displayName ?? "User",
-                phoneNumber: phoneNumber ?? ""
-            )
-            let response = AuthResponse(token: "session_token", refreshToken: "session_refresh", user: user)
-            self.authState = .success(response)
+            do {
+                let user = try await api.completeProfile(
+                    displayName: displayName,
+                    username: username,
+                    phoneNumber: phoneNumber,
+                    categories: categories
+                )
+                SessionStore.shared.updateUser(user)
+                let response = AuthResponse(
+                    token: SessionStore.shared.token ?? "",
+                    refreshToken: SessionStore.shared.refreshToken,
+                    user: user
+                )
+                self.authState = .success(response)
+            } catch {
+                self.authState = .error(error.localizedDescription)
+            }
         }
     }
 
     public func forgotPassword(emailOrUsername: String) {
         authState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            self.toastMessage = "Reset link sent!"
-            self.authState = nil
+            do {
+                _ = try await api.forgotPassword(request: ForgotPasswordRequest(emailOrUsername: emailOrUsername))
+                self.toastMessage = "Reset link sent!"
+                self.authState = nil
+            } catch {
+                self.authState = .error(error.localizedDescription)
+            }
         }
     }
 
@@ -117,7 +164,9 @@ public final class AuthViewModel: ObservableObject {
     }
 
     private func saveToken(_ authResponse: AuthResponse?) {
-        // SessionManager persistence logic
+        guard let authResponse else { return }
+        SessionStore.shared.save(token: authResponse.token, refreshToken: authResponse.refreshToken, user: authResponse.user)
+        AppRuntime.connectRealtime()
     }
 
     public func resetState() {
@@ -149,9 +198,23 @@ public final class AuthViewModel: ObservableObject {
     ) {
         authState = .loading()
         Task {
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            self.authState = nil
-            onResult(true)
+            do {
+                let availability = try await api.checkAvailability(username: username, email: email, phone: phone)
+                var allAvailable = !availability.isEmpty
+                for (field, isAvailable) in availability {
+                    if !isAvailable {
+                        allAvailable = false
+                        setFieldError(field: field, error: "\(field) is already taken")
+                    } else {
+                        setFieldError(field: field, error: nil)
+                    }
+                }
+                self.authState = allAvailable ? nil : .error("Some details are already taken")
+                onResult(allAvailable)
+            } catch {
+                self.authState = .error(error.localizedDescription)
+                onResult(false)
+            }
         }
     }
 }

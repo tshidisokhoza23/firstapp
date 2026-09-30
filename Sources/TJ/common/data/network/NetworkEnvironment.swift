@@ -6,8 +6,8 @@ public enum NetworkMode: String, Codable, Sendable, CaseIterable {
 }
 
 public struct NetworkConstants {
-    public static var defaultBaseURL: String = "https://api.tj.app"
-    public static var defaultWsURL: String = "wss://api.tj.app"
+    public static var defaultBaseURL: String = AppBackend.stagingAPI
+    public static var defaultWsURL: String = AppBackend.stagingAPI.replacingOccurrences(of: "https://", with: "wss://")
 
     public static func formatMediaUrl(_ url: String?) -> String? {
         guard let url = url, !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -32,10 +32,10 @@ public final class NetworkEnvironmentManager: @unchecked Sendable {
 
     public init(
         userDefaults: UserDefaults = .standard,
-        activeUrl: String = "https://active-api.tj.app",
-        passiveUrl: String = "https://passive-api.tj.app",
-        activeWsUrl: String = "wss://active-api.tj.app",
-        passiveWsUrl: String = "wss://passive-api.tj.app"
+        activeUrl: String = AppBackend.stagingAPI,
+        passiveUrl: String = AppBackend.productionAPI,
+        activeWsUrl: String = AppBackend.stagingAPI.replacingOccurrences(of: "https://", with: "wss://"),
+        passiveWsUrl: String = AppBackend.productionAPI.replacingOccurrences(of: "https://", with: "wss://")
     ) {
         self.userDefaults = userDefaults
         self.activeUrl = activeUrl

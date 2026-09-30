@@ -21,44 +21,59 @@ public class RewardViewModel: ObservableObject {
 
     public init() {
         fetchDashboard()
-        fetchAdverts()
+        adverts = .success([])
+        viewedAdverts = .success([])
     }
 
     public func fetchDashboard() {
         uiState = .loading
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            let dash = RewardDashboard(
-                totalPoints: self?.points ?? 0.0,
-                adsWatchedToday: self?.hourlyAdCount ?? 0,
+        Task {
+            if let data = try? await API.data("rewards/dashboard"),
+               let dash = try? JSONDecoder().decode(RewardDashboard.self, from: data) {
+                self.points = dash.totalPoints
+                self.hourlyAdCount = dash.adsWatchedToday
+                self.cooldownRemainingSeconds = dash.cooldownRemainingSeconds
+                self.hasRewardedAdsAvailable = dash.adsWatchedToday < dash.maxDailyAds && dash.cooldownRemainingSeconds == 0
+                self.uiState = .success(dash)
+                return
+            }
+            var balance = SessionStore.shared.user?.walletBalance ?? points
+            if let data = try? await API.data("rewards/balance"),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let value = json["balance"] as? Double { balance = value }
+                else if let value = json["balance"] as? Int { balance = Double(value) }
+            }
+            self.points = balance
+            self.uiState = .success(RewardDashboard(
+                totalPoints: balance,
+                adsWatchedToday: self.hourlyAdCount,
                 maxDailyAds: 5,
-                cooldownRemainingSeconds: self?.cooldownRemainingSeconds ?? 0,
+                cooldownRemainingSeconds: self.cooldownRemainingSeconds,
                 tasks: []
-            )
-            self?.uiState = .success(dash)
+            ))
         }
     }
 
     public func fetchAdverts() {
-        var list: [Advert] = []
-        for i in 1...30 {
-            list.append(
-                Advert(
-                    id: "virtual_ad_\(i)",
-                    advertiserName: "TJ Rewards",
-                    title: "Extra Reward Slot #\(i)",
-                    contentText: "Watch ad to earn points",
-                    isViewed: false
-                )
-            )
-        }
-        adverts = .success(list)
+        adverts = .success([])
     }
 
     public func showRewardedAd(taskId: String, onReward: @escaping () -> Void) {
-        points += 10.0
-        toastMessage = "Earned 10 points!"
-        onReward()
-        fetchDashboard()
+        Task {
+            do {
+                _ = try await API.data("rewards/award", method: "POST", json: [
+                    "amount": 10.0,
+                    "source": "REWARDED_AD",
+                    "description": "Watched rewarded ad",
+                    "task_id": taskId
+                ])
+                toastMessage = "Earned 10 points!"
+                onReward()
+            } catch {
+                toastMessage = "Reward not awarded"
+            }
+            fetchDashboard()
+        }
     }
 
     public func clearToast() {

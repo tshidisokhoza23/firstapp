@@ -74,7 +74,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
 
     private let baseURL: URL
 
-    public init(baseURL: URL = URL(string: "https://api.tj.app/chat/direct")!) {
+    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL + "/chats")!) {
         self.baseURL = baseURL
     }
 
@@ -96,7 +96,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
     @discardableResult
     public func syncDirectChats() async -> Bool {
         do {
-            let url = baseURL.appendingPathComponent("list")
+            let url = URL(string: AppBackend.apiBaseURL + "/conversations")!
             let (data, response) = try await URLSession.shared.data(from: url)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
 
@@ -129,7 +129,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
     // MARK: - Initiate DM
 
     public func initiateDM(contactId: String) async throws -> String {
-        let url = baseURL.appendingPathComponent("initiate")
+        let url = URL(string: AppBackend.apiBaseURL + "/chats/dm")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
