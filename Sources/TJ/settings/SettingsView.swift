@@ -5,25 +5,32 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isDarkMode: Bool = false
     @State private var selectedLanguage: String = "English"
+    @State private var showingEditProfile: Bool = false
 
     var body: some View {
         NavigationView {
             List {
                 Section(header: Text("Account")) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .resizable()
-                            .frame(width: 50, height: 50)
-                            .foregroundColor(AppColors.greyMedium)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(authViewModel.currentUser.name)
-                                .font(.headline)
-                            Text(authViewModel.currentUser.phoneNumber)
-                                .font(.subheadline)
+                    Button(action: { showingEditProfile = true }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.fill")
+                                .resizable()
+                                .frame(width: 50, height: 50)
+                                .foregroundColor(AppColors.greyMedium)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(authViewModel.currentUser.name)
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Text(authViewModel.currentUser.phoneNumber)
+                                    .font(.subheadline)
+                                    .foregroundColor(AppColors.greyMedium)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
                                 .foregroundColor(AppColors.greyMedium)
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
                 }
 
                 Section(header: Text("Preferences")) {
@@ -61,6 +68,9 @@ struct SettingsView: View {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showingEditProfile) {
+                EditProfileView()
             }
         }
     }

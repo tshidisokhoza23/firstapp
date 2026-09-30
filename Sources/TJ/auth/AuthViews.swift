@@ -3,14 +3,13 @@ import SwiftUI
 struct LoginView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var showingOtpStep: Bool = false
+    @State private var showingCountryPicker: Bool = false
 
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: "sparkles")
-                .font(.system(size: 64))
-                .foregroundColor(AppColors.brandAccent)
+            AppLogo(size: 48)
 
             Text("Welcome to TJ")
                 .font(.largeTitle)
@@ -22,12 +21,15 @@ struct LoginView: View {
                 .foregroundColor(AppColors.greyMedium)
 
             HStack(spacing: 12) {
-                Text(authViewModel.selectedCountryCode)
-                    .font(.headline)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 14)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(12)
+                Button(action: { showingCountryPicker = true }) {
+                    Text(authViewModel.selectedCountryCode)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 14)
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(12)
+                }
 
                 TextField("Phone number", text: $authViewModel.phoneNumber)
                     .keyboardType(.phonePad)
@@ -69,6 +71,11 @@ struct LoginView: View {
             .padding(.horizontal)
 
             Spacer()
+        }
+        .sheet(isPresented: $showingCountryPicker) {
+            CountryPickerView { selectedCountry in
+                authViewModel.selectedCountryCode = selectedCountry.code
+            }
         }
     }
 }
