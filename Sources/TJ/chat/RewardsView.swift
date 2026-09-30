@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct RewardsView: View {
+    @ObservedObject var adManager = AdManager.shared
     @State private var dailyBonusClaimed: Bool = false
-    @State private var points: Int = 350
+    @State private var showingRewardedAdModal: Bool = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -13,32 +14,52 @@ struct RewardsView: View {
             Text("TJ Rewards & Points")
                 .font(.title2)
                 .fontWeight(.bold)
-            Text("Your Current Balance: \(points) pts")
+            Text("Your Current Balance: \(adManager.userPoints) pts")
                 .font(.headline)
                 .foregroundColor(AppColors.brandPrimary)
-            Text("Earn points by staying active, chatting, and inviting friends!")
+            Text("Earn points by staying active, watching video ads, chatting, and inviting friends!")
                 .font(.subheadline)
                 .foregroundColor(AppColors.greyMedium)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
-            Button(action: {
-                if !dailyBonusClaimed {
-                    points += 50
-                    dailyBonusClaimed = true
+            VStack(spacing: 12) {
+                Button(action: {
+                    if !dailyBonusClaimed {
+                        adManager.userPoints += 50
+                        dailyBonusClaimed = true
+                    }
+                }) {
+                    Text(dailyBonusClaimed ? "Daily Bonus Claimed! (+50 pts)" : "Claim Daily Bonus (+50 pts)")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(dailyBonusClaimed ? Color.green : AppColors.brandPrimary)
+                        .cornerRadius(16)
                 }
-            }) {
-                Text(dailyBonusClaimed ? "Daily Bonus Claimed! (+50 pts)" : "Claim Daily Bonus (+50 pts)")
+
+                Button(action: {
+                    showingRewardedAdModal = true
+                }) {
+                    HStack {
+                        Image(systemName: "play.tv.fill")
+                        Text("Watch Video Ad (+50 pts)")
+                    }
                     .font(.headline)
                     .foregroundColor(.white)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(dailyBonusClaimed ? Color.green : AppColors.brandPrimary)
+                    .background(Color.orange)
                     .cornerRadius(16)
+                }
             }
             .padding(.horizontal, 32)
 
             Spacer()
+        }
+        .fullScreenCover(isPresented: $showingRewardedAdModal) {
+            RewardedAdModalView()
         }
     }
 }
