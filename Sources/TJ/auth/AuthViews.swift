@@ -75,6 +75,34 @@ struct LoginView: View {
             .padding(.horizontal)
             .disabled(authViewModel.isLoggingIn)
 
+            // Google Sign-In Option
+            if !authViewModel.isOtpSent {
+                HStack {
+                    VStack { Divider() }
+                    Text("or").font(.caption).foregroundColor(AppColors.greyMedium)
+                    VStack { Divider() }
+                }
+                .padding(.horizontal, 32)
+
+                Button(action: {
+                    authViewModel.loginWithGoogle()
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "g.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.red)
+                        Text("Sign in with Google")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(16)
+                }
+                .padding(.horizontal)
+            }
+
             if authViewModel.isOtpSent {
                 Button("Change Phone Number") {
                     authViewModel.isOtpSent = false

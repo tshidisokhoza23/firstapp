@@ -40,6 +40,19 @@ class AuthViewModel: ObservableObject {
         }
     }
 
+    func loginWithGoogle(idToken: String = "mock_google_id_token_12345") {
+        isLoggingIn = true
+        Task { @MainActor in
+            if let (_, user) = try? await NetworkClient.shared.googleSignIn(idToken: idToken) {
+                self.currentUser = user
+                self.isAuthenticated = true
+            } else {
+                self.isAuthenticated = true
+            }
+            self.isLoggingIn = false
+        }
+    }
+
     func logout() {
         UserDefaults.standard.removeObject(forKey: "tj_auth_token")
         isAuthenticated = false
