@@ -2,121 +2,189 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
-    @State private var showingCountryPicker: Bool = false
+    @Environment(\.colorScheme) var colorScheme
+
+    @State private var usernamePhone: String = ""
+    @State private var passwordText: String = ""
+    @State private var isSignUp: Bool = false
+    @State private var showForgotPassword: Bool = false
+    @State private var forgotPasswordId: String = ""
+    @State private var isPasswordVisible: Bool = false
+
+    // Gradient Brush matching Android LoginScreen
+    let gradientBrush = LinearGradient(
+        colors: [Color(red: 0.10, green: 0.14, blue: 0.49), Color(red: 0.0, green: 0.82, blue: 1.0)],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer().frame(height: 60)
 
-            AppLogo(size: 48)
+                // Logo Container Card
+                ZStack {
+                    RoundedRectangle(cornerRadius: 28)
+                        .fill(Color(UIColor.systemBackground))
+                        .frame(width: 120, height: 120)
+                        .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
 
-            Text("Welcome to TJ")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(AppColors.brandPrimary)
+                    AppLogo(size: 40)
+                }
 
-            Text(authViewModel.isOtpSent ? "Enter the 6-digit verification code" : "Enter your phone number to log in")
-                .font(.subheadline)
-                .foregroundColor(AppColors.greyMedium)
+                Spacer().frame(height: 32)
 
-            if !authViewModel.isOtpSent {
+                // Headings
+                Text(isSignUp ? "Create Account" : "Welcome Back")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.primary)
+
+                Text(isSignUp ? "Join TJ today" : "Login to continue")
+                    .font(.system(size: 15))
+                    .foregroundColor(AppColors.greyMedium)
+                    .padding(.top, 4)
+
+                Text("by TPSK")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(AppColors.greyMedium.opacity(0.6))
+                    .padding(.top, 2)
+
+                Spacer().frame(height: 36)
+
+                // Info Banner for Google Sign-In
                 HStack(spacing: 12) {
-                    Button(action: { showingCountryPicker = true }) {
-                        Text(authViewModel.selectedCountryCode)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 14)
-                            .background(Color(UIColor.secondarySystemBackground))
-                            .cornerRadius(12)
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(AppColors.brandPrimary)
+
+                    Text("Sign in & sign up are currently supported via Google. Tap below to continue.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.primary)
+                }
+                .padding(14)
+                .background(AppColors.brandPrimary.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal, 24)
+
+                Spacer().frame(height: 24)
+
+                // Disabled Username / Phone Field
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: isSignUp ? "person.fill" : "phone.fill")
+                            .foregroundColor(AppColors.greyMedium.opacity(0.6))
+                        TextField(isSignUp ? "Username" : "Phone Number", text: $usernamePhone)
+                            .disabled(true)
                     }
-
-                    TextField("Phone number", text: $authViewModel.phoneNumber)
-                        .keyboardType(.phonePad)
-                        .font(.headline)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 14)
-                        .background(Color(UIColor.secondarySystemBackground))
-                        .cornerRadius(12)
+                    .padding()
+                    .background(Color(UIColor.tertiarySystemBackground))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(AppColors.greyMedium.opacity(0.2), lineWidth: 1)
+                    )
                 }
-                .padding(.horizontal)
-            } else {
-                TextField("6-digit OTP code", text: $authViewModel.otpCode)
-                    .keyboardType(.numberPad)
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 14)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-            }
+                .padding(.horizontal, 24)
 
-            Button(action: {
-                if authViewModel.isOtpSent {
-                    authViewModel.verifyOTP()
-                } else {
-                    authViewModel.requestOTP()
-                }
-            }) {
-                HStack {
-                    if authViewModel.isLoggingIn {
-                        ProgressView().tint(.white)
+                Spacer().frame(height: 16)
+
+                // Disabled Password Field
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: "lock.fill")
+                            .foregroundColor(AppColors.greyMedium.opacity(0.6))
+
+                        if isPasswordVisible {
+                            TextField("Password", text: $passwordText)
+                                .disabled(true)
+                        } else {
+                            SecureField("Password", text: $passwordText)
+                                .disabled(true)
+                        }
+
+                        Button(action: { isPasswordVisible.toggle() }) {
+                            Image(systemName: isPasswordVisible ? "eye.fill" : "eye.slash.fill")
+                                .foregroundColor(AppColors.greyMedium)
+                        }
                     }
-                    Text(authViewModel.isOtpSent ? "Verify & Sign In" : "Send OTP Code")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                    .padding()
+                    .background(Color(UIColor.tertiarySystemBackground))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(AppColors.greyMedium.opacity(0.2), lineWidth: 1)
+                    )
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(AppColors.brandPrimary)
-                .cornerRadius(16)
-            }
-            .padding(.horizontal)
-            .disabled(authViewModel.isLoggingIn)
+                .padding(.horizontal, 24)
 
-            // Google Sign-In Option
-            if !authViewModel.isOtpSent {
-                HStack {
-                    VStack { Divider() }
-                    Text("or").font(.caption).foregroundColor(AppColors.greyMedium)
-                    VStack { Divider() }
+                if !isSignUp {
+                    HStack {
+                        Spacer()
+                        Button(action: { showForgotPassword = true }) {
+                            Text("Forgot Password?")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(AppColors.brandPrimary)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
                 }
-                .padding(.horizontal, 32)
 
+                Spacer().frame(height: 32)
+
+                // Primary Gradient Google Sign In Button
                 Button(action: {
                     authViewModel.loginWithGoogle()
                 }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "g.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.red)
-                        Text("Sign in with Google")
-                            .font(.headline)
-                            .foregroundColor(.primary)
+                    HStack(spacing: 12) {
+                        if authViewModel.isLoggingIn {
+                            ProgressView().tint(.white)
+                        } else {
+                            Image(systemName: "g.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white)
+
+                            Text("Continue with Google")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(UIColor.secondarySystemBackground))
+                    .frame(height: 56)
+                    .background(gradientBrush)
                     .cornerRadius(16)
+                    .shadow(color: AppColors.brandAccent.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
-                .padding(.horizontal)
-            }
+                .padding(.horizontal, 24)
+                .disabled(authViewModel.isLoggingIn)
 
-            if authViewModel.isOtpSent {
-                Button("Change Phone Number") {
-                    authViewModel.isOtpSent = false
+                Spacer().frame(height: 24)
+
+                // Footer Text
+                HStack(spacing: 4) {
+                    Text("Registration & phone login disabled. ")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppColors.greyMedium)
+
+                    Button(action: {
+                        authViewModel.loginWithGoogle()
+                    }) {
+                        Text("Use Google")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(AppColors.brandPrimary)
+                    }
                 }
-                .font(.subheadline)
-                .foregroundColor(AppColors.brandPrimary)
-            }
 
-            Spacer()
+                Spacer().frame(height: 40)
+            }
         }
-        .sheet(isPresented: $showingCountryPicker) {
-            CountryPickerView { selectedCountry in
-                authViewModel.selectedCountryCode = selectedCountry.code
-            }
+        .alert("Reset Password", isPresented: $showForgotPassword) {
+            TextField("Email or Username", text: $forgotPasswordId)
+            Button("Send", action: {})
+            Button("Cancel", role: .cancel, action: {})
+        } message: {
+            Text("Enter your email or username and we'll send you instructions.")
         }
     }
 }
