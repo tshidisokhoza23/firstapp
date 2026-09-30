@@ -1,34 +1,48 @@
 import SwiftUI
 
-// MARK: - Tab Items
+// MARK: - Bottom Navigation Item Enum (Matching firstapp's BottomNavItem)
 
-public enum TabItem: Int, CaseIterable, Identifiable {
-    case home = 0
-    case calls = 1
-    case channels = 2
-    case profile = 3
-    case settings = 4
+public enum BottomNavItem: Int, CaseIterable, Identifiable {
+    case chat = 0
+    case social = 1
+    case scroll = 2
+    case mingle = 3
+    case stream = 4
+    case ride = 5
+    case more = 6
 
     public var id: Int { rawValue }
 
     public var title: String {
         switch self {
-        case .home: return "Chats"
-        case .calls: return "Calls"
-        case .channels: return "Channels"
-        case .profile: return "Profile"
-        case .settings: return "Settings"
+        case .chat: return "Chat"
+        case .social: return "Social"
+        case .scroll: return "Scroll"
+        case .mingle: return "Court"
+        case .stream: return "Stream"
+        case .ride: return "Ride"
+        case .more: return "More"
         }
     }
 
     public var iconName: String {
         switch self {
-        case .home: return "message.fill"
-        case .calls: return "phone.fill"
-        case .channels: return "megaphone.fill"
-        case .profile: return "person.crop.circle.fill"
-        case .settings: return "gearshape.fill"
+        case .chat: return "bubble.left.and.bubble.right.fill"
+        case .social: return "globe"
+        case .scroll: return "play.tv.fill"
+        case .mingle: return "sparkles"
+        case .stream: return "music.note"
+        case .ride: return "car.fill"
+        case .more: return "ellipsis.circle.fill"
         }
+    }
+
+    public static var barItems: [BottomNavItem] {
+        [.chat, .social, .scroll, .mingle, .more]
+    }
+
+    public static func fromIndex(_ index: Int) -> BottomNavItem {
+        return BottomNavItem(rawValue: index) ?? .chat
     }
 }
 
@@ -37,173 +51,247 @@ public enum TabItem: Int, CaseIterable, Identifiable {
 public struct MainTabView: View {
     @ObservedObject var router: NavigationRouter
     @StateObject private var globalCallState = GlobalCallState.shared
-    @State private var selectedTab: TabItem = .home
+    @StateObject private var chatViewModel = ChatViewModel()
+    @StateObject private var rewardViewModel = RewardViewModel()
 
-    let initialTab: String?
-    let initialSubTab: String?
+    @State private var selectedIndex: Int = 0
+    @State private var lastActiveIndex: Int = 0
+    @State private var showMoreSheet: Bool = false
+    @State private var activeSheetRoute: MoreShortcutRoute? = nil
 
     public init(router: NavigationRouter, initialTab: String? = nil, initialSubTab: String? = nil) {
         self.router = router
-        self.initialTab = initialTab
-        self.initialSubTab = initialSubTab
+    }
+
+    private var currentTab: BottomNavItem {
+        BottomNavItem.fromIndex(selectedIndex)
     }
 
     public var body: some View {
-        ZStack(alignment: .top) {
-            TabView(selection: $selectedTab) {
-                HomeView(router: router)
-                    .tabItem {
-                        Label(TabItem.home.title, systemImage: TabItem.home.iconName)
-                    }
-                    .tag(TabItem.home)
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                // Main Tab Content
+                Group {
+                    switch currentTab {
+                    case .chat:
+                        ChatTabView(
+                            viewModel: chatViewModel,
+                            rewardViewModel: rewardViewModel,
+                            onChatSelected: { chat in
+                                router.navigate(to: .chatDetail(conversationId: chat.id, participantName: chat.displayName))
+                            },
+                            onNewChatClick: {
+                                // New chat action
+                            },
+                            onArchivedClick: {
+                                // Archived chats
+                            },
+                            onProfileClick: {
+                                router.navigate(to: .profile(userId: "me"))
+                            }
+                        )
 
-                CallsHistoryTabView()
-                    .tabItem {
-                        Label(TabItem.calls.title, systemImage: TabItem.calls.iconName)
-                    }
-                    .tag(TabItem.calls)
+                    case .social:
+                        DirectMessagesView(
+                            onConversationClick: { item in
+                                router.navigate(to: .chatDetail(conversationId: item.id, participantName: item.contactName))
+                            },
+                            onNewChatClick: {}
+                        )
 
-                ChannelsTabView()
-                    .tabItem {
-                        Label(TabItem.channels.title, systemImage: TabItem.channels.iconName)
-                    }
-                    .tag(TabItem.channels)
+                    case .scroll:
+                        StoryViewer(
+                            sampleStoryGroup: UserStory(
+                                id: "story_feed",
+                                userId: "user_feed",
+                                userName: "Stories Feed",
+                                stories: []
+                            ),
+                            onClose: {
+                                selectedIndex = lastActiveIndex
+                            }
+                        )
 
-                ProfileView(userId: "currentUser", router: router)
-                    .tabItem {
-                        Label(TabItem.profile.title, systemImage: TabItem.profile.iconName)
-                    }
-                    .tag(TabItem.profile)
+                    case .mingle:
+                        MingleView(
+                            onMatchClick: { _ in },
+                            onUpgradeClick: {}
+                        )
 
-                SettingsView(router: router)
-                    .tabItem {
-                        Label(TabItem.settings.title, systemImage: TabItem.settings.iconName)
+                    case .stream:
+                        MusicPlayerView()
+
+                    case .ride:
+                        DriveView()
+
+                    case .more:
+                        Color.clear
                     }
-                    .tag(TabItem.settings)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Custom Bottom Navigation Bar matching firstapp
+                CustomMainBottomBar(
+                    selectedItem: currentTab,
+                    onSelect: { item in
+                        if item == .more {
+                            showMoreSheet = true
+                        } else {
+                            lastActiveIndex = item.rawValue
+                            selectedIndex = item.rawValue
+                        }
+                    }
+                )
             }
-            .tint(.accentColor)
 
             // Global Active Call Overlay Banner
             if globalCallState.isCallActive {
-                ActiveCallOverlayBanner()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(10)
+                VStack {
+                    ActiveCallOverlayBanner()
+                    Spacer()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(10)
             }
         }
-        .onAppear {
-            if let tabName = initialTab?.lowercased() {
-                switch tabName {
-                case "calls": selectedTab = .calls
-                case "channels": selectedTab = .channels
-                case "profile": selectedTab = .profile
-                case "settings": selectedTab = .settings
-                default: selectedTab = .home
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .sheet(isPresented: $showMoreSheet) {
+            MoreShortcutsSheetView(
+                onSelectRoute: { route in
+                    showMoreSheet = false
+                    switch route {
+                    case .stream:
+                        selectedIndex = BottomNavItem.stream.rawValue
+                    case .ride:
+                        selectedIndex = BottomNavItem.ride.rawValue
+                    case .jobs:
+                        activeSheetRoute = .jobs
+                    case .vocab:
+                        activeSheetRoute = .vocab
+                    case .wallet:
+                        activeSheetRoute = .wallet
+                    case .profile:
+                        router.navigate(to: .profile(userId: "me"))
+                    case .settings:
+                        router.navigate(to: .settings)
+                    }
                 }
+            )
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $activeSheetRoute) { route in
+            switch route {
+            case .stream:
+                MusicPlayerView()
+            case .ride:
+                DriveView()
+            case .jobs:
+                JobProfileView(onClose: { activeSheetRoute = nil })
+            case .vocab:
+                VocabView()
+            case .wallet:
+                WalletView()
+            case .profile:
+                ProfileView(userId: "me", router: router)
+            case .settings:
+                SettingsView(router: router)
             }
         }
     }
 }
 
-// MARK: - Sub-Tab Views & Overlays
+// MARK: - Custom Bottom Navigation Bar Component
 
-struct CallsHistoryTabView: View {
-    var body: some View {
-        NavigationStack {
-            List {
-                Section(header: Text("Recent Calls")) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "phone.arrow.down.left.fill")
-                            .foregroundColor(.green)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Alice Smith")
-                                .fontWeight(.semibold)
-                            Text("Incoming • Today, 10:14 AM")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.blue)
-                    }
+public struct CustomMainBottomBar: View {
+    public let selectedItem: BottomNavItem
+    public let onSelect: (BottomNavItem) -> Void
 
-                    HStack(spacing: 12) {
-                        Image(systemName: "phone.arrow.up.right.fill")
-                            .foregroundColor(.blue)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Bob Jones")
-                                .fontWeight(.semibold)
-                            Text("Outgoing • Yesterday, 4:30 PM")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.blue)
+    public init(selectedItem: BottomNavItem, onSelect: @escaping (BottomNavItem) -> Void) {
+        self.selectedItem = selectedItem
+        self.onSelect = onSelect
+    }
+
+    public var body: some View {
+        HStack(spacing: 0) {
+            ForEach(BottomNavItem.barItems) { item in
+                let isSelected = selectedItem == item
+                Button(action: { onSelect(item) }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: item.iconName)
+                            .font(.system(size: 20, weight: isSelected ? .bold : .regular))
+
+                        Text(item.title)
+                            .font(.system(size: 10, weight: isSelected ? .bold : .medium))
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
                 }
             }
-            .navigationTitle("Calls")
         }
+        .background(Color(uiColor: .systemBackground))
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color.gray.opacity(0.3)),
+            alignment: .top
+        )
     }
 }
 
-struct ChannelsTabView: View {
-    var body: some View {
-        NavigationStack {
-            List {
-                Section(header: Text("Subscribed Channels")) {
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(LinearGradient(colors: [.purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 44, height: 44)
-                            .overlay(Image(systemName: "bolt.fill").foregroundColor(.white))
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Tech Updates & News")
-                                .fontWeight(.semibold)
-                            Text("12.4K subscribers")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+// MARK: - More Shortcuts Sheet View & Routes
+
+public enum MoreShortcutRoute: String, Identifiable {
+    case stream, ride, jobs, vocab, wallet, profile, settings
+    public var id: String { rawValue }
+}
+
+public struct MoreShortcutsSheetView: View {
+    public var onSelectRoute: (MoreShortcutRoute) -> Void
+
+    public init(onSelectRoute: @escaping (MoreShortcutRoute) -> Void) {
+        self.onSelectRoute = onSelectRoute
+    }
+
+    private let shortcuts: [(route: MoreShortcutRoute, title: String, icon: String, color: Color)] = [
+        (.stream, "Stream", "music.note", .purple),
+        (.ride, "Ride / Drive", "car.fill", .blue),
+        (.jobs, "Jobs Portal", "briefcase.fill", .indigo),
+        (.vocab, "Vocab & Cards", "book.fill", .green),
+        (.wallet, "Wallet & Rewards", "creditcard.fill", .orange),
+        (.profile, "My Profile", "person.circle.fill", .teal),
+        (.settings, "Settings", "gearshape.fill", .gray)
+    ]
+
+    public var body: some View {
+        VStack(spacing: 16) {
+            Text("More Services")
+                .font(.system(size: 18, weight: .bold))
+                .padding(.top, 16)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                ForEach(shortcuts, id: \.route) { item in
+                    Button(action: { onSelectRoute(item.route) }) {
+                        VStack(spacing: 8) {
+                            ZStack {
+                                Circle()
+                                    .fill(item.color.opacity(0.15))
+                                    .frame(width: 56, height: 56)
+                                Image(systemName: item.icon)
+                                    .font(.system(size: 24))
+                                    .foregroundColor(item.color)
+                            }
+                            Text(item.title)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
                         }
                     }
                 }
             }
-            .navigationTitle("Channels")
-        }
-    }
-}
-
-struct ActiveCallOverlayBanner: View {
-    @ObservedObject var globalCallState = GlobalCallState.shared
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(Color.green)
-                .frame(width: 10, height: 10)
-
-            Text("Active Call • \(globalCallState.callDurationSeconds)s")
-                .font(.footnote)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+            .padding(.horizontal, 24)
 
             Spacer()
-
-            Button("Return") {
-                // Return to active call screen
-            }
-            .font(.caption)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Color.white.opacity(0.2))
-            .cornerRadius(12)
-            .foregroundColor(.white)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.green)
-        .cornerRadius(16)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .shadow(radius: 4)
     }
 }
