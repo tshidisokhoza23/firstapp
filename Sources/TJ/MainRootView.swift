@@ -3,6 +3,10 @@ import LocalAuthentication
 import Contacts
 import UserNotifications
 
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
+
 // MARK: - Root Navigation Routes
 public enum RootRoute: Hashable {
     case login
@@ -29,8 +33,8 @@ public struct MainRootView: View {
     @State private var isAuthenticated: Bool = false
     @State private var isProfileComplete: Bool = true
     @State private var isBiometricLocked: Bool = false
-    @State private var selectedTab: Int = 0
     @State private var otpPhone: String? = nil
+    @State private var selectedTab: Int = 0
 
     public init() {}
 
@@ -73,42 +77,33 @@ public struct MainRootView: View {
                 )
             }
 
+            // Global Active/Incoming Call Overlay Banner
             if globalCallState.isCallActive {
                 RootActiveCallOverlayBanner(callState: globalCallState)
             }
         }
         .onOpenURL { url in
+            #if canImport(GoogleSignIn)
+            GIDSignIn.sharedInstance.handle(url)
+            #endif
             handleDeepLink(url: url)
         }
         .onAppear {
             checkAuthAndLockStatus()
         }
-        .onReceive(NotificationCenter.default.publisher(for: SessionStore.didChange)) { _ in
-            if SessionStore.shared.isLoggedIn {
-                handleLoginSuccess(response: nil)
-            } else {
-                isAuthenticated = false
-                isProfileComplete = true
-            }
-        }
     }
 
     private func handleLoginSuccess(response: AuthResponse?) {
-        isAuthenticated = SessionStore.shared.isLoggedIn || response?.token.isEmpty == false
-        let user = response?.user ?? SessionStore.shared.user
-        isProfileComplete = user?.isProfileComplete ?? true
-        if isAuthenticated {
-            AppRuntime.connectRealtime()
+        isAuthenticated = true
+        if let user = response?.user, user.displayName.isEmpty {
+            isProfileComplete = false
+        } else {
+            isProfileComplete = true
         }
     }
 
     private func checkAuthAndLockStatus() {
-        if SessionStore.shared.isLoggedIn {
-            isAuthenticated = true
-            isProfileComplete = SessionStore.shared.user?.isProfileComplete ?? true
-            AppRuntime.connectRealtime()
-        }
-        if UserDefaults.standard.bool(forKey: "enable_biometric_lock") && isAuthenticated {
+        if UserDefaults.standard.bool(forKey: "enable_biometric_lock") {
             isBiometricLocked = true
         }
     }
@@ -134,47 +129,63 @@ public struct MainRootView: View {
     }
 }
 
-// MARK: - Biometric Lock Overlay View
+public struct RootActiveCallOverlayBanner: View {
+    @ObservedObject var callState: GlobalCallState
 
-struct BiometricLockOverlayView: View {
-    let onUnlockSuccess: () -> Void
-    @State private var errorMessage: String?
+    public var body: some View {
+        HStack {
+            Text("Active Call")
+                .font(.subheadline.bold())
+                .foregroundColor(.white)
+            Spacer()
+            Button("End") {
+                if let sid = callState.activeSessionId {
+                    callState.onCallEnded(sessionId: sid)
+                }
+            }
+            .font(.caption.bold())
+            .foregroundColor(.red)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.white)
+            .cornerRadius(12)
+        }
+        .padding()
+        .background(Color.green)
+        .cornerRadius(16)
+        .padding(.horizontal)
+        .padding(.top, 40)
+    }
+}
 
-    var body: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "lock.shield.fill")
+public struct BiometricLockOverlayView: View {
+    public var onUnlockSuccess: () -> Void
+
+    public var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "faceid")
                 .font(.system(size: 64))
-                .foregroundColor(.accentColor)
+                .foregroundColor(.blue)
 
             Text("TJ is Locked")
-                .font(.title)
-                .bold()
+                .font(.title2.bold())
 
-            Text("Authenticate with Face ID or Touch ID to continue")
+            Text("Authenticate to access your conversations and security settings.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-
-            if let error = errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-            }
+                .padding(.horizontal, 32)
 
             Button(action: authenticateWithBiometrics) {
-                Label("Unlock with Biometrics", systemImage: "faceid")
-                    .font(.headline)
+                Text("Unlock with Face ID / Touch ID")
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color.accentColor)
-                    .foregroundColor(.white)
+                    .background(Color.blue)
                     .cornerRadius(12)
+                    .padding(.horizontal, 32)
             }
-            .padding(.horizontal, 40)
-        }
-        .padding()
-        .onAppear {
-            authenticateWithBiometrics()
         }
     }
 
@@ -183,60 +194,16 @@ struct BiometricLockOverlayView: View {
         var error: NSError?
 
         if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
-            let reason = "Unlock TJ application"
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authenticationError in
-                DispatchQueue.main.async {
-                    if success {
+            let reason = "Unlock TJ App"
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+                if success {
+                    DispatchQueue.main.async {
                         onUnlockSuccess()
-                    } else {
-                        errorMessage = authenticationError?.localizedDescription ?? "Biometric authentication failed"
                     }
                 }
             }
         } else {
-            errorMessage = error?.localizedDescription ?? "Biometrics not available on this device"
-        }
-    }
-}
-
-// MARK: - Active Call Overlay Banner
-
-struct RootActiveCallOverlayBanner: View {
-    @ObservedObject var callState: GlobalCallState
-
-    var body: some View {
-        VStack {
-            HStack {
-                Image(systemName: "phone.fill")
-                    .foregroundColor(.green)
-                VStack(alignment: .leading) {
-                    Text(callState.activeParticipantId ?? "Active Call")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    Text("\(callState.callDurationSeconds) seconds")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                Spacer()
-                Button(action: {
-                    if let sid = callState.activeSessionId {
-                        callState.onCallEnded(sessionId: sid)
-                    }
-                }) {
-                    Image(systemName: "phone.down.fill")
-                        .padding()
-                        .background(Color.red)
-                        .clipShape(Circle())
-                        .foregroundColor(.white)
-                }
-            }
-            .padding()
-            .background(Color.black.opacity(0.9))
-            .cornerRadius(16)
-            .shadow(radius: 10)
-            .padding()
-
-            Spacer()
+            onUnlockSuccess()
         }
     }
 }
