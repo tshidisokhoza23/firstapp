@@ -105,15 +105,15 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
         guard let myUserId = currentUserIdProvider() else { return }
 
         let userTopicPayload: [String: WSAnyCodable] = ["topic": WSAnyCodable("user:\(myUserId)")]
-        webSocketManager.send(type: "subscribe", payload: userTopicPayload)
-        webSocketManager.send(type: "subscribe", payload: ["topic": WSAnyCodable("presence")])
-        webSocketManager.send(type: "subscribe", payload: ["topic": WSAnyCodable("chat")])
-        webSocketManager.send(type: "subscribe", payload: ["topic": WSAnyCodable("channels")])
+        try? await webSocketManager.send(type: "subscribe", payload: userTopicPayload)
+        try? await webSocketManager.send(type: "subscribe", payload: ["topic": WSAnyCodable("presence")])
+        try? await webSocketManager.send(type: "subscribe", payload: ["topic": WSAnyCodable("chat")])
+        try? await webSocketManager.send(type: "subscribe", payload: ["topic": WSAnyCodable("channels")])
 
         let activeChats = await localDb.getChats()
         for chat in activeChats {
             let topicPayload: [String: WSAnyCodable] = ["topic": WSAnyCodable("chat:\(chat.id)")]
-            webSocketManager.send(type: "subscribe", payload: topicPayload)
+            try? await webSocketManager.send(type: "subscribe", payload: topicPayload)
         }
     }
 
@@ -240,7 +240,10 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
         // Voice notes and files must go through REST. The live socket stores
         // media URLs but drops duration, so a socket-only send would not play back.
         let needsRest = !mediaUrls.isEmpty || duration != nil
-        let sentLive = needsRest ? false : webSocketManager.send(type: "send_message", payload: payload)
+        var sentLive = false
+        if !needsRest {
+            sentLive = (try? await webSocketManager.send(type: "send_message", payload: payload)) != nil
+        }
 
         if sentLive {
             var sentMsg = pendingMsg
@@ -368,7 +371,7 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
 
     public func markAsRead(chatId: String) async -> Resource<Bool> {
         await localDb.clearUnread(chatId: chatId)
-        webSocketManager.send(type: "read_ack", payload: ["conversation_id": WSAnyCodable(chatId)])
+        try? await webSocketManager.send(type: "read_ack", payload: ["conversation_id": WSAnyCodable(chatId)])
         do {
             _ = try await chatApi.markAsRead(conversationID: chatId, request: ReadReceiptRequest(lastReadMessageId: ""))
             return .success(true)

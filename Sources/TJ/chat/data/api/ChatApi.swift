@@ -1,3 +1,5 @@
+import Foundation
+
 public struct ReadReceiptRequest: Codable, Sendable {
     public let lastReadMessageId: String
 
@@ -46,6 +48,46 @@ public final class ChatApi: @unchecked Sendable {
 
     public func createGroup(request: CreateGroupRequest) async throws -> ConversationResponse {
         try await client.request(path: "chats/group", method: .post, body: request)
+    }
+
+    public func syncDelta(since: Int64) async throws -> SyncDeltaResponse {
+        try await client.request(path: "sync/delta", queryItems: [URLQueryItem(name: "since", value: String(since))])
+    }
+
+    public func deleteMessage(conversationID: String, messageID: String) async throws -> StatusResponse {
+        try await client.request(path: "conversations/\(conversationID)/messages/\(messageID)", method: .delete)
+    }
+
+    public func editMessage(conversationID: String, messageID: String, request: EditMessageRequest) async throws -> MessageResponse {
+        try await client.request(path: "conversations/\(conversationID)/messages/\(messageID)", method: .patch, body: request)
+    }
+
+    public func reactToMessage(conversationID: String, messageID: String, request: ReactMessageRequest) async throws -> ReactionsResponse {
+        try await client.request(path: "conversations/\(conversationID)/messages/\(messageID)/reactions", method: .post, body: request)
+    }
+
+    public func pinMessage(conversationID: String, request: PinMessageRequest) async throws -> StatusResponse {
+        try await client.request(path: "conversations/\(conversationID)/pinned-message", method: .patch, body: request)
+    }
+
+    public func updateConversationPrefs(conversationID: String, request: ConversationPrefsRequest) async throws -> StatusResponse {
+        try await client.request(path: "conversations/\(conversationID)/prefs", method: .patch, body: request)
+    }
+
+    public func starMessage(messageID: String, request: StarMessageRequest) async throws -> StatusResponse {
+        try await client.request(path: "messages/\(messageID)/star", method: .post, body: request)
+    }
+
+    public func unstarMessage(messageID: String) async throws -> StatusResponse {
+        try await client.request(path: "messages/\(messageID)/star", method: .delete)
+    }
+
+    public func subscribeToChannel(channelId: String) async throws -> StatusResponse {
+        try await client.request(path: "chats/channels/\(channelId)/subscribe", method: .post)
+    }
+
+    public func getICEServers() async throws -> IceServersResponse {
+        try await client.request(path: "calls/ice_servers")
     }
 }
 
