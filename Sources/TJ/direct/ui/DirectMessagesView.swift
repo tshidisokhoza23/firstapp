@@ -142,20 +142,29 @@ public struct DirectMessagesView: View {
         let loaded = await AppRuntime.chatRepository.getChats()
         let formatter = DateFormatter()
         formatter.timeStyle = .short
-        conversations = (loaded.data ?? [])
-            .filter { $0.type == .direct && !$0.isMingle }
-            .map { chat in
-                DirectConversationItem(
-                    id: chat.otherUserId?.isEmpty == false ? chat.otherUserId! : chat.id,
-                    contactName: chat.senderName.isEmpty ? "Direct" : chat.senderName,
-                    contactHandle: chat.phoneNumber ?? "",
-                    lastMessage: chat.lastMessage,
-                    timestamp: chat.timestamp > 0 ? formatter.string(from: Date(timeIntervalSince1970: Double(chat.timestamp) / 1000)) : "",
-                    unreadCount: chat.unreadCount,
-                    isOnline: chat.isOnline,
-                    isPinned: chat.isPinned
-                )
-            }
+
+        let allChats = loaded.data ?? []
+        let filtered = allChats.filter { $0.type == .direct && !$0.isMingle }
+
+        var items: [DirectConversationItem] = []
+        for chat in filtered {
+            let cid = chat.otherUserId?.isEmpty == false ? chat.otherUserId! : chat.id
+            let name = chat.senderName.isEmpty ? "Direct" : chat.senderName
+            let phone = chat.phoneNumber ?? ""
+            let timeStr = chat.timestamp > 0 ? formatter.string(from: Date(timeIntervalSince1970: Double(chat.timestamp) / 1000)) : ""
+            let item = DirectConversationItem(
+                id: cid,
+                contactName: name,
+                contactHandle: phone,
+                lastMessage: chat.lastMessage,
+                timestamp: timeStr,
+                unreadCount: chat.unreadCount,
+                isOnline: chat.isOnline,
+                isPinned: chat.isPinned
+            )
+            items.append(item)
+        }
+        self.conversations = items
     }
 
     // MARK: - Subviews
