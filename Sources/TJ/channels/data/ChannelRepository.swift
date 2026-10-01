@@ -64,15 +64,25 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     public static let shared = ChannelRepository()
 
     @Published public private(set) var channels: [Channel] = []
-    private let baseURL: URL
+    private let channelApi: ChannelApiService
 
-    public init(baseURL: URL = URL(string: AppBackend.apiBaseURL + "/channels")!) {
-        self.baseURL = baseURL
+    public init(channelApi: ChannelApiService = ChannelApi.shared) {
+        self.channelApi = channelApi
     }
 
     public func getChannels() async throws -> [Channel] {
-        let data = try await API.data("channels")
-        let list = Self.decodeChannels(data)
+        let res = try await channelApi.getChannels()
+        let list = res.channels.map { api in
+            Channel(
+                id: api.id,
+                name: api.name,
+                description: api.description ?? "",
+                followers: api.subscriberCount,
+                avatarUrl: api.avatarUrl,
+                isSubscribed: api.isSubscribed,
+                isAdmin: api.isAdmin
+            )
+        }
         self.channels = list
         return list
     }
@@ -81,8 +91,16 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
         if let local = channels.first(where: { $0.id == id }) {
             return local
         }
-        let data = try await API.data("chats/channels/\(id)")
-        return Self.decodeChannels(data).first
+        let api = try await channelApi.getChannel(channelId: id)
+        return Channel(
+            id: api.id,
+            name: api.name,
+            description: api.description ?? "",
+            followers: api.subscriberCount,
+            avatarUrl: api.avatarUrl,
+            isSubscribed: api.isSubscribed,
+            isAdmin: api.isAdmin
+        )
     }
 
     public func getChannel(channelId: String) async -> Channel? {
@@ -90,7 +108,7 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     }
 
     public func subscribeToChannel(id: String) async throws -> Bool {
-        _ = try await API.data("chats/channels/\(id)/subscribe", method: "POST")
+        _ = try await channelApi.subscribeToChannel(channelId: id)
         if let index = channels.firstIndex(where: { $0.id == id }) {
             channels[index].isSubscribed.toggle()
         }
@@ -102,16 +120,16 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     }
 
     public func unsubscribeFromChannel(id: String) async throws -> Bool {
+        _ = try await channelApi.subscribeToChannel(channelId: id)
         if let index = channels.firstIndex(where: { $0.id == id }) {
             channels[index].isSubscribed = false
             channels[index].followers = max(0, channels[index].followers - 1)
         }
-        _ = try await API.data("chats/channels/\(id)/subscribe", method: "POST")
         return true
     }
 
     public func muteChannel(id: String, isMuted: Bool) async throws -> Bool {
-        _ = try await API.data("chats/channels/\(id)/mute", method: "POST", json: ["is_muted": isMuted])
+        _ = try await channelApi.muteChannel(channelId: id, request: MuteRequest(isMuted: isMuted))
         if let index = channels.firstIndex(where: { $0.id == id }) {
             channels[index].isMuted = isMuted
         }
@@ -123,78 +141,31 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     }
 
     public func createChannel(name: String, description: String, category: String) async throws -> Channel {
-        try await createOnServer(name: name, description: description, avatarUrl: nil)
+        let api = try await channelApi.createChannel(request: CreateChannelRequest(name: name, description: description))
+        let created = Channel(id: api.id, name: api.name, description: api.description ?? "", followers: api.subscriberCount, avatarUrl: api.avatarUrl, isSubscribed: api.isSubscribed, isAdmin: api.isAdmin)
+        channels.append(created)
+        return created
     }
 
     public func createChannel(name: String, description: String, avatarUrl: String?) async -> Channel {
-        if let created = try? await createOnServer(name: name, description: description, avatarUrl: avatarUrl) {
-            return created
+        if let created = try? await channelApi.createChannel(request: CreateChannelRequest(name: name, description: description, avatarUrl: avatarUrl)) {
+            let model = Channel(id: created.id, name: created.name, description: created.description ?? "", followers: created.subscriberCount, avatarUrl: created.avatarUrl, isSubscribed: created.isSubscribed, isAdmin: created.isAdmin)
+            channels.append(model)
+            return model
         }
         return Channel(id: UUID().uuidString, name: name, description: description, avatarUrl: avatarUrl)
     }
 
     public func addAdmin(channelId: String, userId: String) async -> Bool {
-        (try? await API.data("chats/channels/\(channelId)/admins", method: "POST", json: ["user_id": userId])) != nil
+        (try? await channelApi.addChannelAdmin(channelId: channelId, request: UserIdRequest(userId: userId))) != nil
     }
 
     public func removeAdmin(channelId: String, userId: String) async -> Bool {
-        (try? await API.data("chats/channels/\(channelId)/admins", method: "DELETE", json: ["user_id": userId])) != nil
+        (try? await channelApi.removeChannelAdmin(channelId: channelId, request: UserIdRequest(userId: userId))) != nil
     }
 
     public func updateAdminPostingPermission(channelId: String, allowed: Bool) async -> Bool {
-        (try? await API.data("chats/channels/\(channelId)/admin-posting", method: "POST", json: ["admins_can_post": allowed])) != nil
-    }
-
-    private func createOnServer(name: String, description: String, avatarUrl: String?) async throws -> Channel {
-        var body: [String: Any] = ["name": name, "description": description]
-        if let avatarUrl, !avatarUrl.isEmpty { body["avatar_url"] = avatarUrl }
-        let data = try await API.data("chats/channels", method: "POST", json: body)
-        guard let created = Self.decodeChannels(data).first else {
-            throw URLError(.cannotParseResponse)
-        }
-        channels.append(created)
-        return created
-    }
-
-    private static func decodeChannels(_ data: Data) -> [Channel] {
-        guard let json = try? JSONSerialization.jsonObject(with: data) else { return [] }
-        let raw: [Any]
-        if let obj = json as? [String: Any], let list = obj["channels"] as? [Any] {
-            raw = list
-        } else if let list = json as? [Any] {
-            raw = list
-        } else if let obj = json as? [String: Any] {
-            raw = [obj]
-        } else {
-            raw = []
-        }
-        return raw.compactMap { ($0 as? [String: Any]).flatMap(channel(from:)) }
-    }
-
-    private static func channel(from json: [String: Any]) -> Channel? {
-        let id = LiveJSON.string(json["id"]).isEmpty ? LiveJSON.string(json["conversation_id"]) : LiveJSON.string(json["id"])
-        guard !id.isEmpty else { return nil }
-        let name = LiveJSON.string(json["name"]).isEmpty ? "Channel" : LiveJSON.string(json["name"])
-        return Channel(
-            id: id,
-            name: name,
-            description: LiveJSON.string(json["description"]),
-            followers: LiveJSON.int(json["followers"] ?? json["subscriber_count"]),
-            avatarUrl: LiveJSON.string(json["avatar_url"]).nilIfEmpty,
-            isVerified: LiveJSON.bool(json["is_verified"]),
-            isSubscribed: LiveJSON.bool(json["is_subscribed"]),
-            isMuted: LiveJSON.bool(json["is_muted"]),
-            isAdmin: LiveJSON.bool(json["is_admin"]),
-            adminsCanPost: LiveJSON.bool(json["admins_can_post"]),
-            category: LiveJSON.string(json["category"]).isEmpty ? "Community" : LiveJSON.string(json["category"]),
-            createdBy: LiveJSON.string(json["created_by"]).nilIfEmpty,
-            lastPostText: LiveJSON.string(json["last_post_text"]),
-            lastPostImageUrl: LiveJSON.string(json["last_post_image_url"]).nilIfEmpty,
-            lastPostTime: LiveJSON.string(json["last_post_time"]),
-            conversationId: LiveJSON.string(json["conversation_id"]).nilIfEmpty,
-            isTopInCountry: LiveJSON.bool(json["is_top_in_country"]),
-            countryCode: LiveJSON.string(json["country_code"])
-        )
+        (try? await channelApi.toggleAdminPosting(channelId: channelId, request: ToggleAdminPostingRequest(adminsCanPost: allowed))) != nil
     }
 }
 

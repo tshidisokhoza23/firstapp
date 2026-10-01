@@ -20,25 +20,7 @@ public struct DevResetRequest: Codable, Sendable {
     }
 }
 
-public protocol SystemApiService: Sendable {
-    func devResetAndSeed(contacts: [ContactInfo]) async throws -> DevResetResponse
-}
 
-public final class SystemApi: SystemApiService, @unchecked Sendable {
-    private let client: NetworkClient
-
-    public init(client: NetworkClient = .shared) {
-        self.client = client
-    }
-
-    public func devResetAndSeed(contacts: [ContactInfo]) async throws -> DevResetResponse {
-        try await client.request(
-            path: "dev/reset-and-seed",
-            method: .post,
-            body: DevResetRequest(contacts: contacts)
-        )
-    }
-}
 
 // MARK: - System Repository Protocol
 public protocol SystemRepository {
