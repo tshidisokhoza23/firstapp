@@ -300,8 +300,8 @@ public struct MediaPickerView: View {
 
     private func importCamera(_ item: PhotosPickerItem) async {
         defer { cameraItem = nil }
-        guard let file = try? await item.loadTransferable(type: PickedFile.self) else { return }
-        let picked = MediaPickerItem(id: file.url.absoluteString, mediaType: .photo, thumbnailSymbol: "photo.fill")
+        guard (try? await item.loadTransferable(type: Data.self)) != nil else { return }
+        let picked = MediaPickerItem(id: UUID().uuidString, mediaType: .photo, thumbnailSymbol: "photo.fill")
         mediaItems.insert(picked, at: 0)
         toggleSelection(for: picked)
     }

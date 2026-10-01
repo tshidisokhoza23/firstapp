@@ -271,28 +271,22 @@ public struct ChatView: View {
 
     private func sendPicked(_ item: PhotosPickerItem) async {
         defer { attachItem = nil; cameraItem = nil }
-        guard let file = try? await item.loadTransferable(type: PickedFile.self) else {
+        guard let data = try? await item.loadTransferable(type: Data.self), !data.isEmpty else {
             note = "Could not read that file"
             return
         }
-        let data = (try? Data(contentsOf: file.url)) ?? Data()
-        let ext = file.url.pathExtension.lowercased()
-        let isVideo = ["mp4", "mov", "m4v"].contains(ext)
-        let mime = isVideo ? "video/mp4" : "image/jpeg"
-        let kind = isVideo ? "video" : "image"
-        guard !data.isEmpty,
-              let url = try? await MediaActions.upload(
-                data: data,
-                filename: file.url.lastPathComponent,
-                mime: mime,
-                folder: "chat/\(kind)"
-              ) else {
+        guard let url = try? await MediaActions.upload(
+            data: data,
+            filename: "chat_attachment.jpg",
+            mime: "image/jpeg",
+            folder: "chat/image"
+        ) else {
             note = "Upload failed"
             return
         }
         viewModel.sendMessage(
             chatId: chat.id,
-            body: inputText.isEmpty ? kind.capitalized : inputText,
+            body: inputText.isEmpty ? "Photo" : inputText,
             messageType: kind,
             mediaUrls: [url],
             fileName: file.url.lastPathComponent

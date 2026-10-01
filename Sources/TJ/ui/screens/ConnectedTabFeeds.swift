@@ -32,6 +32,34 @@ struct FeedPost: Identifiable, Decodable {
         case isBookmarked = "is_bookmarked"
     }
 
+    init(
+        id: String = UUID().uuidString,
+        authorId: String = "",
+        authorName: String = "",
+        authorHandle: String = "",
+        authorAvatar: String? = nil,
+        content: String = "",
+        mediaURLs: [String] = [],
+        likes: Int = 0,
+        repliesCount: Int = 0,
+        postType: String = "",
+        isLiked: Bool = false,
+        isBookmarked: Bool = false
+    ) {
+        self.id = id
+        self.authorId = authorId
+        self.authorName = authorName
+        self.authorHandle = authorHandle
+        self.authorAvatar = authorAvatar
+        self.content = content
+        self.mediaURLs = mediaURLs
+        self.likes = likes
+        self.repliesCount = repliesCount
+        self.postType = postType
+        self.isLiked = isLiked
+        self.isBookmarked = isBookmarked
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
