@@ -304,6 +304,7 @@ public enum LocalConverters {
 // MARK: - Swift Actor Local Database
 
 public actor LocalDatabase {
+    public static let shared = LocalDatabase()
     private var chats: [String: ChatEntity] = [:]
     private var messages: [String: MessageEntity] = [:]
     private var contacts: [String: ContactEntity] = [:]

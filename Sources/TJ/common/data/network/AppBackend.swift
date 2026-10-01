@@ -212,7 +212,7 @@ public final class TJAPIProtocol: URLProtocol {
 
 public enum AppRuntime {
     @MainActor
-    public static let chatRepository = ChatRepository.shared
+    public static let chatRepository = ChatRepositoryImpl.shared
 
     @MainActor
     public static func connectRealtime() {
