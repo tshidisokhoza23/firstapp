@@ -103,6 +103,15 @@ public struct MainRootView: View {
     }
 
     private func checkAuthAndLockStatus() {
+        if SessionStore.shared.isLoggedIn {
+            isAuthenticated = true
+            if let user = SessionStore.shared.user, user.displayName.isEmpty {
+                isProfileComplete = false
+            } else {
+                isProfileComplete = true
+            }
+            AppRuntime.connectRealtime()
+        }
         if UserDefaults.standard.bool(forKey: "enable_biometric_lock") {
             isBiometricLocked = true
         }
