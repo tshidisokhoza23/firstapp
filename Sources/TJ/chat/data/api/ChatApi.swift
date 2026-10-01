@@ -660,9 +660,9 @@ public struct ApiCallLog: Codable, Sendable {
     }
 }
 
-// MARK: - ChatApi Protocol & URLSession Implementation
+// MARK: - ChatApiClient Protocol & URLSession Implementation
 
-public protocol ChatApi: Sendable {
+public protocol ChatApiClient: Sendable {
     func getChats() async throws -> ChatSummaryResponse
     func syncDelta(since: Int64) async throws -> SyncDeltaResponse
     func getChatDetails(id: String) async throws -> ChatSummary
@@ -706,7 +706,7 @@ public protocol ChatApi: Sendable {
     func getStarredMessages() async throws -> MessagesResponse
 }
 
-public final class URLSessionChatApi: ChatApi, @unchecked Sendable {
+public final class URLSessionChatApi: ChatApiClient, @unchecked Sendable {
     private let session: URLSession
     private let baseURLProvider: @Sendable () -> String
     private let tokenProvider: @Sendable () -> String?
