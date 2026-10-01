@@ -53,9 +53,9 @@ public final class SystemRepositoryImpl: SystemRepository {
             Task {
                 continuation.yield(.loading())
                 do {
-                    let response = try await systemApi.devResetAndSeed(contacts: contacts)
+                    let status = try await systemApi.resetAndSeed()
                     await clearAllData()
-                    continuation.yield(.success(response))
+                    continuation.yield(.success(DevResetResponse(status: status.status)))
                 } catch {
                     continuation.yield(.error(error.localizedDescription))
                 }

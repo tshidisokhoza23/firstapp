@@ -4,7 +4,7 @@ import PhotosUI
 import UniformTypeIdentifiers
 
 public struct FeedPost: Identifiable, Codable, Sendable {
-    let id: String
+    public let id: String
     let authorId: String
     let authorName: String
     let authorHandle: String
@@ -60,7 +60,7 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         self.isBookmarked = isBookmarked
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         authorId = try c.decodeIfPresent(String.self, forKey: .authorId) ?? ""
