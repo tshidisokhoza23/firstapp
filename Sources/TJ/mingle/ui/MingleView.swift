@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import PhotosUI
 
 // MARK: - Mingle Models
 
@@ -12,9 +13,21 @@ public struct MingleProfile: Identifiable, Hashable {
     public let bio: String
     public let interests: [String]
     public let avatarGradient: [Color]
+    public let photos: [String]
     public let mutualConnections: Int
 
-    public init(id: String, name: String, age: Int, occupation: String, distanceKm: Double, bio: String, interests: [String], avatarGradient: [Color], mutualConnections: Int = 0) {
+    public init(
+        id: String,
+        name: String,
+        age: Int,
+        occupation: String,
+        distanceKm: Double,
+        bio: String,
+        interests: [String],
+        avatarGradient: [Color],
+        photos: [String] = [],
+        mutualConnections: Int = 0
+    ) {
         self.id = id
         self.name = name
         self.age = age
@@ -23,37 +36,31 @@ public struct MingleProfile: Identifiable, Hashable {
         self.bio = bio
         self.interests = interests
         self.avatarGradient = avatarGradient
+        self.photos = photos
         self.mutualConnections = mutualConnections
     }
 }
 
-// MARK: - MingleView
+// MARK: - MingleView matching Screenshot 5
 
 public struct MingleView: View {
-    @State private var viewMode: MingleViewMode = .cards
-    @State private var showFilterSheet: Bool = false
-    @State private var showCoinsGateModal: Bool = false
-    @State private var selectedProfile: MingleProfile? = nil
-
-    // Filters
-    @State private var maxDistanceKm: Double = 25.0
-    @State private var selectedInterest: String = "All"
-
-    // User Balance
-    @State private var userCoins: Int = 45
-
-    enum MingleViewMode: String, CaseIterable, Identifiable {
-        case cards = "Match Cards"
-        case grid = "Discover Grid"
-
-        var id: String { rawValue }
-    }
-
-    private let availableInterests = ["All", "Coding", "Music", "Startups", "Gaming", "Travel", "Design", "Fitness"]
-
     @State private var profiles: [MingleProfile] = []
-    @State private var feedNote = "Looking nearby..."
-    @StateObject private var location = MingleLocation()
+    @State private var feedNote = "Nearby people are in your contacts"
+    @State private var selectedRadiusKm: Double = 100.0
+    @State private var showRadiusSheet: Bool = false
+    @State private var showProfileSheet: Bool = false
+    @State private var showSecretChats: Bool = false
+    @State private var showNotifications: Bool = false
+    @State private var introTarget: MingleProfile? = nil
+    @State private var introText: String = ""
+    @State private var userCoins: Int = 250
+
+    // Profile Edit States
+    @State private var myName: String = "Tshidiso Khoza"
+    @State private var myAge: String = "28"
+    @State private var myBio: String = "Building apps and sharing music!"
+    @State private var photoItems: [PhotosPickerItem] = []
+
     private var onMatchClick: ((String, String) -> Void)?
     private var onUpgradeClick: (() -> Void)?
 
@@ -66,114 +73,192 @@ public struct MingleView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Top Filter & Mode Header
-                HStack {
-                    Picker("View Mode", selection: $viewMode) {
-                        ForEach(MingleViewMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Button(action: { showFilterSheet = true }) {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                    }
+        VStack(spacing: 0) {
+            // Top Controls Bar matching Screenshot 5
+            HStack {
+                // Secret Chats Envelope
+                Button(action: { showSecretChats = true }) {
+                    Image(systemName: "envelope")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
 
-                // Coins Header Bar
-                HStack {
+                Spacer().frame(width: 16)
+
+                // Notifications Bell
+                Button(action: { showNotifications = true }) {
+                    Image(systemName: "bell")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
+                }
+
+                Spacer().frame(width: 16)
+
+                // Rewind Swipe Icon
+                Button(action: rewindLastSwipe) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.appPrimary)
+                }
+
+                Spacer()
+
+                // Center TJ Logo
+                AppLogo(size: 32)
+
+                Spacer()
+
+                // Radius Filter Pill matching Screenshot 5 (📍 100+ km)
+                Button(action: { showRadiusSheet = true }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                            .foregroundColor(.yellow)
-                        Text("\(userCoins) Mingle Coins")
-                            .font(.caption.bold())
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.appPrimary)
+
+                        Text(selectedRadiusKm >= 100 ? "100+ km" : "\(Int(selectedRadiusKm)) km")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.yellow.opacity(0.15))
-                    .cornerRadius(12)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .clipShape(Capsule())
+                }
 
-                    Spacer()
+                Spacer().frame(width: 12)
 
-                    Text("Nearby Discovery")
-                        .font(.caption)
+                // My Profile Camera Icon matching Screenshot 5
+                Button(action: { showProfileSheet = true }) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.appPrimary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            // Main Display Area
+            if profiles.isEmpty {
+                // Empty Deck State matching Screenshot 5
+                Spacer()
+
+                VStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.appPrimary.opacity(0.12))
+                            .frame(width: 90, height: 90)
+
+                        Image(systemName: "location.slash.fill")
+                            .font(.system(size: 42))
+                            .foregroundColor(.appPrimary)
+                    }
+
+                    Text("Nearby people are in your contacts")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.center)
+
+                    Text("Mingle hides people saved in your contacts, including matching phone numbers.")
+                        .font(.system(size: 14))
                         .foregroundColor(.secondary)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
 
-                // Main Display
-                if profiles.isEmpty {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        Image(systemName: "person.2.slash")
-                            .font(.system(size: 56))
-                            .foregroundColor(.secondary)
-                        Text(feedNote)
-                            .font(.title3.bold())
-                        Text("Try widening your distance filter or changing interest preferences.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
+                    Spacer().frame(height: 12)
+
+                    Button(action: { showRadiusSheet = true }) {
+                        Text("Increase Radius")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.appPrimary)
+                            .clipShape(Capsule())
                     }
-                    Spacer()
-                } else if viewMode == .cards {
-                    cardSwipeView
-                } else {
-                    gridView
+                }
+
+                Spacer()
+            } else {
+                // Single Candidate Card View matching Screenshot 5
+                if let candidate = profiles.first {
+                    CandidateCardView(
+                        profile: candidate,
+                        onPass: {
+                            withAnimation { profiles.removeFirst() }
+                        },
+                        onLike: {
+                            withAnimation { profiles.removeFirst() }
+                        },
+                        onChat: {
+                            introTarget = candidate
+                        }
+                    )
                 }
             }
-            .navigationTitle("Mingle Social")
-            .sheet(isPresented: $showFilterSheet) {
-                filterSheetView
+        }
+        .task { await loadFeed() }
+        .sheet(isPresented: $showRadiusSheet) {
+            RadiusFilterSheetView(
+                radiusKm: $selectedRadiusKm,
+                onApply: {
+                    showRadiusSheet = false
+                    Task { await loadFeed() }
+                }
+            )
+            .presentationDetents([.height(280)])
+        }
+        .sheet(isPresented: $showProfileSheet) {
+            MingleProfileEditSheetView(
+                myName: $myName,
+                myAge: $myAge,
+                myBio: $myBio,
+                onSave: { showProfileSheet = false }
+            )
+            .presentationDetents([.large])
+        }
+        .sheet(item: $introTarget) { target in
+            VStack(spacing: 16) {
+                Text("Say hi to \(target.name)")
+                    .font(.system(size: 18, weight: .bold))
+                    .padding(.top, 16)
+
+                Text("Send a short message (up to 150 characters) to start a chat.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+
+                TextEditor(text: $introText)
+                    .frame(height: 100)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                    .padding(.horizontal, 24)
+
+                Button(action: {
+                    let text = introText.trimmingCharacters(in: .whitespaces)
+                    introTarget = nil
+                    introText = ""
+                    if !text.isEmpty {
+                        onMatchClick?(target.id, target.name)
+                    }
+                }) {
+                    Text("Send Message")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.appPrimary)
+                        .cornerRadius(12)
+                        .padding(.horizontal, 24)
+                }
+
+                Spacer()
             }
-            .sheet(isPresented: $showCoinsGateModal) {
-                coinsGateSheetView
-            }
-            .sheet(item: $selectedProfile) { profile in
-                profileDetailModal(profile)
-            }
-            .task { await loadFeed() }
         }
     }
 
     private func loadFeed() async {
-        if let user = SessionStore.shared.user {
-            userCoins = Int(user.walletBalance)
-        }
         do {
-            let data = try await API.data("rewards/balance")
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let balance = json["balance"] as? Double {
-                userCoins = Int(balance)
-            }
-        } catch {}
-        do {
-            guard let loc = await location.current() else {
-                feedNote = "Turn on location to see people nearby."
-                profiles = []
-                return
-            }
-            let lat = loc.coordinate.latitude
-            let lng = loc.coordinate.longitude
-            _ = try? await API.data("mingle/location", method: "POST", json: [
-                "latitude": lat,
-                "longitude": lng,
-                "radius_km": Int(maxDistanceKm)
-            ])
-            let data = try await API.data("mingle/feed", query: [
-                "lat": String(lat),
-                "lng": String(lng),
-                "radius_km": String(Int(maxDistanceKm)),
-                "limit": "20"
-            ])
+            let data = try await API.data("mingle/feed", query: ["radius_km": "\(Int(selectedRadiusKm))"])
             struct Feed: Decodable {
                 struct Item: Decodable {
                     let id: String
@@ -213,439 +298,213 @@ public struct MingleView: View {
             }
             profiles = resultProfiles
             if profiles.isEmpty {
-                feedNote = feed.status?.isEmpty == false ? (feed.status ?? "") : "No one nearby in this radius."
+                feedNote = feed.status?.isEmpty == false ? (feed.status ?? "") : "Nearby people are in your contacts"
             }
         } catch {
-            feedNote = "Could not load people nearby."
+            feedNote = "Nearby people are in your contacts"
         }
     }
 
-    private func swipe(_ profile: MingleProfile, action: String) {
-        profiles.removeAll { $0.id == profile.id }
-        Task {
-            if let data = try? await API.data("mingle/swipe", method: "POST", json: [
-                "target_user_id": profile.id,
-                "action": action
-            ]),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                if let balance = json["balance"] as? Double { userCoins = Int(balance) }
-                if json["matched"] as? Bool == true, let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
-                    onMatchClick?(conversationId, profile.name)
+    private func rewindLastSwipe() {
+        // Rewind swipe logic
+    }
+}
+
+// MARK: - Candidate Card View matching Screenshot 5
+
+public struct CandidateCardView: View {
+    public let profile: MingleProfile
+    public var onPass: () -> Void
+    public var onLike: () -> Void
+    public var onChat: () -> Void
+
+    public var body: some View {
+        ZStack(alignment: .bottom) {
+            // Main Photo
+            ZStack {
+                LinearGradient(colors: profile.avatarGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+
+                Image(systemName: "person.fill")
+                    .font(.system(size: 100))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+            .ignoresSafeArea()
+
+            // Bottom Gradient Overlay
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.85)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 280)
+
+            // Details & Action Bar Overlay
+            VStack(alignment: .leading, spacing: 12) {
+                // Name & Age
+                Text("\(profile.name), \(profile.age)")
+                    .font(.system(size: 28, weight: .black))
+                    .foregroundColor(.white)
+
+                // Distance
+                HStack(spacing: 4) {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 13))
+                    Text("\(String(format: "%.1f", profile.distanceKm)) km away")
+                        .font(.system(size: 14, weight: .semibold))
                 }
-            }
-            await loadFeed()
-        }
-    }
+                .foregroundColor(.white.opacity(0.9))
 
-    private func openMatchChat(_ profile: MingleProfile) {
-        Task {
-            if let data = try? await API.data("mingle/matches/\(profile.id)/chat", method: "POST"),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
-                onMatchClick?(conversationId, profile.name)
-            } else {
-                feedNote = "You can message after you match."
-            }
-        }
-    }
+                if !profile.bio.isEmpty {
+                    Text(profile.bio)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.85))
+                        .lineLimit(2)
+                }
 
-    // MARK: - Subviews
+                Spacer().frame(height: 12)
 
-    private var cardSwipeView: some View {
-        VStack(spacing: 16) {
-            Spacer()
+                // Action Bar matching Screenshot 5 (Pass, Like, Meet Chat)
+                HStack(spacing: 24) {
+                    // Pass (X)
+                    Button(action: onPass) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 54, height: 54)
+                                .shadow(radius: 4)
 
-            if let current = profiles.first {
-                VStack(alignment: .leading, spacing: 14) {
-                    ZStack(alignment: .bottomLeading) {
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(LinearGradient(colors: current.avatarGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(height: 380)
-
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 120))
-                            .foregroundColor(.white.opacity(0.3))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("\(current.name), \(current.age)")
-                                    .font(.title.bold())
-                                    .foregroundColor(.white)
-
-                                Circle()
-                                    .fill(Color.green)
-                                    .frame(width: 10, height: 10)
-                            }
-
-                            Text(current.occupation)
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.9))
-
-                            HStack(spacing: 4) {
-                                Image(systemName: "location.fill")
-                                Text("\(String(format: "%.1f", current.distanceKm)) km away")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.8))
-                        }
-                        .padding(20)
-                    }
-                    .onTapGesture {
-                        selectedProfile = current
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(current.bio)
-                            .font(.subheadline)
-                            .lineLimit(2)
-
-                        HStack {
-                            ForEach(current.interests, id: \.self) { interest in
-                                Text("#\(interest)")
-                                    .font(.caption.bold())
-                                    .foregroundColor(.blue)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.blue.opacity(0.12))
-                                    .cornerRadius(8)
-                            }
+                            Image(systemName: "xmark")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(.black)
                         }
                     }
-                    .padding(.horizontal, 8)
-                }
-                .padding()
-                .background(Color(.secondarySystemGroupedBackground))
-                .cornerRadius(24)
-                .padding(.horizontal, 20)
-                .onTapGesture { selectedProfile = current }
-            }
 
-            Spacer()
+                    // Like (Heart)
+                    Button(action: onLike) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(red: 0.91, green: 0.12, blue: 0.39)) // #E91E63
+                                .frame(width: 66, height: 66)
+                                .shadow(color: Color.red.opacity(0.4), radius: 6, x: 0, y: 3)
 
-            // Action Buttons
-            HStack(spacing: 24) {
-                // Pass (X)
-                Button(action: {
-                    if let current = profiles.first { swipe(current, action: "pass") }
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.title.bold())
-                        .foregroundColor(.red)
-                        .frame(width: 60, height: 60)
-                        .background(Color.red.opacity(0.12))
-                        .clipShape(Circle())
-                }
-
-                // Super Like (Star)
-                Button(action: {
-                    guard let current = profiles.first else { return }
-                    if userCoins < 5 {
-                        onUpgradeClick?()
-                    } else {
-                        swipe(current, action: "super_like")
-                    }
-                }) {
-                    Image(systemName: "star.fill")
-                        .font(.title2.bold())
-                        .foregroundColor(.yellow)
-                        .frame(width: 50, height: 50)
-                        .background(Color.yellow.opacity(0.15))
-                        .clipShape(Circle())
-                }
-
-                // Like (Heart)
-                Button(action: {
-                    if let current = profiles.first { swipe(current, action: "like") }
-                }) {
-                    Image(systemName: "heart.fill")
-                        .font(.title.bold())
-                        .foregroundColor(.green)
-                        .frame(width: 60, height: 60)
-                        .background(Color.green.opacity(0.12))
-                        .clipShape(Circle())
-                }
-            }
-            .padding(.bottom, 20)
-        }
-    }
-
-    private var gridView: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                ForEach(profiles) { profile in
-                    VStack(alignment: .leading, spacing: 8) {
-                        ZStack(alignment: .topTrailing) {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(LinearGradient(colors: profile.avatarGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(height: 160)
-                                .overlay(
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 60))
-                                        .foregroundColor(.white.opacity(0.3))
-                                )
-
-                            Text("\(String(format: "%.1f", profile.distanceKm)) km")
-                                .font(.caption2.bold())
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.black.opacity(0.5))
-                                .cornerRadius(8)
-                                .padding(8)
                         }
-
-                        Text("\(profile.name), \(profile.age)")
-                            .font(.headline)
-
-                        Text(profile.occupation)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
                     }
-                    .padding(8)
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .cornerRadius(16)
-                    .onTapGesture {
-                        selectedProfile = profile
-                    }
-                }
-            }
-            .padding(.horizontal)
-            .padding(.top, 12)
-        }
-    }
 
-    // MARK: - Sheets & Modals
+                    // Meet Chat (Bubble)
+                    Button(action: onChat) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.appPrimary)
+                                .frame(width: 54, height: 54)
+                                .shadow(radius: 4)
 
-    private var filterSheetView: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Discovery Filters")
-                    .font(.title2.bold())
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Maximum Distance: \(Int(maxDistanceKm)) km")
-                        .font(.subheadline.bold())
-
-                    Slider(value: $maxDistanceKm, in: 5...100, step: 5)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Interest Tag")
-                        .font(.subheadline.bold())
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(availableInterests, id: \.self) { tag in
-                                Button(action: { selectedInterest = tag }) {
-                                    Text(tag)
-                                        .font(.caption.bold())
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(selectedInterest == tag ? Color.blue : Color(.secondarySystemBackground))
-                                        .foregroundColor(selectedInterest == tag ? .white : .primary)
-                                        .cornerRadius(12)
-                                }
-                            }
+                            Image(systemName: "message.fill")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(.white)
                         }
                     }
                 }
-
-                Spacer()
-
-                Button("Apply Filters") {
-                    showFilterSheet = false
-                    Task { await loadFeed() }
-                }
-                .fontWeight(.bold)
-                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(12)
+                .padding(.bottom, 24)
             }
-            .padding()
-            .navigationBarItems(trailing: Button("Reset") {
-                maxDistanceKm = 25.0
-                selectedInterest = "All"
-            })
+            .padding(.horizontal, 24)
         }
-        .presentationDetents([.height(340)])
     }
+}
 
-    private var coinsGateSheetView: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "star.circle.fill")
-                    .font(.system(size: 64))
-                    .foregroundColor(.yellow)
+// MARK: - Radius Filter Sheet View matching Screenshot 5
 
-                Text("Send Super Like?")
-                    .font(.title2.bold())
+public struct RadiusFilterSheetView: View {
+    @Binding public var radiusKm: Double
+    public var onApply: () -> Void
 
-                Text("Super Likes prioritize your profile at the top of their match stack!")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+    public var body: some View {
+        VStack(spacing: 20) {
+            Text("Discovery Radius")
+                .font(.system(size: 20, weight: .bold))
+                .padding(.top, 20)
 
-                HStack {
-                    Text("Cost:")
-                        .font(.headline)
-                    Text("5 Mingle Coins")
-                        .font(.headline.bold())
-                        .foregroundColor(.yellow)
-                }
+            VStack(spacing: 8) {
+                Text("\(Int(radiusKm)) km")
+                    .font(.system(size: 24, weight: .black))
+                    .foregroundColor(.appPrimary)
 
-                  Button(action: {
-                      showCoinsGateModal = false
-                    if userCoins >= 5, let current = profiles.first {
-                        swipe(current, action: "super_like")
-                    } else {
-                        onUpgradeClick?()
-                        if !profiles.isEmpty { profiles.removeFirst() }
-                    }
-                }) {
-                    Text(userCoins >= 5 ? "Confirm Super Like (-5 Coins)" : "Get More Coins")
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.yellow)
-                        .cornerRadius(12)
-                        .padding(.horizontal)
-                }
-
-                Spacer()
+                Slider(value: $radiusKm, in: 1...100, step: 1)
+                    .accentColor(.appPrimary)
+                    .padding(.horizontal, 24)
             }
-            .padding(.top, 24)
-            .navigationBarItems(trailing: Button("Cancel") { showCoinsGateModal = false })
-        }
-        .presentationDetents([.height(320)])
-    }
 
-    private func profileDetailModal(_ profile: MingleProfile) -> some View {
+            Button(action: onApply) {
+                Text("Apply Filter")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.appPrimary)
+                    .cornerRadius(12)
+                    .padding(.horizontal, 24)
+            }
+
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Mingle Profile Edit Sheet View matching Screenshot 5
+
+public struct MingleProfileEditSheetView: View {
+    @Binding public var myName: String
+    @Binding public var myAge: String
+    @Binding public var myBio: String
+    public var onSave: () -> Void
+
+    public var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(LinearGradient(colors: profile.avatarGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(height: 280)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 100))
-                                .foregroundColor(.white.opacity(0.3))
-                        )
+                VStack(spacing: 20) {
+                    Text("My Mingle Profile")
+                        .font(.system(size: 20, weight: .bold))
+                        .padding(.top, 16)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("\(profile.name), \(profile.age)")
-                            .font(.title.bold())
-
-                        Text(profile.occupation)
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-
-                        Text("\(String(format: "%.1f", profile.distanceKm)) km away • \(profile.mutualConnections) mutual friends")
-                            .font(.subheadline)
-                            .foregroundColor(.blue)
-
-                        Divider().padding(.vertical, 8)
-
-                        Text("About")
-                            .font(.headline)
-
-                        Text(profile.bio)
-                            .font(.body)
-
-                        Divider().padding(.vertical, 8)
-
-                        Text("Interests")
-                            .font(.headline)
-
-                        HStack {
-                            ForEach(profile.interests, id: \.self) { tag in
-                                Text("#\(tag)")
-                                    .font(.caption.bold())
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(Color.blue.opacity(0.12))
-                                    .foregroundColor(.blue)
-                                    .cornerRadius(10)
-                            }
-                        }
+                        Text("Display Name")
+                            .font(.system(size: 14, weight: .bold))
+                        TextField("Name", text: $myName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
-                    .padding(.horizontal)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Age")
+                            .font(.system(size: 14, weight: .bold))
+                        TextField("Age", text: $myAge)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("About Me / Bio")
+                            .font(.system(size: 14, weight: .bold))
+                        TextEditor(text: $myBio)
+                            .frame(height: 80)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                    }
+
+                    Button(action: onSave) {
+                        Text("Save Profile")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.appPrimary)
+                            .cornerRadius(12)
+                    }
+
+                    Spacer()
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                HStack {
-                    Button("Pass") {
-                        swipe(profile, action: "pass")
-                        selectedProfile = nil
-                    }
-                    Button("Like") {
-                        swipe(profile, action: "like")
-                        selectedProfile = nil
-                    }
-                    Button("Message") {
-                        openMatchChat(profile)
-                        selectedProfile = nil
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .padding()
-            }
-            .navigationBarItems(trailing: Button("Close") { selectedProfile = nil })
-        }
-    }
-}
-
-final class MingleLocation: NSObject, ObservableObject, CLLocationManagerDelegate {
-    private let manager = CLLocationManager()
-    private var continuation: CheckedContinuation<CLLocation?, Never>?
-
-    func current() async -> CLLocation? {
-        await withCheckedContinuation { continuation in
-            self.continuation = continuation
-            manager.delegate = self
-            switch manager.authorizationStatus {
-            case .notDetermined:
-                manager.requestWhenInUseAuthorization()
-            case .authorizedAlways, .authorizedWhenInUse:
-                manager.requestLocation()
-            default:
-                finish(nil)
+                .padding(.horizontal, 24)
             }
         }
     }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        guard continuation != nil else { return }
-        switch manager.authorizationStatus {
-        case .authorizedAlways, .authorizedWhenInUse:
-            manager.requestLocation()
-        case .denied, .restricted:
-            finish(nil)
-        default:
-            break
-        }
-    }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        finish(locations.last)
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        finish(nil)
-    }
-
-    private func finish(_ location: CLLocation?) {
-        continuation?.resume(returning: location)
-        continuation = nil
-    }
-}
-
-#Preview {
-    MingleView()
 }
