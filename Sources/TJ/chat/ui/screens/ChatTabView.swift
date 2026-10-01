@@ -16,6 +16,7 @@ public struct ChatTabView: View {
     @State private var selectedTab: Int = 0 // 0: Chats, 1: Channels, 2: Jobs, 3: Rewards
     @State private var searchQuery: String = ""
     @State private var isSearchActive: Bool = false
+    @State private var showTopMenu: Bool = false
     @State private var activeChannelDetail: Channel? = nil
     @State private var activeJobDetail: Job? = nil
     @State private var showCreateChannel: Bool = false
@@ -23,6 +24,8 @@ public struct ChatTabView: View {
     @State private var activeStory: UserStory? = nil
     @State private var showAddStory: Bool = false
     @State private var storyDraft: String = ""
+
+    private let subTabs = ["Chats", "Channels", "Jobs", "Rewards"]
 
     @MainActor public init(
         viewModel: ChatViewModel? = nil,
@@ -57,69 +60,108 @@ public struct ChatTabView: View {
         (viewModel.uiState.chats.data ?? []).filter { $0.isArchived }.count
     }
 
+    private var totalUnreadCount: Int {
+        (viewModel.uiState.chats.data ?? []).reduce(0) { $0 + $1.unreadCount }
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
-            // Top Bar
+            // Top App Bar matching Android ChatsListScreen
             HStack {
                 if isSearchActive {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
-                        TextField("Search...", text: $searchQuery)
-                            .textFieldStyle(PlainTextFieldStyle())
+                    HStack(spacing: 12) {
                         Button(action: {
                             isSearchActive = false
                             searchQuery = ""
                         }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.primary)
+                        }
+
+                        TextField("Search chats, contacts, messages...", text: $searchQuery)
+                            .textFieldStyle(PlainTextFieldStyle())
+
+                        if !searchQuery.isEmpty {
+                            Button(action: { searchQuery = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                            }
                         }
                     }
-                    .padding(8)
+                    .padding(10)
                     .background(Color(UIColor.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 } else {
-                    Text("TJ Chat")
-                        .font(.system(size: 22, weight: .bold))
+                    // Left Menu Button with Unread Badge
+                    Button(action: { showTopMenu = true }) {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.primary)
+
+                            if totalUnreadCount > 0 {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 2, y: -2)
+                            }
+                        }
+                    }
 
                     Spacer()
 
+                    // Center TJ Logo
+                    AppLogo(size: 36)
+
+                    Spacer()
+
+                    // Right Search Button
                     Button(action: { isSearchActive = true }) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 20))
-                    }
-
-                    Button(action: onArchivedClick) {
-                        Image(systemName: "archivebox")
-                            .font(.system(size: 20))
-                    }
-
-                    Button(action: onProfileClick) {
-                        Image(systemName: "person.circle")
-                            .font(.system(size: 20))
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.primary)
                     }
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
 
-            // Sub Tabs Segmented Picker matching Android (Chats, Channels, Jobs, Rewards)
-            Picker("", selection: $selectedTab) {
-                Text("Chats").tag(0)
-                Text("Channels").tag(1)
-                Text("Jobs").tag(2)
-                Text("Rewards").tag(3)
+            // Horizontal Scrollable Sub-Tab Pills matching Android Compose
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(0..<subTabs.count, id: \.self) { index in
+                        let isSelected = selectedTab == index
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedTab = index
+                                viewModel.setActiveSubTab(index)
+                            }
+                        }) {
+                            Text(subTabs[index])
+                                .font(.system(size: 13, weight: .black))
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 8)
+                                .background(isSelected ? Color.accentColor : Color(UIColor.secondarySystemBackground))
+                                .foregroundColor(isSelected ? .white : .primary)
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(isSelected ? Color.clear : Color.gray.opacity(0.15), lineWidth: 1)
+                                )
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
             }
-            .pickerStyle(SegmentedPickerStyle())
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
 
             Divider()
 
             // Active Call Overlay Banner
             CallBannerOverlay()
 
-            // Tab Content
+            // Sub Tab Content
             switch selectedTab {
             case 0:
                 chatsTabContent
@@ -137,7 +179,15 @@ public struct ChatTabView: View {
             viewModel.fetchChats()
             channelsViewModel.fetchChannels()
             jobViewModel.fetchJobs()
-            Task { _ = await storyRepository.syncStories() }
+        }
+        .sheet(isPresented: $showTopMenu) {
+            TopMoreMenuSheetView(
+                selectedTab: selectedTab,
+                onNewChat: onNewChatClick,
+                onArchived: onArchivedClick,
+                onProfile: onProfileClick
+            )
+            .presentationDetents([.medium])
         }
         .sheet(item: $activeChannelDetail) { ch in
             ChannelDetailView(
@@ -158,33 +208,10 @@ public struct ChatTabView: View {
             )
         }
         .fullScreenCover(item: $activeStory) { story in
-            StoryViewer(story: story, onClose: { activeStory = nil })
-        }
-        .sheet(isPresented: $showAddStory) {
-            StoryComposerSheet(draft: $storyDraft) { text, file in
-                showAddStory = false
-                storyDraft = ""
-                Task {
-                    do {
-                        var contentURL: String?
-                        var type = "text"
-                        if let file {
-                            let data = try Data(contentsOf: file.url)
-                            let isVideo = ["mp4", "mov", "m4v"].contains(file.url.pathExtension.lowercased())
-                            type = isVideo ? "video" : "image"
-                            contentURL = try await MediaActions.upload(
-                                data: data,
-                                filename: file.url.lastPathComponent,
-                                mime: isVideo ? "video/mp4" : "image/jpeg",
-                                folder: "stories"
-                            )
-                        }
-                        _ = try await storyRepository.createStory(content: text, contentUrl: contentURL, type: type)
-                    } catch {
-                        print("[Story] \(error)")
-                    }
-                }
-            }
+            StoryViewer(
+                sampleStoryGroup: story,
+                onClose: { activeStory = nil }
+            )
         }
     }
 
@@ -194,7 +221,7 @@ public struct ChatTabView: View {
         ZStack(alignment: .bottomTrailing) {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Stories Horizontal Row
+                    // Horizontal Stories Header Row matching Android StoriesRow
                     StoriesHeaderRow(
                         stories: storyRepository.userStories,
                         onStoryClick: { activeStory = $0 },
@@ -204,11 +231,12 @@ public struct ChatTabView: View {
 
                     Divider()
 
-                    // Archived Chats Header Button
+                    // Archived Header Item
                     if archivedCount > 0 {
                         Button(action: onArchivedClick) {
                             HStack {
                                 Image(systemName: "archivebox.fill")
+                                    .font(.system(size: 20))
                                     .foregroundColor(.accentColor)
                                 Text("Archived")
                                     .font(.system(size: 16, weight: .bold))
@@ -233,7 +261,7 @@ public struct ChatTabView: View {
                                 .font(.system(size: 48))
                                 .foregroundColor(.gray)
                             Text("No chats yet")
-                                .font(.system(size: 16))
+                                .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.secondary)
                             Button("Start New Chat", action: onNewChatClick)
                                 .buttonStyle(.borderedProminent)
@@ -261,13 +289,13 @@ public struct ChatTabView: View {
                 }
             }
 
-            // FAB New Chat Button
+            // Floating New Chat Action Button (FAB)
             Button(action: onNewChatClick) {
                 ZStack {
                     Circle()
                         .fill(Color.accentColor)
                         .frame(width: 56, height: 56)
-                        .shadow(radius: 4)
+                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.white)
@@ -288,7 +316,7 @@ public struct ChatTabView: View {
                         .font(.system(size: 48))
                         .foregroundColor(.gray)
                     Text("No channels available")
-                        .font(.system(size: 16))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -311,13 +339,13 @@ public struct ChatTabView: View {
                 }
             }
 
-            // FAB Create Channel Button
+            // Floating Create Channel Action Button (FAB)
             Button(action: { showCreateChannel = true }) {
                 ZStack {
                     Circle()
                         .fill(Color.accentColor)
                         .frame(width: 56, height: 56)
-                        .shadow(radius: 4)
+                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
@@ -345,13 +373,13 @@ public struct ChatTabView: View {
                 }
             )
 
-            // FAB Post Job Button
+            // Floating Post Job Action Button (FAB)
             Button(action: { showPostJob = true }) {
                 ZStack {
                     Circle()
                         .fill(Color.accentColor)
                         .frame(width: 56, height: 56)
-                        .shadow(radius: 4)
+                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
                     Image(systemName: "briefcase.fill")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.white)
@@ -386,21 +414,6 @@ public struct ChatTabView: View {
                 .background(Color(UIColor.secondarySystemBackground))
                 .cornerRadius(16)
 
-                if case .success(let dash) = rewardViewModel.uiState {
-                    Text("Ads today \(dash.adsWatchedToday)/\(max(dash.maxDailyAds, 1))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    ForEach(dash.tasks) { task in
-                        HStack {
-                            Text(task.title)
-                            Spacer()
-                            Text("\(Int(task.points))")
-                                .foregroundColor(task.isCompleted ? .secondary : .accentColor)
-                        }
-                        .padding(.vertical, 6)
-                    }
-                }
-
                 Button(action: {
                     rewardViewModel.showRewardedAd(taskId: "daily_ad", onReward: {})
                 }) {
@@ -424,39 +437,62 @@ public struct ChatTabView: View {
     }
 }
 
-private struct StoryComposerSheet: View {
-    @Binding var draft: String
-    var onPost: (String, PickedFile?) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var photoItem: PhotosPickerItem?
-    @State private var file: PickedFile?
+// MARK: - Top More Menu Sheet Component matching Android BottomSheet
 
-    var body: some View {
-        NavigationStack {
-            Form {
-                TextField("What's happening?", text: $draft, axis: .vertical)
-                PhotosPicker(selection: $photoItem, matching: .any(of: [.images, .videos])) {
-                    Label(file == nil ? "Add photo or video" : "Media attached", systemImage: "photo")
+public struct TopMoreMenuSheetView: View {
+    public let selectedTab: Int
+    public var onNewChat: () -> Void
+    public var onArchived: () -> Void
+    public var onProfile: () -> Void
+
+    public init(selectedTab: Int, onNewChat: @escaping () -> Void, onArchived: @escaping () -> Void, onProfile: @escaping () -> Void) {
+        self.selectedTab = selectedTab
+        self.onNewChat = onNewChat
+        self.onArchived = onArchived
+        self.onProfile = onProfile
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Options")
+                .font(.headline)
+                .padding(.top, 16)
+
+            Button(action: onNewChat) {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.badge.plus")
+                        .foregroundColor(.primary)
+                    Text("New Chat / Contacts")
+                        .font(.body)
+                        .foregroundColor(.primary)
                 }
+                .padding(.vertical, 8)
             }
-            .navigationTitle("New story")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+
+            Button(action: onArchived) {
+                HStack(spacing: 12) {
+                    Image(systemName: "archivebox")
+                        .foregroundColor(.primary)
+                    Text("Archived Chats")
+                        .font(.body)
+                        .foregroundColor(.primary)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Post") {
-                        onPost(draft, file)
-                    }
-                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && file == nil)
-                }
+                .padding(.vertical, 8)
             }
-            .onChange(of: photoItem) { item in
-                guard let item else { return }
-                Task {
-                    file = try? await item.loadTransferable(type: PickedFile.self)
+
+            Button(action: onProfile) {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.circle")
+                        .foregroundColor(.primary)
+                    Text("My Profile")
+                        .font(.body)
+                        .foregroundColor(.primary)
                 }
+                .padding(.vertical, 8)
             }
+
+            Spacer()
         }
+        .padding(.horizontal, 24)
     }
 }
