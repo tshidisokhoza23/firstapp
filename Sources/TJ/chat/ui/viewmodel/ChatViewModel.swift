@@ -308,7 +308,7 @@ public class ChatViewModel: ObservableObject {
         uiState.chatSearchResults = msgs.filter { $0.content.localizedCaseInsensitiveContains(query) }
     }
 
-    public func createGroup(name: String, contactIds: [String], onSuccess: (ChatMessage) -> Void) {
+    public func createGroup(name: String, contactIds: [String], onSuccess: @escaping (ChatMessage) -> Void) {
         Task {
             if let data = try? await API.data("chats/group", method: "POST", json: ["name": name, "member_ids": contactIds]),
                let chat = try? JSONDecoder().decode(ChatMessage.self, from: data) {
