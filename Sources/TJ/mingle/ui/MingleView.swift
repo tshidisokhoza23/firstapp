@@ -186,10 +186,18 @@ public struct MingleView: View {
                     CandidateCardView(
                         profile: candidate,
                         onPass: {
-                            withAnimation { profiles.removeFirst() }
+                            withAnimation {
+                                if !profiles.isEmpty {
+                                    _ = profiles.removeFirst()
+                                }
+                            }
                         },
                         onLike: {
-                            withAnimation { profiles.removeFirst() }
+                            withAnimation {
+                                if !profiles.isEmpty {
+                                    _ = profiles.removeFirst()
+                                }
+                            }
                         },
                         onChat: {
                             introTarget = candidate

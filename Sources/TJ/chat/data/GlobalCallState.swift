@@ -32,6 +32,12 @@ public class GlobalCallState: ObservableObject {
         }
     }
 
+    public func startCall(receiverId: String, isVideo: Bool) {
+        let sid = UUID().uuidString
+        let type: CallType = isVideo ? .video : .voice
+        setCallActive(true, sessionId: sid, participantId: receiverId, callType: type)
+    }
+
     public func updateContactInfo(id: String, name: String, phone: String?) {
         contactNames[id] = name
         if let phone = phone {
