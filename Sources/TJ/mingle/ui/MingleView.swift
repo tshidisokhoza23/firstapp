@@ -192,18 +192,26 @@ public struct MingleView: View {
             }
             let feed = try JSONDecoder().decode(Feed.self, from: data)
             if let balance = feed.balance { userCoins = Int(balance) }
-            profiles = (feed.items ?? []).map { item in
-                MingleProfile(
+            let feedItems = feed.items ?? []
+            var resultProfiles: [MingleProfile] = []
+            for item in feedItems {
+                let nameStr = (item.name?.isEmpty == false) ? item.name! : "Nearby"
+                let ageVal = item.age ?? 0
+                let distVal = item.distanceKm ?? 0.0
+                let bioStr = item.bio ?? ""
+                let p = MingleProfile(
                     id: item.id,
-                    name: item.name?.isEmpty == false ? item.name! : "Nearby",
-                    age: item.age ?? 0,
+                    name: nameStr,
+                    age: ageVal,
                     occupation: "",
-                    distanceKm: item.distanceKm ?? 0,
-                    bio: item.bio ?? "",
+                    distanceKm: distVal,
+                    bio: bioStr,
                     interests: [],
                     avatarGradient: [.purple, .blue]
                 )
+                resultProfiles.append(p)
             }
+            profiles = resultProfiles
             if profiles.isEmpty {
                 feedNote = feed.status?.isEmpty == false ? (feed.status ?? "") : "No one nearby in this radius."
             }

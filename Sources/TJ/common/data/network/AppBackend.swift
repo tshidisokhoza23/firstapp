@@ -123,36 +123,39 @@ public enum API {
         return req
     }
 
-    public static func data(_ endpoint: String, method: String = "GET", body: Encodable? = nil) async throws -> Data {
-        let full = AppBackend.apiBaseURL + (endpoint.hasPrefix("/") ? endpoint : "/\(endpoint)")
-        guard let url = URL(string: full) else { throw APIError.badURL }
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        if let token = SessionStore.shared.token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-
-        if let body {
-            if let raw = body as? Data {
-                request.httpBody = raw
+    public static func data(
+        _ path: String,
+        method: String = "GET",
+        query: [String: String] = [:],
+        json: [String: Any]? = nil,
+        body: Encodable? = nil,
+        authorized: Bool = true
+    ) async throws -> Data {
+        var encBody: Data? = nil
+        if let json = json {
+            encBody = try? JSONSerialization.data(withJSONObject: json)
+        } else if let body = body {
+            if let dataBody = body as? Data {
+                encBody = dataBody
             } else {
-                request.httpBody = try JSONEncoder().encode(body)
+                encBody = try? JSONEncoder().encode(body)
             }
         }
-
-        let (data, response) = try await URLSession.shared.data(for: request)
+        guard var req = request(path, method: method, query: query, body: encBody, authorized: authorized) else {
+            throw APIError.badURL
+        }
+        if method == "GET" { req.httpBody = nil }
+        let (data, response) = try await URLSession.shared.data(for: req)
         let code = (response as? HTTPURLResponse)?.statusCode ?? -1
         guard (200...299).contains(code) else {
-            let text = String(data: data, encoding: .utf8) ?? "HTTP \(code)"
-            throw APIError.status(code, text)
+            let message = String(data: data, encoding: .utf8) ?? ""
+            throw APIError.status(code, message)
         }
         return data
     }
 
     public static func getJSON(_ path: String, query: [String: String] = [:]) async throws -> [String: Any] {
-        let data = try await data(path)
+        let data = try await data(path, query: query)
         return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 }
