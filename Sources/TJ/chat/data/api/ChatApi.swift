@@ -1,6 +1,53 @@
-import Foundation
+public struct ReadReceiptRequest: Codable, Sendable {
+    public let lastReadMessageId: String
 
-// MARK: - Common & Response Models
+    enum CodingKeys: String, CodingKey {
+        case lastReadMessageId = "last_read_message_id"
+    }
+
+    public init(lastReadMessageId: String = "") {
+        self.lastReadMessageId = lastReadMessageId
+    }
+}
+
+public final class ChatApi: @unchecked Sendable {
+    public static let shared = ChatApi()
+    private let client: NetworkClient
+
+    public init(client: NetworkClient = .shared) {
+        self.client = client
+    }
+
+    public func getChats() async throws -> ChatSummaryResponse {
+        try await client.request(path: "conversations")
+    }
+
+    public func getMessages(conversationID: String, cursor: String? = nil, limit: Int? = 50) async throws -> MessagesResponse {
+        var query: [URLQueryItem] = [URLQueryItem(name: "limit", value: "\(limit ?? 50)")]
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await client.request(path: "conversations/\(conversationID)/messages", queryItems: query)
+    }
+
+    public func sendMessage(conversationID: String, request: SendMessageRequest) async throws -> MessageResponse {
+        try await client.request(path: "conversations/\(conversationID)/messages", method: .post, body: request)
+    }
+
+    public func markAsRead(conversationID: String, request: ReadReceiptRequest) async throws -> StatusResponse {
+        try await client.request(path: "conversations/\(conversationID)/read", method: .post, body: request)
+    }
+
+    public func deleteConversation(conversationID: String) async throws -> StatusResponse {
+        try await client.request(path: "conversations/\(conversationID)", method: .delete)
+    }
+
+    public func initiateDM(request: InitiateDMRequest) async throws -> ConversationResponse {
+        try await client.request(path: "chats/dm", method: .post, body: request)
+    }
+
+    public func createGroup(request: CreateGroupRequest) async throws -> ConversationResponse {
+        try await client.request(path: "chats/group", method: .post, body: request)
+    }
+}
 
 public struct AddMemberRequest: Codable, Sendable {
     public let userId: String
@@ -96,17 +143,7 @@ public struct StarMessageRequest: Codable, Sendable {
     }
 }
 
-public struct ReadReceiptRequest: Codable, Sendable {
-    public let lastReadMessageId: String
 
-    enum CodingKeys: String, CodingKey {
-        case lastReadMessageId = "last_read_message_id"
-    }
-
-    public init(lastReadMessageId: String) {
-        self.lastReadMessageId = lastReadMessageId
-    }
-}
 
 public struct StatusUpdateRequest: Codable, Sendable {
     public let status: String
