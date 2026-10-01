@@ -3,7 +3,7 @@ import AVKit
 import PhotosUI
 import UniformTypeIdentifiers
 
-struct FeedPost: Identifiable, Decodable {
+public struct FeedPost: Identifiable, Codable, Sendable {
     let id: String
     let authorId: String
     let authorName: String

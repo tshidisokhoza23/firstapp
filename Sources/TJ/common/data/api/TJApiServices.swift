@@ -536,8 +536,8 @@ public struct MediaFeedResponse: Codable, Sendable {
 public protocol SocialApiService: Sendable {
     func getFeed() async throws -> MediaFeedResponse
     func getShorts() async throws -> MediaFeedResponse
-    func getStories() async throws -> [Story]
-    func postStory(mediaUrl: String) async throws -> Story
+    func getStories() async throws -> [UserStory]
+    func postStory(mediaUrl: String) async throws -> StoryItem
     func getNotifications() async throws -> [NotificationItem]
 }
 
@@ -568,11 +568,11 @@ public final class SocialApi: SocialApiService, @unchecked Sendable {
         return try await client.request(path: "media/feed/shorts")
     }
 
-    public func getStories() async throws -> [Story] {
+    public func getStories() async throws -> [UserStory] {
         return try await client.request(path: "chats/stories")
     }
 
-    public func postStory(mediaUrl: String) async throws -> Story {
+    public func postStory(mediaUrl: String) async throws -> StoryItem {
         return try await client.request(path: "chats/stories", method: .post, body: ["media_url": mediaUrl])
     }
 
