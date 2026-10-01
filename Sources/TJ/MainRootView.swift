@@ -3,10 +3,6 @@ import LocalAuthentication
 import Contacts
 import UserNotifications
 
-#if canImport(GoogleSignIn)
-import GoogleSignIn
-#endif
-
 // MARK: - Root Navigation Routes
 public enum RootRoute: Hashable {
     case login
@@ -83,9 +79,6 @@ public struct MainRootView: View {
             }
         }
         .onOpenURL { url in
-            #if canImport(GoogleSignIn)
-            GIDSignIn.sharedInstance.handle(url)
-            #endif
             handleDeepLink(url: url)
         }
         .onReceive(NotificationCenter.default.publisher(for: SessionStore.didChange)) { _ in

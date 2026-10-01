@@ -76,20 +76,30 @@ public enum API {
 @MainActor
 public final class GoogleSignInService {
     public static let shared = GoogleSignInService()
+    private var inFlight = false
     private init() {}
 
     public func signIn() async throws -> String {
         #if canImport(GoogleSignIn)
+        if inFlight {
+            throw NSError(domain: "GoogleSignIn", code: -4, userInfo: [NSLocalizedDescriptionKey: "Google sign-in is already in progress"])
+        }
+        inFlight = true
+        defer { inFlight = false }
+
         let scenes = UIApplication.shared.connectedScenes
         let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene ?? scenes.first as? UIWindowScene
         guard let rootVC = windowScene?.windows.first(where: { $0.isKeyWindow })?.rootViewController ?? windowScene?.windows.first?.rootViewController else {
             throw NSError(domain: "GoogleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not find root view controller for Google Sign-In presentation"])
         }
+        let presenter = Self.topViewController(from: rootVC)
 
-        let clientID = AppBackend.googleiOSClientID
-        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+            clientID: AppBackend.googleiOSClientID,
+            serverClientID: AppBackend.googleWebClientID
+        )
 
-        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
         guard let idToken = result.user.idToken?.tokenString else {
             throw NSError(domain: "GoogleSignIn", code: -2, userInfo: [NSLocalizedDescriptionKey: "Missing ID token from Google response"])
         }
@@ -97,6 +107,19 @@ public final class GoogleSignInService {
         #else
         throw NSError(domain: "GoogleSignIn", code: -3, userInfo: [NSLocalizedDescriptionKey: "GoogleSignIn framework unavailable on device"])
         #endif
+    }
+
+    private static func topViewController(from root: UIViewController) -> UIViewController {
+        if let presented = root.presentedViewController, !presented.isBeingDismissed {
+            return topViewController(from: presented)
+        }
+        if let navigation = root as? UINavigationController, let visible = navigation.visibleViewController {
+            return topViewController(from: visible)
+        }
+        if let tab = root as? UITabBarController, let selected = tab.selectedViewController {
+            return topViewController(from: selected)
+        }
+        return root
     }
 }
 

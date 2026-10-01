@@ -97,6 +97,7 @@ public final class AuthViewModel: ObservableObject {
     }
 
     public func signInWithGoogle() {
+        if authState?.isLoading == true { return }
         authState = .loading()
         Task {
             do {
