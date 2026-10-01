@@ -16,11 +16,12 @@ public protocol JobRepository {
 }
 
 public final class JobRepositoryImpl: JobRepository, @unchecked Sendable {
+    public static let shared = JobRepositoryImpl()
     private let jobApi: JobApiProtocol
     private let localStore: JobLocalStore
 
     public init(jobApi: JobApiProtocol? = nil, localStore: JobLocalStore? = nil) {
-        self.jobApi = jobApi ?? JobApi()
+        self.jobApi = jobApi ?? JobApi.shared
         self.localStore = localStore ?? JobLocalStore()
     }
 

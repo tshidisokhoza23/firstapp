@@ -137,6 +137,7 @@ public protocol JobApiProtocol {
 }
 
 public class JobApi: JobApiProtocol {
+    public static let shared = JobApi()
     private let baseURL: URL
     private let session: URLSession
 

@@ -104,6 +104,17 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
 
     public init(
         urlSession: URLSession = .shared,
+        sessionStore: SessionStore = SessionStore.shared,
+        wsURLProvider: @escaping @Sendable () -> String = { AppBackend.wsBaseURL }
+    ) {
+        self.urlSession = urlSession
+        self.tokenProvider = { sessionStore.token }
+        self.wsURLProvider = wsURLProvider
+        super.init()
+    }
+
+    public init(
+        urlSession: URLSession = .shared,
         tokenProvider: @escaping @Sendable () -> String?,
         wsURLProvider: @escaping @Sendable () -> String
     ) {

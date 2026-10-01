@@ -37,6 +37,7 @@ public struct UserEnvelope: Codable, Sendable {
 }
 
 public final class AuthApi: AuthApiService {
+    public static let shared = AuthApi()
     private let client: NetworkClient
 
     public init(client: NetworkClient = .shared) {
