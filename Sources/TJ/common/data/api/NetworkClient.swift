@@ -80,18 +80,22 @@ public final class GoogleSignInService {
 
     public func signIn() async throws -> String {
         #if canImport(GoogleSignIn)
-        guard let rootVC = UIApplication.shared.connectedScenes
-            .compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController })
-            .first else {
-            throw NSError(domain: "GoogleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "No root VC"])
+        let scenes = UIApplication.shared.connectedScenes
+        let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene ?? scenes.first as? UIWindowScene
+        guard let rootVC = windowScene?.windows.first(where: { $0.isKeyWindow })?.rootViewController ?? windowScene?.windows.first?.rootViewController else {
+            throw NSError(domain: "GoogleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not find root view controller for Google Sign-In presentation"])
         }
+
+        let clientID = AppBackend.googleiOSClientID
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+
         let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
         guard let idToken = result.user.idToken?.tokenString else {
-            throw NSError(domain: "GoogleSignIn", code: -2, userInfo: [NSLocalizedDescriptionKey: "Missing ID token"])
+            throw NSError(domain: "GoogleSignIn", code: -2, userInfo: [NSLocalizedDescriptionKey: "Missing ID token from Google response"])
         }
         return idToken
         #else
-        throw NSError(domain: "GoogleSignIn", code: -3, userInfo: [NSLocalizedDescriptionKey: "GoogleSignIn unavailable"])
+        throw NSError(domain: "GoogleSignIn", code: -3, userInfo: [NSLocalizedDescriptionKey: "GoogleSignIn framework unavailable on device"])
         #endif
     }
 }

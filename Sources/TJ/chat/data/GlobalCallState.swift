@@ -1,3 +1,7 @@
+import Foundation
+import Combine
+import SwiftUI
+
 @MainActor
 public class GlobalCallState: ObservableObject {
     public static let shared = GlobalCallState()
