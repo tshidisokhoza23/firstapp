@@ -6,6 +6,8 @@ public final class CallTonePlayer: NSObject, @unchecked Sendable {
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
 
+    public static let shared = CallTonePlayer()
+
     public override init() {
         super.init()
     }

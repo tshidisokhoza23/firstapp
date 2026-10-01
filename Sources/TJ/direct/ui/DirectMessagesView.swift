@@ -65,7 +65,89 @@ public struct DirectMessagesView: View {
         filteredConversations.filter { !$0.isPinned }
     }
 
+    @State private var callLogs: [CallLog] = []
+    @State private var callError = ""
+
     public var body: some View {
+        NavigationStack {
+            Group {
+                if callLogs.isEmpty {
+                    Text(callError.isEmpty ? "No calls yet" : callError)
+                        .foregroundColor(.secondary)
+                } else {
+                    List(callLogs) { call in
+                        Button {
+                            let receiver = call.contactId.isEmpty ? (call.calleeId.isEmpty ? call.callerId : call.calleeId) : call.contactId
+                            ChatViewModel().startVoiceOrVideoCall(
+                                receiverId: receiver,
+                                callType: call.callType.lowercased() == "video" ? .video : .voice,
+                                name: resolvedCallName(call)
+                            )
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(resolvedCallName(call))
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.primary)
+                                    Text(call.status.lowercased())
+                                        .font(.caption)
+                                        .foregroundColor(call.status.lowercased() == "missed" ? .red : .green)
+                                }
+                                Spacer()
+                                Image(systemName: call.callType.lowercased() == "video" ? "video.fill" : "phone.fill")
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Calls")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Image(systemName: "magnifyingglass")
+                }
+            }
+            .task { await loadCallLogs() }
+        }
+    }
+
+    private func resolvedCallName(_ call: CallLog) -> String {
+        let cached = GlobalCallState.shared.contactNames[call.contactId]
+        let phone = GlobalCallState.shared.contactPhones[call.contactId] ?? ""
+        let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
+        if let local, !local.isEmpty { return local }
+        if !isIdString(call.contactName, id: call.contactId), !call.contactName.isEmpty, call.contactName.lowercased() != "chat" {
+            return call.contactName
+        }
+        if let cached, !cached.isEmpty, !isIdString(cached, id: call.contactId) { return cached }
+        return phone.isEmpty ? call.contactName : phone
+    }
+
+    private func loadCallLogs() async {
+        do {
+            let data = try await API.data("calls")
+            let rows = LiveJSON.list(data, keys: ["calls", "data"])
+            callLogs = rows.map { json in
+                CallLog(
+                    id: LiveJSON.string(json["id"]).isEmpty ? LiveJSON.string(json["session_id"]) : LiveJSON.string(json["id"]),
+                    sessionId: LiveJSON.string(json["session_id"]),
+                    callerId: LiveJSON.string(json["caller_id"]),
+                    calleeId: LiveJSON.string(json["callee_id"]),
+                    contactId: LiveJSON.string(json["contact_id"]),
+                    contactName: LiveJSON.string(json["contact_name"]),
+                    contactAvatar: LiveJSON.string(json["contact_avatar"]).isEmpty ? nil : LiveJSON.string(json["contact_avatar"]),
+                    callType: LiveJSON.string(json["call_type"]).isEmpty ? "voice" : LiveJSON.string(json["call_type"]),
+                    status: LiveJSON.string(json["status"]),
+                    durationSeconds: Int(LiveJSON.int64(json["duration_seconds"])),
+                    timestamp: LiveJSON.int64(json["started_at"])
+                )
+            }
+        } catch {
+            callError = error.localizedDescription
+        }
+    }
+
+    private var unusedDirectBody: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {

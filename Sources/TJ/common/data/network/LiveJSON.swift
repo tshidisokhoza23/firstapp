@@ -76,12 +76,19 @@ enum LiveJSON {
         } else {
             type = .direct
         }
-        let title = string(json["title"]).isEmpty ? string(json["contact_name"]) : string(json["title"])
-        let name = title == id ? string(json["contact_name"]) : title
+        let title = string(json["title"])
+        let contactName = string(json["contact_name"])
+        let contactId = string(json["contact_id"])
+        let phone = type == .mingle ? "" : string(json["phone_number"])
+        let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
+        let server = [contactName, title].first { !isIdString($0, id: id) && !isIdString($0, id: contactId) && $0.lowercased() != "chat" && $0.lowercased() != "direct" }
+        let name = local ?? server ?? phone
         return ChatMessage(
             id: id,
             type: type,
-            senderName: name.isEmpty ? "Chat" : name,
+            senderName: name,
+            localContactName: local,
+            serverProfileName: server,
             lastMessage: string(json["last_message"]),
             timestamp: int64(json["time"] ?? json["timestamp"] ?? json["updated_at"]),
             unreadCount: int(json["unread_count"]),

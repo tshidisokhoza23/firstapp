@@ -129,7 +129,10 @@ public struct ChatView: View {
             onPinSelectedMessage: { pinSelected() },
             onEditSelectedMessage: { editSelected() },
             onForwardSelectedMessages: { forwardSelected() },
-            onClearSelectedMessages: { selectedMessageIds.removeAll() }
+            onClearSelectedMessages: { selectedMessageIds.removeAll() },
+            onInitiateCall: { receiverId, name, callType in
+                viewModel.startVoiceOrVideoCall(receiverId: receiverId, callType: callType, name: name)
+            }
         )
     }
 
@@ -275,22 +278,29 @@ public struct ChatView: View {
             note = "Could not read that file"
             return
         }
-        guard let url = try? await MediaActions.upload(
-            data: data,
-            filename: "chat_attachment.jpg",
-            mime: "image/jpeg",
-            folder: "chat/image"
-        ) else {
-            note = "Upload failed"
+        let type = item.supportedContentTypes.first
+        let mime = type?.preferredMIMEType ?? "application/octet-stream"
+        let kind = mime.hasPrefix("video") ? "video" : (mime.hasPrefix("image") ? "image" : "document")
+        let filename = kind == "video" ? "chat_attachment.mp4" : (kind == "image" ? "chat_attachment.jpg" : "chat_attachment")
+        do {
+            let url = try await MediaActions.upload(
+                data: data,
+                filename: filename,
+                mime: mime,
+                folder: "chat/\(kind)"
+            )
+            viewModel.sendMessage(
+                chatId: chat.id,
+                body: inputText.isEmpty ? kind.capitalized : inputText,
+                messageType: kind,
+                mediaUrls: [url],
+                fileName: filename,
+                fileSize: String(data.count)
+            )
+        } catch {
+            note = error.localizedDescription
             return
         }
-        viewModel.sendMessage(
-            chatId: chat.id,
-            body: inputText.isEmpty ? "Photo" : inputText,
-            messageType: "image",
-            mediaUrls: [url],
-            fileName: "photo.jpg"
-        )
         inputText = ""
     }
 

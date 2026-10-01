@@ -24,6 +24,8 @@ public final class WebRtcCallManager: NSObject, @unchecked Sendable {
     private var captureSession: AVCaptureSession?
     private var videoPreviewLayer: AVCaptureVideoPreviewLayer?
 
+    public static let shared = WebRtcCallManager()
+
     public override init() {
         super.init()
     }

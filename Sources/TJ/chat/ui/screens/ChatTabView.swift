@@ -23,8 +23,7 @@ public struct ChatTabView: View {
     @State private var showCreateChannel: Bool = false
     @State private var showPostJob: Bool = false
     @State private var activeStory: UserStory? = nil
-    @State private var showAddStory: Bool = false
-    @State private var storyDraft: String = ""
+    @State private var storyStart: AndroidStoryFlow.Start? = nil
 
     private let subTabs = ["Chats", "Channels", "Jobs", "Rewards"]
 
@@ -180,7 +179,9 @@ public struct ChatTabView: View {
             viewModel.fetchChats()
             channelsViewModel.fetchChannels()
             Task { await rewardViewModel.fetchAdverts() }
+            Task { await storyRepository.syncStories() }
             jobViewModel.fetchJobs()
+            viewModel.connectCallSocket()
         }
         .sheet(isPresented: $showTopMenu) {
             TopMoreMenuSheetView(
@@ -227,6 +228,17 @@ public struct ChatTabView: View {
                 onClose: { activeStory = nil }
             )
         }
+        .fullScreenCover(item: $storyStart) { start in
+            AndroidStoryFlow(
+                start: start,
+                stories: storyRepository.userStories,
+                currentUserId: SessionStore.shared.userId,
+                onClose: { storyStart = nil },
+                onPosted: {
+                    Task { await storyRepository.syncStories() }
+                }
+            )
+        }
     }
 
     // MARK: - Chats Tab Content matching Screenshot 1
@@ -238,8 +250,11 @@ public struct ChatTabView: View {
                     // Horizontal Stories Header Row matching Android Screenshot 1
                     StoriesHeaderRow(
                         stories: storyRepository.userStories,
+                        currentUserId: SessionStore.shared.userId,
                         onStoryClick: { activeStory = $0 },
-                        onMediaStoryClick: { showAddStory = true }
+                        onMediaStoryClick: { storyStart = .media },
+                        onTextStoryClick: { storyStart = .text },
+                        onPostedStoriesClick: { storyStart = .posted }
                     )
                     .padding(.vertical, 8)
 
