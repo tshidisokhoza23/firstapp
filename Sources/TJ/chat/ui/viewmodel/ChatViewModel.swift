@@ -146,20 +146,62 @@ public class ChatViewModel: ObservableObject {
     }
 
     public func fetchCurrentUser() {
-        // Fetch current user logic
+        Task {
+            if let user = SessionStore.shared.user {
+                uiState.currentUser = user
+            } else if let data = try? await API.data("users/me"),
+                      let env = try? JSONDecoder().decode(UserEnvelope.self, from: data) {
+                uiState.currentUser = env.user
+                SessionStore.shared.updateUser(env.user)
+            }
+        }
     }
 
     public func fetchChats() {
         uiState.isChatsFetching = true
-        // Simulated network sync
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.uiState.isChatsFetching = false
+        Task {
+            do {
+                let data = try await API.data("conversations")
+                struct Envelope: Decodable {
+                    let conversations: [ChatMessage]?
+                    let chats: [ChatMessage]?
+                    let data: [ChatMessage]?
+                }
+                var list: [ChatMessage] = []
+                if let env = try? JSONDecoder().decode(Envelope.self, from: data) {
+                    list = env.conversations ?? env.chats ?? env.data ?? []
+                } else if let direct = try? JSONDecoder().decode([ChatMessage].self, from: data) {
+                    list = direct
+                }
+                self.uiState.chats = .success(list)
+                self.uiState.isChatsFetching = false
+            } catch {
+                self.uiState.isChatsFetching = false
+            }
         }
     }
 
     public func fetchMessages(chatId: String) {
         activeChatId = chatId
         markAsRead(chatId: chatId)
+        Task {
+            do {
+                let data = try await API.data("conversations/\(chatId)/messages")
+                struct MsgEnvelope: Decodable {
+                    let messages: [Message]?
+                    let items: [Message]?
+                }
+                var msgs: [Message] = []
+                if let env = try? JSONDecoder().decode(MsgEnvelope.self, from: data) {
+                    msgs = env.messages ?? env.items ?? []
+                } else if let direct = try? JSONDecoder().decode([Message].self, from: data) {
+                    msgs = direct
+                }
+                self.uiState.messages = .success(msgs)
+            } catch {
+                self.uiState.messages = .success([])
+            }
+        }
     }
 
     public func clearActiveChat() {
@@ -206,53 +248,38 @@ public class ChatViewModel: ObservableObject {
             longitude: longitude,
             replyToId: replyToId,
             replyToText: replyToText,
-            replyToSenderName: replyToSenderName,
-            audioAmplitudes: audioAmplitudes
+            replyToSenderName: replyToSenderName
         )
 
-        var currentMsgs = uiState.messages.data ?? []
-        currentMsgs.append(msg)
-        uiState.messages = .success(currentMsgs)
+        var current = uiState.messages.data ?? []
+        current.append(msg)
+        uiState.messages = .success(current)
+
         Task {
-            let result = await AppRuntime.chatRepository.sendMessage(
-                chatId: chatId,
-                body: body,
-                messageType: messageType,
-                mediaUrls: mediaUrls,
-                duration: duration,
-                fileName: fileName,
-                fileSize: fileSize,
-                contactName: contactName,
-                contactPhone: contactPhone,
-                latitude: latitude,
-                longitude: longitude,
-                replyToId: replyToId,
-                replyToText: replyToText,
-                replyToSenderName: replyToSenderName,
-                clientId: msg.id,
-                scheduledAt: scheduledAt
-            )
-            if case .error(let message, _) = result {
-                self.uiState.error = message
-            } else {
-                self.fetchMessages(chatId: chatId)
+            var bodyObj: [String: Any] = [
+                "content": body,
+                "message_type": messageType,
+                "media_urls": mediaUrls
+            ]
+            if let duration { bodyObj["duration"] = duration }
+            if let fileName { bodyObj["file_name"] = fileName }
+
+            if let respData = try? await API.data("conversations/\(chatId)/messages", method: "POST", json: bodyObj) {
+                if var msgs = self.uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == msg.id }) {
+                    msgs[idx].status = .delivered
+                    self.uiState.messages = .success(msgs)
+                }
             }
         }
     }
 
-    public func startVoiceOrVideoCall(receiverId: String, callType: CallType, name: String? = nil) {
-        guard !receiverId.isEmpty else { return }
-        GlobalCallState.shared.setCallActive(true, sessionId: UUID().uuidString, participantId: receiverId, callType: callType)
-        if let name = name {
-            GlobalCallState.shared.updateContactInfo(id: receiverId, name: name, phone: nil)
+    public func markAsRead(chatId: String) {
+        Task {
+            _ = try? await API.data("conversations/\(chatId)/read", method: "POST", json: [:])
         }
     }
 
-    public func markAsRead(chatId: String) {
-        // Mark conversation messages as read
-    }
-
-    public func deleteMessage(messageId: String, deleteForEveryone: Bool = false) {
+    public func deleteMessage(messageId: String, deleteForEveryone: Bool) {
         if var msgs = uiState.messages.data {
             msgs.removeAll { $0.id == messageId }
             uiState.messages = .success(msgs)
@@ -268,9 +295,52 @@ public class ChatViewModel: ObservableObject {
 
     public func reactToMessage(messageId: String, emoji: String) {
         if var msgs = uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == messageId }) {
-            msgs[idx].reactions[emoji, default: 0] += 1
+            msgs[idx].reactions[uiState.currentUser?.id ?? "me"] = emoji
             uiState.messages = .success(msgs)
         }
+    }
+
+    public func searchInChat(chatId: String, query: String) {
+        guard !query.isEmpty, let msgs = uiState.messages.data else {
+            uiState.chatSearchResults = []
+            return
+        }
+        uiState.chatSearchResults = msgs.filter { $0.content.localizedCaseInsensitiveContains(query) }
+    }
+
+    public func createGroup(name: String, contactIds: [String], onSuccess: (ChatMessage) -> Void) {
+        Task {
+            if let data = try? await API.data("chats/group", method: "POST", json: ["name": name, "member_ids": contactIds]),
+               let chat = try? JSONDecoder().decode(ChatMessage.self, from: data) {
+                onSuccess(chat)
+                fetchChats()
+            }
+        }
+    }
+
+    public func archiveChat(chatId: String, isArchived: Bool) {
+        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
+            list[idx].isArchived = isArchived
+            uiState.chats = .success(list)
+        }
+    }
+
+    public func pinChat(chatId: String, isPinned: Bool) {
+        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
+            list[idx].isPinned = isPinned
+            uiState.chats = .success(list)
+        }
+    }
+
+    public func muteChat(chatId: String, isMuted: Bool) {
+        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
+            list[idx].isMuted = isMuted
+            uiState.chats = .success(list)
+        }
+    }
+
+    public func clearChat(chatId: String) {
+        uiState.messages = .success([])
     }
 
     public func starMessage(messageId: String, isStarred: Bool) {
@@ -280,106 +350,11 @@ public class ChatViewModel: ObservableObject {
         }
     }
 
-    public func searchInChat(chatId: String, query: String) {
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
-            uiState.chatSearchResults = []
-            return
-        }
-        let msgs = uiState.messages.data ?? []
-        uiState.chatSearchResults = msgs.filter { $0.content.localizedCaseInsensitiveContains(query) }
+    public func clearAllChats() {
+        uiState.chats = .success([])
     }
 
-    public func createGroup(name: String, contactIds: [String], onSuccess: @escaping (ChatMessage) -> Void) {
-        let groupChat = ChatMessage(
-            id: UUID().uuidString,
-            type: .group,
-            senderName: name,
-            lastMessage: "Group created",
-            timestamp: Int64(Date().timeIntervalSince1970 * 1000),
-            isGroup: true
-        )
-        onSuccess(groupChat)
-        fetchChats()
-    }
-
-    public func pinChat(chatId: String, isPinned: Bool) { fetchChats() }
-    public func muteChat(chatId: String, isMuted: Bool) { fetchChats() }
-    public func archiveChat(chatId: String, isArchived: Bool) { fetchChats() }
-    public func clearChat(chatId: String) { uiState.messages = .success([]) }
-    public func clearAllChats() { fetchChats() }
-
-    public func refreshBlockedUsers() {}
-    public func blockUser(userId: String, onDone: @escaping (Bool) -> Void = { _ in }) {
-        blockedUserIds.insert(userId)
-        onDone(true)
-    }
-    public func unblockUser(userId: String, onDone: @escaping (Bool) -> Void = { _ in }) {
-        blockedUserIds.remove(userId)
-        onDone(true)
-    }
-    public func reportUser(userId: String, reason: String, onDone: @escaping (Bool) -> Void = { _ in }) {
-        onDone(true)
-    }
-
-    public func sendTyping(_ isTyping: Bool) {
-        guard let chatId = activeChatId else { return }
-        uiState.typingStatus[chatId] = isTyping
-    }
-
-    public func setPlayingAudio(_ uri: String?) {
-        if uri == nil || uri == currentlyPlayingAudio {
-            audioPlayer?.stop()
-            audioPlayer = nil
-            currentlyPlayingAudio = nil
-            return
-        }
-        currentlyPlayingAudio = uri
-        guard let uri else { return }
-        Task { await playAudio(uri) }
-    }
-
-    private func playAudio(_ uri: String) async {
-        let resolved = FeedPost.resolve(uri) ?? URL(string: uri)
-        guard let resolved else {
-            currentlyPlayingAudio = nil
-            uiState.error = "Could not play that voice note"
-            return
-        }
-        do {
-            let fileURL: URL
-            if resolved.isFileURL {
-                fileURL = resolved
-            } else {
-                let (data, response) = try await URLSession.shared.data(from: resolved)
-                let code = (response as? HTTPURLResponse)?.statusCode ?? 200
-                guard (200...299).contains(code), !data.isEmpty else {
-                    throw URLError(.badServerResponse)
-                }
-                let ext = resolved.pathExtension.isEmpty ? "m4a" : resolved.pathExtension
-                fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("play-\(UUID().uuidString).\(ext)")
-                try data.write(to: fileURL)
-            }
-            let player = try AVAudioPlayer(contentsOf: fileURL)
-            guard currentlyPlayingAudio == uri else { return }
-            try AVAudioSession.sharedInstance().setCategory(.playback)
-            try AVAudioSession.sharedInstance().setActive(true)
-            audioPlayer?.stop()
-            audioPlayer = player
-            player.play()
-        } catch {
-            if currentlyPlayingAudio == uri { currentlyPlayingAudio = nil }
-            uiState.error = "Could not play that voice note"
-        }
-    }
-
-    public func sendMediaMessage(chatId: String, fileUrl: URL, type: String, name: String? = nil, duration: String? = nil) {
-        sendMessage(
-            chatId: chatId,
-            body: name ?? type.capitalized,
-            messageType: type,
-            mediaUrls: [fileUrl.absoluteString],
-            duration: duration,
-            fileName: fileUrl.lastPathComponent
-        )
+    public func refreshBlockedUsers() {
+        blockedUserIds = []
     }
 }
