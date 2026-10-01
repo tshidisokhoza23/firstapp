@@ -356,6 +356,21 @@ public struct ConnectedShortsFeedView: View {
     }
 }
 
+/// Android Court/Mingle tab matching Screenshot 5.
+public struct ConnectedMingleFeedView: View {
+    public var onProfileClick: (String) -> Void
+    public var onChatClick: (String) -> Void
+
+    public init(onProfileClick: @escaping (String) -> Void = { _ in }, onChatClick: @escaping (String) -> Void = { _ in }) {
+        self.onProfileClick = onProfileClick
+        self.onChatClick = onChatClick
+    }
+
+    public var body: some View {
+        MingleView()
+    }
+}
+
 struct ShortsFeedView: View {
     public var onProfileClick: (String) -> Void = { _ in }
     @State private var shorts: [FeedPost] = []
