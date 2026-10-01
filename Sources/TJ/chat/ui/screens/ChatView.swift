@@ -287,9 +287,9 @@ public struct ChatView: View {
         viewModel.sendMessage(
             chatId: chat.id,
             body: inputText.isEmpty ? "Photo" : inputText,
-            messageType: kind,
+            messageType: "image",
             mediaUrls: [url],
-            fileName: file.url.lastPathComponent
+            fileName: "photo.jpg"
         )
         inputText = ""
     }
