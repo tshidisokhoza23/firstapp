@@ -1,6 +1,8 @@
 import Foundation
-import AuthenticationServices
 import UIKit
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 /// Same hosts as the Android `sit` (default) and `prod` flavors.
 public enum AppBackend {
@@ -278,66 +280,41 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
     }
 }
 
-public final class GoogleSignInService: NSObject, ASWebAuthenticationPresentationContextProviding {
+public final class GoogleSignInService {
     public static let shared = GoogleSignInService()
-    private var session: ASWebAuthenticationSession?
 
-    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? ASPresentationAnchor()
-    }
-
+    /// Native iOS client starts the prompt. The web client ID is only the audience of the token sent to the Go backend.
     public func signIn() async throws -> String {
-        let iosClientID = AppBackend.googleiOSClientID
-        let scheme = "com.googleusercontent.apps.303703683011-6ksjg0b8uakesl9a821ri05tokrg41f2"
-        let nonce = UUID().uuidString
-        var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
-        components.queryItems = [
-            URLQueryItem(name: "client_id", value: iosClientID),
-            URLQueryItem(name: "redirect_uri", value: "\(scheme):/oauth2redirect"),
-            URLQueryItem(name: "response_type", value: "id_token"),
-            URLQueryItem(name: "scope", value: "openid email profile"),
-            URLQueryItem(name: "nonce", value: nonce),
-            URLQueryItem(name: "prompt", value: "select_account")
-        ]
-        guard let url = components.url else { throw APIError.badURL }
-        return try await withCheckedThrowingContinuation { continuation in
-            let auth = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme) { callback, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let callback else {
-                    continuation.resume(throwing: APIError.status(-1, "Google sign-in returned no token"))
-                    return
-                }
-                let raw = callback.absoluteString
-                let fragment = callback.fragment ?? ""
-                let query = callback.query ?? ""
-                let bag = fragment + "&" + query + "&" + raw
-                if let token = Self.value("id_token", in: bag), !token.isEmpty {
-                    continuation.resume(returning: token)
-                    return
-                }
-                let message = Self.value("error_description", in: bag) ?? Self.value("error", in: bag) ?? "Google sign-in failed"
-                continuation.resume(throwing: APIError.status(-1, message.removingPercentEncoding ?? message))
-            }
-            auth.presentationContextProvider = self
-            auth.prefersEphemeralWebBrowserSession = false
-            self.session = auth
-            if !auth.start() {
-                continuation.resume(throwing: APIError.status(-1, "Unable to open Google sign-in"))
-            }
+        #if canImport(GoogleSignIn)
+        await MainActor.run {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+                clientID: AppBackend.googleiOSClientID,
+                serverClientID: AppBackend.googleWebClientID
+            )
         }
+        let presenter = try await MainActor.run { try Self.presenter() }
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
+        guard let token = result.user.idToken?.tokenString, !token.isEmpty else {
+            throw APIError.status(-1, "Google sign-in returned no token")
+        }
+        return token
+        #else
+        throw APIError.status(-1, "Google Sign-In is not linked")
+        #endif
     }
 
-    private static func value(_ key: String, in text: String) -> String? {
-        let pattern = "(?:[?&#]|\n|^)" + NSRegularExpression.escapedPattern(for: key) + "=([^&#\n]*)"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        let range = NSRange(text.startIndex..., in: text)
-        guard let match = regex.firstMatch(in: text, range: range), match.numberOfRanges > 1 else { return nil }
-        guard let r = Range(match.range(at: 1), in: text) else { return nil }
-        return String(text[r])
+    @MainActor
+    private static func presenter() throws -> UIViewController {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let root = scenes.flatMap(\.windows).first(where: \.isKeyWindow)?.rootViewController
+            ?? scenes.first?.windows.first?.rootViewController
+        guard var controller = root else {
+            throw APIError.status(-1, "Unable to open Google sign-in")
+        }
+        while let presented = controller.presentedViewController {
+            controller = presented
+        }
+        return controller
     }
 }
 
