@@ -48,6 +48,12 @@ public protocol ChatRepository: Sendable {
 // MARK: - ChatRepositoryImpl
 
 public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
+    public static let shared = ChatRepositoryImpl(
+        chatApi: ChatApi(),
+        localDb: LocalDatabase.shared,
+        webSocketManager: WebSocketManager.shared,
+        currentUserIdProvider: { SessionStore.shared.userId }
+    )
     private let chatApi: ChatApi
     private let localDb: LocalDatabase
     private let webSocketManager: WebSocketManager

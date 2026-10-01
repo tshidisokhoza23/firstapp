@@ -1,4 +1,10 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 public enum HTTPMethod: String, Codable, Sendable {
     case get = "GET"
@@ -6,6 +12,88 @@ public enum HTTPMethod: String, Codable, Sendable {
     case put = "PUT"
     case patch = "PATCH"
     case delete = "DELETE"
+}
+
+public enum APIError: Error, LocalizedError {
+    case badURL
+    case status(Int, String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .badURL: return "Bad URL"
+        case .status(let code, let msg): return "HTTP \(code): \(msg)"
+        }
+    }
+}
+
+public enum API {
+    public static func request(_ path: String, method: String = "GET", body: Data? = nil) -> URLRequest? {
+        var base = AppBackend.apiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let fullPath = path.hasPrefix("/") ? path : "/\(path)"
+        guard let url = URL(string: "\(base)\(fullPath)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.httpBody = body
+        if let token = SessionStore.shared.token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        return req
+    }
+
+    public static func data(_ path: String, method: String = "GET", query: [String: String]? = nil, json: [String: Any]? = nil) async throws -> Data {
+        var base = AppBackend.apiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let fullPath = path.hasPrefix("/") ? path : "/\(path)"
+        guard var components = URLComponents(string: "\(base)\(fullPath)") else {
+            throw APIError.badURL
+        }
+        if let query = query, !query.isEmpty {
+            components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        }
+        guard let url = components.url else {
+            throw APIError.badURL
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        if let json = json {
+            req.httpBody = try? JSONSerialization.data(withJSONObject: json)
+        }
+        if let token = SessionStore.shared.token, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (responseData, response) = try await URLSession.shared.data(for: req)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+        guard (200...299).contains(statusCode) else {
+            let msg = String(data: responseData, encoding: .utf8) ?? "Server error"
+            throw APIError.status(statusCode, msg)
+        }
+        return responseData
+    }
+}
+
+@MainActor
+public final class GoogleSignInService {
+    public static let shared = GoogleSignInService()
+    private init() {}
+
+    public func signIn() async throws -> String {
+        #if canImport(GoogleSignIn)
+        guard let rootVC = UIApplication.shared.connectedScenes
+            .compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController })
+            .first else {
+            throw NSError(domain: "GoogleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "No root VC"])
+        }
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+        guard let idToken = result.user.idToken?.tokenString else {
+            throw NSError(domain: "GoogleSignIn", code: -2, userInfo: [NSLocalizedDescriptionKey: "Missing ID token"])
+        }
+        return idToken
+        #else
+        throw NSError(domain: "GoogleSignIn", code: -3, userInfo: [NSLocalizedDescriptionKey: "GoogleSignIn unavailable"])
+        #endif
+    }
 }
 
 public final class NetworkClient: @unchecked Sendable {

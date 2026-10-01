@@ -77,6 +77,11 @@ public struct WSAnyCodable: Codable, Sendable {
 }
 
 public final class WebSocketManager: NSObject, @unchecked Sendable {
+    public static let shared = WebSocketManager(
+        tokenProvider: { SessionStore.shared.token },
+        wsURLProvider: { AppBackend.wsBaseURL }
+    )
+
     public enum ConnectionState: String, Sendable {
         case connecting
         case connected
@@ -123,25 +128,15 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
             return
         }
 
+        let base = wsURLProvider().trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard var components = URLComponents(string: base) else { return }
+        components.queryItems = [URLQueryItem(name: "token", value: token)]
+        guard let url = components.url else { return }
+
         connectionStateSubject.send(.connecting)
 
-        var base = wsURLProvider().trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        if base.hasPrefix("http://") {
-            base = "ws://" + base.dropFirst(7)
-        } else if base.hasPrefix("https://") {
-            base = "wss://" + base.dropFirst(8)
-        } else if !base.hasPrefix("ws://") && !base.hasPrefix("wss://") {
-            base = "wss://" + base
-        }
-
-        let fullUrlString = base.hasSuffix("/ws/chat") ? "\(base)?token=\(token)" : "\(base)/ws/chat?token=\(token)"
-        guard let url = URL(string: fullUrlString) else {
-            connectionStateSubject.send(.disconnected)
-            return
-        }
-
         var request = URLRequest(url: url)
-        request.timeoutInterval = 10
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let task = urlSession.webSocketTask(with: request)
         self.webSocketTask = task
@@ -149,37 +144,58 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
 
         self.isConnected = true
         self.retryCount = 0
-        self.connectionStateSubject.send(.connected)
+        connectionStateSubject.send(.connected)
 
-        startReceiving()
+        startReceiveLoop()
         startHeartbeat()
     }
 
-    private func startReceiving() {
+    public func disconnect() {
+        isManualDisconnect = true
+        isConnected = false
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
         receiveTask?.cancel()
-        receiveTask = Task { [weak self] in
-            while let self = self, self.isConnected, !Task.isCancelled {
-                guard let task = self.webSocketTask else { break }
+        receiveTask = nil
+        webSocketTask?.cancel(with: .normalClosure, reason: nil)
+        webSocketTask = nil
+        connectionStateSubject.send(.disconnected)
+    }
+
+    public func send(type: String, payload: [String: WSAnyCodable] = [:]) async throws {
+        guard let task = webSocketTask, isConnected else {
+            throw URLError(.notConnectedToInternet)
+        }
+        let env = WSEnvelope(type: type, payload: payload)
+        let data = try JSONEncoder().encode(env)
+        let string = String(data: data, encoding: .utf8) ?? ""
+        try await task.send(.string(string))
+    }
+
+    private func startReceiveLoop() {
+        receiveTask?.cancel()
+        receiveTask = Task {
+            while isConnected {
+                guard let task = webSocketTask else { break }
                 do {
                     let message = try await task.receive()
                     switch message {
                     case .string(let text):
-                        if let data = text.data(using: .utf8) {
-                            let decoder = JSONDecoder()
-                            if let envelope = try? decoder.decode(WSEnvelope.self, from: data) {
-                                self.eventsSubject.send(envelope)
-                            }
+                        if let data = text.data(using: .utf8),
+                           let env = try? JSONDecoder().decode(WSEnvelope.self, from: data) {
+                            eventsSubject.send(env)
                         }
                     case .data(let data):
-                        let decoder = JSONDecoder()
-                        if let envelope = try? decoder.decode(WSEnvelope.self, from: data) {
-                            self.eventsSubject.send(envelope)
+                        if let env = try? JSONDecoder().decode(WSEnvelope.self, from: data) {
+                            eventsSubject.send(env)
                         }
                     @unknown default:
                         break
                     }
                 } catch {
-                    self.handleDisconnect()
+                    if !isManualDisconnect {
+                        handleDisconnect()
+                    }
                     break
                 }
             }
@@ -188,78 +204,31 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
 
     private func startHeartbeat() {
         heartbeatTask?.cancel()
-        heartbeatTask = Task { [weak self] in
-            while let self = self, self.isConnected, !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 15_000_000_000)
-                guard self.isConnected else { break }
-                let payload: [String: WSAnyCodable] = [
-                    "status": WSAnyCodable("online"),
-                    "timestamp": WSAnyCodable(Int64(Date().timeIntervalSince1970 * 1000))
-                ]
-                _ = self.send(type: "heartbeat", payload: payload)
+        heartbeatTask = Task {
+            while isConnected {
+                try? await Task.sleep(nanoseconds: 25_000_000_000)
+                guard isConnected, let task = webSocketTask else { break }
+                let ping = WSEnvelope(type: "ping", payload: [:])
+                if let data = try? JSONEncoder().encode(ping),
+                   let text = String(data: data, encoding: .utf8) {
+                    try? await task.send(.string(text))
+                }
             }
         }
-    }
-
-    @discardableResult
-    public func send(type: String, payload: [String: WSAnyCodable]? = nil) -> Bool {
-        guard let task = webSocketTask, isConnected else {
-            if !isConnected && !isManualDisconnect {
-                connect()
-            }
-            return false
-        }
-        let envelope = WSEnvelope(type: type, payload: payload)
-        let encoder = JSONEncoder()
-        guard let data = try? encoder.encode(envelope),
-              let jsonString = String(data: data, encoding: .utf8) else {
-            return false
-        }
-
-        task.send(.string(jsonString)) { error in
-            if error != nil {
-                // Sent error handling
-            }
-        }
-        return true
     }
 
     private func handleDisconnect() {
-        guard isConnected else { return }
         isConnected = false
-        webSocketTask = nil
-        heartbeatTask?.cancel()
-        receiveTask?.cancel()
         connectionStateSubject.send(.disconnected)
-
-        if isManualDisconnect { return }
+        guard !isManualDisconnect else { return }
 
         retryCount += 1
-        let delaySeconds = calculateExponentialBackoff(retries: retryCount)
+        let delaySeconds = min(pow(2.0, Double(retryCount)), 30.0)
         Task {
             try? await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
             if !self.isConnected && !self.isManualDisconnect {
                 self.connect()
             }
         }
-    }
-
-    private func calculateExponentialBackoff(retries: Int) -> Double {
-        let baseDelay = 1.0
-        let maxDelay = 15.0
-        let exponent = min(Double(retries), 5.0)
-        let delay = min(maxDelay, baseDelay * pow(2.0, exponent))
-        let jitter = Double.random(in: 0...0.5)
-        return delay + jitter
-    }
-
-    public func disconnect() {
-        isManualDisconnect = true
-        isConnected = false
-        heartbeatTask?.cancel()
-        receiveTask?.cancel()
-        webSocketTask?.cancel(with: .normalClosure, reason: nil)
-        webSocketTask = nil
-        connectionStateSubject.send(.disconnected)
     }
 }
