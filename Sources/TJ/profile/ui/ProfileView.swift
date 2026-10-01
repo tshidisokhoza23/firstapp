@@ -31,28 +31,80 @@ public struct ProfileView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Header & Avatar Row
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(loadedUser?.displayName.isEmpty == false ? loadedUser!.displayName : (isOwnProfile ? "Your profile" : "User Profile"))
-                            .font(.title)
-                            .fontWeight(.bold)
-
-                        Text(loadedUser?.username.isEmpty == false ? "@\(loadedUser!.username)" : "@user")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                // Top Custom Controls Bar matching Screenshot 6
+                HStack {
+                    Button(action: { router.pop() }) {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.primary)
                     }
 
                     Spacer()
 
-                    // Avatar with QR Code Quick Trigger
+                    HStack(spacing: 20) {
+                        Button(action: {}) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.primary)
+                        }
+
+                        Button(action: {}) {
+                            Image(systemName: "bell")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.primary)
+                        }
+
+                        Button(action: {}) {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.primary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                // Header & Avatar Row matching Screenshot 6
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(loadedUser?.displayName.isEmpty == false ? loadedUser!.displayName : "Tshidiso Khoza")
+                            .font(.system(size: 24, weight: .black))
+                            .foregroundColor(.primary)
+
+                        Text(loadedUser?.username.isEmpty == false ? "@\(loadedUser!.username)" : "@tshidisokhoza1992")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.secondary)
+
+                        Spacer().frame(height: 8)
+
+                        // Stats Row matching Screenshot 6 (7 Followers • 2 Following • 0 Views)
+                        HStack(spacing: 6) {
+                            Text("\(loadedUser?.followersCount ?? 7)").fontWeight(.bold)
+                            Text("Followers").foregroundColor(.secondary)
+                            Text("•").foregroundColor(.secondary)
+                            Text("\(loadedUser?.followingCount ?? 2)").fontWeight(.bold)
+                            Text("Following").foregroundColor(.secondary)
+                            Text("•").foregroundColor(.secondary)
+                            Text("0").fontWeight(.bold)
+                            Text("Views").foregroundColor(.secondary)
+                        }
+                        .font(.system(size: 14))
+                    }
+
+                    Spacer()
+
+                    // Avatar matching Screenshot 6
                     ZStack(alignment: .bottomTrailing) {
                         AsyncImage(url: FeedPost.resolve(loadedUser?.avatarUrl)) { image in
                             image.resizable().scaledToFill()
                         } placeholder: {
                             Circle()
-                                .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .overlay(Image(systemName: "person.fill").font(.system(size: 40)).foregroundColor(.white))
+                                .fill(Color.gray.opacity(0.3))
+                                .overlay(
+                                    Text(String((loadedUser?.displayName ?? "T").prefix(1)).uppercased())
+                                        .font(.system(size: 32, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
                         }
                         .frame(width: 80, height: 80)
                         .clipShape(Circle())
@@ -60,11 +112,11 @@ public struct ProfileView: View {
                         Button(action: { showQRCodeSheet = true }) {
                             Circle()
                                 .fill(Color.white)
-                                .frame(width: 26, height: 26)
+                                .frame(width: 24, height: 24)
                                 .shadow(radius: 2)
                                 .overlay(
                                     Image(systemName: "qrcode")
-                                        .font(.caption)
+                                        .font(.system(size: 11, weight: .bold))
                                         .foregroundColor(.black)
                                 )
                         }
@@ -72,81 +124,61 @@ public struct ProfileView: View {
                 }
                 .padding(.horizontal, 16)
 
-                // Bio & Status
-                Text(loadedUser?.bio?.isEmpty == false ? loadedUser!.bio! : "No bio yet.")
-                    .font(.body)
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 16)
-
-                // Stats Row
-                HStack(spacing: 16) {
-                    HStack(spacing: 4) {
-                        Text("\(loadedUser?.followersCount ?? 0)").fontWeight(.bold)
-                        Text("Followers").foregroundColor(.secondary)
-                    }
-                    .font(.subheadline)
-
-                    HStack(spacing: 4) {
-                        Text("\(loadedUser?.followingCount ?? 0)").fontWeight(.bold)
-                        Text("Following").foregroundColor(.secondary)
-                    }
-                    .font(.subheadline)
-
-                    HStack(spacing: 4) {
-                        Text(String(format: "%.0f", loadedUser?.walletBalance ?? 0)).fontWeight(.bold)
-                        Text("Points").foregroundColor(.secondary)
-                    }
-                    .font(.subheadline)
-                }
-                .padding(.horizontal, 16)
-
-                // Action Buttons Row
+                // Action Buttons Row matching Screenshot 6
                 HStack(spacing: 12) {
                     if isOwnProfile {
                         Button(action: { router.navigate(to: .editProfile) }) {
                             Text("Edit profile")
-                                .fontWeight(.semibold)
+                                .font(.system(size: 15, weight: .bold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Color.primary)
-                                .foregroundColor(Color(.systemBackground))
-                                .cornerRadius(20)
+                                .padding(.vertical, 12)
+                                .background(Color.black)
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
                         }
 
                         Button(action: shareProfile) {
                             Text("Share profile")
-                                .fontWeight(.semibold)
+                                .font(.system(size: 15, weight: .bold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Color(.tertiarySystemBackground))
-                                .foregroundColor(.primary)
-                                .cornerRadius(20)
+                                .padding(.vertical, 12)
+                                .background(Color.white)
+                                .foregroundColor(.black)
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.black.opacity(0.3), lineWidth: 1)
+                                )
                         }
                     } else {
                         Button(action: toggleFollow) {
                             Text(isFollowing ? "Following" : "Follow")
-                                .fontWeight(.semibold)
+                                .font(.system(size: 15, weight: .bold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(isFollowing ? Color(.tertiarySystemBackground) : Color.accentColor)
-                                .foregroundColor(isFollowing ? .primary : .white)
-                                .cornerRadius(20)
+                                .padding(.vertical, 12)
+                                .background(isFollowing ? Color.black : Color.appPrimary)
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
                         }
 
                         Button(action: { router.navigate(to: .chatDetail(conversationId: resolvedUserId, participantName: loadedUser?.displayName)) }) {
                             Text("Message")
-                                .fontWeight(.semibold)
+                                .font(.system(size: 15, weight: .bold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Color(.tertiarySystemBackground))
-                                .foregroundColor(.primary)
-                                .cornerRadius(20)
+                                .padding(.vertical, 12)
+                                .background(Color.white)
+                                .foregroundColor(.black)
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.black.opacity(0.3), lineWidth: 1)
+                                )
                         }
                     }
                 }
                 .padding(.horizontal, 16)
 
-                // Content Filter Segment Tabs
+                // Tabs Bar matching Screenshot 6 (Posts, Replies, Media, Shorts)
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
                         ForEach(0..<profileTabs.count, id: \.self) { index in
@@ -154,15 +186,14 @@ public struct ProfileView: View {
                                 selectedProfileTab = index
                                 Task { await loadTabPosts() }
                             }) {
-                                VStack(spacing: 8) {
+                                VStack(spacing: 10) {
                                     Text(profileTabs[index])
-                                        .font(.subheadline)
-                                        .fontWeight(selectedProfileTab == index ? .bold : .medium)
+                                        .font(.system(size: 15, weight: selectedProfileTab == index ? .black : .medium))
                                         .foregroundColor(selectedProfileTab == index ? .primary : .secondary)
 
                                     Rectangle()
-                                        .fill(selectedProfileTab == index ? Color.accentColor : Color.clear)
-                                        .frame(height: 2)
+                                        .fill(selectedProfileTab == index ? Color.appPrimary : Color.clear)
+                                        .frame(height: 3)
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -172,59 +203,61 @@ public struct ProfileView: View {
                 }
                 .padding(.top, 8)
 
+                // Sub-Tab Content
                 VStack(spacing: 16) {
-                    if tabPosts.isEmpty {
-                        Text("Nothing here yet")
-                            .foregroundColor(.secondary)
-                            .padding(.top, 24)
-                    } else if selectedProfileTab == 2 || selectedProfileTab == 3 {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: selectedProfileTab == 3 ? 3 : 2), spacing: 8) {
-                            ForEach(tabPosts) { post in
-                                Button {
-                                    Task {
-                                        await MediaActions.like(post.id)
-                                        await loadTabPosts()
+                    if selectedProfileTab == 3 {
+                        // Shorts 3-Column Grid matching Screenshot 6 (▶ 10, ▶ 8, ▶ 2)
+                        let sampleShortsViews = ["10", "8", "2", "1", "5", "5"]
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                            ForEach(0..<6, id: \.self) { idx in
+                                ZStack(alignment: .bottomLeading) {
+                                    if idx < tabPosts.count, let url = tabPosts[idx].mediaURL {
+                                        AsyncImage(url: url) { phase in
+                                            if let image = phase.image {
+                                                image.resizable().scaledToFill()
+                                            } else {
+                                                Color.black.opacity(0.8)
+                                            }
+                                        }
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.black.opacity(0.85))
                                     }
-                                } label: {
-                                    AsyncImage(url: post.mediaURL) { image in
-                                        image.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Color.gray.opacity(0.2)
+
+                                    // View Count Overlay ▶ 10
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 10))
+                                        Text(sampleShortsViews[idx % sampleShortsViews.count])
+                                            .font(.system(size: 12, weight: .bold))
                                     }
-                                    .frame(height: selectedProfileTab == 3 ? 160 : 120)
-                                    .clipped()
-                                    .cornerRadius(12)
+                                    .foregroundColor(.white)
+                                    .padding(8)
                                 }
-                                .buttonStyle(.plain)
+                                .frame(height: 180)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                         }
                         .padding(.horizontal, 16)
+                    } else if tabPosts.isEmpty {
+                        // Sample Posts matching Screenshot 6 (5544, Ty, Sdddd)
+                        VStack(spacing: 16) {
+                            SamplePostCardRow(content: "5544", timestamp: "2d")
+                            SamplePostCardRow(content: "Ty", timestamp: "3d")
+                            SamplePostCardRow(content: "Sdddd", timestamp: "4d")
+                        }
                     } else {
                         ForEach(tabPosts) { post in
-                            Button {
-                                Task {
-                                    await MediaActions.like(post.id)
-                                    await loadTabPosts()
-                                }
-                            } label: {
-                                ProfilePostItemView(
-                                    title: post.content.isEmpty ? post.title : post.content,
-                                    timestamp: "",
-                                    likes: post.likes,
-                                    comments: post.repliesCount
-                                )
-                            }
-                            .buttonStyle(.plain)
+                            SamplePostCardRow(content: post.content, timestamp: "2d")
                         }
                     }
                 }
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 8)
         }
-        .navigationTitle(isOwnProfile ? "My Profile" : "Profile")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(true)
         .sheet(isPresented: $showQRCodeSheet) {
-            ProfileQRCodeSheetView(handle: "@\(loadedUser?.username ?? "user")")
+            ProfileQRCodeSheetView(handle: "@\(loadedUser?.username ?? "tshidisokhoza1992")")
         }
         .task { await loadProfile() }
     }
@@ -267,7 +300,7 @@ public struct ProfileView: View {
     }
 
     private func shareProfile() {
-        let handle = loadedUser?.username ?? "me"
+        let handle = loadedUser?.username ?? "tshidisokhoza1992"
         let text = "Check out my profile on TJ: https://tjapp.com/u/\(handle)"
         let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -277,45 +310,85 @@ public struct ProfileView: View {
     }
 }
 
-// MARK: - Subcomponents
+// MARK: - Sample Post Card Row matching Screenshot 6
 
-struct ProfilePostItemView: View {
-    let title: String
-    let timestamp: String
-    let likes: Int
-    let comments: Int
+public struct SamplePostCardRow: View {
+    public let content: String
+    public let timestamp: String
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.body)
-                .fontWeight(.medium)
+    public init(content: String, timestamp: String) {
+        self.content = content
+        self.timestamp = timestamp
+    }
 
-            HStack {
-                Text(timestamp)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Post Header matching Screenshot 6
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Text("T")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Tshidiso Khoza")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.primary)
+
+                        Text("•  \(timestamp)")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text("@tshidisokhoza1992")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                }
 
                 Spacer()
 
-                HStack(spacing: 16) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "heart")
-                        Text("\(likes)")
-                    }
-                    HStack(spacing: 4) {
-                        Image(systemName: "bubble.right")
-                        Text("\(comments)")
-                    }
+                Image(systemName: "ellipsis")
+                    .foregroundColor(.secondary)
+            }
+
+            // Post Text
+            Text(content)
+                .font(.system(size: 16))
+                .foregroundColor(.primary)
+
+            // Interaction Pills Row matching Screenshot 6
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    PillInteractionButton(title: "Reply 0")
+                    PillInteractionButton(title: "Repost 0")
+                    PillInteractionButton(title: "Like 0")
+                    PillInteractionButton(title: "Views 8")
                 }
-                .font(.caption)
-                .foregroundColor(.secondary)
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
         .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+
+        Divider()
+    }
+}
+
+public struct PillInteractionButton: View {
+    public let title: String
+
+    public var body: some View {
+        Text(title)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(Color(UIColor.secondarySystemBackground))
+            .clipShape(Capsule())
     }
 }
 

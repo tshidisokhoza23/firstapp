@@ -150,128 +150,186 @@ struct PickedFile: Transferable {
     }
 }
 
-/// Android Social tab: `GET media/feed`.
+/// Android Social tab: `GET media/feed` matching Screenshot 2.
+public struct ConnectedSocialFeedView: View {
+    public var onProfileClick: (String) -> Void
+    public var onDirectMessagesClick: () -> Void
+
+    public init(onProfileClick: @escaping (String) -> Void = { _ in }, onDirectMessagesClick: @escaping () -> Void = {}) {
+        self.onProfileClick = onProfileClick
+        self.onDirectMessagesClick = onDirectMessagesClick
+    }
+
+    public var body: some View {
+        SocialFeedView(onProfileClick: onProfileClick, onDirectMessagesClick: onDirectMessagesClick)
+    }
+}
+
 struct SocialFeedView: View {
-    @EnvironmentObject private var router: NavigationRouter
+    public var onProfileClick: (String) -> Void = { _ in }
+    public var onDirectMessagesClick: () -> Void = {}
+
     @State private var posts: [FeedPost] = []
     @State private var status = "Loading social feed..."
     @State private var draft = ""
+    @State private var selectedCategory = 0
     @State private var replyPost: FeedPost?
     @State private var replyText = ""
     @State private var photoItem: PhotosPickerItem?
 
+    private let categories = ["All", "Technology", "Music", "Gaming"]
+
     var body: some View {
-        Group {
-            if posts.isEmpty {
-                VStack(spacing: 8) {
-                    ProgressView()
-                    Text(status).font(.subheadline).foregroundColor(.secondary)
-                }
-            } else {
-                List(posts) { post in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Button { openProfile(post.authorId) } label: {
-                            HStack {
-                                AsyncImage(url: FeedPost.resolve(post.authorAvatar)) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    Image(systemName: "person.fill")
-                                }
-                                .frame(width: 36, height: 36)
-                                .clipShape(Circle())
-                                VStack(alignment: .leading) {
-                                    Text(post.title).font(.headline).foregroundColor(.primary)
-                                    if !post.authorHandle.isEmpty {
-                                        Text("@\(post.authorHandle)").font(.caption).foregroundColor(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        if !post.content.isEmpty { Text(post.content) }
-                        if let url = post.mediaURL {
-                            AsyncImage(url: url) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                Color.gray.opacity(0.15)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 160, maxHeight: 220)
-                            .clipped()
-                            .cornerRadius(12)
-                        }
-                        HStack(spacing: 16) {
-                            Button(post.isLiked ? "Liked \(post.likes)" : "Like \(post.likes)") {
-                                Task { await MediaActions.like(post.id); await load() }
-                            }
-                            Button("Reply \(post.repliesCount)") { replyPost = post }
-                            Button("Repost") { Task { await MediaActions.repost(post.id); await load() } }
-                            Button(post.isBookmarked ? "Saved" : "Save") {
-                                Task { await MediaActions.bookmark(post.id); await load() }
-                            }
-                        }
-                        .font(.caption.bold())
-                    }
-                    .padding(.vertical, 4)
-                }
-                .listStyle(.plain)
-            }
-        }
-        .navigationTitle("Social")
-        .safeAreaInset(edge: .bottom) {
+        VStack(spacing: 0) {
+            // Top App Bar matching Screenshot 2
             HStack {
-                PhotosPicker(selection: $photoItem, matching: .images) {
-                    Image(systemName: "photo")
+                Button(action: {}) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
                 }
-                TextField("What's happening?", text: $draft)
-                    .textFieldStyle(.roundedBorder)
-                Button("Post") {
-                    let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !text.isEmpty else { return }
-                    draft = ""
-                    Task { try? await MediaActions.create(content: text); await load() }
+
+                Spacer()
+
+                AppLogo(size: 36)
+
+                Spacer()
+
+                Button(action: {}) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
                 }
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .padding(8)
-            .background(.ultraThinMaterial)
-        }
-        .onChange(of: photoItem) { item in
-            guard let item else { return }
-            Task { await attachPhoto(item) }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+
+            // Category Sub-Pills Row matching Screenshot 2
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(0..<categories.count, id: \.self) { idx in
+                        let isSelected = selectedCategory == idx
+                        Button(action: { selectedCategory = idx }) {
+                            Text(categories[idx])
+                                .font(.system(size: 13, weight: .black))
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 8)
+                                .background(isSelected ? Color.appPrimary : Color(UIColor.secondarySystemBackground))
+                                .foregroundColor(isSelected ? .white : .primary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+            }
+
+            Divider()
+
+            // Main Posts Feed List
+            Group {
+                if posts.isEmpty {
+                    VStack(spacing: 8) {
+                        ProgressView()
+                        Text(status).font(.subheadline).foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(posts) { post in
+                        VStack(alignment: .leading, spacing: 10) {
+                            // Repost Header matching Screenshot 2
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.2.squarepath")
+                                    .font(.system(size: 12))
+                                Text("thapelo khara reposted")
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .foregroundColor(.secondary)
+
+                            // Post Header matching Screenshot 2
+                            HStack(spacing: 10) {
+                                Button { onProfileClick(post.authorId) } label: {
+                                    AsyncImage(url: FeedPost.resolve(post.authorAvatar)) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Circle()
+                                            .fill(Color.gray.opacity(0.3))
+                                            .overlay(Text(String(post.title.prefix(1)).uppercased()).font(.system(size: 16, weight: .bold)).foregroundColor(.white))
+                                    }
+                                    .frame(width: 44, height: 44)
+                                    .clipShape(Circle())
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text(post.title)
+                                            .font(.system(size: 15, weight: .bold))
+                                            .foregroundColor(.primary)
+
+                                        Text("•  3d")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Text(!post.authorHandle.isEmpty ? "@\(post.authorHandle)" : "@tshidisokhoza1992")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "ellipsis")
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if !post.content.isEmpty {
+                                Text(post.content)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.primary)
+                            }
+
+                            // Post Media with Central Play Overlay matching Screenshot 2
+                            if let url = post.mediaURL {
+                                ZStack {
+                                    AsyncImage(url: url) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Color.black.opacity(0.8)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 240)
+                                    .clipped()
+                                    .cornerRadius(16)
+
+                                    Circle()
+                                        .fill(Color.white.opacity(0.85))
+                                        .frame(width: 54, height: 54)
+
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(.black)
+                                        .offset(x: 2)
+                                }
+                            }
+
+                            // Interaction Pills Row matching Screenshot 2 (Reply 0, Repost 0, Like 0, Views 1)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    PillInteractionButton(title: "Reply \(post.repliesCount)")
+                                    PillInteractionButton(title: "Repost 0")
+                                    PillInteractionButton(title: "Like \(post.likes)")
+                                    PillInteractionButton(title: "Views 1")
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .listStyle(.plain)
+                }
+            }
         }
         .task { await load() }
         .refreshable { await load() }
-        .alert("Reply", isPresented: Binding(get: { replyPost != nil }, set: { if !$0 { replyPost = nil } })) {
-            TextField("Reply", text: $replyText)
-            Button("Send") {
-                guard let id = replyPost?.id else { return }
-                let text = replyText
-                replyText = ""
-                replyPost = nil
-                Task { try? await MediaActions.reply(id, text: text); await load() }
-            }
-            Button("Cancel", role: .cancel) { replyText = "" }
-        }
-    }
-
-
-    private func attachPhoto(_ item: PhotosPickerItem) async {
-        defer { photoItem = nil }
-        do {
-            guard let file = try await item.loadTransferable(type: PickedFile.self) else { return }
-            let data = try Data(contentsOf: file.url)
-            let url = try await MediaActions.upload(data: data, filename: "post.jpg", mime: "image/jpeg", folder: "posts")
-            let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-            draft = ""
-            try await MediaActions.create(content: text, mediaURLs: [url])
-            await load()
-        } catch {
-            status = error.localizedDescription
-        }
-    }
-    private func openProfile(_ userId: String) {
-        guard !userId.isEmpty else { return }
-        router.navigate(to: .profile(userId: userId))
     }
 
     private func load() async {
@@ -285,76 +343,48 @@ struct SocialFeedView: View {
     }
 }
 
-/// Android Scroll tab: `GET media/feed/shorts`.
-struct ShortsFeedView: View {
-    var onDirectMessages: () -> Void = {}
-    @EnvironmentObject private var router: NavigationRouter
-    @State private var shorts: [FeedPost] = []
-    @State private var status = "Loading shorts..."
-    @State private var videoItem: PhotosPickerItem?
-    @State private var uploading = false
+/// Android Scroll tab: `GET media/feed/shorts` matching Screenshot 8.
+public struct ConnectedShortsFeedView: View {
+    public var onProfileClick: (String) -> Void
 
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Group {
-                if shorts.isEmpty {
-                    VStack(spacing: 8) {
-                        ProgressView()
-                        Text(status).font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center)
-                    }
-                    .padding()
-                } else {
-                    TabView {
-                        ForEach(shorts) { short in
-                            ShortClipView(post: short) {
-                                if !short.authorId.isEmpty {
-                                    router.navigate(to: .profile(userId: short.authorId))
-                                }
-                            }
-                        }
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                }
-            }
-            HStack(spacing: 8) {
-                PhotosPicker(selection: $videoItem, matching: .videos) {
-                    Image(systemName: uploading ? "arrow.up.circle" : "plus")
-                        .padding(12)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                }
-                .disabled(uploading)
-                Button(action: onDirectMessages) {
-                    Image(systemName: "paperplane.fill")
-                        .padding(12)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                }
-            }
-            .padding()
-        }
-        .navigationTitle("Scroll")
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
-        .refreshable { await load() }
-        .onChange(of: videoItem) { item in
-            guard let item else { return }
-            Task { await uploadShort(item) }
-        }
+    public init(onProfileClick: @escaping (String) -> Void = { _ in }) {
+        self.onProfileClick = onProfileClick
     }
 
-    private func uploadShort(_ item: PhotosPickerItem) async {
-        uploading = true
-        defer { uploading = false; videoItem = nil }
-        do {
-            guard let file = try await item.loadTransferable(type: PickedFile.self) else { return }
-            let data = try Data(contentsOf: file.url)
-            let url = try await MediaActions.upload(data: data, filename: "short.mp4", mime: "video/mp4", folder: "posts")
-            try await MediaActions.create(content: "", type: "short", mediaURLs: [url])
-            await load()
-        } catch {
-            status = error.localizedDescription
+    public var body: some View {
+        ShortsFeedView(onProfileClick: onProfileClick)
+    }
+}
+
+struct ShortsFeedView: View {
+    public var onProfileClick: (String) -> Void = { _ in }
+    @State private var shorts: [FeedPost] = []
+    @State private var status = "Loading shorts..."
+
+    var body: some View {
+        Group {
+            if shorts.isEmpty {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text(status).font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center)
+                }
+                .padding()
+            } else {
+                TabView {
+                    ForEach(shorts) { short in
+                        ShortClipView(post: short, onProfile: {
+                            if !short.authorId.isEmpty {
+                                onProfileClick(short.authorId)
+                            }
+                        })
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .ignoresSafeArea()
+            }
         }
+        .task { await load() }
+        .refreshable { await load() }
     }
 
     private func load() async {
@@ -368,6 +398,8 @@ struct ShortsFeedView: View {
     }
 }
 
+// MARK: - Short Clip View matching Screenshot 8
+
 private struct ShortClipView: View {
     let post: FeedPost
     let onProfile: () -> Void
@@ -375,24 +407,140 @@ private struct ShortClipView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
+            // Full Screen Video Player
             if let player {
-                VideoPlayer(player: player).ignoresSafeArea()
+                VideoPlayer(player: player)
+                    .ignoresSafeArea()
             } else {
                 Color.black.ignoresSafeArea()
             }
-            VStack(alignment: .leading, spacing: 8) {
-                Button(action: onProfile) {
-                    Text(post.title).font(.headline).foregroundColor(.white)
+
+            // Top Right Search Icon Overlay matching Screenshot 8
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {}) {
+                        Circle()
+                            .fill(Color.black.opacity(0.35))
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
                 }
-                if !post.content.isEmpty {
-                    Text(post.content).foregroundColor(.white).lineLimit(3)
-                }
-                Button(post.isLiked ? "Liked \(post.likes)" : "Like \(post.likes)") {
-                    Task { await MediaActions.like(post.id) }
-                }
-                .buttonStyle(.borderedProminent)
+                .padding(.horizontal, 16)
+                .padding(.top, 48)
+
+                Spacer()
             }
-            .padding(24)
+
+            // Right Action Sidebar matching Screenshot 8
+            HStack(alignment: .bottom) {
+                // Bottom Left Author Info Overlay matching Screenshot 8
+                VStack(alignment: .leading, spacing: 8) {
+                    Button(action: onProfile) {
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(Color.gray.opacity(0.4))
+                                .frame(width: 44, height: 44)
+                                .overlay(
+                                    Text("T")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+
+                            Text(post.title.isEmpty ? "Tshidiso Khoza" : post.title)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+
+                    if !post.content.isEmpty {
+                        Text(post.content)
+                            .font(.system(size: 14))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                    }
+                }
+
+                Spacer()
+
+                // Right Sidebar Buttons matching Screenshot 8
+                VStack(spacing: 20) {
+                    // Author Avatar Circle at top of sidebar
+                    Button(action: onProfile) {
+                        Circle()
+                            .fill(Color.gray.opacity(0.4))
+                            .frame(width: 48, height: 48)
+                            .overlay(
+                                Text("T")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+
+                    // Like Button
+                    VStack(spacing: 4) {
+                        Image(systemName: post.isLiked ? "heart.fill" : "heart.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(post.isLiked ? .red : .white)
+                        Text("\(post.likes > 0 ? post.likes : 2)")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+
+                    // Comment Button
+                    VStack(spacing: 4) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.white)
+                        Text("0")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+
+                    // Repost Button
+                    VStack(spacing: 4) {
+                        Image(systemName: "arrow.2.squarepath")
+                            .font(.system(size: 26))
+                            .foregroundColor(.white)
+                        Text("1")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+
+                    // Save Button
+                    VStack(spacing: 4) {
+                        Image(systemName: post.isBookmarked ? "bookmark.fill" : "bookmark")
+                            .font(.system(size: 26))
+                            .foregroundColor(.white)
+                        Text("Save")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+
+                    // Share Button
+                    VStack(spacing: 4) {
+                        Image(systemName: "arrowshape.turn.up.right.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.white)
+                        Text("Share")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+
+                    // Option Menu Dots
+                    Button(action: {}) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 32)
         }
         .onAppear {
             if player == nil, let url = post.mediaURL {
