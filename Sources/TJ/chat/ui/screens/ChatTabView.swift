@@ -17,6 +17,7 @@ public struct ChatTabView: View {
     @State private var searchQuery: String = ""
     @State private var isSearchActive: Bool = false
     @State private var showTopMenu: Bool = false
+    @State private var showDirectMessages: Bool = false
     @State private var activeChannelDetail: Channel? = nil
     @State private var activeJobDetail: Job? = nil
     @State private var showCreateChannel: Bool = false
@@ -66,7 +67,7 @@ public struct ChatTabView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Top App Bar matching Android ChatsListScreen
+            // Top App Bar matching Android Screenshot 1
             HStack {
                 if isSearchActive {
                     HStack(spacing: 12) {
@@ -127,7 +128,7 @@ public struct ChatTabView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
 
-            // Horizontal Scrollable Sub-Tab Pills matching Android Compose
+            // Horizontal Scrollable Sub-Tab Pills matching Android Screenshot 1
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(0..<subTabs.count, id: \.self) { index in
@@ -142,7 +143,7 @@ public struct ChatTabView: View {
                                 .font(.system(size: 13, weight: .black))
                                 .padding(.horizontal, 18)
                                 .padding(.vertical, 8)
-                                .background(isSelected ? Color.accentColor : Color(UIColor.secondarySystemBackground))
+                                .background(isSelected ? Color.appPrimary : Color(UIColor.secondarySystemBackground))
                                 .foregroundColor(isSelected ? .white : .primary)
                                 .clipShape(Capsule())
                                 .overlay(
@@ -189,6 +190,18 @@ public struct ChatTabView: View {
             )
             .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showDirectMessages) {
+            DirectMessagesView(
+                onConversationClick: { item in
+                    showDirectMessages = false
+                    onChatSelected(ChatMessage(id: item.id, senderName: item.contactName))
+                },
+                onNewChatClick: {
+                    showDirectMessages = false
+                    onNewChatClick()
+                }
+            )
+        }
         .sheet(item: $activeChannelDetail) { ch in
             ChannelDetailView(
                 channel: ch,
@@ -215,13 +228,13 @@ public struct ChatTabView: View {
         }
     }
 
-    // MARK: - Chats Tab Content
+    // MARK: - Chats Tab Content matching Screenshot 1
 
     private var chatsTabContent: some View {
         ZStack(alignment: .bottomTrailing) {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Horizontal Stories Header Row matching Android StoriesRow
+                    // Horizontal Stories Header Row matching Android Screenshot 1
                     StoriesHeaderRow(
                         stories: storyRepository.userStories,
                         onStoryClick: { activeStory = $0 },
@@ -237,14 +250,14 @@ public struct ChatTabView: View {
                             HStack {
                                 Image(systemName: "archivebox.fill")
                                     .font(.system(size: 20))
-                                    .foregroundColor(.accentColor)
+                                    .foregroundColor(.appPrimary)
                                 Text("Archived")
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.primary)
                                 Spacer()
                                 Text("\(archivedCount)")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.accentColor)
+                                    .foregroundColor(.appPrimary)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
@@ -289,19 +302,38 @@ public struct ChatTabView: View {
                 }
             }
 
-            // Floating New Chat Action Button (FAB)
-            Button(action: onNewChatClick) {
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 56, height: 56)
-                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.white)
+            // Double Floating Action Buttons matching Android Screenshot 1
+            VStack(alignment: .trailing, spacing: 12) {
+                // Upper Small Call FAB
+                Button(action: { showDirectMessages = true }) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.appBottomNavPill) // #D0E1FB
+                            .frame(width: 44, height: 44)
+                            .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
+
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Color.appPrimary)
+                    }
+                }
+
+                // Lower Main Contacts FAB
+                Button(action: onNewChatClick) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18)
+                            .fill(Color.appPrimary) // #0045BC
+                            .frame(width: 56, height: 56)
+                            .shadow(color: Color.appPrimary.opacity(0.35), radius: 6, x: 0, y: 3)
+
+                        Image(systemName: "person.crop.square.fill")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.white)
+                    }
                 }
             }
-            .padding(24)
+            .padding(.trailing, 20)
+            .padding(.bottom, 16)
         }
     }
 
@@ -342,10 +374,10 @@ public struct ChatTabView: View {
             // Floating Create Channel Action Button (FAB)
             Button(action: { showCreateChannel = true }) {
                 ZStack {
-                    Circle()
-                        .fill(Color.accentColor)
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Color.appPrimary)
                         .frame(width: 56, height: 56)
-                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
+                        .shadow(color: Color.appPrimary.opacity(0.35), radius: 6, x: 0, y: 3)
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
@@ -376,10 +408,10 @@ public struct ChatTabView: View {
             // Floating Post Job Action Button (FAB)
             Button(action: { showPostJob = true }) {
                 ZStack {
-                    Circle()
-                        .fill(Color.accentColor)
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Color.appPrimary)
                         .frame(width: 56, height: 56)
-                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
+                        .shadow(color: Color.appPrimary.opacity(0.35), radius: 6, x: 0, y: 3)
                     Image(systemName: "briefcase.fill")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.white)
@@ -392,47 +424,108 @@ public struct ChatTabView: View {
         }
     }
 
-    // MARK: - Rewards Tab Content
+    // MARK: - Rewards Tab Content matching Screenshot 3
 
     private var rewardsTabContent: some View {
         ScrollView {
             VStack(spacing: 20) {
-                Text("Rewards & Points")
-                    .font(.title2.bold())
-                    .padding(.top)
-
-                VStack(spacing: 8) {
-                    Text("\(Int(rewardViewModel.points))")
-                        .font(.system(size: 36, weight: .black))
-                        .foregroundColor(.accentColor)
-                    Text("Total Reward Points")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color(UIColor.secondarySystemBackground))
-                .cornerRadius(16)
-
-                Button(action: {
-                    rewardViewModel.showRewardedAd(taskId: "daily_ad", onReward: {})
-                }) {
+                // Total Points Header Card matching Screenshot 3
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 22))
-                        Text("Watch Ad (+10 Points)")
-                            .font(.system(size: 16, weight: .bold))
+                        HStack(spacing: 4) {
+                            Text("Total Points")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("Today")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Text("0")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.primary)
+                        }
                     }
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.accentColor)
-                    .cornerRadius(12)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "star.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundColor(.orange)
+
+                        Text("\(Int(rewardViewModel.points))")
+                            .font(.system(size: 36, weight: .black))
+                            .foregroundColor(.primary)
+                    }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(20)
+
+                // Daily Tasks Title
+                Text("Daily Tasks")
+                    .font(.system(size: 18, weight: .bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Tasks Items matching Screenshot 3
+                let dailyTasks = [
+                    ("Watch Daily Special", "+10 points"),
+                    ("Premium Partner Ad", "+10 points"),
+                    ("Bonus Content Unlock", "+10 points"),
+                    ("Sponsor Spotlight", "+10 points")
+                ]
+
+                ForEach(dailyTasks, id: \.0) { task in
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.orange.opacity(0.12))
+                                .frame(width: 48, height: 48)
+
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.orange)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(task.0)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.primary)
+
+                            Text(task.1)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.orange)
+                        }
+
+                        Spacer()
+
+                        Button(action: {
+                            rewardViewModel.showRewardedAd(taskId: task.0, onReward: {})
+                        }) {
+                            Text("Watch")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(Color.appPrimary)
+                                .cornerRadius(12)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(16)
                 }
 
                 Spacer()
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
         }
     }
 }

@@ -27,13 +27,13 @@ public enum BottomNavItem: Int, CaseIterable, Identifiable {
 
     public var iconName: String {
         switch self {
-        case .chat: return "bubble.left.and.bubble.right.fill"
+        case .chat: return "message.fill"
         case .social: return "globe"
-        case .scroll: return "play.tv.fill"
+        case .scroll: return "video.fill"
         case .mingle: return "sparkles"
         case .stream: return "music.note"
         case .ride: return "car.fill"
-        case .more: return "ellipsis.circle.fill"
+        case .more: return "ellipsis"
         }
     }
 
@@ -57,10 +57,10 @@ public struct MainTabView: View {
     @State private var selectedIndex: Int = 0
     @State private var lastActiveIndex: Int = 0
     @State private var showMoreSheet: Bool = false
+    @State private var activeSheetRoute: MoreShortcutRoute? = nil
     @State private var showDirectMessages: Bool = false
     @State private var showNewChat: Bool = false
     @State private var showArchived: Bool = false
-    @State private var activeSheetRoute: MoreShortcutRoute? = nil
 
     public init(router: NavigationRouter, initialTab: String? = nil, initialSubTab: String? = nil) {
         self.router = router
@@ -83,26 +83,41 @@ public struct MainTabView: View {
                             onChatSelected: { chat in
                                 router.navigate(to: .chatDetail(conversationId: chat.id, participantName: chat.displayName))
                             },
-                            onNewChatClick: { showNewChat = true },
-                            onArchivedClick: { showArchived = true },
+                            onNewChatClick: {
+                                showNewChat = true
+                            },
+                            onArchivedClick: {
+                                showArchived = true
+                            },
                             onProfileClick: {
                                 router.navigate(to: .profile(userId: "me"))
                             }
                         )
 
                     case .social:
-                        SocialFeedView()
+                        ConnectedSocialFeedView(
+                            onProfileClick: { id in
+                                router.navigate(to: .profile(userId: id))
+                            },
+                            onDirectMessagesClick: {
+                                showDirectMessages = true
+                            }
+                        )
 
                     case .scroll:
-                        ShortsFeedView(onDirectMessages: { showDirectMessages = true })
+                        ConnectedShortsFeedView(
+                            onProfileClick: { id in
+                                router.navigate(to: .profile(userId: id))
+                            }
+                        )
 
                     case .mingle:
-                        MingleView(
-                            onMatchClick: { conversationId, name in
-                                router.navigate(to: .chatDetail(conversationId: conversationId, participantName: name))
+                        ConnectedMingleFeedView(
+                            onProfileClick: { id in
+                                router.navigate(to: .profile(userId: id))
                             },
-                            onUpgradeClick: {
-                                router.navigate(to: .wallet)
+                            onChatClick: { id in
+                                router.navigate(to: .chatDetail(conversationId: id, participantName: "Mingle Contact"))
                             }
                         )
 
@@ -118,7 +133,7 @@ public struct MainTabView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Custom Bottom Navigation Bar matching firstapp
+                // Custom Bottom Navigation Bar matching Android Screenshot 1
                 CustomMainBottomBar(
                     selectedItem: currentTab,
                     onSelect: { item in
@@ -182,6 +197,7 @@ public struct MainTabView: View {
         }
         .sheet(isPresented: $showMoreSheet) {
             MoreShortcutsSheetView(
+                onDismiss: { showMoreSheet = false },
                 onSelectRoute: { route in
                     showMoreSheet = false
                     switch route {
@@ -202,7 +218,7 @@ public struct MainTabView: View {
                     }
                 }
             )
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.height(340)])
         }
         .sheet(item: $activeSheetRoute) { route in
             switch route {
@@ -225,7 +241,7 @@ public struct MainTabView: View {
     }
 }
 
-// MARK: - Custom Bottom Navigation Bar Component
+// MARK: - Custom Bottom Navigation Bar Component matching Screenshot 1
 
 public struct CustomMainBottomBar: View {
     public let selectedItem: BottomNavItem
@@ -242,29 +258,41 @@ public struct CustomMainBottomBar: View {
                 let isSelected = selectedItem == item
                 Button(action: { onSelect(item) }) {
                     VStack(spacing: 4) {
-                        Image(systemName: item.iconName)
-                            .font(.system(size: 20, weight: isSelected ? .bold : .regular))
+                        ZStack {
+                            if isSelected {
+                                Capsule()
+                                    .fill(Color.appBottomNavPill) // #D0E1FB
+                                    .frame(width: 58, height: 32)
+                            }
+
+                            Image(systemName: item.iconName)
+                                .font(.system(size: 18, weight: isSelected ? .bold : .regular))
+                                .foregroundColor(isSelected ? Color.appPrimary : Color.secondary)
+                        }
+                        .frame(height: 32)
 
                         Text(item.title)
-                            .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                            .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                            .foregroundColor(isSelected ? Color.appPrimary : Color.secondary)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .padding(.vertical, 6)
                 }
             }
         }
-        .background(Color(uiColor: .systemBackground))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.appBottomNavBg) // #EBF1FB
         .overlay(
             Rectangle()
                 .frame(height: 0.5)
-                .foregroundColor(Color.gray.opacity(0.3)),
+                .foregroundColor(Color.gray.opacity(0.2)),
             alignment: .top
         )
     }
 }
 
-// MARK: - More Shortcuts Sheet View & Routes
+// MARK: - More Shortcuts Sheet View matching Screenshot 4
 
 public enum MoreShortcutRoute: String, Identifiable {
     case stream, ride, jobs, vocab, wallet, profile, settings
@@ -272,43 +300,65 @@ public enum MoreShortcutRoute: String, Identifiable {
 }
 
 public struct MoreShortcutsSheetView: View {
+    public var onDismiss: () -> Void
     public var onSelectRoute: (MoreShortcutRoute) -> Void
 
-    public init(onSelectRoute: @escaping (MoreShortcutRoute) -> Void) {
+    public init(onDismiss: @escaping () -> Void = {}, onSelectRoute: @escaping (MoreShortcutRoute) -> Void) {
+        self.onDismiss = onDismiss
         self.onSelectRoute = onSelectRoute
     }
 
-    private let shortcuts: [(route: MoreShortcutRoute, title: String, icon: String, color: Color)] = [
-        (.stream, "Stream", "music.note", .purple),
-        (.ride, "Ride / Drive", "car.fill", .blue),
-        (.jobs, "Jobs Portal", "briefcase.fill", .indigo),
-        (.vocab, "Vocab & Cards", "book.fill", .green),
-        (.wallet, "Wallet & Rewards", "creditcard.fill", .orange),
-        (.profile, "My Profile", "person.circle.fill", .teal),
-        (.settings, "Settings", "gearshape.fill", .gray)
+    private let shortcuts: [(route: MoreShortcutRoute, title: String, icon: String, color: Color, isEnabled: Bool)] = [
+        (.wallet, "Wallet", "creditcard.fill", Color(red: 1.0, green: 0.8, blue: 0.4), true),
+        (.vocab, "Vocab (Soon)", "book.fill", Color.gray.opacity(0.3), false),
+        (.stream, "Stream (Soon)", "music.note", Color.gray.opacity(0.3), false),
+        (.ride, "Ride (Soon)", "car.fill", Color.gray.opacity(0.3), false)
     ]
 
     public var body: some View {
-        VStack(spacing: 16) {
-            Text("More Services")
-                .font(.system(size: 18, weight: .bold))
-                .padding(.top, 16)
+        VStack(spacing: 20) {
+            // Header: Shortcuts Title + X Close Button
+            HStack {
+                Text("Shortcuts")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.primary)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                Spacer()
+
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(8)
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+
+            // 3-Column Shortcuts Grid matching Screenshot 4
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
                 ForEach(shortcuts, id: \.route) { item in
-                    Button(action: { onSelectRoute(item.route) }) {
-                        VStack(spacing: 8) {
+                    Button(action: {
+                        if item.isEnabled {
+                            onSelectRoute(item.route)
+                        }
+                    }) {
+                        VStack(spacing: 10) {
                             ZStack {
-                                Circle()
-                                    .fill(item.color.opacity(0.15))
-                                    .frame(width: 56, height: 56)
+                                RoundedRectangle(cornerRadius: 18)
+                                    .fill(item.isEnabled ? item.color.opacity(0.3) : Color(UIColor.secondarySystemBackground))
+                                    .frame(width: 68, height: 68)
+
                                 Image(systemName: item.icon)
-                                    .font(.system(size: 24))
-                                    .foregroundColor(item.color)
+                                    .font(.system(size: 26))
+                                    .foregroundColor(item.isEnabled ? Color.orange : Color.gray.opacity(0.6))
                             }
+
                             Text(item.title)
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.primary)
+                                .foregroundColor(item.isEnabled ? .primary : .secondary)
                                 .lineLimit(1)
                         }
                     }
