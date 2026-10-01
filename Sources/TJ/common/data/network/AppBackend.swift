@@ -30,6 +30,63 @@ public enum AppBackend {
     }
 }
 
+public final class SessionStore: @unchecked Sendable {
+    public static let shared = SessionStore()
+    public static let didChange = Notification.Name("tj.session.didChange")
+
+    private let defaults = UserDefaults.standard
+    private let tokenKey = "auth_token"
+    private let refreshKey = "refresh_token"
+    private let userKey = "current_user_json"
+
+    public var token: String? {
+        let value = defaults.string(forKey: tokenKey)
+        return (value?.isEmpty == false) ? value : nil
+    }
+
+    public var refreshToken: String? {
+        defaults.string(forKey: refreshKey)
+    }
+
+    public var userId: String? { user?.id }
+
+    public var user: User? {
+        guard let data = defaults.data(forKey: userKey) else { return nil }
+        return try? JSONDecoder().decode(User.self, from: data)
+    }
+
+    public var isLoggedIn: Bool { token != nil }
+
+    public func save(token: String, refreshToken: String?, user: User?) {
+        defaults.set(token, forKey: tokenKey)
+        if let refreshToken, !refreshToken.isEmpty {
+            defaults.set(refreshToken, forKey: refreshKey)
+        }
+        if let user, let data = try? JSONEncoder().encode(user) {
+            defaults.set(data, forKey: userKey)
+        }
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
+    }
+
+    public func updateUser(_ user: User) {
+        if let data = try? JSONEncoder().encode(user) {
+            defaults.set(data, forKey: userKey)
+        }
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
+    }
+
+    public func clearSession() {
+        defaults.removeObject(forKey: tokenKey)
+        defaults.removeObject(forKey: refreshKey)
+        defaults.removeObject(forKey: userKey)
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
+    }
+
+    public func clear() {
+        clearSession()
+    }
+}
+
 public enum APIError: Error, LocalizedError {
     case badURL
     case status(Int, String)
@@ -37,12 +94,35 @@ public enum APIError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .badURL: return "Invalid server URL"
-        case .status(_, let message): return message
+        case .status(let code, let message): return message.isEmpty ? "Server error \(code)" : message
         }
     }
 }
 
 public enum API {
+    public static func url(_ path: String, query: [String: String] = [:]) -> URL? {
+        let base = AppBackend.apiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let clean = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        guard var components = URLComponents(string: "\(base)/\(clean)") else { return nil }
+        if !query.isEmpty {
+            components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        }
+        return components.url
+    }
+
+    public static func request(_ path: String, method: String = "GET", query: [String: String] = [:], body: Data? = nil, authorized: Bool = true) -> URLRequest? {
+        guard let url = url(path, query: query) else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        if authorized, let token = SessionStore.shared.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.httpBody = body
+        return req
+    }
+
     public static func data(_ endpoint: String, method: String = "GET", body: Encodable? = nil) async throws -> Data {
         let full = AppBackend.apiBaseURL + (endpoint.hasPrefix("/") ? endpoint : "/\(endpoint)")
         guard let url = URL(string: full) else { throw APIError.badURL }
@@ -70,10 +150,16 @@ public enum API {
         }
         return data
     }
+
+    public static func getJSON(_ path: String, query: [String: String] = [:]) async throws -> [String: Any] {
+        let data = try await data(path)
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
 }
 
 public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
     public static var isInstalled = false
+    private static let handled = "TJAPIProtocolHandled"
     private static let forward: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = []
@@ -87,32 +173,48 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
     }
 
     public override class func canInit(with request: URLRequest) -> Bool {
-        guard let url = request.url, let host = url.host?.lowercased() else { return false }
-        if host == "api.tj.app" || host == "api.example.com" { return true }
-        return false
+        guard URLProtocol.property(forKey: handled, in: request) == nil,
+              let host = request.url?.host?.lowercased() else { return false }
+        return host.contains("tj.app")
+            || host.contains("example.com")
+            || host.contains("firstappserver")
     }
 
     public override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     public override func startLoading() {
-        guard let original = request.url else {
+        guard let original = request.url, var components = URLComponents(url: original, resolvingAgainstBaseURL: false) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badURL))
             return
         }
 
-        var path = original.path
-        if let query = original.query, !query.isEmpty { path += "?\(query)" }
-        let targetPath = Self.normalize(path: path)
-
-        let targetURLString = AppBackend.apiBaseURL + (targetPath.hasPrefix("/") ? targetPath : "/\(targetPath)")
-        guard let targetURL = URL(string: targetURLString) else {
+        let host = components.host?.lowercased() ?? ""
+        let fake = host.contains("tj.app") || host.contains("example.com")
+        if fake, let base = URL(string: AppBackend.apiBaseURL) {
+            components.scheme = base.scheme
+            components.host = base.host
+            components.port = base.port
+        }
+        components.path = Self.normalize(path: components.path)
+        if components.path == "/api/v1/mingle/feed" {
+            components.queryItems = components.queryItems?.map { item in
+                item.name == "radius" ? URLQueryItem(name: "radius_km", value: item.value) : item
+            }
+        }
+        if components.path == "/api/v1/search" {
+            components.queryItems = components.queryItems?.map { item in
+                item.name == "q" ? URLQueryItem(name: "query", value: item.value) : item
+            }
+        }
+        guard let url = components.url else {
             client?.urlProtocol(self, didFailWithError: URLError(.badURL))
             return
         }
 
-        var mutable = request
-        mutable.url = targetURL
-        if let token = SessionStore.shared.token, !token.isEmpty {
+        let mutable = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+        URLProtocol.setProperty(true, forKey: Self.handled, in: mutable)
+        mutable.url = url
+        if mutable.value(forHTTPHeaderField: "Authorization") == nil, let token = SessionStore.shared.token {
             mutable.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         if mutable.value(forHTTPHeaderField: "Content-Type") == nil {
@@ -121,6 +223,7 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
         if mutable.value(forHTTPHeaderField: "Accept") == nil {
             mutable.setValue("application/json", forHTTPHeaderField: "Accept")
         }
+
         let client = self.client
         forwardTask = Self.forward.dataTask(with: mutable as URLRequest) { data, response, error in
             if let error {
@@ -128,7 +231,7 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
                 return
             }
             if let response { client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed) }
-            if let data { client?.urlProtocolDidFinishLoading(self) }
+            if let data { client?.urlProtocol(self, didLoad: data) }
             client?.urlProtocolDidFinishLoading(self)
         }
         forwardTask?.resume()
@@ -140,12 +243,30 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
 
     private static func normalize(path: String) -> String {
         var path = path
-        if path.hasPrefix("/api/v1") {
-            path = String(path.dropFirst("/api/v1".count))
+        if path.hasPrefix("/v1/") { path = String(path.dropFirst(3)) }
+        if !path.hasPrefix("/api/v1") {
+            if path == "/v1" { path = "" }
+            path = "/api/v1" + (path.hasPrefix("/") ? path : "/\(path)")
         }
-        if path.hasPrefix("/channels") {
-            path = "/chats" + path
+        if path.hasPrefix("/api/v1/music/") {
+            path = "/api/v1/" + path.dropFirst("/api/v1/music/".count)
         }
+        if path.hasPrefix("/api/v1/drive/") {
+            path = "/api/v1/" + path.dropFirst("/api/v1/drive/".count)
+        }
+        if path == "/api/v1/stories" || path == "/api/v1/stories/feed" {
+            path = "/api/v1/chats/stories"
+        } else if path.hasPrefix("/api/v1/stories/") {
+            path = "/api/v1/chats/stories/" + path.dropFirst("/api/v1/stories/".count)
+        }
+        if path == "/api/v1/chat/direct/list" || path == "/api/v1/chat/groups/list" {
+            path = "/api/v1/conversations"
+        } else if path.hasPrefix("/api/v1/chat/groups/") {
+            path = "/api/v1/chats/groups/" + path.dropFirst("/api/v1/chat/groups/".count)
+        } else if path.hasPrefix("/api/v1/chat/direct/") {
+            path = "/api/v1/chats/" + path.dropFirst("/api/v1/chat/".count)
+        }
+        if path == "/api/v1/mingle/profile" { path = "/api/v1/mingle/me" }
         if path.hasPrefix("/api/v1/channels/") && path.hasSuffix("/subscribe") {
             let id = path.dropFirst("/api/v1/channels/".count).dropLast("/subscribe".count)
             path = "/api/v1/chats/channels/\(id)/subscribe"
@@ -201,7 +322,9 @@ public final class GoogleSignInService: NSObject, ASWebAuthenticationPresentatio
             auth.presentationContextProvider = self
             auth.prefersEphemeralWebBrowserSession = false
             self.session = auth
-            auth.start()
+            if !auth.start() {
+                continuation.resume(throwing: APIError.status(-1, "Unable to open Google sign-in"))
+            }
         }
     }
 
@@ -212,5 +335,29 @@ public final class GoogleSignInService: NSObject, ASWebAuthenticationPresentatio
         guard let match = regex.firstMatch(in: text, range: range), match.numberOfRanges > 1 else { return nil }
         guard let r = Range(match.range(at: 1), in: text) else { return nil }
         return String(text[r])
+    }
+}
+
+/// Shared chat socket and repository, same endpoints Android uses.
+public enum AppRuntime {
+    public static let database = LocalDatabase()
+    public static let socket = WebSocketManager(
+        tokenProvider: { SessionStore.shared.token },
+        wsURLProvider: { AppBackend.wsBaseURL }
+    )
+    public static let chatApi = URLSessionChatApi(
+        baseURLProvider: { AppBackend.apiBaseURL },
+        tokenProvider: { SessionStore.shared.token }
+    )
+    public static let chatRepository = ChatRepositoryImpl(
+        chatApi: chatApi,
+        localDb: database,
+        webSocketManager: socket,
+        currentUserIdProvider: { SessionStore.shared.userId }
+    )
+
+    public static func connectRealtime() {
+        guard SessionStore.shared.token != nil else { return }
+        socket.connect()
     }
 }
