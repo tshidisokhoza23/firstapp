@@ -161,6 +161,11 @@ public final class TJAPIProtocol: URLProtocol {
 
         let client = self.client
         forwardTask = Self.forwardSession.dataTask(with: mutable as URLRequest) { data, response, error in
+            if let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 401 {
+                DispatchQueue.main.async {
+                    SessionStore.shared.clearSession()
+                }
+            }
             if let error {
                 client?.urlProtocol(self, didFailWithError: error)
                 return

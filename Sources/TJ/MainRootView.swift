@@ -88,6 +88,11 @@ public struct MainRootView: View {
             #endif
             handleDeepLink(url: url)
         }
+        .onReceive(NotificationCenter.default.publisher(for: SessionStore.didChange)) { _ in
+            DispatchQueue.main.async {
+                self.checkAuthAndLockStatus()
+            }
+        }
         .onAppear {
             checkAuthAndLockStatus()
         }
@@ -111,6 +116,8 @@ public struct MainRootView: View {
                 isProfileComplete = true
             }
             AppRuntime.connectRealtime()
+        } else {
+            isAuthenticated = false
         }
         if UserDefaults.standard.bool(forKey: "enable_biometric_lock") {
             isBiometricLocked = true

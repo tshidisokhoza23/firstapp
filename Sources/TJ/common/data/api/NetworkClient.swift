@@ -181,6 +181,14 @@ public final class NetworkClient: @unchecked Sendable {
             throw URLError(.badServerResponse)
         }
 
+        if httpResponse.statusCode == 401 {
+            DispatchQueue.main.async {
+                SessionStore.shared.clearSession()
+            }
+            let message = "Unauthorized: Session or token expired. Please sign in again."
+            throw NSError(domain: "NetworkClient", code: 401, userInfo: [NSLocalizedDescriptionKey: message])
+        }
+
         guard (200...299).contains(httpResponse.statusCode) else {
             let message = String(data: data, encoding: .utf8) ?? "HTTP Error \(httpResponse.statusCode)"
             throw NSError(domain: "NetworkClient", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
