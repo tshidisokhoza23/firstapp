@@ -4,18 +4,18 @@ import UIKit
 import GoogleSignIn
 #endif
 
-/// Same hosts as the Android `sit` (default) and `prod` flavors.
+/// Same hosts as the Android `sit` and `prod` flavors.
 public enum AppBackend {
     public static let googleiOSClientID = "303703683011-6ksjg0b8uakesl9a821ri05tokrg41f2.apps.googleusercontent.com"
     public static let googleWebClientID = "303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com"
     public static let stagingAPI = "https://firstappserver-staging.fly.dev/api/v1"
     public static let productionAPI = "https://firstappserver.fly.dev/api/v1"
 
-    /// Matches Android's default `sit` flavor so both apps hit the same database.
+    /// Default to Production backend (https://firstappserver.fly.dev/api/v1) matching Android prod build.
     public static var apiBaseURL: String {
         let stored = UserDefaults.standard.string(forKey: "tj_api_base")?.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         if let stored, stored.hasPrefix("http") { return stored }
-        return stagingAPI
+        return productionAPI
     }
 
     public static var wsBaseURL: String {
@@ -28,7 +28,7 @@ public enum AppBackend {
         if let url = URL(string: apiBaseURL), let host = url.host, let scheme = url.scheme {
             return "\(scheme)://\(host)"
         }
-        return "https://firstappserver-staging.fly.dev"
+        return "https://firstappserver.fly.dev"
     }
 }
 
@@ -70,6 +70,10 @@ public final class SessionStore: @unchecked Sendable {
         NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 
+    public func saveSession(token: String, user: User? = nil) {
+        save(token: token, refreshToken: nil, user: user)
+    }
+
     public func updateUser(_ user: User) {
         if let data = try? JSONEncoder().encode(user) {
             defaults.set(data, forKey: userKey)
@@ -89,100 +93,18 @@ public final class SessionStore: @unchecked Sendable {
     }
 }
 
-public enum APIError: Error, LocalizedError {
-    case badURL
-    case status(Int, String)
-
-    public var errorDescription: String? {
-        switch self {
-        case .badURL: return "Invalid server URL"
-        case .status(let code, let message): return message.isEmpty ? "Server error \(code)" : message
-        }
-    }
-}
-
-public enum API {
-    /// Bypasses TJAPIProtocol. URLSession.shared can stall those calls, which left every list empty.
-    static let session: URLSession = {
-        let config = URLSessionConfiguration.default
-        config.protocolClasses = []
-        config.timeoutIntervalForRequest = 30
-        return URLSession(configuration: config)
-    }()
-
-    public static func url(_ path: String, query: [String: String] = [:]) -> URL? {
-        let base = AppBackend.apiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let clean = path.hasPrefix("/") ? String(path.dropFirst()) : path
-        guard var components = URLComponents(string: "\(base)/\(clean)") else { return nil }
-        if !query.isEmpty {
-            components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
-        }
-        return components.url
-    }
-
-    public static func request(_ path: String, method: String = "GET", query: [String: String] = [:], body: Data? = nil, authorized: Bool = true) -> URLRequest? {
-        guard let url = url(path, query: query) else { return nil }
-        var req = URLRequest(url: url)
-        req.httpMethod = method
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
-        if authorized, let token = SessionStore.shared.token {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        req.httpBody = body
-        return req
-    }
-
-    public static func data(
-        _ path: String,
-        method: String = "GET",
-        query: [String: String] = [:],
-        json: [String: Any]? = nil,
-        body: Encodable? = nil,
-        authorized: Bool = true
-    ) async throws -> Data {
-        var encBody: Data? = nil
-        if let json = json {
-            encBody = try? JSONSerialization.data(withJSONObject: json)
-        } else if let body = body {
-            if let dataBody = body as? Data {
-                encBody = dataBody
-            } else {
-                encBody = try? JSONEncoder().encode(body)
-            }
-        }
-        guard var req = request(path, method: method, query: query, body: encBody, authorized: authorized) else {
-            throw APIError.badURL
-        }
-        if method == "GET" { req.httpBody = nil }
-        let (data, response) = try await session.data(for: req)
-        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-        guard (200...299).contains(code) else {
-            let message = String(data: data, encoding: .utf8) ?? ""
-            throw APIError.status(code, message)
-        }
-        return data
-    }
-
-    public static func getJSON(_ path: String, query: [String: String] = [:]) async throws -> [String: Any] {
-        let data = try await data(path, query: query)
-        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-    }
-}
-
-public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
-    public static var isInstalled = false
+public final class TJAPIProtocol: URLProtocol {
     private static let handled = "TJAPIProtocolHandled"
-    private static let forward: URLSession = {
+    private static let forwardSession: URLSession = {
         let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = []
+        config.protocolClasses = nil
         return URLSession(configuration: config)
     }()
+
     private var forwardTask: URLSessionDataTask?
 
     public static func install() {
         URLProtocol.registerClass(TJAPIProtocol.self)
-        isInstalled = true
     }
 
     public override class func canInit(with request: URLRequest) -> Bool {
@@ -238,7 +160,7 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
         }
 
         let client = self.client
-        forwardTask = Self.forward.dataTask(with: mutable as URLRequest) { data, response, error in
+        forwardTask = Self.forwardSession.dataTask(with: mutable as URLRequest) { data, response, error in
             if let error {
                 client?.urlProtocol(self, didFailWithError: error)
                 return
@@ -288,64 +210,12 @@ public final class TJAPIProtocol: URLProtocol, @unchecked Sendable {
     }
 }
 
-public final class GoogleSignInService {
-    public static let shared = GoogleSignInService()
-
-    /// Native iOS client starts the prompt. The web client ID is only the audience of the token sent to the Go backend.
-    public func signIn() async throws -> String {
-        #if canImport(GoogleSignIn)
-        await MainActor.run {
-            GIDSignIn.sharedInstance.configuration = GIDConfiguration(
-                clientID: AppBackend.googleiOSClientID,
-                serverClientID: AppBackend.googleWebClientID
-            )
-        }
-        let presenter = try await MainActor.run { try Self.presenter() }
-        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
-        guard let token = result.user.idToken?.tokenString, !token.isEmpty else {
-            throw APIError.status(-1, "Google sign-in returned no token")
-        }
-        return token
-        #else
-        throw APIError.status(-1, "Google Sign-In is not linked")
-        #endif
-    }
+public enum AppRuntime {
+    @MainActor
+    public static let chatRepository = ChatRepository.shared
 
     @MainActor
-    private static func presenter() throws -> UIViewController {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let root = scenes.flatMap(\.windows).first(where: \.isKeyWindow)?.rootViewController
-            ?? scenes.first?.windows.first?.rootViewController
-        guard var controller = root else {
-            throw APIError.status(-1, "Unable to open Google sign-in")
-        }
-        while let presented = controller.presentedViewController {
-            controller = presented
-        }
-        return controller
-    }
-}
-
-/// Shared chat socket and repository, same endpoints Android uses.
-public enum AppRuntime {
-    public static let database = LocalDatabase()
-    public static let socket = WebSocketManager(
-        tokenProvider: { SessionStore.shared.token },
-        wsURLProvider: { AppBackend.wsBaseURL }
-    )
-    public static let chatApi = URLSessionChatApi(
-        baseURLProvider: { AppBackend.apiBaseURL },
-        tokenProvider: { SessionStore.shared.token }
-    )
-    public static let chatRepository = ChatRepositoryImpl(
-        chatApi: chatApi,
-        localDb: database,
-        webSocketManager: socket,
-        currentUserIdProvider: { SessionStore.shared.userId }
-    )
-
     public static func connectRealtime() {
-        guard SessionStore.shared.token != nil else { return }
-        socket.connect()
+        WebSocketManager.shared.connect()
     }
 }
