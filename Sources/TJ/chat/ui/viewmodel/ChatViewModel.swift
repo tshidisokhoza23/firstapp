@@ -264,7 +264,7 @@ public class ChatViewModel: ObservableObject {
             if let duration { bodyObj["duration"] = duration }
             if let fileName { bodyObj["file_name"] = fileName }
 
-            if let respData = try? await API.data("conversations/\(chatId)/messages", method: "POST", json: bodyObj) {
+            if (try? await API.data("conversations/\(chatId)/messages", method: "POST", json: bodyObj)) != nil {
                 if var msgs = self.uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == msg.id }) {
                     msgs[idx].status = .delivered
                     self.uiState.messages = .success(msgs)
@@ -279,7 +279,7 @@ public class ChatViewModel: ObservableObject {
         }
     }
 
-    public func deleteMessage(messageId: String, deleteForEveryone: Bool) {
+    public func deleteMessage(messageId: String, deleteForEveryone: Bool = false) {
         if var msgs = uiState.messages.data {
             msgs.removeAll { $0.id == messageId }
             uiState.messages = .success(msgs)
@@ -295,7 +295,7 @@ public class ChatViewModel: ObservableObject {
 
     public func reactToMessage(messageId: String, emoji: String) {
         if var msgs = uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == messageId }) {
-            msgs[idx].reactions[uiState.currentUser?.id ?? "me"] = emoji
+            msgs[idx].reactions[emoji, default: 0] += 1
             uiState.messages = .success(msgs)
         }
     }
@@ -356,5 +356,26 @@ public class ChatViewModel: ObservableObject {
 
     public func refreshBlockedUsers() {
         blockedUserIds = []
+    }
+
+    public func startVoiceOrVideoCall(receiverId: String, callType: CallType, name: String) {
+        GlobalCallState.shared.startCall(receiverId: receiverId, isVideo: callType == .video)
+    }
+
+    public func blockUser(userId: String) {
+        blockedUserIds.insert(userId)
+        Task {
+            _ = try? await API.data("users/\(userId)/block", method: "POST")
+        }
+    }
+
+    public func reportUser(userId: String, reason: String) {
+        Task {
+            _ = try? await API.data("users/\(userId)/report", method: "POST", json: ["reason": reason])
+        }
+    }
+
+    public func setPlayingAudio(_ uri: String?) {
+        currentlyPlayingAudio = uri
     }
 }
