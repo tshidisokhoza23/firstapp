@@ -27,7 +27,7 @@ public enum RootRoute: Hashable {
 /// Root View managing authentication state, navigation hierarchy, active call banners, deep links, and local biometric security.
 public struct MainRootView: View {
     @StateObject private var authViewModel = AuthViewModel()
-    @StateObject private var globalCallState = GlobalCallState.shared
+    @ObservedObject private var globalCallState = GlobalCallState.shared
 
     @State private var navigationPath = NavigationPath()
     @State private var isAuthenticated: Bool = false
