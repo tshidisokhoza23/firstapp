@@ -96,16 +96,22 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
     @discardableResult
     public func syncDirectChats() async -> Bool {
         do {
-            let url = URL(string: AppBackend.apiBaseURL + "/conversations")!
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
-
-            struct DirectListResponse: Codable {
-                let chats: [DirectChat]
+            let data = try await API.data("conversations")
+            self.directChats = LiveJSON.chats(from: data).filter { $0.type == .direct }.map { chat in
+                DirectChat(
+                    id: chat.id,
+                    otherUserId: chat.otherUserId ?? "",
+                    senderName: chat.senderName,
+                    lastMessage: chat.lastMessage,
+                    timestamp: chat.timestamp,
+                    unreadCount: chat.unreadCount,
+                    avatarUrl: chat.avatarUrl,
+                    isOnline: chat.isOnline,
+                    isMuted: chat.isMuted,
+                    isPinned: chat.isPinned,
+                    phoneNumber: chat.phoneNumber
+                )
             }
-
-            let decoded = try JSONDecoder().decode(DirectListResponse.self, from: data)
-            self.directChats = decoded.chats
             return true
         } catch {
             print("[DirectRepository] Sync error: \(error)")
@@ -129,31 +135,18 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
     // MARK: - Initiate DM
 
     public func initiateDM(contactId: String) async throws -> String {
-        let url = URL(string: AppBackend.apiBaseURL + "/chats/dm")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["contact_id": contactId])
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw URLError(.badServerResponse)
-        }
-
-        struct InitiateResponse: Codable {
-            let conversation_id: String
-            let contact_name: String?
-            let avatar_url: String?
-        }
-
-        let res = try JSONDecoder().decode(InitiateResponse.self, from: data)
-        let conversationId = res.conversation_id
+        let data = try await API.data("chats/dm", method: "POST", json: ["contact_id": contactId])
+        let json = LiveJSON.object(data)
+        let conversationId = LiveJSON.string(json["conversation_id"])
+        guard !conversationId.isEmpty else { throw URLError(.cannotParseResponse) }
+        let contactName = LiveJSON.string(json["contact_name"])
+        let avatar = LiveJSON.string(json["avatar_url"]).nilIfEmpty
 
         let newChat = DirectChat(
             id: conversationId,
             otherUserId: contactId,
-            senderName: res.contact_name ?? "User",
-            avatarUrl: res.avatar_url
+            senderName: contactName.isEmpty ? "User" : contactName,
+            avatarUrl: avatar
         )
 
         if !directChats.contains(where: { $0.id == conversationId }) {

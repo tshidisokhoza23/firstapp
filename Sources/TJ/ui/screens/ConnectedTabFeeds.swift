@@ -48,6 +48,34 @@ struct FeedPost: Identifiable, Decodable {
         isBookmarked = (try? c.decode(Bool.self, forKey: .isBookmarked)) ?? false
     }
 
+    init(
+        id: String,
+        authorId: String,
+        authorName: String,
+        authorHandle: String,
+        authorAvatar: String?,
+        content: String,
+        mediaURLs: [String],
+        likes: Int,
+        repliesCount: Int,
+        postType: String,
+        isLiked: Bool,
+        isBookmarked: Bool
+    ) {
+        self.id = id
+        self.authorId = authorId
+        self.authorName = authorName
+        self.authorHandle = authorHandle
+        self.authorAvatar = authorAvatar
+        self.content = content
+        self.mediaURLs = mediaURLs
+        self.likes = likes
+        self.repliesCount = repliesCount
+        self.postType = postType
+        self.isLiked = isLiked
+        self.isBookmarked = isBookmarked
+    }
+
     private static func flexInt(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int {
         if let value = try? c.decode(Int.self, forKey: key) { return value }
         if let value = try? c.decode(Double.self, forKey: key) { return Int(value) }
@@ -69,19 +97,7 @@ struct FeedPost: Identifiable, Decodable {
     }
 
     static func decodeList(_ data: Data) -> [FeedPost] {
-        if let list = try? JSONDecoder().decode([FeedPost].self, from: data) {
-            return list
-        }
-        struct Envelope: Decodable {
-            struct Item: Decodable { let post: FeedPost? }
-            let items: [Item]?
-            let shorts: [FeedPost]?
-            let posts: [FeedPost]?
-        }
-        guard let envelope = try? JSONDecoder().decode(Envelope.self, from: data) else { return [] }
-        if let shorts = envelope.shorts { return shorts }
-        if let posts = envelope.posts { return posts }
-        return (envelope.items ?? []).compactMap(\.post)
+        LiveJSON.posts(from: data)
     }
 }
 
@@ -128,7 +144,7 @@ enum MediaActions {
 }
 
 struct PickedFile: Transferable {
-    let url: URL
+    let url: URLAPI.session
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(contentType: .movie) { file in
             SentTransferredFile(file.url)
@@ -170,6 +186,7 @@ struct SocialFeedView: View {
     public var onDirectMessagesClick: () -> Void = {}
 
     @State private var posts: [FeedPost] = []
+    @State private var ads: [Advert] = []
     @State private var status = "Loading social feed..."
     @State private var draft = ""
     @State private var selectedCategory = 0
@@ -225,6 +242,19 @@ struct SocialFeedView: View {
             }
 
             Divider()
+
+            if !ads.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(ads) { ad in
+                            AdvertCard(ad: ad)
+                                .frame(width: 280)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+            }
 
             // Main Posts Feed List
             Group {
@@ -335,13 +365,49 @@ struct SocialFeedView: View {
     private func load() async {
         do {
             let data = try await API.data("media/feed", query: ["limit": "20", "offset": "0"])
-            posts = FeedPost.decodeList(data)
-            status = posts.isEmpty ? "No posts yet" : ""
+            let loaded = FeedPost.decodeList(data)
+            posts = Self.withAds(loaded, ads: ads)
+            status = loaded.isEmpty ? "No posts yet" : ""
         } catch {
             status = error.localizedDescription
         }
+        if let data = try? await API.data("adverts") {
+            ads = LiveJSON.adverts(from: data).filter { !$0.isViewed }
+            if !posts.isEmpty {
+                let organic = posts.filter { !$0.id.hasPrefix("ad-") }
+                posts = Self.withAds(organic, ads: ads)
+            }
+        }
     }
-}
+
+    private static func withAds(_ posts: [FeedPost], ads: [Advert]) -> [FeedPost] {
+        guard !ads.isEmpty else { return posts }
+        var mixed: [FeedPost] = []
+        var adIndex = 0
+        for (index, post) in posts.enumerated() {
+            mixed.append(post)
+            if (index + 1) % 5 == 0 {
+                let ad = ads[adIndex % ads.count]
+                adIndex += 1
+                mixed.append(FeedPost(
+                    id: "ad-\(ad.id)-\(index)",
+                    authorId: ad.advertiserId,
+                    authorName: ad.advertiserName.isEmpty ? "Sponsored" : ad.advertiserName,
+                    authorHandle: "sponsored",
+                    authorAvatar: ad.avatarUrl,
+                    content: ad.contentText.isEmpty ? ad.title : ad.contentText,
+                    mediaURLs: ad.contentUrl.map { [$0] } ?? [],
+                    likes: 0,
+                    repliesCount: 0,
+                    postType: "ad",
+                    isLiked: false,
+                    isBookmarked: false
+                ))
+            }
+        }
+        return mixed
+    }
+} 
 
 /// Android Scroll tab: `GET media/feed/shorts` matching Screenshot 8.
 public struct ConnectedShortsFeedView: View {
@@ -374,11 +440,12 @@ public struct ConnectedMingleFeedView: View {
 struct ShortsFeedView: View {
     public var onProfileClick: (String) -> Void = { _ in }
     @State private var shorts: [FeedPost] = []
+    @State private var ads: [Advert] = []
     @State private var status = "Loading shorts..."
 
     var body: some View {
         Group {
-            if shorts.isEmpty {
+            if shorts.isEmpty && ads.isEmpty {
                 VStack(spacing: 8) {
                     ProgressView()
                     Text(status).font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center)
@@ -386,12 +453,17 @@ struct ShortsFeedView: View {
                 .padding()
             } else {
                 TabView {
-                    ForEach(shorts) { short in
-                        ShortClipView(post: short, onProfile: {
-                            if !short.authorId.isEmpty {
-                                onProfileClick(short.authorId)
-                            }
-                        })
+                    ForEach(slides) { slide in
+                        switch slide {
+                        case .clip(let short):
+                            ShortClipView(post: short, onProfile: {
+                                if !short.authorId.isEmpty {
+                                    onProfileClick(short.authorId)
+                                }
+                            })
+                        case .ad(let ad):
+                            ShortAdPage(ad: ad)
+                        }
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -402,6 +474,23 @@ struct ShortsFeedView: View {
         .refreshable { await load() }
     }
 
+    private var slides: [ShortSlide] {
+        var mixed: [ShortSlide] = shorts.map { .clip($0) }
+        guard !ads.isEmpty else { return mixed }
+        var adIndex = 0
+        var cursor = 0
+        while cursor < mixed.count {
+            cursor += 8
+            if cursor <= mixed.count {
+                mixed.insert(.ad(ads[adIndex % ads.count]), at: cursor)
+                adIndex += 1
+                cursor += 1
+            }
+        }
+        if mixed.isEmpty { return ads.map { .ad($0) } }
+        return mixed
+    }
+
     private func load() async {
         do {
             let data = try await API.data("media/feed/shorts", query: ["page": "1"])
@@ -410,6 +499,92 @@ struct ShortsFeedView: View {
         } catch {
             status = error.localizedDescription
         }
+        if let data = try? await API.data("adverts") {
+            ads = LiveJSON.adverts(from: data).filter { !$0.isViewed }
+            if shorts.isEmpty && !ads.isEmpty { status = "" }
+        }
+    }
+}
+
+private enum ShortSlide: Identifiable {
+    case clip(FeedPost)
+    case ad(Advert)
+
+    var id: String {
+        switch self {
+        case .clip(let post): return post.id
+        case .ad(let ad): return "ad-\(ad.id)"
+        }
+    }
+}
+
+private struct ShortAdPage: View {
+    let ad: Advert
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Text("Sponsored")
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.orange)
+                    .clipShape(Capsule())
+                if let url = FeedPost.resolve(ad.contentUrl) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: {
+                        Color.white.opacity(0.1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 280)
+                    .clipped()
+                }
+                Text(ad.advertiserName)
+                    .font(.title3.bold())
+                    .foregroundColor(.white)
+                Text(ad.contentText.isEmpty ? ad.title : ad.contentText)
+                    .font(.body)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+        }
+    }
+}
+
+private struct AdvertCard: View {
+    let ad: Advert
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Sponsored")
+                .font(.caption.bold())
+                .foregroundColor(.orange)
+            Text(ad.advertiserName.isEmpty ? ad.title : ad.advertiserName)
+                .font(.headline)
+                .lineLimit(1)
+            if let url = FeedPost.resolve(ad.contentUrl) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .cornerRadius(12)
+            }
+            Text(ad.contentText.isEmpty ? ad.title : ad.contentText)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+        }
+        .padding(12)
+        .background(Color(UIColor.secondarySystemBackground))
+        .cornerRadius(16)
     }
 }
 

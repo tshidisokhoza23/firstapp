@@ -179,6 +179,7 @@ public struct ChatTabView: View {
         .onAppear {
             viewModel.fetchChats()
             channelsViewModel.fetchChannels()
+            Task { await rewardViewModel.fetchAdverts() }
             jobViewModel.fetchJobs()
         }
         .sheet(isPresented: $showTopMenu) {
@@ -273,6 +274,13 @@ public struct ChatTabView: View {
                             Image(systemName: "bubble.left.and.bubble.right")
                                 .font(.system(size: 48))
                                 .foregroundColor(.gray)
+                            if case .error(let message, _) = viewModel.uiState.chats {
+                                Text(message)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 24)
+                            }
                             Text("No chats yet")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.secondary)
@@ -347,6 +355,13 @@ public struct ChatTabView: View {
                     Image(systemName: "megaphone")
                         .font(.system(size: 48))
                         .foregroundColor(.gray)
+                    if let message = channelsViewModel.channels.message {
+                        Text(message)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
                     Text("No channels available")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.secondary)
@@ -461,6 +476,30 @@ public struct ChatTabView: View {
                         Text("\(Int(rewardViewModel.points))")
                             .font(.system(size: 36, weight: .black))
                             .foregroundColor(.primary)
+                if case .error(let message, _) = rewardViewModel.adverts {
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                ForEach(rewardViewModel.adverts.data ?? []) { ad in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Sponsored")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.orange)
+                        Text(ad.advertiserName.isEmpty ? ad.title : ad.advertiserName)
+                            .font(.system(size: 16, weight: .bold))
+                        Text(ad.contentText.isEmpty ? ad.title : ad.contentText)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                            .lineLimit(3)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(16)
+                }
+
                     }
                 }
                 .padding(20)

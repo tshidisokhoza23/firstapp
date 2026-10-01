@@ -21,8 +21,7 @@ public class RewardViewModel: ObservableObject {
 
     public init() {
         fetchDashboard()
-        adverts = .success([])
-        viewedAdverts = .success([])
+        Task { await fetchAdverts() }
     }
 
     public func fetchDashboard() {
@@ -54,8 +53,21 @@ public class RewardViewModel: ObservableObject {
         }
     }
 
-    public func fetchAdverts() {
-        adverts = .success([])
+    public func fetchAdverts() async {
+        adverts = .loading()
+        viewedAdverts = .loading()
+        do {
+            let data = try await API.data("adverts")
+            adverts = .success(LiveJSON.adverts(from: data))
+        } catch {
+            adverts = .error(error.localizedDescription)
+        }
+        do {
+            let viewed = try await API.data("adverts/viewed")
+            viewedAdverts = .success(LiveJSON.adverts(from: viewed))
+        } catch {
+            viewedAdverts = .error(error.localizedDescription)
+        }
     }
 
     public func showRewardedAd(taskId: String, onReward: @escaping () -> Void) {

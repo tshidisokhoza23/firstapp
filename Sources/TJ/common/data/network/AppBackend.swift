@@ -102,6 +102,14 @@ public enum APIError: Error, LocalizedError {
 }
 
 public enum API {
+    /// Bypasses TJAPIProtocol. URLSession.shared can stall those calls, which left every list empty.
+    static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.protocolClasses = []
+        config.timeoutIntervalForRequest = 30
+        return URLSession(configuration: config)
+    }()
+
     public static func url(_ path: String, query: [String: String] = [:]) -> URL? {
         let base = AppBackend.apiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let clean = path.hasPrefix("/") ? String(path.dropFirst()) : path
@@ -147,7 +155,7 @@ public enum API {
             throw APIError.badURL
         }
         if method == "GET" { req.httpBody = nil }
-        let (data, response) = try await URLSession.shared.data(for: req)
+        let (data, response) = try await session.data(for: req)
         let code = (response as? HTTPURLResponse)?.statusCode ?? -1
         guard (200...299).contains(code) else {
             let message = String(data: data, encoding: .utf8) ?? ""

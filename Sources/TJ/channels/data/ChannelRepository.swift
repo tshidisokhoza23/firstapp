@@ -172,27 +172,28 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     }
 
     private static func channel(from json: [String: Any]) -> Channel? {
-        guard let id = json["id"] as? String ?? (json["id"] as? NSNumber)?.stringValue, !id.isEmpty else { return nil }
-        let name = json["name"] as? String ?? "Channel"
+        let id = LiveJSON.string(json["id"]).isEmpty ? LiveJSON.string(json["conversation_id"]) : LiveJSON.string(json["id"])
+        guard !id.isEmpty else { return nil }
+        let name = LiveJSON.string(json["name"]).isEmpty ? "Channel" : LiveJSON.string(json["name"])
         return Channel(
             id: id,
             name: name,
-            description: json["description"] as? String ?? "",
-            followers: (json["followers"] as? NSNumber)?.intValue ?? (json["subscriber_count"] as? NSNumber)?.intValue ?? 0,
-            avatarUrl: json["avatar_url"] as? String,
-            isVerified: (json["is_verified"] as? NSNumber)?.boolValue ?? false,
-            isSubscribed: (json["is_subscribed"] as? NSNumber)?.boolValue ?? false,
-            isMuted: (json["is_muted"] as? NSNumber)?.boolValue ?? false,
-            isAdmin: (json["is_admin"] as? NSNumber)?.boolValue ?? false,
-            adminsCanPost: (json["admins_can_post"] as? NSNumber)?.boolValue ?? false,
-            category: json["category"] as? String ?? "Community",
-            createdBy: json["created_by"] as? String,
-            lastPostText: json["last_post_text"] as? String ?? "",
-            lastPostImageUrl: json["last_post_image_url"] as? String,
-            lastPostTime: (json["last_post_time"] as? NSNumber)?.stringValue ?? "",
-            conversationId: json["conversation_id"] as? String,
-            isTopInCountry: (json["is_top_in_country"] as? NSNumber)?.boolValue ?? false,
-            countryCode: json["country_code"] as? String ?? ""
+            description: LiveJSON.string(json["description"]),
+            followers: LiveJSON.int(json["followers"] ?? json["subscriber_count"]),
+            avatarUrl: LiveJSON.string(json["avatar_url"]).nilIfEmpty,
+            isVerified: LiveJSON.bool(json["is_verified"]),
+            isSubscribed: LiveJSON.bool(json["is_subscribed"]),
+            isMuted: LiveJSON.bool(json["is_muted"]),
+            isAdmin: LiveJSON.bool(json["is_admin"]),
+            adminsCanPost: LiveJSON.bool(json["admins_can_post"]),
+            category: LiveJSON.string(json["category"]).isEmpty ? "Community" : LiveJSON.string(json["category"]),
+            createdBy: LiveJSON.string(json["created_by"]).nilIfEmpty,
+            lastPostText: LiveJSON.string(json["last_post_text"]),
+            lastPostImageUrl: LiveJSON.string(json["last_post_image_url"]).nilIfEmpty,
+            lastPostTime: LiveJSON.string(json["last_post_time"]),
+            conversationId: LiveJSON.string(json["conversation_id"]).nilIfEmpty,
+            isTopInCountry: LiveJSON.bool(json["is_top_in_country"]),
+            countryCode: LiveJSON.string(json["country_code"])
         )
     }
 }

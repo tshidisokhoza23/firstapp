@@ -39,6 +39,45 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
     public var otherUserId: String?
     public var isMingle: Bool
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case senderName = "sender_name"
+        case localContactName = "local_contact_name"
+        case serverProfileName = "server_profile_name"
+        case lastMessage = "last_message"
+        case timestamp = "updated_at"
+        case unreadCount = "unread_count"
+        case avatarUrl = "avatar_url"
+        case avatarColorHex = "avatar_color_hex"
+        case isOnline = "is_online"
+        case lastSeen = "last_seen"
+        case isMuted = "is_muted"
+        case isPinned = "is_pinned"
+        case pinnedMessageId = "pinned_message_id"
+        case isTyping = "is_typing"
+        case isGroup = "is_group"
+        case lastMessageIsFromMe = "last_message_is_from_me"
+        case lastMessageRead = "last_message_read"
+        case lastMessageStatus = "last_message_status"
+        case isArchived = "is_archived"
+        case isAdmin = "is_admin"
+        case adminsCanPost = "admins_can_post"
+        case isVerified = "is_verified"
+        case isSubscribed = "is_subscribed"
+        case createdBy = "created_by"
+        case followers
+        case category
+        case wallpaperUrl = "wallpaper_url"
+        case customNotificationTone = "custom_notification_tone"
+        case mediaVisibility = "media_visibility"
+        case disappearingMessagesDuration = "disappearing_messages_duration"
+        case publicKey = "public_key"
+        case phoneNumber = "phone_number"
+        case otherUserId = "other_user_id"
+        case isMingle = "is_mingle"
+    }
+
     public init(
         id: String,
         type: ConversationType = .direct,
@@ -113,6 +152,60 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
         self.phoneNumber = phoneNumber
         self.otherUserId = otherUserId
         self.isMingle = isMingle
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = (try? container.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        let typeStr = (try? container.decode(String.self, forKey: .type)) ?? "DIRECT"
+        type = ConversationType(rawValue: typeStr.uppercased()) ?? .direct
+
+        senderName = (try? container.decode(String.self, forKey: .senderName)) ?? ""
+        localContactName = try container.decodeIfPresent(String.self, forKey: .localContactName)
+        serverProfileName = try container.decodeIfPresent(String.self, forKey: .serverProfileName)
+        lastMessage = (try? container.decode(String.self, forKey: .lastMessage)) ?? ""
+
+        if let ts = try? container.decode(Int64.self, forKey: .timestamp) {
+            timestamp = ts
+        } else if let ts = try? container.decode(Double.self, forKey: .timestamp) {
+            timestamp = Int64(ts)
+        } else {
+            timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        }
+
+        unreadCount = (try? container.decode(Int.self, forKey: .unreadCount)) ?? 0
+        avatarUrl = try container.decodeIfPresent(String.self, forKey: .avatarUrl)
+        avatarColorHex = (try? container.decode(String.self, forKey: .avatarColorHex)) ?? "#808080"
+        isOnline = (try? container.decode(Bool.self, forKey: .isOnline)) ?? false
+        lastSeen = (try? container.decode(Int64.self, forKey: .lastSeen)) ?? 0
+        isMuted = (try? container.decode(Bool.self, forKey: .isMuted)) ?? false
+        isPinned = (try? container.decode(Bool.self, forKey: .isPinned)) ?? false
+        pinnedMessageId = try container.decodeIfPresent(String.self, forKey: .pinnedMessageId)
+        isTyping = (try? container.decode(Bool.self, forKey: .isTyping)) ?? false
+        isGroup = (try? container.decode(Bool.self, forKey: .isGroup)) ?? (type == .group)
+        lastMessageIsFromMe = (try? container.decode(Bool.self, forKey: .lastMessageIsFromMe)) ?? false
+        lastMessageRead = (try? container.decode(Bool.self, forKey: .lastMessageRead)) ?? false
+
+        let statusStr = (try? container.decode(String.self, forKey: .lastMessageStatus)) ?? "SENT"
+        lastMessageStatus = MessageStatus(rawValue: statusStr.uppercased()) ?? .sent
+
+        isArchived = (try? container.decode(Bool.self, forKey: .isArchived)) ?? false
+        isAdmin = (try? container.decode(Bool.self, forKey: .isAdmin)) ?? false
+        adminsCanPost = (try? container.decode(Bool.self, forKey: .adminsCanPost)) ?? false
+        isVerified = (try? container.decode(Bool.self, forKey: .isVerified)) ?? false
+        isSubscribed = (try? container.decode(Bool.self, forKey: .isSubscribed)) ?? false
+        createdBy = try container.decodeIfPresent(String.self, forKey: .createdBy)
+        followers = (try? container.decode(String.self, forKey: .followers)) ?? "0"
+        category = (try? container.decode(String.self, forKey: .category)) ?? "Community"
+        wallpaperUrl = try container.decodeIfPresent(String.self, forKey: .wallpaperUrl)
+        customNotificationTone = try container.decodeIfPresent(String.self, forKey: .customNotificationTone)
+        mediaVisibility = (try? container.decode(Bool.self, forKey: .mediaVisibility)) ?? true
+        disappearingMessagesDuration = (try? container.decode(Int.self, forKey: .disappearingMessagesDuration)) ?? 0
+        publicKey = try container.decodeIfPresent(String.self, forKey: .publicKey)
+        phoneNumber = try container.decodeIfPresent(String.self, forKey: .phoneNumber)
+        otherUserId = try container.decodeIfPresent(String.self, forKey: .otherUserId)
+        isMingle = (try? container.decode(Bool.self, forKey: .isMingle)) ?? false
     }
 
     public var isSavedContact: Bool {

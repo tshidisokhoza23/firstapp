@@ -162,20 +162,10 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations")
-                struct Envelope: Decodable {
-                    let conversations: [ChatMessage]?
-                    let chats: [ChatMessage]?
-                    let data: [ChatMessage]?
-                }
-                var list: [ChatMessage] = []
-                if let env = try? JSONDecoder().decode(Envelope.self, from: data) {
-                    list = env.conversations ?? env.chats ?? env.data ?? []
-                } else if let direct = try? JSONDecoder().decode([ChatMessage].self, from: data) {
-                    list = direct
-                }
-                self.uiState.chats = .success(list)
+                self.uiState.chats = .success(LiveJSON.chats(from: data))
                 self.uiState.isChatsFetching = false
             } catch {
+                self.uiState.chats = .error(error.localizedDescription)
                 self.uiState.isChatsFetching = false
             }
         }
@@ -187,16 +177,7 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations/\(chatId)/messages")
-                struct MsgEnvelope: Decodable {
-                    let messages: [Message]?
-                    let items: [Message]?
-                }
-                var msgs: [Message] = []
-                if let env = try? JSONDecoder().decode(MsgEnvelope.self, from: data) {
-                    msgs = env.messages ?? env.items ?? []
-                } else if let direct = try? JSONDecoder().decode([Message].self, from: data) {
-                    msgs = direct
-                }
+                let msgs = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
                 self.uiState.messages = .success(msgs)
             } catch {
                 self.uiState.messages = .success([])
