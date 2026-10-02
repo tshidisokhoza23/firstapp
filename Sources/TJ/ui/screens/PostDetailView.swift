@@ -67,7 +67,7 @@ struct PostDetailView: View {
                     if !post.displayPost.content.isEmpty {
                         Text(post.displayPost.content).font(.body)
                     }
-                    if let original = post.original, !post.isSimpleRepost {
+                    if let original = post.quotedPost, !post.isSimpleRepost {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(original.title).font(.subheadline.weight(.bold))
                             if !original.content.isEmpty { Text(original.content).font(.subheadline) }

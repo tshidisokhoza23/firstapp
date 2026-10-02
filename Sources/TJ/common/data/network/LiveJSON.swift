@@ -222,8 +222,49 @@ enum LiveJSON {
             isReposted: bool(json["is_reposted"]),
             mediaType: string(json["media_type"]),
             repostOfId: string(json["repost_of_id"]),
-            original: nested ? nil : ((json["original_post"] as? [String: Any]).flatMap { post($0, nested: true) })
+            originalAuthorId: nested ? "" : authorId(json["original_post"] as? [String: Any]),
+            originalAuthorName: nested ? "" : authorName(json["original_post"] as? [String: Any]),
+            originalAuthorHandle: nested ? "" : authorHandle(json["original_post"] as? [String: Any]),
+            originalAuthorAvatar: nested ? nil : authorAvatar(json["original_post"] as? [String: Any]),
+            originalContent: nested ? "" : string((json["original_post"] as? [String: Any])?["content"]),
+            originalMediaURLs: nested ? [] : mediaURLs(json["original_post"] as? [String: Any]),
+            originalMediaType: nested ? "" : string((json["original_post"] as? [String: Any])?["media_type"]),
+            originalPostType: nested ? "" : string((json["original_post"] as? [String: Any])?["post_type"])
         )
+    }
+
+    private static func authorId(_ json: [String: Any]?) -> String {
+        let author = json?["author"] as? [String: Any]
+        let direct = string(json?["author_id"])
+        return direct.isEmpty ? string(author?["id"]) : direct
+    }
+
+    private static func authorName(_ json: [String: Any]?) -> String {
+        let author = json?["author"] as? [String: Any]
+        let direct = string(json?["author_name"])
+        return direct.isEmpty ? string(author?["display_name"]) : direct
+    }
+
+    private static func authorHandle(_ json: [String: Any]?) -> String {
+        let author = json?["author"] as? [String: Any]
+        let direct = string(json?["author_handle"])
+        return direct.isEmpty ? string(author?["username"]) : direct
+    }
+
+    private static func authorAvatar(_ json: [String: Any]?) -> String? {
+        let author = json?["author"] as? [String: Any]
+        let direct = string(json?["author_avatar_url"])
+        let value = direct.isEmpty ? string(author?["avatar_url"]) : direct
+        return value.nilIfEmpty
+    }
+
+    private static func mediaURLs(_ json: [String: Any]?) -> [String] {
+        guard let json else { return [] }
+        var urls = strings(json["media_urls"])
+        urls.append(contentsOf: strings(json["media"]))
+        let direct = string(json["media_url"]).isEmpty ? string(json["content_url"]) : string(json["media_url"])
+        if !direct.isEmpty && !urls.contains(direct) { urls.insert(direct, at: 0) }
+        return urls
     }
 
     static func adverts(from data: Data) -> [Advert] {

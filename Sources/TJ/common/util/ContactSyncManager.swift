@@ -34,9 +34,7 @@ public final class ContactSyncManager {
 
     public func canReadContacts() -> Bool {
         let status = CNContactStore.authorizationStatus(for: .contacts)
-        if status == .authorized { return true }
-        if #available(iOS 18.0, *), status == .limited { return true }
-        return false
+        status.rawValue == 3 || status.rawValue == 4
     }
 
     public func requestContactsAccess() async -> Bool {

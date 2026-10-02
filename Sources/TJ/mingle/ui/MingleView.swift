@@ -388,14 +388,12 @@ public struct MingleView: View {
                 let status: String?
                 let freeLikesRemaining: Int?
                 let introCost: Double?
+                let minBalance: Double?
                 enum CodingKeys: String, CodingKey {
                     case items, balance, status
                     case minBalance = "min_balance"
                     case freeLikesRemaining = "free_likes_remaining"
-                    case introCost = "intro_cost
-                    case minBalance = "min_balance"
-            if let free = feed.freeLikesRemaining { freeLikesRemaining = free }
-            if let cost = feed.introCost, cost > 0 { introCost = Int(cost) }
+                    case introCost = "intro_cost"
                 }
             }
             let feed = try JSONDecoder().decode(Feed.self, from: data)
@@ -403,6 +401,8 @@ public struct MingleView: View {
             if let minBalance = feed.minBalance { self.minBalance = Int(minBalance) }
             let feedItems = feed.items ?? []
             var resultProfiles: [MingleProfile] = []
+            if let free = feed.freeLikesRemaining { freeLikesRemaining = free }
+            if let cost = feed.introCost, cost > 0 { introCost = Int(cost) }
             for item in feedItems {
                 guard !item.id.isEmpty else { continue }
                 let nameStr = item.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -439,33 +439,29 @@ public struct MingleView: View {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let profile = json["profile"] as? [String: Any] else { return }
         if let name = profile["name"] as? String, !name.isEmpty { myName = name }
-        if let bio = profile[freeLikesRemaining <= 0, "bio"] as? String { myBio = bio }
+        if let bio = profile["bio"] as? String { myBio = bio }
         if let age = profile["age"] as? Int, age > 0 { myAge = "\(age)" }
         else if let age = profile["age"] as? Double, age > 0 { myAge = "\(Int(age))" }
     }
 
     private func swipe(_ profile: MingleProfile, action: String) async {
-        if action == "like", userCoins < minBalance {
+        if action == "like", freeLikesRemaining <= 0, userCoins < minBalance {
             feedNote = "You need at least \(minBalance) points to like"
             return
         }
         do {
             let data = try await API.data("mingle/swipe", method: "POST", json: [
-            if let free = json["free_likes_remaining"] as? Int { freeLikesRemaining = free }
-            else if let free = json["free_likes_remaining"] as? Double { freeLikesRemaining = Int(free) }
                 "target_user_id": profile.id,
                 "action": action
             ])
             let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
             if let balance = json["balance"] as? Double { userCoins = Int(balance) }
             else if let balance = json["balance"] as? Int { userCoins = balance }
+            if let free = json["free_likes_remaining"] as? Int { freeLikesRemaining = free }
+            else if let free = json["free_likes_remaining"] as? Double { freeLikesRemaining = Int(free) }
             lastSwiped = profile
             profiles.removeAll { $0.id == profile.id }
             if json["matched"] as? Bool == true, let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
-        if userCoins < introCost + minBalance {
-            feedNote = "You need \(introCost) points and \(minBalance) left to send a message"
-            return
-        }
                 onMatchClick?(conversationId, profile.name)
             }
         } catch {
@@ -474,6 +470,10 @@ public struct MingleView: View {
     }
 
     private func sendIntro(recipientId: String, name: String, message: String) async {
+        if userCoins < introCost + minBalance {
+            feedNote = "You need \(introCost) points and \(minBalance) left to send a message"
+            return
+        }
         do {
             let data = try await API.data("mingle/intro", method: "POST", json: [
                 "recipient_id": recipientId,

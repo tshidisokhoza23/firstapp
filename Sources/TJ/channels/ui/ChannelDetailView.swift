@@ -549,7 +549,7 @@ public struct ChannelPostCardView: View {
                 HStack(spacing: 4) {
                     Text("❤️ 👄 😂 👍")
                         .font(.system(size: 12))
-                    Text(post.likesCount > 0 ? "\(post.likesCount)K" : "1K")
+                    Text(post.isLiked ? "Liked" : "")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                 }
@@ -564,7 +564,7 @@ public struct ChannelPostCardView: View {
                     Image(systemName: "arrowshape.turn.up.right.fill")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
-                    Text(post.forwardsCount > 0 ? "\(post.forwardsCount)" : "111")
+                    Text("Forward")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                 }

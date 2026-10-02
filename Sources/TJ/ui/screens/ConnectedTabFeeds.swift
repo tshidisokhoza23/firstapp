@@ -24,7 +24,14 @@ public struct FeedPost: Identifiable, Codable, Sendable {
     var isReposted: Bool
     let mediaType: String
     var repostOfId: String
-    var original: FeedPost?
+    var originalAuthorId: String
+    var originalAuthorName: String
+    var originalAuthorHandle: String
+    var originalAuthorAvatar: String?
+    var originalContent: String
+    var originalMediaURLs: [String]
+    var originalMediaType: String
+    var originalPostType: String
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -67,7 +74,14 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         isReposted: Bool = false,
         mediaType: String = "",
         repostOfId: String = "",
-        original: FeedPost? = nil
+        originalAuthorId: String = "",
+        originalAuthorName: String = "",
+        originalAuthorHandle: String = "",
+        originalAuthorAvatar: String? = nil,
+        originalContent: String = "",
+        originalMediaURLs: [String] = [],
+        originalMediaType: String = "",
+        originalPostType: String = ""
     ) {
         self.id = id
         self.authorId = authorId
@@ -88,7 +102,14 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         self.isReposted = isReposted
         self.mediaType = mediaType
         self.repostOfId = repostOfId
-        self.original = original
+        self.originalAuthorId = originalAuthorId
+        self.originalAuthorName = originalAuthorName
+        self.originalAuthorHandle = originalAuthorHandle
+        self.originalAuthorAvatar = originalAuthorAvatar
+        self.originalContent = originalContent
+        self.originalMediaURLs = originalMediaURLs
+        self.originalMediaType = originalMediaType
+        self.originalPostType = originalPostType
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -133,12 +154,19 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         postType = try c.decodeIfPresent(String.self, forKey: .postType) ?? ""
         isLiked = (try? c.decode(Bool.self, forKey: .isLiked)) ?? false
         isBookmarked = (try? c.decode(Bool.self, forKey: .isBookmarked)) ?? false
+        repostOfId = ""
+        originalAuthorId = ""
+        originalAuthorName = ""
+        originalAuthorHandle = ""
+        originalAuthorAvatar = nil
+        originalContent = ""
+        originalMediaURLs = []
+        originalMediaType = ""
+        originalPostType = ""
     }
 
     private static func flexInt(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int {
         if let value = try? c.decode(Int.self, forKey: key) { return value }
-        repostOfId = ""
-        original = nil
         if let value = try? c.decode(Double.self, forKey: key) { return Int(value) }
         return 0
     }
@@ -154,7 +182,7 @@ public struct FeedPost: Identifiable, Codable, Sendable {
     var playbackURL: URL? {
         let preferred = mediaURLs.first { raw in
             let lower = raw.lowercased()
-            return !lower.contains("thumb") && (lower.contains(".mp4") || lower.contains(".m3u8") || lower.contains(".mov") || lower.contains("video"))
+            return !lower.contains("thumb") && (lower.contains(".mp4") || lower.contains(".m3u8") || lower.contains(".mov") || lower.contains("video") || lower.contains("/shorts/"))
         } ?? mediaURLs.first { !$0.lowercased().contains("thumb") } ?? mediaURLs.first
         return Self.resolve(preferred)
     }
@@ -167,11 +195,30 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         return raw.contains(".mp4") || raw.contains(".m3u8") || raw.contains(".mov") || raw.contains("video") || raw.contains("/shorts/")
     }
 
-    var isSimpleRepost: Bool {
-        !repostOfId.isEmpty && original != nil && content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    var hasOriginal: Bool {
+        !repostOfId.isEmpty && (!originalContent.isEmpty || !originalMediaURLs.isEmpty || !originalAuthorName.isEmpty)
     }
 
-    var displayPost: FeedPost { isSimpleRepost ? (original ?? self) : self }
+    var isSimpleRepost: Bool {
+        hasOriginal && content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var quotedPost: FeedPost? {
+        guard hasOriginal else { return nil }
+        return FeedPost(
+            id: repostOfId,
+            authorId: originalAuthorId,
+            authorName: originalAuthorName,
+            authorHandle: originalAuthorHandle,
+            authorAvatar: originalAuthorAvatar,
+            content: originalContent,
+            mediaURLs: originalMediaURLs,
+            postType: originalPostType,
+            mediaType: originalMediaType
+        )
+    }
+
+    var displayPost: FeedPost { isSimpleRepost ? (quotedPost ?? self) : self }
 
     static func resolve(_ raw: String?) -> URL? {
         guard var raw, !raw.isEmpty else { return nil }
@@ -582,7 +629,7 @@ struct FeedPostCard: View {
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if let original = post.original, !post.isSimpleRepost {
+                if let original = post.quotedPost, !post.isSimpleRepost {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(original.title)
                             .font(.system(size: 14, weight: .bold))
@@ -592,7 +639,6 @@ struct FeedPostCard: View {
                                 .lineLimit(4)
                         }
                     }
-                    .paddishown.playsAsVideo, let url = shown.playbackURL ?? shown
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                 }
