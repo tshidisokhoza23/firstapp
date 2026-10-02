@@ -22,6 +22,13 @@ public struct ChatTabView: View {
     @State private var activeJobDetail: Job? = nil
     @State private var showCreateChannel: Bool = false
     @State private var showPostJob: Bool = false
+    @State private var showStarred: Bool = false
+    @State private var showApplications: Bool = false
+    @State private var showJobProfile: Bool = false
+    @State private var showWallet: Bool = false
+    @State private var showSettings: Bool = false
+    @State private var showMingleActivity: Bool = false
+    @State private var showGroup: Bool = false
     @State private var activeStory: UserStory? = nil
     @State private var storyStart: AndroidStoryFlow.Start?
     @State private var storyDraft: String = ""
@@ -181,11 +188,41 @@ public struct ChatTabView: View {
         .sheet(isPresented: $showTopMenu) {
             TopMoreMenuSheetView(
                 selectedTab: selectedTab,
-                onNewChat: onNewChatClick,
-                onArchived: onArchivedClick,
-                onProfile: onProfileClick
+                onContacts: { showTopMenu = false; onNewChatClick() },
+                onNewGroup: { showTopMenu = false; showGroup = true },
+                onStarred: { showTopMenu = false; showStarred = true },
+                onArchived: { showTopMenu = false; onArchivedClick() },
+                onMingle: { showTopMenu = false; showMingleActivity = true },
+                onCreateChannel: { showTopMenu = false; showCreateChannel = true },
+                onPostJob: { showTopMenu = false; showPostJob = true },
+                onApplications: { showTopMenu = false; showApplications = true },
+                onJobProfile: { showTopMenu = false; showJobProfile = true },
+                onWallet: { showTopMenu = false; showWallet = true },
+                onSettings: { showTopMenu = false; showSettings = true },
+                onSignOut: {
+                    showTopMenu = false
+                    Task { await SessionActions.logout() }
+                }
             )
             .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showStarred) { StarredMessagesView() }
+        .sheet(isPresented: $showApplications) { JobApplicationsView() }
+        .sheet(isPresented: $showJobProfile) { JobProfileView(onClose: { showJobProfile = false }) }
+        .sheet(isPresented: $showWallet) { WalletView() }
+        .sheet(isPresented: $showSettings) { SettingsView(router: NavigationRouter()) }
+        .sheet(isPresented: $showMingleActivity) { CourtListSheet(title: "Mingle Activity", path: "mingle/activity") }
+        .sheet(isPresented: $showGroup) {
+            ContactPickerView(
+                initialIsGroupMode: true,
+                onBack: { showGroup = false },
+                onGroupCreate: { contacts in
+                    showGroup = false
+                    viewModel.createGroup(name: "New Group", contactIds: contacts.map(\.id)) { chat in
+                        onChatSelected(chat)
+                    }
+                }
+            )
         }
         .sheet(isPresented: $showDirectMessages) {
             DirectMessagesView(
@@ -529,59 +566,62 @@ public struct ChatTabView: View {
                                 .background(Color.appPrimary)
                                 .cornerRadius(12)
                         }
-                    }
-                    .padding(16)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(16)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-        }
-    }
-}
-
-// MARK: - Top More Menu Sheet Component matching Android BottomSheet
-
-public struct TopMoreMenuSheetView: View {
-    public let selectedTab: Int
-    public var onNewChat: () -> Void
+                 Contacts: () -> Void
+    public var onNewGroup: () -> Void
+    public var onStarred: () -> Void
     public var onArchived: () -> Void
-    public var onProfile: () -> Void
-
-    public init(selectedTab: Int, onNewChat: @escaping () -> Void, onArchived: @escaping () -> Void, onProfile: @escaping () -> Void) {
-        self.selectedTab = selectedTab
-        self.onNewChat = onNewChat
-        self.onArchived = onArchived
-        self.onProfile = onProfile
-    }
+    public var onMingle: () -> Void
+    public var onCreateChannel: () -> Void
+    public var onPostJob: () -> Void
+    public var onApplications: () -> Void
+    public var onJobProfile: () -> Void
+    public var onWallet: () -> Void
+    public var onSettings: () -> Void
+    public var onSignOut: () -> Void
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Options")
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
                 .font(.headline)
                 .padding(.top, 16)
-
-            Button(action: onNewChat) {
-                HStack(spacing: 12) {
-                    Image(systemName: "person.badge.plus")
-                        .foregroundColor(.primary)
-                    Text("New Chat / Contacts")
-                        .font(.body)
-                        .foregroundColor(.primary)
+                .padding(.bottom, 8)
+            ForEach(rows, id: \.0) { row in
+                Button(action: row.1) {
+                    HStack {
+                        Text(row.0).foregroundColor(.primary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
                 }
-                .padding(.vertical, 8)
             }
+            Divider()
+            Button(action: onSettings) {
+                Text("Settings").foregroundColor(.primary).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 12)
+            }
+            Button(action: onSignOut) {
+                Text("Sign Out").foregroundColor(.red).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 12)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+    }
 
-            Button(action: onArchived) {
-                HStack(spacing: 12) {
-                    Image(systemName: "archivebox")
-                        .foregroundColor(.primary)
-                    Text("Archived Chats")
-                        .font(.body)
-                        .foregroundColor(.primary)
+    private var title: String {
+        switch selectedTab {
+        case 1: return "Channels"
+        case 2: return "Jobs"
+        case 3: return "Rewards"
+        default: return "Chats"
+        }
+    }
+
+    private var rows: [(String, () -> Void)] {
+        switch selectedTab {
+        case 1: return [("Create Channel", onCreateChannel)]
+        case 2: return [("Post Job", onPostJob), ("Applications", onApplications), ("Job Profile", onJobProfile)]
+        case 3: return [("Wallet", onWallet)]
+        default: return [("Contacts", onContacts), ("New Group", onNewGroup), ("Starred Messages", onStarred), ("Archived Chats", onArchived), ("Mingle Activity", onMingle)]
+        }ndColor(.primary)
                 }
                 .padding(.vertical, 8)
             }

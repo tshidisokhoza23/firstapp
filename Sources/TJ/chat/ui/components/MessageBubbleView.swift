@@ -43,6 +43,21 @@ public struct MessageBubbleView: View {
         return formatter.string(from: date)
     }
 
+    private var visibleBody: String {
+        let stripped = MessageMarkers.strip(message.content)
+        if stripped.hasPrefix("http://") || stripped.hasPrefix("https://") || stripped.contains("[mediaUrl:") {
+            return MessageMarkers.parseStory(message.content) == nil ? stripped : "Story"
+        }
+        return stripped
+    }
+
+    private var isStoryReply: Bool {
+        message.replyToId?.hasPrefix("story_") == true
+            || message.replyToText?.localizedCaseInsensitiveContains("[Story]") == true
+            || message.replyToText?.localizedCaseInsensitiveContains("[mediaUrl:") == true
+            || MessageMarkers.parseStory(message.content) != nil
+    }
+
     public var body: some View {
         if message.type == .system {
             HStack {
@@ -62,7 +77,9 @@ public struct MessageBubbleView: View {
                 if message.isFromMe { Spacer() }
 
                 VStack(alignment: message.isFromMe ? .trailing : .leading, spacing: 4) {
-                    if let replySender = message.replyToSenderName, let replyText = message.replyToText {
+                    if isStoryReply {
+                        StoryReplyCard(replyText: message.replyToText, isFromMe: message.isFromMe)
+                    } else if let replySender = message.replyToSenderName, let replyText = message.replyToText {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(replySender)
                                 .font(.system(size: 11, weight: .bold))
@@ -128,7 +145,7 @@ public struct MessageBubbleView: View {
                                 .foregroundColor(message.isFromMe ? .white : .primary)
                         }
                     } else if !message.content.isEmpty {
-                        Text(message.content)
+                        Text(visibleBody)
                             .font(.system(size: fontSize))
                             .foregroundColor(message.isFromMe ? .white : .primary)
                     }
@@ -161,6 +178,53 @@ public struct MessageBubbleView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
+ 
+
+private struct StoryReplyCard: View {
+    let replyText: String?
+    let isFromMe: Bool
+
+    private var media: String {
+        let text = replyText ?? ""
+        guard let start = text.range(of: "[mediaUrl:"), let end = text[start.upperBound...].firstIndex(of: "]") else { return "" }
+        return String(text[start.upperBound..<end]).trimmingCharacters(in: .whitespaces)
+    }
+
+    private var caption: String {
+        let text = (replyText ?? "")
+            .replacingOccurrences(of: "\\[mediaUrl:.*?\\]", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "[Story]", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty || text.hasPrefix("http://") || text.hasPrefix("https://") || text.hasPrefix("uploads/") { return "Story" }
+        return text
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let url = FeedPost.resolve(media) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.white.opacity(0.2)
+                }
+                .frame(width: 42, height: 42)
+                .clipped()
+                .cornerRadius(8)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Story")
+                    .font(.system(size: 11, weight: .bold))
+                Text(caption)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
         }
+        .foregroundColor(isFromMe ? .white : .primary)
+        .padding(6)
+        .background(isFromMe ? Color.white.opacity(0.15) : Color.black.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}       }
     }
 }

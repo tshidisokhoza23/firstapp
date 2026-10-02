@@ -136,6 +136,7 @@ public struct MingleView: View {
     @State private var myGender: String = ""
     @State private var myLookingFor: String = "everyone"
     @State private var myPhotos: [String] = []
+    @State private var myPhotoIds: [String] = []
     @State private var feedOffset = 0
     @State private var previewProfile: MingleProfile?
     @State private var photoItems: [PhotosPickerItem] = []
@@ -296,7 +297,9 @@ public struct MingleView: View {
                 myGender: $myGender,
                 myLookingFor: $myLookingFor,
                 photos: $myPhotos,
+                photoIds: $myPhotoIds,
                 onPhoto: { data in Task { await uploadPhoto(data) } },
+                onDelete: { id in Task { await deletePhoto(id) } },
                 onSave: {
                     showProfileSheet = false
                     Task { await saveMe() }
@@ -476,6 +479,16 @@ public struct MingleView: View {
         }
     }
 
+    private func deletePhoto(_ id: String) async {
+        guard !id.isEmpty else { return }
+        do {
+            _ = try await API.data("mingle/photos/\(id)", method: "DELETE")
+            await loadMe()
+        } catch {
+            feedNote = "Could not delete photo"
+        }
+    }
+
     private func loadMe() async {
         guard let data = try? await API.data("mingle/me"),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -486,6 +499,11 @@ public struct MingleView: View {
         else if let age = profile["age"] as? Double, age > 0 { myAge = "\(Int(age))" }
         if let gender = profile["gender"] as? String { myGender = gender }
         if let looking = profile["looking_for"] as? String, !looking.isEmpty { myLookingFor = looking }
+            myPhotoIds = photos.map { item in
+                if let id = item["id"] as? String { return id }
+                if let id = item["id"] as? Int { return String(id) }
+                return ""
+            }
         if let photos = profile["photos"] as? [[String: Any]] {
             myPhotos = photos.compactMap { $0["url"] as? String }.filter { !$0.isEmpty }
         }
@@ -721,7 +739,9 @@ public struct RadiusFilterSheetView: View {
         }
     }
 }
-
+@Binding public var photoIds: [String]
+    public var onPhoto: (Data) -> Void
+    public var onDelete: (String
 // MARK: - Mingle Profile Edit Sheet View matching Screenshot 5
 
 public struct MingleProfileEditSheetView: View {
@@ -743,16 +763,31 @@ public struct MingleProfileEditSheetView: View {
                         .font(.system(size: 20, weight: .bold))
                         .padding(.top, 16)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(photos, id: \.self) { photo in
-                                if let url = FeedPost.resolve(photo) {
-                                    AsyncImage(url: url) { image in
-                                        image.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Color.gray.opacity(0.2)
+                    ScrollView(.horiArray(photos.enumerated()), id: \.offset) { index, photo in
+                                ZStack(alignment: .topTrailing) {
+                                    if let url = FeedPost.resolve(photo) {
+                                        AsyncImage(url: url) { image in
+                                            image.resizable().scaledToFill()
+                                        } placeholder: {
+                                            Color.gray.opacity(0.2)
+                                        }
+                                        .frame(width: 88, height: 110)
+                                        .clipped()
+                                        .cornerRadius(12)
                                     }
-                                    .frame(width: 88, height: 110)
+                                    Button(action: {
+                                        let id = photoIds.indices.contains(index) ? photoIds[index] : ""
+                                        onDelete(id)
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.white)
+                                            .background(Color.black.opacity(0.45))
+                                            .clipShape(Circle())
+                                    }
+                    Text(photos.count >= 5 ? "Delete a photo to change it" : "Add or replace photos")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                                    .padding(4, height: 110)
                                     .clipped()
                                     .cornerRadius(12)
                                 }

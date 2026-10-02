@@ -30,14 +30,20 @@ public struct SettingsView: View {
                             .font(.title3)
                             .fontWeight(.bold)
 
-                        Text("@\(SessionStore.shared.user?.username ?? "user")")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Text("Building seamless cross-platform tools.")
+                        if let username = SessionStore.shared.user?.username, !username.isEmpty {
+                            Text("@\(username)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        if let phone = SessionStore.shared.user?.phoneNumber, !phone.isEmpty {
+                            Text(phone)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Text((SessionStore.shared.user?.bio?.isEmpty == false ? SessionStore.shared.user?.bio : nil) ?? "No bio set")
                             .font(.caption2)
                             .foregroundColor(.secondary)
-                            .lineLimit(1)
+                            .lineLimit(2)
                     }
 
                     Spacer()
@@ -64,7 +70,7 @@ public struct SettingsView: View {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         SettingsGridCard(
                             icon: "bubble.left.and.bubble.right.fill",
-                            title: "Chats & Media",
+                            title: "Chats",
                             color: .blue
                         ) {
                             router.navigate(to: .storageSettings)
@@ -72,7 +78,7 @@ public struct SettingsView: View {
 
                         SettingsGridCard(
                             icon: "bell.fill",
-                            title: "Notifications",
+                            title: "Alerts",
                             color: .orange
                         ) {
                             router.navigate(to: .notificationSettings)
@@ -80,7 +86,7 @@ public struct SettingsView: View {
 
                         SettingsGridCard(
                             icon: "lock.shield.fill",
-                            title: "Privacy & Security",
+                            title: "Security",
                             color: .green
                         ) {
                             router.navigate(to: .privacySettings)
@@ -99,7 +105,7 @@ public struct SettingsView: View {
                             title: "Sessions",
                             color: .purple
                         ) {
-                            router.navigate(to: .accountSettings)
+                            router.navigate(to: .sessionsSettings)
                         }
 
                         SettingsGridCard(
@@ -177,9 +183,11 @@ public struct SettingsView: View {
                         .font(.caption2)
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
-                    Text("Version 1.0.6 • Swift Native")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
+                        Text(version)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 24)

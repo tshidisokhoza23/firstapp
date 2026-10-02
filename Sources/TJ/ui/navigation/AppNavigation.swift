@@ -12,6 +12,7 @@ public enum AppRoute: Hashable, Sendable {
     case privacySettings
     case notificationSettings
     case storageSettings
+    case sessionsSettings
     case helpSettings
     case wallet
     case files
@@ -47,19 +48,22 @@ public struct AppNavigation: View {
                         SettingsView(router: router)
 
                     case .accountSettings:
-                        SettingsSubDetailView(title: "Account Settings")
+                        SettingsSubDetailView(title: "Account")
 
                     case .privacySettings:
-                        SettingsSubDetailView(title: "Privacy & Security")
+                        SettingsSubDetailView(title: "Security")
 
                     case .notificationSettings:
-                        SettingsSubDetailView(title: "Notifications & Sound")
+                        SettingsSubDetailView(title: "Alerts")
 
                     case .storageSettings:
-                        SettingsSubDetailView(title: "Storage & Data")
+                        SettingsSubDetailView(title: "Storage")
+
+                    case .sessionsSettings:
+                        SettingsSubDetailView(title: "Sessions")
 
                     case .helpSettings:
-                        SettingsSubDetailView(title: "Help & Support")
+                        SettingsSubDetailView(title: "Help Center")
 
                     case .wallet:
                         WalletView()
@@ -220,29 +224,46 @@ struct SettingsSubDetailView: View {
     @State private var readReceipts = true
     @State private var showOnline = true
     @State private var notificationsOn = UserDefaults.standard.bool(forKey: "tj_notifications_on")
+    @State private var blocked: [(id: String, name: String)] = []
 
     var body: some View {
         Form {
             switch title {
-            case "Privacy & Security":
+            case "Security", "Privacy & Security":
                 Toggle("Read receipts", isOn: $readReceipts)
                 Toggle("Show online status", isOn: $showOnline)
                 Button("Save privacy") { Task { await savePrivacy() } }
-            case "Notifications & Sound":
+                Section("Blocked Users") {
+                    if blocked.isEmpty { Text("No blocked users") }
+                    ForEach(blocked, id: \.id) { user in
+                        HStack {
+                            Text(user.name)
+                            Spacer()
+                            Button("Unblock") { Task { await unblock(user.id) } }
+                        }
+                    }
+                }
+            case "Alerts", "Notifications & Sound":
                 Toggle("Notifications", isOn: $notificationsOn)
                     .onChange(of: notificationsOn) { value in
                         UserDefaults.standard.set(value, forKey: "tj_notifications_on")
                         note = value ? "Notifications on" : "Notifications off"
                     }
-            case "Storage & Data", "Chats & Media":
+            case "Storage", "Storage & Data", "Chats", "Chats & Media", "Data & Cache":
                 Button("Clear cached media") {
                     URLCache.shared.removeAllCachedResponses()
                     note = "Cache cleared"
                 }
-            case "Account Settings":
-                Text(SessionStore.shared.user?.displayName ?? "Signed in")
+            case "Sessions":
+                Text("This phone")
+                Text("No other sessions were returned.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            case "Account", "Account Settings":
+                if let name = SessionStore.shared.user?.displayName, !name.isEmpty { Text(name) }
+                if let phone = SessionStore.shared.user?.phoneNumber, !phone.isEmpty { Text(phone) }
                 Button("Log out") { Task { await SessionActions.logout() } }
-            case "Help & Support":
+            case "Help Center", "Help & Support", "Terms & EULA":
                 if let privacy = URL(string: "https://firstappserver.fly.dev/privacy") {
                     Link("Privacy policy", destination: privacy)
                 }
@@ -258,11 +279,14 @@ struct SettingsSubDetailView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await loadPrivacy() }
+        .task {
+            await loadPrivacy()
+            if title == "Security" || title == "Privacy & Security" { await loadBlocked() }
+        }
     }
 
     private func loadPrivacy() async {
-        guard title == "Privacy & Security",
+        guard title == "Security" || title == "Privacy & Security",
               let data = try? await API.data("users/privacy"),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         if let value = json["show_read_receipts"] as? Bool { readReceipts = value }
@@ -279,6 +303,26 @@ struct SettingsSubDetailView: View {
         } catch {
             note = "Could not save privacy"
         }
+    }
+
+    private func loadBlocked() async {
+        guard let data = try? await API.data("users/blocked"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let users = json["users"] as? [[String: Any]] else { return }
+        blocked = users.compactMap { user in
+            let id = (user["id"] as? String) ?? ""
+            guard !id.isEmpty else { return nil }
+            let name = (user["display_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                ?? (user["username"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                ?? (user["phone_number"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                ?? id
+            return (id, name)
+        }
+    }
+
+    private func unblock(_ id: String) async {
+        _ = try? await API.data("users/\(id)/unblock", method: "POST")
+        await loadBlocked()
     }
 }
 

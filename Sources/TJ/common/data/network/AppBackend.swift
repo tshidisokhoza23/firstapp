@@ -298,7 +298,7 @@ public enum AppRuntime {
 
     @MainActor
     public static func connectRealtime() {
-        WebSocketManager.shared.connect()
+        WebSocketManager.shared.reconnect()
         _ = chatRepository
         let token = SessionStore.shared.token ?? ""
         if !token.isEmpty {

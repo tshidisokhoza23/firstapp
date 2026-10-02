@@ -5,10 +5,14 @@ import AVKit
 enum AuthenticatedMedia {
     static func localFile(for remote: URL) async -> URL? {
         if remote.isFileURL { return remote }
-        let digest = remote.absoluteString.data(using: .utf8)?.base64EncodedString() ?? "media"
-        let safe = String(digest.prefix(48)).replacingOccurrences(of: "/", with: "_")
+        var hash: UInt64 = 1469598103934665603
+        for byte in remote.absoluteString.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211
+        }
+        let leaf = remote.lastPathComponent.replacingOccurrences(of: "/", with: "_")
         let ext = remote.pathExtension.isEmpty ? "mp4" : remote.pathExtension
-        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(safe).\(ext)")
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(String(hash, radix: 16))-\(leaf).\(ext)")
         if FileManager.default.fileExists(atPath: dest.path),
            (try? dest.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) ?? 0 > 0 {
             return dest

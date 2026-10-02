@@ -86,6 +86,7 @@ public class ChatViewModel: ObservableObject {
     @Published public var activeSubTab: Int = 0 // 0: Chats, 1: Channels, 2: Jobs, 3: Rewards, 4: DM
     @Published public var currentlyPlayingAudio: String? = nil
     private var audioPlayer: AVAudioPlayer?
+    private var livePoll: Task<Void, Never>?
     @Published public var blockedUserIds: Set<String> = []
     @Published public var contactUser: User? = nil
 
@@ -129,6 +130,12 @@ public class ChatViewModel: ObservableObject {
             .store(in: &cancellables)
 
         WebSocketManager.shared.connect()
+        Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                self?.fetchChats()
+            }
+        }
         _ = AppRuntime.chatRepository
         WebSocketManager.shared.eventsSubject
             .receive(on: DispatchQueue.main)
@@ -140,7 +147,7 @@ public class ChatViewModel: ObservableObject {
 
     private func applyRealtime(_ event: WSEnvelope) {
         let type = event.type ?? ""
-        guard type == "message_new" || type == "message_ack" || type == "INCOMING_MSG" else { return }
+        guard type == "message_new" || type == "message_ack" || type == "new_message" || type == "INCOMING_MSG" else { return }
         let payload = event.payload ?? [:]
         func text(_ key: String) -> String { payload[key]?.stringValue ?? "" }
         let conversationId = text("conversation_id")
@@ -252,27 +259,37 @@ public class ChatViewModel: ObservableObject {
     public func fetchMessages(chatId: String) {
         activeChatId = chatId
         markAsRead(chatId: chatId)
-        Task {
-            do {
-                let data = try await API.data("conversations/\(chatId)/messages")
-                let server = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
-                let local = self.uiState.messages.data ?? []
-                let now = Int64(Date().timeIntervalSince1970 * 1000)
-                var merged = server
-                for msg in local {
-                    let exists = merged.contains { $0.id == msg.id || ($0.clientId != nil && $0.clientId == msg.clientId) }
-                    if exists { continue }
-                    if msg.status == .sending || msg.status == .failed || now - msg.timestamp < 20_000 {
-                        merged.append(msg)
-                    }
+        livePoll?.cancel()
+        livePoll = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                if self.activeChatId != chatId { return }
+                await self.loadMessages(chatId)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+        }
+    }
+
+    private func loadMessages(_ chatId: String) async {
+        do {
+            let data = try await API.data("conversations/\(chatId)/messages")
+            let server = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
+            let local = uiState.messages.data ?? []
+            let now = Int64(Date().timeIntervalSince1970 * 1000)
+            var merged = server
+            for msg in local {
+                let exists = merged.contains { $0.id == msg.id || ($0.clientId != nil && $0.clientId == msg.clientId) }
+                if exists { continue }
+                if msg.status == .sending || msg.status == .failed || now - msg.timestamp < 120_000 {
+                    merged.append(msg)
                 }
-                merged.sort { $0.timestamp < $1.timestamp }
-                self.uiState.messages = .success(merged)
-            } catch {
-                self.uiState.error = "Could not load messages"
-                if self.uiState.messages.data == nil {
-                    self.uiState.messages = .error("Could not load messages", [])
-                }
+            }
+            merged.sort { $0.timestamp < $1.timestamp }
+            uiState.messages = .success(merged)
+        } catch {
+            uiState.error = "Could not load messages"
+            if uiState.messages.data == nil {
+                uiState.messages = .error("Could not load messages", [])
             }
         }
     }
@@ -332,9 +349,12 @@ public class ChatViewModel: ObservableObject {
 
         Task {
             let clientId = msg.id
+            let wireBody = replyToId?.hasPrefix("story_") == true
+                ? MessageMarkers.storyWire(text: body, replyToId: replyToId, replyToText: replyToText, author: replyToSenderName)
+                : body
             var bodyObj: [String: Any] = [
                 "client_uuid": clientId,
-                "message_text": body,
+                "message_text": wireBody,
                 "media_type": messageType.uppercased(),
                 "media_urls": mediaUrls
             ]

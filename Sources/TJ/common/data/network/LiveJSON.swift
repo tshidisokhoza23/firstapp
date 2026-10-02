@@ -136,7 +136,15 @@ enum LiveJSON {
         case "DOCUMENT", "FILE": type = .document
         default: type = urls.isEmpty ? .text : .image
         }
-        let body = string(json["content"]).isEmpty ? string(json["message_text"]) : string(json["content"])
+        let rawBody = string(json["content"]).isEmpty ? string(json["message_text"]) : string(json["content"])
+        let story = MessageMarkers.parseStory(rawBody)
+        let body = MessageMarkers.strip(rawBody)
+        let replyId = string(json["reply_to_id"]).nilIfEmpty ?? story.map { MessageMarkers.storyReplyId($0.storyId, userId: $0.userId) }
+        let replyText = string(json["reply_to_text"]).nilIfEmpty ?? story.map { parsed in
+            var summary = "[Story] \(parsed.summary.isEmpty ? "Story" : parsed.summary)"
+            if !parsed.mediaUrl.isEmpty { summary += " [mediaUrl:\(parsed.mediaUrl)]" }
+            return summary
+        }
         let client = string(json["client_msg_id"]).isEmpty ? string(json["client_uuid"]) : string(json["client_msg_id"])
         return Message(
             id: id,
@@ -153,7 +161,10 @@ enum LiveJSON {
             duration: string(json["duration"]).nilIfEmpty,
             isRead: bool(json["is_read"]),
             isDelivered: bool(json["is_delivered"]),
-            clientId: client.nilIfEmpty
+            clientId: client.nilIfEmpty,
+            replyToId: replyId,
+            replyToText: replyText,
+            replyToSenderName: string(json["reply_to_sender_name"]).nilIfEmpty ?? story?.author.nilIfEmpty
         )
     }
 

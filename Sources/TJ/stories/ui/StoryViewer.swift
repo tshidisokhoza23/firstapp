@@ -418,14 +418,22 @@ public struct StoryViewer: View {
         let storyId = (item?.id ?? "").replacingOccurrences(of: "story_", with: "").components(separatedBy: "|").first ?? ""
         let bareUser = userId.replacingOccurrences(of: "user_", with: "")
         let replyId = bareUser.isEmpty ? "story_\(storyId)" : "story_\(storyId)|\(bareUser)"
-        let summary = item?.content.isEmpty == false ? (item?.content ?? "") : (item?.type.rawValue ?? "story")
+        let rawCaption = item?.content ?? ""
+        let caption = (rawCaption.hasPrefix("http") || rawCaption.hasPrefix("uploads/") || rawCaption.hasPrefix("/")) ? "Story" : rawCaption
+        let summary = caption.isEmpty ? "Story" : caption
+        var replyText = "[Story] \(summary)"
+        if let media = item?.contentUrl, !media.isEmpty {
+            replyText += " [mediaUrl:\(media)]"
+        }
+        let author = liveStory?.userName ?? ""
+        let wire = MessageMarkers.storyWire(text: trimmed, replyToId: replyId, replyToText: replyText, author: author)
         _ = try? await API.data("conversations/\(convID)/messages", method: "POST", json: [
             "client_uuid": UUID().uuidString,
-            "message_text": trimmed,
-            "message_type": "TEXT",
+            "message_text": wire,
+            "media_type": "TEXT",
             "reply_to_id": replyId,
-            "reply_to_text": "[Story] \(summary)",
-            "reply_to_sender_name": liveStory?.userName ?? ""
+            "reply_to_text": replyText,
+            "reply_to_sender_name": author
         ])
     }
 

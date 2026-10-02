@@ -361,6 +361,11 @@ struct SocialFeedView: View {
     @State private var moreTarget: FeedPost?
     @State private var quoteTarget: FeedPost?
     @State private var quoteText = ""
+    @State private var showSocialMenu = false
+    @State private var showCreatePost = false
+    @State private var showSavedPosts = false
+    @State private var showSocialNotes = false
+    @State private var showSocialSettings = false
 
     private let categories = [
         ("all", "All"), ("tech", "Technology"), ("music", "Music"), ("gaming", "Gaming"),
@@ -371,7 +376,7 @@ struct SocialFeedView: View {
         VStack(spacing: 0) {
             // Top App Bar matching Screenshot 2
             HStack {
-                Button(action: {}) {
+                Button(action: { showSocialMenu = true }) {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.primary)
@@ -460,6 +465,38 @@ struct SocialFeedView: View {
                 quoteText = ""
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showSocialMenu) {
+            SocialMenuSheet(
+                onProfile: {
+                    showSocialMenu = false
+                    if let id = SessionStore.shared.userId { onProfileClick(id) }
+                },
+                onCreate: { showSocialMenu = false; showCreatePost = true },
+                onNotifications: { showSocialMenu = false; showSocialNotes = true },
+                onMessages: { showSocialMenu = false; onDirectMessagesClick() },
+                onSettings: { showSocialMenu = false; showSocialSettings = true },
+                onSaved: { showSocialMenu = false; showSavedPosts = true }
+            )
+            .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showCreatePost) {
+            CreatePostSheet { text in
+                showCreatePost = false
+                Task {
+                    try? await MediaActions.create(content: text)
+                    await load()
+                }
+            }
+        }
+        .sheet(isPresented: $showSavedPosts) {
+            SavedPostsSheet(onProfile: onProfileClick)
+        }
+        .sheet(isPresented: $showSocialNotes) {
+            SocialNotesSheet()
+        }
+        .sheet(isPresented: $showSocialSettings) {
+            SettingsView(router: NavigationRouter())
         }
         .confirmationDialog("Post", isPresented: Binding(get: { moreTarget != nil }, set: { if !$0 { moreTarget = nil } }), titleVisibility: .visible) {
             Button("Share") { if let id = moreTarget?.id { share(id) } }
@@ -804,9 +841,18 @@ struct ShortsFeedView: View {
 
     private func load() async {
         do {
-            let data = try await API.data("media/feed/shorts", query: ["page": "1"])
-            let parsed = LiveJSON.posts(from: data)
-            shorts = parsed.isEmpty ? FeedPost.decodeList(data) : parsed
+            var collected: [FeedPost] = []
+            for page in 1...5 {
+                let data = try await API.data("media/feed/shorts", query: ["page": "\(page)"])
+                let parsed = LiveJSON.posts(from: data)
+                let batch = parsed.isEmpty ? FeedPost.decodeList(data) : parsed
+                if batch.isEmpty { break }
+                for post in batch where !collected.contains(where: { $0.id == post.id }) {
+                    collected.append(post)
+                }
+                if batch.count < 5 { break }
+            }
+            shorts = collected
             status = shorts.isEmpty ? "No shorts yet" : ""
         } catch {
             status = error.localizedDescription
@@ -1123,12 +1169,127 @@ private struct VerticalShortsPlayer: UIViewControllerRepresentable {
     }
 }
 
+private struct SocialMenuSheet: View {
+    var onProfile: () -> Void
+    var onCreate: () -> Void
+    var onNotifications: () -> Void
+    var onMessages: () -> Void
+    var onSettings: () -> Void
+    var onSaved: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Social").font(.headline).padding(.top, 16).padding(.bottom, 8)
+            menuRow("View Profile", onProfile)
+            menuRow("Create Post", onCreate)
+            menuRow("Notifications", onNotifications)
+            menuRow("Direct Messages", onMessages)
+            menuRow("Settings", onSettings)
+            menuRow("Saved Posts", onSaved)
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private func menuRow(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).foregroundColor(.primary).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 12)
+        }
+    }
+}
+
+private struct CreatePostSheet: View {
+    var onPost: (String) -> Void
+    @State private var text = ""
+
+    var body: some View {
+        NavigationStack {
+            TextField("What's happening?", text: $text, axis: .vertical)
+                .padding()
+                .navigationTitle("Create Post")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Post") { onPost(text) }
+                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+        }
+    }
+}
+
+private struct SavedPostsSheet: View {
+    var onProfile: (String) -> Void
+    @State private var posts: [FeedPost] = []
+    @State private var note = "Loading..."
+
+    var body: some View {
+        NavigationStack {
+            List(posts) { post in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(post.authorName).font(.headline)
+                    Text(post.content).lineLimit(3)
+                }
+                .onTapGesture { onProfile(post.authorId) }
+            }
+            .overlay { if posts.isEmpty { Text(note).foregroundColor(.secondary) } }
+            .navigationTitle("Saved Posts")
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        do {
+            let data = try await API.data("media/feed", query: ["category_id": "saved"])
+            posts = LiveJSON.posts(from: data)
+            note = posts.isEmpty ? "No saved posts" : ""
+        } catch {
+            note = "Could not load saved posts"
+        }
+    }
+}
+
+private struct SocialNotesSheet: View {
+    @State private var rows: [(id: String, title: String, subtitle: String)] = []
+    @State private var note = "Loading..."
+
+    var body: some View {
+        NavigationStack {
+            List(rows, id: \.id) { row in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(row.title).font(.headline)
+                    if !row.subtitle.isEmpty { Text(row.subtitle).font(.caption).foregroundColor(.secondary) }
+                }
+            }
+            .overlay { if rows.isEmpty { Text(note).foregroundColor(.secondary) } }
+            .navigationTitle("Notifications")
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        do {
+            let data = try await API.data("social/notifications")
+            let parsed = (try? JSONSerialization.jsonObject(with: data)) 
+            let items = (parsed as? [[String: Any]]) ?? ((parsed as? [String: Any])?["items"] as? [[String: Any]]) ?? []
+            rows = items.map { item in
+                let id = item["id"] as? String ?? UUID().uuidString
+                let name = item["actor_name"] as? String ?? ""
+                let action = item["action_text"] as? String ?? ""
+                return (id, name.isEmpty ? action : name, name.isEmpty ? "" : action)
+            }
+            note = rows.isEmpty ? "No notifications" : ""
+        } catch {
+            note = "Could not load notifications"
+        }
+    }
+}
+
 private final class ShortsPagingController: UIViewController, UIScrollViewDelegate {
     var onPage: ((Int) -> Void)?
     private let scrollView = UIScrollView()
     private var posts: [FeedPost] = []
     private var players: [AVPlayer] = []
-    private var controllers: [AVPlayerViewController] = []
+    private var layers: [AVPlayerLayer] = []
     private var hosts: [UIView] = []
     private var appliedPage = -1
     private var loopObservers: [NSObjectProtocol] = []
@@ -1177,7 +1338,7 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
         hosts.forEach { $0.removeFromSuperview() }
         hosts.removeAll()
         players.removeAll()
-        controllers.removeAll()
+        layers.removeAll()
         appliedPage = -1
         for post in posts {
             let host = UIView()
@@ -1185,27 +1346,27 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
             host.isUserInteractionEnabled = false
             let player = AVPlayer()
             player.isMuted = false
-            let controller = AVPlayerViewController()
-            controller.showsPlaybackControls = false
-            controller.videoGravity = .resizeAspectFill
-            controller.player = player
-            controller.view.backgroundColor = .black
-            controller.view.isUserInteractionEnabled = false
-            addChild(controller)
-            host.addSubview(controller.view)
-            controller.didMove(toParent: self)
+            let layer = AVPlayerLayer(player: player)
+            layer.videoGravity = .resizeAspectFill
+            host.layer.addSublayer(layer)
+            let label = UILabel()
+            label.text = post.authorName.isEmpty ? post.content : post.authorName
+            label.textColor = .white
+            label.font = .boldSystemFont(ofSize: 16)
+            label.tag = 8
+            host.addSubview(label)
             if post.playbackURL == nil {
-                let label = UILabel()
-                label.text = "This short has no video"
-                label.textColor = .white
-                label.textAlignment = .center
-                label.tag = 7
-                host.addSubview(label)
+                let missing = UILabel()
+                missing.text = "This short has no video"
+                missing.textColor = .white
+                missing.textAlignment = .center
+                missing.tag = 7
+                host.addSubview(missing)
             }
             scrollView.addSubview(host)
             hosts.append(host)
             players.append(player)
-            controllers.append(controller)
+            layers.append(layer)
         }
         layoutPages()
     }
@@ -1217,10 +1378,11 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
         scrollView.contentSize = CGSize(width: size.width, height: size.height * CGFloat(max(posts.count, 1)))
         for (index, host) in hosts.enumerated() {
             host.frame = CGRect(x: 0, y: size.height * CGFloat(index), width: size.width, height: size.height)
-            if controllers.indices.contains(index) {
-                controllers[index].view.frame = host.bounds
+            if layers.indices.contains(index) {
+                layers[index].frame = host.bounds
             }
             host.viewWithTag(7)?.frame = host.bounds
+            host.viewWithTag(8)?.frame = CGRect(x: 16, y: host.bounds.height - 92, width: host.bounds.width - 32, height: 24)
         }
     }
 
@@ -1272,8 +1434,8 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
                 loopObservers.append(end)
                 loopObservers.append(failed)
                 player.play()
-                if controllers.indices.contains(index) {
-                    controllers[index].player = player
+                if layers.indices.contains(index) {
+                    layers[index].player = player
                 }
             }
             await MediaActions.view(postId)

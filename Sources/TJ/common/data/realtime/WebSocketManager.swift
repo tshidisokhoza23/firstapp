@@ -130,7 +130,19 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
         super.init()
     }
 
+    public func reconnect() {
+        isManualDisconnect = true
+        isConnected = false
+        heartbeatTask?.cancel()
+        receiveTask?.cancel()
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
+        isManualDisconnect = false
+        connect()
+    }
+
     public func connect() {
+        if isConnected, webSocketTask == nil { isConnected = false }
         guard !isConnected else { return }
         isManualDisconnect = false
 
@@ -160,6 +172,7 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
 
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("", forHTTPHeaderField: "Origin")
 
         let task = urlSession.webSocketTask(with: request)
         self.webSocketTask = task
@@ -206,6 +219,10 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
                     case .string(let text):
                         if let data = text.data(using: .utf8), let env = Self.envelope(from: data) {
                             eventsSubject.send(env)
+                            let kind = env.type ?? ""
+                            if kind == "message_new" || kind == "message_ack" || kind == "new_message" {
+                                NotificationCenter.default.post(name: .didUpdateMessages, object: env.payload)
+                            }
                         }
                     case .data(let data):
                         if let env = Self.envelope(from: data) {
@@ -240,12 +257,15 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
     }
 
     private static func envelope(from data: Data) -> WSEnvelope? {
-        if let decoded = try? JSONDecoder().decode(WSEnvelope.self, from: data), decoded.type != nil {
-            return decoded
-        }
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        var rawPayload = (obj["payload"] as? [String: Any]) ?? [:]
+        if rawPayload.isEmpty, let nested = obj["payload"] as? String,
+           let nestedData = nested.data(using: .utf8),
+           let nestedObj = try? JSONSerialization.jsonObject(with: nestedData) as? [String: Any] {
+            rawPayload = nestedObj
+        }
+        if rawPayload.isEmpty { rawPayload = obj }
         let type = obj["type"] as? String
-        let rawPayload = (obj["payload"] as? [String: Any]) ?? obj
         var payload: [String: WSAnyCodable] = [:]
         for (key, value) in rawPayload where key != "type" {
             payload[key] = WSAnyCodable(Self.codableValue(value))
