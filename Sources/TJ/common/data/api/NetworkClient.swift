@@ -95,6 +95,7 @@ public final class GoogleSignInService {
         let presenter = Self.topViewController(from: rootVC)
 
         let clientID = AppBackend.googleiOSClientID
+        try Self.assertCallbackScheme(for: clientID)
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID, serverClientID: AppBackend.googleWebClientID)
 
         let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
@@ -105,6 +106,24 @@ public final class GoogleSignInService {
         #else
         throw NSError(domain: "GoogleSignIn", code: -3, userInfo: [NSLocalizedDescriptionKey: "GoogleSignIn framework unavailable on device"])
         #endif
+    }
+
+    /// GIDSignIn raises an uncaught NSException when this scheme is missing.
+    private static func assertCallbackScheme(for clientID: String) throws {
+        let scheme = clientID
+            .split(separator: ".")
+            .reversed()
+            .joined(separator: ".")
+            .lowercased()
+        let types = Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]] ?? []
+        let registered = types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }.map { $0.lowercased() }
+        guard registered.contains(scheme) else {
+            throw NSError(
+                domain: "GoogleSignIn",
+                code: -5,
+                userInfo: [NSLocalizedDescriptionKey: "Google sign-in cannot start because the app is missing URL scheme \(scheme)."]
+            )
+        }
     }
 
     private static func topViewController(from root: UIViewController) -> UIViewController {
