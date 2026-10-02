@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import CoreLocation
 import PhotosUI
 
@@ -25,54 +26,12 @@ final class CourtLocation: NSObject, CLLocationManagerDelegate {
         continuation?.resume(returning: nil)
         continuation = nil
     }
-}
 
-struct CourtListSheet: View {
-    let title: String
-    let path: String
-    @State private var rows: [(id: String, title: String, subtitle: String)] = []
-    @State private var note = "Loading..."
-
-    var body: some View {
-        NavigationStack {
-            List(rows, id: \.id) { row in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.title).font(.headline)
-                    if !row.subtitle.isEmpty {
-                        Text(row.subtitle).font(.caption).foregroundColor(.secondary)
-                    }
-                }
-            }
-            .overlay { if rows.isEmpty { Text(note).foregroundColor(.secondary) } }
-            .navigationTitle(title)
-            .task { await load() }
-        }
-    }
-
-    private func load() async {
-        do {
-            let data = try await API.data(path)
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            if path == "mingle/activity" {
-                let items = json?["items"] as? [[String: Any]] ?? []
-                rows = items.compactMap { item in
-                    let id = item["id"] as? String ?? UUID().uuidString
-                    let name = item["actor_name"] as? String ?? ""
-                    let type = item["type"] as? String ?? ""
-                    return (id, name, type)
-                }
-            } else {
-                let chats = LiveJSON.chats(from: data).filter { $0.type == .mingle || $0.type.rawValue.lowercased() == "mingle" }
-                rows = chats.map { ($0.id, $0.consistentName(), $0.lastMessage) }
-            }
-            note = rows.isEmpty ? "Nothing here yet" : ""
-        } catch {
-            note = "Could not load"
-        }
+    var isDenied: Bool {
+        let status = manager.authorizationStatus
+        return status == .denied || status == .restricted
     }
 }
-
-// MARK: - Mingle Models
 
 public struct MingleProfile: Identifiable, Hashable {
     public let id: String
@@ -111,35 +70,37 @@ public struct MingleProfile: Identifiable, Hashable {
     }
 }
 
-// MARK: - MingleView matching Screenshot 5
-
 public struct MingleView: View {
     @State private var profiles: [MingleProfile] = []
-    @State private var feedNote = "Nearby people are in your contacts"
-    @State private var selectedRadiusKm: Double = 100.0
-    @State private var showRadiusSheet: Bool = false
-    @State private var showProfileSheet: Bool = false
-    @State private var showSecretChats: Bool = false
-    @State private var showNotifications: Bool = false
-    @State private var introTarget: MingleProfile? = nil
-    @State private var introText: String = ""
-    @State private var userCoins: Int = 0
-    @State private var minBalance: Int = 40
-    @State private var freeLikesRemaining: Int = 20
-    @State private var introCost: Int = 100
+    @State private var note = ""
+    @State private var selectedRadiusKm: Double = 25
+    @State private var showRadiusSheet = false
+    @State private var showProfileSheet = false
+    @State private var showSecretChats = false
+    @State private var showNotifications = false
+    @State private var showPointsGate = false
+    @State private var showWallet = false
+    @State private var locationDenied = false
+    @State private var emptyReason: String?
+    @State private var isLoadingFeed = false
+    @State private var likeCost = 10
+    @State private var nextLikeCost = 0
+    @State private var introTarget: MingleProfile?
+    @State private var introText = ""
+    @State private var userCoins = 0
+    @State private var minBalance = 40
+    @State private var freeLikesRemaining = 20
+    @State private var introCost = 100
     @State private var lastSwiped: MingleProfile?
-
-    // Profile Edit States
-    @State private var myName: String = ""
-    @State private var myAge: String = ""
-    @State private var myBio: String = ""
-    @State private var myGender: String = ""
-    @State private var myLookingFor: String = "everyone"
+    @State private var myName = ""
+    @State private var myAge = ""
+    @State private var myBio = ""
+    @State private var myGender = ""
+    @State private var myLookingFor = "everyone"
+    @State private var myTargetAgeRange = "18 - 35"
     @State private var myPhotos: [String] = []
     @State private var myPhotoIds: [String] = []
     @State private var feedOffset = 0
-    @State private var previewProfile: MingleProfile?
-    @State private var photoItems: [PhotosPickerItem] = []
 
     private var onMatchClick: ((String, String) -> Void)?
     private var onUpgradeClick: (() -> Void)?
@@ -154,125 +115,102 @@ public struct MingleView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Top Controls Bar matching Screenshot 5
             HStack {
-                // Secret Chats Envelope
                 Button(action: { showSecretChats = true }) {
                     Image(systemName: "envelope")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.primary)
                 }
-
                 Spacer().frame(width: 16)
-
-                // Notifications Bell
                 Button(action: { showNotifications = true }) {
                     Image(systemName: "bell")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.primary)
                 }
-
                 Spacer().frame(width: 16)
-
-                // Rewind Swipe Icon
                 Button(action: rewindLastSwipe) {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.appPrimary)
                 }
-
                 Spacer()
-
-                // Center TJ Logo
                 AppLogo(size: 32)
-
                 Spacer()
-
-                // Radius Filter Pill matching Screenshot 5 (📍 100+ km)
                 Button(action: { showRadiusSheet = true }) {
                     HStack(spacing: 4) {
                         Image(systemName: "location.fill")
                             .font(.system(size: 12))
                             .foregroundColor(.appPrimary)
-
                         Text(selectedRadiusKm >= 100 ? "100+ km" : "\(Int(selectedRadiusKm)) km")
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.primary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color(UIColor.secondarySystemBackground))
                     .clipShape(Capsule())
                 }
-
                 Spacer().frame(width: 12)
-
-                // My Profile Camera Icon matching Screenshot 5
                 Button(action: { showProfileSheet = true }) {
                     Image(systemName: "camera.fill")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.appPrimary)
+                        .foregroundColor(hasPhoto ? .appPrimary : .red)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-
             Divider()
 
-            // Main Display Area
-            if profiles.isEmpty {
-                // Empty Deck State matching Screenshot 5
-                Spacer()
-
-                VStack(spacing: 16) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.appPrimary.opacity(0.12))
-                            .frame(width: 90, height: 90)
-
-                        Image(systemName: "location.slash.fill")
-                            .font(.system(size: 42))
-                            .foregroundColor(.appPrimary)
-                    }
-
-                    Text(feedNote)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.primary)
-                        .multilineTextAlignment(.center)
-
-                    Text("Mingle hides people saved in your contacts, including matching phone numbers.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-
-                    Spacer().frame(height: 12)
-
-                    Button(action: { showRadiusSheet = true }) {
-                        Text("Increase Radius")
-                            .font(.system(size: 15, weight: .bold))
+            if !hasPhoto {
+                Button(action: { showProfileSheet = true }) {
+                    HStack {
+                        Image(systemName: "camera.fill")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Profile Requirement").font(.system(size: 13, weight: .bold))
+                            Text("Upload photos to complete your Mingle profile to like candidates.")
+                                .font(.system(size: 11))
+                        }
+                        Spacer()
+                        Text("Upload Now")
+                            .font(.system(size: 12, weight: .bold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.red)
                             .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(Color.appPrimary)
                             .clipShape(Capsule())
                     }
+                    .padding(12)
+                    .background(Color.red.opacity(0.12))
+                    .cornerRadius(12)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
 
+            if profiles.isEmpty {
                 Spacer()
-            } else {
-                // Single Candidate Card View matching Screenshot 5
-                if let candidate = profiles.first {
-                    CandidateCardView(
-                        profile: candidate,
-                        onPass: { Task { await swipe(candidate, action: "pass") } },
-                        onLike: { Task { await swipe(candidate, action: "like") } },
-                        onChat: {
-                            introTarget = candidate
-                        },
-                        onPreview: { previewProfile = candidate }
-                    )
-                }
+                emptyDeck
+                Spacer()
+            } else if let candidate = profiles.first {
+                CandidateCardView(
+                    profile: candidate,
+                    onPass: { Task { await swipe(candidate, action: "pass") } },
+                    onLike: { like(candidate) },
+                    onChat: {
+                        introText = ""
+                        introTarget = candidate
+                    },
+                    onPreview: { note = "Secret Mingle Profile - Profile details are kept private." }
+                )
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if !note.isEmpty {
+                Text(note)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.black.opacity(0.82))
+                    .cornerRadius(12)
+                    .padding(.bottom, 24)
             }
         }
         .task {
@@ -280,14 +218,11 @@ public struct MingleView: View {
             await loadFeed()
         }
         .sheet(isPresented: $showRadiusSheet) {
-            RadiusFilterSheetView(
-                radiusKm: $selectedRadiusKm,
-                onApply: {
-                    showRadiusSheet = false
-                    Task { await loadFeed() }
-                }
-            )
-            .presentationDetents([.height(280)])
+            RadiusFilterSheetView(radiusKm: $selectedRadiusKm) {
+                showRadiusSheet = false
+                Task { await loadFeed() }
+            }
+            .presentationDetents([.height(320)])
         }
         .sheet(isPresented: $showProfileSheet) {
             MingleProfileEditSheetView(
@@ -296,6 +231,7 @@ public struct MingleView: View {
                 myBio: $myBio,
                 myGender: $myGender,
                 myLookingFor: $myLookingFor,
+                myTargetAgeRange: $myTargetAgeRange,
                 photos: $myPhotos,
                 photoIds: $myPhotoIds,
                 onPhoto: { data in Task { await uploadPhoto(data) } },
@@ -317,66 +253,139 @@ public struct MingleView: View {
             }
         }
         .sheet(isPresented: $showNotifications) {
-            CourtListSheet(title: "Activity", path: "mingle/activity")
-        }
-        .sheet(item: $previewProfile) { profile in
-            MinglePreviewSheet(profile: profile)
-        }
-        .sheet(item: $introTarget) { target in
-            VStack(spacing: 16) {
-                Text("Say hi to \(target.name)")
-                    .font(.system(size: 18, weight: .bold))
-                    .padding(.top, 16)
-
-                Text("Send a short message (up to 150 characters) to start a chat.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-
-                TextEditor(text: $introText)
-                    .frame(height: 100)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                    .padding(.horizontal, 24)
-
-                Button(action: {
-                    let text = introText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let recipient = target.id
-                    let name = target.name
-                    introTarget = nil
-                    introText = ""
-                    guard !text.isEmpty else { return }
-                    Task { await sendIntro(recipientId: recipient, name: name, message: text) }
-                }) {
-                    Text("Send Message")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.appPrimary)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 24)
-                }
-
-                Spacer()
+            MingleActivitySheet { conversationId, name in
+                showNotifications = false
+                onMatchClick?(conversationId, name)
             }
         }
+        .sheet(isPresented: $showPointsGate) {
+            MinglePointsGate(points: userCoins, onWallet: {
+                showPointsGate = false
+                showWallet = true
+            }, onDismiss: { showPointsGate = false })
+            .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showWallet) {
+            WalletView()
+        }
+        .sheet(item: $introTarget) { target in
+            introSheet(target)
+        }
+    }
+
+    private var hasPhoto: Bool { myPhotos.contains { !$0.isEmpty } }
+
+    private var emptyDeck: some View {
+        let copy = MingleCopy.emptyDeck(reason: emptyReason, radiusKm: Int(selectedRadiusKm), denied: locationDenied)
+        return VStack(spacing: 16) {
+            Image(systemName: "location.slash.fill")
+                .font(.system(size: 42))
+                .foregroundColor(.appPrimary)
+                .frame(width: 90, height: 90)
+                .background(Color.appPrimary.opacity(0.12))
+                .clipShape(Circle())
+            Text(isLoadingFeed ? "Loading..." : copy.title)
+                .font(.system(size: 20, weight: .bold))
+                .multilineTextAlignment(.center)
+            Text(copy.body)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            if !copy.action.isEmpty {
+                Button(action: { emptyAction(copy.action) }) {
+                    Text(copy.action)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.appPrimary)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+
+    private func introSheet(_ target: MingleProfile) -> some View {
+        VStack(spacing: 16) {
+            Text(target.name.isEmpty ? "Say hi" : "Say hi to \(target.name)")
+                .font(.title3.bold())
+                .padding(.top, 24)
+            Text("One message, up to 150 characters. This costs \(introCost) points and cannot be refunded. They will not see that it was paid.")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            TextEditor(text: Binding(get: { introText }, set: { introText = String($0.prefix(150)) }))
+                .frame(height: 100)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                .padding(.horizontal, 24)
+            Text("\(introText.count)/150  Plain text only. No links.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Button(action: {
+                let text = introText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { return }
+                if MingleCopy.hasLink(text) {
+                    note = "intro must be plain text up to 150 characters with no links"
+                    return
+                }
+                introTarget = nil
+                introText = ""
+                Task { await sendIntro(recipientId: target.id, name: target.name, message: text) }
+            }) {
+                Text("Send for \(introCost) points")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.appPrimary)
+                    .cornerRadius(12)
+                    .padding(.horizontal, 24)
+            }
+            Spacer()
+        }
+    }
+
+    private func emptyAction(_ label: String) {
+        if label == "Edit filters" {
+            showProfileSheet = true
+        } else if label == "Increase Radius" || label == "Look farther" {
+            showRadiusSheet = true
+        } else {
+            Task { await loadFeed() }
+        }
+    }
+
+    private func like(_ profile: MingleProfile) {
+        guard hasPhoto else {
+            showProfileSheet = true
+            note = "You must upload at least one photo or complete your Mingle profile before you can like people."
+            return
+        }
+        Task { await swipe(profile, action: "like") }
     }
 
     private func loadFeed(reset: Bool = true) async {
         await SessionActions.syncContacts()
         if reset { feedOffset = 0 }
+        isLoadingFeed = true
+        defer { isLoadingFeed = false }
+        guard let loc = await CourtLocation.shared.current() else {
+            locationDenied = CourtLocation.shared.isDenied
+            emptyReason = "NO_LOCATION"
+            if reset { profiles = [] }
+            return
+        }
+        locationDenied = false
+        let lat = loc.coordinate.latitude
+        let lng = loc.coordinate.longitude
+        guard lat != 0 || lng != 0 else {
+            emptyReason = "NO_LOCATION"
+            if reset { profiles = [] }
+            return
+        }
         do {
-            guard let loc = await CourtLocation.shared.current() else {
-                feedNote = "Location is required to load Court"
-                if reset { profiles = [] }
-                return
-            }
-            let lat = loc.coordinate.latitude
-            let lng = loc.coordinate.longitude
-            guard lat != 0 || lng != 0 else {
-                feedNote = "Location is required to load Court"
-                if reset { profiles = [] }
-                return
-            }
             _ = try? await API.data("mingle/location", method: "POST", json: [
                 "latitude": lat,
                 "longitude": lng,
@@ -389,57 +398,27 @@ public struct MingleView: View {
                 "limit": "20",
                 "offset": "\(feedOffset)"
             ])
-            struct Feed: Decodable {
-                struct Photo: Decodable { let url: String? }
-                struct Item: Decodable {
-                    let id: String
-                    let name: String?
-                    let age: Int?
-                    let bio: String?
-                    let distanceKm: Double?
-                    let photos: [Photo]?
-                    enum CodingKeys: String, CodingKey {
-                        case id, name, age, bio, photos
-                        case distanceKm = "distance_km"
-                    }
-                }
-                let items: [Item]?
-                let balance: Double?
-                let status: String?
-                let freeLikesRemaining: Int?
-                let introCost: Double?
-                let minBalance: Double?
-                enum CodingKeys: String, CodingKey {
-                    case items, balance, status
-                    case minBalance = "min_balance"
-                    case freeLikesRemaining = "free_likes_remaining"
-                    case introCost = "intro_cost"
-                }
-            }
-            let feed = try JSONDecoder().decode(Feed.self, from: data)
-            if let balance = feed.balance { userCoins = Int(balance) }
-            if let minBalance = feed.minBalance { self.minBalance = Int(minBalance) }
-            let feedItems = feed.items ?? []
+            let json = LiveJSON.object(data)
+            applyEconomy(json)
+            let items = LiveJSON.list(data, keys: ["items"])
             var resultProfiles: [MingleProfile] = []
-            if let free = feed.freeLikesRemaining { freeLikesRemaining = free }
-            if let cost = feed.introCost, cost > 0 { introCost = Int(cost) }
-            for item in feedItems {
-                guard !item.id.isEmpty else { continue }
-                let nameStr = item.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let photos = (item.photos ?? []).compactMap(\.url).filter { !$0.isEmpty }
+            for item in items {
+                let id = LiveJSON.string(item["id"])
+                let photos = photoURLs(item["photos"])
+                guard !id.isEmpty, !photos.isEmpty else { continue }
                 resultProfiles.append(MingleProfile(
-                    id: item.id,
-                    name: nameStr,
-                    age: item.age ?? 0,
+                    id: id,
+                    name: MingleCopy.realName(LiveJSON.string(item["name"])),
+                    age: Int(LiveJSON.string(item["age"])) ?? 0,
                     occupation: "",
-                    distanceKm: item.distanceKm ?? 0,
-                    bio: item.bio ?? "",
+                    distanceKm: Double(LiveJSON.string(item["distance_km"])) ?? 0,
+                    bio: LiveJSON.string(item["bio"]),
                     interests: [],
                     avatarGradient: [.purple, .blue],
                     photos: photos
                 ))
             }
-            if feedOffset == 0 {
+            if reset {
                 profiles = resultProfiles
             } else {
                 let known = Set(profiles.map(\.id))
@@ -447,25 +426,79 @@ public struct MingleView: View {
             }
             feedOffset += resultProfiles.count
             if profiles.isEmpty {
-                feedNote = Self.courtStatus(feed.status)
+                let status = LiveJSON.string(json["status"])
+                emptyReason = status.isEmpty ? "FEED_EXHAUSTED" : status
+            } else {
+                emptyReason = nil
             }
         } catch {
-            feedNote = "Could not load people nearby"
+            note = MingleCopy.serverMessage(error)
         }
     }
 
+    private func photoURLs(_ value: Any?) -> [String] {
+        guard let rows = value as? [Any] else { return [] }
+        return rows.compactMap { row in
+            guard let photo = row as? [String: Any] else { return nil }
+            let url = LiveJSON.string(photo["url"])
+            return url.isEmpty ? nil : url
+        }
+    }
+
+    private func applyEconomy(_ json: [String: Any]) {
+        if let balance = json["balance"] as? Double { userCoins = Int(balance) }
+        else if let balance = json["balance"] as? Int { userCoins = balance }
+        if let floor = json["min_balance"] as? Double { minBalance = Int(floor) }
+        else if let floor = json["min_balance"] as? Int { minBalance = floor }
+        if let free = json["free_likes_remaining"] as? Int { freeLikesRemaining = free }
+        else if let free = json["free_likes_remaining"] as? Double { freeLikesRemaining = Int(free) }
+        if let cost = json["intro_cost"] as? Double, cost > 0 { introCost = Int(cost) }
+        else if let cost = json["intro_cost"] as? Int, cost > 0 { introCost = cost }
+        if let cost = json["like_cost"] as? Double, cost > 0 { likeCost = Int(cost) }
+        else if let cost = json["like_cost"] as? Int, cost > 0 { likeCost = cost }
+        if let next = json["next_like_cost"] as? Double { nextLikeCost = Int(next) }
+        else if let next = json["next_like_cost"] as? Int { nextLikeCost = next }
+    }
+
     private func saveMe() async {
-        var body: [String: Any] = ["name": myName, "bio": myBio, "looking_for": myLookingFor]
-        if let age = Int(myAge), age > 0 { body["age"] = age }
-        if !myGender.isEmpty { body["gender"] = myGender }
-        _ = try? await API.data("mingle/me", method: "PUT", json: body)
+        let name = myName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            note = "Please enter your preferred Mingle display name"
+            showProfileSheet = true
+            return
+        }
+        guard let age = Int(myAge), (18...120).contains(age) else {
+            note = "Enter an age from 18 to 120"
+            showProfileSheet = true
+            return
+        }
+        do {
+            _ = try await API.data("mingle/me", method: "PUT", json: [
+                "name": name,
+                "bio": myBio,
+                "age": age,
+                "gender": myGender.isEmpty ? "other" : myGender,
+                "looking_for": myLookingFor,
+                "target_age_range": myTargetAgeRange
+            ])
+            note = "Mingle Profile Updated"
+            await loadMe()
+        } catch {
+            note = MingleCopy.serverMessage(error)
+            showProfileSheet = true
+        }
     }
 
     private func uploadPhoto(_ data: Data) async {
+        guard myPhotos.filter({ !$0.isEmpty }).count < 5 else {
+            note = "maximum of 5 photos allowed"
+            return
+        }
         let boundary = "Boundary-\(UUID().uuidString)"
+        let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.85) ?? data
         var body = Data()
         body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"photo.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
-        body.append(data)
+        body.append(jpeg)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         guard var req = API.request("mingle/photos", method: "POST", body: body) else { return }
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -473,12 +506,12 @@ public struct MingleView: View {
             let (responseData, response) = try await URLSession.shared.data(for: req)
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard (200...299).contains(code) else {
-                feedNote = String(data: responseData, encoding: .utf8) ?? "Photo upload failed"
+                note = String(data: responseData, encoding: .utf8) ?? "Photo upload failed"
                 return
             }
             await loadMe()
         } catch {
-            feedNote = "Photo upload failed"
+            note = "Photo upload failed"
         }
     }
 
@@ -488,33 +521,35 @@ public struct MingleView: View {
             _ = try await API.data("mingle/photos/\(id)", method: "DELETE")
             await loadMe()
         } catch {
-            feedNote = "Could not delete photo"
+            note = MingleCopy.serverMessage(error)
         }
     }
 
     private func loadMe() async {
         guard let data = try? await API.data("mingle/me"),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let profile = json["profile"] as? [String: Any] else { return }
-        if let name = profile["name"] as? String, !name.isEmpty { myName = name }
-        if let bio = profile["bio"] as? String { myBio = bio }
-        if let age = profile["age"] as? Int, age > 0 { myAge = "\(age)" }
-        else if let age = profile["age"] as? Double, age > 0 { myAge = "\(Int(age))" }
-        if let gender = profile["gender"] as? String { myGender = gender }
-        if let looking = profile["looking_for"] as? String, !looking.isEmpty { myLookingFor = looking }
+              let profile = LiveJSON.object(data)["profile"] as? [String: Any] else { return }
+        let name = MingleCopy.realName(LiveJSON.string(profile["name"]))
+        if !name.isEmpty { myName = name }
+        myBio = LiveJSON.string(profile["bio"])
+        let age = LiveJSON.string(profile["age"])
+        if age != "0" && !age.isEmpty { myAge = age }
+        myGender = LiveJSON.string(profile["gender"])
+        let looking = LiveJSON.string(profile["looking_for"])
+        if !looking.isEmpty { myLookingFor = looking }
+        let range = LiveJSON.string(profile["target_age_range"])
+        if !range.isEmpty { myTargetAgeRange = range }
+        let radius = Double(LiveJSON.string(profile["max_distance_km"])) ?? 0
+        if radius > 0 { selectedRadiusKm = min(100, max(1, radius)) }
         if let photos = profile["photos"] as? [[String: Any]] {
-            myPhotos = photos.compactMap { $0["url"] as? String }.filter { !$0.isEmpty }
-            myPhotoIds = photos.map { item in
-                if let id = item["id"] as? String { return id }
-                if let id = item["id"] as? Int { return String(id) }
-                return ""
-            }
+            myPhotos = photos.map { LiveJSON.string($0["url"]) }.filter { !$0.isEmpty }
+            myPhotoIds = photos.map { LiveJSON.string($0["id"]) }
         }
     }
 
     private func swipe(_ profile: MingleProfile, action: String) async {
-        if action == "like", freeLikesRemaining <= 0, userCoins < minBalance {
-            feedNote = "You need at least \(minBalance) points to like"
+        let price = freeLikesRemaining > 0 ? 0 : max(nextLikeCost, likeCost)
+        if action == "like", price > 0, userCoins < price + minBalance {
+            showPointsGate = true
             return
         }
         do {
@@ -522,27 +557,32 @@ public struct MingleView: View {
                 "target_user_id": profile.id,
                 "action": action
             ])
-            let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-            if let balance = json["balance"] as? Double { userCoins = Int(balance) }
-            else if let balance = json["balance"] as? Int { userCoins = balance }
-            if let free = json["free_likes_remaining"] as? Int { freeLikesRemaining = free }
-            else if let free = json["free_likes_remaining"] as? Double { freeLikesRemaining = Int(free) }
+            let json = LiveJSON.object(data)
+            applyEconomy(json)
             lastSwiped = profile
             profiles.removeAll { $0.id == profile.id }
-            if profiles.count < 3 {
-                await loadFeed(reset: false)
-            }
-            if json["matched"] as? Bool == true, let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+            if profiles.count < 3 { await loadFeed(reset: false) }
+            let conversationId = LiveJSON.string(json["conversation_id"])
+            if json["matched"] as? Bool == true, !conversationId.isEmpty {
+                note = profile.name.isEmpty ? "It's a match" : "It's a match with \(profile.name)"
                 onMatchClick?(conversationId, profile.name)
             }
         } catch {
-            feedNote = "Swipe was not saved"
+            if !profiles.contains(where: { $0.id == profile.id }) {
+                profiles.insert(profile, at: 0)
+            }
+            let message = MingleCopy.serverMessage(error)
+            if message.localizedCaseInsensitiveContains("insufficient") {
+                showPointsGate = true
+            } else {
+                note = message
+            }
         }
     }
 
     private func sendIntro(recipientId: String, name: String, message: String) async {
         if userCoins < introCost + minBalance {
-            feedNote = "You need \(introCost) points and \(minBalance) left to send a message"
+            showPointsGate = true
             return
         }
         do {
@@ -550,199 +590,156 @@ public struct MingleView: View {
                 "recipient_id": recipientId,
                 "message": String(message.prefix(150))
             ])
-            let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-            if let balance = json["balance"] as? Double { userCoins = Int(balance) }
-            if let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+            let json = LiveJSON.object(data)
+            applyEconomy(json)
+            let conversationId = LiveJSON.string(json["conversation_id"])
+            if !conversationId.isEmpty {
                 onMatchClick?(conversationId, name)
+            } else {
+                note = "Request sent"
             }
         } catch {
-            feedNote = "Message was not sent"
+            let message = MingleCopy.serverMessage(error)
+            if message.localizedCaseInsensitiveContains("insufficient") {
+                showPointsGate = true
+            } else {
+                note = message
+            }
         }
     }
 
     private func rewindLastSwipe() {
         Task {
-            guard let data = try? await API.data("mingle/rewind", method: "POST"),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  json["rewound"] as? Bool == true else { return }
-            if let balance = json["balance"] as? Double { userCoins = Int(balance) }
-            await loadFeed()
-        }
-    }
-
-    private static func courtStatus(_ raw: String?) -> String {
-        switch raw?.uppercased() {
-        case "CONTACTS_HIDDEN": return "Nearby people are in your contacts"
-        case "OUT_OF_RADIUS": return "No one in this radius"
-        case "NO_PHOTO": return "People nearby have no photo"
-        case "DIFFERENT_COUNTRY": return "No one in your country"
-        case "ALREADY_SWIPED": return "You have seen everyone nearby"
-        case "PREFERENCES": return "No one matches your preferences"
-        case "NO_CANDIDATE_LOCATION": return "No one nearby has a location"
-        case "FEED_EXHAUSTED": return "No more people nearby"
-        default: return raw?.isEmpty == false ? (raw ?? "") : "No one nearby"
+            do {
+                let data = try await API.data("mingle/rewind", method: "POST")
+                let json = LiveJSON.object(data)
+                guard json["rewound"] as? Bool == true else {
+                    note = "Nothing to rewind"
+                    return
+                }
+                applyEconomy(json)
+                let target = LiveJSON.string(json["target_user_id"])
+                if let last = lastSwiped, last.id == target {
+                    profiles.insert(last, at: 0)
+                } else {
+                    await loadFeed()
+                }
+                note = "Restored previous candidate"
+            } catch {
+                note = MingleCopy.serverMessage(error)
+            }
         }
     }
 }
-
-// MARK: - Candidate Card View matching Screenshot 5
 
 public struct CandidateCardView: View {
-    public let profile: MingleProfile
-    public var onPass: () -> Void
-    public var onLike: () -> Void
-    public var onChat: () -> Void
-    public var onPreview: () -> Void = {}
+    let profile: MingleProfile
+    var onPass: () -> Void
+    var onLike: () -> Void
+    var onChat: () -> Void
+    var onPreview: () -> Void
+    @State private var photoIndex = 0
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            ZStack {
-                LinearGradient(colors: profile.avatarGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
-                if profile.photos.isEmpty {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 100))
-                        .foregroundColor(.white.opacity(0.3))
-                } else {
-                    TabView {
-                        ForEach(profile.photos, id: \.self) { photo in
-                            if let url = FeedPost.resolve(photo) {
-                                AsyncImage(url: url) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    Color.clear
-                                }
-                            }
-                        }
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                photo
+                LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 4) {
+                    Button(action: onPreview) {
+                        Text(cardTitle)
+                            .font(.title2.bold())
+                            .foregroundColor(.white)
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .automatic))
+                    if !profile.bio.isEmpty {
+                        Text(profile.bio)
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.9))
+                            .lineLimit(3)
+                    }
                 }
+                .padding(16)
             }
-            .ignoresSafeArea()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
 
-            // Bottom Gradient Overlay
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.85)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 280)
-
-            // Details & Action Bar Overlay
-            VStack(alignment: .leading, spacing: 12) {
-                // Name & Age
-                Text(profile.age > 0 ? "\(profile.name), \(profile.age)" : profile.name)
-                    .font(.system(size: 28, weight: .black))
-                    .foregroundColor(.white)
-                    .onTapGesture(perform: onPreview)
-
-                // Distance
-                HStack(spacing: 4) {
-                    Image(systemName: "location.fill")
-                        .font(.system(size: 13))
-                    Text("\(String(format: "%.1f", profile.distanceKm)) km away")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundColor(.white.opacity(0.9))
-
-                if !profile.bio.isEmpty {
-                    Text(profile.bio)
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.85))
-                        .lineLimit(2)
-                }
-
-                Spacer().frame(height: 12)
-
-                // Action Bar matching Screenshot 5 (Pass, Like, Meet Chat)
-                HStack(spacing: 24) {
-                    // Pass (X)
-                    Button(action: onPass) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 54, height: 54)
-                                .shadow(radius: 4)
-
-                            Image(systemName: "xmark")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.black)
-                        }
-                    }
-
-                    // Like (Heart)
-                    Button(action: onLike) {
-                        ZStack {
-                            Circle()
-                                .fill(Color(red: 0.91, green: 0.12, blue: 0.39)) // #E91E63
-                                .frame(width: 66, height: 66)
-                                .shadow(color: Color.red.opacity(0.4), radius: 6, x: 0, y: 3)
-
-                            Image(systemName: "heart.fill")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                    }
-
-                    // Meet Chat (Bubble)
-                    Button(action: onChat) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.appPrimary)
-                                .frame(width: 54, height: 54)
-                                .shadow(radius: 4)
-
-                            Image(systemName: "message.fill")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 24)
+            HStack(spacing: 28) {
+                round("xmark", .red, onPass)
+                round("bubble.left.fill", .appPrimary, onChat)
+                round("heart.fill", .appPrimary, onLike)
             }
-            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+        }
+    }
+
+    private var cardTitle: String {
+        var parts: [String] = []
+        if !profile.name.isEmpty { parts.append(profile.name) }
+        if profile.age > 0 { parts.append("\(profile.age)") }
+        if profile.distanceKm > 0 { parts.append(String(format: "%.0f km", profile.distanceKm)) }
+        return parts.joined(separator: ", ")
+    }
+
+    private var photo: some View {
+        let url = profile.photos.indices.contains(photoIndex) ? profile.photos[photoIndex] : profile.photos.first
+        return Group {
+            if let resolved = FeedPost.resolve(url) {
+                AsyncImage(url: resolved) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+            } else {
+                Color.gray.opacity(0.2)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard profile.photos.count > 1 else { return }
+            photoIndex = (photoIndex + 1) % profile.photos.count
+        }
+    }
+
+    private func round(_ icon: String, _ color: Color, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(color)
+                .frame(width: 58, height: 58)
+                .background(Color(UIColor.secondarySystemBackground))
+                .clipShape(Circle())
         }
     }
 }
 
-// MARK: - Radius Filter Sheet View matching Screenshot 5
+struct RadiusFilterSheetView: View {
+    @Binding var radiusKm: Double
+    var onApply: () -> Void
 
-public struct RadiusFilterSheetView: View {
-    @Binding public var radiusKm: Double
-    public var onApply: () -> Void
-
-    public var body: some View {
-        VStack(spacing: 20) {
-            Text("Discovery Radius")
-                .font(.system(size: 20, weight: .bold))
-                .padding(.top, 20)
-
-            VStack(spacing: 8) {
-                Text("\(Int(radiusKm)) km")
-                    .font(.system(size: 24, weight: .black))
-                    .foregroundColor(.appPrimary)
-
-                Slider(value: $radiusKm, in: 1...100, step: 1)
-                    .accentColor(.appPrimary)
-                    .padding(.horizontal, 24)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Distance")
+                .font(.title3.bold())
+            Text(radiusKm >= 100 ? "Showing people everywhere (expanding beyond 100 km)" : "Show people within \(Int(radiusKm)) km")
+                .foregroundColor(.secondary)
+            Slider(value: $radiusKm, in: 1...100, step: 1)
+            HStack {
+                Text("1 km")
+                Spacer()
+                Text("100 km")
             }
-
-            Button(action: onApply) {
-                Text("Apply Filter")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.appPrimary)
-                    .cornerRadius(12)
-                    .padding(.horizontal, 24)
-            }
-
-            Spacer()
+            .font(.caption)
+            .foregroundColor(.secondary)
+            Button("Apply Filter", action: onApply)
+                .buttonStyle(.borderedProminent)
         }
+        .padding(24)
     }
 }
-// MARK: - Mingle Profile Edit Sheet View matching Screenshot 5
 
 public struct MingleProfileEditSheetView: View {
     @Binding public var myName: String
@@ -750,151 +747,90 @@ public struct MingleProfileEditSheetView: View {
     @Binding public var myBio: String
     @Binding public var myGender: String
     @Binding public var myLookingFor: String
+    @Binding public var myTargetAgeRange: String
     @Binding public var photos: [String]
     @Binding public var photoIds: [String]
     public var onPhoto: (Data) -> Void
     public var onDelete: (String) -> Void
     public var onSave: () -> Void
-    @State private var picked: PhotosPickerItem?
+    @State private var pickerItems: [PhotosPickerItem] = []
 
     public var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    Text("My Mingle Profile")
-                        .font(.system(size: 20, weight: .bold))
-                        .padding(.top, 16)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
+            Form {
+                Section {
+                    Text("Update your photos and profile details visible to people on Mingle.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                Section("Photos (Up to 5)") {
+                    ScrollView(.horizontal) {
+                        HStack {
+                            ForEach(photos.indices, id: \.self) { index in
                                 ZStack(alignment: .topTrailing) {
-                                    if let url = FeedPost.resolve(photo) {
+                                    if let url = FeedPost.resolve(photos[index]) {
                                         AsyncImage(url: url) { image in
                                             image.resizable().scaledToFill()
                                         } placeholder: {
                                             Color.gray.opacity(0.2)
                                         }
-                                        .frame(width: 88, height: 110)
+                                        .frame(width: 84, height: 110)
                                         .clipped()
-                                        .cornerRadius(12)
                                     }
-                                    Button(action: {
-                                        let id = photoIds.indices.contains(index) ? photoIds[index] : ""
-                                        onDelete(id)
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.white)
-                                            .padding(4)
+                                    if photoIds.indices.contains(index) {
+                                        Button(action: { onDelete(photoIds[index]) }) {
+                                            Image(systemName: "xmark.circle.fill")
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    Text(photos.count >= 5 ? "Delete a photo to change it" : "Add or replace photos")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    PhotosPicker(selection: $picked, matching: .images) {
-                        Text(photos.count >= 5 ? "5 photos is the maximum" : "Add photo")
-                            .font(.system(size: 15, weight: .bold))
-                    }
-                    .disabled(photos.count >= 5)
-                    .onChange(of: picked) { item in
-                        guard let item else { return }
-                        Task {
-                            if let data = try? await item.loadTransferable(type: Data.self) {
-                                onPhoto(data)
-                            }
-                            picked = nil
-                        }
-                    }
-
+                    PhotosPicker("Select Photos from Gallery", selection: $pickerItems, maxSelectionCount: 5, matching: .images)
+                }
+                Section("Display name") {
+                    TextField("Name", text: $myName)
+                    TextField("Age", text: $myAge)
+                        .keyboardType(.numberPad)
+                    TextField("Bio", text: $myBio, axis: .vertical)
+                }
+                Section("Gender") {
                     Picker("Gender", selection: $myGender) {
-                        Text("Not set").tag("")
                         Text("Male").tag("male")
                         Text("Female").tag("female")
                         Text("Non-binary").tag("nonbinary")
+                        Text("Other").tag("other")
                     }
-                    Picker("Looking for", selection: $myLookingFor) {
-                        Text("Everyone").tag("everyone")
-                        Text("Male").tag("male")
-                        Text("Female").tag("female")
-                        Text("Non-binary").tag("nonbinary")
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Display Name")
-                            .font(.system(size: 14, weight: .bold))
-                        TextField("Name", text: $myName)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Age")
-                            .font(.system(size: 14, weight: .bold))
-                        TextField("Age", text: $myAge)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("About Me / Bio")
-                            .font(.system(size: 14, weight: .bold))
-                        TextEditor(text: $myBio)
-                            .frame(height: 80)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                    }
-
-                    Button(action: onSave) {
-                        Text("Save Profile")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.appPrimary)
-                            .cornerRadius(12)
-                    }
-
-                    Spacer()
                 }
-                .padding(.horizontal, 24)
+                Section("Looking for") {
+                    Picker("Looking for", selection: $myLookingFor) {
+                        Text("Men").tag("male")
+                        Text("Women").tag("female")
+                        Text("Non-binary").tag("nonbinary")
+                        Text("Everyone").tag("everyone")
+                    }
+                    Picker("Target Age Range (18+)", selection: $myTargetAgeRange) {
+                        Text("18 - 25").tag("18 - 25")
+                        Text("18 - 30").tag("18 - 30")
+                        Text("18 - 35").tag("18 - 35")
+                        Text("25 - 35").tag("25 - 35")
+                        Text("30 - 45").tag("30 - 45")
+                        Text("35 - 50").tag("35 - 50")
+                        Text("18+ (All ages 18+)").tag("18 - 120")
+                    }
+                }
+                Button("Save & Update Profile", action: onSave)
             }
-        }
-    }
-}
-
-struct MinglePreviewSheet: View {
-    let profile: MingleProfile
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    TabView {
-                        ForEach(profile.photos, id: \.self) { photo in
-                            if let url = FeedPost.resolve(photo) {
-                                AsyncImage(url: url) { image in
-                                    image.resizable().scaledToFit()
-                                } placeholder: {
-                                    ProgressView()
-                                }
-                            }
+            .navigationTitle("Mingle Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: pickerItems) { items in
+                Task {
+                    for item in items {
+                        if let data = try? await item.loadTransferable(type: Data.self) {
+                            onPhoto(data)
                         }
                     }
-                    .frame(height: 360)
-                    Text(profile.age > 0 ? "\(profile.name), \(profile.age)" : profile.name)
-                        .font(.title2.bold())
-                    if !profile.bio.isEmpty {
-                        Text(profile.bio)
-                    }
-                }
-                .padding()
-            }
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    pickerItems = []
                 }
             }
         }
@@ -903,84 +839,113 @@ struct MinglePreviewSheet: View {
 
 struct MingleInboxSheet: View {
     var onOpenChat: (String, String) -> Void
-    @State private var intros: [[String: Any]] = []
-    @State private var chats: [ChatMessage] = []
-    @State private var note = "Loading..."
+    @State private var chats: [[String: Any]] = []
+    @State private var requests: [[String: Any]] = []
+    @State private var query = ""
+    @State private var showRequests = false
+    @State private var note = ""
 
     var body: some View {
         NavigationStack {
             List {
-                if !intros.isEmpty {
-                    Section("Message Requests") {
-                        ForEach(intros.indices, id: \.self) { index in
-                            let intro = intros[index]
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(Self.name(intro))
-                                    .font(.headline)
-                                Text(Self.text(intro, "message"))
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(3)
-                                HStack {
-                                    Button("Accept") { Task { await respond(intro, action: "accept") } }
-                                    Button("Decline") { Task { await respond(intro, action: "decline") } }
-                                        .foregroundColor(.red)
+                if filtered.isEmpty {
+                    VStack(spacing: 8) {
+                        Text(query.isEmpty ? "No Mingle Secret Chats Yet" : "No matching secret chats")
+                            .font(.headline)
+                        Text("Private secret chats with your mutual matches")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Section("Matches") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ForEach(filtered.indices, id: \.self) { index in
+                                let chat = filtered[index]
+                                Button(action: { open(chat) }) {
+                                    VStack {
+                                        Text(String(name(chat).prefix(1)))
+                                            .frame(width: 52, height: 52)
+                                            .background(Color.appPrimary.opacity(0.15))
+                                            .clipShape(Circle())
+                                        Text(name(chat)).font(.caption).lineLimit(1)
+                                    }
+                                    .frame(width: 72)
                                 }
                             }
                         }
                     }
                 }
-                Section("Mingle chats") {
-                    ForEach(chats) { chat in
-                        Button {
-                            onOpenChat(chat.id, chat.consistentName())
-                        } label: {
+                Button(action: { showRequests = true }) {
+                    HStack {
+                        Text("Message Requests (\(requests.count))")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                }
+                Section("Chats") {
+                    ForEach(filtered.indices, id: \.self) { index in
+                        let chat = filtered[index]
+                        Button(action: { open(chat) }) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(chat.consistentName()).font(.headline).foregroundColor(.primary)
-                                if !chat.lastMessage.isEmpty {
-                                    Text(chat.lastMessage).font(.caption).foregroundColor(.secondary)
-                                }
+                                Text(name(chat)).font(.headline)
+                                Text("Encrypted").font(.caption).foregroundColor(.secondary)
+                                Text(LiveJSON.string(chat["last_message"])).font(.subheadline).lineLimit(1)
                             }
                         }
                     }
                 }
             }
-            .overlay { if intros.isEmpty && chats.isEmpty { Text(note).foregroundColor(.secondary) } }
-            .navigationTitle("Mingle")
+            .searchable(text: $query, prompt: "Search Mingle secret chats...")
+            .navigationTitle("Mingle Secret Chats")
+            .navigationBarTitleDisplayMode(.inline)
             .task { await load() }
+            .sheet(isPresented: $showRequests) {
+                MingleRequestsSheet(onOpenChat: onOpenChat)
+            }
+            .overlay(alignment: .bottom) {
+                if !note.isEmpty {
+                    Text(note).font(.caption).padding()
+                }
+            }
         }
+    }
+
+    private var filtered: [[String: Any]] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !needle.isEmpty else { return chats }
+        return chats.filter { name($0).lowercased().contains(needle) || LiveJSON.string($0["last_message"]).lowercased().contains(needle) }
+    }
+
+    private func name(_ chat: [String: Any]) -> String {
+        let candidates = [
+            LiveJSON.string(chat["contact_name"]),
+            LiveJSON.string(chat["title"]),
+            LiveJSON.string(chat["sender_name"])
+        ]
+        return candidates.compactMap { value in
+            let cleaned = MingleCopy.realName(value)
+            return cleaned.isEmpty ? nil : cleaned
+        }.first ?? ""
+    }
+
+    private func open(_ chat: [String: Any]) {
+        let conversation = LiveJSON.string(chat["conversation_id"])
+        let id = conversation.isEmpty ? LiveJSON.string(chat["id"]) : conversation
+        guard !id.isEmpty else { return }
+        onOpenChat(id, name(chat))
     }
 
     private func load() async {
-        intros = []
-        chats = []
-        if let data = try? await API.data("mingle/intros"),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            intros = json["items"] as? [[String: Any]] ?? []
+        do {
+            let data = try await API.data("conversations")
+            chats = LiveJSON.list(data, keys: ["chats", "conversations"]).filter { chat in
+                LiveJSON.string(chat["type"]).lowercased() == "mingle" && !name(chat).isEmpty
+            }
+            let intros = try await API.data("mingle/intros")
+            requests = LiveJSON.list(intros, keys: ["items", "intros"])
+        } catch {
+            note = MingleCopy.serverMessage(error)
         }
-        if let data = try? await API.data("conversations") {
-            chats = LiveJSON.chats(from: data).filter { $0.type == .mingle }
-        }
-        note = intros.isEmpty && chats.isEmpty ? "Nothing here yet" : ""
-    }
-
-    private func respond(_ intro: [String: Any], action: String) async {
-        let id = Self.text(intro, "id")
-        guard !id.isEmpty else { return }
-        guard let data = try? await API.data("mingle/intro/\(id)/respond", method: "POST", json: ["action": action]),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        if action == "accept", let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
-            onOpenChat(conversationId, Self.name(intro))
-        }
-        await load()
-    }
-
-    private static func text(_ item: [String: Any], _ key: String) -> String {
-        if let value = item[key] as? String { return value }
-        return ""
-    }
-
-    private static func name(_ item: [String: Any]) -> String {
-        text(item, "sender_name")
     }
 }

@@ -213,7 +213,12 @@ public struct ChatTabView: View {
         .sheet(isPresented: $showJobProfile) { JobProfileView(onClose: { showJobProfile = false }) }
         .sheet(isPresented: $showWallet) { WalletView() }
         .sheet(isPresented: $showSettings) { SettingsView(router: NavigationRouter()) }
-        .sheet(isPresented: $showMingleActivity) { CourtListSheet(title: "Mingle Activity", path: "mingle/activity") }
+        .sheet(isPresented: $showMingleActivity) {
+            MingleActivitySheet { conversationId, name in
+                showMingleActivity = false
+                onChatSelected(ChatMessage(id: conversationId, type: .mingle, senderName: name, isMingle: true))
+            }
+        }
         .sheet(isPresented: $showGroup) {
             ContactPickerView(
                 initialIsGroupMode: true,
