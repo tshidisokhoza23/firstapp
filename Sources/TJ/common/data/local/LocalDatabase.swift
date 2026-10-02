@@ -336,9 +336,17 @@ public actor LocalDatabase {
 
     // MARK: - Chats
 
+extension Notification.Name {
+    public static let didUpdateChats = Notification.Name("didUpdateChats")
+    public static let didUpdateMessages = Notification.Name("didUpdateMessages")
+}
+
     public func upsertChats(_ list: [ChatEntity]) {
         for chat in list {
             chats[chat.id] = chat
+        }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .didUpdateChats, object: nil)
         }
     }
 
@@ -352,6 +360,9 @@ public actor LocalDatabase {
 
     public func deleteChat(id: String) {
         chats.removeValue(forKey: id)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .didUpdateChats, object: nil)
+        }
     }
 
     public func updateLastMessage(chatId: String, text: String, time: Int64, isFromMe: Bool, isRead: Bool) {
@@ -361,6 +372,9 @@ public actor LocalDatabase {
             existing.lastMessageIsFromMe = isFromMe
             existing.lastMessageRead = isRead
             chats[chatId] = existing
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .didUpdateChats, object: nil)
+            }
         }
     }
 
@@ -368,6 +382,9 @@ public actor LocalDatabase {
         if var existing = chats[chatId] {
             existing.unreadCount += 1
             chats[chatId] = existing
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .didUpdateChats, object: nil)
+            }
         }
     }
 
@@ -375,14 +392,25 @@ public actor LocalDatabase {
         if var existing = chats[chatId] {
             existing.unreadCount = 0
             chats[chatId] = existing
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .didUpdateChats, object: nil)
+            }
         }
     }
 
     // MARK: - Messages
 
     public func upsertMessages(_ list: [MessageEntity]) {
+        var convIds = Set<String>()
         for msg in list {
             messages[msg.id] = msg
+            convIds.insert(msg.conversationId)
+        }
+        DispatchQueue.main.async {
+            for convId in convIds {
+                NotificationCenter.default.post(name: .didUpdateMessages, object: convId)
+            }
+            NotificationCenter.default.post(name: .didUpdateChats, object: nil)
         }
     }
 

@@ -102,6 +102,31 @@ public class ChatViewModel: ObservableObject {
         fetchCurrentUser()
         fetchChats()
         refreshBlockedUsers()
+        observeRealtimeUpdates()
+    }
+
+    private func observeRealtimeUpdates() {
+        NotificationCenter.default.publisher(for: .didUpdateChats)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.fetchChats()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .didUpdateMessages)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                if let convId = notification.object as? String {
+                    if self.activeChatId == convId {
+                        self.fetchMessages(chatId: convId)
+                    }
+                } else if let activeId = self.activeChatId {
+                    self.fetchMessages(chatId: activeId)
+                }
+                self.fetchChats()
+            }
+            .store(in: &cancellables)
     }
 
     public func setActiveSubTab(_ tabIndex: Int) {
@@ -162,18 +187,20 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations")
-                let chats = LiveJSON.chats(from: data)
-                for chat in chats {
-                    let name = chat.consistentName()
-                    if !name.isEmpty {
-                        chat.otherUserId.map { GlobalCallState.shared.updateContactInfo(id: $0, name: name, phone: chat.phoneNumber) }
-                        GlobalCallState.shared.updateContactInfo(id: chat.id, name: name, phone: chat.phoneNumber)
-                    }
+                struct Envelope: Decodable {
+                    let conversations: [ChatMessage]?
+                    let chats: [ChatMessage]?
+                    let data: [ChatMessage]?
                 }
-                self.uiState.chats = .success(chats)
+                var list: [ChatMessage] = []
+                if let env = try? JSONDecoder().decode(Envelope.self, from: data) {
+                    list = env.conversations ?? env.chats ?? env.data ?? []
+                } else if let direct = try? JSONDecoder().decode([ChatMessage].self, from: data) {
+                    list = direct
+                }
+                self.uiState.chats = .success(list)
                 self.uiState.isChatsFetching = false
             } catch {
-                self.uiState.chats = .error(error.localizedDescription)
                 self.uiState.isChatsFetching = false
             }
         }
@@ -185,7 +212,16 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations/\(chatId)/messages")
-                let msgs = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
+                struct MsgEnvelope: Decodable {
+                    let messages: [Message]?
+                    let items: [Message]?
+                }
+                var msgs: [Message] = []
+                if let env = try? JSONDecoder().decode(MsgEnvelope.self, from: data) {
+                    msgs = env.messages ?? env.items ?? []
+                } else if let direct = try? JSONDecoder().decode([Message].self, from: data) {
+                    msgs = direct
+                }
                 self.uiState.messages = .success(msgs)
             } catch {
                 self.uiState.messages = .success([])
@@ -245,34 +281,17 @@ public class ChatViewModel: ObservableObject {
         uiState.messages = .success(current)
 
         Task {
-            let clientUUID = msg.id
-            let wireType = messageType.replacingOccurrences(of: "-", with: "_").uppercased()
             var bodyObj: [String: Any] = [
-                "client_uuid": clientUUID,
-                "message_text": body,
-                "media_type": wireType,
+                "content": body,
+                "message_type": messageType,
                 "media_urls": mediaUrls
             ]
             if let duration { bodyObj["duration"] = duration }
             if let fileName { bodyObj["file_name"] = fileName }
-            if let fileSize { bodyObj["file_size"] = fileSize }
-            if let contactName { bodyObj["contact_name"] = contactName }
-            if let contactPhone { bodyObj["contact_phone"] = contactPhone }
-            if let latitude { bodyObj["latitude"] = latitude }
-            if let longitude { bodyObj["longitude"] = longitude }
-            if let replyToId { bodyObj["reply_to_id"] = replyToId }
-            if let replyToText { bodyObj["reply_to_text"] = replyToText }
-            if let replyToSenderName { bodyObj["reply_to_sender_name"] = replyToSenderName }
-            do {
-                _ = try await API.data("conversations/\(chatId)/messages", method: "POST", json: bodyObj)
+
+            if (try? await API.data("conversations/\(chatId)/messages", method: "POST", json: bodyObj)) != nil {
                 if var msgs = self.uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == msg.id }) {
                     msgs[idx].status = .delivered
-                    self.uiState.messages = .success(msgs)
-                }
-            } catch {
-                self.uiState.error = error.localizedDescription
-                if var msgs = self.uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == msg.id }) {
-                    msgs[idx].status = .failed
                     self.uiState.messages = .success(msgs)
                 }
             }
@@ -364,64 +383,8 @@ public class ChatViewModel: ObservableObject {
         blockedUserIds = []
     }
 
-    public func connectCallSocket() {
-        guard let token = SessionStore.shared.token, !token.isEmpty else { return }
-        CallWebSocketClient.shared.connect(listener: CallSocketBridge.shared, serverUrl: AppBackend.wsBaseURL, authToken: token)
-    }
-
     public func startVoiceOrVideoCall(receiverId: String, callType: CallType, name: String) {
-        if receiverId.isEmpty { return }
-        if !name.isEmpty {
-            GlobalCallState.shared.updateContactInfo(id: receiverId, name: name, phone: nil)
-        }
-        connectCallSocket()
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            Task { @MainActor in
-                guard granted else {
-                    self.uiState.error = "Microphone permission is required to place a call."
-                    return
-                }
-                await self.placeCall(receiverId: receiverId, callType: callType, name: name)
-            }
-        }
-    }
-
-    private func placeCall(receiverId: String, callType: CallType, name: String) async {
-            if let data = try? await API.data("calls/ice_servers") {
-                WebRtcCallManager.shared.setIceServers(Self.iceServers(from: data))
-            }
-            do {
-                let data = try await API.data("calls/initiate", method: "POST", json: [
-                    "receiver_id": receiverId,
-                    "call_type": callType.wireValue
-                ])
-                let sessionId = LiveJSON.string(LiveJSON.object(data)["session_id"])
-                guard !sessionId.isEmpty else {
-                    self.uiState.error = "Couldn't start the call. No call was placed."
-                    return
-                }
-                GlobalCallState.shared.setCallActive(true, sessionId: sessionId, participantId: receiverId, callType: callType)
-                WebRtcCallManager.shared.start(callType: callType)
-                CallTonePlayer.shared.playOutgoingRingtone()
-                CallWebSocketClient.shared.invite(receiverId: receiverId, sessionId: sessionId, callType: callType)
-                CallKitService.shared.startOutgoingCall(sessionId: sessionId, participantId: receiverId, participantName: name, callType: callType)
-            } catch {
-                GlobalCallState.shared.setCallActive(false, sessionId: nil, participantId: nil, callType: callType)
-                self.uiState.error = error.localizedDescription
-            }
-    }
-
-    private static func iceServers(from data: Data) -> [[String: Any]] {
-        let json = try? JSONSerialization.jsonObject(with: data)
-        let rows: [Any]
-        if let list = json as? [Any] {
-            rows = list
-        } else if let obj = json as? [String: Any] {
-            rows = (obj["ice_servers"] as? [Any]) ?? (obj["iceServers"] as? [Any]) ?? []
-        } else {
-            rows = []
-        }
-        return rows.compactMap { $0 as? [String: Any] }
+        GlobalCallState.shared.startCall(receiverId: receiverId, isVideo: callType == .video)
     }
 
     public func blockUser(userId: String) {
@@ -440,11 +403,4 @@ public class ChatViewModel: ObservableObject {
     public func setPlayingAudio(_ uri: String?) {
         currentlyPlayingAudio = uri
     }
-}
-
-final class CallSocketBridge: CallSocketListener {
-    static let shared = CallSocketBridge()
-    func onOpen() {}
-    func onEvent(_ event: CallEvent) {}
-    func onError(_ error: String) {}
 }

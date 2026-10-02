@@ -231,10 +231,20 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
         if let profile = profile, !profile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return profile.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if let phone = phoneNumber, !phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let phone = phoneNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !phone.isEmpty {
             return CountryUtils.formatDisplayPhone(phone)
         }
-        return ""
+        if !senderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return senderName.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        switch type {
+        case .group:
+            return "Group Chat"
+        case .channel:
+            return "Channel"
+        default:
+            return id.isEmpty ? "User" : id
+        }
     }
 
     public var profileHint: String? {
@@ -249,19 +259,20 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
 
     public func consistentName() -> String {
         let current = displayName
-        let key = otherUserId ?? id
-        if !current.isEmpty && !isIdString(current, key: key) {
+        if !current.isEmpty {
             return current
         }
-        return phoneNumber ?? ""
+        if let phone = phoneNumber, !phone.isEmpty {
+            return phone
+        }
+        return senderName.isEmpty ? id : senderName
     }
 }
 
 private extension String {
     func takeIfValidName(key: String) -> String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        let blocked = ["chat", "direct", "mingle", "mingle user", "unknown", "group", "channel", "tj"]
-        if trimmed.isEmpty || isIdString(trimmed, key: key) || blocked.contains(trimmed.lowercased()) { return nil }
+        if trimmed.isEmpty || isIdString(trimmed, key: key) { return nil }
         return trimmed
     }
 }

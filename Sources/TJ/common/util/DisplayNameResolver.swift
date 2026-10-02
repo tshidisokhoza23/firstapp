@@ -95,12 +95,16 @@ public final class DisplayNameResolver {
             }
         }
 
-        // 3. Fallback to phone number
+        // 3. Fallback to phone number or user ID
         if !cleanPhone.isEmpty {
-            return cleanPhone
+            return CountryUtils.formatDisplayPhone(cleanPhone)
         }
 
-        return ""
+        if let user = user, !user.id.isEmpty {
+            return user.id
+        }
+
+        return "User"
     }
 
     public func clearCache() {

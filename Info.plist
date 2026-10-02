@@ -17,6 +17,8 @@
 	<string>303703683011-6ksjg0b8uakesl9a821ri05tokrg41f2.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>
 	<string>303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com</string>
+	<key>NSCameraUsageDescription</key>
+	<string>TJ uses the camera for video calls, stories, and media sharing.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>TJ uses your contacts to show saved names and find people already on TJ.</string>
 	<key>NSMicrophoneUsageDescription</key>
