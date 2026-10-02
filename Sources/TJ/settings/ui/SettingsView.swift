@@ -6,6 +6,7 @@ public struct SettingsView: View {
     @State private var showLogoutConfirm: Bool = false
     @State private var showResetConfirm: Bool = false
     @State private var showDeleteAccountConfirm: Bool = false
+    @State private var localPage: SettingsLocalPage?
 
     public init(router: NavigationRouter) {
         self.router = router
@@ -48,7 +49,7 @@ public struct SettingsView: View {
 
                     Spacer()
 
-                    Button(action: { router.navigate(to: .editProfile) }) {
+                    Button(action: { localPage = .editProfile }) {
                         Image(systemName: "pencil.circle.fill")
                             .font(.title2)
                             .foregroundColor(.accentColor)
@@ -73,7 +74,7 @@ public struct SettingsView: View {
                             title: "Chats",
                             color: .blue
                         ) {
-                            router.navigate(to: .storageSettings)
+                            localPage = .chats
                         }
 
                         SettingsGridCard(
@@ -81,7 +82,7 @@ public struct SettingsView: View {
                             title: "Alerts",
                             color: .orange
                         ) {
-                            router.navigate(to: .notificationSettings)
+                            localPage = .alerts
                         }
 
                         SettingsGridCard(
@@ -89,7 +90,7 @@ public struct SettingsView: View {
                             title: "Security",
                             color: .green
                         ) {
-                            router.navigate(to: .privacySettings)
+                            localPage = .security
                         }
 
                         SettingsGridCard(
@@ -97,7 +98,7 @@ public struct SettingsView: View {
                             title: "Storage & Data",
                             color: .teal
                         ) {
-                            router.navigate(to: .storageSettings)
+                            localPage = .storage
                         }
 
                         SettingsGridCard(
@@ -105,7 +106,7 @@ public struct SettingsView: View {
                             title: "Sessions",
                             color: .purple
                         ) {
-                            router.navigate(to: .sessionsSettings)
+                            localPage = .sessions
                         }
 
                         SettingsGridCard(
@@ -113,7 +114,7 @@ public struct SettingsView: View {
                             title: "Language",
                             color: .pink
                         ) {
-                            router.navigate(to: .accountSettings)
+                            localPage = .language
                         }
                     }
                     .padding(.horizontal, 16)
@@ -133,7 +134,7 @@ public struct SettingsView: View {
                             title: "Help Center",
                             color: .yellow
                         ) {
-                            router.navigate(to: .helpSettings)
+                            localPage = .help
                         }
 
                         SettingsGridCard(
@@ -141,7 +142,7 @@ public struct SettingsView: View {
                             title: "Terms & EULA",
                             color: .indigo
                         ) {
-                            router.navigate(to: .helpSettings)
+                            localPage = .help
                         }
                     }
                     .padding(.horizontal, 16)
@@ -196,6 +197,21 @@ public struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $localPage) { page in
+            NavigationStack {
+                switch page {
+                case .chats: ChatSettingsForm()
+                case .alerts: AlertSettingsForm()
+                case .language: LanguageSettingsForm()
+                case .security: SettingsSubDetailView(title: "Security")
+                case .storage: SettingsSubDetailView(title: "Storage")
+                case .sessions: SettingsSubDetailView(title: "Sessions")
+                case .help: SettingsSubDetailView(title: "Help Center")
+                case .account: SettingsSubDetailView(title: "Account")
+                case .editProfile: EditProfilePlaceholderView()
+                }
+            }
+        }
         .alert("Log Out", isPresented: $showLogoutConfirm) {
             Button("Log Out", role: .destructive) {
                 Task {
@@ -229,6 +245,10 @@ public struct SettingsView: View {
     }
 }
 
+enum SettingsLocalPage: String, Identifiable {
+    case chats, alerts, language, security, storage, sessions, help, account, editProfile
+    var id: String { rawValue }
+}
 // MARK: - Helper Card Subcomponents
 
 struct SettingsGridCard: View {

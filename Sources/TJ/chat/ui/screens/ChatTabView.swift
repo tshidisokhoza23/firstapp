@@ -218,9 +218,9 @@ public struct ChatTabView: View {
             ContactPickerView(
                 initialIsGroupMode: true,
                 onBack: { showGroup = false },
-                onGroupCreate: { contacts in
+                onGroupCreate: { name, contacts in
                     showGroup = false
-                    viewModel.createGroup(name: "New Group", contactIds: contacts.map(\.id)) { chat in
+                    viewModel.createGroup(name: name, contactIds: contacts.map(\.id)) { chat in
                         onChatSelected(chat)
                     }
                 }

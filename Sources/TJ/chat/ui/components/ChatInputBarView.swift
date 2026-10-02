@@ -90,6 +90,12 @@ public struct ChatInputBarView: View {
 
                     TextField(placeholder, text: $text)
                         .textFieldStyle(PlainTextFieldStyle())
+                        .submitLabel(enterIsSend ? .send : .return)
+                        .onSubmit {
+                            guard enterIsSend else { return }
+                            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmed.isEmpty { onSend() }
+                        }
 
                     Button(action: onAttachClick) {
                         Image(systemName: "paperclip")

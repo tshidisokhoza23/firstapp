@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - Search Result Models
-
 public enum SearchCategory: String, CaseIterable, Identifiable {
     case all = "All"
     case contacts = "Contacts"
@@ -28,66 +26,42 @@ public struct SearchResultItem: Identifiable, Hashable {
     public let subtitle: String
     public let category: SearchCategory
     public let timestampOrBadge: String?
+    public let kind: String
 
-    public init(id: String, title: String, subtitle: String, category: SearchCategory, timestampOrBadge: String? = nil) {
+    public init(id: String, title: String, subtitle: String, category: SearchCategory, timestampOrBadge: String? = nil, kind: String = "chat") {
         self.id = id
         self.title = title
         self.subtitle = subtitle
         self.category = category
         self.timestampOrBadge = timestampOrBadge
+        self.kind = kind
     }
 }
 
-// MARK: - SearchView
-
 public struct SearchView: View {
     @EnvironmentObject private var router: NavigationRouter
-    @State private var searchQuery: String = ""
+    @State private var searchQuery = ""
     @State private var selectedCategory: SearchCategory = .all
-    @State private var recentSearches: [String] = ["SwiftUI Navigation 3", "Kotlin Multiplatform", "Senior Android Developer", "TJ Announcements"]
-    @State private var selectedResult: SearchResultItem? = nil
-
-    private let sampleResults: [SearchResultItem] = [
-        SearchResultItem(id: "r1", title: "Alex Morgan", subtitle: "Senior iOS Engineer • @alexmorgan", category: .contacts, timestampOrBadge: "Online"),
-        SearchResultItem(id: "r2", title: "Sarah Connor", subtitle: "Product Manager • @sconnor", category: .contacts, timestampOrBadge: "Away"),
-        SearchResultItem(id: "r3", title: "Build deployed to production", subtitle: "Dev Team Lead: Hey everyone, version 2.4 is live now!", category: .messages, timestampOrBadge: "10:42 AM"),
-        SearchResultItem(id: "r4", title: "SwiftUI Architecture Discussion", subtitle: "Alex Morgan: Have you tested Navigation 3 scenes yet?", category: .messages, timestampOrBadge: "Yesterday"),
-        SearchResultItem(id: "r5", title: "iOS & Swift Developers World", subtitle: "12,400 Members • Public Channel", category: .channels, timestampOrBadge: "Official"),
-        SearchResultItem(id: "r6", title: "Kotlin & Android Tech Hub", subtitle: "8,900 Members • Tech Community", category: .channels, timestampOrBadge: "Community"),
-        SearchResultItem(id: "r7", title: "Senior Android Engineer (Jetpack Compose)", subtitle: "TJ Technologies • Remote • $140k - $180k", category: .jobs, timestampOrBadge: "Full-Time"),
-        SearchResultItem(id: "r8", title: "Lead iOS Architect (SwiftUI & SPM)", subtitle: "Global Tech Inc • Hybrid San Francisco", category: .jobs, timestampOrBadge: "Featured")
-    ]
+    @State private var recentSearches: [String] = UserDefaults.standard.stringArray(forKey: "tj_recent_searches") ?? []
+    @State private var liveResults: [SearchResultItem] = []
+    @State private var selectedResult: SearchResultItem?
+    @State private var status = ""
 
     public init() {}
-
-    private var filteredResults: [SearchResultItem] {
-        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return []
-        }
-        return sampleResults.filter { item in
-            let matchesCategory = (selectedCategory == .all || item.category == selectedCategory)
-            let matchesQuery = item.title.localizedCaseInsensitiveContains(searchQuery) ||
-                               item.subtitle.localizedCaseInsensitiveContains(searchQuery)
-            return matchesCategory && matchesQuery
-        }
-    }
 
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Search Input Bar
                 HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-
+                    Image(systemName: "magnifyingglass").foregroundColor(.secondary)
                     TextField("Search contacts, messages, channels & jobs...", text: $searchQuery)
                         .textFieldStyle(.plain)
                         .autocapitalization(.none)
-
+                        .submitLabel(.search)
+                        .onSubmit { Task { await runSearch() } }
                     if !searchQuery.isEmpty {
-                        Button(action: { searchQuery = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
+                        Button { searchQuery = ""; liveResults = [] } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
                         }
                     }
                 }
@@ -97,17 +71,16 @@ public struct SearchView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
-                // Category Filter Tabs
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(SearchCategory.allCases) { cat in
-                            Button(action: { selectedCategory = cat }) {
+                            Button {
+                                selectedCategory = cat
+                                Task { await runSearch() }
+                            } label: {
                                 HStack(spacing: 6) {
-                                    Image(systemName: cat.iconName)
-                                        .font(.caption)
-                                    Text(cat.rawValue)
-                                        .font(.footnote)
-                                        .fontWeight(selectedCategory == cat ? .bold : .medium)
+                                    Image(systemName: cat.iconName).font(.caption)
+                                    Text(cat.rawValue).font(.footnote).fontWeight(selectedCategory == cat ? .bold : .medium)
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -120,45 +93,22 @@ public struct SearchView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 10)
                 }
-
                 Divider()
 
-                // Search Body
-                if searchQuery.isEmpty {
-                    recentSearchesSection
-                } else if filteredResults.isEmpty {
+                if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    recentSection
+                } else if liveResults.isEmpty {
                     Spacer()
-                    VStack(spacing: 12) {
-                        Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 56))
-                            .foregroundColor(.secondary)
-                        Text("No matching results")
-                            .font(.title3.bold())
-                        Text("Try checking your spelling or searching for a different keyword.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
-                    }
+                    Text(status.isEmpty ? "No matching results" : status)
+                        .foregroundColor(.secondary)
                     Spacer()
                 } else {
-                    List {
-                        ForEach(SearchCategory.allCases.filter { $0 != .all }) { cat in
-                            let catResults = filteredResults.filter { $0.category == cat }
-                            if !catResults.isEmpty {
-                                Section(header:
-                                    HStack {
-                                        Label(cat.rawValue, systemImage: cat.iconName)
-                                            .font(.caption.bold())
-                                        Spacer()
-                                        Text("\(catResults.count)")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                ) {
-                                    ForEach(catResults) { item in
-                                        resultRowView(item)
-                                    }
+                    List(liveResults) { item in
+                        Button { selectedResult = item } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.title).foregroundColor(.primary)
+                                if !item.subtitle.isEmpty {
+                                    Text(item.subtitle).font(.caption).foregroundColor(.secondary)
                                 }
                             }
                         }
@@ -168,177 +118,90 @@ public struct SearchView: View {
             }
             .navigationTitle("Global Search")
             .sheet(item: $selectedResult) { item in
-                resultDetailModal(item)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(item.title).font(.title3.bold())
+                    if !item.subtitle.isEmpty { Text(item.subtitle).foregroundColor(.secondary) }
+                    if item.kind == "profile" || item.kind == "chat" {
+                        Button(item.kind == "profile" ? "Open profile" : "Open chat") {
+                            selectedResult = nil
+                            open(item)
+                        }
+                    }
+                    Button("Close") { selectedResult = nil }
+                }
+                .padding()
+                .presentationDetents([.medium])
             }
         }
     }
 
-    // MARK: - Subviews
-
-    private var recentSearchesSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var recentSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("RECENT SEARCHES")
-                    .font(.caption.bold())
-                    .foregroundColor(.secondary)
-
+                Text("RECENT SEARCHES").font(.caption.bold()).foregroundColor(.secondary)
                 Spacer()
-
                 if !recentSearches.isEmpty {
                     Button("Clear All") {
-                        recentSearches.removeAll()
+                        recentSearches = []
+                        UserDefaults.standard.removeObject(forKey: "tj_recent_searches")
                     }
                     .font(.caption.bold())
                     .foregroundColor(.red)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top, 16)
-
             if recentSearches.isEmpty {
-                Text("No recent searches")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal)
+                Text("No recent searches").foregroundColor(.secondary)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(recentSearches, id: \.self) { search in
-                            HStack(spacing: 6) {
-                                Text(search)
-                                    .font(.subheadline)
-
-                                Button(action: {
-                                    recentSearches.removeAll { $0 == search }
-                                }) {
-                                    Image(systemName: "xmark")
-                                        .font(.caption2)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(16)
-                            .onTapGesture {
-                                searchQuery = search
-                            }
-                        }
+                ForEach(recentSearches, id: \.self) { term in
+                    Button(term) {
+                        searchQuery = term
+                        Task { await runSearch() }
                     }
-                    .padding(.horizontal)
+                    .foregroundColor(.primary)
                 }
             }
-
             Spacer()
         }
+        .padding()
     }
 
-    private func resultRowView(_ item: SearchResultItem) -> some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(categoryColor(item.category).opacity(0.15))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Image(systemName: item.category.iconName)
-                        .font(.system(size: 18))
-                        .foregroundColor(categoryColor(item.category))
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.subheadline.bold())
-                    .lineLimit(1)
-
-                Text(item.subtitle)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            if let badge = item.timestampOrBadge {
-                Text(badge)
-                    .font(.caption2.bold())
-                    .foregroundColor(categoryColor(item.category))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(categoryColor(item.category).opacity(0.12))
-                    .cornerRadius(8)
-            }
-        }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            selectedResult = item
-            if !recentSearches.contains(item.title) {
-                recentSearches.insert(item.title, at: 0)
-            }
-        }
-    }
-
-    private func resultDetailModal(_ item: SearchResultItem) -> some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Circle()
-                    .fill(categoryColor(item.category).opacity(0.15))
-                    .frame(width: 80, height: 80)
-                    .overlay(
-                        Image(systemName: item.category.iconName)
-                            .font(.system(size: 36))
-                            .foregroundColor(categoryColor(item.category))
-                    )
-
-                Text(item.title)
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
-
-                Text(item.subtitle)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-
-                Button("Open \(item.category.rawValue)") {
-                    selectedResult = nil
-                    openResult(item)
-                }
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(categoryColor(item.category))
-                .cornerRadius(12)
-                .padding(.horizontal)
-
-                Spacer()
-            }
-            .padding(.top, 24)
-            .navigationBarItems(trailing: Button("Close") { selectedResult = nil })
-        }
-        .presentationDetents([.height(340)])
-    }
-
-    private func openResult(_ item: SearchResultItem) {
-        switch item.category {
-        case .contacts:
+    private func open(_ item: SearchResultItem) {
+        switch item.kind {
+        case "profile":
             router.navigate(to: .profile(userId: item.id))
-        case .messages, .channels, .jobs, .all:
+        case "chat":
             router.navigate(to: .chatDetail(conversationId: item.id, participantName: item.title))
+        default:
+            break
         }
     }
 
-    private func categoryColor(_ category: SearchCategory) -> Color {
-        switch category {
-        case .all: return .blue
-        case .contacts: return .purple
-        case .messages: return .green
-        case .channels: return .orange
-        case .jobs: return .indigo
+    private func runSearch() async {
+        let text = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            liveResults = []
+            status = ""
+            return
+        }
+        var saved = recentSearches.filter { $0 != text }
+        saved.insert(text, at: 0)
+        recentSearches = Array(saved.prefix(8))
+        UserDefaults.standard.set(recentSearches, forKey: "tj_recent_searches")
+        guard let data = try? await API.data("search", query: ["query": text, "type": searchType]) else {
+            liveResults = []
+            status = "Search failed"
+            return
+        }
+        liveResults = LiveSearchView.parse(data, category: selectedCategory)
+        status = liveResults.isEmpty ? "No matching results" : ""
+    }
+
+    private var searchType: String {
+        switch selectedCategory {
+        case .all: return "global"
+        case .contacts, .messages: return "chats"
+        case .channels: return "channels"
+        case .jobs: return "jobs"
         }
     }
-}
-
-#Preview {
-    SearchView()
 }

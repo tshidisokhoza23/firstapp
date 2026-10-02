@@ -307,6 +307,9 @@ public struct MingleView: View {
             )
             .presentationDetents([.large])
         }
+        .onReceive(NotificationCenter.default.publisher(for: TJEvents.openMingle)) { _ in
+            showSecretChats = true
+        }
         .sheet(isPresented: $showSecretChats) {
             MingleInboxSheet { conversationId, name in
                 showSecretChats = false

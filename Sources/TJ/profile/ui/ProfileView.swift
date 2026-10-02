@@ -10,6 +10,8 @@ public struct ProfileView: View {
     @State private var loadedUser: User? = nil
     @State private var tabPosts: [FeedPost] = []
     @State private var selectedPost: FeedPost?
+    @State private var followList: String?
+    @State private var showSearch = false
 
     private var resolvedUserId: String {
         if userId != "me" && userId != "currentUser" && !userId.isEmpty { return userId }
@@ -43,7 +45,7 @@ public struct ProfileView: View {
                     Spacer()
 
                     HStack(spacing: 20) {
-                        Button(action: {}) {
+                        Button(action: { showSearch = true }) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(.primary)
@@ -80,11 +82,25 @@ public struct ProfileView: View {
 
                         // Stats Row matching Screenshot 6 (7 Followers • 2 Following • 0 Views)
                         HStack(spacing: 6) {
-                            Text("\(loadedUser?.followersCount ?? 0)").fontWeight(.bold)
-                            Text("Followers").foregroundColor(.secondary)
+                            Button {
+                                followList = "Followers"
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text("\(loadedUser?.followersCount ?? 0)").fontWeight(.bold)
+                                    Text("Followers")
+                                }
+                            }
+                            .foregroundColor(.primary)
                             Text("•").foregroundColor(.secondary)
-                            Text("\(loadedUser?.followingCount ?? 0)").fontWeight(.bold)
-                            Text("Following").foregroundColor(.secondary)
+                            Button {
+                                followList = "Following"
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text("\(loadedUser?.followingCount ?? 0)").fontWeight(.bold)
+                                    Text("Following")
+                                }
+                            }
+                            .foregroundColor(.primary)
                             Text("•").foregroundColor(.secondary)
                             Text("0").fontWeight(.bold)
                             Text("Views").foregroundColor(.secondary)
@@ -250,7 +266,27 @@ public struct ProfileView: View {
                                     let authorId = post.displayPost.authorId
                                     if !authorId.isEmpty { router.navigate(to: .profile(userId: authorId)) }
                                 },
-                                onReply: { selectedPost = post },
+        .sheet(isPresented: Binding(get: { followList != nil }, set: { if !$0 { followList = nil } })) {
+            if let title = followList {
+                FollowListView(userId: resolvedUserId, title: title) { id in
+                    followList = nil
+                    router.navigate(to: .profile(userId: id))
+                }
+            }
+        }
+        .sheet(isPresented: $showSearch) {
+            LiveSearchView(
+                onOpenProfile: { id in
+                    showSearch = false
+                    router.navigate(to: .profile(userId: id))
+                },
+                onOpenChat: { id, name in
+                    showSearch = false
+                    router.navigate(to: .chatDetail(conversationId: id, participantName: name))
+                }
+            )
+        }
+        .sheet(i                onReply: { selectedPost = post },
                                 onRepost: { Task { await MediaActions.repost(post.id); await loadTabPosts() } },
                                 onLike: { Task { await MediaActions.like(post.id); await loadTabPosts() } },
                                 onSave: { Task { await MediaActions.bookmark(post.id); await loadTabPosts() } },

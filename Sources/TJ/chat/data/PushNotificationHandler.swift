@@ -72,11 +72,16 @@ public final class PushNotificationHandler: NSObject, UNUserNotificationCenterDe
         let userInfo = notification.request.content.userInfo
         let type = userInfo["type"] as? String ?? ""
 
+        if !shouldPresent(userInfo) {
+            completionHandler([])
+            return
+        }
         if type == "call_invite" {
-            // Handled via CallKit
             completionHandler([.banner, .sound, .list])
-        } else {
+        } else if AlertPrefs.on(AlertPrefs.sounds) {
             completionHandler([.banner, .sound, .badge, .list])
+        } else {
+            completionHandler([.banner, .badge, .list])
         }
     }
 
@@ -149,15 +154,17 @@ public final class PushNotificationHandler: NSObject, UNUserNotificationCenterDe
     // MARK: - Private Builders
 
     private func showLocalMessageNotification(userInfo: [AnyHashable: Any]) {
-        let senderName = userInfo["sender_name"] as? String ?? "New Message"
-        let body = userInfo["body"] as? String ?? ""
-        let conversationId = userInfo["conversation_id"] as? String ?? userInfo["contact_id"] as? String ?? "0"
         let chatType = userInfo["chat_type"] as? String ?? "direct"
+        guard AlertPrefs.allowsChat(type: chatType) else { return }
+        let senderName = userInfo["sender_name"] as? String ?? "New Message"
+        let rawBody = userInfo["body"] as? String ?? ""
+        let body = AlertPrefs.on(AlertPrefs.previews) ? rawBody : "New message"
+        let conversationId = userInfo["conversation_id"] as? String ?? userInfo["contact_id"] as? String ?? "0"
 
         let content = UNMutableNotificationContent()
         content.title = senderName
         content.body = body
-        content.sound = .default
+        content.sound = AlertPrefs.on(AlertPrefs.sounds) ? .default : nil
         content.threadIdentifier = "\(chatType):\(conversationId)"
         content.categoryIdentifier = PushNotificationHandler.categoryNewMessage
         content.userInfo = userInfo
@@ -241,6 +248,16 @@ public final class PushNotificationHandler: NSObject, UNUserNotificationCenterDe
             trigger: nil
         )
         UNUserNotificationCenter.current().add(request)
+    }
+
+    private func shouldPresent(_ userInfo: [AnyHashable: Any]) -> Bool {
+        let type = userInfo["type"] as? String ?? ""
+        switch type {
+        case "new_message", "new_chat":
+            return AlertPrefs.allowsChat(type: userInfo["chat_type"] as? String ?? "direct")
+        default:
+            return true
+        }
     }
 
     private func handleNotificationTap(userInfo: [AnyHashable: Any]) {

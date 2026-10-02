@@ -61,6 +61,7 @@ public struct MainTabView: View {
     @State private var showDirectMessages: Bool = false
     @State private var showNewChat: Bool = false
     @State private var showArchived: Bool = false
+    @State private var openedPost: FeedPost?
 
     public init(router: NavigationRouter, initialTab: String? = nil, initialSubTab: String? = nil) {
         self.router = router
@@ -177,9 +178,9 @@ public struct MainTabView: View {
                     showNewChat = false
                     router.navigate(to: .chatDetail(conversationId: contact.id, participantName: contact.displayName))
                 },
-                onGroupCreate: { contacts in
+                onGroupCreate: { name, contacts in
                     showNewChat = false
-                    chatViewModel.createGroup(name: "New Group", contactIds: contacts.map(\.id)) { chat in
+                    chatViewModel.createGroup(name: name, contactIds: contacts.map(\.id)) { chat in
                         router.navigate(to: .chatDetail(conversationId: chat.id, participantName: chat.senderName))
                     }
                 }
@@ -220,6 +221,33 @@ public struct MainTabView: View {
             )
             .presentationDetents([.height(340)])
         }
+        .onReceive(NotificationCenter.default.publisher(for: TJEvents.openChat)) { note in
+            let id = note.userInfo?["id"] as? String ?? ""
+            guard !id.isEmpty else { return }
+            selectedIndex = BottomNavItem.chat.rawValue
+            router.navigate(to: .chatDetail(conversationId: id, participantName: nil))
+        }
+        .onReceive(NotificationCenter.default.publisher(for: TJEvents.openPost)) { note in
+            selectedIndex = BottomNavItem.social.rawValue
+            let id = note.userInfo?["id"] as? String ?? ""
+            let actor = note.userInfo?["actor"] as? String ?? ""
+            if !id.isEmpty {
+                Task { await openPost(id, actorId: actor) }
+            } else if !actor.isEmpty {
+                router.navigate(to: .profile(userId: actor))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: TJEvents.openMingle)) { _ in
+            selectedIndex = BottomNavItem.mingle.rawValue
+        }
+        .fullScreenCover(isPresented: Binding(get: { openedPost != nil }, set: { if !$0 { openedPost = nil } })) {
+            if let post = openedPost {
+                PostDetailView(post: post, onProfileClick: { id in
+                    openedPost = nil
+                    router.navigate(to: .profile(userId: id))
+                }, onClose: { openedPost = nil })
+            }
+        }
         .sheet(item: $activeSheetRoute) { route in
             switch route {
             case .stream:
@@ -237,6 +265,20 @@ public struct MainTabView: View {
             case .settings:
                 SettingsView(router: router)
             }
+        }
+    }
+
+    private func openPost(_ id: String, actorId: String) async {
+        guard let data = try? await API.data("posts/\(id)"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            if !actorId.isEmpty { router.navigate(to: .profile(userId: actorId)) }
+            return
+        }
+        let payload = (json["post"] as? [String: Any]) ?? json
+        if let post = LiveJSON.post(payload) {
+            openedPost = post
+        } else if !actorId.isEmpty {
+            router.navigate(to: .profile(userId: actorId))
         }
     }
 }

@@ -85,14 +85,8 @@ public struct ChatView: View {
             Task { await sendPicked(item) }
         }
         .sheet(item: $infoMessage) { message in
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Message info").font(.headline)
-                Text(message.content).font(.body)
-                Text(message.isFromMe ? "Sent by you" : "Received").font(.caption).foregroundColor(.secondary)
-                Button("Close") { infoMessage = nil }
-            }
-            .padding()
-            .presentationDetents([.medium])
+            MessageReadersView(messageId: message.id, sentByMe: message.isFromMe)
+                .presentationDetents([.medium])
         }
         .alert("Chat", isPresented: Binding(get: { !note.isEmpty }, set: { if !$0 { note = "" } })) {
             Button("OK", role: .cancel) { note = "" }
@@ -220,6 +214,7 @@ public struct ChatView: View {
             recordingDuration: voice.duration,
             isReviewingVoiceNote: voice.isReviewing,
             isPlayingReview: voice.isPlayingReview,
+            enterIsSend: viewModel.enterIsSend,
             onSend: { sendCurrentText() },
             onAttachClick: { showAttach = true },
             onEmojiClick: { showEmoji.toggle() },

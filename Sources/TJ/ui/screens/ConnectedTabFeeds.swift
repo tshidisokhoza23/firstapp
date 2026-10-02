@@ -784,22 +784,40 @@ struct ShortsFeedView: View {
     @State private var status = "Loading shorts..."
     @State private var selectedShort: FeedPost?
     @State private var page = 0
+    @State private var showCreateShort = false
+    @State private var showShortSearch = false
 
     var body: some View {
         Group {
             if shorts.isEmpty {
-                VStack(spacing: 8) {
-                    ProgressView()
+                VStack(spacing: 12) {
+                    if status == "Loading shorts..." { ProgressView() }
                     Text(status).font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center)
+                    if status == "No shorts yet" {
+                        Button("Create Short") { showCreateShort = true }
+                            .font(.headline)
+                    }
                 }
                 .padding()
             } else {
                 GeometryReader { geo in
                 VerticalShortsPlayer(posts: shorts, page: $page)
                     .frame(width: geo.size.width, height: geo.size.height)
+                    .overlay(alignment: .topLeading) {
+                        Button { showCreateShort = true } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Color.black.opacity(0.35))
+                                .clipShape(Circle())
+                        }
+                        .padding(.top, 48)
+                        .padding(.leading, 16)
+                    }
                     .overlay(alignment: .topTrailing) {
                         if shorts.indices.contains(page) {
-                            Button { selectedShort = shorts[page] } label: {
+                            Button { showShortSearch = true } label: {
                                 Image(systemName: "magnifyingglass")
                                     .font(.system(size: 20, weight: .bold))
                                     .foregroundColor(.white)
@@ -834,6 +852,24 @@ struct ShortsFeedView: View {
             if let post = selectedShort {
                 PostDetailView(post: post, onProfileClick: onProfileClick, onClose: { selectedShort = nil })
             }
+        }
+        .sheet(isPresented: $showCreateShort) {
+            CreateShortSheet {
+                showCreateShort = false
+                Task { await load() }
+            }
+        }
+        .sheet(isPresented: $showShortSearch) {
+            LiveSearchView(
+                onOpenProfile: { id in
+                    showShortSearch = false
+                    onProfileClick(id)
+                },
+                onOpenChat: { id, _ in
+                    showShortSearch = false
+                    NotificationCenter.default.post(name: TJEvents.openChat, object: nil, userInfo: ["id": id])
+                }
+            )
         }
         .task { await load() }
         .refreshable { await load() }

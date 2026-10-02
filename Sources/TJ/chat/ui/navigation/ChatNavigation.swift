@@ -97,9 +97,10 @@ public struct ChatNavigationView: View {
                             navigationPath.append(ChatRoute.chatDetail(chat: chat))
                         },
                         onInviteClicked: {},
-                        onGroupCreate: { contacts in
-                            let groupChat = ChatMessage(id: UUID().uuidString, senderName: "New Group", isGroup: true)
-                            navigationPath.append(ChatRoute.chatDetail(chat: groupChat))
+                        onGroupCreate: { name, contacts in
+                            chatViewModel.createGroup(name: name, contactIds: contacts.map(\.id)) { chat in
+                                navigationPath.append(ChatRoute.chatDetail(chat: chat))
+                            }
                         }
                     )
                     .navigationBarHidden(true)

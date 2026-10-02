@@ -6,7 +6,7 @@ public struct ContactPickerView: View {
     public var onBack: () -> Void = {}
     public var onContactSelected: (Contact) -> Void = { _ in }
     public var onInviteClicked: () -> Void = {}
-    public var onGroupCreate: ([Contact]) -> Void = { _ in }
+    public var onGroupCreate: (String, [Contact]) -> Void = { _, _ in }
 
     @State private var isGroupMode: Bool = false
     @State private var searchQuery: String = ""
@@ -15,6 +15,7 @@ public struct ContactPickerView: View {
     @State private var showNewContact = false
     @State private var newContactName = ""
     @State private var newContactPhone = ""
+    @State private var groupName = ""
 
     @MainActor public init(
         viewModel: ContactPickerViewModel? = nil,
@@ -22,7 +23,7 @@ public struct ContactPickerView: View {
         onBack: @escaping () -> Void = {},
         onContactSelected: @escaping (Contact) -> Void = { _ in },
         onInviteClicked: @escaping () -> Void = {},
-        onGroupCreate: @escaping ([Contact]) -> Void = { _ in }
+        onGroupCreate: @escaping (String, [Contact]) -> Void = { _, _ in }
     ) {
         self._viewModel = StateObject(wrappedValue: viewModel ?? ContactPickerViewModel())
         self.initialIsGroupMode = initialIsGroupMode
@@ -87,7 +88,14 @@ public struct ContactPickerView: View {
             .padding(.vertical, 12)
 
             Divider()
+if isGroupMode {
+                TextField("Group name", text: $groupName)
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+            }
 
+            
             List {
                 if !isGroupMode {
                     Button(action: { isGroupMode = true }) {
@@ -176,14 +184,16 @@ public struct ContactPickerView: View {
 
             if isGroupMode && !selectedContacts.isEmpty {
                 Button(action: {
-                    onGroupCreate(Array(selectedContacts))
+                    let name = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !name.isEmpty else { return }
+                    onGroupCreate(name, Array(selectedContacts))
                 }) {
-                    Text("Create Group (\(selectedContacts.count))")
+                    Text(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Enter a group name" : "Create Group (\(selectedContacts.count))")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(Color.accentColor)
+                        .background(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.accentColor)
                         .cornerRadius(12)
                         .padding()
                 }

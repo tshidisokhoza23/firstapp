@@ -101,6 +101,19 @@ public struct MainRootView: View {
                 guard !userId.isEmpty else { return }
                 storyLaunch = StoryLaunch(userId: userId, storyId: storyId)
             }
+            PushNotificationHandler.shared.onOpenChat = { conversationId, _ in
+                guard !conversationId.isEmpty, conversationId != "0" else { return }
+                NotificationCenter.default.post(name: TJEvents.openChat, object: nil, userInfo: ["id": conversationId])
+            }
+            PushNotificationHandler.shared.onOpenSocial = { postId, actorId in
+                NotificationCenter.default.post(name: TJEvents.openPost, object: nil, userInfo: [
+                    "id": postId ?? "",
+                    "actor": actorId ?? ""
+                ])
+            }
+            PushNotificationHandler.shared.onOpenMingle = { _, _ in
+                NotificationCenter.default.post(name: TJEvents.openMingle, object: nil)
+            }
             CallActionHandler.shared.onCallAccepted = { sessionId, senderId, callType in
                 if GlobalCallState.shared.incomingCall == nil {
                     GlobalCallState.shared.incomingCall = IncomingCallInfo(id: sessionId, senderId: senderId, callerName: "", callType: callType)

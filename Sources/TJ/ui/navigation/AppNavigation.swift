@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - App Routes
 
@@ -185,12 +186,36 @@ struct EditProfilePlaceholderView: View {
     @State private var bio = SessionStore.shared.user?.bio ?? ""
     @State private var location = SessionStore.shared.user?.location ?? ""
     @State private var status = ""
+    @State private var photoItem: PhotosPickerItem?
+    @State private var avatarURL = SessionStore.shared.user?.avatarUrl
 
     var body: some View {
         Form {
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                HStack {
+                    Text("Profile photo")
+                    Spacer()
+                    if let url = FeedPost.resolve(avatarURL) {
+                        AsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Circle().fill(Color.gray.opacity(0.3))
+                        }
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                    }
+                }
+            }
+            .onChange(of: photoItem) { item in
+                guard let item else { return }
+                Task { await uploadPhoto(item) }
+            }
             TextField("Display name", text: $name)
             TextField("Bio", text: $bio)
             TextField("Location", text: $location)
+            Text("Phone number changes are not available yet. Your login number stays the same.")
+                .font(.caption)
+                .foregroundColor(.secondary)
             Button("Save") {
                 Task {
                     do {
@@ -215,6 +240,27 @@ struct EditProfilePlaceholderView: View {
         }
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func uploadPhoto(_ item: PhotosPickerItem) async {
+        guard let raw = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: raw),
+              let jpeg = image.jpegData(compressionQuality: 0.85) else {
+            status = "Could not read that photo"
+            return
+        }
+        do {
+            let url = try await AvatarUpload.putJPEG(jpeg)
+            if !url.isEmpty { avatarURL = url }
+            if let data = try? await API.data("users/me"),
+               let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: data) {
+                SessionStore.shared.updateUser(envelope.user)
+                avatarURL = envelope.user.avatarUrl ?? avatarURL
+            }
+            status = "Photo updated"
+        } catch {
+            status = "Could not update photo"
+        }
     }
 }
 
@@ -244,12 +290,12 @@ struct SettingsSubDetailView: View {
                     }
                 }
             case "Alerts", "Notifications & Sound":
-                Toggle("Notifications", isOn: $notificationsOn)
-                    .onChange(of: notificationsOn) { value in
-                        UserDefaults.standard.set(value, forKey: "tj_notifications_on")
-                        note = value ? "Notifications on" : "Notifications off"
-                    }
-            case "Storage", "Storage & Data", "Chats", "Chats & Media", "Data & Cache":
+                AlertSettingsForm()
+            case "Chats", "Chats & Media":
+                ChatSettingsForm()
+            case "Language":
+                LanguageSettingsForm()
+            case "Storage", "Storage & Data", "Data & Cache":
                 Button("Clear cached media") {
                     URLCache.shared.removeAllCachedResponses()
                     note = "Cache cleared"
@@ -262,6 +308,9 @@ struct SettingsSubDetailView: View {
             case "Account", "Account Settings":
                 if let name = SessionStore.shared.user?.displayName, !name.isEmpty { Text(name) }
                 if let phone = SessionStore.shared.user?.phoneNumber, !phone.isEmpty { Text(phone) }
+                Text("Phone number changes are not available yet. Your login number stays the same.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 Button("Log out") { Task { await SessionActions.logout() } }
             case "Help Center", "Help & Support", "Terms & EULA":
                 if let privacy = URL(string: "https://firstappserver.fly.dev/privacy") {

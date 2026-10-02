@@ -100,6 +100,8 @@ public class ChatViewModel: ObservableObject {
     private var groupNameCache: [String: String] = [:]
 
     public init() {
+        fontSize = ChatPrefs.fontSize()
+        enterIsSend = ChatPrefs.enterIsSend()
         fetchCurrentUser()
         fetchChats()
         refreshBlockedUsers()
@@ -111,6 +113,14 @@ public class ChatViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.fetchChats()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: TJEvents.clearLocalChats)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.uiState.chats = .success([])
+                self?.uiState.messages = .success([])
             }
             .store(in: &cancellables)
 
@@ -421,12 +431,16 @@ public class ChatViewModel: ObservableObject {
     }
 
     public func createGroup(name: String, contactIds: [String], onSuccess: @escaping (ChatMessage) -> Void) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
         Task {
-            if let data = try? await API.data("chats/group", method: "POST", json: ["name": name, "member_ids": contactIds]),
-               let chat = try? JSONDecoder().decode(ChatMessage.self, from: data) {
-                onSuccess(chat)
-                fetchChats()
-            }
+            guard let data = try? await API.data("chats/group", method: "POST", json: ["name": trimmed, "member_ids": contactIds]),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+            let id = LiveJSON.string(json["conversation_id"]).nilIfEmpty ?? LiveJSON.string(json["id"])
+            guard !id.isEmpty else { return }
+            let title = LiveJSON.string(json["title"]).nilIfEmpty ?? trimmed
+            onSuccess(ChatMessage(id: id, type: .group, senderName: title, isGroup: true))
+            fetchChats()
         }
     }
 
