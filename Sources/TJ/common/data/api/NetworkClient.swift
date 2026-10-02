@@ -94,10 +94,8 @@ public final class GoogleSignInService {
         }
         let presenter = Self.topViewController(from: rootVC)
 
-        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
-            clientID: AppBackend.googleiOSClientID,
-            serverClientID: AppBackend.googleWebClientID
-        )
+        let clientID = AppBackend.googleiOSClientID
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID, serverClientID: AppBackend.googleWebClientID)
 
         let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
         guard let idToken = result.user.idToken?.tokenString else {
