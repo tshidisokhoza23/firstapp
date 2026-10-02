@@ -13,7 +13,8 @@ struct PostDetailView: View {
     var onProfileClick: (String) -> Void
     var onClose: () -> Void
 
-    @State private var replies: [PostReplyItem] = []
+    @State private var replies: [FeedPost] = []
+    @State private var videoURL: URL?
     @State private var draft = ""
     @State private var liked: Bool
     @State private var likes: Int
@@ -76,9 +77,9 @@ struct PostDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3)))
                     }
-                    if let url = post.displayPost.playbackURL ?? post.displayPost.mediaURL {
+                    if let url = videoURL ?? post.displayPost.playbackURL ?? post.displayPost.mediaURL {
                         if post.displayPost.playsAsVideo || isVideo(url) {
-                            VideoPlayer(player: AVPlayer(url: url))
+                            VideoPlayer(player: AVPlayer(url: videoURL ?? url))
                                 .frame(height: 280)
                         } else {
                             AsyncImage(url: url) { image in
@@ -118,23 +119,22 @@ struct PostDetailView: View {
                             .foregroundColor(.secondary)
                     } else {
                         ForEach(replies) { reply in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Button(reply.author) {
+                            FeedPostCard(
+                                post: reply,
+                                onOpen: {},
+                                onProfile: {
                                     if !reply.authorId.isEmpty { onProfileClick(reply.authorId) }
-                                }
-                                .buttonStyle(.plain)
-                                .font(.subheadline.weight(.bold))
-                                Text(reply.text).font(.body)
-                                HStack(spacing: 16) {
-                                    Button("Like") { Task { await MediaActions.likeReply(reply.id) } }
-                                    Button("Repost") { Task { await MediaActions.repostReply(reply.id) } }
-                                    Button("Save") { Task { await MediaActions.bookmarkReply(reply.id) } }
-                                }
-                                .font(.caption.weight(.bold))
-                                .buttonStyle(.borderless)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 6)
+                                },
+                                onReply: { draft = reply.authorHandle.isEmpty ? "" : "@\(reply.authorHandle) " },
+                                onRepost: { Task { await MediaActions.repostReply(reply.id) } },
+                                onLike: { Task { await MediaActions.likeReply(reply.id) } },
+                                onSave: { Task { await MediaActions.bookmarkReply(reply.id) } },
+                                onShare: {
+                                    MediaActions.shareSheet(reply)
+                                    Task { await MediaActions.share(reply.id) }
+                                },
+                                onMore: { Task { await MediaActions.report(reply.id, reason: "report") } }
+                            )
                         }
                     }
                     HStack {
@@ -198,6 +198,9 @@ struct PostDetailView: View {
         }
         .task {
             await MediaActions.view(post.id)
+            if let remote = post.displayPost.playbackURL ?? post.displayPost.mediaURL {
+                videoURL = await AuthenticatedMedia.localFile(for: remote) ?? remote
+            }
             await loadReplies()
         }
     }
@@ -230,19 +233,15 @@ struct PostDetailView: View {
             return
         }
         let rows = LiveJSON.list(data, keys: ["replies", "items", "data"])
-        let parsed = rows.compactMap { row -> PostReplyItem? in
-            let nested = (row["reply"] as? [String: Any]) ?? (row["post"] as? [String: Any]) ?? row
-            let id = LiveJSON.string(nested["id"]).isEmpty ? LiveJSON.string(nested["reply_id"]) : LiveJSON.string(nested["id"])
-            let text = LiveJSON.string(nested["reply_text"]).isEmpty ? LiveJSON.string(nested["content"]) : LiveJSON.string(nested["reply_text"])
-            guard !id.isEmpty || !text.isEmpty else { return nil }
-            let author = nested["author"] as? [String: Any]
-            let name = LiveJSON.string(nested["author_name"]).isEmpty ? LiveJSON.string(author?["display_name"]) : LiveJSON.string(nested["author_name"])
-            return PostReplyItem(
-                id: id.isEmpty ? UUID().uuidString : id,
-                authorId: LiveJSON.string(nested["author_id"]).isEmpty ? LiveJSON.string(author?["id"]) : LiveJSON.string(nested["author_id"]),
-                author: name,
-                text: text
-            )
+        let parsed = rows.compactMap { row -> FeedPost? in
+            var nested = (row["reply"] as? [String: Any]) ?? (row["post"] as? [String: Any]) ?? row
+            if LiveJSON.string(nested["id"]).isEmpty {
+                nested["id"] = LiveJSON.string(nested["reply_id"])
+            }
+            if LiveJSON.string(nested["content"]).isEmpty {
+                nested["content"] = LiveJSON.string(nested["reply_text"])
+            }
+            return LiveJSON.post(nested)
         }
         replies = parsed
         status = parsed.isEmpty ? "No replies yet" : ""

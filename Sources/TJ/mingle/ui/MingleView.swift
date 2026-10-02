@@ -133,6 +133,11 @@ public struct MingleView: View {
     @State private var myName: String = ""
     @State private var myAge: String = ""
     @State private var myBio: String = ""
+    @State private var myGender: String = ""
+    @State private var myLookingFor: String = "everyone"
+    @State private var myPhotos: [String] = []
+    @State private var feedOffset = 0
+    @State private var previewProfile: MingleProfile?
     @State private var photoItems: [PhotosPickerItem] = []
 
     private var onMatchClick: ((String, String) -> Void)?
@@ -263,7 +268,8 @@ public struct MingleView: View {
                         onLike: { Task { await swipe(candidate, action: "like") } },
                         onChat: {
                             introTarget = candidate
-                        }
+                        },
+                        onPreview: { previewProfile = candidate }
                     )
                 }
             }
@@ -287,6 +293,10 @@ public struct MingleView: View {
                 myName: $myName,
                 myAge: $myAge,
                 myBio: $myBio,
+                myGender: $myGender,
+                myLookingFor: $myLookingFor,
+                photos: $myPhotos,
+                onPhoto: { data in Task { await uploadPhoto(data) } },
                 onSave: {
                     showProfileSheet = false
                     Task { await saveMe() }
@@ -302,6 +312,9 @@ public struct MingleView: View {
         }
         .sheet(isPresented: $showNotifications) {
             CourtListSheet(title: "Activity", path: "mingle/activity")
+        }
+        .sheet(item: $previewProfile) { profile in
+            MinglePreviewSheet(profile: profile)
         }
         .sheet(item: $introTarget) { target in
             VStack(spacing: 16) {
@@ -342,19 +355,20 @@ public struct MingleView: View {
         }
     }
 
-    private func loadFeed() async {
+    private func loadFeed(reset: Bool = true) async {
         await SessionActions.syncContacts()
+        if reset { feedOffset = 0 }
         do {
             guard let loc = await CourtLocation.shared.current() else {
                 feedNote = "Location is required to load Court"
-                profiles = []
+                if reset { profiles = [] }
                 return
             }
             let lat = loc.coordinate.latitude
             let lng = loc.coordinate.longitude
             guard lat != 0 || lng != 0 else {
                 feedNote = "Location is required to load Court"
-                profiles = []
+                if reset { profiles = [] }
                 return
             }
             _ = try? await API.data("mingle/location", method: "POST", json: [
@@ -367,7 +381,7 @@ public struct MingleView: View {
                 "lng": "\(lng)",
                 "radius_km": "\(Int(selectedRadiusKm))",
                 "limit": "20",
-                "offset": "0"
+                "offset": "\(feedOffset)"
             ])
             struct Feed: Decodable {
                 struct Photo: Decodable { let url: String? }
@@ -419,7 +433,13 @@ public struct MingleView: View {
                     photos: photos
                 ))
             }
-            profiles = resultProfiles
+            if feedOffset == 0 {
+                profiles = resultProfiles
+            } else {
+                let known = Set(profiles.map(\.id))
+                profiles.append(contentsOf: resultProfiles.filter { !known.contains($0.id) })
+            }
+            feedOffset += resultProfiles.count
             if profiles.isEmpty {
                 feedNote = Self.courtStatus(feed.status)
             }
@@ -429,9 +449,31 @@ public struct MingleView: View {
     }
 
     private func saveMe() async {
-        var body: [String: Any] = ["name": myName, "bio": myBio]
+        var body: [String: Any] = ["name": myName, "bio": myBio, "looking_for": myLookingFor]
         if let age = Int(myAge), age > 0 { body["age"] = age }
+        if !myGender.isEmpty { body["gender"] = myGender }
         _ = try? await API.data("mingle/me", method: "PUT", json: body)
+    }
+
+    private func uploadPhoto(_ data: Data) async {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"photo.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
+        body.append(data)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        guard var req = API.request("mingle/photos", method: "POST", body: body) else { return }
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        do {
+            let (responseData, response) = try await URLSession.shared.data(for: req)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200...299).contains(code) else {
+                feedNote = String(data: responseData, encoding: .utf8) ?? "Photo upload failed"
+                return
+            }
+            await loadMe()
+        } catch {
+            feedNote = "Photo upload failed"
+        }
     }
 
     private func loadMe() async {
@@ -442,6 +484,11 @@ public struct MingleView: View {
         if let bio = profile["bio"] as? String { myBio = bio }
         if let age = profile["age"] as? Int, age > 0 { myAge = "\(age)" }
         else if let age = profile["age"] as? Double, age > 0 { myAge = "\(Int(age))" }
+        if let gender = profile["gender"] as? String { myGender = gender }
+        if let looking = profile["looking_for"] as? String, !looking.isEmpty { myLookingFor = looking }
+        if let photos = profile["photos"] as? [[String: Any]] {
+            myPhotos = photos.compactMap { $0["url"] as? String }.filter { !$0.isEmpty }
+        }
     }
 
     private func swipe(_ profile: MingleProfile, action: String) async {
@@ -461,6 +508,9 @@ public struct MingleView: View {
             else if let free = json["free_likes_remaining"] as? Double { freeLikesRemaining = Int(free) }
             lastSwiped = profile
             profiles.removeAll { $0.id == profile.id }
+            if profiles.count < 3 {
+                await loadFeed(reset: false)
+            }
             if json["matched"] as? Bool == true, let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
                 onMatchClick?(conversationId, profile.name)
             }
@@ -521,22 +571,29 @@ public struct CandidateCardView: View {
     public var onPass: () -> Void
     public var onLike: () -> Void
     public var onChat: () -> Void
+    public var onPreview: () -> Void = {}
 
     public var body: some View {
         ZStack(alignment: .bottom) {
-            // Main Photo
             ZStack {
                 LinearGradient(colors: profile.avatarGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
-                if let url = FeedPost.resolve(profile.photos.first) {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.clear
-                    }
-                } else {
+                if profile.photos.isEmpty {
                     Image(systemName: "person.fill")
                         .font(.system(size: 100))
                         .foregroundColor(.white.opacity(0.3))
+                } else {
+                    TabView {
+                        ForEach(profile.photos, id: \.self) { photo in
+                            if let url = FeedPost.resolve(photo) {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    Color.clear
+                                }
+                            }
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .automatic))
                 }
             }
             .ignoresSafeArea()
@@ -552,9 +609,10 @@ public struct CandidateCardView: View {
             // Details & Action Bar Overlay
             VStack(alignment: .leading, spacing: 12) {
                 // Name & Age
-                Text("\(profile.name), \(profile.age)")
+                Text(profile.age > 0 ? "\(profile.name), \(profile.age)" : profile.name)
                     .font(.system(size: 28, weight: .black))
                     .foregroundColor(.white)
+                    .onTapGesture(perform: onPreview)
 
                 // Distance
                 HStack(spacing: 4) {
@@ -670,7 +728,12 @@ public struct MingleProfileEditSheetView: View {
     @Binding public var myName: String
     @Binding public var myAge: String
     @Binding public var myBio: String
+    @Binding public var myGender: String
+    @Binding public var myLookingFor: String
+    @Binding public var photos: [String]
+    public var onPhoto: (Data) -> Void
     public var onSave: () -> Void
+    @State private var picked: PhotosPickerItem?
 
     public var body: some View {
         NavigationStack {
@@ -679,6 +742,50 @@ public struct MingleProfileEditSheetView: View {
                     Text("My Mingle Profile")
                         .font(.system(size: 20, weight: .bold))
                         .padding(.top, 16)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(photos, id: \.self) { photo in
+                                if let url = FeedPost.resolve(photo) {
+                                    AsyncImage(url: url) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Color.gray.opacity(0.2)
+                                    }
+                                    .frame(width: 88, height: 110)
+                                    .clipped()
+                                    .cornerRadius(12)
+                                }
+                            }
+                        }
+                    }
+                    PhotosPicker(selection: $picked, matching: .images) {
+                        Text(photos.count >= 5 ? "5 photos is the maximum" : "Add photo")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .disabled(photos.count >= 5)
+                    .onChange(of: picked) { item in
+                        guard let item else { return }
+                        Task {
+                            if let data = try? await item.loadTransferable(type: Data.self) {
+                                onPhoto(data)
+                            }
+                            picked = nil
+                        }
+                    }
+
+                    Picker("Gender", selection: $myGender) {
+                        Text("Not set").tag("")
+                        Text("Male").tag("male")
+                        Text("Female").tag("female")
+                        Text("Non-binary").tag("nonbinary")
+                    }
+                    Picker("Looking for", selection: $myLookingFor) {
+                        Text("Everyone").tag("everyone")
+                        Text("Male").tag("male")
+                        Text("Female").tag("female")
+                        Text("Non-binary").tag("nonbinary")
+                    }
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Display Name")
@@ -715,6 +822,45 @@ public struct MingleProfileEditSheetView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 24)
+            }
+        }
+    }
+}
+
+struct MinglePreviewSheet: View {
+    let profile: MingleProfile
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    TabView {
+                        ForEach(profile.photos, id: \.self) { photo in
+                            if let url = FeedPost.resolve(photo) {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFit()
+                                } placeholder: {
+                                    ProgressView()
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 360)
+                    Text(profile.age > 0 ? "\(profile.name), \(profile.age)" : profile.name)
+                        .font(.title2.bold())
+                    if !profile.bio.isEmpty {
+                        Text(profile.bio)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
             }
         }
     }

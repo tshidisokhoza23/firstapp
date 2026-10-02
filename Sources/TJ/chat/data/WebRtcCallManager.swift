@@ -3,6 +3,11 @@ import AVFoundation
 import WebRTC
 
 /// Real WebRTC peer connection. Signaling matches Android: sdp_offer, sdp_answer, ice_candidate.
+final class CallMediaState: ObservableObject {
+    static let shared = CallMediaState()
+    @Published var remoteVideo: RTCVideoTrack?
+}
+
 public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unchecked Sendable {
     // MARK: - Properties & Callbacks
 
@@ -25,6 +30,10 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     private var isRemoteDescriptionSet = false
 
     public static let shared = WebRtcCallManager()
+    private static let fallbackIce = [
+        RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]),
+        RTCIceServer(urlStrings: ["turn:openrelay.metered.ca:80", "turn:openrelay.metered.ca:443", "turn:openrelay.metered.ca:443?transport=tcp"], username: "openrelayproject", credential: "openrelayproject")
+    ]
 
     public override init() {
         super.init()
@@ -45,9 +54,7 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
             guard !urls.isEmpty else { return nil }
             return RTCIceServer(urlStrings: urls, username: row["username"] as? String, credential: row["credential"] as? String)
         }
-        iceServers = parsed.isEmpty
-            ? [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"])]
-            : parsed
+        iceServers = parsed.isEmpty ? Self.fallbackIce : parsed
     }
 
     // MARK: - Camera & Preview Methods
@@ -198,6 +205,7 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
 
     public func end() {
         stopLocalPreview()
+        DispatchQueue.main.async { CallMediaState.shared.remoteVideo = nil }
         peerConnection?.close()
         peerConnection = nil
         isRemoteDescriptionSet = false
@@ -222,8 +230,15 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
-        stream.audioTracks.forEach { $0.isEnabled = true }
+        attachRemote(audio: stream.audioTracks, video: stream.videoTracks)
     }
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream]) {
+        let audio = ([rtpReceiver.track].compactMap { $0 as? RTCAudioTrack }) + streams.flatMap(\.audioTracks)
+        let video = ([rtpReceiver.track].compactMap { $0 as? RTCVideoTrack }) + streams.flatMap(\.videoTracks)
+        attachRemote(audio: audio, video: video)
+    }attachReceivers(peerConnection)
+            if callType == .video { setSpeakerEnabled(true) }
+            
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
@@ -242,6 +257,18 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {}
 
+    private func attachRemote(audio: [RTCAudioTrack], video: [RTCVideoTrack]) {
+        audio.forEach { $0.isEnabled = true }
+        guard let track = video.first else { return }
+        DispatchQueue.main.async { CallMediaState.shared.remoteVideo = track }
+    }
+
+    private func attachReceivers(_ connection: RTCPeerConnection) {
+        let audio = connection.transceivers.compactMap { $0.receiver.track as? RTCAudioTrack }
+        let video = connection.transceivers.compactMap { $0.receiver.track as? RTCVideoTrack }
+        attachRemote(audio: audio, video: video)
+    }
+
     private func ensurePeer() {
         if factory == nil {
             RTCInitializeSSL()
@@ -252,6 +279,11 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
         let config = RTCConfiguration()
         config.iceServers = iceServers
         config.sdpSemantics = .unifiedPlan
+        config.bundlePolicy = .maxBundle
+        config.rtcpMuxPolicy = .require
+        config.continualGatheringPolicy = .gatherContinually
+        config.iceCandidatePoolSize = 2
+        config.iceTransportPolicy = .all
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
         let connection = factory.peerConnection(with: config, constraints: constraints, delegate: self)
         let audioSource = factory.audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))

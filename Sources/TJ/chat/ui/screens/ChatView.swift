@@ -5,7 +5,7 @@ import AVFoundation
 public struct ChatView: View {
     public let chat: ChatMessage
     @StateObject public var viewModel: ChatViewModel
-    @Environment(\.openURL) private var openURL
+    @State private var openedMedia: String?
 
     public var onBack: () -> Void = {}
     public var onShowProfile: (String, Bool) -> Void = { _, _ in }
@@ -97,6 +97,11 @@ public struct ChatView: View {
         } message: {
             Text(note)
         }
+        .fullScreenCover(isPresented: Binding(get: { openedMedia != nil }, set: { if !$0 { openedMedia = nil } })) {
+            if let openedMedia {
+                InAppMediaView(urlString: openedMedia, onClose: { self.openedMedia = nil })
+            }
+        }
     }
 
     private var chatHeader: some View {
@@ -156,8 +161,7 @@ public struct ChatView: View {
                                     if inputText.isEmpty { inputText = "" }
                                 },
                                 onMediaClick: { url, _ in
-                                    let resolved = FeedPost.resolve(url) ?? URL(string: url)
-                                    if let resolved { openURL(resolved) }
+                                    openedMedia = url
                                 },
                                 onLongClick: {
                                     if selectedMessageIds.contains(message.id) {

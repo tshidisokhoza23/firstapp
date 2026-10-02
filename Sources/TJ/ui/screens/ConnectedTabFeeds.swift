@@ -182,7 +182,7 @@ public struct FeedPost: Identifiable, Codable, Sendable {
     var playbackURL: URL? {
         let preferred = mediaURLs.first { raw in
             let lower = raw.lowercased()
-            return !lower.contains("thumb") && (lower.contains(".mp4") || lower.contains(".m3u8") || lower.contains(".mov") || lower.contains("video") || lower.contains("/shorts/"))
+            return !lower.contains("thumb") && (lower.contains(".mp4") || lower.contains(".m3u8") || lower.contains(".mov") || lower.contains(".m4v") || lower.contains(".webm") || lower.contains(".tmp") || lower.contains("video") || lower.contains("/shorts/"))
         } ?? mediaURLs.first { !$0.lowercased().contains("thumb") } ?? mediaURLs.first
         return Self.resolve(preferred)
     }
@@ -305,7 +305,8 @@ enum MediaActions {
     static func userPosts(userId: String, type: String) async -> [FeedPost] {
         guard !userId.isEmpty, userId != "me", userId != "currentUser" else { return [] }
         guard let data = try? await API.data("posts", query: ["user_id": userId, "type": type, "page": "1"]) else { return [] }
-        return FeedPost.decodeList(data)
+        let parsed = LiveJSON.posts(from: data)
+        return parsed.isEmpty ? FeedPost.decodeList(data) : parsed
     }
 
     static func upload(data: Data, filename: String, mime: String, folder: String) async throws -> String {
@@ -668,7 +669,7 @@ struct FeedPostCard: View {
                     PostPill(text: "Reply \(post.repliesCount)", action: onReply)
                     PostPill(text: "Repost \(post.repostCount)", selected: post.isReposted, tint: Color(red: 0, green: 0.73, blue: 0.49), action: onRepost)
                     PostPill(text: "Like \(post.likes)", selected: post.isLiked, tint: Color(red: 0.976, green: 0.094, blue: 0.502), action: onLike)
-                    PostPill(text: "Views \(post.views)", action: onOpen)
+                    PostPill(text: "Views \(post.views)", action: {})
                     PostPill(text: post.isBookmarked ? "Saved \(post.quoteCount)" : "Save \(post.quoteCount)", selected: post.isBookmarked, tint: Color(red: 0.114, green: 0.608, blue: 0.941), action: onSave)
                     PostPill(text: "Share \(post.shares)", action: onShare)
                 }
@@ -689,12 +690,13 @@ private struct PostPill: View {
         Button(action: action) {
             Text(text)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundColor(selected ? tint : .primary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .foregroundColor(select4)
+                .frame(minHeight: 36)
                 .background(Color(UIColor.secondarySystemBackground))
                 .clipShape(Capsule())
         }
+        .buttonStyle(.borderless)
+        .frame(minHeight: 44
         .buttonStyle(.borderless)
     }
 }
@@ -755,7 +757,9 @@ struct ShortsFeedView: View {
                 }
                 .padding()
             } else {
+                GeometryReader { geo in
                 VerticalShortsPlayer(posts: shorts, page: $page)
+                    .frame(width: geo.size.width, height: geo.size.height)
                     .overlay(alignment: .topTrailing) {
                         if shorts.indices.contains(page) {
                             Button { selectedShort = shorts[page] } label: {
@@ -785,6 +789,7 @@ struct ShortsFeedView: View {
                             )
                         }
                     }
+                }
                 .ignoresSafeArea()
             }
         }
@@ -1245,16 +1250,46 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
             player.pause()
         }
         let player = players[index]
-        if player.currentItem == nil, let url = posts[index].playbackURL ?? posts[index].mediaURL {
-            let item = AVPlayerItem(url: url)
-            player.replaceCurrentItem(with: item)
-            let token = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in
-                player.seek(to: .zero)
-                player.play()
-            }
-            loopObservers.append(token)
-            Task { await MediaActions.view(posts[index].id) }
+        guard let remote = posts[index].playbackURL ?? posts[index].mediaURL else {
+            showNote(index, "This short has no video")
+            return
         }
-        player.play()
+        let postId = posts[index].id
+        Task {
+            let playable = await AuthenticatedMedia.localFile(for: remote) ?? remote
+            await MainActor.run {
+                guard players.indices.contains(index) else { return }
+                let item = AVPlayerItem(url: playable)
+                player.replaceCurrentItem(with: item)
+                let end = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in
+                    player.seek(to: .zero)
+                    player.play()
+                }
+                let failed = NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main) { note in
+                    let message = (note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription ?? "Video could not play"
+                    self.showNote(index, message)
+                }
+                loopObservers.append(end)
+                loopObservers.append(failed)
+                player.play()
+                if controllers.indices.contains(index) {
+                    controllers[index].player = player
+                }
+            }
+            await MediaActions.view(postId)
+        }
+    }
+
+    private func showNote(_ index: Int, _ text: String) {
+        guard hosts.indices.contains(index) else { return }
+        let host = hosts[index]
+        let label = (host.viewWithTag(7) as? UILabel) ?? UILabel()
+        label.tag = 7
+        label.text = text
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 3
+        label.frame = host.bounds
+        if label.superview == nil { host.addSubview(label) }
     }
 }
