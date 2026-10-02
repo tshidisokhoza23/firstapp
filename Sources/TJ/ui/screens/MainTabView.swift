@@ -216,6 +216,10 @@ public struct MainTabView: View {
                         router.navigate(to: .profile(userId: "me"))
                     case .settings:
                         router.navigate(to: .settings)
+                    case .files:
+                        router.navigate(to: .files)
+                    case .calendar:
+                        router.navigate(to: .calendar)
                     }
                 }
             )
@@ -264,6 +268,10 @@ public struct MainTabView: View {
                 ProfileView(userId: "me", router: router)
             case .settings:
                 SettingsView(router: router)
+            case .files:
+                SharedFilesView()
+            case .calendar:
+                MonthCalendarView()
             }
         }
     }
@@ -337,7 +345,7 @@ public struct CustomMainBottomBar: View {
 // MARK: - More Shortcuts Sheet View matching Screenshot 4
 
 public enum MoreShortcutRoute: String, Identifiable {
-    case stream, ride, jobs, vocab, wallet, profile, settings
+    case stream, ride, jobs, vocab, wallet, profile, settings, files, calendar
     public var id: String { rawValue }
 }
 
@@ -352,6 +360,8 @@ public struct MoreShortcutsSheetView: View {
 
     private let shortcuts: [(route: MoreShortcutRoute, title: String, icon: String, color: Color, isEnabled: Bool)] = [
         (.wallet, "Wallet", "creditcard.fill", Color(red: 1.0, green: 0.8, blue: 0.4), true),
+        (.files, "Files", "folder.fill", Color.yellow, true),
+        (.calendar, "Calendar", "calendar", Color.pink, true),
         (.vocab, "Vocab (Soon)", "book.fill", Color.gray.opacity(0.3), false),
         (.stream, "Stream (Soon)", "music.note", Color.gray.opacity(0.3), false),
         (.ride, "Ride (Soon)", "car.fill", Color.gray.opacity(0.3), false)

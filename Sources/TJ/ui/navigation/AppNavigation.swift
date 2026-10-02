@@ -70,10 +70,10 @@ public struct AppNavigation: View {
                         WalletView()
 
                     case .files:
-                        GenericPlaceholderScreen(title: "Files Manager")
+                        SharedFilesView()
 
                     case .calendar:
-                        GenericPlaceholderScreen(title: "Calendar")
+                        MonthCalendarView()
                     }
                 }
         }

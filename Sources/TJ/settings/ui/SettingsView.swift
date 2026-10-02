@@ -17,14 +17,19 @@ public struct SettingsView: View {
             VStack(spacing: 20) {
                 // User Profile Header Card
                 HStack(spacing: 16) {
-                    Circle()
-                        .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 64, height: 64)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.title)
-                                .foregroundColor(.white)
-                        )
+                    AsyncImage(url: FeedPost.resolve(SessionStore.shared.user?.avatarUrl)) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Circle()
+                            .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .font(.title)
+                                    .foregroundColor(.white)
+                            )
+                    }
+                    .frame(width: 64, height: 64)
+                    .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(SessionStore.shared.user?.displayName.isEmpty == false ? SessionStore.shared.user!.displayName : "Your account")
@@ -142,7 +147,9 @@ public struct SettingsView: View {
                             title: "Terms & EULA",
                             color: .indigo
                         ) {
-                            localPage = .help
+                            if let url = URL(string: "https://firstappserver.fly.dev/privacy") {
+                                UIApplication.shared.open(url)
+                            }
                         }
                     }
                     .padding(.horizontal, 16)

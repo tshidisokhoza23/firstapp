@@ -366,6 +366,7 @@ struct SocialFeedView: View {
     @State private var showSavedPosts = false
     @State private var showSocialNotes = false
     @State private var showSocialSettings = false
+    @State private var showSocialSearch = false
 
     private let categories = [
         ("all", "All"), ("tech", "Technology"), ("music", "Music"), ("gaming", "Gaming"),
@@ -388,7 +389,7 @@ struct SocialFeedView: View {
 
                 Spacer()
 
-                Button(action: {}) {
+                Button(action: { showSocialSearch = true }) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.primary)
@@ -481,19 +482,31 @@ struct SocialFeedView: View {
             .presentationDetents([.medium])
         }
         .sheet(isPresented: $showCreatePost) {
-            CreatePostSheet { text in
+            CreatePostSheet { text, media in
                 showCreatePost = false
                 Task {
-                    try? await MediaActions.create(content: text)
+                    try? await MediaActions.create(content: text, mediaURLs: media)
                     await load()
                 }
             }
         }
         .sheet(isPresented: $showSavedPosts) {
-            SavedPostsSheet(onProfile: onProfileClick)
+            SavedPostsSheet { post in
+                showSavedPosts = false
+                selectedPost = post
+            }
         }
         .sheet(isPresented: $showSocialNotes) {
-            SocialNotesSheet()
+            SocialNotesSheet { item in
+                showSocialNotes = false
+                Task { await openNotification(item) }
+            }
+        }
+        .sheet(isPresented: $showSocialSearch) {
+            SocialPostSearch { post in
+                showSocialSearch = false
+                selectedPost = post
+            }
         }
         .sheet(isPresented: $showSocialSettings) {
             SettingsView(router: NavigationRouter())
@@ -579,6 +592,19 @@ struct SocialFeedView: View {
         } catch {
             status = error.localizedDescription
         }
+    }
+
+    private func openNotification(_ item: SocialNoteItem) async {
+        _ = try? await API.data("social/notifications/\(item.id)/read", method: "POST")
+        if item.action == "FOLLOW", !item.actorId.isEmpty {
+            onProfileClick(item.actorId)
+            return
+        }
+        guard !item.postId.isEmpty,
+              let data = try? await API.data("posts/\(item.postId)"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let post = LiveJSON.post(json["post"] as? [String: Any] ?? json) else { return }
+        selectedPost = post
     }
 
     private func load() async {
@@ -1235,65 +1261,77 @@ private struct SocialMenuSheet: View {
 }
 
 private struct CreatePostSheet: View {
-    var onPost: (String) -> Void
+    var onPost: (String, [String]) -> Void
     @State private var text = ""
+    @State private var photo: PhotosPickerItem?
+    @State private var media: [String] = []
+    @State private var note = ""
 
     var body: some View {
         NavigationStack {
-            TextField("What's happening?", text: $text, axis: .vertical)
-                .padding()
-                .navigationTitle("Create Post")
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Post") { onPost(text) }
-                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
+            VStack(alignment: .leading) {
+                TextField("What's happening?", text: $text, axis: .vertical)
+                    .padding()
+                PhotosPicker(selection: $photo, matching: .images) {
+                    Label(media.isEmpty ? "Add photo" : "Photo added", systemImage: "photo")
+                        .padding(.horizontal)
                 }
+                if !note.isEmpty {
+                    Text(note).font(.caption).foregroundColor(.secondary).padding(.horizontal)
+                }
+                Spacer()
+            }
+            .navigationTitle("Create Post")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Post") { onPost(text, media) }
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && media.isEmpty)
+                }
+            }
+            .onChange(of: photo) { item in
+                guard let item else { return }
+                Task { await upload(item) }
+            }
+        }
+    }
+
+    private func upload(_ item: PhotosPickerItem) async {
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.85) else {
+                note = "Could not read that photo"
+                return
+            }
+            let url = try await MediaActions.upload(data: jpeg, filename: "post.jpg", mime: "image/jpeg", folder: "posts")
+            if !url.isEmpty { media = [url] }
+            note = ""
+        } catch {
+            note = "Could not upload that photo"
         }
     }
 }
-
-private struct SavedPostsSheet: View {
-    var onProfile: (String) -> Void
-    @State private var posts: [FeedPost] = []
-    @State private var note = "Loading..."
-
-    var body: some View {
-        NavigationStack {
-            List(posts) { post in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(post.authorName).font(.headline)
-                    Text(post.content).lineLimit(3)
-                }
-                .onTapGesture { onProfile(post.authorId) }
-            }
-            .overlay { if posts.isEmpty { Text(note).foregroundColor(.secondary) } }
-            .navigationTitle("Saved Posts")
-            .task { await load() }
-        }
-    }
-
-    private func load() async {
-        do {
-            let data = try await API.data("media/feed", query: ["category_id": "saved"])
-            posts = LiveJSON.posts(from: data)
-            note = posts.isEmpty ? "No saved posts" : ""
-        } catch {
-            note = "Could not load saved posts"
-        }
-    }
+struct SocialNoteItem: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let actorId: String
+    let postId: String
+    let action: String
 }
 
 private struct SocialNotesSheet: View {
-    @State private var rows: [(id: String, title: String, subtitle: String)] = []
+    var onOpen: (SocialNoteItem) -> Void
+    @State private var rows: [SocialNoteItem] = []
     @State private var note = "Loading..."
 
     var body: some View {
         NavigationStack {
-            List(rows, id: \.id) { row in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.title).font(.headline)
-                    if !row.subtitle.isEmpty { Text(row.subtitle).font(.caption).foregroundColor(.secondary) }
+            List(rows) { row in
+                Button { onOpen(row) } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(row.title).font(.headline).foregroundColor(.primary)
+                        if !row.subtitle.isEmpty { Text(row.subtitle).font(.caption).foregroundColor(.secondary) }
+                    }
                 }
             }
             .overlay { if rows.isEmpty { Text(note).foregroundColor(.secondary) } }
@@ -1305,15 +1343,23 @@ private struct SocialNotesSheet: View {
     private func load() async {
         do {
             let data = try await API.data("social/notifications")
-            let parsed = (try? JSONSerialization.jsonObject(with: data)) 
-            let items = (parsed as? [[String: Any]]) ?? ((parsed as? [String: Any])?["items"] as? [[String: Any]]) ?? []
-            rows = items.map { item in
-                let id = item["id"] as? String ?? UUID().uuidString
-                let name = item["actor_name"] as? String ?? ""
-                let action = item["action_text"] as? String ?? ""
-                return (id, name.isEmpty ? action : name, name.isEmpty ? "" : action)
+            rows = LiveJSON.list(data, keys: ["items", "notifications"]).compactMap { item in
+                let id = LiveJSON.string(item["id"])
+                guard !id.isEmpty else { return nil }
+                let rawName = LiveJSON.string(item["actor_name"])
+                let name = (rawName == "User" || rawName == "Someone") ? "" : rawName
+                let action = LiveJSON.string(item["action_text"])
+                let snippet = LiveJSON.string(item["post_snippet"])
+                return SocialNoteItem(
+                    id: id,
+                    title: name.isEmpty ? action : name,
+                    subtitle: name.isEmpty ? snippet : action,
+                    actorId: LiveJSON.string(item["actor_id"]),
+                    postId: LiveJSON.string(item["target_post_id"]),
+                    action: LiveJSON.string(item["action_type"])
+                )
             }
-            note = rows.isEmpty ? "No notifications" : ""
+            note = rows.isEmpty ? "No social notifications yet" : ""
         } catch {
             note = "Could not load notifications"
         }

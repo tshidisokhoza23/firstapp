@@ -22,9 +22,9 @@ public struct ActiveSession: Identifiable {
 
 public struct AccountView: View {
     // State Variables
-    @State private var email: String = "user@example.com"
+    @State private var email: String = SessionStore.shared.user?.email ?? ""
     @State private var isEmailVerified: Bool = false
-    @State private var phoneNumber: String = "+1 (555) 019-2834"
+    @State private var phoneNumber: String = SessionStore.shared.user?.phoneNumber ?? ""
     @State private var isTwoFactorEnabled: Bool = true
 
     // Sheet States

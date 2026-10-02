@@ -27,6 +27,7 @@ public struct ChannelDetailView: View {
     @State private var postText = ""
     @State private var selectedReportReason = "Spam or misleading"
     @State private var pollVotes: [String: Int] = [:]
+    @State private var hideMutePrompt = false
 
     private let reportReasons = [
         "Spam or misleading",
@@ -174,7 +175,7 @@ public struct ChannelDetailView: View {
                     }
                 }
 
-                Button(action: { }) {
+                ShareLink(item: "Check out \(channel.name) channel on FirstApp!") {
                     Image(systemName: "link")
                         .font(.system(size: 18))
                         .foregroundColor(.primary)
@@ -377,7 +378,7 @@ public struct ChannelDetailView: View {
                 }
                 .padding(16)
                 .background(Color(uiColor: .systemBackground))
-            } else if channel.isMuted {
+            } else if channel.isMuted && !hideMutePrompt {
                 // State 2: Muted Follower Banner (Screenshot 2)
                 VStack(spacing: 12) {
                     Text("Unmute to get notifications for this channel.")
@@ -385,7 +386,7 @@ public struct ChannelDetailView: View {
                         .foregroundColor(.primary)
 
                     HStack(spacing: 12) {
-                        Button(action: { }) {
+                        Button(action: { hideMutePrompt = true }) {
                             Text("Not now")
                                 .font(.system(size: 15, weight: .medium))
                                 .frame(maxWidth: .infinity)

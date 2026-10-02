@@ -28,6 +28,8 @@ public struct ChatView: View {
     @State private var showCamera = false
     @State private var note = ""
     @State private var storyLaunch: StoryLaunch?
+    @State private var showGroupInfo = false
+    @StateObject private var voicePlayback = VoicePlayback()
 
     @MainActor public init(
         chat: ChatMessage,
@@ -101,6 +103,12 @@ public struct ChatView: View {
         .fullScreenCover(item: $storyLaunch) { launch in
             StoryRowPlayer(startUserId: launch.userId, startStoryId: launch.storyId, onClose: { storyLaunch = nil })
         }
+        .sheet(isPresented: $showGroupInfo) {
+            LiveGroupInfoView(conversationId: chat.id, title: sanitizedName) { id in
+                showGroupInfo = false
+                onAvatarClick(id)
+            }
+        }
     }
 
     private var chatHeader: some View {
@@ -118,8 +126,20 @@ public struct ChatView: View {
                 chatSearchQuery = ""
                 isSearchMode = false
             },
-            onShowProfile: onShowProfile,
-            onAvatarClick: onAvatarClick,
+            onShowProfile: { id, isGroup in
+                if chat.isGroup || chat.type == .group {
+                    showGroupInfo = true
+                } else {
+                    onShowProfile(id, isGroup)
+                }
+            },
+            onAvatarClick: { id in
+                if chat.isGroup || chat.type == .group {
+                    showGroupInfo = true
+                } else {
+                    onAvatarClick(id)
+                }
+            },
             onInitiateCall: { receiverId, name, callType in
                 viewModel.startVoiceOrVideoCall(receiverId: receiverId, callType: callType, name: name)
             },
@@ -139,9 +159,14 @@ public struct ChatView: View {
             onForwardSelectedMessages: { forwardSelected() },
             onClearSelectedMessages: { selectedMessageIds.removeAll() }
         )
-    }
-
-    private var messageList: some View {
+    }oicePlayback.playing,
+                                onPlayAudio: { uri in
+                                    if let uri {
+                                        voicePlayback.toggle(uri)
+                                    } else {
+                                        voicePlayback.stop()
+                                    }
+                                    viewModel.setPlayingAudio(voicePlayback.playing
         ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 4) {

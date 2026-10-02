@@ -12,6 +12,8 @@ public struct ProfileView: View {
     @State private var selectedPost: FeedPost?
     @State private var followList: String?
     @State private var showSearch = false
+    @State private var showAlerts = false
+    @State private var showSettings = false
 
     private var resolvedUserId: String {
         if userId != "me" && userId != "currentUser" && !userId.isEmpty { return userId }
@@ -51,13 +53,13 @@ public struct ProfileView: View {
                                 .foregroundColor(.primary)
                         }
 
-                        Button(action: {}) {
+                        Button(action: { showAlerts = true }) {
                             Image(systemName: "bell")
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(.primary)
                         }
 
-                        Button(action: {}) {
+                        Button(action: { showSettings = true }) {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(.primary)
@@ -298,6 +300,12 @@ public struct ProfileView: View {
                     router.navigate(to: .profile(userId: id))
                 }
             }
+        }
+        .sheet(isPresented: $showAlerts) {
+            NavigationStack { AlertSettingsForm() }
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack { SettingsView(router: router) }
         }
         .sheet(isPresented: $showSearch) {
             LiveSearchView(

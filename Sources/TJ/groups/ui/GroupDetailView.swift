@@ -39,8 +39,8 @@ public struct GroupMemberItem: Identifiable {
 // MARK: - GroupDetailView
 
 public struct GroupDetailView: View {
-    @State private var groupName: String = "TJ Core Mobile Engineers"
-    @State private var groupDescription: String = "Official discussion channel for TJ Android & iOS app architecture and releases."
+    @State private var groupName: String = ""
+    @State private var groupDescription: String = ""
     @State private var isMuted: Bool = false
     @State private var onlyAdminsCanSend: Bool = false
     @State private var onlyAdminsCanEditInfo: Bool = true
@@ -52,13 +52,7 @@ public struct GroupDetailView: View {
     @State private var alertToastMessage: String? = nil
     @State private var showAlertToast: Bool = false
 
-    @State private var members: [GroupMemberItem] = [
-        GroupMemberItem(id: "m1", name: "Alex Morgan", handle: "@alexmorgan", role: .owner, isOnline: true),
-        GroupMemberItem(id: "m2", name: "Sarah Connor", handle: "@sconnor", role: .admin, isOnline: true),
-        GroupMemberItem(id: "m3", name: "David Kim", handle: "@dkim", role: .moderator, isOnline: false),
-        GroupMemberItem(id: "m4", name: "Elena Rostova", handle: "@elena_r", role: .member, isOnline: true),
-        GroupMemberItem(id: "m5", name: "Marcus Vance", handle: "@vance_m", role: .member, isOnline: false)
-    ]
+    @State private var members: [GroupMemberItem] = []
 
     public init() {}
 
