@@ -684,10 +684,13 @@ public final class CallSocketBridge: NSObject, CallSocketListener, CallKitServic
             ignoringCallKitEnd = false
             return
         }
-        if session.isAnswered || GlobalCallState.shared.isCallActive {
-            endActive(reason: "user_ended")
-        } else {
-            declineIncoming()
+        DispatchQueue.main.async {
+            let active = GlobalCallState.shared.isCallActive
+            if session.isAnswered || active {
+                self.endActive(reason: "user_ended")
+            } else {
+                self.declineIncoming()
+            }
         }
     }
 
@@ -706,7 +709,9 @@ enum CallBackgroundKeepAlive {
         taskId = UIApplication.shared.beginBackgroundTask(withName: "tj.call") {
             end()
         }
-        AppRuntime.connectRealtime()
+        DispatchQueue.main.async {
+            AppRuntime.connectRealtime()
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 25) {
             end()
         }
