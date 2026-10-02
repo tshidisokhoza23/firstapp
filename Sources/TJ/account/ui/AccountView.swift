@@ -379,6 +379,53 @@ public struct AccountView: View {
         }
     }
 
+    private func e164Phone(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("+") { return trimmed }
+        var national = trimmed
+        if national.hasPrefix("0") { national.removeFirst() }
+        return "+27" + national
+    }
+
+    private func submitPhoneChange() async {
+        let phone = e164Phone(newPhoneNumber)
+        guard phone.count > 3 else { return }
+        do {
+            if !isOtpSent {
+                _ = try await API.data("auth/request-otp", method: "POST", json: [
+                    "phone_number": phone,
+                    "country_code": "27"
+                ])
+                isOtpSent = true
+                alertMessage = "Verification code sent."
+                showAlert = true
+                return
+            }
+            guard !phoneOtpCode.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            _ = try await API.data("auth/verify-otp", method: "POST", json: [
+                "phone_number": phone,
+                "country_code": "27",
+                "code": phoneOtpCode.trimmingCharacters(in: .whitespaces)
+            ])
+            _ = try await API.data("users/complete-profile", method: "POST", json: [
+                "phone_number": phone
+            ])
+            if let data = try? await API.data("users/me"),
+               let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: data) {
+                SessionStore.shared.updateUser(envelope.user)
+                phoneNumber = envelope.user.phoneNumber.isEmpty ? phone : envelope.user.phoneNumber
+            } else {
+                phoneNumber = phone
+            }
+            showChangePhoneSheet = false
+            alertMessage = "Phone number updated."
+            showAlert = true
+        } catch {
+            alertMessage = error.localizedDescription
+            showAlert = true
+        }
+    }
+
     // MARK: - Change Phone Sheet
 
     private var changePhoneSheetView: some View {
@@ -412,18 +459,7 @@ public struct AccountView: View {
                 .padding(.horizontal)
 
                 Button(action: {
-                    if !isOtpSent {
-                        if !newPhoneNumber.isEmpty {
-                            isOtpSent = true
-                        }
-                    } else {
-                        if !phoneOtpCode.isEmpty {
-                            phoneNumber = newPhoneNumber
-                            showChangePhoneSheet = false
-                            alertMessage = "Phone number updated successfully."
-                            showAlert = true
-                        }
-                    }
+                    Task { await submitPhoneChange() }
                 }) {
                     Text(isOtpSent ? "Verify & Save" : "Send Verification Code")
                         .fontWeight(.bold)

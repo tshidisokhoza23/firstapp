@@ -363,8 +363,8 @@ public struct MoreShortcutsSheetView: View {
         (.files, "Files", "folder.fill", Color.yellow, true),
         (.calendar, "Calendar", "calendar", Color.pink, true),
         (.vocab, "Vocab (Soon)", "book.fill", Color.gray.opacity(0.3), false),
-        (.stream, "Stream (Soon)", "music.note", Color.gray.opacity(0.3), false),
-        (.ride, "Ride (Soon)", "car.fill", Color.gray.opacity(0.3), false)
+        (.stream, "Stream", "music.note", Color.purple, true),
+        (.ride, "Ride", "car.fill", Color.green, true)
     ]
 
     public var body: some View {

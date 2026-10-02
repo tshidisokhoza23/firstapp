@@ -213,7 +213,7 @@ struct EditProfilePlaceholderView: View {
             TextField("Display name", text: $name)
             TextField("Bio", text: $bio)
             TextField("Location", text: $location)
-            Text("Phone number changes are not available yet. Your login number stays the same.")
+            Text("Change this number from Account after the SMS code is verified.")
                 .font(.caption)
                 .foregroundColor(.secondary)
             Button("Save") {
@@ -308,7 +308,7 @@ struct SettingsSubDetailView: View {
             case "Account", "Account Settings":
                 if let name = SessionStore.shared.user?.displayName, !name.isEmpty { Text(name) }
                 if let phone = SessionStore.shared.user?.phoneNumber, !phone.isEmpty { Text(phone) }
-                Text("Phone number changes are not available yet. Your login number stays the same.")
+                Text("Change this number from Account after the SMS code is verified.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Button("Log out") { Task { await SessionActions.logout() } }

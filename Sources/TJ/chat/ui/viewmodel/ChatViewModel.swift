@@ -563,13 +563,6 @@ public class ChatViewModel: ObservableObject {
             msgs[idx].isStarred = isStarred
             uiState.messages = .success(msgs)
         }
-    }
-
-    public func clearAllChats() {
-        uiState.chats = .success([])
-    }
-
-    public func refreshBlockedUsers() {
         Task {
             if isStarred {
                 _ = try? await API.data("messages/\(messageId)/star", method: "POST", json: ["starred": true])
@@ -577,6 +570,13 @@ public class ChatViewModel: ObservableObject {
                 _ = try? await API.data("messages/\(messageId)/star", method: "DELETE")
             }
         }
+    }
+
+    public func clearAllChats() {
+        uiState.chats = .success([])
+    }
+
+    public func refreshBlockedUsers() {
         blockedUserIds = []
     }
 
