@@ -313,43 +313,51 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
             )
         }
         WebRtcCallManager.shared.onConnected = {
-            GlobalCallState.shared.isConnectionEstablished = true
+            DispatchQueue.main.async {
+                GlobalCallState.shared.isConnectionEstablished = true
+            }
         }
     }
 
     public func acceptIncoming() {
-        guard let info = GlobalCallState.shared.incomingCall else { return }
-        GlobalCallState.shared.incomingCall = nil
-        GlobalCallState.shared.setCallActive(true, sessionId: info.id, participantId: info.senderId, callType: info.callType)
-        GlobalCallState.shared.isAnswered = true
-        bind(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
-        WebRtcCallManager.shared.start(callType: info.callType)
-        CallWebSocketClient.shared.accept(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
+        DispatchQueue.main.async {
+            guard let info = GlobalCallState.shared.incomingCall else { return }
+            GlobalCallState.shared.incomingCall = nil
+            GlobalCallState.shared.setCallActive(true, sessionId: info.id, participantId: info.senderId, callType: info.callType)
+            GlobalCallState.shared.isAnswered = true
+            self.bind(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
+            WebRtcCallManager.shared.start(callType: info.callType)
+            CallWebSocketClient.shared.accept(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
+        }
     }
 
     public func declineIncoming() {
-        guard let info = GlobalCallState.shared.incomingCall else { return }
-        GlobalCallState.shared.incomingCall = nil
-        CallWebSocketClient.shared.reject(receiverId: info.senderId, sessionId: info.id, callType: info.callType, reason: "rejected")
+        DispatchQueue.main.async {
+            guard let info = GlobalCallState.shared.incomingCall else { return }
+            GlobalCallState.shared.incomingCall = nil
+            CallWebSocketClient.shared.reject(receiverId: info.senderId, sessionId: info.id, callType: info.callType, reason: "rejected")
+        }
     }
 
     public func endActive(reason: String) {
-        let state = GlobalCallState.shared
-        if let info = state.incomingCall {
-            CallWebSocketClient.shared.reject(receiverId: info.senderId, sessionId: info.id, callType: info.callType, reason: reason)
-            state.incomingCall = nil
+        DispatchQueue.main.async {
+            let state = GlobalCallState.shared
+            if let info = state.incomingCall {
+                CallWebSocketClient.shared.reject(receiverId: info.senderId, sessionId: info.id, callType: info.callType, reason: reason)
+                state.incomingCall = nil
+            }
+            if let sessionId = state.activeSessionId, let participantId = state.activeParticipantId, let callType = state.activeCallType {
+                CallWebSocketClient.shared.end(
+                    receiverId: participantId,
+                    sessionId: sessionId,
+                    callType: callType,
+                    durationSeconds: state.callDurationSeconds,
+                    reason: reason
+                )
+            }
+            WebRtcCallManager.shared.end()
+            state.onCallEnded(sessionId: state.activeSessionId ?? "force_all")
         }
-        if let sessionId = state.activeSessionId, let participantId = state.activeParticipantId, let callType = state.activeCallType {
-            CallWebSocketClient.shared.end(
-                receiverId: participantId,
-                sessionId: sessionId,
-                callType: callType,
-                durationSeconds: state.callDurationSeconds,
-                reason: reason
-            )
-        }
-        WebRtcCallManager.shared.end()
-        state.onCallEnded(sessionId: state.activeSessionId ?? "force_all")
     }
 
     public func onOpen() {}
@@ -392,10 +400,12 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
     }
 
     private func presentIncoming(_ event: CallEvent) {
-        let cached = GlobalCallState.shared.contactNames[event.senderId] ?? ""
-        let known = realPersonLabel(names: [cached, event.senderName], phone: GlobalCallState.shared.contactPhones[event.senderId], ids: [event.senderId])
-        GlobalCallState.shared.incomingCall = IncomingCallInfo(id: event.sessionId, senderId: event.senderId, callerName: known, callType: event.callType)
-        guard known.isEmpty else { return }
+        DispatchQueue.main.async {
+            let cached = GlobalCallState.shared.contactNames[event.senderId] ?? ""
+            let known = realPersonLabel(names: [cached, event.senderName], phone: GlobalCallState.shared.contactPhones[event.senderId], ids: [event.senderId])
+            GlobalCallState.shared.incomingCall = IncomingCallInfo(id: event.sessionId, senderId: event.senderId, callerName: known, callType: event.callType)
+            guard known.isEmpty else { return }
+        }
         Task {
             guard let profile = await LiveJSON.userProfile(event.senderId) else { return }
             let local = profile.phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(profile.phone)
