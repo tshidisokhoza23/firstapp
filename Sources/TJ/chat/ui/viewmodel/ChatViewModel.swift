@@ -551,13 +551,6 @@ public class ChatViewModel: ObservableObject {
             GlobalCallState.shared.updateContactInfo(id: targetId, name: name, phone: nil)
             GlobalCallState.shared.setCallActive(true, sessionId: sessionId, participantId: targetId, callType: callType)
             CallSocketBridge.shared.bind(receiverId: targetId, sessionId: sessionId, callType: callType)
-        Task {
-            if isStarred {
-                _ = try? await API.data("messages/\(messageId)/star", method: "POST", json: ["starred": true])
-            } else {
-                _ = try? await API.data("messages/\(messageId)/star", method: "DELETE")
-            }
-        }
             WebRtcCallManager.shared.start(callType: callType)
             CallWebSocketClient.shared.invite(receiverId: targetId, sessionId: sessionId, callType: callType)
         } catch {
@@ -577,6 +570,13 @@ public class ChatViewModel: ObservableObject {
     }
 
     public func refreshBlockedUsers() {
+        Task {
+            if isStarred {
+                _ = try? await API.data("messages/\(messageId)/star", method: "POST", json: ["starred": true])
+            } else {
+                _ = try? await API.data("messages/\(messageId)/star", method: "DELETE")
+            }
+        }
         blockedUserIds = []
     }
 
