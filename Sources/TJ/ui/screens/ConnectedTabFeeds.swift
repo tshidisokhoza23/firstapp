@@ -690,14 +690,14 @@ private struct PostPill: View {
         Button(action: action) {
             Text(text)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundColor(select4)
+                .foregroundColor(selected ? tint : .primary)
+                .padding(.horizontal, 14)
                 .frame(minHeight: 36)
                 .background(Color(UIColor.secondarySystemBackground))
                 .clipShape(Capsule())
         }
         .buttonStyle(.borderless)
-        .frame(minHeight: 44
-        .buttonStyle(.borderless)
+        .frame(minHeight: 44)
     }
 }
 

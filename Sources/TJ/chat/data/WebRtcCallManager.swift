@@ -236,13 +236,13 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
         let audio = ([rtpReceiver.track].compactMap { $0 as? RTCAudioTrack }) + streams.flatMap(\.audioTracks)
         let video = ([rtpReceiver.track].compactMap { $0 as? RTCVideoTrack }) + streams.flatMap(\.videoTracks)
         attachRemote(audio: audio, video: video)
-    }attachReceivers(peerConnection)
-            if callType == .video { setSpeakerEnabled(true) }
-            
+    }
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         if newState == .connected || newState == .completed {
+            attachReceivers(peerConnection)
+            if callType == .video { setSpeakerEnabled(true) }
             DispatchQueue.main.async { self.onConnected?() }
         }
     }
