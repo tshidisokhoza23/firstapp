@@ -80,11 +80,11 @@ public struct MessageBubbleView: View {
                 if message.isFromMe { Spacer() }
 
                 VStack(alignment: message.isFromMe ? .trailing : .leading, spacing: 4) {
-                    if iButton(action: { onQuoteClick(message) }) {
+                    if isStoryReply {
+                        Button(action: { onQuoteClick(message) }) {
                             StoryReplyCard(replyText: message.replyToText ?? message.content, isFromMe: message.isFromMe)
                         }
-                        .buttonStyle(.plain
-                        StoryReplyCard(replyText: message.replyToText, isFromMe: message.isFromMe)
+                        .buttonStyle(.plain)
                     } else if let replySender = message.replyToSenderName, let replyText = message.replyToText {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(replySender)

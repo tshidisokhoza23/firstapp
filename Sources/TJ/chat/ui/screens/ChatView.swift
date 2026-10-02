@@ -164,11 +164,11 @@ public struct ChatView: View {
                                     replyTo = msg
                                     if inputText.isEmpty { inputText = "" }
                                 },
-                                onQuoteClick: { message in
-                                    openQuoted(message)
-                                },
                                 onMediaClick: { url, _ in
                                     openedMedia = url
+                                },
+                                onQuoteClick: { message in
+                                    openQuoted(message)
                                 },
                                 onLongClick: {
                                     if selectedMessageIds.contains(message.id) {

@@ -612,11 +612,11 @@ public final class CallSocketBridge: NSObject, CallSocketListener, CallKitServic
     }
 
     private func presentIncoming(_ event: CallEvent) {
-        Dispself.reportLockScreenCall(event, name: known)
-            atchQueue.main.async {
+        DispatchQueue.main.async {
             let cached = GlobalCallState.shared.contactNames[event.senderId] ?? ""
             let known = realPersonLabel(names: [cached, event.senderName], phone: GlobalCallState.shared.contactPhones[event.senderId], ids: [event.senderId])
             GlobalCallState.shared.incomingCall = IncomingCallInfo(id: event.sessionId, senderId: event.senderId, callerName: known, callType: event.callType)
+            self.reportLockScreenCall(event, name: known)
             guard known.isEmpty else { return }
         }
         Task {
@@ -630,6 +630,7 @@ public final class CallSocketBridge: NSObject, CallSocketListener, CallKitServic
                 }
             }
         }
+    }
 
     private func reportLockScreenCall(_ event: CallEvent, name: String) {
         guard UIApplication.shared.applicationState != .active else { return }

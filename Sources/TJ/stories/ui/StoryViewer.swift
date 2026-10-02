@@ -83,21 +83,21 @@ public struct StoryViewer: View {
     private var displayGroup: UserStoryGroup {
         guard let liveStory else {
             return UserStoryGroup(id: "", username: "", avatarGradient: [.black], timeAgo: "", slides: [])
-        }let hold: Double
+        }
+        let slides = liveStory.stories.map { item in
+            let hold: Double
             if item.type == .video {
                 hold = 0
             } else {
                 let seconds = item.durationMs > 0 ? Double(item.durationMs) / 1000.0 : 6
                 hold = min(15, max(6, seconds))
             }
-            StorySlide(
+            return StorySlide(
                 id: item.id,
                 mediaSymbol: item.type == .video ? "video.fill" : (item.type == .image ? "photo.fill" : "text.alignleft"),
                 caption: item.content.isEmpty ? nil : item.content,
                 backgroundGradient: [item.backgroundColor, .black],
-                durationSeconds: hold
-                backgroundGradient: [item.backgroundColor, .black],
-                durationSeconds: max(1, Double(item.durationMs) / 1000.0),
+                durationSeconds: hold,
                 mediaURL: item.contentUrl
             )
         }
