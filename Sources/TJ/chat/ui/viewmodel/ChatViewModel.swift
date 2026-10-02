@@ -255,7 +255,7 @@ public class ChatViewModel: ObservableObject {
             do {
                 let data = try await API.data("conversations")
                 let chats = await LiveJSON.enrichMissingProfiles(LiveJSON.chats(from: data))
-                self.uiState.chats = .success(chats)
+                self.uiState.chats = .success(chats.filter { !$0.isSecretMingleChat })
                 self.uiState.isChatsFetching = false
             } catch {
                 self.uiState.isChatsFetching = false

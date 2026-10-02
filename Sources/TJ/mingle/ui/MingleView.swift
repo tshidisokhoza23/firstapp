@@ -1138,7 +1138,9 @@ struct MingleInboxSheet: View {
 
     private func name(_ chat: [String: Any]) -> String {
         let candidates = [
+            LiveJSON.string(chat["display_name"]),
             LiveJSON.string(chat["contact_name"]),
+            LiveJSON.string(chat["username"]),
             LiveJSON.string(chat["title"]),
             LiveJSON.string(chat["sender_name"])
         ]
@@ -1159,7 +1161,9 @@ struct MingleInboxSheet: View {
         do {
             let data = try await API.data("conversations")
             chats = LiveJSON.list(data, keys: ["chats", "conversations"]).filter { chat in
-                LiveJSON.string(chat["type"]).lowercased() == "mingle" && !name(chat).isEmpty
+                let rawType = LiveJSON.string(chat["type"]).lowercased()
+                let id = LiveJSON.string(chat["conversation_id"]).nilIfEmpty ?? LiveJSON.string(chat["id"])
+                return (rawType == "mingle" || id.hasPrefix("mingle_")) && !name(chat).isEmpty
             }
             let intros = try await API.data("mingle/intros")
             requests = LiveJSON.list(intros, keys: ["items", "intros"])

@@ -16,7 +16,9 @@ public struct ArchivedChatsView: View {
     }
 
     private var archivedList: [ChatMessage] {
-        return viewModel.uiState.archivedChats.data ?? []
+        let stored = viewModel.uiState.archivedChats.data ?? []
+        let source = stored.isEmpty ? (viewModel.uiState.chats.data ?? []).filter(\.isArchived) : stored
+        return source.filter { !$0.isSecretMingleChat && $0.type != .channel }
     }
 
     public var body: some View {

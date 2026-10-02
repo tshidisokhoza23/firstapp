@@ -51,12 +51,15 @@ public struct ChatTabView: View {
         self.onProfileClick = onProfileClick
     }
 
+    private var regularChats: [ChatMessage] {
+        (viewModel.uiState.chats.data ?? []).filter { !$0.isSecretMingleChat && $0.type != .channel }
+    }
+
     private var chatsList: [ChatMessage] {
-        let all = (viewModel.uiState.chats.data ?? []).filter { $0.type != .channel }
         if searchQuery.isEmpty {
-            return all.filter { !$0.isArchived }
+            return regularChats.filter { !$0.isArchived }
         } else {
-            return all.filter {
+            return regularChats.filter {
                 !$0.isArchived &&
                 ($0.consistentName().localizedCaseInsensitiveContains(searchQuery) ||
                  $0.lastMessage.localizedCaseInsensitiveContains(searchQuery))
@@ -65,11 +68,11 @@ public struct ChatTabView: View {
     }
 
     private var archivedCount: Int {
-        (viewModel.uiState.chats.data ?? []).filter { $0.isArchived && $0.type != .channel }.count
+        regularChats.filter(\.isArchived).count
     }
 
     private var totalUnreadCount: Int {
-        (viewModel.uiState.chats.data ?? []).filter { $0.type != .channel }.reduce(0) { $0 + $1.unreadCount }
+        regularChats.reduce(0) { $0 + $1.unreadCount }
     }
 
     public var body: some View {

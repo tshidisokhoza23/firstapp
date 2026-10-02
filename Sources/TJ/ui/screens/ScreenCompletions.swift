@@ -163,6 +163,8 @@ struct SharedFilesView: View {
         for chat in LiveJSON.list(data, keys: ["chats", "conversations"]).prefix(25) {
             let id = LiveJSON.string(chat["conversation_id"])
             let conversationId = id.isEmpty ? LiveJSON.string(chat["id"]) : id
+            let rawType = LiveJSON.string(chat["type"]).lowercased()
+            if rawType.contains("mingle") || conversationId.hasPrefix("mingle_") { continue }
             guard !conversationId.isEmpty,
                   let messages = try? await API.data("conversations/\(conversationId)/messages") else { continue }
             for row in LiveJSON.list(messages, keys: ["messages"]) {

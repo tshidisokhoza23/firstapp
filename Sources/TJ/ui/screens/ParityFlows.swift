@@ -457,6 +457,8 @@ struct LiveSearchView: View {
         return rows.compactMap { row in
             guard let json = row as? [String: Any] else { return nil }
             let id = LiveJSON.string(json["conversation_id"]).nilIfEmpty ?? LiveJSON.string(json["id"])
+            let rawType = LiveJSON.string(json["type"]).lowercased()
+            if rawType.contains("mingle") || id.hasPrefix("mingle_") { return nil }
             let title = display(json).nilIfEmpty ?? LiveJSON.string(json["title"])
             guard !id.isEmpty, !title.isEmpty else { return nil }
             return SearchResultItem(id: id, title: title, subtitle: LiveJSON.string(json["last_message"]), category: .messages, kind: "chat")

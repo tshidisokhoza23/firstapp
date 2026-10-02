@@ -97,7 +97,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
     public func syncDirectChats() async -> Bool {
         do {
             let data = try await API.data("conversations")
-            self.directChats = LiveJSON.chats(from: data).filter { $0.type == .direct }.map { chat in
+            self.directChats = LiveJSON.chats(from: data).filter { $0.type == .direct && !$0.isSecretMingleChat }.map { chat in
                 DirectChat(
                     id: chat.id,
                     otherUserId: chat.otherUserId ?? "",

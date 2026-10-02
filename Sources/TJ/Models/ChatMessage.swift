@@ -208,6 +208,11 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
         isMingle = (try? container.decode(Bool.self, forKey: .isMingle)) ?? false
     }
 
+    /// Mingle conversations stay in the Mingle inbox. They are not regular chats.
+    public var isSecretMingleChat: Bool {
+        isMingle || type == .mingle || id.hasPrefix("mingle_")
+    }
+
     public var isSavedContact: Bool {
         let key = otherUserId ?? id
         if let local = localContactName, !local.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
