@@ -30,6 +30,7 @@ public struct ChannelDetailView: View {
     @State private var pollVotes: [String: Int] = [:]
     @State private var hideMutePrompt = false
     @State private var channelPhoto: PhotosPickerItem?
+    @State private var avatarPhoto: PhotosPickerItem?
     @StateObject private var liveModel = ChannelDetailViewModel()
 
     private var shownChannel: Channel { liveModel.channel.data ?? channel }
@@ -275,14 +276,16 @@ public struct ChannelDetailView: View {
                                         .font(.system(size: 32, weight: .bold))
                                         .foregroundColor(.white)
 
-                                    Circle()
-                                        .fill(Color(hex: "00A884"))
-                                        .frame(width: 28, height: 28)
-                                        .overlay(
-                                            Image(systemName: "camera.fill")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(.white)
-                                        )
+                                    PhotosPicker(selection: $avatarPhoto, matching: .images) {
+                                        Circle()
+                                            .fill(Color(hex: "00A884"))
+                                            .frame(width: 28, height: 28)
+                                            .overlay(
+                                                Image(systemName: "camera.fill")
+                                                    .font(.system(size: 12))
+                                                    .foregroundColor(.white)
+                                            )
+                                    }
                                 }
 
                                 Text("Start growing \"\(channel.name)\"")
@@ -299,7 +302,7 @@ public struct ChannelDetailView: View {
                                         }
                                     }
 
-                                    Button(action: { }) {
+                                    Button(action: { shareChannelToStatus() }) {
                                         HStack {
                                             Image(systemName: "target")
                                                 .foregroundColor(Color(hex: "00A884"))
@@ -466,6 +469,19 @@ public struct ChannelDetailView: View {
                 .background(Color(uiColor: .secondarySystemBackground))
             }
         }
+        .sheet(isPresented: $showInfo) {
+            ChannelInfoSheet(channel: shownChannel, onPostDescription: { text in
+                let target = shownChannel.conversationId?.isEmpty == false ? shownChannel.conversationId! : shownChannel.id
+                liveModel.sendMessage(channelId: target, content: text)
+                showInfo = false
+            }, onShareStatus: {
+                showInfo = false
+                shareChannelToStatus()
+            }, onInviteAdmins: {
+                showInfo = false
+                showAddAdmin = true
+            }, onClose: { showInfo = false })
+        }
         .sheet(isPresented: $showAddAdmin) {
             VStack {
                 Text("Add admin")
@@ -532,12 +548,40 @@ public struct ChannelDetailView: View {
             guard let item else { return }
             Task { await uploadChannelPhoto(item) }
         }
+        .onChange(of: avatarPhoto) { item in
+            guard let item else { return }
+            Task { await uploadChannelAvatar(item) }
+        }
         .alert("Channel", isPresented: Binding(get: { liveModel.toast != nil }, set: { if !$0 { liveModel.toast = nil } })) {
             Button("OK", role: .cancel) { liveModel.clearToast() }
         } message: {
             Text(liveModel.toast ?? "")
         }
     }
+    private func shareChannelToStatus() {
+        Task {
+            do {
+                _ = try await StoryRepository.shared.createStory(content: "Check out \(shownChannel.name) channel on FirstApp!")
+                liveModel.toast = "Posted to your status"
+            } catch {
+                liveModel.toast = error.localizedDescription
+            }
+        }
+    }
+
+    private func uploadChannelAvatar(_ item: PhotosPickerItem) async {
+        defer { avatarPhoto = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        do {
+            let url = try await MediaActions.upload(data: data, filename: "channel-avatar.jpg", mime: "image/jpeg", folder: "channels")
+            _ = try await API.data("chats/channels/\(shownChannel.id)/avatar", method: "PATCH", json: ["avatar_url": url])
+            liveModel.toast = "Channel photo updated"
+            liveModel.loadChannel(channelId: shownChannel.id)
+        } catch {
+            liveModel.toast = error.localizedDescription
+        }
+    }
+
     private func uploadChannelPhoto(_ item: PhotosPickerItem) async {
         defer { channelPhoto = nil }
         guard let data = try? await item.loadTransferable(type: Data.self) else { return }

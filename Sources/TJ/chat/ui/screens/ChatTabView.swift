@@ -34,6 +34,7 @@ public struct ChatTabView: View {
     @State private var activeStory: UserStory? = nil
     @State private var storyStart: AndroidStoryFlow.Start?
     @State private var storyDraft: String = ""
+    @State private var infoChat: ChatMessage?
 
     private let subTabs = ["Chats", "Channels", "Jobs", "Rewards"]
 
@@ -185,6 +186,9 @@ public struct ChatTabView: View {
                 chatsTabContent
             }
             LiveBannerAd()
+        }
+        .sheet(item: $infoChat) { chat in
+            ConversationInfoView(chat: chat, onOpenUser: { _ in infoChat = nil }, onLeft: { infoChat = nil })
         }
         .onAppear {
             viewModel.fetchChats()
@@ -347,7 +351,7 @@ public struct ChatTabView: View {
                                 ChatItemRow(
                                     chat: chat,
                                     onAvatarClick: {
-                                        onChatSelected(chat)
+                                        infoChat = chat
                                     }
                                 )
                                 .onTapGesture {
