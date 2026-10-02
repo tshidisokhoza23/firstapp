@@ -482,6 +482,11 @@ public struct MingleView: View {
                 "target_age_range": myTargetAgeRange
             ])
             note = "Mingle Profile Updated"
+            _ = try? await API.data("users/me", method: "PUT", json: ["display_name": name])
+            if let me = try? await API.data("users/me"),
+               let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: me) {
+                SessionStore.shared.updateUser(envelope.user)
+            }
             await loadMe()
         } catch {
             note = MingleCopy.serverMessage(error)
@@ -529,8 +534,10 @@ public struct MingleView: View {
         guard let data = try? await API.data("mingle/me"),
               let profile = LiveJSON.object(data)["profile"] as? [String: Any] else { return }
         let name = MingleCopy.realName(LiveJSON.string(profile["name"]))
-        if !name.isEmpty { myName = name }
-        myBio = LiveJSON.string(profile["bio"])
+        let sessionName = MingleCopy.realName(SessionStore.shared.user?.displayName ?? "")
+        myName = name.isEmpty ? sessionName : name
+        let bio = LiveJSON.string(profile["bio"])
+        myBio = bio.isEmpty ? (SessionStore.shared.user?.bio ?? "") : bio
         let age = LiveJSON.string(profile["age"])
         if age != "0" && !age.isEmpty { myAge = age }
         myGender = LiveJSON.string(profile["gender"])
@@ -754,84 +761,296 @@ public struct MingleProfileEditSheetView: View {
     public var onDelete: (String) -> Void
     public var onSave: () -> Void
     @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var nameError = false
+
+    private let ageRanges = ["18 - 25", "18 - 30", "18 - 35", "25 - 35", "30 - 45", "35 - 50", "18+ (All ages 18+)"]
 
     public var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Text("Update your photos and profile details visible to people on Mingle.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(.appPrimary)
+                    Text("My Mingle Profile")
+                        .font(.system(size: 22, weight: .bold))
                 }
-                Section("Photos (Up to 5)") {
-                    ScrollView(.horizontal) {
-                        HStack {
-                            ForEach(photos.indices, id: \.self) { index in
-                                ZStack(alignment: .topTrailing) {
-                                    if let url = FeedPost.resolve(photos[index]) {
-                                        AsyncImage(url: url) { image in
-                                            image.resizable().scaledToFill()
-                                        } placeholder: {
-                                            Color.gray.opacity(0.2)
-                                        }
-                                        .frame(width: 84, height: 110)
-                                        .clipped()
-                                    }
-                                    if photoIds.indices.contains(index) {
-                                        Button(action: { onDelete(photoIds[index]) }) {
-                                            Image(systemName: "xmark.circle.fill")
-                                        }
-                                    }
-                                }
-                            }
+                .padding(.top, 8)
+                Text("Update your photos and profile details visible to people on Mingle.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+
+                Text("Photos (Up to 5)")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.appPrimary)
+                    .padding(.top, 20)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(0..<5, id: \.self) { index in
+                            photoSlot(index)
                         }
                     }
-                    PhotosPicker("Select Photos from Gallery", selection: $pickerItems, maxSelectionCount: 5, matching: .images)
+                    .padding(.top, 8)
                 }
-                Section("Display name") {
-                    TextField("Name", text: $myName)
-                    TextField("Age", text: $myAge)
-                        .keyboardType(.numberPad)
-                    TextField("Bio", text: $myBio, axis: .vertical)
+                galleryButton
+                    .padding(.top, 12)
+
+                Text("Profile Details")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.appPrimary)
+                    .padding(.top, 20)
+                outlinedField(
+                    icon: "person.text.rectangle",
+                    label: "Preferred Mingle Display Name *",
+                    text: $myName,
+                    placeholder: "e.g. Alex, Sam, Joy",
+                    error: nameError ? "Mingle display name is required" : nil,
+                    help: "The display name shown on your Mingle profile"
+                )
+                .padding(.top, 12)
+                outlinedField(icon: "birthday.cake", label: "Age", text: ageBinding, keyboard: .numberPad)
+                    .padding(.top, 12)
+                outlinedField(icon: "text.alignleft", label: "About Me / Bio", text: $myBio, lineLimit: 4)
+                    .padding(.top, 12)
+
+                Text("Gender")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 16)
+                chipRow(["Male", "Female", "Non-binary", "Other"], selected: genderSelected) { chip in
+                    myGender = Self.storedGender(chip)
                 }
-                Section("Gender") {
-                    Picker("Gender", selection: $myGender) {
-                        Text("Male").tag("male")
-                        Text("Female").tag("female")
-                        Text("Non-binary").tag("nonbinary")
-                        Text("Other").tag("other")
+                .padding(.top, 6)
+
+                Text("Looking For")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 12)
+                chipRow(["Men", "Women", "Non-binary", "Everyone"], selected: lookingSelected) { chip in
+                    myLookingFor = Self.storedLooking(chip)
+                }
+                .padding(.top, 6)
+
+                Text("Target Age Range (18+)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 14)
+                Menu {
+                    ForEach(ageRanges, id: \.self) { option in
+                        Button(option) { myTargetAgeRange = option.hasPrefix("18+") ? "18 - 120" : option }
                     }
-                }
-                Section("Looking for") {
-                    Picker("Looking for", selection: $myLookingFor) {
-                        Text("Men").tag("male")
-                        Text("Women").tag("female")
-                        Text("Non-binary").tag("nonbinary")
-                        Text("Everyone").tag("everyone")
+                } label: {
+                    HStack {
+                        Image(systemName: "calendar")
+                            .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Target Age Range")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(ageRangeLabel)
+                                .foregroundColor(.primary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .foregroundColor(.secondary)
                     }
-                    Picker("Target Age Range (18+)", selection: $myTargetAgeRange) {
-                        Text("18 - 25").tag("18 - 25")
-                        Text("18 - 30").tag("18 - 30")
-                        Text("18 - 35").tag("18 - 35")
-                        Text("25 - 35").tag("25 - 35")
-                        Text("30 - 45").tag("30 - 45")
-                        Text("35 - 50").tag("35 - 50")
-                        Text("18+ (All ages 18+)").tag("18 - 120")
-                    }
+                    .padding(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.35), lineWidth: 1))
                 }
-                Button("Save & Update Profile", action: onSave)
+                .padding(.top, 6)
+
+                Button(action: save) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark")
+                        Text("Save & Update Profile")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Color.appPrimary)
+                    .clipShape(Capsule())
+                }
+                .padding(.top, 24)
             }
-            .navigationTitle("Mingle Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: pickerItems) { items in
-                Task {
-                    for item in items {
-                        if let data = try? await item.loadTransferable(type: Data.self) {
-                            onPhoto(data)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+        .onChange(of: pickerItems) { items in
+            Task {
+                for item in items {
+                    if let data = try? await item.loadTransferable(type: Data.self) {
+                        onPhoto(data)
+                    }
+                }
+                pickerItems = []
+            }
+        }
+    }
+
+    private var galleryButton: some View {
+        PhotosPicker(selection: $pickerItems, maxSelectionCount: 1, matching: .images) {
+            HStack(spacing: 8) {
+                Image(systemName: "photo.on.rectangle")
+                Text("Select Photos from Gallery")
+            }
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundColor(.appPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appPrimary, lineWidth: 1))
+        }
+    }
+
+    private var ageBinding: Binding<String> {
+        Binding(get: { myAge }, set: { myAge = String($0.filter(\.isNumber).prefix(3)) })
+    }
+
+    private var ageRangeLabel: String {
+        if myTargetAgeRange == "18 - 120" || myTargetAgeRange.hasPrefix("18+") {
+            return "18+ (All ages 18+)"
+        }
+        return myTargetAgeRange.isEmpty ? "18 - 35" : myTargetAgeRange
+    }
+
+    private func save() {
+        let name = myName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            nameError = true
+            return
+        }
+        nameError = false
+        onSave()
+    }
+
+    private func photoSlot(_ index: Int) -> some View {
+        ZStack(alignment: .topTrailing) {
+            PhotosPicker(selection: $pickerItems, maxSelectionCount: 1, matching: .images) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.secondarySystemBackground))
+                    if photos.indices.contains(index), let url = FeedPost.resolve(photos[index]) {
+                        AsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Color(UIColor.secondarySystemBackground)
+                        }
+                    } else {
+                        VStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .foregroundColor(.appPrimary)
+                            Text("\(index + 1)")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
                         }
                     }
-                    pickerItems = []
                 }
+                .frame(width: 90, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+            }
+            if photoIds.indices.contains(index), !photoIds[index].isEmpty, photos.indices.contains(index) {
+                Button(action: { onDelete(photoIds[index]) }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 22, height: 22)
+                        .background(Color.black.opacity(0.6))
+                        .clipShape(Circle())
+                }
+                .padding(4)
+            }
+        }
+    }
+
+    private func chipRow(_ chips: [String], selected: @escaping (String) -> Bool, onSelect: @escaping (String) -> Void) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(chips, id: \.self) { chip in
+                    Button(action: { onSelect(chip) }) {
+                        Text(chip)
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .foregroundColor(selected(chip) ? .white : .primary)
+                            .background(selected(chip) ? Color.appPrimary : Color(UIColor.secondarySystemBackground))
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+    }
+
+    private func genderSelected(_ chip: String) -> Bool {
+        let value = myGender.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch chip {
+        case "Male": return value == "male" || value == "man"
+        case "Female": return value == "female" || value == "woman"
+        case "Non-binary": return value == "nonbinary" || value == "non-binary"
+        default: return value.isEmpty || value == "other"
+        }
+    }
+
+    private func lookingSelected(_ chip: String) -> Bool {
+        let value = myLookingFor.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch chip {
+        case "Men": return value == "men" || value == "male" || value == "man"
+        case "Women": return value == "women" || value == "female" || value == "woman"
+        case "Non-binary": return value == "nonbinary" || value == "non-binary"
+        default: return value.isEmpty || value == "everyone" || value == "all"
+        }
+    }
+
+    private static func storedGender(_ chip: String) -> String {
+        switch chip {
+        case "Male": return "male"
+        case "Female": return "female"
+        case "Non-binary": return "nonbinary"
+        default: return "other"
+        }
+    }
+
+    private static func storedLooking(_ chip: String) -> String {
+        switch chip {
+        case "Men": return "male"
+        case "Women": return "female"
+        case "Non-binary": return "nonbinary"
+        default: return "everyone"
+        }
+    }
+
+    private func outlinedField(
+        icon: String,
+        label: String,
+        text: Binding<String>,
+        placeholder: String = "",
+        keyboard: UIKeyboardType = .default,
+        lineLimit: Int = 1,
+        error: String? = nil,
+        help: String? = nil
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.caption)
+                        .foregroundColor(error == nil ? .secondary : .red)
+                    TextField(placeholder, text: text, axis: lineLimit > 1 ? .vertical : .horizontal)
+                        .lineLimit(lineLimit, reservesSpace: lineLimit > 1)
+                        .keyboardType(keyboard)
+                }
+            }
+            .padding(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(error == nil ? Color.gray.opacity(0.35) : Color.red, lineWidth: 1))
+            if let error {
+                Text(error).font(.caption).foregroundColor(.red)
+            } else if let help {
+                Text(help).font(.caption).foregroundColor(.secondary)
             }
         }
     }
