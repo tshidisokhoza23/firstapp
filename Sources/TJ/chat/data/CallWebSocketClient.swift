@@ -180,6 +180,7 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
 
         var request = URLRequest(url: url)
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("", forHTTPHeaderField: "Origin")
 
         let task = urlSession?.webSocketTask(with: request)
         self.webSocketTask = task
@@ -216,7 +217,12 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
     private func handleIncomingText(_ text: String) {
         guard let data = text.data(using: .utf8) else { return }
         if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            let rawPayload = obj["signal_payload"] as? [String: Any] ?? [:]
+            var rawPayload = obj["signal_payload"] as? [String: Any] ?? [:]
+            if rawPayload.isEmpty, let encoded = obj["signal_payload"] as? String,
+               let encodedData = encoded.data(using: .utf8),
+               let nested = try? JSONSerialization.jsonObject(with: encodedData) as? [String: Any] {
+                rawPayload = nested
+            }
             var payload: [String: String] = [:]
             for (key, value) in rawPayload {
                 payload[key] = LiveJSON.string(value)

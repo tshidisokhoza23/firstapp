@@ -90,6 +90,14 @@ public class CallViewModel: ObservableObject {
         WebRtcCallManager.shared.setSpeakerEnabled(isSpeakerOn)
     }
 
+    public func switchCamera() {
+        WebRtcCallManager.shared.switchCamera()
+    }
+
+    public func syncSpeaker(_ on: Bool) {
+        isSpeakerOn = on
+    }
+
     public func endCall() {
         CallSocketBridge.shared.endActive(reason: "ended")
     }

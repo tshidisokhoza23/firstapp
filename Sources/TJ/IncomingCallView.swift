@@ -44,8 +44,8 @@ public struct IncomingCallView: View {
                 .ignoresSafeArea()
 
             // Optional Local Camera Preview for Video Call
-            if callInfo.callType == .video && isCameraGranted {
-                CameraPreviewRepresentable()
+            if callInfo.callType == .video {
+                CallVideoSurface(track: CallMediaState.shared.localVideo)
                     .ignoresSafeArea()
             }
 
@@ -137,6 +137,10 @@ public struct IncomingCallView: View {
         vibrationTimer = Timer.scheduledTimer(withTimeInterval: 1.2, repeats: true) { _ in
             AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         }
+        if callInfo.callType == .video {
+            AudioServicesPlaySystemSound(1005)
+            return
+        }
 
         // Play Ringtone
         if let soundURL = Bundle.main.url(forResource: "ringtone", withExtension: "mp3") {
@@ -165,42 +169,16 @@ public struct IncomingCallView: View {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             isCameraGranted = true
+            WebRtcCallManager.shared.startLocalPreview()
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
                     isCameraGranted = granted
+                    if granted { WebRtcCallManager.shared.startLocalPreview() }
                 }
             }
         default:
             isCameraGranted = false
         }
     }
-}
-
-// MARK: - Camera Preview Representable
-struct CameraPreviewRepresentable: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        let captureSession = AVCaptureSession()
-
-        guard let videoCaptureDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
-              let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice),
-              captureSession.canAddInput(videoInput) else {
-            return view
-        }
-
-        captureSession.addInput(videoInput)
-        let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-        previewLayer.videoGravity = .resizeAspectFill
-        previewLayer.frame = UIScreen.main.bounds
-        view.layer.addSublayer(previewLayer)
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            captureSession.startRunning()
-        }
-
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
 }

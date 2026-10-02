@@ -466,6 +466,13 @@ public class ChatViewModel: ObservableObject {
                     self.uiState.error = "Microphone permission is required to call"
                     return
                 }
+                if callType == .video {
+                    let camera = await AVCaptureDevice.requestAccess(for: .video)
+                    guard camera else {
+                        self.uiState.error = "Microphone and Camera permissions are required for calling"
+                        return
+                    }
+                }
                 await self.placeCall(receiverId: receiverId, callType: callType, name: name)
             }
         }
@@ -481,12 +488,7 @@ public class ChatViewModel: ObservableObject {
 
     private func placeCall(receiverId: String, callType: CallType, name: String) async {
         let token = SessionStore.shared.token ?? ""
-        guard !token.isEmpty else {
-            uiState.error = "Sign in again before calling"
-            return
-        }
-        let calleeId = resolvedCalleeId(receiverId)
-        CallSocketBridge.shared.bind(receiverId: calleeId, sessionId: "", callType: callType)
+        await WebRtcCallManager.shared.prepareIce(alleeId, sessionId: "", callType: callType)
         CallWebSocketClient.shared.connect(listener: CallSocketBridge.shared, serverUrl: AppBackend.wsBaseURL, authToken: token)
         var ice: [[String: Any]] = [["urls": "stun:stun.l.google.com:19302"], ["urls": "stun:stun1.l.google.com:19302"]]
         if let data = try? await API.data("calls/ice_servers") {

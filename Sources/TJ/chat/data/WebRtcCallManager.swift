@@ -1,11 +1,13 @@
 import Foundation
 import AVFoundation
+import AudioToolbox
 import WebRTC
 
 /// Real WebRTC peer connection. Signaling matches Android: sdp_offer, sdp_answer, ice_candidate.
 final class CallMediaState: ObservableObject {
     static let shared = CallMediaState()
     @Published var remoteVideo: RTCVideoTrack?
+    @Published var localVideo: RTCVideoTrack?
 }
 
 public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unchecked Sendable {
@@ -24,9 +26,13 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     private var iceServers: [RTCIceServer] = []
     private var factory: RTCPeerConnectionFactory?
     private var peerConnection: RTCPeerConnection?
-    private var localVideoSource: RTCVideoSource?
+    private var localAudioTrack: RTCAudioTrack?
+    private var localVideoTrack: RTCVideoTrack?
     private var videoCapturer: RTCCameraVideoCapturer?
     private var pendingCandidates: [RTCIceCandidate] = []
+    private var isRemoteDescriptionSet = false
+    private var recoveryTask: Task<Void, Never>?
+    public private(set) var speakerIsOnCIceCandidate] = []
     private var isRemoteDescriptionSet = false
 
     public static let shared = WebRtcCallManager()
@@ -51,39 +57,57 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
             if let one = row["urls"] as? String, !one.isEmpty { urls = [one] }
             if let many = row["urls"] as? [String] { urls = many.filter { !$0.isEmpty } }
             if let many = row["urls"] as? [Any] { urls = many.compactMap { $0 as? String }.filter { !$0.isEmpty } }
+            if urls.isEmpty, let one = row["url"] as? String, !one.isEmpty { urls = [one] }
             guard !urls.isEmpty else { return nil }
-            return RTCIceServer(urlStrings: urls, username: row["username"] as? String, credential: row["credential"] as? String)
+            let username = (row["username"] as? String)?.nilIfEmpty
+            let credential = (row["credential"] as? String)?.nilIfEmpty
+            return RTCIceServer(urlStrings: urls, username: username, credential: credential)
         }
         iceServers = parsed.isEmpty ? Self.fallbackIce : parsed
+    }
+
+    public func prepareIce() async {
+        var rows: [[String: Any]] = []
+        if let data = try? await API.data("calls/ice_servers") {
+            rows = LiveJSON.list(data, keys: ["ice_servers"])
+        }
+        setIceServers(rows)
     }
 
     // MARK: - Camera & Preview Methods
 
     public func startLocalPreview() {
         callType = .video
-        ensurePeer()
+        configureAudioSession(for: .video)
+        ensureFactory()
         startCamera()
-        isCapturing = true
+        isCapturing = localVideoTrack != nil
     }
 
     public func stopLocalPreview() {
-        videoCapturer?.stopCapture()
-        isCapturing = false
+        guard peerConnection == nil else { return }
+        releaseLocalVideo()
     }
 
     public func switchCamera() {
         isFrontCamera.toggle()
-        if isCapturing { startCamera() }
+        videoCapturer?.stopCapture()
+        isCapturing = false
+        startCamera()
     }
 
     // MARK: - Call Lifecycle
 
     public func start(callType: CallType) {
+        let reusePreview = callType == .video && isCapturing && localVideoTrack != nil
         self.callType = callType
+        if !reusePreview && peerConnection != nil {
+            releasePeerOnly(keepLocalVideo: false)
+        }
         configureAudioSession(for: callType)
         ensurePeer()
         if callType == .video {
-            startLocalPreview()
+            startCamera()
             setSpeakerEnabled(true)
         } else {
             setSpeakerEnabled(false)
@@ -93,7 +117,8 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
 
     public func createOffer() {
         ensurePeer()
-        peerConnection?.offer(for: mediaConstraints()) { [weak self] sdp, error in
+        ensureSendRecv()
+        peerConnection?.offer(for: mediaConstraints(iceRestart: false)) { [weak self] sdp, error in
             guard let self, let sdp, error == nil else { return }
             self.peerConnection?.setLocalDescription(sdp) { _ in
                 self.emit("sdp_offer", ["type": "offer", "sdp": sdp.sdp])
@@ -103,7 +128,8 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
 
     public func createAnswer() {
         ensurePeer()
-        peerConnection?.answer(for: mediaConstraints()) { [weak self] sdp, error in
+        ensureSendRecv()
+        peerConnection?.answer(for: mediaConstraints(iceRestart: false)) { [weak self] sdp, error in
             guard let self, let sdp, error == nil else { return }
             self.peerConnection?.setLocalDescription(sdp) { _ in
                 self.emit("sdp_answer", ["type": "answer", "sdp": sdp.sdp])
@@ -115,17 +141,18 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
         guard let signalType, let payload else { return }
         switch signalType {
         case "sdp_offer", "sdp_answer":
-            let sdp = payload["sdp"] as? String ?? ""
+            let sdp = Self.sdpText(payload)
             guard !sdp.isEmpty else { return }
             ensurePeer()
             let type: RTCSdpType = signalType == "sdp_offer" ? .offer : .answer
             peerConnection?.setRemoteDescription(RTCSessionDescription(type: type, sdp: sdp)) { [weak self] error in
                 guard let self, error == nil else { return }
                 self.isRemoteDescriptionSet = true
-                self.pendingCandidates.forEach { self.peerConnection?.add($0) }
+                let queued = self.pendingCandidates
                 self.pendingCandidates.removeAll()
+                queued.forEach { self.peerConnection?.add($0) }
+                if let connection = self.peerConnection { self.attachReceivers(connection) }
                 if type == .offer { self.createAnswer() }
-                DispatchQueue.main.async { self.onConnected?() }
             }
         case "ice_candidate":
             let candidate = payload["candidate"] as? String ?? ""
@@ -133,10 +160,13 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
             let index: Int32
             if let number = payload["sdpMLineIndex"] as? NSNumber {
                 index = number.int32Value
+            } else if let text = payload["sdpMLineIndex"] as? String, let parsed = Int32(text) {
+                index = parsed
             } else {
-                index = Int32(payload["sdpMLineIndex"] as? String ?? "0") ?? 0
+                return
             }
-            let ice = RTCIceCandidate(sdp: candidate, sdpMLineIndex: index, sdpMid: payload["sdpMid"] as? String)
+            let mid = (payload["sdpMid"] as? String)?.nilIfEmpty
+            let ice = RTCIceCandidate(sdp: candidate, sdpMLineIndex: index, sdpMid: mid)
             if isRemoteDescriptionSet {
                 peerConnection?.add(ice)
             } else {
@@ -148,77 +178,81 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     }
 
     public func restartIce() {
-        createOffer()
+        ensurePeer()
+        ensureSendRecv()
+        peerConnection?.restartIce()
+        peerConnection?.offer(for: mediaConstraints(iceRestart: true)) { [weak self] sdp, error in
+            guard let self, let sdp, error == nil else { return }
+            self.peerConnection?.setLocalDescription(sdp) { _ in
+                self.emit("sdp_offer", ["type": "offer", "sdp": sdp.sdp])
+            }
+        }
     }
-
-    // MARK: - Media Control
 
     public func setMicEnabled(_ enabled: Bool) {
         isMicMuted = !enabled
+        localAudioTrack?.isEnabled = enabled
         peerConnection?.senders.forEach { sender in
             if sender.track?.kind == "audio" {
                 sender.track?.isEnabled = enabled
             }
         }
-        let session = AVAudioSession.sharedInstance()
-        do {
-            if let builtInMic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
-                try session.setPreferredInput(builtInMic)
-            }
-        } catch {
-            print("[WebRtcCallManager] Mic toggle error: \(error.localizedDescription)")
-        }
     }
 
     public func setSpeakerEnabled(_ enabled: Bool) {
         isSpeakerActive = enabled
-        let session = AVAudioSession.sharedInstance()
+        speakerIsOn = enabled
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.lockForConfiguration()
         do {
-            try session.overrideOutputAudioPort(enabled ? .speaker : .none)
+            try rtc.overrideOutputAudioPort(enabled ? .speaker : .none)
         } catch {
             print("[WebRtcCallManager] Speaker toggle error: \(error.localizedDescription)")
         }
+        rtc.unlockForConfiguration()
     }
 
     public func setCameraEnabled(_ enabled: Bool) {
+        localVideoTrack?.isEnabled = enabled
         if enabled {
-            startLocalPreview()
+            startCamera()
         } else {
-            stopLocalPreview()
+            videoCapturer?.stopCapture()
+            isCapturing = false
         }
     }
 
-    // MARK: - Audio Session Config
-
     private func configureAudioSession(for callType: CallType) {
-        let session = AVAudioSession.sharedInstance()
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.useManualAudio = false
+        rtc.isAudioEnabled = true
+        let config = RTCAudioSessionConfiguration.webRTCConfiguration()
+        config.category = AVAudioSession.Category.playAndRecord.rawValue
+        config.mode = (callType == .video ? AVAudioSession.Mode.videoChat : AVAudioSession.Mode.voiceChat).rawValue
+        var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+        if callType == .video { options.insert(.defaultToSpeaker) }
+        config.categoryOptions = options
+        RTCAudioSessionConfiguration.setWebRTCConfiguration(config)
+        rtc.lockForConfiguration()
         do {
-            let categoryOptions: AVAudioSession.CategoryOptions = [.allowBluetooth, .defaultToSpeaker]
-            try session.setCategory(.playAndRecord, mode: callType == .video ? .videoChat : .voiceChat, options: categoryOptions)
-            try session.setActive(true)
+            try rtc.setCategory(AVAudioSession.Category.playAndRecord, mode: callType == .video ? .videoChat : .voiceChat, options: options)
+            try rtc.setActive(true)
         } catch {
             print("[WebRtcCallManager] Audio session setup error: \(error.localizedDescription)")
         }
+        rtc.unlockForConfiguration()
+        rtc.isAudioEnabled = true
     }
 
-    // MARK: - Teardown
-
     public func end() {
-        stopLocalPreview()
-        DispatchQueue.main.async { CallMediaState.shared.remoteVideo = nil }
-        peerConnection?.close()
-        peerConnection = nil
-        isRemoteDescriptionSet = false
-        pendingCandidates.removeAll()
-
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("[WebRtcCallManager] Audio session teardown error: \(error.localizedDescription)")
-        }
-
-        onDisconnected?()
+        recoveryTask?.cancel()
+        recoveryTask = nil
+        releasePeerOnly(keepLocalVideo: false)
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.lockForConfiguration()
+        try? rtc.setActive(false)
+        rtc.unlockForConfiguration()
+        rtc.isAudioEnabled = false
     }
 
     public func release() {
@@ -241,10 +275,31 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         if newState == .connected || newState == .completed {
+            recoveryTask?.cancel()
+            recoveryTask = nil
             attachReceivers(peerConnection)
-            if callType == .video { setSpeakerEnabled(true) }
+            setSpeakerEnabled(callType == .video)
             DispatchQueue.main.async { self.onConnected?() }
+        } else if newState == .disconnected {
+            recoveryTask?.cancel()
+            recoveryTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard let self, !Task.isCancelled else { return }
+                if self.peerConnection?.iceConnectionState == .disconnected {
+                    self.restartIce()
+                }
+                try? await Task.sleep(nanoseconds: 12_000_000_000)
+                guard !Task.isCancelled, let state = self.peerConnection?.iceConnectionState else { return }
+                if state == .disconnected || state == .failed {
+                    DispatchQueue.main.async { self.onDisconnected?() }
+                }
+            }
+        } else if newState == .failed || newState == .closed {
+            DispatchQueue.main.async { self.onDisconnected?() }
         }
+    }
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didStartReceivingOn transceiver: RTCRtpTransceiver) {
+        attachReceivers(peerConnection)
     }
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
@@ -258,8 +313,12 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     public func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {}
 
     private func attachRemote(audio: [RTCAudioTrack], video: [RTCVideoTrack]) {
-        audio.forEach { $0.isEnabled = true }
+        audio.forEach { track in
+            track.isEnabled = true
+            track.source.volume = 10
+        }
         guard let track = video.first else { return }
+        track.isEnabled = true
         DispatchQueue.main.async { CallMediaState.shared.remoteVideo = track }
     }
 
@@ -269,13 +328,18 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
         attachRemote(audio: audio, video: video)
     }
 
-    private func ensurePeer() {
+    private func ensureFactory() {
         if factory == nil {
             RTCInitializeSSL()
             factory = RTCPeerConnectionFactory()
         }
+    }
+
+    private func ensurePeer() {
+        ensureFactory()
         guard peerConnection == nil, let factory else { return }
         if iceServers.isEmpty { setIceServers([]) }
+        configureAudioSession(for: callType)
         let config = RTCConfiguration()
         config.iceServers = iceServers
         config.sdpSemantics = .unifiedPlan
@@ -286,37 +350,100 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
         config.iceTransportPolicy = .all
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
         let connection = factory.peerConnection(with: config, constraints: constraints, delegate: self)
-        let audioSource = factory.audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
-        connection?.add(factory.audioTrack(with: audioSource, trackId: "audio0"), streamIds: ["stream0"])
+        let audioConstraints = RTCMediaConstraints(
+            mandatoryConstraints: [
+                "googEchoCancellation": "true",
+                "googNoiseSuppression": "true",
+                "googAutoGainControl": "true"
+            ],
+            optionalConstraints: nil
+        )
+        let audioSource = factory.audioSource(with: audioConstraints)
+        let audio = factory.audioTrack(with: audioSource, trackId: "audio0")
+        audio.isEnabled = !isMicMuted
+        localAudioTrack = audio
+        connection?.add(audio, streamIds: ["stream0"])
         if callType == .video {
-            let source = factory.videoSource()
-            localVideoSource = source
-            connection?.add(factory.videoTrack(with: source, trackId: "video0"), streamIds: ["stream0"])
+            if localVideoTrack == nil { startCamera() }
+            if let video = localVideoTrack {
+                video.isEnabled = true
+                connection?.add(video, streamIds: ["stream0"])
+            }
         }
         peerConnection = connection
+        ensureSendRecv()
+    }
+
+    private func ensureSendRecv() {
+        peerConnection?.transceivers.forEach { transceiver in
+            if transceiver.mediaType == .video && callType != .video { return }
+            transceiver.setDirection(.sendRecv, error: nil)
+        }
     }
 
     private func startCamera() {
+        ensureFactory()
         guard let factory else { return }
         if localVideoSource == nil { localVideoSource = factory.videoSource() }
         guard let source = localVideoSource else { return }
+        if localVideoTrack == nil {
+            let track = factory.videoTrack(with: source, trackId: "video0")
+            track.isEnabled = true
+            localVideoTrack = track
+            DispatchQueue.main.async { CallMediaState.shared.localVideo = track }
+        }
+        if isCapturing { return }
         let capturer = videoCapturer ?? RTCCameraVideoCapturer(delegate: source)
         videoCapturer = capturer
         let position: AVCaptureDevice.Position = isFrontCamera ? .front : .back
         guard let device = RTCCameraVideoCapturer.captureDevices().first(where: { $0.position == position })
-                ?? RTCCameraVideoCapturer.captureDevices().first,
-              let format = RTCCameraVideoCapturer.supportedFormats(for: device).last else { return }
-        capturer.startCapture(with: device, format: format, fps: 30)
+                ?? RTCCameraVideoCapturer.captureDevices().first else { return }
+        let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
+        let format = formats.first { item in
+            let size = CMVideoFormatDescriptionGetDimensions(item.formatDescription)
+            return size.width >= 640 && size.width <= 1280
+        } ?? formats.last
+        guard let format else { return }
+        capturer.startCapture(with: device, format: format, fps: 24)
+        isCapturing = true
+        localVideoTrack?.isEnabled = true
     }
 
-    private func mediaConstraints() -> RTCMediaConstraints {
-        RTCMediaConstraints(
-            mandatoryConstraints: [
-                "OfferToReceiveAudio": "true",
-                "OfferToReceiveVideo": callType == .video ? "true" : "false"
-            ],
-            optionalConstraints: nil
-        )
+    private func releaseLocalVideo() {
+        videoCapturer?.stopCapture()
+        videoCapturer = nil
+        isCapturing = false
+        localVideoTrack?.isEnabled = false
+        localVideoTrack = nil
+        localVideoSource = nil
+        DispatchQueue.main.async {
+            CallMediaState.shared.localVideo = nil
+            CallMediaState.shared.remoteVideo = nil
+        }
+    }
+
+    private func releasePeerOnly(keepLocalVideo: Bool) {
+        isRemoteDescriptionSet = false
+        pendingCandidates.removeAll()
+        localAudioTrack = nil
+        peerConnection?.close()
+        peerConnection = nil
+        if !keepLocalVideo { releaseLocalVideo() }
+    }
+
+    private func mediaConstraints(iceRestart: Bool) -> RTCMediaConstraints {
+        var mandatory = [
+            "OfferToReceiveAudio": "true",
+            "OfferToReceiveVideo": callType == .video ? "true" : "false"
+        ]
+        if iceRestart { mandatory["IceRestart"] = "true" }
+        return RTCMediaConstraints(mandatoryConstraints: mandatory, optionalConstraints: nil)
+    }
+
+    private static func sdpText(_ payload: [String: Any]) -> String {
+        if let text = payload["sdp"] as? String, !text.isEmpty { return text }
+        if let nested = payload["sdp"] as? [String: Any], let text = nested["sdp"] as? String { return text }
+        return ""
     }
 
     private func emit(_ type: String, _ payload: [String: Any]) {
@@ -349,6 +476,9 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
                 GlobalCallState.shared.isConnectionEstablished = true
             }
         }
+        WebRtcCallManager.shared.onDisconnected = { [weak self] in
+            self?.endActive(reason: "webrtc_disconnected")
+        }
     }
 
     public func acceptIncoming() {
@@ -357,9 +487,16 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
             GlobalCallState.shared.incomingCall = nil
             GlobalCallState.shared.setCallActive(true, sessionId: info.id, participantId: info.senderId, callType: info.callType)
             GlobalCallState.shared.isAnswered = true
+            GlobalCallState.shared.isConnectionEstablished = false
+            GlobalCallState.shared.isRinging = false
             self.bind(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
-            WebRtcCallManager.shared.start(callType: info.callType)
-            CallWebSocketClient.shared.accept(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
+            Task {
+                await WebRtcCallManager.shared.prepareIce()
+                await MainActor.run {
+                    WebRtcCallManager.shared.start(callType: info.callType)
+                    CallWebSocketClient.shared.accept(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
+                }
+            }
         }
     }
 
@@ -367,6 +504,7 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
         DispatchQueue.main.async {
             guard let info = GlobalCallState.shared.incomingCall else { return }
             GlobalCallState.shared.incomingCall = nil
+            WebRtcCallManager.shared.stopLocalPreview()
             CallWebSocketClient.shared.reject(receiverId: info.senderId, sessionId: info.id, callType: info.callType, reason: "rejected")
         }
     }
@@ -404,12 +542,28 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
             case "call_invite":
                 guard event.receiverId == mine else { return }
                 if state.isCallActive {
-                    CallWebSocketClient.shared.reject(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType, reason: "busy")
-                    return
+                    if state.activeSessionId == event.sessionId { return }
+                    if !state.isConnectionEstablished && state.activeParticipantId == event.senderId {
+                        if mine < event.senderId {
+                            CallWebSocketClient.shared.reject(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType, reason: "glare")
+                            return
+                        }
+                        WebRtcCallManager.shared.end()
+                        state.onCallEnded(sessionId: state.activeSessionId ?? event.sessionId)
+                    } else {
+                        CallWebSocketClient.shared.reject(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType, reason: "busy")
+                        return
+                    }
                 }
+                Task { await WebRtcCallManager.shared.prepareIce() }
                 self.bind(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType)
                 CallWebSocketClient.shared.ringing(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType)
                 self.presentIncoming(event)
+                if event.callType == .video {
+                    AVCaptureDevice.requestAccess(for: .video) { granted in
+                        if granted { WebRtcCallManager.shared.startLocalPreview() }
+                    }
+                }
             case "call_accept":
                 guard state.activeSessionId == event.sessionId else { return }
                 state.isAnswered = true
@@ -421,6 +575,9 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
                 WebRtcCallManager.shared.end()
                 state.onCallEnded(sessionId: event.sessionId)
             case "call_signal":
+                if event.endReason == "busy" && state.activeSessionId == event.sessionId {
+                    AudioServicesPlaySystemSound(1070)
+                }
                 guard state.activeSessionId == event.sessionId else { return }
                 var payload: [String: Any] = [:]
                 event.signalPayload?.forEach { payload[$0.key] = $0.value }
