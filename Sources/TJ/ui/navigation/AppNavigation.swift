@@ -294,8 +294,13 @@ enum SessionActions {
     }
 
     static func syncContacts() async {
-        _ = try? await API.data("users/persistent-contacts")
-        _ = try? await API.data("users/sync-contacts", method: "POST", json: ["phone_numbers": []])
+        guard await ContactSyncManager.shared.requestContactsAccess() else { return }
+        let contacts = ContactSyncManager.shared.fetchAllContacts()
+        let saved = contacts.map { ["name": $0.displayName, "phone_number": $0.phoneNumber] }
+        if !saved.isEmpty {
+            _ = try? await API.data("users/persistent-contacts", method: "POST", json: ["contacts": saved])
+        }
+        _ = try? await API.data("users/sync-contacts", method: "POST", json: ["phone_numbers": contacts.map(\.phoneNumber)])
     }
 }
 

@@ -43,24 +43,41 @@ struct PostDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    if post.isSimpleRepost {
+                        HStack(spacing: 8) {
+                            Image(systemName: "repeat")
+                            Text("\(post.authorName) reposted")
+                        }
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                    }
                     HStack(spacing: 10) {
-                        Button { onProfileClick(post.authorId) } label: {
+                        Button { onProfileClick(post.displayPost.authorId) } label: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(post.title.isEmpty ? "Post" : post.title)
+                                Text(post.displayPost.title.isEmpty ? "Post" : post.displayPost.title)
                                     .font(.headline)
-                                if !post.authorHandle.isEmpty {
-                                    Text("@\(post.authorHandle)").font(.subheadline).foregroundColor(.secondary)
+                                if !post.displayPost.authorHandle.isEmpty {
+                                    Text("@\(post.displayPost.authorHandle)").font(.subheadline).foregroundColor(.secondary)
                                 }
                             }
                         }
                         .buttonStyle(.plain)
                         Spacer()
                     }
-                    if !post.content.isEmpty {
-                        Text(post.content).font(.body)
+                    if !post.displayPost.content.isEmpty {
+                        Text(post.displayPost.content).font(.body)
                     }
-                    if let url = post.playbackURL ?? post.mediaURL {
-                        if post.playsAsVideo || isVideo(url) {
+                    if let original = post.original, !post.isSimpleRepost {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(original.title).font(.subheadline.weight(.bold))
+                            if !original.content.isEmpty { Text(original.content).font(.subheadline) }
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3)))
+                    }
+                    if let url = post.displayPost.playbackURL ?? post.displayPost.mediaURL {
+                        if post.displayPost.playsAsVideo || isVideo(url) {
                             VideoPlayer(player: AVPlayer(url: url))
                                 .frame(height: 280)
                         } else {

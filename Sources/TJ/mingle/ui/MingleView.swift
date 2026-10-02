@@ -125,6 +125,8 @@ public struct MingleView: View {
     @State private var introText: String = ""
     @State private var userCoins: Int = 0
     @State private var minBalance: Int = 40
+    @State private var freeLikesRemaining: Int = 20
+    @State private var introCost: Int = 100
     @State private var lastSwiped: MingleProfile?
 
     // Profile Edit States
@@ -293,7 +295,10 @@ public struct MingleView: View {
             .presentationDetents([.large])
         }
         .sheet(isPresented: $showSecretChats) {
-            CourtListSheet(title: "Mingle chats", path: "conversations")
+            MingleInboxSheet { conversationId, name in
+                showSecretChats = false
+                onMatchClick?(conversationId, name)
+            }
         }
         .sheet(isPresented: $showNotifications) {
             CourtListSheet(title: "Activity", path: "mingle/activity")
@@ -338,6 +343,7 @@ public struct MingleView: View {
     }
 
     private func loadFeed() async {
+        await SessionActions.syncContacts()
         do {
             guard let loc = await CourtLocation.shared.current() else {
                 feedNote = "Location is required to load Court"
@@ -380,10 +386,16 @@ public struct MingleView: View {
                 let items: [Item]?
                 let balance: Double?
                 let status: String?
-                let minBalance: Double?
+                let freeLikesRemaining: Int?
+                let introCost: Double?
                 enum CodingKeys: String, CodingKey {
                     case items, balance, status
                     case minBalance = "min_balance"
+                    case freeLikesRemaining = "free_likes_remaining"
+                    case introCost = "intro_cost
+                    case minBalance = "min_balance"
+            if let free = feed.freeLikesRemaining { freeLikesRemaining = free }
+            if let cost = feed.introCost, cost > 0 { introCost = Int(cost) }
                 }
             }
             let feed = try JSONDecoder().decode(Feed.self, from: data)
@@ -427,7 +439,7 @@ public struct MingleView: View {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let profile = json["profile"] as? [String: Any] else { return }
         if let name = profile["name"] as? String, !name.isEmpty { myName = name }
-        if let bio = profile["bio"] as? String { myBio = bio }
+        if let bio = profile[freeLikesRemaining <= 0, "bio"] as? String { myBio = bio }
         if let age = profile["age"] as? Int, age > 0 { myAge = "\(age)" }
         else if let age = profile["age"] as? Double, age > 0 { myAge = "\(Int(age))" }
     }
@@ -439,6 +451,8 @@ public struct MingleView: View {
         }
         do {
             let data = try await API.data("mingle/swipe", method: "POST", json: [
+            if let free = json["free_likes_remaining"] as? Int { freeLikesRemaining = free }
+            else if let free = json["free_likes_remaining"] as? Double { freeLikesRemaining = Int(free) }
                 "target_user_id": profile.id,
                 "action": action
             ])
@@ -448,6 +462,10 @@ public struct MingleView: View {
             lastSwiped = profile
             profiles.removeAll { $0.id == profile.id }
             if json["matched"] as? Bool == true, let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+        if userCoins < introCost + minBalance {
+            feedNote = "You need \(introCost) points and \(minBalance) left to send a message"
+            return
+        }
                 onMatchClick?(conversationId, profile.name)
             }
         } catch {
@@ -699,5 +717,89 @@ public struct MingleProfileEditSheetView: View {
                 .padding(.horizontal, 24)
             }
         }
+    }
+}
+
+struct MingleInboxSheet: View {
+    var onOpenChat: (String, String) -> Void
+    @State private var intros: [[String: Any]] = []
+    @State private var chats: [ChatMessage] = []
+    @State private var note = "Loading..."
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !intros.isEmpty {
+                    Section("Message Requests") {
+                        ForEach(intros.indices, id: \.self) { index in
+                            let intro = intros[index]
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(Self.name(intro))
+                                    .font(.headline)
+                                Text(Self.text(intro, "message"))
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(3)
+                                HStack {
+                                    Button("Accept") { Task { await respond(intro, action: "accept") } }
+                                    Button("Decline") { Task { await respond(intro, action: "decline") } }
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+                    }
+                }
+                Section("Mingle chats") {
+                    ForEach(chats) { chat in
+                        Button {
+                            onOpenChat(chat.id, chat.consistentName())
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(chat.consistentName()).font(.headline).foregroundColor(.primary)
+                                if !chat.lastMessage.isEmpty {
+                                    Text(chat.lastMessage).font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .overlay { if intros.isEmpty && chats.isEmpty { Text(note).foregroundColor(.secondary) } }
+            .navigationTitle("Mingle")
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        intros = []
+        chats = []
+        if let data = try? await API.data("mingle/intros"),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            intros = json["items"] as? [[String: Any]] ?? []
+        }
+        if let data = try? await API.data("conversations") {
+            chats = LiveJSON.chats(from: data).filter { $0.type == .mingle }
+        }
+        note = intros.isEmpty && chats.isEmpty ? "Nothing here yet" : ""
+    }
+
+    private func respond(_ intro: [String: Any], action: String) async {
+        let id = Self.text(intro, "id")
+        guard !id.isEmpty else { return }
+        guard let data = try? await API.data("mingle/intro/\(id)/respond", method: "POST", json: ["action": action]),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        if action == "accept", let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+            onOpenChat(conversationId, Self.name(intro))
+        }
+        await load()
+    }
+
+    private static func text(_ item: [String: Any], _ key: String) -> String {
+        if let value = item[key] as? String { return value }
+        return ""
+    }
+
+    private static func name(_ item: [String: Any]) -> String {
+        text(item, "sender_name")
     }
 }

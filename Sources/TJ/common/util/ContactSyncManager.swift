@@ -32,8 +32,16 @@ public final class ContactSyncManager {
 
     // MARK: - Permission Check
 
+    public func canReadContacts() -> Bool {
+        let status = CNContactStore.authorizationStatus(for: .contacts)
+        if status == .authorized { return true }
+        if #available(iOS 18.0, *), status == .limited { return true }
+        return false
+    }
+
     public func requestContactsAccess() async -> Bool {
         let status = CNContactStore.authorizationStatus(for: .contacts)
+        if canReadContacts() { return true }
         switch status {
         case .authorized:
             return true
@@ -51,7 +59,7 @@ public final class ContactSyncManager {
     // MARK: - Fetch Contacts
 
     public func fetchAllContacts() -> [ContactInfo] {
-        guard CNContactStore.authorizationStatus(for: .contacts) == .authorized else {
+        guard canReadContacts() else {
             return []
         }
 

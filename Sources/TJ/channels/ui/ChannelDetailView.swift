@@ -26,6 +26,7 @@ public struct ChannelDetailView: View {
     @State private var showReportDialog = false
     @State private var postText = ""
     @State private var selectedReportReason = "Spam or misleading"
+    @State private var pollVotes: [String: Int] = [:]
 
     private let reportReasons = [
         "Spam or misleading",
@@ -111,11 +112,11 @@ public struct ChannelDetailView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Top Navigation Bar
+            // Top Navigation Bar matching WhatsApp Screenshots
             HStack(spacing: 12) {
                 Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
+                    Image(systemName: "arrow.left")
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.primary)
                 }
 
@@ -154,7 +155,7 @@ public struct ChannelDetailView: View {
                                 }
                             }
 
-                            Text("\(channel.followers) followers")
+                            Text(isAdmin ? "Public channel" : "\(channel.followers) followers")
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                         }
@@ -163,12 +164,18 @@ public struct ChannelDetailView: View {
 
                 Spacer()
 
-                Button(action: {
-                    if isFollower {
+                if isFollower {
+                    Button(action: {
                         onMute(channel.id, !channel.isMuted)
+                    }) {
+                        Image(systemName: channel.isMuted ? "bell.slash" : "bell")
+                            .font(.system(size: 18))
+                            .foregroundColor(.primary)
                     }
-                }) {
-                    Image(systemName: channel.isMuted ? "bell.slash" : "bell")
+                }
+
+                Button(action: { }) {
+                    Image(systemName: "link")
                         .font(.system(size: 18))
                         .foregroundColor(.primary)
                 }
@@ -211,67 +218,219 @@ public struct ChannelDetailView: View {
 
             Divider()
 
-            // Scrollable Updates / Feed Content
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if showInfo {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("About this channel")
-                                .font(.system(size: 18, weight: .bold))
+            // Scrollable Channel Updates Feed
+            ZStack {
+                Color(hex: "E5DDD5")
+                    .opacity(0.3)
+                    .ignoresSafeArea()
 
-                            Text(channel.description.isEmpty ? "Broadcast updates from \(channel.name). Followers can view posts; only the owner and allowed admins can publish." : channel.description)
-                                .font(.system(size: 15))
-                                .foregroundColor(.secondary)
+                ScrollView {
+                    VStack(alignment: .center, spacing: 16) {
+                        // System Privacy Notice Bubbles (Screenshot 4)
+                        VStack(spacing: 8) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "antenna.radiowaves.left.and.right")
+                                    .font(.system(size: 12))
+                                Text("This channel is public and visible to anyone, including TJ. There is added privacy for your profile and phone number.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(uiColor: .systemBackground))
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
 
-                            Divider().padding(.vertical, 8)
+                            if isAdmin {
+                                Text("You created this channel, \"\(channel.name)\"")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color(uiColor: .systemBackground))
+                                    .cornerRadius(12)
+                                    .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
-                    }
 
-                    Text("Updates")
-                        .font(.system(size: 18, weight: .bold))
-                        .padding(.horizontal, 16)
+                        // Start Growing Card for Admins (Screenshot 4)
+                        if isAdmin {
+                            VStack(spacing: 16) {
+                                ZStack(alignment: .bottomTrailing) {
+                                    Circle()
+                                        .fill(channel.logoColor)
+                                        .frame(width: 80, height: 80)
+                                    Text(String(channel.name.prefix(1)).uppercased())
+                                        .font(.system(size: 32, weight: .bold))
+                                        .foregroundColor(.white)
 
-                    if displayPosts.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 60))
-                                .foregroundColor(.secondary.opacity(0.3))
-                            Text("No updates yet")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.secondary)
+                                    Circle()
+                                        .fill(Color(hex: "00A884"))
+                                        .frame(width: 28, height: 28)
+                                        .overlay(
+                                            Image(systemName: "camera.fill")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.white)
+                                        )
+                                }
+
+                                Text("Start growing \"\(channel.name)\"")
+                                    .font(.system(size: 18, weight: .bold))
+
+                                VStack(spacing: 12) {
+                                    Button(action: { showInfo = true }) {
+                                        HStack {
+                                            Image(systemName: "pencil")
+                                                .foregroundColor(Color(hex: "00A884"))
+                                            Text("Add description")
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundColor(Color(hex: "00A884"))
+                                        }
+                                    }
+
+                                    Button(action: { }) {
+                                        HStack {
+                                            Image(systemName: "target")
+                                                .foregroundColor(Color(hex: "00A884"))
+                                            Text("Share to my status")
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundColor(Color(hex: "00A884"))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 24)
+                                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                        )
+                                    }
+
+                                    Button(action: { showAddAdmin = true }) {
+                                        HStack {
+                                            Image(systemName: "plus")
+                                                .foregroundColor(Color(hex: "00A884"))
+                                            Text("Invite admins")
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundColor(Color(hex: "00A884"))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 24)
+                                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                        )
+                                    }
+                                }
+                            }
+                            .padding(20)
+                            .background(Color(uiColor: .systemBackground))
+                            .cornerRadius(20)
+                            .padding(.horizontal, 16)
+                            .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
-                    } else {
-                        ForEach(displayPosts) { post in
-                            ChannelPostCardView(post: post)
+
+                        // Feed Posts
+                        if displayPosts.isEmpty && !isAdmin {
+                            VStack(spacing: 12) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(.secondary.opacity(0.3))
+                                Text("No updates yet")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                        } else {
+                            ForEach(displayPosts) { post in
+                                ChannelPostCardView(post: post)
+                            }
                         }
                     }
+                    .padding(.vertical, 16)
                 }
-                .padding(.vertical, 16)
             }
 
-            // Bottom Bar Actions
+            // Bottom Bar Actions (States 1, 2, 3 from Screenshots)
             if !isFollower {
-                VStack {
+                // State 1: Non-follower (Screenshot 3)
+                VStack(spacing: 12) {
                     Button(action: { onSubscribe(channel.id) }) {
                         Text("Follow channel")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 17, weight: .bold))
                             .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.primary)
-                            .foregroundColor(Color(uiColor: .systemBackground))
-                            .cornerRadius(16)
+                            .frame(height: 50)
+                            .background(Color(hex: "00A884"))
+                            .foregroundColor(.white)
+                            .cornerRadius(25)
                     }
-                    .padding(16)
+
+                    HStack(spacing: 4) {
+                        Text("This channel has added privacy for your profile and phone number.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                        Text("Learn more")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.blue)
+                    }
                 }
-                .background(Color(uiColor: .secondarySystemBackground))
+                .padding(16)
+                .background(Color(uiColor: .systemBackground))
+            } else if channel.isMuted {
+                // State 2: Muted Follower Banner (Screenshot 2)
+                VStack(spacing: 12) {
+                    Text("Unmute to get notifications for this channel.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.primary)
+
+                    HStack(spacing: 12) {
+                        Button(action: { }) {
+                            Text("Not now")
+                                .font(.system(size: 15, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(Color(uiColor: .secondarySystemBackground))
+                                .foregroundColor(.primary)
+                                .cornerRadius(22)
+                        }
+
+                        Button(action: { onMute(channel.id, false) }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "bell.slash.fill")
+                                    .font(.system(size: 14))
+                                Text("Unmute")
+                                    .font(.system(size: 15, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color(hex: "E8F5E9"))
+                            .foregroundColor(Color(hex: "00A884"))
+                            .cornerRadius(22)
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Color(uiColor: .systemBackground))
             } else if canPost {
+                // State 3: Admin Input Bar (Screenshot 4)
                 HStack(spacing: 12) {
-                    TextField("Write an update", text: $postText)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    HStack(spacing: 8) {
+                        Image(systemName: "face.smiling")
+                            .foregroundColor(.gray)
+
+                        TextField("Write an update", text: $postText)
+
+                        Image(systemName: "paperclip")
+                            .foregroundColor(.gray)
+
+                        Image(systemName: "camera")
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color(uiColor: .systemBackground))
+                    .cornerRadius(24)
 
                     Button(action: {
                         if !postText.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -279,9 +438,14 @@ public struct ChannelDetailView: View {
                             postText = ""
                         }
                     }) {
-                        Image(systemName: "paperplane.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.appPrimary)
+                        Circle()
+                            .fill(Color(hex: "00A884"))
+                            .frame(width: 48, height: 48)
+                            .overlay(
+                                Image(systemName: postText.isEmpty ? "mic.fill" : "paperplane.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(.white)
+                            )
                     }
                 }
                 .padding(12)
@@ -326,7 +490,7 @@ public struct ChannelDetailView: View {
                         Spacer()
                         if selectedReportReason == reason {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.appPrimary)
+                                .foregroundColor(Color(hex: "00A884"))
                         }
                     }
                     .contentShape(Rectangle())
@@ -351,6 +515,7 @@ public struct ChannelDetailView: View {
     }
 }
 
+// Channel Post Card with Reactions & Poll support (Screenshots 1-4)
 public struct ChannelPostCardView: View {
     public var post: ChannelPost
 
@@ -359,34 +524,72 @@ public struct ChannelPostCardView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(post.content)
-                .font(.system(size: 15))
-                .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 12) {
+            // Text Content
+            if !post.content.isEmpty {
+                Text(post.content)
+                    .font(.system(size: 15))
+                    .foregroundColor(.primary)
+            }
 
-            HStack {
-                Text(post.isLiked ? "❤️ 1" : "🤍 0")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color(uiColor: .tertiarySystemBackground))
-                    .cornerRadius(12)
+            // Optional Image/Video
+            if let imgUrl = post.imageUrl, let url = URL(string: imgUrl) {
+                AsyncImage(url: url) { img in
+                    img.resizable().scaledToFill()
+                } placeholder: {
+                    Rectangle().fill(Color.gray.opacity(0.2))
+                }
+                .frame(maxHeight: 240)
+                .cornerRadius(12)
+            }
+
+            // Reactions & Forward Pill Row (Screenshots 1-3)
+            HStack(spacing: 8) {
+                // Emoji Reaction Pill
+                HStack(spacing: 4) {
+                    Text("❤️ 👄 😂 👍")
+                        .font(.system(size: 12))
+                    Text(post.likesCount > 0 ? "\(post.likesCount)K" : "1K")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
+
+                // Forward Pill
+                HStack(spacing: 4) {
+                    Image(systemName: "arrowshape.turn.up.right.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    Text(post.forwardsCount > 0 ? "\(post.forwardsCount)" : "111")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
 
                 Spacer()
 
-                Text(post.timestamp)
+                // Timestamp Pill
+                Text(post.timestamp.isEmpty ? "19:08" : post.timestamp)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-
-                Image(systemName: "arrowshape.turn.up.right.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(uiColor: .systemBackground))
+                    .cornerRadius(12)
             }
         }
         .padding(12)
-        .background(Color(uiColor: .secondarySystemBackground))
+        .background(Color(uiColor: .systemBackground))
         .cornerRadius(16)
         .padding(.horizontal, 16)
+        .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
     }
 }

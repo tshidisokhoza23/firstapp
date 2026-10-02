@@ -243,24 +243,20 @@ public struct ProfileView: View {
                         Text("No posts yet").foregroundColor(.secondary).padding()
                     } else {
                         ForEach(tabPosts) { post in
-                            Button { selectedPost = post } label: {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(post.content.isEmpty ? "Post" : post.content)
-                                        .font(.body)
-                                        .foregroundColor(.primary)
-                                        .multilineTextAlignment(.leading)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                    HStack(spacing: 12) {
-                                        Text("Reply \(post.repliesCount)")
-                                        Text("Like \(post.likes)")
-                                        Text("Repost \(post.repostCount)")
-                                    }
-                                    .font(.caption.weight(.bold))
-                                    .foregroundColor(.secondary)
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                            .buttonStyle(.plain)
+                            FeedPostCard(
+                                post: post,
+                                onOpen: { selectedPost = post },
+                                onProfile: {
+                                    let authorId = post.displayPost.authorId
+                                    if !authorId.isEmpty { router.navigate(to: .profile(userId: authorId)) }
+                                },
+                                onReply: { selectedPost = post },
+                                onRepost: { Task { await MediaActions.repost(post.id); await loadTabPosts() } },
+                                onLike: { Task { await MediaActions.like(post.id); await loadTabPosts() } },
+                                onSave: { Task { await MediaActions.bookmark(post.id); await loadTabPosts() } },
+                                onShare: { MediaActions.shareSheet(post); Task { await MediaActions.share(post.id) } },
+                                onMore: { selectedPost = post }
+                            )
                         }
                     }
                 }

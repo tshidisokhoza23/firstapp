@@ -23,6 +23,8 @@ public struct FeedPost: Identifiable, Codable, Sendable {
     var quoteCount: Int
     var isReposted: Bool
     let mediaType: String
+    var repostOfId: String
+    var original: FeedPost?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -63,7 +65,9 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         repostCount: Int = 0,
         quoteCount: Int = 0,
         isReposted: Bool = false,
-        mediaType: String = ""
+        mediaType: String = "",
+        repostOfId: String = "",
+        original: FeedPost? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -83,6 +87,30 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         self.quoteCount = quoteCount
         self.isReposted = isReposted
         self.mediaType = mediaType
+        self.repostOfId = repostOfId
+        self.original = original
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(authorId, forKey: .authorId)
+        try c.encode(authorName, forKey: .authorName)
+        try c.encode(authorHandle, forKey: .authorHandle)
+        try c.encodeIfPresent(authorAvatar, forKey: .authorAvatar)
+        try c.encode(content, forKey: .content)
+        try c.encode(views, forKey: .views)
+        try c.encode(shares, forKey: .shares)
+        try c.encode(repostCount, forKey: .repostCount)
+        try c.encode(quoteCount, forKey: .quoteCount)
+        try c.encode(isReposted, forKey: .isReposted)
+        try c.encode(mediaType, forKey: .mediaType)
+        try c.encode(mediaURLs, forKey: .mediaURLs)
+        try c.encode(likes, forKey: .likes)
+        try c.encode(repliesCount, forKey: .repliesCount)
+        try c.encode(postType, forKey: .postType)
+        try c.encode(isLiked, forKey: .isLiked)
+        try c.encode(isBookmarked, forKey: .isBookmarked)
     }
 
     public init(from decoder: Decoder) throws {
@@ -109,6 +137,8 @@ public struct FeedPost: Identifiable, Codable, Sendable {
 
     private static func flexInt(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int {
         if let value = try? c.decode(Int.self, forKey: key) { return value }
+        repostOfId = ""
+        original = nil
         if let value = try? c.decode(Double.self, forKey: key) { return Int(value) }
         return 0
     }
@@ -134,13 +164,34 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         if type.contains("VIDEO") { return true }
         if postType == "short" { return playbackURL != nil }
         let raw = (playbackURL ?? mediaURL)?.absoluteString.lowercased() ?? ""
-        return raw.contains(".mp4") || raw.contains(".m3u8") || raw.contains(".mov") || raw.contains("video")
+        return raw.contains(".mp4") || raw.contains(".m3u8") || raw.contains(".mov") || raw.contains("video") || raw.contains("/shorts/")
     }
 
+    var isSimpleRepost: Bool {
+        !repostOfId.isEmpty && original != nil && content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var displayPost: FeedPost { isSimpleRepost ? (original ?? self) : self }
+
     static func resolve(_ raw: String?) -> URL? {
-        guard let raw, !raw.isEmpty else { return nil }
-        if raw.hasPrefix("http") { return URL(string: raw) }
-        return URL(string: AppBackend.origin + "/" + raw.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        guard var raw, !raw.isEmpty else { return nil }
+        let origin = AppBackend.origin.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") || raw.hasPrefix("data:") || raw.hasPrefix("file:") {
+            if raw.contains("://localhost") || raw.contains("://127.0.0.1"), let host = URL(string: raw)?.host {
+                raw = raw
+                    .replacingOccurrences(of: "http://\(host)", with: origin)
+                    .replacingOccurrences(of: "https://\(host)", with: origin)
+            }
+            if raw.hasPrefix("http://"), origin.hasPrefix("https://") {
+                raw = "https://" + String(raw.dropFirst("http://".count))
+            }
+            return URL(string: raw)
+        }
+        var path = raw.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if !path.hasPrefix("uploads/") {
+            path = "uploads/" + path
+        }
+        return URL(string: origin + "/" + path)
     }
 
     static func decodeList(_ data: Data) -> [FeedPost] {
@@ -460,7 +511,7 @@ struct SocialFeedView: View {
     }
 }
 
-private struct FeedPostCard: View {
+struct FeedPostCard: View {
     let post: FeedPost
     var onOpen: () -> Void
     var onProfile: () -> Void
@@ -471,16 +522,27 @@ private struct FeedPostCard: View {
     var onShare: () -> Void
     var onMore: () -> Void
 
+    private var shown: FeedPost { post.displayPost }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if post.isSimpleRepost {
+                HStack(spacing: 8) {
+                    Image(systemName: "repeat")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("\(post.authorName) reposted")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(.secondary)
+            }
             HStack(spacing: 10) {
                 Button(action: onProfile) {
-                    AsyncImage(url: FeedPost.resolve(post.authorAvatar)) { image in
+                    AsyncImage(url: FeedPost.resolve(shown.authorAvatar)) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Circle()
                             .fill(Color.gray.opacity(0.3))
-                            .overlay(Text(String(post.title.prefix(1)).uppercased()).font(.system(size: 16, weight: .bold)).foregroundColor(.white))
+                            .overlay(Text(String(shown.title.prefix(1)).uppercased()).font(.system(size: 16, weight: .bold)).foregroundColor(.white))
                     }
                     .frame(width: 44, height: 44)
                     .clipShape(Circle())
@@ -489,12 +551,12 @@ private struct FeedPostCard: View {
 
                 Button(action: onProfile) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(post.title.isEmpty ? post.authorHandle : post.title)
+                        Text(shown.title.isEmpty ? shown.authorHandle : shown.title)
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.primary)
                             .lineLimit(1)
-                        if !post.authorHandle.isEmpty {
-                            Text("@\(post.authorHandle)")
+                        if !shown.authorHandle.isEmpty {
+                            Text("@\(shown.authorHandle)")
                                 .font(.system(size: 13))
                                 .foregroundColor(.secondary)
                         }
@@ -513,14 +575,28 @@ private struct FeedPostCard: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                if !post.content.isEmpty {
-                    Text(post.content)
+                if !shown.content.isEmpty {
+                    Text(shown.content)
                         .font(.system(size: 16))
                         .foregroundColor(.primary)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if let url = post.mediaURL, !post.playsAsVideo {
+                if let original = post.original, !post.isSimpleRepost {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(original.title)
+                            .font(.system(size: 14, weight: .bold))
+                        if !original.content.isEmpty {
+                            Text(original.content)
+                                .font(.system(size: 14))
+                                .lineLimit(4)
+                        }
+                    }
+                    .paddishown.playsAsVideo, let url = shown.playbackURL ?? shown
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                }
+                if let url = shown.mediaURL, !shown.playsAsVideo {
                     AsyncImage(url: url) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
@@ -613,7 +689,7 @@ public struct ConnectedMingleFeedView: View {
     }
 
     public var body: some View {
-        MingleView()
+        MingleView(onMatchClick: { conversationId, _ in onChatClick(conversationId) })
     }
 }
 
@@ -633,24 +709,36 @@ struct ShortsFeedView: View {
                 }
                 .padding()
             } else {
-                ZStack {
-                    VerticalShortsPlayer(posts: shorts, page: $page)
-                    if shorts.indices.contains(page) {
-                        ShortClipView(
-                            post: shorts[page],
-                            isActive: true,
-                            showsVideo: false,
-                            onProfile: {
-                                let authorId = shorts[page].authorId
-                                if !authorId.isEmpty { onProfileClick(authorId) }
-                            },
-                            onOpen: { selectedShort = shorts[page] },
-                            onLike: { toggleShortLike(shorts[page].id) },
-                            onSave: { toggleShortSave(shorts[page].id) },
-                            onShare: { shareShort(shorts[page].id) }
-                        )
+                VerticalShortsPlayer(posts: shorts, page: $page)
+                    .overlay(alignment: .topTrailing) {
+                        if shorts.indices.contains(page) {
+                            Button { selectedShort = shorts[page] } label: {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.black.opacity(0.35))
+                                    .clipShape(Circle())
+                            }
+                            .padding(.top, 48)
+                            .padding(.trailing, 16)
+                        }
                     }
-                }
+                    .overlay(alignment: .bottom) {
+                        if shorts.indices.contains(page) {
+                            ShortsChrome(
+                                post: shorts[page],
+                                onProfile: {
+                                    let authorId = shorts[page].authorId
+                                    if !authorId.isEmpty { onProfileClick(authorId) }
+                                },
+                                onOpen: { selectedShort = shorts[page] },
+                                onLike: { toggleShortLike(shorts[page].id) },
+                                onSave: { toggleShortSave(shorts[page].id) },
+                                onShare: { shareShort(shorts[page].id) }
+                            )
+                        }
+                    }
                 .ignoresSafeArea()
             }
         }
@@ -692,6 +780,74 @@ struct ShortsFeedView: View {
         shorts[index].shares += 1
         MediaActions.shareSheet(shorts[index])
         Task { await MediaActions.share(id) }
+    }
+}
+
+private struct ShortsChrome: View {
+    let post: FeedPost
+    var onProfile: () -> Void
+    var onOpen: () -> Void
+    var onLike: () -> Void
+    var onSave: () -> Void
+    var onShare: () -> Void
+    @State private var showMore = false
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Button(action: onProfile) {
+                    Text(post.title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
+                if !post.content.isEmpty {
+                    Text(post.content)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .onTapGesture(perform: onOpen)
+                }
+            }
+            Spacer(minLength: 0)
+            VStack(spacing: 18) {
+                Button(action: onLike) {
+                    VStack(spacing: 4) {
+                        Image(systemName: post.isLiked ? "heart.fill" : "heart")
+                            .font(.system(size: 28))
+                            .foregroundColor(post.isLiked ? .red : .white)
+                        Text("\(post.likes)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                    }
+                }
+                Button(action: onOpen) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "message.fill").font(.system(size: 26)).foregroundColor(.white)
+                        Text("\(post.repliesCount)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                    }
+                }
+                Button(action: onSave) {
+                    Image(systemName: post.isBookmarked ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 26))
+                        .foregroundColor(.white)
+                }
+                Button(action: onShare) {
+                    Image(systemName: "arrowshape.turn.up.right.fill")
+                        .font(.system(size: 26))
+                        .foregroundColor(.white)
+                }
+                Button { showMore = true } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 24, weight: .bold)).foregroundColor(.white)
+                }
+                .confirmationDialog("Short", isPresented: $showMore, titleVisibility: .visible) {
+                    Button("Share", action: onShare)
+                    Button("Copy link") { MediaActions.copyLink(post) }
+                    Button("Report", role: .destructive) { Task { await MediaActions.report(post.id, reason: "report") } }
+                    Button("Cancel", role: .cancel) {}
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 32)
     }
 }
 
@@ -921,6 +1077,7 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
     private let scrollView = UIScrollView()
     private var posts: [FeedPost] = []
     private var players: [AVPlayer] = []
+    private var controllers: [AVPlayerViewController] = []
     private var hosts: [UIView] = []
     private var appliedPage = -1
     private var loopObservers: [NSObjectProtocol] = []
@@ -961,33 +1118,43 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
     private func rebuild() {
         loopObservers.forEach { NotificationCenter.default.removeObserver($0) }
         loopObservers.removeAll()
-        players.forEach { $0.pause() }
+        children.forEach { child in
+            child.willMove(toParent: nil)
+            child.view.removeFromSuperview()
+            child.removeFromParent()
+        }
         hosts.forEach { $0.removeFromSuperview() }
         hosts.removeAll()
         players.removeAll()
+        controllers.removeAll()
         appliedPage = -1
         for post in posts {
             let host = UIView()
             host.backgroundColor = .black
+            host.isUserInteractionEnabled = false
             let player = AVPlayer()
             player.isMuted = false
-            let layer = AVPlayerLayer(player: player)
-            layer.videoGravity = .resizeAspectFill
-            host.layer.addSublayer(layer)
+            let controller = AVPlayerViewController()
+            controller.showsPlaybackControls = false
+            controller.videoGravity = .resizeAspectFill
+            controller.player = player
+            controller.view.backgroundColor = .black
+            controller.view.isUserInteractionEnabled = false
+            addChild(controller)
+            host.addSubview(controller.view)
+            controller.didMove(toParent: self)
+            if post.playbackURL == nil {
+                let label = UILabel()
+                label.text = "This short has no video"
+                label.textColor = .white
+                label.textAlignment = .center
+                label.tag = 7
+                host.addSubview(label)
+            }
             scrollView.addSubview(host)
             hosts.append(host)
             players.append(player)
-            if post.playbackURL == nil, let imageURL = post.mediaURL {
-                let imageView = UIImageView(frame: host.bounds)
-                imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                imageView.contentMode = .scaleAspectFill
-                imageView.tag = 42
-                host.addSubview(imageView)
-                URLSession.shared.dataTask(with: imageURL) { data, _, _ in
-                    guard let data, let image = UIImage(data: data) else { return }
-                    DispatchQueue.main.async { imageView.image = image }
-                }.resume()
-            }
+            controllers.append(controller)
         }
         layoutPages()
     }
@@ -999,9 +1166,10 @@ private final class ShortsPagingController: UIViewController, UIScrollViewDelega
         scrollView.contentSize = CGSize(width: size.width, height: size.height * CGFloat(max(posts.count, 1)))
         for (index, host) in hosts.enumerated() {
             host.frame = CGRect(x: 0, y: size.height * CGFloat(index), width: size.width, height: size.height)
-            host.layer.sublayers?.forEach { layer in
-                if layer is AVPlayerLayer { layer.frame = host.bounds }
+            if controllers.indices.contains(index) {
+                controllers[index].view.frame = host.bounds
             }
+            host.viewWithTag(7)?.frame = host.bounds
         }
     }
 

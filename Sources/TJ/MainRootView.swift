@@ -117,6 +117,7 @@ public struct MainRootView: View {
                 isProfileComplete = true
             }
             AppRuntime.connectRealtime()
+            Task { await SessionActions.syncContacts() }
         } else {
             isAuthenticated = false
         }

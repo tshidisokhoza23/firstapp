@@ -186,6 +186,10 @@ enum LiveJSON {
     }
 
     static func post(_ json: [String: Any]) -> FeedPost? {
+        post(json, nested: false)
+    }
+
+    private static func post(_ json: [String: Any], nested: Bool) -> FeedPost? {
         let id = string(json["id"])
         guard !id.isEmpty else { return nil }
         let author = json["author"] as? [String: Any]
@@ -216,7 +220,9 @@ enum LiveJSON {
             repostCount: int(json["repost_count"]),
             quoteCount: int(json["quote_count"]),
             isReposted: bool(json["is_reposted"]),
-            mediaType: string(json["media_type"])
+            mediaType: string(json["media_type"]),
+            repostOfId: string(json["repost_of_id"]),
+            original: nested ? nil : ((json["original_post"] as? [String: Any]).flatMap { post($0, nested: true) })
         )
     }
 
