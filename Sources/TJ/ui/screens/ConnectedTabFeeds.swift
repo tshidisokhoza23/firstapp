@@ -478,7 +478,8 @@ private struct ShortClipView: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             // Full Screen Video Player
-            if lShortPlayerSurface(player: player)
+            if let player {
+                ShortPlayerSurface(player: player)
                     .ignoresSafeArea()
             } else if let image = post.mediaURL {
                 AsyncImage(url: image) { loaded in
@@ -486,8 +487,7 @@ private struct ShortClipView: View {
                 } placeholder: {
                     Color.black
                 }
-            VideoPlayer(player: player)
-                    .ignoresSafeArea()
+                .ignoresSafeArea()
             } else {
                 Color.black.ignoresSafeArea()
             }
@@ -623,6 +623,7 @@ private struct ShortClipView: View {
             if active { startPlayback() } else { player?.pause() }
         }
         .onDisappear { player?.pause() }
+    }
 
     private func startPlayback() {
         guard isActive || player == nil else {

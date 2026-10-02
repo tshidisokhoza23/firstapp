@@ -134,17 +134,7 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
                 peerConnection?.add(ice)
             } else {
                 pendingCandidates.append(ice)
-            }        case "sdp_answer":
-            isRemoteDescriptionSet = true
-            onConnected?()
-
-        case "ice_candidate":
-            if isRemoteDescriptionSet {
-                // Add ICE candidate
-            } else {
-                pendingCandidates.append(payload)
             }
-
         default:
             break
         }

@@ -124,8 +124,10 @@ struct PostDetailView: View {
     }
 
     private func loadReplies() async {
-        let data = (try? await API.data("posts/\(post.id)/replies"))
-            ?? (try? await API.data("media/posts/\(post.id)/replies"))
+        var data = try? await API.data("posts/\(post.id)/replies")
+        if data == nil {
+            data = try? await API.data("media/posts/\(post.id)/replies")
+        }
         guard let data else {
             status = "Could not load replies"
             return
