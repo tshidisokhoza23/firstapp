@@ -84,6 +84,8 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
         ensureFactory()
         startCamera()
         isCapturing = localVideoTrack != nil
+        let track = localVideoTrack
+        DispatchQueue.main.async { CallMediaState.shared.localVideo = track }
     }
 
     public func stopLocalPreview() {
@@ -580,7 +582,10 @@ public final class CallSocketBridge: NSObject, CallSocketListener, CallKitServic
                 self.presentIncoming(event)
                 if event.callType == .video {
                     AVCaptureDevice.requestAccess(for: .video) { granted in
-                        if granted { WebRtcCallManager.shared.startLocalPreview() }
+                        guard granted else { return }
+                        DispatchQueue.main.async {
+                            WebRtcCallManager.shared.startLocalPreview()
+                        }
                     }
                 }
             case "call_accept":

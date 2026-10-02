@@ -24,6 +24,7 @@ public struct IncomingCallView: View {
     public var onAccept: (IncomingCallInfo) -> Void
     public var onDecline: (IncomingCallInfo) -> Void
 
+    @ObservedObject private var media = CallMediaState.shared
     @State private var audioPlayer: AVAudioPlayer?
     @State private var vibrationTimer: Timer?
     @State private var isCameraGranted: Bool = false
@@ -43,9 +44,8 @@ public struct IncomingCallView: View {
             Color(red: 0.05, green: 0.05, blue: 0.05)
                 .ignoresSafeArea()
 
-            // Optional Local Camera Preview for Video Call
             if callInfo.callType == .video {
-                CallVideoSurface(track: CallMediaState.shared.localVideo)
+                CallVideoSurface(track: media.localVideo)
                     .ignoresSafeArea()
             }
 
@@ -53,26 +53,28 @@ public struct IncomingCallView: View {
                 Spacer()
                     .frame(height: 60)
 
-                // Caller Info & Avatar
                 VStack(spacing: 16) {
-                    if let avatarUrl = callInfo.avatarUrl, let url = URL(string: avatarUrl) {
-                        AsyncImage(url: url) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            Circle().fill(Color.gray.opacity(0.4))
-                        }
-                        .frame(width: 100, height: 100)
-                        .clipShape(Circle())
-                    } else {
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
+                    if callInfo.callType != .video || media.localVideo == nil {
+                        if let avatarUrl = callInfo.avatarUrl, let url = URL(string: avatarUrl) {
+                            AsyncImage(url: url) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                Circle().fill(Color.gray.opacity(0.4))
+                            }
                             .frame(width: 100, height: 100)
-                            .foregroundColor(.gray)
+                            .clipShape(Circle())
+                        } else {
+                            Image(systemName: "person.circle.fill")
+                                .resizable()
+                                .frame(width: 100, height: 100)
+                                .foregroundColor(.gray)
+                        }
                     }
 
                     Text(callInfo.callerName)
                         .font(.system(size: 30, weight: .bold))
                         .foregroundColor(.white)
+                        .shadow(color: .black, radius: 4)
 
                     Text(callInfo.callType == .video ? "Incoming Video Call" : "Incoming Voice Call")
                         .font(.system(size: 16))
