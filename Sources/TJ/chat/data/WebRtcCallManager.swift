@@ -26,14 +26,14 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     private var iceServers: [RTCIceServer] = []
     private var factory: RTCPeerConnectionFactory?
     private var peerConnection: RTCPeerConnection?
+    private var localVideoSource: RTCVideoSource?
     private var localAudioTrack: RTCAudioTrack?
     private var localVideoTrack: RTCVideoTrack?
     private var videoCapturer: RTCCameraVideoCapturer?
     private var pendingCandidates: [RTCIceCandidate] = []
     private var isRemoteDescriptionSet = false
     private var recoveryTask: Task<Void, Never>?
-    public private(set) var speakerIsOnCIceCandidate] = []
-    private var isRemoteDescriptionSet = false
+    public private(set) var speakerIsOn = false
 
     public static let shared = WebRtcCallManager()
     private static let fallbackIce = [
@@ -226,13 +226,13 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
         let rtc = RTCAudioSession.sharedInstance()
         rtc.useManualAudio = false
         rtc.isAudioEnabled = true
-        let config = RTCAudioSessionConfiguration.webRTCConfiguration()
+        let config = RTCAudioSessionConfiguration.webRTC()
         config.category = AVAudioSession.Category.playAndRecord.rawValue
         config.mode = (callType == .video ? AVAudioSession.Mode.videoChat : AVAudioSession.Mode.voiceChat).rawValue
         var options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
         if callType == .video { options.insert(.defaultToSpeaker) }
         config.categoryOptions = options
-        RTCAudioSessionConfiguration.setWebRTCConfiguration(config)
+        RTCAudioSessionConfiguration.setWebRTC(config)
         rtc.lockForConfiguration()
         do {
             try rtc.setCategory(AVAudioSession.Category.playAndRecord, mode: callType == .video ? .videoChat : .voiceChat, options: options)

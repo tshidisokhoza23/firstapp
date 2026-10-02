@@ -488,14 +488,14 @@ public class ChatViewModel: ObservableObject {
 
     private func placeCall(receiverId: String, callType: CallType, name: String) async {
         let token = SessionStore.shared.token ?? ""
-        await WebRtcCallManager.shared.prepareIce(alleeId, sessionId: "", callType: callType)
-        CallWebSocketClient.shared.connect(listener: CallSocketBridge.shared, serverUrl: AppBackend.wsBaseURL, authToken: token)
-        var ice: [[String: Any]] = [["urls": "stun:stun.l.google.com:19302"], ["urls": "stun:stun1.l.google.com:19302"]]
-        if let data = try? await API.data("calls/ice_servers") {
-            let rows = LiveJSON.list(data, keys: ["ice_servers"])
-            if !rows.isEmpty { ice = rows }
+        guard !token.isEmpty else {
+            uiState.error = "Sign in again before calling"
+            return
         }
-        WebRtcCallManager.shared.setIceServers(ice)
+        let calleeId = resolvedCalleeId(receiverId)
+        CallSocketBridge.shared.bind(receiverId: calleeId, sessionId: "", callType: callType)
+        CallWebSocketClient.shared.connect(listener: CallSocketBridge.shared, serverUrl: AppBackend.wsBaseURL, authToken: token)
+        await WebRtcCallManager.shared.prepareIce()
         do {
             let data = try await API.data("calls/initiate", method: "POST", json: [
                 "receiver_id": calleeId,
