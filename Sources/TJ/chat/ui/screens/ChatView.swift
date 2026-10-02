@@ -159,14 +159,9 @@ public struct ChatView: View {
             onForwardSelectedMessages: { forwardSelected() },
             onClearSelectedMessages: { selectedMessageIds.removeAll() }
         )
-    }oicePlayback.playing,
-                                onPlayAudio: { uri in
-                                    if let uri {
-                                        voicePlayback.toggle(uri)
-                                    } else {
-                                        voicePlayback.stop()
-                                    }
-                                    viewModel.setPlayingAudio(voicePlayback.playing
+    }
+
+    private var messageList: some View {
         ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 4) {
@@ -178,7 +173,12 @@ public struct ChatView: View {
                                 showReadReceipts: viewModel.showReadReceipts,
                                 playingAudioUri: viewModel.currentlyPlayingAudio,
                                 onPlayAudio: { uri in
-                                    viewModel.setPlayingAudio(uri)
+                                    if let uri {
+                                        voicePlayback.toggle(uri)
+                                    } else {
+                                        voicePlayback.stop()
+                                    }
+                                    viewModel.setPlayingAudio(voicePlayback.playing)
                                 },
                                 onReply: { msg in
                                     replyTo = msg

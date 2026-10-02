@@ -2,7 +2,6 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
-@MainActor
 final class VoicePlayback: ObservableObject {
     @Published var playing: String?
     private var player: AVPlayer?
@@ -31,7 +30,7 @@ final class VoicePlayback: ObservableObject {
                     object: item,
                     queue: .main
                 ) { [weak self] _ in
-                    Task { @MainActor in self?.stop() }
+                    self?.stop()
                 }
                 player.play()
             }

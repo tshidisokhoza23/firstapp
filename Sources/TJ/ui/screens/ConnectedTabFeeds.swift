@@ -1319,6 +1319,39 @@ struct SocialNoteItem: Identifiable {
     let action: String
 }
 
+private struct SavedPostsSheet: View {
+    var onOpen: (FeedPost) -> Void
+    @State private var posts: [FeedPost] = []
+    @State private var note = "Loading..."
+
+    var body: some View {
+        NavigationStack {
+            List(posts) { post in
+                Button { onOpen(post) } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(post.authorName).font(.headline).foregroundColor(.primary)
+                        Text(post.content).lineLimit(2).font(.subheadline).foregroundColor(.secondary)
+                    }
+                }
+            }
+            .overlay { if posts.isEmpty { Text(note).foregroundColor(.secondary) } }
+            .navigationTitle("Saved Posts")
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        do {
+            let data = try await API.data("media/feed", query: ["category_id": "saved", "limit": "20", "offset": "0"])
+            let parsed = LiveJSON.posts(from: data)
+            posts = parsed.isEmpty ? FeedPost.decodeList(data) : parsed
+            note = posts.isEmpty ? "No saved posts yet" : ""
+        } catch {
+            note = "Could not load saved posts"
+        }
+    }
+}
+
 private struct SocialNotesSheet: View {
     var onOpen: (SocialNoteItem) -> Void
     @State private var rows: [SocialNoteItem] = []
