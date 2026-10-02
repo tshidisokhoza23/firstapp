@@ -380,6 +380,14 @@ public struct StoryViewer: View {
             loadSlideMedia()
         }
         .onDisappear {
+            storyPlayer?.pause()
+            storyPlayer = nil
+        }
+    }
+
+    private func loadSlideMedia() {
+        storyPlayer?.pause()
+        storyPlayer = nil
         videoHoldSeconds = 0
         guard currentSlide.mediaSymbol == "video.fill",
               let raw = currentSlide.mediaURL,
@@ -406,24 +414,14 @@ public struct StoryViewer: View {
         let removed = (try? await StoryRepository.shared.deleteStory(storyId: item.id)) ?? false
         if removed {
             onClose?()
-        }SlideMedia() {
-        storyPlayer?.pause()
-        storyPlayer = nil
-        guard currentSlide.mediaSymbol == "video.fill",
-              let raw = currentSlide.mediaURL,
-              let url = FeedPost.resolve(raw) else { return }
-        let player = AVPlayer(url: url)
-        storyPlayer = player
-        player.play()
+        }
     }
 
     private func markCurrentViewed() {
         guard let liveStory, liveStory.stories.indices.contains(activeSlideIndex) else { return }
         let item = liveStory.stories[activeSlideIndex]
         Task {
-            _ =if let onRetreat {
-            onRetreat()
-        } else  try? await StoryRepository.shared.markStoryAsViewed(userId: liveStory.userId, storyId: item.id)
+            _ = try? await StoryRepository.shared.markStoryAsViewed(userId: liveStory.userId, storyId: item.id)
         }
     }
 
@@ -444,6 +442,8 @@ public struct StoryViewer: View {
         if activeSlideIndex > 0 {
             activeSlideIndex -= 1
             slideProgress = 0.0
+        } else if let onRetreat {
+            onRetreat()
         } else {
             slideProgress = 0.0
         }
