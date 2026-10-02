@@ -11,10 +11,20 @@ public class StarredMessagesViewModel: ObservableObject {
     }
 
     public func fetchStarredMessages() {
-        starredMessages = .loading([])
-        // Simulated fetch
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.starredMessages = .success([])
+        starredMessages = .loading(starredMessages.data)
+        Task {
+            do {
+                let data = try await API.data("messages/starred")
+                let messages = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId).map { message in
+                    var copy = message
+                    copy.senderName = Self.visibleName(message.senderName)
+                    copy.isStarred = true
+                    return copy
+                }
+                starredMessages = .success(messages)
+            } catch {
+                starredMessages = .error("Could not load starred messages", starredMessages.data ?? [])
+            }
         }
     }
 
@@ -23,9 +33,33 @@ public class StarredMessagesViewModel: ObservableObject {
             msgs.removeAll { $0.id == messageId }
             starredMessages = .success(msgs)
         }
+        Task {
+            _ = try? await API.data("messages/\(messageId)/star", method: "DELETE")
+            fetchStarredMessages()
+        }
     }
 
     public func deleteMessage(messageId: String) {
-        unstarMessage(messageId: messageId)
+        let conversationId = starredMessages.data?.first(where: { $0.id == messageId })?.conversationId ?? ""
+        if var msgs = starredMessages.data {
+            msgs.removeAll { $0.id == messageId }
+            starredMessages = .success(msgs)
+        }
+        Task {
+            if !conversationId.isEmpty {
+                _ = try? await API.data("conversations/\(conversationId)/messages/\(messageId)", method: "DELETE")
+            }
+            fetchStarredMessages()
+        }
+    }
+
+    private static func visibleName(_ raw: String) -> String {
+        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = cleaned.lowercased()
+        let blocked = ["user", "someone", "direct", "chat", "mingle user", "mingle contact", "unknown caller"]
+        if cleaned.isEmpty || blocked.contains(lower) || LiveJSON.isOpaqueId(cleaned) {
+            return ""
+        }
+        return cleaned
     }
 }

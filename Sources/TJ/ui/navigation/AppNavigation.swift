@@ -359,12 +359,16 @@ struct SettingsSubDetailView: View {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let users = json["users"] as? [[String: Any]] else { return }
         blocked = users.compactMap { user in
-            let id = (user["id"] as? String) ?? ""
+            let id = LiveJSON.string(user["id"])
             guard !id.isEmpty else { return nil }
-            let name = (user["display_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                ?? (user["username"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                ?? (user["phone_number"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                ?? id
+            let display = LiveJSON.string(user["display_name"])
+            let username = LiveJSON.string(user["username"])
+            let phone = LiveJSON.string(user["phone_number"])
+            let name = [display, username, phone].first { value in
+                let lower = value.lowercased()
+                return !value.isEmpty && lower != "user" && lower != "someone" && !LiveJSON.isOpaqueId(value)
+            }
+            guard let name else { return nil }
             return (id, name)
         }
     }

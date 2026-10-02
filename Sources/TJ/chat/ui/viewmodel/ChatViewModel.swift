@@ -402,23 +402,38 @@ public class ChatViewModel: ObservableObject {
     }
 
     public func deleteMessage(messageId: String, deleteForEveryone: Bool = false) {
+        let conversationId = uiState.messages.data?.first(where: { $0.id == messageId })?.conversationId ?? ""
         if var msgs = uiState.messages.data {
             msgs.removeAll { $0.id == messageId }
             uiState.messages = .success(msgs)
         }
+        guard !conversationId.isEmpty else { return }
+        Task {
+            _ = try? await API.data("conversations/\(conversationId)/messages/\(messageId)", method: "DELETE")
+        }
     }
 
     public func editMessage(messageId: String, newBody: String) {
+        let conversationId = uiState.messages.data?.first(where: { $0.id == messageId })?.conversationId ?? ""
         if var msgs = uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == messageId }) {
             msgs[idx].content = newBody
             uiState.messages = .success(msgs)
         }
+        guard !conversationId.isEmpty, !newBody.isEmpty else { return }
+        Task {
+            _ = try? await API.data("conversations/\(conversationId)/messages/\(messageId)", method: "PATCH", json: ["message_text": newBody])
+        }
     }
 
     public func reactToMessage(messageId: String, emoji: String) {
+        let conversationId = uiState.messages.data?.first(where: { $0.id == messageId })?.conversationId ?? ""
         if var msgs = uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == messageId }) {
             msgs[idx].reactions[emoji, default: 0] += 1
             uiState.messages = .success(msgs)
+        }
+        guard !conversationId.isEmpty, !emoji.isEmpty else { return }
+        Task {
+            _ = try? await API.data("conversations/\(conversationId)/messages/\(messageId)/reactions", method: "POST", json: ["emoji": emoji])
         }
     }
 
@@ -434,24 +449,36 @@ public class ChatViewModel: ObservableObject {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         Task {
-            guard let data = try? await API.data("chats/group", method: "POST", json: ["name": trimmed, "member_ids": contactIds]),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-            let id = LiveJSON.string(json["conversation_id"]).nilIfEmpty ?? LiveJSON.string(json["id"])
-            guard !id.isEmpty else { return }
-            let title = LiveJSON.string(json["title"]).nilIfEmpty ?? trimmed
-            onSuccess(ChatMessage(id: id, type: .group, senderName: title, isGroup: true))
-            fetchChats()
-        }
-    }
-
-    public func archiveChat(chatId: String, isArchived: Bool) {
-        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
-            list[idx].isArchived = isArchived
-            uiState.chats = .success(list)
+        Task {
+            _ = try? await API.data("conversations/\(chatId)/prefs", method: "PATCH", json: ["is_archived": isArchived])
         }
     }
 
     public func pinChat(chatId: String, isPinned: Bool) {
+        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
+            list[idx].isPinned = isPinned
+            uiState.chats = .success(list)
+        }
+        Task {
+            _ = try? await API.data("conversations/\(chatId)/prefs", method: "PATCH", json: ["is_pinned": isPinned])
+        }
+    }
+
+    public func muteChat(chatId: String, isMuted: Bool) {
+        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
+            list[idx].isMuted = isMuted
+            uiState.chats = .success(list)
+        }
+        Task {
+            _ = try? await API.data("conversations/\(chatId)/prefs", method: "PATCH", json: ["is_muted": isMuted])
+        }
+    }
+
+    public func clearChat(chatId: String) {
+        uiState.messages = .success([])
+        Task {
+            _ = try? await API.data("conversations/\(chatId)/clear", method: "POST")
+        } isPinned: Bool) {
         if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
             list[idx].isPinned = isPinned
             uiState.chats = .success(list)
@@ -524,6 +551,13 @@ public class ChatViewModel: ObservableObject {
             GlobalCallState.shared.updateContactInfo(id: targetId, name: name, phone: nil)
             GlobalCallState.shared.setCallActive(true, sessionId: sessionId, participantId: targetId, callType: callType)
             CallSocketBridge.shared.bind(receiverId: targetId, sessionId: sessionId, callType: callType)
+        Task {
+            if isStarred {
+                _ = try? await API.data("messages/\(messageId)/star", method: "POST", json: ["starred": true])
+            } else {
+                _ = try? await API.data("messages/\(messageId)/star", method: "DELETE")
+            }
+        }
             WebRtcCallManager.shared.start(callType: callType)
             CallWebSocketClient.shared.invite(receiverId: targetId, sessionId: sessionId, callType: callType)
         } catch {
