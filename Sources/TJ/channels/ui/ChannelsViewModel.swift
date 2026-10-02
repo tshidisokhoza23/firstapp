@@ -47,8 +47,13 @@ public final class ChannelsViewModel: ObservableObject {
     public func createChannel(name: String, description: String, avatarUrl: String? = nil) {
         Task {
             let channel = await repository.createChannel(name: name, description: description, avatarUrl: avatarUrl)
-            createdChannelId = channel.conversationId ?? channel.id
-            toastMessage = "Channel created successfully"
+            let id = channel.conversationId?.isEmpty == false ? channel.conversationId! : channel.id
+            if id.isEmpty {
+                toastMessage = "Channel was not created"
+            } else {
+                createdChannelId = id
+                toastMessage = "Channel created successfully"
+            }
             fetchChannels()
         }
     }

@@ -21,6 +21,8 @@ public struct ChatTabView: View {
     @State private var activeChannelDetail: Channel? = nil
     @State private var activeJobDetail: Job? = nil
     @State private var showCreateChannel: Bool = false
+    @State private var channelQuery = ""
+    @State private var channelSearch: [Channel] = []
     @State private var showPostJob: Bool = false
     @State private var showStarred: Bool = false
     @State private var showApplications: Bool = false
@@ -394,37 +396,47 @@ public struct ChatTabView: View {
         }
     }
 
+    private func searchChannels() async {
+        let q = channelQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { channelSearch = []; return }
+        guard let data = try? await API.data("chats/channels/search", query: ["query": q]) else { return }
+        channelSearch = ChannelJSON.list(from: data)
+    }
+
     // MARK: - Channels Tab Content
 
     private var channelsTabContent: some View {
         ZStack(alignment: .bottomTrailing) {
-            let channelList = channelsViewModel.channels.data ?? []
-            if channelList.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "megaphone")
-                        .font(.system(size: 48))
-                        .foregroundColor(.gray)
-                    Text("No channels available")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(channelList) { ch in
-                            ChannelItemView(
-                                channel: ch,
-                                onClick: {
-                                    activeChannelDetail = ch
-                                },
-                                onSubscribe: { id in
-                                    channelsViewModel.subscribeToChannel(channelId: id)
-                                }
-                            )
-                            Divider()
-                        }
+            let channelList = channelQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? (channelsViewModel.channels.data ?? [])
+                : channelSearch
+            VStack(spacing: 0) {
+                TextField("Search channels", text: $channelQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .onSubmit { Task { await searchChannels() } }
+                    .onChange(of: channelQuery) { value in
+                        let q = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if q.isEmpty { channelSearch = [] } else { Task { await searchChannels() } }
                     }
+                if channelList.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "megaphone")
+                            .font(.system(size: 48))
+                            .foregroundColor(.gray)
+                        Text(channelsViewModel.channels.isLoading ? "Loading channels..." : (channelsViewModel.channels.message ?? (channelQuery.isEmpty ? "No channels available" : "No channels match that search")))
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ChannelListView(
+                        channels: channelList,
+                        currentUserId: SessionStore.shared.userId,
+                        onChannelClick: { activeChannelDetail = $0 },
+                        onSubscribe: { channelsViewModel.subscribeToChannel(channelId: $0) }
+                    )
                 }
             }
 

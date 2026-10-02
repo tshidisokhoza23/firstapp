@@ -6,6 +6,7 @@ public struct SettingsView: View {
     @State private var showLogoutConfirm: Bool = false
     @State private var showResetConfirm: Bool = false
     @State private var showDeleteAccountConfirm: Bool = false
+    @State private var deleteFailure: String?
     @State private var localPage: SettingsLocalPage?
 
     public init(router: NavigationRouter) {
@@ -210,11 +211,11 @@ public struct SettingsView: View {
                 case .chats: ChatSettingsForm()
                 case .alerts: AlertSettingsForm()
                 case .language: LanguageSettingsForm()
-                case .security: SettingsSubDetailView(title: "Security")
-                case .storage: SettingsSubDetailView(title: "Storage")
+                case .security: SecuritySettingsForm()
+                case .storage: StorageSettingsForm()
                 case .sessions: SettingsSubDetailView(title: "Sessions")
-                case .help: SettingsSubDetailView(title: "Help Center")
-                case .account: SettingsSubDetailView(title: "Account")
+                case .help: HelpSettingsForm()
+                case .account: AccountView()
                 case .editProfile: EditProfilePlaceholderView()
                 }
             }
@@ -241,13 +242,22 @@ public struct SettingsView: View {
         .alert("Delete Account", isPresented: $showDeleteAccountConfirm) {
             Button("Delete Forever", role: .destructive) {
                 Task {
-                    await SessionActions.deleteAccount()
-                    router.popToRoot()
+                    let removed = await SessionActions.deleteAccount()
+                    if removed {
+                        router.popToRoot()
+                    } else {
+                        deleteFailure = "Account was not deleted. The server did not remove this account."
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This action is permanent and cannot be undone. All data will be removed.")
+        }
+        .alert("Account", isPresented: Binding(get: { deleteFailure != nil }, set: { if !$0 { deleteFailure = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteFailure ?? "")
         }
     }
 }

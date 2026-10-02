@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 public struct ChannelDetailView: View {
     public var channel: Channel
@@ -28,6 +29,12 @@ public struct ChannelDetailView: View {
     @State private var selectedReportReason = "Spam or misleading"
     @State private var pollVotes: [String: Int] = [:]
     @State private var hideMutePrompt = false
+    @State private var channelPhoto: PhotosPickerItem?
+    @StateObject private var liveModel = ChannelDetailViewModel()
+
+    private var shownChannel: Channel { liveModel.channel.data ?? channel }
+    private var liveMessages: [ChannelChatMessage] { liveModel.didLoadMessages ? liveModel.messages : messages }
+    private var adminChoices: [ChannelContact] { liveModel.contacts.isEmpty ? contacts : liveModel.contacts }
 
     private let reportReasons = [
         "Spam or misleading",
@@ -74,30 +81,31 @@ public struct ChannelDetailView: View {
     }
 
     private var isCreator: Bool {
-        if let uid = currentUserId, !uid.isEmpty, channel.createdBy == uid {
+        let uid = currentUserId?.isEmpty == false ? currentUserId : SessionStore.shared.userId
+        if let uid, !uid.isEmpty, shownChannel.createdBy == uid {
             return true
         }
         return false
     }
 
     private var isAdmin: Bool {
-        channel.isAdmin || isCreator
+        shownChannel.isAdmin || isCreator
     }
 
     private var canPost: Bool {
-        isCreator || (channel.isAdmin && channel.adminsCanPost)
+        isCreator || (shownChannel.isAdmin && shownChannel.adminsCanPost)
     }
 
     private var isFollower: Bool {
-        channel.isSubscribed || isAdmin
+        shownChannel.isSubscribed || isAdmin
     }
 
     private var displayPosts: [ChannelPost] {
-        let mapped = messages.map { msg in
+        let mapped = liveMessages.map { msg in
             ChannelPost(
                 id: msg.id,
                 content: msg.message,
-                imageUrl: nil,
+                imageUrl: msg.mediaUrl,
                 timestamp: msg.timestamp
             )
         }
@@ -156,7 +164,7 @@ public struct ChannelDetailView: View {
                                 }
                             }
 
-                            Text(isAdmin ? "Public channel" : "\(channel.followers) followers")
+                            Text(isAdmin ? "Public channel" : "\(shownChannel.followers) followers")
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                         }
@@ -167,9 +175,9 @@ public struct ChannelDetailView: View {
 
                 if isFollower {
                     Button(action: {
-                        onMute(channel.id, !channel.isMuted)
+                        liveModel.mute(channelId: shownChannel.id, isMuted: !shownChannel.isMuted); onMute(shownChannel.id, !shownChannel.isMuted)
                     }) {
-                        Image(systemName: channel.isMuted ? "bell.slash" : "bell")
+                        Image(systemName: shownChannel.isMuted ? "bell.slash" : "bell")
                             .font(.system(size: 18))
                             .foregroundColor(.primary)
                     }
@@ -183,9 +191,9 @@ public struct ChannelDetailView: View {
 
                 Menu {
                     Button("Channel info") { showInfo = true }
-                    Button(channel.isMuted ? "Unmute notifications" : "Mute notifications") {
+                    Button(shownChannel.isMuted ? "Unmute notifications" : "Mute notifications") {
                         if isFollower {
-                            onMute(channel.id, !channel.isMuted)
+                            liveModel.mute(channelId: shownChannel.id, isMuted: !shownChannel.isMuted); onMute(shownChannel.id, !shownChannel.isMuted)
                         }
                     }
                     if isAdmin {
@@ -193,15 +201,15 @@ public struct ChannelDetailView: View {
                     }
                     if isCreator {
                         Toggle("Admins can post", isOn: Binding(
-                            get: { channel.adminsCanPost },
-                            set: { onToggleAdminPosting($0) }
+                            get: { shownChannel.adminsCanPost },
+                            set: { liveModel.toggleAdminPosting(channelId: shownChannel.id, allowed: $0); onToggleAdminPosting($0) }
                         ))
                     }
                     if isFollower && !isCreator {
                         Button(role: .destructive) {
                             showUnfollowConfirm = true
                         } label: {
-                            Text(channel.isSubscribed ? "Unfollow channel" : "Follow channel")
+                            Text(shownChannel.isSubscribed ? "Unfollow channel" : "Follow channel")
                         }
                     }
                     Button("Report channel", role: .destructive) {
@@ -357,7 +365,7 @@ public struct ChannelDetailView: View {
             if !isFollower {
                 // State 1: Non-follower (Screenshot 3)
                 VStack(spacing: 12) {
-                    Button(action: { onSubscribe(channel.id) }) {
+                    Button(action: { liveModel.subscribe(channelId: shownChannel.id); onSubscribe(shownChannel.id) }) {
                         Text("Follow channel")
                             .font(.system(size: 17, weight: .bold))
                             .frame(maxWidth: .infinity)
@@ -378,7 +386,7 @@ public struct ChannelDetailView: View {
                 }
                 .padding(16)
                 .background(Color(uiColor: .systemBackground))
-            } else if channel.isMuted && !hideMutePrompt {
+            } else if shownChannel.isMuted && !hideMutePrompt {
                 // State 2: Muted Follower Banner (Screenshot 2)
                 VStack(spacing: 12) {
                     Text("Unmute to get notifications for this channel.")
@@ -396,7 +404,7 @@ public struct ChannelDetailView: View {
                                 .cornerRadius(22)
                         }
 
-                        Button(action: { onMute(channel.id, false) }) {
+                        Button(action: { liveModel.mute(channelId: shownChannel.id, isMuted: false); onMute(shownChannel.id, false) }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "bell.slash.fill")
                                     .font(.system(size: 14))
@@ -422,11 +430,14 @@ public struct ChannelDetailView: View {
 
                         TextField("Write an update", text: $postText)
 
-                        Image(systemName: "paperclip")
-                            .foregroundColor(.gray)
-
-                        Image(systemName: "camera")
-                            .foregroundColor(.gray)
+                        PhotosPicker(selection: $channelPhoto, matching: .images) {
+                            Image(systemName: "paperclip")
+                                .foregroundColor(.gray)
+                        }
+                        PhotosPicker(selection: $channelPhoto, matching: .images) {
+                            Image(systemName: "camera")
+                                .foregroundColor(.gray)
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
@@ -435,6 +446,8 @@ public struct ChannelDetailView: View {
 
                     Button(action: {
                         if !postText.trimmingCharacters(in: .whitespaces).isEmpty {
+                            let target = shownChannel.conversationId?.isEmpty == false ? shownChannel.conversationId! : shownChannel.id
+                            liveModel.sendMessage(channelId: target, content: postText)
                             onSendPost(postText, [])
                             postText = ""
                         }
@@ -458,9 +471,9 @@ public struct ChannelDetailView: View {
                 Text("Add admin")
                     .font(.headline)
                     .padding()
-                List(contacts.filter { $0.isRegistered }, id: \.id) { contact in
+                List(adminChoices.filter { $0.isRegistered && !$0.displayName.isEmpty }, id: \.id) { contact in
                     Button(action: {
-                        onAddAdmin(contact.id)
+                        liveModel.addAdmin(channelId: shownChannel.id, userId: contact.id); onAddAdmin(contact.id)
                         showAddAdmin = false
                     }) {
                         Text(contact.displayName)
@@ -471,7 +484,7 @@ public struct ChannelDetailView: View {
         .alert("Unfollow channel?", isPresented: $showUnfollowConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Unfollow", role: .destructive) {
-                onSubscribe(channel.id)
+                liveModel.subscribe(channelId: shownChannel.id); onSubscribe(shownChannel.id)
             }
         } message: {
             Text("You will stop seeing new posts from \(channel.name) in your chats.")
@@ -503,7 +516,8 @@ public struct ChannelDetailView: View {
                     Button("Cancel") { showReportDialog = false }
                     Spacer()
                     Button("Report") {
-                        onReportChannel(channel.id, selectedReportReason)
+                        liveModel.report(channelId: shownChannel.createdBy?.isEmpty == false ? shownChannel.createdBy! : shownChannel.id, reason: selectedReportReason)
+                        onReportChannel(shownChannel.id, selectedReportReason)
                         showReportDialog = false
                     }
                     .foregroundColor(.red)
@@ -513,10 +527,35 @@ public struct ChannelDetailView: View {
             .padding(24)
             .presentationDetents([.medium])
         }
+        .task(id: channel.id) { liveModel.loadChannel(channelId: channel.id) }
+        .onChange(of: channelPhoto) { item in
+            guard let item else { return }
+            Task { await uploadChannelPhoto(item) }
+        }
+        .alert("Channel", isPresented: Binding(get: { liveModel.toast != nil }, set: { if !$0 { liveModel.toast = nil } })) {
+            Button("OK", role: .cancel) { liveModel.clearToast() }
+        } message: {
+            Text(liveModel.toast ?? "")
+        }
     }
+    private func uploadChannelPhoto(_ item: PhotosPickerItem) async {
+        defer { channelPhoto = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        do {
+            let url = try await MediaActions.upload(data: data, filename: "channel.jpg", mime: "image/jpeg", folder: "channels")
+            let target = shownChannel.conversationId?.isEmpty == false ? shownChannel.conversationId! : shownChannel.id
+            let caption = postText.trimmingCharacters(in: .whitespacesAndNewlines)
+            liveModel.sendMediaPost(channelId: target, content: caption, mediaUrls: [url], messageType: "image", fileName: "channel.jpg")
+            postText = ""
+        } catch {
+            liveModel.toast = error.localizedDescription
+        }
+    }
+
+
+
 }
 
-// Channel Post Card with Reactions & Poll support (Screenshots 1-4)
 public struct ChannelPostCardView: View {
     public var post: ChannelPost
 
@@ -534,7 +573,7 @@ public struct ChannelPostCardView: View {
             }
 
             // Optional Image/Video
-            if let imgUrl = post.imageUrl, let url = URL(string: imgUrl) {
+            if let url = FeedPost.resolve(post.imageUrl) {
                 AsyncImage(url: url) { img in
                     img.resizable().scaledToFill()
                 } placeholder: {
@@ -578,7 +617,7 @@ public struct ChannelPostCardView: View {
                 Spacer()
 
                 // Timestamp Pill
-                Text(post.timestamp.isEmpty ? "19:08" : post.timestamp)
+                Text(post.timestamp)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 8)

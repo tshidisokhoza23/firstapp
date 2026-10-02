@@ -22,12 +22,14 @@ public struct ChannelChatMessage: Identifiable, Codable, Equatable {
     public var senderName: String
     public var message: String
     public var timestamp: String
+    public var mediaUrl: String?
 
-    public init(id: String = UUID().uuidString, senderName: String, message: String, timestamp: String = "Just now") {
+    public init(id: String = UUID().uuidString, senderName: String, message: String, timestamp: String = "Just now", mediaUrl: String? = nil) {
         self.id = id
         self.senderName = senderName
         self.message = message
         self.timestamp = timestamp
+        self.mediaUrl = mediaUrl
     }
 }
 
@@ -71,17 +73,26 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
     }
 
     public func getChannels() async throws -> [Channel] {
-        let res = try await channelApi.getChannels()
-        let list = res.channels.map { api in
-            Channel(
-                id: api.id,
-                name: api.name,
-                description: api.description ?? "",
-                followers: api.subscriberCount,
-                avatarUrl: api.avatarUrl,
-                isSubscribed: api.isSubscribed,
-                isAdmin: api.isAdmin
-            )
+        var list: [Channel] = []
+        if let data = try? await API.data("chats/channels") {
+            list = ChannelJSON.list(from: data)
+        }
+        if list.isEmpty, let data = try? await API.data("channels") {
+            list = ChannelJSON.list(from: data)
+        }
+        if list.isEmpty {
+            let res = try await channelApi.getChannels()
+            list = res.channels.map { api in
+                Channel(
+                    id: api.id,
+                    name: api.name,
+                    description: api.description ?? "",
+                    followers: api.subscriberCount,
+                    avatarUrl: api.avatarUrl,
+                    isSubscribed: api.isSubscribed,
+                    isAdmin: api.isAdmin
+                )
+            }
         }
         self.channels = list
         return list
@@ -153,7 +164,7 @@ public final class ChannelRepository: ObservableObject, ChannelRepositoryProtoco
             channels.append(model)
             return model
         }
-        return Channel(id: UUID().uuidString, name: name, description: description, avatarUrl: avatarUrl)
+        return Channel(id: "", name: name, description: description, avatarUrl: avatarUrl)
     }
 
     public func addAdmin(channelId: String, userId: String) async -> Bool {

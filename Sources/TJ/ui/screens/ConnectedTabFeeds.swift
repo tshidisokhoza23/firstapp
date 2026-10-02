@@ -812,6 +812,7 @@ struct ShortsFeedView: View {
     @State private var page = 0
     @State private var showCreateShort = false
     @State private var showShortSearch = false
+    @State private var commentShort: FeedPost?
 
     var body: some View {
         Group {
@@ -864,6 +865,7 @@ struct ShortsFeedView: View {
                                     if !authorId.isEmpty { onProfileClick(authorId) }
                                 },
                                 onOpen: { selectedShort = shorts[page] },
+                                onComment: { commentShort = shorts[page] },
                                 onLike: { toggleShortLike(shorts[page].id) },
                                 onSave: { toggleShortSave(shorts[page].id) },
                                 onShare: { shareShort(shorts[page].id) }
@@ -877,6 +879,13 @@ struct ShortsFeedView: View {
         .fullScreenCover(isPresented: Binding(get: { selectedShort != nil }, set: { if !$0 { selectedShort = nil } })) {
             if let post = selectedShort {
                 PostDetailView(post: post, onProfileClick: onProfileClick, onClose: { selectedShort = nil })
+            }
+        }
+        .sheet(item: $commentShort) { post in
+            ShortCommentsSheet(post: post) { count in
+                if let index = shorts.firstIndex(where: { $0.id == post.id }) {
+                    shorts[index].repliesCount = count
+                }
             }
         }
         .sheet(isPresented: $showCreateShort) {
@@ -946,6 +955,7 @@ private struct ShortsChrome: View {
     let post: FeedPost
     var onProfile: () -> Void
     var onOpen: () -> Void
+    var onComment: () -> Void = {}
     var onLike: () -> Void
     var onSave: () -> Void
     var onShare: () -> Void
@@ -978,7 +988,7 @@ private struct ShortsChrome: View {
                         Text("\(post.likes)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
                     }
                 }
-                Button(action: onOpen) {
+                Button(action: onComment) {
                     VStack(spacing: 4) {
                         Image(systemName: "message.fill").font(.system(size: 26)).foregroundColor(.white)
                         Text("\(post.repliesCount)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)

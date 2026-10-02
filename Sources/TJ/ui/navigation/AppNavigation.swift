@@ -49,22 +49,22 @@ public struct AppNavigation: View {
                         SettingsView(router: router)
 
                     case .accountSettings:
-                        SettingsSubDetailView(title: "Account")
+                        AccountView()
 
                     case .privacySettings:
-                        SettingsSubDetailView(title: "Security")
+                        SecuritySettingsForm()
 
                     case .notificationSettings:
-                        SettingsSubDetailView(title: "Alerts")
+                        AlertSettingsForm()
 
                     case .storageSettings:
-                        SettingsSubDetailView(title: "Storage")
+                        StorageSettingsForm()
 
                     case .sessionsSettings:
                         SettingsSubDetailView(title: "Sessions")
 
                     case .helpSettings:
-                        SettingsSubDetailView(title: "Help Center")
+                        HelpSettingsForm()
 
                     case .wallet:
                         WalletView()
@@ -385,9 +385,14 @@ enum SessionActions {
         SessionStore.shared.clear()
     }
 
-    static func deleteAccount() async {
-        _ = try? await API.data("users/me", method: "DELETE")
-        await logout()
+    static func deleteAccount() async -> Bool {
+        do {
+            _ = try await API.data("users/me", method: "DELETE")
+            await logout()
+            return true
+        } catch {
+            return false
+        }
     }
 
     static func syncContacts() async {
