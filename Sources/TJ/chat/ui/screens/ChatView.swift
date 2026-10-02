@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import AVFoundation
+import UIKit
 
 public struct ChatView: View {
     public let chat: ChatMessage
@@ -282,19 +283,21 @@ public struct ChatView: View {
         Task {
             do {
                 let data = try Data(contentsOf: picked.url)
-                let url = try await MediaActions.upload(
+                let uploaded = try await MediaActions.upload(
                     data: data,
                     filename: picked.url.lastPathComponent,
                     mime: "audio/mp4",
                     folder: "chat/audio_message"
                 )
+                let url = FeedPost.resolve(uploaded)?.absoluteString ?? uploaded
                 viewModel.sendMessage(
                     chatId: chatId,
                     body: "Voice Note",
                     messageType: "audio_message",
                     mediaUrls: [url],
                     duration: label,
-                    fileName: picked.url.lastPathComponent
+                    fileName: picked.url.lastPathComponent,
+                    fileSize: String(data.count)
                 )
                 try? FileManager.default.removeItem(at: picked.url)
             } catch {
@@ -312,21 +315,29 @@ public struct ChatView: View {
         let type = item.supportedContentTypes.first
         let mime = type?.preferredMIMEType ?? "application/octet-stream"
         let kind = mime.hasPrefix("video") ? "video" : (mime.hasPrefix("image") ? "image" : "document")
-        let filename = kind == "video" ? "chat_attachment.mp4" : (kind == "image" ? "chat_attachment.jpg" : "chat_attachment")
+        var payload = data
+        var sendMime = mime
+        var filename = kind == "video" ? "chat_attachment.mp4" : (kind == "image" ? "chat_attachment.jpg" : "chat_attachment")
+        if kind == "image", let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.82), !jpeg.isEmpty {
+            payload = jpeg
+            sendMime = "image/jpeg"
+            filename = "chat_attachment.jpg"
+        }
         do {
-            let url = try await MediaActions.upload(
-                data: data,
+            let uploaded = try await MediaActions.upload(
+                data: payload,
                 filename: filename,
-                mime: mime,
+                mime: sendMime,
                 folder: "chat/\(kind)"
             )
+            let url = FeedPost.resolve(uploaded)?.absoluteString ?? uploaded
             viewModel.sendMessage(
                 chatId: chat.id,
                 body: inputText.isEmpty ? kind.capitalized : inputText,
                 messageType: kind,
                 mediaUrls: [url],
                 fileName: filename,
-                fileSize: String(data.count)
+                fileSize: String(payload.count)
             )
         } catch {
             note = error.localizedDescription
