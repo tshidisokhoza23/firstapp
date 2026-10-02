@@ -145,7 +145,9 @@ public struct DirectMessagesView: View {
     }
 
     private var visibleCalls: [CallLog] {
-        callLogs.filter { searchText.isEmpty || resolvedCallName($0).localizedCaseInsensitiveContains(searchText) || $0.status.localizedCaseInsensitiveContains(searchText) }
+        callLogs.filter { call in
+            searchText.isEmpty || call.contactName.localizedCaseInsensitiveContains(searchText) || call.status.localizedCaseInsensitiveContains(searchText)
+        }
     }
 
     private func searchPeople(_ query: String) async {
