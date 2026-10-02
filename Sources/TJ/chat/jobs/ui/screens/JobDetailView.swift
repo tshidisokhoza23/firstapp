@@ -148,8 +148,9 @@ public struct JobDetailView: View {
                     Button(action: {
                         if job.isExternal {
                             onExternalApplyClick(job.id)
-                            let url = job.trackingApplyUrl ?? "https://example.com/jobs/\(job.id)/apply"
-                            CustomTabsHelper.launchUrl(url)
+                            if let url = job.trackingApplyUrl, !url.isEmpty {
+                                CustomTabsHelper.launchUrl(url)
+                            }
                         } else {
                             onApply()
                         }

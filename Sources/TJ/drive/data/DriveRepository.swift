@@ -313,26 +313,13 @@ public final class DriveRepository: ObservableObject, DriveRepositoryProtocol {
     // MARK: - Ride & Driver Features
 
     public func getRideOptions() async throws -> [RideOption] {
-        let defaults = [
-            RideOption(id: "1", title: "TJ Go", price: "0.00", arrivalTime: "3 min", description: "Standard, compact rides", iconColorHex: "#4CAF50"),
-            RideOption(id: "2", title: "TJ Comfort", price: "0.00", arrivalTime: "5 min", description: "Newer cars, extra legroom", iconColorHex: "#2196F3"),
-            RideOption(id: "3", title: "TJ Premium", price: "0.00", arrivalTime: "4 min", description: "Luxury & top drivers", iconColorHex: "#9C27B0"),
-            RideOption(id: "4", title: "TJ XL", price: "0.00", arrivalTime: "7 min", description: "SUVs for groups up to 6", iconColorHex: "#FF9800")
-        ]
-
-        do {
-            let url = baseURL.appendingPathComponent("ride-options")
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return defaults }
-
-            struct OptionsResponse: Codable { let ride_options: [RideOption] }
-            let options = try JSONDecoder().decode(OptionsResponse.self, from: data).ride_options
-            self.rideOptions = options.isEmpty ? defaults : options
-            return self.rideOptions
-        } catch {
-            self.rideOptions = defaults
-            return defaults
-        }
+        let url = baseURL.appendingPathComponent("ride-options")
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return [] }
+        struct OptionsResponse: Codable { let ride_options: [RideOption] }
+        let options = (try? JSONDecoder().decode(OptionsResponse.self, from: data).ride_options) ?? []
+        self.rideOptions = options
+        return options
     }
 
     public func getDestinations() async throws -> [Destination] {

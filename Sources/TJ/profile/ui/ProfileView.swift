@@ -67,11 +67,11 @@ public struct ProfileView: View {
                 // Header & Avatar Row matching Screenshot 6
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(loadedUser?.displayName.isEmpty == false ? loadedUser!.displayName : "Tshidiso Khoza")
+                        Text(loadedUser?.displayName ?? "")
                             .font(.system(size: 24, weight: .black))
                             .foregroundColor(.primary)
 
-                        Text(loadedUser?.username.isEmpty == false ? "@\(loadedUser!.username)" : "@tshidisokhoza1992")
+                        Text(loadedUser?.username.isEmpty == false ? "@\(loadedUser!.username)" : "")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(.secondary)
 
@@ -79,10 +79,10 @@ public struct ProfileView: View {
 
                         // Stats Row matching Screenshot 6 (7 Followers • 2 Following • 0 Views)
                         HStack(spacing: 6) {
-                            Text("\(loadedUser?.followersCount ?? 7)").fontWeight(.bold)
+                            Text("\(loadedUser?.followersCount ?? 0)").fontWeight(.bold)
                             Text("Followers").foregroundColor(.secondary)
                             Text("•").foregroundColor(.secondary)
-                            Text("\(loadedUser?.followingCount ?? 2)").fontWeight(.bold)
+                            Text("\(loadedUser?.followingCount ?? 0)").fontWeight(.bold)
                             Text("Following").foregroundColor(.secondary)
                             Text("•").foregroundColor(.secondary)
                             Text("0").fontWeight(.bold)
@@ -206,12 +206,13 @@ public struct ProfileView: View {
                 // Sub-Tab Content
                 VStack(spacing: 16) {
                     if selectedProfileTab == 3 {
-                        // Shorts 3-Column Grid matching Screenshot 6 (▶ 10, ▶ 8, ▶ 2)
-                        let sampleShortsViews = ["10", "8", "2", "1", "5", "5"]
+                        if tabPosts.isEmpty {
+                            Text("No shorts yet").foregroundColor(.secondary).padding()
+                        } else {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                            ForEach(0..<6, id: \.self) { idx in
+                            ForEach(tabPosts) { post in
                                 ZStack(alignment: .bottomLeading) {
-                                    if idx < tabPosts.count, let url = tabPosts[idx].mediaURL {
+                                    if let url = post.mediaURL {
                                         AsyncImage(url: url) { phase in
                                             if let image = phase.image {
                                                 image.resizable().scaledToFill()
@@ -220,32 +221,21 @@ public struct ProfileView: View {
                                             }
                                         }
                                     } else {
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.black.opacity(0.85))
+                                        Color.black.opacity(0.85)
                                     }
-
-                                    // View Count Overlay ▶ 10
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "play.fill")
-                                            .font(.system(size: 10))
-                                        Text(sampleShortsViews[idx % sampleShortsViews.count])
-                                            .font(.system(size: 12, weight: .bold))
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding(8)
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.white)
+                                        .padding(8)
                                 }
                                 .frame(height: 180)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                         }
                         .padding(.horizontal, 16)
-                    } else if tabPosts.isEmpty {
-                        // Sample Posts matching Screenshot 6 (5544, Ty, Sdddd)
-                        VStack(spacing: 16) {
-                            SamplePostCardRow(content: "5544", timestamp: "2d")
-                            SamplePostCardRow(content: "Ty", timestamp: "3d")
-                            SamplePostCardRow(content: "Sdddd", timestamp: "4d")
                         }
+                    } else if tabPosts.isEmpty {
+                        Text("No posts yet").foregroundColor(.secondary).padding()
                     } else {
                         ForEach(tabPosts) { post in
                             SamplePostCardRow(content: post.content, timestamp: "2d")
@@ -345,8 +335,8 @@ public struct SamplePostCardRow: View {
                             .foregroundColor(.secondary)
                     }
 
-                    Text("@tshidisokhoza1992")
-                        .font(.system(size: 13))
+                    Text("")
+                        .fontcontent.isEmpty ? "" : "13))
                         .foregroundColor(.secondary)
                 }
 

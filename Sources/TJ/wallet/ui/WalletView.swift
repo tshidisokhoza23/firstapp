@@ -53,7 +53,7 @@ public struct WalletView: View {
     @State private var selectedFilter: WalletFilter = .all
     @State private var showPayoutSheet: Bool = false
     @State private var payoutAmountText: String = ""
-    @State private var selectedPayoutMethod: String = "Chase Bank (****4821)"
+    @State private var selectedPayoutMethod: String = ""
     @State private var alertToastMessage: String? = nil
     @State private var showAlertToast: Bool = false
 
@@ -66,7 +66,7 @@ public struct WalletView: View {
         var id: String { rawValue }
     }
 
-    private let payoutMethods = ["Chase Bank (****4821)", "Stripe Connect", "Ethereum Wallet (0x71C...3a9)", "PayPal"]
+    private let payoutMethods: [String] = []
 
     @State private var transactions: [WalletTransaction] = []
 
@@ -210,24 +210,12 @@ public struct WalletView: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Label("Chase Checking (****4821)", systemImage: "building.columns.fill")
+                    Label("No payout method on file", systemImage: "building.columns.fill")
                         .font(.subheadline.bold())
                     Spacer()
                     Text("Primary")
                         .font(.caption.bold())
                         .foregroundColor(.blue)
-                }
-                .padding()
-
-                Divider().padding(.leading, 16)
-
-                HStack {
-                    Label("Stripe Merchant Account", systemImage: "creditcard.fill")
-                        .font(.subheadline)
-                    Spacer()
-                    Text("Active")
-                        .font(.caption)
-                        .foregroundColor(.green)
                 }
                 .padding()
             }
@@ -351,26 +339,9 @@ public struct WalletView: View {
                 Spacer()
 
                 Button(action: {
-                    if let amount = Double(payoutAmountText), amount > 0 {
-                        tokenBalance -= (amount / 0.85)
-                        usdValue = tokenBalance * 0.85
-                        transactions.insert(
-                            WalletTransaction(
-                                id: UUID().uuidString,
-                                title: "Bank Cashout Payout",
-                                counterparty: selectedPayoutMethod,
-                                timestamp: "Just now",
-                                amountFormatted: "-$\(String(format: "%.2f", amount))",
-                                isCredit: false,
-                                type: .payout,
-                                status: .pending
-                            ),
-                            at: 0
-                        )
-                        showPayoutSheet = false
-                        alertToastMessage = "Payout request of $\(String(format: "%.2f", amount)) submitted to \(selectedPayoutMethod)."
-                        showAlertToast = true
-                    }
+                    showPayoutSheet = false
+                    alertToastMessage = "No payout method is linked on this account."
+                    showAlertToast = true
                 }) {
                     Text("Confirm & Initiate Payout")
                         .fontWeight(.bold)

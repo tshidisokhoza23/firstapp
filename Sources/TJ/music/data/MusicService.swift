@@ -291,8 +291,8 @@ public final class MusicService: MusicRepositoryProtocol, @unchecked Sendable {
     }
 
     public func searchSongs(query: String) async throws -> [Song] {
-        var components = URLComponents(url: baseURL.appendingPathComponent("search"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [URLQueryItem(name: "q", value: query)]
+        var components = URLComponents(url: baseURL.appendingPathComponent("songs/search"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "query", value: query)]
         guard let url = components?.url else { return [] }
 
         let (data, _) = try await URLSession.shared.data(from: url)

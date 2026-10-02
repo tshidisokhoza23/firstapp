@@ -125,7 +125,7 @@ public struct MainTabView: View {
                         MusicPlayerView()
 
                     case .ride:
-                        DriveView()
+                        RideHomeView()
 
                     case .more:
                         Color.clear
@@ -225,7 +225,7 @@ public struct MainTabView: View {
             case .stream:
                 MusicPlayerView()
             case .ride:
-                DriveView()
+                RideHomeView()
             case .jobs:
                 JobProfileView(onClose: { activeSheetRoute = nil })
             case .vocab:

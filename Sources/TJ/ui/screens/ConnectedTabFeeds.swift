@@ -193,7 +193,10 @@ struct SocialFeedView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var selectedPost: FeedPost?
 
-    private let categories = ["All", "Technology", "Music", "Gaming"]
+    private let categories = [
+        ("all", "All"), ("tech", "Technology"), ("music", "Music"), ("gaming", "Gaming"),
+        ("sports", "Sports"), ("news", "News"), ("entertainment", "Entertainment"), ("art", "Art")
+    ]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -225,8 +228,11 @@ struct SocialFeedView: View {
                 HStack(spacing: 10) {
                     ForEach(0..<categories.count, id: \.self) { idx in
                         let isSelected = selectedCategory == idx
-                        Button(action: { selectedCategory = idx }) {
-                            Text(categories[idx])
+                        Button(action: {
+                            selectedCategory = idx
+                            Task { await load() }
+                        }) {
+                            Text(categories[idx].1)
                                 .font(.system(size: 13, weight: .black))
                                 .padding(.horizontal, 18)
                                 .padding(.vertical, 8)
@@ -367,7 +373,10 @@ struct SocialFeedView: View {
             status = error.localizedDescription
         }
     }
-
+var query = ["limit": "20", "offset": "0"]
+            let categoryId = categories[selectedCategory].0
+            if categoryId != "all" { query["category_id"] = categoryId }
+            let data = try await API.data("media/feed", query: query
     private func load() async {
         do {
             let data = try await API.data("media/feed", query: ["limit": "20", "offset": "0"])

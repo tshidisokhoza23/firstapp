@@ -2,6 +2,76 @@ import SwiftUI
 import CoreLocation
 import PhotosUI
 
+final class CourtLocation: NSObject, CLLocationManagerDelegate {
+    static let shared = CourtLocation()
+    private let manager = CLLocationManager()
+    private var continuation: CheckedContinuation<CLLocation?, Never>?
+
+    func current() async -> CLLocation? {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            manager.delegate = self
+            manager.requestWhenInUseAuthorization()
+            manager.requestLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        continuation?.resume(returning: locations.first)
+        continuation = nil
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        continuation?.resume(returning: nil)
+        continuation = nil
+    }
+}
+
+struct CourtListSheet: View {
+    let title: String
+    let path: String
+    @State private var rows: [(id: String, title: String, subtitle: String)] = []
+    @State private var note = "Loading..."
+
+    var body: some View {
+        NavigationStack {
+            List(rows, id: \.id) { row in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(row.title).font(.headline)
+                    if !row.subtitle.isEmpty {
+                        Text(row.subtitle).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+            .overlay { if rows.isEmpty { Text(note).foregroundColor(.secondary) } }
+            .navigationTitle(title)
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        do {
+            let data = try await API.data(path)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            if path == "mingle/activity" {
+                let items = json?["items"] as? [[String: Any]] ?? []
+                rows = items.compactMap { item in
+                    let id = item["id"] as? String ?? UUID().uuidString
+                    let name = item["actor_name"] as? String ?? ""
+                    let type = item["type"] as? String ?? ""
+                    return (id, name, type)
+                }
+            } else {
+                let chats = LiveJSON.chats(from: data).filter { $0.type == .mingle || $0.type.rawValue.lowercased() == "mingle" }
+                rows = chats.map { ($0.id, $0.consistentName(), $0.lastMessage) }
+            }
+            note = rows.isEmpty ? "Nothing here yet" : ""
+        } catch {
+            note = "Could not load"
+        }
+    }
+}
+
 // MARK: - Mingle Models
 
 public struct MingleProfile: Identifiable, Hashable {
@@ -53,12 +123,14 @@ public struct MingleView: View {
     @State private var showNotifications: Bool = false
     @State private var introTarget: MingleProfile? = nil
     @State private var introText: String = ""
-    @State private var userCoins: Int = 250
+    @State private var userCoins: Int = 0
+    @State private var minBalance: Int = 40
+    @State private var lastSwiped: MingleProfile?
 
     // Profile Edit States
-    @State private var myName: String = "Tshidiso Khoza"
-    @State private var myAge: String = "28"
-    @State private var myBio: String = "Building apps and sharing music!"
+    @State private var myName: String = ""
+    @State private var myAge: String = ""
+    @State private var myBio: String = ""
     @State private var photoItems: [PhotosPickerItem] = []
 
     private var onMatchClick: ((String, String) -> Void)?
@@ -155,7 +227,7 @@ public struct MingleView: View {
                             .foregroundColor(.appPrimary)
                     }
 
-                    Text("Nearby people are in your contacts")
+                    Text(feedNote)
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.primary)
                         .multilineTextAlignment(.center)
@@ -185,20 +257,8 @@ public struct MingleView: View {
                 if let candidate = profiles.first {
                     CandidateCardView(
                         profile: candidate,
-                        onPass: {
-                            withAnimation {
-                                if !profiles.isEmpty {
-                                    _ = profiles.removeFirst()
-                                }
-                            }
-                        },
-                        onLike: {
-                            withAnimation {
-                                if !profiles.isEmpty {
-                                    _ = profiles.removeFirst()
-                                }
-                            }
-                        },
+                        onPass: { Task { await swipe(candidate, action: "pass") } },
+                        onLike: { Task { await swipe(candidate, action: "like") } },
                         onChat: {
                             introTarget = candidate
                         }
@@ -206,7 +266,10 @@ public struct MingleView: View {
                 }
             }
         }
-        .task { await loadFeed() }
+        .task {
+            await loadMe()
+            await loadFeed()
+        }
         .sheet(isPresented: $showRadiusSheet) {
             RadiusFilterSheetView(
                 radiusKm: $selectedRadiusKm,
@@ -222,9 +285,18 @@ public struct MingleView: View {
                 myName: $myName,
                 myAge: $myAge,
                 myBio: $myBio,
-                onSave: { showProfileSheet = false }
+                onSave: {
+                    showProfileSheet = false
+                    Task { await saveMe() }
+                }
             )
             .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showSecretChats) {
+            CourtListSheet(title: "Mingle chats", path: "conversations")
+        }
+        .sheet(isPresented: $showNotifications) {
+            CourtListSheet(title: "Activity", path: "mingle/activity")
         }
         .sheet(item: $introTarget) { target in
             VStack(spacing: 16) {
@@ -242,12 +314,13 @@ public struct MingleView: View {
                     .padding(.horizontal, 24)
 
                 Button(action: {
-                    let text = introText.trimmingCharacters(in: .whitespaces)
+                    let text = introText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let recipient = target.id
+                    let name = target.name
                     introTarget = nil
                     introText = ""
-                    if !text.isEmpty {
-                        onMatchClick?(target.id, target.name)
-                    }
+                    guard !text.isEmpty else { return }
+                    Task { await sendIntro(recipientId: recipient, name: name, message: text) }
                 }) {
                     Text("Send Message")
                         .font(.system(size: 16, weight: .bold))
@@ -266,55 +339,160 @@ public struct MingleView: View {
 
     private func loadFeed() async {
         do {
-            let data = try await API.data("mingle/feed", query: ["radius_km": "\(Int(selectedRadiusKm))"])
+            guard let loc = await CourtLocation.shared.current() else {
+                feedNote = "Location is required to load Court"
+                profiles = []
+                return
+            }
+            let lat = loc.coordinate.latitude
+            let lng = loc.coordinate.longitude
+            guard lat != 0 || lng != 0 else {
+                feedNote = "Location is required to load Court"
+                profiles = []
+                return
+            }
+            _ = try? await API.data("mingle/location", method: "POST", json: [
+                "latitude": lat,
+                "longitude": lng,
+                "radius_km": Int(selectedRadiusKm)
+            ])
+            let data = try await API.data("mingle/feed", query: [
+                "lat": "\(lat)",
+                "lng": "\(lng)",
+                "radius_km": "\(Int(selectedRadiusKm))",
+                "limit": "20",
+                "offset": "0"
+            ])
             struct Feed: Decodable {
+                struct Photo: Decodable { let url: String? }
                 struct Item: Decodable {
                     let id: String
                     let name: String?
                     let age: Int?
                     let bio: String?
                     let distanceKm: Double?
+                    let photos: [Photo]?
                     enum CodingKeys: String, CodingKey {
-                        case id, name, age, bio
+                        case id, name, age, bio, photos
                         case distanceKm = "distance_km"
                     }
                 }
                 let items: [Item]?
                 let balance: Double?
                 let status: String?
+                let minBalance: Double?
+                enum CodingKeys: String, CodingKey {
+                    case items, balance, status
+                    case minBalance = "min_balance"
+                }
             }
             let feed = try JSONDecoder().decode(Feed.self, from: data)
             if let balance = feed.balance { userCoins = Int(balance) }
+            if let minBalance = feed.minBalance { self.minBalance = Int(minBalance) }
             let feedItems = feed.items ?? []
             var resultProfiles: [MingleProfile] = []
             for item in feedItems {
-                let nameStr = (item.name?.isEmpty == false) ? item.name! : "Nearby"
-                let ageVal = item.age ?? 0
-                let distVal = item.distanceKm ?? 0.0
-                let bioStr = item.bio ?? ""
-                let p = MingleProfile(
+                guard !item.id.isEmpty else { continue }
+                let nameStr = item.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let photos = (item.photos ?? []).compactMap(\.url).filter { !$0.isEmpty }
+                resultProfiles.append(MingleProfile(
                     id: item.id,
                     name: nameStr,
-                    age: ageVal,
+                    age: item.age ?? 0,
                     occupation: "",
-                    distanceKm: distVal,
-                    bio: bioStr,
+                    distanceKm: item.distanceKm ?? 0,
+                    bio: item.bio ?? "",
                     interests: [],
-                    avatarGradient: [.purple, .blue]
-                )
-                resultProfiles.append(p)
+                    avatarGradient: [.purple, .blue],
+                    photos: photos
+                ))
             }
             profiles = resultProfiles
             if profiles.isEmpty {
-                feedNote = feed.status?.isEmpty == false ? (feed.status ?? "") : "Nearby people are in your contacts"
+                feedNote = Self.courtStatus(feed.status)
             }
         } catch {
-            feedNote = "Nearby people are in your contacts"
+            feedNote = "Could not load people nearby"
+        }
+    }
+
+    private func saveMe() async {
+        var body: [String: Any] = ["name": myName, "bio": myBio]
+        if let age = Int(myAge), age > 0 { body["age"] = age }
+        _ = try? await API.data("mingle/me", method: "PUT", json: body)
+    }
+
+    private func loadMe() async {
+        guard let data = try? await API.data("mingle/me"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let profile = json["profile"] as? [String: Any] else { return }
+        if let name = profile["name"] as? String, !name.isEmpty { myName = name }
+        if let bio = profile["bio"] as? String { myBio = bio }
+        if let age = profile["age"] as? Int, age > 0 { myAge = "\(age)" }
+        else if let age = profile["age"] as? Double, age > 0 { myAge = "\(Int(age))" }
+    }
+
+    private func swipe(_ profile: MingleProfile, action: String) async {
+        if action == "like", userCoins < minBalance {
+            feedNote = "You need at least \(minBalance) points to like"
+            return
+        }
+        do {
+            let data = try await API.data("mingle/swipe", method: "POST", json: [
+                "target_user_id": profile.id,
+                "action": action
+            ])
+            let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            if let balance = json["balance"] as? Double { userCoins = Int(balance) }
+            else if let balance = json["balance"] as? Int { userCoins = balance }
+            lastSwiped = profile
+            profiles.removeAll { $0.id == profile.id }
+            if json["matched"] as? Bool == true, let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+                onMatchClick?(conversationId, profile.name)
+            }
+        } catch {
+            feedNote = "Swipe was not saved"
+        }
+    }
+
+    private func sendIntro(recipientId: String, name: String, message: String) async {
+        do {
+            let data = try await API.data("mingle/intro", method: "POST", json: [
+                "recipient_id": recipientId,
+                "message": String(message.prefix(150))
+            ])
+            let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            if let balance = json["balance"] as? Double { userCoins = Int(balance) }
+            if let conversationId = json["conversation_id"] as? String, !conversationId.isEmpty {
+                onMatchClick?(conversationId, name)
+            }
+        } catch {
+            feedNote = "Message was not sent"
         }
     }
 
     private func rewindLastSwipe() {
-        // Rewind swipe logic
+        Task {
+            guard let data = try? await API.data("mingle/rewind", method: "POST"),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  json["rewound"] as? Bool == true else { return }
+            if let balance = json["balance"] as? Double { userCoins = Int(balance) }
+            await loadFeed()
+        }
+    }
+
+    private static func courtStatus(_ raw: String?) -> String {
+        switch raw?.uppercased() {
+        case "CONTACTS_HIDDEN": return "Nearby people are in your contacts"
+        case "OUT_OF_RADIUS": return "No one in this radius"
+        case "NO_PHOTO": return "People nearby have no photo"
+        case "DIFFERENT_COUNTRY": return "No one in your country"
+        case "ALREADY_SWIPED": return "You have seen everyone nearby"
+        case "PREFERENCES": return "No one matches your preferences"
+        case "NO_CANDIDATE_LOCATION": return "No one nearby has a location"
+        case "FEED_EXHAUSTED": return "No more people nearby"
+        default: return raw?.isEmpty == false ? (raw ?? "") : "No one nearby"
+        }
     }
 }
 
@@ -331,10 +509,17 @@ public struct CandidateCardView: View {
             // Main Photo
             ZStack {
                 LinearGradient(colors: profile.avatarGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
-
-                Image(systemName: "person.fill")
-                    .font(.system(size: 100))
-                    .foregroundColor(.white.opacity(0.3))
+                if let url = FeedPost.resolve(profile.photos.first) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.clear
+                    }
+                } else {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 100))
+                        .foregroundColor(.white.opacity(0.3))
+                }
             }
             .ignoresSafeArea()
 

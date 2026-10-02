@@ -483,15 +483,18 @@ public struct ChatTabView: View {
                     .font(.system(size: 18, weight: .bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Tasks Items matching Screenshot 3
-                let dailyTasks = [
-                    ("Watch Daily Special", "+10 points"),
-                    ("Premium Partner Ad", "+10 points"),
-                    ("Bonus Content Unlock", "+10 points"),
-                    ("Sponsor Spotlight", "+10 points")
-                ]
+                let dailyTasks: [RewardTask] = {
+                    if case .success(let dash) = rewardViewModel.uiState { return dash.tasks }
+                    return []
+                }()
 
-                ForEach(dailyTasks, id: \.0) { task in
+                if dailyTasks.isEmpty {
+                    Text("No tasks yet")
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                ForEach(dailyTasks) { task in
                     HStack(spacing: 16) {
                         ZStack {
                             Circle()
@@ -504,11 +507,11 @@ public struct ChatTabView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(task.0)
+                            Text(task.title)
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(.primary)
 
-                            Text(task.1)
+                            Text("+\(Int(task.points)) points")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.orange)
                         }
@@ -516,7 +519,7 @@ public struct ChatTabView: View {
                         Spacer()
 
                         Button(action: {
-                            rewardViewModel.showRewardedAd(taskId: task.0, onReward: {})
+                            rewardViewModel.showRewardedAd(taskId: task.id, onReward: {})
                         }) {
                             Text("Watch")
                                 .font(.system(size: 14, weight: .bold))
