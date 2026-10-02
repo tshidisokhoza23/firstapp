@@ -18,7 +18,14 @@ struct PostDetailView: View {
     @State private var liked: Bool
     @State private var likes: Int
     @State private var saved: Bool
+    @State private var reposted: Bool
+    @State private var reposts: Int
+    @State private var shares: Int
     @State private var status = ""
+    @State private var showRepost = false
+    @State private var showQuote = false
+    @State private var quoteText = ""
+    @State private var showMore = false
 
     init(post: FeedPost, onProfileClick: @escaping (String) -> Void, onClose: @escaping () -> Void) {
         self.post = post
@@ -27,6 +34,9 @@ struct PostDetailView: View {
         _liked = State(initialValue: post.isLiked)
         _likes = State(initialValue: post.likes)
         _saved = State(initialValue: post.isBookmarked)
+        _reposted = State(initialValue: post.isReposted)
+        _reposts = State(initialValue: post.repostCount)
+        _shares = State(initialValue: post.shares)
     }
 
     var body: some View {
@@ -50,7 +60,7 @@ struct PostDetailView: View {
                         Text(post.content).font(.body)
                     }
                     if let url = post.playbackURL ?? post.mediaURL {
-                        if isVideo(url) {
+                        if post.playsAsVideo || isVideo(url) {
                             VideoPlayer(player: AVPlayer(url: url))
                                 .frame(height: 280)
                         } else {
@@ -61,20 +71,28 @@ struct PostDetailView: View {
                             }
                         }
                     }
-                    HStack(spacing: 16) {
-                        Button(liked ? "Liked \(likes)" : "Like \(likes)") {
-                            liked.toggle()
-                            likes += liked ? 1 : -1
-                            Task { await MediaActions.like(post.id) }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            detailPill("Reply \(replies.count == 0 ? post.repliesCount : replies.count)") {}
+                            detailPill(reposted ? "Reposted \(reposts)" : "Repost \(reposts)", selected: reposted) { showRepost = true }
+                            detailPill(liked ? "Liked \(likes)" : "Like \(likes)", selected: liked) {
+                                liked.toggle()
+                                likes += liked ? 1 : -1
+                                Task { await MediaActions.like(post.id) }
+                            }
+                            detailPill("Views \(post.views)") {}
+                            detailPill(saved ? "Saved \(post.quoteCount)" : "Save \(post.quoteCount)", selected: saved) {
+                                saved.toggle()
+                                Task { await MediaActions.bookmark(post.id) }
+                            }
+                            detailPill("Share \(shares)") {
+                                shares += 1
+                                MediaActions.shareSheet(post)
+                                Task { await MediaActions.share(post.id) }
+                            }
+                            detailPill("More") { showMore = true }
                         }
-                        Button("Repost") { Task { await MediaActions.repost(post.id) } }
-                        Button(saved ? "Saved" : "Save") {
-                            saved.toggle()
-                            Task { await MediaActions.bookmark(post.id) }
-                        }
-                        Button("Share") { Task { await MediaActions.share(post.id) } }
                     }
-                    .font(.system(size: 14, weight: .bold))
                     Divider()
                     Text("Replies").font(.headline)
                     if replies.isEmpty {
@@ -90,6 +108,13 @@ struct PostDetailView: View {
                                 .buttonStyle(.plain)
                                 .font(.subheadline.weight(.bold))
                                 Text(reply.text).font(.body)
+                                HStack(spacing: 16) {
+                                    Button("Like") { Task { await MediaActions.likeReply(reply.id) } }
+                                    Button("Repost") { Task { await MediaActions.repostReply(reply.id) } }
+                                    Button("Save") { Task { await MediaActions.bookmarkReply(reply.id) } }
+                                }
+                                .font(.caption.weight(.bold))
+                                .buttonStyle(.borderless)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 6)
@@ -112,10 +137,65 @@ struct PostDetailView: View {
                 }
             }
         }
+        .confirmationDialog("Repost", isPresented: $showRepost, titleVisibility: .visible) {
+            Button(reposted ? "Undo Repost" : "Repost") {
+                reposted.toggle()
+                reposts += reposted ? 1 : -1
+                Task { await MediaActions.repost(post.id) }
+            }
+            Button("Quote Post") { showQuote = true }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Post", isPresented: $showMore, titleVisibility: .visible) {
+            Button("Share") {
+                shares += 1
+                MediaActions.shareSheet(post)
+                Task { await MediaActions.share(post.id) }
+            }
+            Button("Copy link") { MediaActions.copyLink(post) }
+            Button("Report", role: .destructive) { Task { await MediaActions.report(post.id, reason: "report") } }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showQuote) {
+            NavigationStack {
+                VStack(spacing: 12) {
+                    TextField("Add a comment", text: $quoteText, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Post") {
+                        let text = quoteText
+                        quoteText = ""
+                        showQuote = false
+                        Task { try? await MediaActions.quote(post.id, text: text) }
+                    }
+                    .disabled(quoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Spacer()
+                }
+                .padding()
+                .navigationTitle("Quote Post")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { showQuote = false }
+                    }
+                }
+            }
+        }
         .task {
             await MediaActions.view(post.id)
             await loadReplies()
         }
+    }
+
+    private func detailPill(_ text: String, selected: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(text)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(selected ? Color(red: 0.976, green: 0.094, blue: 0.502) : .primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(UIColor.secondarySystemBackground))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.borderless)
     }
 
     private func isVideo(_ url: URL) -> Bool {
@@ -124,9 +204,9 @@ struct PostDetailView: View {
     }
 
     private func loadReplies() async {
-        var data = try? await API.data("posts/\(post.id)/replies")
+        var data = try? await API.data("media/posts/\(post.id)/replies")
         if data == nil {
-            data = try? await API.data("media/posts/\(post.id)/replies")
+            data = try? await API.data("posts/\(post.id)/replies")
         }
         guard let data else {
             status = "Could not load replies"
@@ -134,7 +214,7 @@ struct PostDetailView: View {
         }
         let rows = LiveJSON.list(data, keys: ["replies", "items", "data"])
         let parsed = rows.compactMap { row -> PostReplyItem? in
-            let nested = row["post"] as? [String: Any] ?? row
+            let nested = (row["reply"] as? [String: Any]) ?? (row["post"] as? [String: Any]) ?? row
             let id = LiveJSON.string(nested["id"]).isEmpty ? LiveJSON.string(nested["reply_id"]) : LiveJSON.string(nested["id"])
             let text = LiveJSON.string(nested["reply_text"]).isEmpty ? LiveJSON.string(nested["content"]) : LiveJSON.string(nested["reply_text"])
             guard !id.isEmpty || !text.isEmpty else { return nil }

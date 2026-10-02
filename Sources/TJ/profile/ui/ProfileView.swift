@@ -9,6 +9,7 @@ public struct ProfileView: View {
     @State private var isFollowing: Bool = false
     @State private var loadedUser: User? = nil
     @State private var tabPosts: [FeedPost] = []
+    @State private var selectedPost: FeedPost?
 
     private var resolvedUserId: String {
         if userId != "me" && userId != "currentUser" && !userId.isEmpty { return userId }
@@ -211,25 +212,29 @@ public struct ProfileView: View {
                         } else {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                             ForEach(tabPosts) { post in
-                                ZStack(alignment: .bottomLeading) {
-                                    if let url = post.mediaURL {
-                                        AsyncImage(url: url) { phase in
-                                            if let image = phase.image {
-                                                image.resizable().scaledToFill()
-                                            } else {
-                                                Color.black.opacity(0.8)
+                                Button { selectedPost = post } label: {
+                                    ZStack(alignment: .bottomLeading) {
+                                        if let url = post.mediaURL {
+                                            AsyncImage(url: url) { phase in
+                                                if let image = phase.image {
+                                                    image.resizable().scaledToFill()
+                                                } else {
+                                                    Color.black.opacity(0.8)
+                                                }
                                             }
+                                        } else {
+                                            Color.black.opacity(0.85)
                                         }
-                                    } else {
-                                        Color.black.opacity(0.85)
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.white)
+                                            .padding(8)
                                     }
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.white)
-                                        .padding(8)
+                                    .frame(height: 180)
+                                    .frame(maxWidth: .infinity)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
                                 }
-                                .frame(height: 180)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -238,7 +243,24 @@ public struct ProfileView: View {
                         Text("No posts yet").foregroundColor(.secondary).padding()
                     } else {
                         ForEach(tabPosts) { post in
-                            SamplePostCardRow(content: post.content, timestamp: "2d")
+                            Button { selectedPost = post } label: {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(post.content.isEmpty ? "Post" : post.content)
+                                        .font(.body)
+                                        .foregroundColor(.primary)
+                                        .multilineTextAlignment(.leading)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    HStack(spacing: 12) {
+                                        Text("Reply \(post.repliesCount)")
+                                        Text("Like \(post.likes)")
+                                        Text("Repost \(post.repostCount)")
+                                    }
+                                    .font(.caption.weight(.bold))
+                                    .foregroundColor(.secondary)
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -247,7 +269,15 @@ public struct ProfileView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showQRCodeSheet) {
-            ProfileQRCodeSheetView(handle: "@\(loadedUser?.username ?? "tshidisokhoza1992")")
+            ProfileQRCodeSheetView(handle: "@\(loadedUser?.username ?? "")")
+        }
+        .fullScreenCover(isPresented: Binding(get: { selectedPost != nil }, set: { if !$0 { selectedPost = nil } })) {
+            if let post = selectedPost {
+                PostDetailView(post: post, onProfileClick: { id in
+                    selectedPost = nil
+                    router.navigate(to: .profile(userId: id))
+                }, onClose: { selectedPost = nil })
+            }
         }
         .task { await loadProfile() }
     }
@@ -290,8 +320,8 @@ public struct ProfileView: View {
     }
 
     private func shareProfile() {
-        let handle = loadedUser?.username ?? "tshidisokhoza1992"
-        let text = "Check out my profile on TJ: https://tjapp.com/u/\(handle)"
+        let handle = loadedUser?.username ?? ""
+        let text = handle.isEmpty ? "TJ profile" : "https://firstapp.com/u/\(handle)"
         let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let rootVC = scene.windows.first?.rootViewController {

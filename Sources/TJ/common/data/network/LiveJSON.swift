@@ -191,10 +191,10 @@ enum LiveJSON {
         let author = json["author"] as? [String: Any]
         var urls = strings(json["media_urls"])
         urls.append(contentsOf: strings(json["media"]))
-        for key in ["thumbnail_url", "content_url"] {
-            let extra = string(json[key])
-            if !extra.isEmpty && !urls.contains(extra) { urls.append(extra) }
-        }
+        let direct = string(json["media_url"]).isEmpty ? string(json["content_url"]) : string(json["media_url"])
+        if !direct.isEmpty && !urls.contains(direct) { urls.insert(direct, at: 0) }
+        let thumb = string(json["thumbnail_url"])
+        if !thumb.isEmpty && !urls.contains(thumb) { urls.append(thumb) }
         let name = string(json["author_name"]).isEmpty ? string(author?["display_name"]) : string(json["author_name"])
         let handle = string(json["author_handle"]).isEmpty ? string(author?["username"]) : string(json["author_handle"])
         let avatar = string(json["author_avatar_url"]).isEmpty ? string(author?["avatar_url"]) : string(json["author_avatar_url"])
@@ -207,10 +207,16 @@ enum LiveJSON {
             content: string(json["content"]),
             mediaURLs: urls,
             likes: int(json["likes"]),
-            repliesCount: int(json["replies_count"]),
+            repliesCount: int(json["replies_count"]) == 0 ? int(json["reply_count"]) : int(json["replies_count"]),
             postType: string(json["post_type"]),
             isLiked: bool(json["is_liked"]),
-            isBookmarked: bool(json["is_bookmarked"])
+            isBookmarked: bool(json["is_bookmarked"]),
+            views: int(json["views"]) == 0 ? int(json["view_count"]) : int(json["views"]),
+            shares: int(json["shares"]) == 0 ? int(json["actual_shares"]) : int(json["shares"]),
+            repostCount: int(json["repost_count"]),
+            quoteCount: int(json["quote_count"]),
+            isReposted: bool(json["is_reposted"]),
+            mediaType: string(json["media_type"])
         )
     }
 
