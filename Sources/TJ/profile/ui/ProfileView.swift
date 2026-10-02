@@ -266,27 +266,7 @@ public struct ProfileView: View {
                                     let authorId = post.displayPost.authorId
                                     if !authorId.isEmpty { router.navigate(to: .profile(userId: authorId)) }
                                 },
-        .sheet(isPresented: Binding(get: { followList != nil }, set: { if !$0 { followList = nil } })) {
-            if let title = followList {
-                FollowListView(userId: resolvedUserId, title: title) { id in
-                    followList = nil
-                    router.navigate(to: .profile(userId: id))
-                }
-            }
-        }
-        .sheet(isPresented: $showSearch) {
-            LiveSearchView(
-                onOpenProfile: { id in
-                    showSearch = false
-                    router.navigate(to: .profile(userId: id))
-                },
-                onOpenChat: { id, name in
-                    showSearch = false
-                    router.navigate(to: .chatDetail(conversationId: id, participantName: name))
-                }
-            )
-        }
-        .sheet(i                onReply: { selectedPost = post },
+                                onReply: { selectedPost = post },
                                 onRepost: { Task { await MediaActions.repost(post.id); await loadTabPosts() } },
                                 onLike: { Task { await MediaActions.like(post.id); await loadTabPosts() } },
                                 onSave: { Task { await MediaActions.bookmark(post.id); await loadTabPosts() } },
@@ -310,6 +290,26 @@ public struct ProfileView: View {
                     router.navigate(to: .profile(userId: id))
                 }, onClose: { selectedPost = nil })
             }
+        }
+        .sheet(isPresented: Binding(get: { followList != nil }, set: { if !$0 { followList = nil } })) {
+            if let title = followList {
+                FollowListView(userId: resolvedUserId, title: title) { id in
+                    followList = nil
+                    router.navigate(to: .profile(userId: id))
+                }
+            }
+        }
+        .sheet(isPresented: $showSearch) {
+            LiveSearchView(
+                onOpenProfile: { id in
+                    showSearch = false
+                    router.navigate(to: .profile(userId: id))
+                },
+                onOpenChat: { id, name in
+                    showSearch = false
+                    router.navigate(to: .chatDetail(conversationId: id, participantName: name))
+                }
+            )
         }
         .task { await loadProfile() }
     }
