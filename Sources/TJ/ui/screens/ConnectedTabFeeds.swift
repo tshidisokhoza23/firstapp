@@ -373,13 +373,13 @@ struct SocialFeedView: View {
             status = error.localizedDescription
         }
     }
-var query = ["limit": "20", "offset": "0"]
-            let categoryId = categories[selectedCategory].0
-            if categoryId != "all" { query["category_id"] = categoryId }
-            let data = try await API.data("media/feed", query: query
+
     private func load() async {
         do {
-            let data = try await API.data("media/feed", query: ["limit": "20", "offset": "0"])
+            var query = ["limit": "20", "offset": "0"]
+            let categoryId = categories[selectedCategory].0
+            if categoryId != "all" { query["category_id"] = categoryId }
+            let data = try await API.data("media/feed", query: query)
             let parsed = LiveJSON.posts(from: data)
             posts = parsed.isEmpty ? FeedPost.decodeList(data) : parsed
             status = posts.isEmpty ? "No posts yet" : ""

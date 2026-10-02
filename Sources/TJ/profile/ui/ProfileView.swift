@@ -326,7 +326,7 @@ public struct SamplePostCardRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("Tshidiso Khoza")
+                        Text("")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.primary)
 
@@ -336,7 +336,7 @@ public struct SamplePostCardRow: View {
                     }
 
                     Text("")
-                        .fontcontent.isEmpty ? "" : "13))
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
                 }
 
