@@ -58,8 +58,8 @@ final class RewardedAds: ObservableObject {
     private init() {
         batchCount = UserDefaults.standard.integer(forKey: "ad_batch_count")
         publishCooldown()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.publishCooldown() }
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in RewardedAds.shared.publishCooldown() }
         }
     }
 

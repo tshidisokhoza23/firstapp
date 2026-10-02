@@ -78,9 +78,9 @@ public struct MingleView: View {
     @State private var showProfileSheet = false
     @State private var showSecretChats = false
     @State private var showNotifications = false
-    @State private var showPointsGate
+    @State private var showPointsGate = false
     @State private var showMingleAd = false
-    @State private var swipesSinceAd = 0 = false
+    @State private var swipesSinceAd = 0
     @State private var showWallet = false
     @State private var locationDenied = false
     @State private var emptyReason: String?
