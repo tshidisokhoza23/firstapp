@@ -1,5 +1,10 @@
 import Foundation
 
+extension Notification.Name {
+    public static let didUpdateChats = Notification.Name("didUpdateChats")
+    public static let didUpdateMessages = Notification.Name("didUpdateMessages")
+}
+
 // MARK: - Local Entities
 
 public struct ChatEntity: Codable, Sendable, Identifiable {
@@ -335,11 +340,6 @@ public actor LocalDatabase {
     }
 
     // MARK: - Chats
-
-extension Notification.Name {
-    public static let didUpdateChats = Notification.Name("didUpdateChats")
-    public static let didUpdateMessages = Notification.Name("didUpdateMessages")
-}
 
     public func upsertChats(_ list: [ChatEntity]) {
         for chat in list {
