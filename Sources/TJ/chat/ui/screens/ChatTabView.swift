@@ -257,7 +257,7 @@ public struct ChatTabView: View {
             )
         }
         .fullScreenCover(item: $activeStory) { story in
-            StoryViewer(story: story, onClose: { activeStory = nil })
+            StoryRowPlayer(startUserId: story.userId.isEmpty ? story.id : story.userId, onClose: { activeStory = nil })
         }
         .fullScreenCover(item: $storyStart) { start in
             AndroidStoryFlow(

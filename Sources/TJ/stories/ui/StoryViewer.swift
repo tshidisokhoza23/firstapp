@@ -49,10 +49,13 @@ public struct StoryViewer: View {
     @State private var storyPlayer: AVPlayer?
     @State private var showViewersSheet: Bool = false
     @State private var sentReactionEmoji: String? = nil
+    @State private var videoHoldSeconds: Double = 0
+    @State private var confirmDelete = false
 
     private let liveStory: UserStory?
     private let startIndex: Int
     private let onFinished: (() -> Void)?
+    private let onRetreat: (() -> Void)?
     @State private var viewers: [ApiViewer] = []
     @State private var viewersNote = ""
 
@@ -60,30 +63,39 @@ public struct StoryViewer: View {
 
     private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
-    public init(story: UserStory, startIndex: Int = 0, onClose: (() -> Void)? = nil, onFinished: (() -> Void)? = nil) {
+    public init(story: UserStory, startIndex: Int = 0, onClose: (() -> Void)? = nil, onFinished: (() -> Void)? = nil, onRetreat: (() -> Void)? = nil) {
         self.liveStory = story
         self.startIndex = startIndex
         self.onClose = onClose
         self.onFinished = onFinished
+        self.onRetreat = onRetreat
     }
 
     /// Older call sites pass the live story under this name. It is not sample data.
-    public init(sampleStoryGroup: UserStory, startIndex: Int = 0, onClose: (() -> Void)? = nil, onFinished: (() -> Void)? = nil) {
+    public init(sampleStoryGroup: UserStory, startIndex: Int = 0, onClose: (() -> Void)? = nil, onFinished: (() -> Void)? = nil, onRetreat: (() -> Void)? = nil) {
         self.liveStory = sampleStoryGroup
         self.startIndex = startIndex
         self.onClose = onClose
         self.onFinished = onFinished
+        self.onRetreat = onRetreat
     }
 
     private var displayGroup: UserStoryGroup {
         guard let liveStory else {
             return UserStoryGroup(id: "", username: "", avatarGradient: [.black], timeAgo: "", slides: [])
-        }
-        let slides = liveStory.stories.map { item in
+        }let hold: Double
+            if item.type == .video {
+                hold = 0
+            } else {
+                let seconds = item.durationMs > 0 ? Double(item.durationMs) / 1000.0 : 6
+                hold = min(15, max(6, seconds))
+            }
             StorySlide(
                 id: item.id,
                 mediaSymbol: item.type == .video ? "video.fill" : (item.type == .image ? "photo.fill" : "text.alignleft"),
                 caption: item.content.isEmpty ? nil : item.content,
+                backgroundGradient: [item.backgroundColor, .black],
+                durationSeconds: hold
                 backgroundGradient: [item.backgroundColor, .black],
                 durationSeconds: max(1, Double(item.durationMs) / 1000.0),
                 mediaURL: item.contentUrl
@@ -257,6 +269,14 @@ public struct StoryViewer: View {
                                 .background(Color.black.opacity(0.3))
                                 .cornerRadius(12)
                             }
+                            Button(action: { confirmDelete = true }) {
+                                Image(systemName: "trash")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.white)
+                                    .padding(8)
+                                    .background(Color.black.opacity(0.3))
+                                    .clipShape(Circle())
+                            }
                         }
 
                         Button(action: { onClose?() }) {
@@ -330,12 +350,20 @@ public struct StoryViewer: View {
         }
         .onReceive(timer) { _ in
             guard !isPaused else { return }
-            let step = 0.1 / currentSlide.durationSeconds
+            let duration = currentSlide.mediaSymbol == "video.fill" ? videoHoldSeconds : currentSlide.durationSeconds
+            guard duration > 0 else { return }
+            let step = 0.1 / duration
             if slideProgress + step >= 1.0 {
                 goToNextSlide()
             } else {
                 slideProgress += step
             }
+        }
+        .alert("Delete story update?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) { Task { await deleteCurrentStory() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This story will be removed.")
         }
         .sheet(isPresented: $showViewersSheet) {
             viewersSheetView
@@ -352,12 +380,33 @@ public struct StoryViewer: View {
             loadSlideMedia()
         }
         .onDisappear {
-            storyPlayer?.pause()
-            storyPlayer = nil
+        videoHoldSeconds = 0
+        guard currentSlide.mediaSymbol == "video.fill",
+              let raw = currentSlide.mediaURL,
+              let url = FeedPost.resolve(raw) else { return }
+        let player = AVPlayer(url: url)
+        storyPlayer = player
+        player.play()
+        Task {
+            for _ in 0..<40 {
+                let seconds = player.currentItem?.duration.seconds ?? 0
+                if seconds.isFinite, seconds > 0 {
+                    await MainActor.run {
+                        videoHoldSeconds = min(120, max(3, seconds))
+                    }
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
         }
     }
 
-    private func loadSlideMedia() {
+    private func deleteCurrentStory() async {
+        guard let item = liveStory?.stories.indices.contains(activeSlideIndex) == true ? liveStory?.stories[activeSlideIndex] : nil else { return }
+        let removed = (try? await StoryRepository.shared.deleteStory(storyId: item.id)) ?? false
+        if removed {
+            onClose?()
+        }SlideMedia() {
         storyPlayer?.pause()
         storyPlayer = nil
         guard currentSlide.mediaSymbol == "video.fill",
@@ -372,7 +421,9 @@ public struct StoryViewer: View {
         guard let liveStory, liveStory.stories.indices.contains(activeSlideIndex) else { return }
         let item = liveStory.stories[activeSlideIndex]
         Task {
-            _ = try? await StoryRepository.shared.markStoryAsViewed(userId: liveStory.userId, storyId: item.id)
+            _ =if let onRetreat {
+            onRetreat()
+        } else  try? await StoryRepository.shared.markStoryAsViewed(userId: liveStory.userId, storyId: item.id)
         }
     }
 

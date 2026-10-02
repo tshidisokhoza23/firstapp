@@ -26,6 +26,7 @@ public struct ChatView: View {
     @State private var showAttach = false
     @State private var showCamera = false
     @State private var note = ""
+    @State private var storyLaunch: StoryLaunch?
 
     @MainActor public init(
         chat: ChatMessage,
@@ -102,6 +103,9 @@ public struct ChatView: View {
                 InAppMediaView(urlString: openedMedia, onClose: { self.openedMedia = nil })
             }
         }
+        .fullScreenCover(item: $storyLaunch) { launch in
+            StoryRowPlayer(startUserId: launch.userId, startStoryId: launch.storyId, onClose: { storyLaunch = nil })
+        }
     }
 
     private var chatHeader: some View {
@@ -160,6 +164,9 @@ public struct ChatView: View {
                                     replyTo = msg
                                     if inputText.isEmpty { inputText = "" }
                                 },
+                                onQuoteClick: { message in
+                                    openQuoted(message)
+                                },
                                 onMediaClick: { url, _ in
                                     openedMedia = url
                                 },
@@ -183,6 +190,25 @@ public struct ChatView: View {
                         }
                     }
                 }
+        }
+    }
+
+    private func openQuoted(_ message: Message) {
+        let parsed = MessageMarkers.parseStory(message.content) ?? MessageMarkers.parseStoryReplyId(replyToId: message.replyToId)
+        let storyId = parsed?.storyId.nilIfEmpty
+            ?? message.replyToId?.replacingOccurrences(of: "story_", with: "").components(separatedBy: "|").first
+        let userId = parsed?.userId.nilIfEmpty ?? chat.otherUserId ?? chat.id
+        let isStory = message.replyToId?.hasPrefix("story_") == true
+            || MessageMarkers.parseStory(message.content) != nil
+            || message.replyToText?.localizedCaseInsensitiveContains("[Story]") == true
+            || message.replyToText?.localizedCaseInsensitiveContains("[mediaUrl:") == true
+        if isStory {
+            if userId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (storyId ?? "").isEmpty {
+                note = "This story has expired or is no longer available."
+            } else {
+                storyLaunch = StoryLaunch(userId: userId, storyId: storyId)
+            }
+            return
         }
     }
 

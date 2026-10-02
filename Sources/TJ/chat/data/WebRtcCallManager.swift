@@ -1,6 +1,8 @@
 import Foundation
 import AVFoundation
 import AudioToolbox
+import UIKit
+import UserNotifications
 import WebRTC
 
 /// Real WebRTC peer connection. Signaling matches Android: sdp_offer, sdp_answer, ice_candidate.
@@ -451,11 +453,28 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     }
 }
 
-public final class CallSocketBridge: NSObject, CallSocketListener {
+public final class CallSocketBridge: NSObject, CallSocketListener, CallKitServiceDelegate {
     public static let shared = CallSocketBridge()
     private var receiverId = ""
     private var sessionId = ""
     private var callType: CallType = .voice
+    private var ignoringCallKitEnd = false
+
+    private override init() {
+        super.init()
+        CallKitService.shared.delegate = self
+        CallActionHandler.shared.onCallAccepted = { sessionId, senderId, callType in
+            DispatchQueue.main.async {
+                if GlobalCallState.shared.incomingCall == nil {
+                    GlobalCallState.shared.incomingCall = IncomingCallInfo(id: sessionId, senderId: senderId, callerName: "", callType: callType)
+                }
+                CallSocketBridge.shared.acceptIncoming()
+            }
+        }
+        CallActionHandler.shared.onCallDeclined = { _, _ in
+            CallSocketBridge.shared.declineIncoming()
+        }
+    }
 
     public func bind(receiverId: String, sessionId: String, callType: CallType) {
         self.receiverId = receiverId
@@ -572,12 +591,16 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
             case "call_ringing":
                 if state.activeSessionId == event.sessionId { state.isRinging = true }
             case "call_end", "call_reject":
-                WebRtcCallManager.shared.end()
-                state.onCallEnded(sessionId: event.sessionId)
-            case "call_signal":
+                let matches = state.activeSessionId == event.sessionId || state.incomingCall?.id == event.sessionId
+                guard matches else { return }
                 if event.endReason == "busy" && state.activeSessionId == event.sessionId {
                     AudioServicesPlaySystemSound(1070)
                 }
+                WebRtcCallManager.shared.end()
+                state.onCallEnded(sessionId: event.sessionId)
+                self.ignoringCallKitEnd = true
+                CallKitService.shared.endCall(sessionId: event.sessionId, reason: event.type ?? "ended")
+            case "call_signal":
                 guard state.activeSessionId == event.sessionId else { return }
                 var payload: [String: Any] = [:]
                 event.signalPayload?.forEach { payload[$0.key] = $0.value }
@@ -589,7 +612,8 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
     }
 
     private func presentIncoming(_ event: CallEvent) {
-        DispatchQueue.main.async {
+        Dispself.reportLockScreenCall(event, name: known)
+            atchQueue.main.async {
             let cached = GlobalCallState.shared.contactNames[event.senderId] ?? ""
             let known = realPersonLabel(names: [cached, event.senderName], phone: GlobalCallState.shared.contactPhones[event.senderId], ids: [event.senderId])
             GlobalCallState.shared.incomingCall = IncomingCallInfo(id: event.sessionId, senderId: event.senderId, callerName: known, callType: event.callType)
@@ -606,6 +630,91 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
                 }
             }
         }
+
+    private func reportLockScreenCall(_ event: CallEvent, name: String) {
+        guard UIApplication.shared.applicationState != .active else { return }
+        let shown = name.isEmpty ? event.senderId : name
+        CallKitService.shared.reportIncomingCall(
+            sessionId: event.sessionId,
+            participantId: event.senderId,
+            participantName: shown,
+            callType: event.callType
+        ) { error in
+            if error != nil {
+                self.postIncomingCallNotification(event, name: shown)
+            }
+        }
+        CallBackgroundKeepAlive.begin()
+    }
+
+    private func postIncomingCallNotification(_ event: CallEvent, name: String) {
+        let content = UNMutableNotificationContent()
+        content.title = event.callType == .video ? "Incoming video call" : "Incoming voice call"
+        content.body = "\(name) is calling"
+        content.sound = .default
+        content.categoryIdentifier = PushNotificationHandler.categoryIncomingCall
+        content.userInfo = [
+            "type": "call_invite",
+            "session_id": event.sessionId,
+            "sender_id": event.senderId,
+            "caller_name": name,
+            "call_type": event.callType.rawValue
+        ]
+        let request = UNNotificationRequest(identifier: "call_\(event.sessionId)", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    public func callKitDidAnswerCall(session: CallSessionInfo) {
+        DispatchQueue.main.async {
+            if GlobalCallState.shared.incomingCall == nil {
+                GlobalCallState.shared.incomingCall = IncomingCallInfo(
+                    id: session.sessionId,
+                    senderId: session.participantId,
+                    callerName: session.participantName,
+                    callType: session.callType
+                )
+            }
+            self.acceptIncoming()
+        }
+    }
+
+    public func callKitDidEndCall(session: CallSessionInfo, reason: String) {
+        if ignoringCallKitEnd {
+            ignoringCallKitEnd = false
+            return
+        }
+        if session.isAnswered || GlobalCallState.shared.isCallActive {
+            endActive(reason: "user_ended")
+        } else {
+            declineIncoming()
+        }
+    }
+
+    public func callKitDidStartCall(session: CallSessionInfo) {}
+
+    public func callKitSetMuted(_ isMuted: Bool, session: CallSessionInfo) {
+        WebRtcCallManager.shared.setMicEnabled(!isMuted)
+    }
+}
+
+enum CallBackgroundKeepAlive {
+    private static var taskId: UIBackgroundTaskIdentifier = .invalid
+
+    static func begin() {
+        guard taskId == .invalid else { return }
+        taskId = UIApplication.shared.beginBackgroundTask(withName: "tj.call") {
+            end()
+        }
+        AppRuntime.connectRealtime()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25) {
+            end()
+        }
+    }
+
+    static func end() {
+        guard taskId != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(taskId)
+        taskId = .invalid
     }
 }
 

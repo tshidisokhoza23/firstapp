@@ -10,6 +10,7 @@ public struct MessageBubbleView: View {
     public var onPlayAudio: (String?) -> Void = { _ in }
     public var onReply: (Message) -> Void = { _ in }
     public var onMediaClick: (String, String) -> Void = { _, _ in }
+    public var onQuoteClick: (Message) -> Void = { _ in }
     public var onLongClick: () -> Void = {}
 
     public init(
@@ -22,6 +23,7 @@ public struct MessageBubbleView: View {
         onPlayAudio: @escaping (String?) -> Void = { _ in },
         onReply: @escaping (Message) -> Void = { _ in },
         onMediaClick: @escaping (String, String) -> Void = { _, _ in },
+        onQuoteClick: @escaping (Message) -> Void = { _ in },
         onLongClick: @escaping () -> Void = {}
     ) {
         self.message = message
@@ -32,6 +34,7 @@ public struct MessageBubbleView: View {
         self.playingAudioUri = playingAudioUri
         self.onPlayAudio = onPlayAudio
         self.onReply = onReply
+        self.onQuoteClick = onQuoteClick
         self.onMediaClick = onMediaClick
         self.onLongClick = onLongClick
     }
@@ -77,7 +80,10 @@ public struct MessageBubbleView: View {
                 if message.isFromMe { Spacer() }
 
                 VStack(alignment: message.isFromMe ? .trailing : .leading, spacing: 4) {
-                    if isStoryReply {
+                    if iButton(action: { onQuoteClick(message) }) {
+                            StoryReplyCard(replyText: message.replyToText ?? message.content, isFromMe: message.isFromMe)
+                        }
+                        .buttonStyle(.plain
                         StoryReplyCard(replyText: message.replyToText, isFromMe: message.isFromMe)
                     } else if let replySender = message.replyToSenderName, let replyText = message.replyToText {
                         VStack(alignment: .leading, spacing: 2) {

@@ -22,6 +22,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        CallBackgroundKeepAlive.begin()
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        AppRuntime.connectRealtime()
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         PushTokenRegistrar.shared.registerDeviceToken(deviceToken)
     }

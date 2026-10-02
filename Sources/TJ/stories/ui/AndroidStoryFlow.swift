@@ -474,11 +474,21 @@ enum StoryTime {
     }
 }
 
+struct StoryLaunch: Identifiable {
+    let id = UUID().uuidString
+    let userId: String
+    let storyId: String?
+}
+
 struct StoryRowPlayer: View {
     let startUserId: String
+    var startStoryId: String? = nil
+    var archive = false
     var onClose: () -> Void
     @State private var queue: [UserStory] = []
     @State private var position = 0
+    @State private var slideIndex = 0
+    @State private var savedSlides: [String: Int] = [:]
     @State private var loaded = false
     @State private var missing = false
 
@@ -486,8 +496,14 @@ struct StoryRowPlayer: View {
         ZStack {
             Color.black.ignoresSafeArea()
             if loaded, queue.indices.contains(position) {
-                StoryViewer(story: queue[position], onClose: onClose, onFinished: advance)
-                    .id(queue[position].id)
+                StoryViewer(
+                    story: queue[position],
+                    startIndex: slideIndex,
+                    onClose: onClose,
+                    onFinished: { move(1) },
+                    onRetreat: { move(-1) }
+                )
+                .id("\(queue[position].id)-\(slideIndex)-\(position)")
             } else if missing {
                 VStack(spacing: 12) {
                     Text("This story has expired or is no longer available.")
@@ -505,23 +521,31 @@ struct StoryRowPlayer: View {
 
     private func load() async {
         _ = await StoryRepository.shared.syncStories()
-        let all = await StoryRepository.shared.userStories
+        let all = StoryRepository.shared.userStories
         let mine = AndroidStoryFlow.myStory(in: all, userId: SessionStore.shared.userId)
-        var ordered: [UserStory] = []
-        if let mine, !mine.stories.isEmpty { ordered.append(mine) }
-        let others = all.filter { story in
-            story.id != mine?.id && story.userId != mine?.userId && story.userName != "My Story"
+        let ordered: [UserStory]
+        if archive {
+            ordered = mine.map { [$0] } ?? []
+        } else {
+            var list: [UserStory] = []
+            if let mine, !mine.stories.isEmpty { list.append(mine) }
+            let others = all.filter { story in
+                story.id != mine?.id && story.userId != mine?.userId && !story.isMuted
+            }
+            list.append(contentsOf: others.filter { !$0.allViewed })
+            list.append(contentsOf: others.filter { $0.allViewed })
+            ordered = list
         }
-        ordered.append(contentsOf: others.filter { !$0.allViewed })
-        ordered.append(contentsOf: others.filter { $0.allViewed })
         let wanted = startUserId.replacingOccurrences(of: "user_", with: "")
         if let index = ordered.firstIndex(where: { story in
             [story.id, story.userId].contains { key in
-                key == startUserId || key.replacingOccurrences(of: "user_", with: "") == wanted
+                let bare = key.replacingOccurrences(of: "user_", with: "")
+                return key == startUserId || bare == wanted
             }
         }) {
             queue = ordered
             position = index
+            slideIndex = slideIndex(in: ordered[index], storyId: startStoryId)
             loaded = true
         } else {
             missing = true
@@ -529,11 +553,32 @@ struct StoryRowPlayer: View {
         }
     }
 
-    private func advance() {
-        if position + 1 < queue.count {
-            position += 1
-        } else {
+    private func move(_ direction: Int) {
+        guard queue.indices.contains(position) else {
             onClose()
+            return
         }
+        savedSlides[queue[position].userId] = slideIndex
+        let next = position + direction
+        guard queue.indices.contains(next) else {
+            onClose()
+            return
+        }
+        position = next
+        if direction < 0 {
+            slideIndex = savedSlides[queue[next].userId] ?? max(0, queue[next].stories.count - 1)
+        } else {
+            slideIndex = savedSlides[queue[next].userId] ?? 0
+        }
+    }
+
+    private func slideIndex(in story: UserStory, storyId: String?) -> Int {
+        guard let storyId, !storyId.isEmpty else { return 0 }
+        let wanted = storyId.replacingOccurrences(of: "story_", with: "").components(separatedBy: "|").first ?? storyId
+        let index = story.stories.firstIndex { item in
+            let id = item.id.replacingOccurrences(of: "story_", with: "").components(separatedBy: "|").first ?? item.id
+            return item.id == storyId || id == wanted || item.id.hasSuffix(wanted) || wanted.hasSuffix(id)
+        }
+        return index ?? 0
     }
 }

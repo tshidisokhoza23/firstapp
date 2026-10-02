@@ -31,6 +31,9 @@ targets:
           - CFBundleURLName: Google
             CFBundleURLSchemes:
               - com.googleusercontent.apps.303703683011-6ksjg0b8uakesl9a821ri05tokrg41f2
+        UIBackgroundModes:
+          - audio
+          - remote-notification
     dependencies:
       - package: GoogleSignIn
       - package: WebRTC

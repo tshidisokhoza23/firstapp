@@ -25,5 +25,10 @@
 	<string>TJ uses the microphone to record voice notes and calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>TJ uses your photos and videos for chats, stories, posts, and shorts.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

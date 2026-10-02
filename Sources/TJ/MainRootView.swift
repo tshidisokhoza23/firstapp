@@ -31,6 +31,7 @@ public struct MainRootView: View {
     @State private var isBiometricLocked: Bool = false
     @State private var otpPhone: String? = nil
     @State private var selectedTab: Int = 0
+    @State private var storyLaunch: StoryLaunch?
 
     public init() {}
 
@@ -96,6 +97,22 @@ public struct MainRootView: View {
         }
         .onAppear {
             checkAuthAndLockStatus()
+            PushNotificationHandler.shared.onOpenStory = { storyId, userId in
+                guard !userId.isEmpty else { return }
+                storyLaunch = StoryLaunch(userId: userId, storyId: storyId)
+            }
+            CallActionHandler.shared.onCallAccepted = { sessionId, senderId, callType in
+                if GlobalCallState.shared.incomingCall == nil {
+                    GlobalCallState.shared.incomingCall = IncomingCallInfo(id: sessionId, senderId: senderId, callerName: "", callType: callType)
+                }
+                CallSocketBridge.shared.acceptIncoming()
+            }
+            CallActionHandler.shared.onCallDeclined = { _, _ in
+                CallSocketBridge.shared.declineIncoming()
+            }
+        }
+        .fullScreenCover(item: $storyLaunch) { launch in
+            StoryRowPlayer(startUserId: launch.userId, startStoryId: launch.storyId, onClose: { storyLaunch = nil })
         }
     }
 
