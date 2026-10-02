@@ -566,7 +566,18 @@ public struct ChatTabView: View {
                                 .background(Color.appPrimary)
                                 .cornerRadius(12)
                         }
-                 Contacts: () -> Void
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+        }
+    }
+}
+
+public struct TopMoreMenuSheetView: View {
+    public let selectedTab: Int
+    public var onContacts: () -> Void
     public var onNewGroup: () -> Void
     public var onStarred: () -> Void
     public var onArchived: () -> Void
@@ -621,24 +632,6 @@ public struct ChatTabView: View {
         case 2: return [("Post Job", onPostJob), ("Applications", onApplications), ("Job Profile", onJobProfile)]
         case 3: return [("Wallet", onWallet)]
         default: return [("Contacts", onContacts), ("New Group", onNewGroup), ("Starred Messages", onStarred), ("Archived Chats", onArchived), ("Mingle Activity", onMingle)]
-        }ndColor(.primary)
-                }
-                .padding(.vertical, 8)
-            }
-
-            Button(action: onProfile) {
-                HStack(spacing: 12) {
-                    Image(systemName: "person.circle")
-                        .foregroundColor(.primary)
-                    Text("My Profile")
-                        .font(.body)
-                        .foregroundColor(.primary)
-                }
-                .padding(.vertical, 8)
-            }
-
-            Spacer()
         }
-        .padding(.horizontal, 24)
     }
 }

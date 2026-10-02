@@ -178,7 +178,9 @@ public struct MessageBubbleView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
- 
+        }
+    }
+}
 
 private struct StoryReplyCard: View {
     let replyText: String?
@@ -225,6 +227,6 @@ private struct StoryReplyCard: View {
         .background(isFromMe ? Color.white.opacity(0.15) : Color.black.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
-}       }
+}
     }
 }

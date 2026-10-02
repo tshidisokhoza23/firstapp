@@ -739,9 +739,6 @@ public struct RadiusFilterSheetView: View {
         }
     }
 }
-@Binding public var photoIds: [String]
-    public var onPhoto: (Data) -> Void
-    public var onDelete: (String
 // MARK: - Mingle Profile Edit Sheet View matching Screenshot 5
 
 public struct MingleProfileEditSheetView: View {
@@ -751,7 +748,9 @@ public struct MingleProfileEditSheetView: View {
     @Binding public var myGender: String
     @Binding public var myLookingFor: String
     @Binding public var photos: [String]
+    @Binding public var photoIds: [String]
     public var onPhoto: (Data) -> Void
+    public var onDelete: (String) -> Void
     public var onSave: () -> Void
     @State private var picked: PhotosPickerItem?
 
@@ -763,7 +762,9 @@ public struct MingleProfileEditSheetView: View {
                         .font(.system(size: 20, weight: .bold))
                         .padding(.top, 16)
 
-                    ScrollView(.horiArray(photos.enumerated()), id: \.offset) { index, photo in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
                                 ZStack(alignment: .topTrailing) {
                                     if let url = FeedPost.resolve(photo) {
                                         AsyncImage(url: url) { image in
@@ -781,19 +782,15 @@ public struct MingleProfileEditSheetView: View {
                                     }) {
                                         Image(systemName: "xmark.circle.fill")
                                             .foregroundColor(.white)
-                                            .background(Color.black.opacity(0.45))
-                                            .clipShape(Circle())
+                                            .padding(4)
                                     }
-                    Text(photos.count >= 5 ? "Delete a photo to change it" : "Add or replace photos")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                                    .padding(4, height: 110)
-                                    .clipped()
-                                    .cornerRadius(12)
                                 }
                             }
                         }
                     }
+                    Text(photos.count >= 5 ? "Delete a photo to change it" : "Add or replace photos")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     PhotosPicker(selection: $picked, matching: .images) {
                         Text(photos.count >= 5 ? "5 photos is the maximum" : "Add photo")
                             .font(.system(size: 15, weight: .bold))
