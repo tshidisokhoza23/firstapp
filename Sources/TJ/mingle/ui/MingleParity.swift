@@ -344,13 +344,15 @@ struct MingleActivityPreview: View {
 struct MinglePointsGate: View {
     let points: Int
     var onWallet: () -> Void
+    var onWatchAd: () -> Void = {}
     var onDismiss: () -> Void
+    @ObservedObject private var ads = RewardedAds.shared
 
     var body: some View {
         VStack(spacing: 16) {
             Text("Wallet Points Required")
                 .font(.title3.bold())
-            Text("You need more points for this. Open your wallet. Browsing Mingle stays free.")
+            Text("You need more points for this. Watch an ad or open your wallet. Browsing Mingle stays free.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -360,8 +362,17 @@ struct MinglePointsGate: View {
             Text("\(points) Points")
                 .font(.title2.bold())
                 .foregroundColor(.appPrimary)
-            Button("Open wallet", action: onWallet)
+            Text("4 Ads / Window")
+                .font(.caption.bold())
+            Text("\(ads.batchCount) / 4 watched")
+                .font(.caption)
+            Button(ads.buttonTitle, action: onWatchAd)
                 .buttonStyle(.borderedProminent)
+                .disabled(!ads.canWatch)
+            if let message = ads.message, !message.isEmpty {
+                Text(message).font(.caption).foregroundColor(.secondary)
+            }
+            Button("Open wallet", action: onWallet)
             Button("Not now", action: onDismiss)
         }
         .padding(24)

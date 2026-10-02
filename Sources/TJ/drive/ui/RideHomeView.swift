@@ -74,7 +74,8 @@ public struct RideHomeView: View {
                     }
                 }
             }
-            .navigationTitle("Ride")
+            .safeAreaInset(edge: .bottom) { LiveBannerAd() }
+        .navigationTitle("Ride")
             .task { await reload() }
         }
     }

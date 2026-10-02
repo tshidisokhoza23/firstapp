@@ -203,10 +203,12 @@ public struct SettingsView: View {
             }
             .padding(.vertical, 16)
         }
+        .safeAreaInset(edge: .bottom) { LiveBannerAd() }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $localPage) { page in
             NavigationStack {
+                VStack(spacing: 0) {
                 switch page {
                 case .chats: ChatSettingsForm()
                 case .alerts: AlertSettingsForm()
@@ -217,6 +219,8 @@ public struct SettingsView: View {
                 case .help: HelpSettingsForm()
                 case .account: AccountView()
                 case .editProfile: EditProfilePlaceholderView()
+                }
+                LiveBannerAd()
                 }
             }
         }

@@ -87,6 +87,7 @@ public struct WalletView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    LiveBannerAd()
                     // Balance Header Card
                     balanceCardView
 

@@ -78,7 +78,9 @@ public struct MingleView: View {
     @State private var showProfileSheet = false
     @State private var showSecretChats = false
     @State private var showNotifications = false
-    @State private var showPointsGate = false
+    @State private var showPointsGate
+    @State private var showMingleAd = false
+    @State private var swipesSinceAd = 0 = false
     @State private var showWallet = false
     @State private var locationDenied = false
     @State private var emptyReason: String?
@@ -262,8 +264,21 @@ public struct MingleView: View {
             MinglePointsGate(points: userCoins, onWallet: {
                 showPointsGate = false
                 showWallet = true
+            }, onWatchAd: {
+                RewardedAds.shared.show(taskId: "") {
+                    Task {
+                        if let data = try? await API.data("rewards/balance"),
+                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            if let value = json["balance"] as? Double { userCoins = Int(value) }
+                            else if let value = json["balance"] as? Int { userCoins = value }
+                        }
+                    }
+                }
             }, onDismiss: { showPointsGate = false })
             .presentationDetents([.medium])
+        }
+        .fullScreenCover(isPresented: $showMingleAd) {
+            NativeAdCover(continueTitle: "Continue Mingling") { showMingleAd = false }
         }
         .sheet(isPresented: $showWallet) {
             WalletView()
@@ -568,6 +583,11 @@ public struct MingleView: View {
             applyEconomy(json)
             lastSwiped = profile
             profiles.removeAll { $0.id == profile.id }
+            swipesSinceAd += 1
+            if swipesSinceAd >= 8 {
+                swipesSinceAd = 0
+                showMingleAd = true
+            }
             if profiles.count < 3 { await loadFeed(reset: false) }
             let conversationId = LiveJSON.string(json["conversation_id"])
             if json["matched"] as? Bool == true, !conversationId.isEmpty {

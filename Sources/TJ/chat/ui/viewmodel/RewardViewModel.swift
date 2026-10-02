@@ -71,20 +71,9 @@ public class RewardViewModel: ObservableObject {
     }
 
     public func showRewardedAd(taskId: String, onReward: @escaping () -> Void) {
-        Task {
-            do {
-                _ = try await API.data("rewards/award", method: "POST", json: [
-                    "amount": 10.0,
-                    "source": "REWARDED_AD",
-                    "description": "Watched rewarded ad",
-                    "task_id": taskId
-                ])
-                toastMessage = "Earned 10 points!"
-                onReward()
-            } catch {
-                toastMessage = "Reward not awarded"
-            }
-            fetchDashboard()
+        RewardedAds.shared.show(taskId: taskId, onMessage: { self.toastMessage = $0 }) {
+            onReward()
+            self.fetchDashboard()
         }
     }
 

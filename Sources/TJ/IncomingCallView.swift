@@ -124,6 +124,7 @@ public struct IncomingCallView: View {
                 .padding(.bottom, 60)
             }
         }
+        .safeAreaInset(edge: .bottom) { LiveBannerAd() }
         .onAppear {
             startRingtoneAndVibration()
             checkCameraPermission()

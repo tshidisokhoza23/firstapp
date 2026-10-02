@@ -184,6 +184,7 @@ public struct ChatTabView: View {
             default:
                 chatsTabContent
             }
+            LiveBannerAd()
         }
         .onAppear {
             viewModel.fetchChats()

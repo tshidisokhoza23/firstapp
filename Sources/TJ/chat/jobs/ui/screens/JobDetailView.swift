@@ -177,6 +177,7 @@ public struct JobDetailView: View {
                 .padding(20)
             }
         }
+        .safeAreaInset(edge: .bottom) { LiveBannerAd() }
         .navigationTitle("Job Details")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

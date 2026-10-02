@@ -434,7 +434,7 @@ struct SocialFeedView: View {
                 } else {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(posts) { post in
+                            ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
                                 FeedPostCard(
                                     post: post,
                                     onOpen: { selectedPost = post },
@@ -446,6 +446,9 @@ struct SocialFeedView: View {
                                     onShare: { share(post.id) },
                                     onMore: { moreTarget = post }
                                 )
+                                if (index + 1) % 4 == 0 {
+                                    NativeAdRow()
+                                }
                             }
                         }
                     }
@@ -813,6 +816,7 @@ struct ShortsFeedView: View {
     @State private var showCreateShort = false
     @State private var showShortSearch = false
     @State private var commentShort: FeedPost?
+    @State private var dismissedShortAds: Set<Int> = []
 
     var body: some View {
         Group {
@@ -874,6 +878,14 @@ struct ShortsFeedView: View {
                     }
                 }
                 .ignoresSafeArea()
+            }
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { shorts.indices.contains(page) && (page + 1) % 8 == 0 && !dismissedShortAds.contains(page) && AdConfig.nativeUnit != nil },
+            set: { if !$0, shorts.indices.contains(page) { dismissedShortAds.insert(page) } }
+        )) {
+            NativeAdCover(continueTitle: "Continue") {
+                dismissedShortAds.insert(page)
             }
         }
         .fullScreenCover(isPresented: Binding(get: { selectedShort != nil }, set: { if !$0 { selectedShort = nil } })) {

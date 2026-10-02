@@ -13,6 +13,9 @@ packages:
   WebRTC:
     url: https://github.com/stasel/WebRTC
     exactVersion: 125.0.0
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
+    exactVersion: 11.13.0
 
 targets:
   TJ:
@@ -35,9 +38,15 @@ targets:
           - audio
           - remote-notification
           - voip
+        GADApplicationIdentifier: "ca-app-pub-4322207563956922~1108788212"
+        TJAdBannerUnit: "ca-app-pub-4322207563956922/5798752977"
+        TJAdNativeUnit: "ca-app-pub-4322207563956922/1859507960"
+        TJAdRewardedUnit: "ca-app-pub-4322207563956922/5594828136"
     dependencies:
       - package: GoogleSignIn
       - package: WebRTC
+      - package: GoogleMobileAds
+        product: GoogleMobileAds
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tpsk.TJ

@@ -47,8 +47,11 @@ public struct StoriesHeaderRow: View {
                 } else {
                     addStoryItem
                 }
-                ForEach(otherStories) { story in
+                ForEach(Array(otherStories.enumerated()), id: \.element.id) { index, story in
                     storyItem(story)
+                    if (index + 1) % 4 == 0 {
+                        StoryAdSlot()
+                    }
                 }
             }
             .padding(.horizontal, 16)

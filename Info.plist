@@ -31,5 +31,13 @@
 		<string>remote-notification</string>
 		<string>voip</string>
 	</array>
+        <key>GADApplicationIdentifier</key>
+        <string>ca-app-pub-4322207563956922~1108788212</string>
+        <key>TJAdBannerUnit</key>
+        <string>ca-app-pub-4322207563956922/5798752977</string>
+        <key>TJAdNativeUnit</key>
+        <string>ca-app-pub-4322207563956922/1859507960</string>
+        <key>TJAdRewardedUnit</key>
+        <string>ca-app-pub-4322207563956922/5594828136</string>
 </dict>
 </plist>
