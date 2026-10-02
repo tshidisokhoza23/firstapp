@@ -449,6 +449,21 @@ public class ChatViewModel: ObservableObject {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         Task {
+            guard let data = try? await API.data("chats/group", method: "POST", json: ["name": trimmed, "member_ids": contactIds]),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+            let id = LiveJSON.string(json["conversation_id"]).nilIfEmpty ?? LiveJSON.string(json["id"])
+            guard !id.isEmpty else { return }
+            let title = LiveJSON.string(json["title"]).nilIfEmpty ?? trimmed
+            onSuccess(ChatMessage(id: id, type: .group, senderName: title, isGroup: true))
+            fetchChats()
+        }
+    }
+
+    public func archiveChat(chatId: String, isArchived: Bool) {
+        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
+            list[idx].isArchived = isArchived
+            uiState.chats = .success(list)
+        }
         Task {
             _ = try? await API.data("conversations/\(chatId)/prefs", method: "PATCH", json: ["is_archived": isArchived])
         }
@@ -478,22 +493,7 @@ public class ChatViewModel: ObservableObject {
         uiState.messages = .success([])
         Task {
             _ = try? await API.data("conversations/\(chatId)/clear", method: "POST")
-        } isPinned: Bool) {
-        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
-            list[idx].isPinned = isPinned
-            uiState.chats = .success(list)
         }
-    }
-
-    public func muteChat(chatId: String, isMuted: Bool) {
-        if var list = uiState.chats.data, let idx = list.firstIndex(where: { $0.id == chatId }) {
-            list[idx].isMuted = isMuted
-            uiState.chats = .success(list)
-        }
-    }
-
-    public func clearChat(chatId: String) {
-        uiState.messages = .success([])
     }
 
     public func startVoiceOrVideoCall(receiverId: String, callType: CallType, name: String) {
