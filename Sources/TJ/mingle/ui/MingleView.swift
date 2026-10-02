@@ -499,13 +499,13 @@ public struct MingleView: View {
         else if let age = profile["age"] as? Double, age > 0 { myAge = "\(Int(age))" }
         if let gender = profile["gender"] as? String { myGender = gender }
         if let looking = profile["looking_for"] as? String, !looking.isEmpty { myLookingFor = looking }
+        if let photos = profile["photos"] as? [[String: Any]] {
+            myPhotos = photos.compactMap { $0["url"] as? String }.filter { !$0.isEmpty }
             myPhotoIds = photos.map { item in
                 if let id = item["id"] as? String { return id }
                 if let id = item["id"] as? Int { return String(id) }
                 return ""
             }
-        if let photos = profile["photos"] as? [[String: Any]] {
-            myPhotos = photos.compactMap { $0["url"] as? String }.filter { !$0.isEmpty }
         }
     }
 

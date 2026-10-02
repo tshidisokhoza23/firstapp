@@ -159,11 +159,11 @@ enum LiveJSON {
             fileName: string(json["file_name"]).nilIfEmpty,
             fileSize: string(json["file_size"]).nilIfEmpty,
             duration: string(json["duration"]).nilIfEmpty,
+            isRead: bool(json["is_read"]),
+            isDelivered: bool(json["is_delivered"]),
             replyToId: replyId,
             replyToText: replyText,
             replyToSenderName: string(json["reply_to_sender_name"]).nilIfEmpty ?? story?.author.nilIfEmpty,
-            isRead: bool(json["is_read"]),
-            isDelivered: bool(json["is_delivered"]),
             clientId: client.nilIfEmpty
         )
     }

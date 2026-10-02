@@ -207,7 +207,9 @@ public struct ChatTabView: View {
             .presentationDetents([.medium])
         }
         .sheet(isPresented: $showStarred) { StarredMessagesView() }
-        .sheet(isPresented: $showApplications) { JobApplicationsView() }
+        .sheet(isPresented: $showApplications) {
+            JobApplicationsView(onBack: { showApplications = false }, onViewJobDetails: { _ in }, onContactRecruiter: { _ in }, onSetReminder: { _ in })
+        }
         .sheet(isPresented: $showJobProfile) { JobProfileView(onClose: { showJobProfile = false }) }
         .sheet(isPresented: $showWallet) { WalletView() }
         .sheet(isPresented: $showSettings) { SettingsView(router: NavigationRouter()) }

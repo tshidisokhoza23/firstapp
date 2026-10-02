@@ -228,5 +228,3 @@ private struct StoryReplyCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
-    }
-}
