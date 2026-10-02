@@ -51,7 +51,13 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         authorName: String = "",
         authorHandle: String = "",
         authorAvatar: String? = nil,
-        content: String = "",,
+        content: String = "",
+        mediaURLs: [String] = [],
+        likes: Int = 0,
+        repliesCount: Int = 0,
+        postType: String = "",
+        isLiked: Bool = false,
+        isBookmarked: Bool = false,
         views: Int = 0,
         shares: Int = 0,
         repostCount: Int = 0,
@@ -77,12 +83,6 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         self.quoteCount = quoteCount
         self.isReposted = isReposted
         self.mediaType = mediaType
-        self.mediaURLs = mediaURLs
-        self.likes = likes
-        self.repliesCount = repliesCount
-        self.postType = postType
-        self.isLiked = isLiked
-        self.isBookmarked = isBookmarked
     }
 
     public init(from decoder: Decoder) throws {
