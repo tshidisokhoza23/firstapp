@@ -115,7 +115,9 @@ public final class PushNotificationHandler: NSObject, UNUserNotificationCenterDe
         case "call_invite":
             let sessionId = userInfo["session_id"] as? String ?? ""
             let senderId = userInfo["caller_id"] as? String ?? userInfo["sender_id"] as? String ?? ""
-            let callerName = userInfo["caller_name"] as? String ?? "Incoming Call"
+            let rawName = (userInfo["caller_name"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let lowered = rawName.lowercased()
+            let callerName = (rawName.isEmpty || lowered == "someone" || lowered == "user") ? "Incoming call" : rawName
             let callTypeStr = userInfo["call_type"] as? String ?? "voice"
             let callType: CallType = (callTypeStr == "video") ? .video : .voice
 

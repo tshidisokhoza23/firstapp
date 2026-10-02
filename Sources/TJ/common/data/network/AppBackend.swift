@@ -298,6 +298,7 @@ public enum AppRuntime {
 
     @MainActor
     public static func connectRealtime() {
+        PushTokenRegistrar.shared.uploadPending()
         WebSocketManager.shared.reconnect()
         _ = chatRepository
         let token = SessionStore.shared.token ?? ""

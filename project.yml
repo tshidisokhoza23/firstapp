@@ -34,12 +34,14 @@ targets:
         UIBackgroundModes:
           - audio
           - remote-notification
+          - voip
     dependencies:
       - package: GoogleSignIn
       - package: WebRTC
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tpsk.TJ
+        CODE_SIGN_ENTITLEMENTS: TJ.entitlements
         PRODUCT_NAME: TJ
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: Info.plist
