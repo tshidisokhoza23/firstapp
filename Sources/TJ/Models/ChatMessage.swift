@@ -224,27 +224,12 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
 
     public var displayName: String {
         let key = otherUserId ?? id
-        if let local = localContactName?.trimmingCharacters(in: .whitespacesAndNewlines), !local.isEmpty {
-            return local
-        }
-        let profile = serverProfileName?.takeIfValidName(key: key) ?? senderName.takeIfValidName(key: key)
-        if let profile = profile, !profile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return profile.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if let phone = phoneNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !phone.isEmpty {
-            return CountryUtils.formatDisplayPhone(phone)
-        }
-        if !senderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return senderName.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        switch type {
-        case .group:
-            return "Group Chat"
-        case .channel:
-            return "Channel"
-        default:
-            return "User"
-        }
+        return realPersonLabel(
+            local: localContactName,
+            names: [serverProfileName, senderName],
+            phone: phoneNumber,
+            ids: [key, id]
+        )
     }
 
     public var profileHint: String? {
@@ -263,9 +248,9 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
             return current
         }
         if let phone = phoneNumber, !phone.isEmpty {
-            return phone
+            return CountryUtils.formatDisplayPhone(phone)
         }
-        return senderName.isEmpty ? id : senderName
+        return ""
     }
 }
 

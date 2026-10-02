@@ -25,7 +25,11 @@ public struct CallBannerOverlay: View {
 
                     Spacer().frame(height: 24)
 
-                    Text(globalCallState.contactNames[globalCallState.activeParticipantId ?? ""] ?? globalCallState.activeParticipantId ?? "Calling...")
+                    Text(realPersonLabel(
+                        names: [globalCallState.contactNames[globalCallState.activeParticipantId ?? ""]],
+                        phone: globalCallState.contactPhones[globalCallState.activeParticipantId ?? ""],
+                        ids: [globalCallState.activeParticipantId ?? ""]
+                    ))
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
 

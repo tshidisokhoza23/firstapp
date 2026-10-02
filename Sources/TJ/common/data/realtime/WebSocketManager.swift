@@ -17,6 +17,8 @@ public struct WSAnyCodable: Codable, Sendable {
     public var stringValue: String? {
         if let text = value as? String { return text }
         if let number = value as? NSNumber { return number.stringValue }
+        if let number = value as? Int64 { return String(number) }
+        if let number = value as? Int { return String(number) }
         return nil
     }
     public var boolValue: Bool? { value as? Bool }
@@ -145,6 +147,12 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
 
         let base = wsURLProvider().trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard var components = URLComponents(string: base) else { return }
+        var path = components.path
+        if path.hasSuffix("/") { path.removeLast() }
+        if !path.hasSuffix("/ws/chat") && !path.hasSuffix("/ws") {
+            path += "/ws/chat"
+        }
+        components.path = path
         components.queryItems = [URLQueryItem(name: "token", value: token)]
         guard let url = components.url else { return }
 

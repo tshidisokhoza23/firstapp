@@ -73,9 +73,17 @@ public struct MainRootView: View {
                 )
             }
 
-            // Global Active/Incoming Call Overlay Banner
-            if globalCallState.isCallActive {
-                RootActiveCallOverlayBanner(callState: globalCallState)
+            if let incoming = globalCallState.incomingCall {
+                IncomingCallView(
+                    callInfo: incoming,
+                    onAccept: { _ in CallSocketBridge.shared.acceptIncoming() },
+                    onDecline: { _ in CallSocketBridge.shared.declineIncoming() }
+                )
+                .zIndex(100)
+            } else if globalCallState.isCallActive {
+                CallBannerOverlay()
+                    .environmentObject(globalCallState)
+                    .zIndex(100)
             }
         }
         .onOpenURL { url in

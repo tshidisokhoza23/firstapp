@@ -158,8 +158,19 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
         reconnectWorkItem?.cancel()
         reconnectWorkItem = nil
 
-        let urlString = baseUrl.hasSuffix("/") ? "\(baseUrl)ws/calls?token=\(token)" : "\(baseUrl)/ws/calls?token=\(token)"
-        guard let url = URL(string: urlString) else {
+        guard var components = URLComponents(string: baseUrl) else {
+            lock.lock()
+            isConnecting = false
+            lock.unlock()
+            notifyError("Invalid WebSocket URL")
+            return
+        }
+        var path = components.path
+        if path.hasSuffix("/") { path.removeLast() }
+        if !path.hasSuffix("/ws/calls") { path += "/ws/calls" }
+        components.path = path
+        components.queryItems = [URLQueryItem(name: "token", value: token)]
+        guard let url = components.url else {
             lock.lock()
             isConnecting = false
             lock.unlock()

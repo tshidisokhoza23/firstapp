@@ -147,16 +147,34 @@ public class ChatViewModel: ObservableObject {
         guard !conversationId.isEmpty else { return }
         let clientId = text("client_msg_id").isEmpty ? text("client_uuid") : text("client_msg_id")
         let messageId = text("message_id").isEmpty ? text("id") : text("message_id")
+        let body = text("message_text").isEmpty ? text("content") : text("message_text")
+        let senderId = text("sender_id")
+        let created = payload["created_at"]?.int64Value ?? Int64(Date().timeIntervalSince1970 * 1000)
         if activeChatId == conversationId {
             if var msgs = uiState.messages.data,
-               let idx = msgs.firstIndex(where: { $0.clientId == clientId || $0.id == clientId || $0.id == messageId }),
-               !messageId.isEmpty {
-                msgs[idx].id = messageId
+               let idx = msgs.firstIndex(where: { (!clientId.isEmpty && ($0.clientId == clientId || $0.id == clientId)) || (!messageId.isEmpty && $0.id == messageId) }) {
+                if !messageId.isEmpty { msgs[idx].id = messageId }
+                if !body.isEmpty { msgs[idx].content = body }
                 msgs[idx].status = .delivered
                 uiState.messages = .success(msgs)
-            } else if type != "message_ack" {
-                fetchMessages(chatId: conversationId)
+            } else if type != "message_ack", !body.isEmpty || !messageId.isEmpty {
+                var msgs = uiState.messages.data ?? []
+                let mine = !senderId.isEmpty && senderId == SessionStore.shared.userId
+                msgs.append(Message(
+                    id: messageId.isEmpty ? UUID().uuidString : messageId,
+                    conversationId: conversationId,
+                    content: body,
+                    senderId: senderId,
+                    senderName: text("sender_name"),
+                    timestamp: created,
+                    isFromMe: mine,
+                    status: .delivered,
+                    type: MessageType(rawValue: text("media_type").uppercased()) ?? .text,
+                    clientId: clientId.isEmpty ? nil : clientId
+                ))
+                uiState.messages = .success(msgs)
             }
+            fetchMessages(chatId: conversationId)
         }
         fetchChats()
     }
@@ -219,7 +237,8 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations")
-                self.uiState.chats = .success(LiveJSON.chats(from: data))
+                let chats = await LiveJSON.enrichMissingProfiles(LiveJSON.chats(from: data))
+                self.uiState.chats = .success(chats)
                 self.uiState.isChatsFetching = false
             } catch {
                 self.uiState.isChatsFetching = false
@@ -236,8 +255,19 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations/\(chatId)/messages")
-                let msgs = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
-                self.uiState.messages = .success(msgs)
+                let server = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
+                let local = self.uiState.messages.data ?? []
+                let now = Int64(Date().timeIntervalSince1970 * 1000)
+                var merged = server
+                for msg in local {
+                    let exists = merged.contains { $0.id == msg.id || ($0.clientId != nil && $0.clientId == msg.clientId) }
+                    if exists { continue }
+                    if msg.status == .sending || msg.status == .failed || now - msg.timestamp < 20_000 {
+                        merged.append(msg)
+                    }
+                }
+                merged.sort { $0.timestamp < $1.timestamp }
+                self.uiState.messages = .success(merged)
             } catch {
                 self.uiState.error = "Could not load messages"
                 if self.uiState.messages.data == nil {
@@ -421,13 +451,22 @@ public class ChatViewModel: ObservableObject {
         }
     }
 
+    private func resolvedCalleeId(_ receiverId: String) -> String {
+        if let chat = uiState.chats.data?.first(where: { $0.id == receiverId }),
+           let other = chat.otherUserId, !other.isEmpty {
+            return other
+        }
+        return receiverId
+    }
+
     private func placeCall(receiverId: String, callType: CallType, name: String) async {
         let token = SessionStore.shared.token ?? ""
         guard !token.isEmpty else {
             uiState.error = "Sign in again before calling"
             return
         }
-        CallSocketBridge.shared.bind(receiverId: receiverId, sessionId: "", callType: callType)
+        let calleeId = resolvedCalleeId(receiverId)
+        CallSocketBridge.shared.bind(receiverId: calleeId, sessionId: "", callType: callType)
         CallWebSocketClient.shared.connect(listener: CallSocketBridge.shared, serverUrl: AppBackend.wsBaseURL, authToken: token)
         var ice: [[String: Any]] = [["urls": "stun:stun.l.google.com:19302"], ["urls": "stun:stun1.l.google.com:19302"]]
         if let data = try? await API.data("calls/ice_servers") {
@@ -437,7 +476,7 @@ public class ChatViewModel: ObservableObject {
         WebRtcCallManager.shared.setIceServers(ice)
         do {
             let data = try await API.data("calls/initiate", method: "POST", json: [
-                "receiver_id": receiverId,
+                "receiver_id": calleeId,
                 "call_type": callType.wireValue
             ])
             let sessionId = LiveJSON.string(LiveJSON.object(data)["session_id"])
@@ -445,12 +484,12 @@ public class ChatViewModel: ObservableObject {
                 uiState.error = "Call could not start"
                 return
             }
-            GlobalCallState.shared.updateContactInfo(id: receiverId, name: name, phone: nil)
-            GlobalCallState.shared.setCallActive(true, sessionId: sessionId, participantId: receiverId, callType: callType)
-            CallSocketBridge.shared.bind(receiverId: receiverId, sessionId: sessionId, callType: callType)
+            let targetId = resolvedCalleeId(receiverId)
+            GlobalCallState.shared.updateContactInfo(id: targetId, name: name, phone: nil)
+            GlobalCallState.shared.setCallActive(true, sessionId: sessionId, participantId: targetId, callType: callType)
+            CallSocketBridge.shared.bind(receiverId: targetId, sessionId: sessionId, callType: callType)
             WebRtcCallManager.shared.start(callType: callType)
-            CallWebSocketClient.shared.invite(receiverId: receiverId, sessionId: sessionId, callType: callType)
-            WebRtcCallManager.shared.createOffer()
+            CallWebSocketClient.shared.invite(receiverId: targetId, sessionId: sessionId, callType: callType)
         } catch {
             uiState.error = "Call could not start"
         }

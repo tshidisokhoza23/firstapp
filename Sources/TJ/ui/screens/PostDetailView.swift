@@ -84,7 +84,7 @@ struct PostDetailView: View {
                     } else {
                         ForEach(replies) { reply in
                             VStack(alignment: .leading, spacing: 4) {
-                                Button(reply.author.isEmpty ? "User" : reply.author) {
+                                Button(reply.author) {
                                     if !reply.authorId.isEmpty { onProfileClick(reply.authorId) }
                                 }
                                 .buttonStyle(.plain)

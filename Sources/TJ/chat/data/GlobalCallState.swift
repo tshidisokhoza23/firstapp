@@ -16,6 +16,7 @@ public class GlobalCallState: ObservableObject {
     @Published public var callDurationSeconds: Int = 0
     @Published public var contactNames: [String: String] = [:]
     @Published public var contactPhones: [String: String] = [:]
+    @Published public var incomingCall: IncomingCallInfo?
 
     private var timer: Timer?
 
@@ -47,8 +48,16 @@ public class GlobalCallState: ObservableObject {
     }
 
     public func onCallEnded(sessionId: String) {
-        setCallActive(false, sessionId: nil, participantId: nil, callType: nil)
-        callDurationSeconds = 0
+        if incomingCall?.id == sessionId || sessionId == "force_all" {
+            incomingCall = nil
+        }
+        if activeSessionId == sessionId || sessionId == "force_all" {
+            setCallActive(false, sessionId: nil, participantId: nil, callType: nil)
+            isConnectionEstablished = false
+            isAnswered = false
+            isRinging = false
+            callDurationSeconds = 0
+        }
     }
 
     private func startTimer() {
@@ -73,15 +82,15 @@ public class CallViewModel: ObservableObject {
 
     public func toggleMic() {
         isMicMuted.toggle()
+        WebRtcCallManager.shared.setMicEnabled(!isMicMuted)
     }
 
     public func toggleSpeaker() {
         isSpeakerOn.toggle()
+        WebRtcCallManager.shared.setSpeakerEnabled(isSpeakerOn)
     }
 
     public func endCall() {
-        if let sid = GlobalCallState.shared.activeSessionId {
-            GlobalCallState.shared.onCallEnded(sessionId: sid)
-        }
+        CallSocketBridge.shared.endActive(reason: "ended")
     }
 }

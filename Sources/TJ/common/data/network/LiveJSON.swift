@@ -78,20 +78,17 @@ enum LiveJSON {
         }
         let title = string(json["title"])
         let contactName = string(json["contact_name"])
+        let displayName = string(json["display_name"])
+        let username = string(json["username"])
         let contactId = string(json["contact_id"])
-        let phone = type == .mingle ? "" : string(json["phone_number"])
+        let rawPhone = string(json["phone_number"]).isEmpty ? string(json["contact_phone"]) : string(json["phone_number"])
+        let phone = type == .mingle ? "" : rawPhone
         let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
-        let server = [contactName, title].first { candidate in
-            let lower = candidate.lowercased()
-            return !candidate.isEmpty
-                && !isIdString(candidate, id: id)
-                && !isIdString(candidate, id: contactId)
-                && !isOpaqueId(candidate)
-                && lower != "chat"
-                && lower != "direct"
-                && lower != "mingle"
-        }
-        let name = local ?? server ?? phone
+        let ids = [id, contactId]
+        let server = realPersonLabel(names: [displayName, contactName, username], ids: ids)
+        let name = type == .group || type == .channel
+            ? realPersonLabel(names: [title, contactName], ids: ids)
+            : realPersonLabel(local: local, names: [displayName, contactName, username, title], phone: phone, ids: ids)
         return ChatMessage(
             id: id,
             type: type,
@@ -111,7 +108,7 @@ enum LiveJSON {
             adminsCanPost: bool(json["admins_can_post"]),
             isSubscribed: bool(json["is_subscribed"]) || bool(json["is_following"]),
             createdBy: string(json["created_by"]).isEmpty ? nil : string(json["created_by"]),
-            phoneNumber: type == .mingle ? nil : string(json["phone_number"]).nilIfEmpty,
+            phoneNumber: phone.nilIfEmpty,
             otherUserId: string(json["contact_id"]).nilIfEmpty,
             isMingle: type == .mingle
         )
@@ -240,6 +237,55 @@ enum LiveJSON {
             isNativeAd: bool(json["is_native_ad"]),
             isViewed: bool(json["is_viewed"])
         )
+    }
+
+    static func enrichMissingProfiles(_ chats: [ChatMessage]) async -> [ChatMessage] {
+        var updated = chats
+        for index in updated.indices {
+            let chat = updated[index]
+            guard chat.type == .direct || chat.type == .jobChat || chat.type == .mingle else { continue }
+            guard let userId = chat.otherUserId, !userId.isEmpty else { continue }
+            let ids = [userId, chat.id]
+            let profileName = realPersonLabel(names: [chat.serverProfileName, chat.senderName], ids: ids)
+            if chat.localContactName != nil { continue }
+            if !profileName.isEmpty && !looksLikePhone(profileName) { continue }
+            guard let profile = await userProfile(userId) else { continue }
+            let phone = profile.phone.isEmpty ? (chat.phoneNumber ?? "") : profile.phone
+            let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
+            let resolved = realPersonLabel(
+                local: local,
+                names: [profile.displayName, profile.username, chat.serverProfileName],
+                phone: phone,
+                ids: ids
+            )
+            guard !resolved.isEmpty else { continue }
+            updated[index].localContactName = local
+            let server = realPersonLabel(names: [profile.displayName, profile.username], ids: ids)
+            updated[index].serverProfileName = server.isEmpty ? chat.serverProfileName : server
+            updated[index].senderName = resolved
+            updated[index].phoneNumber = phone.isEmpty ? chat.phoneNumber : phone
+            if (updated[index].avatarUrl ?? "").isEmpty, !profile.avatar.isEmpty {
+                updated[index].avatarUrl = profile.avatar
+            }
+            let savedName = resolved
+            let savedPhone = updated[index].phoneNumber
+            await MainActor.run {
+                GlobalCallState.shared.updateContactInfo(id: userId, name: savedName, phone: savedPhone)
+            }
+        }
+        return updated
+    }
+
+    static func userProfile(_ id: String) async -> (displayName: String, username: String, phone: String, avatar: String)? {
+        guard let data = try? await API.data("users/\(id)") else { return nil }
+        let root = object(data)
+        let user = (root["user"] as? [String: Any]) ?? root
+        let displayName = string(user["display_name"])
+        let username = string(user["username"])
+        let phone = string(user["phone_number"])
+        let avatar = string(user["avatar_url"])
+        if displayName.isEmpty && username.isEmpty && phone.isEmpty { return nil }
+        return (displayName, username, phone, avatar)
     }
 }
 

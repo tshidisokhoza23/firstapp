@@ -117,7 +117,7 @@ public struct MainTabView: View {
                                 router.navigate(to: .profile(userId: id))
                             },
                             onChatClick: { id in
-                                router.navigate(to: .chatDetail(conversationId: id, participantName: "Mingle Contact"))
+                                router.navigate(to: .chatDetail(conversationId: id, participantName: nil))
                             }
                         )
 

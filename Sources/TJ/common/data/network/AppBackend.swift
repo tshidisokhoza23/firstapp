@@ -93,6 +93,87 @@ public final class SessionStore: @unchecked Sendable {
     }
 }
 
+/// Same auth attachment as Android's OkHttp interceptor: bearer header on every
+/// non-auth call, plus the query token the server already accepts when a
+/// redirect or URL protocol drops the header.
+enum AuthSession {
+    private static let refreshLock = NSLock()
+    private static var refreshTask: Task<Bool, Never>?
+
+    static func isAuthPath(_ path: String) -> Bool {
+        let value = path.lowercased()
+        return value.contains("/auth/login")
+            || value.contains("/auth/register")
+            || value.contains("/auth/refresh")
+            || value.contains("/auth/logout")
+            || value.contains("/auth/google")
+            || value.contains("/auth/request-otp")
+            || value.contains("/auth/verify-otp")
+            || value.contains("/auth/forgot-password")
+            || value.contains("/auth/availability")
+    }
+
+    static func bearer() -> String? {
+        let token = SessionStore.shared.token?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let token, !token.isEmpty else { return nil }
+        return token
+    }
+
+    static func apply(to components: inout URLComponents, path: String) {
+        guard !isAuthPath(path), let token = bearer() else { return }
+        var items = components.queryItems ?? []
+        if !items.contains(where: { $0.name == "token" }) {
+            items.append(URLQueryItem(name: "token", value: token))
+        }
+        components.queryItems = items
+    }
+
+    static func apply(to request: inout URLRequest) {
+        guard let path = request.url?.path, !isAuthPath(path), let token = bearer() else { return }
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+
+    static func refresh() async -> Bool {
+        refreshLock.lock()
+        if let refreshTask {
+            refreshLock.unlock()
+            return await refreshTask.value
+        }
+        let task = Task { await performRefresh() }
+        refreshTask = task
+        refreshLock.unlock()
+        let ok = await task.value
+        refreshLock.lock()
+        refreshTask = nil
+        refreshLock.unlock()
+        return ok
+    }
+
+    private static func performRefresh() async -> Bool {
+        guard let refresh = SessionStore.shared.refreshToken?.trimmingCharacters(in: .whitespacesAndNewlines), !refresh.isEmpty else {
+            return false
+        }
+        let base = AppBackend.apiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(base)/auth/refresh") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["refresh_token": refresh])
+        guard let (data, response) = try? await URLSession.shared.data(for: req),
+              let http = response as? HTTPURLResponse else { return false }
+        if http.statusCode == 400 || http.statusCode == 401 || http.statusCode == 403 {
+            SessionStore.shared.clearSession()
+            return false
+        }
+        guard (200...299).contains(http.statusCode),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let token = json["token"] as? String, !token.isEmpty else { return false }
+        let nextRefresh = (json["refresh_token"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? refresh
+        SessionStore.shared.save(token: token, refreshToken: nextRefresh, user: SessionStore.shared.user)
+        return true
+    }
+}
+
 public final class TJAPIProtocol: URLProtocol {
     private static let handled = "TJAPIProtocolHandled"
     private static let forwardSession: URLSession = {
@@ -141,6 +222,7 @@ public final class TJAPIProtocol: URLProtocol {
                 item.name == "q" ? URLQueryItem(name: "query", value: item.value) : item
             }
         }
+        AuthSession.apply(to: &components, path: components.path)
         guard let url = components.url else {
             client?.urlProtocol(self, didFailWithError: URLError(.badURL))
             return
@@ -149,10 +231,10 @@ public final class TJAPIProtocol: URLProtocol {
         let mutable = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
         URLProtocol.setProperty(true, forKey: Self.handled, in: mutable)
         mutable.url = url
-        if mutable.value(forHTTPHeaderField: "Authorization") == nil, let token = SessionStore.shared.token {
+        if !AuthSession.isAuthPath(components.path), let token = AuthSession.bearer() {
             mutable.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        if mutable.value(forHTTPHeaderField: "Content-Type") == nil {
+        if mutable.value(forHTTPHeaderField: "Content-Type") == nil && request.httpMethod != "GET" {
             mutable.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         if mutable.value(forHTTPHeaderField: "Accept") == nil {
@@ -161,11 +243,6 @@ public final class TJAPIProtocol: URLProtocol {
 
         let client = self.client
         forwardTask = Self.forwardSession.dataTask(with: mutable as URLRequest) { data, response, error in
-            if let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 401 {
-                DispatchQueue.main.async {
-                    SessionStore.shared.clearSession()
-                }
-            }
             if let error {
                 client?.urlProtocol(self, didFailWithError: error)
                 return

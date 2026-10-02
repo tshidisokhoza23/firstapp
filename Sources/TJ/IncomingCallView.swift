@@ -70,7 +70,7 @@ public struct IncomingCallView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Text(callInfo.callerName.isEmpty ? "Unknown Caller" : callInfo.callerName)
+                    Text(callInfo.callerName)
                         .font(.system(size: 30, weight: .bold))
                         .foregroundColor(.white)
 

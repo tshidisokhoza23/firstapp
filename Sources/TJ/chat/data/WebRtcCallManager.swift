@@ -148,6 +148,11 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
 
     public func setMicEnabled(_ enabled: Bool) {
         isMicMuted = !enabled
+        peerConnection?.senders.forEach { sender in
+            if sender.track?.kind == "audio" {
+                sender.track?.isEnabled = enabled
+            }
+        }
         let session = AVAudioSession.sharedInstance()
         do {
             if let builtInMic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
@@ -193,6 +198,10 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
 
     public func end() {
         stopLocalPreview()
+        peerConnection?.close()
+        peerConnection = nil
+        isRemoteDescriptionSet = false
+        pendingCandidates.removeAll()
 
         let session = AVAudioSession.sharedInstance()
         do {
@@ -212,7 +221,9 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
-    public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
+        stream.audioTracks.forEach { $0.isEnabled = true }
+    }
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
@@ -301,6 +312,44 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
                 signalPayload: payload
             )
         }
+        WebRtcCallManager.shared.onConnected = {
+            GlobalCallState.shared.isConnectionEstablished = true
+        }
+    }
+
+    public func acceptIncoming() {
+        guard let info = GlobalCallState.shared.incomingCall else { return }
+        GlobalCallState.shared.incomingCall = nil
+        GlobalCallState.shared.setCallActive(true, sessionId: info.id, participantId: info.senderId, callType: info.callType)
+        GlobalCallState.shared.isAnswered = true
+        bind(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
+        WebRtcCallManager.shared.start(callType: info.callType)
+        CallWebSocketClient.shared.accept(receiverId: info.senderId, sessionId: info.id, callType: info.callType)
+    }
+
+    public func declineIncoming() {
+        guard let info = GlobalCallState.shared.incomingCall else { return }
+        GlobalCallState.shared.incomingCall = nil
+        CallWebSocketClient.shared.reject(receiverId: info.senderId, sessionId: info.id, callType: info.callType, reason: "rejected")
+    }
+
+    public func endActive(reason: String) {
+        let state = GlobalCallState.shared
+        if let info = state.incomingCall {
+            CallWebSocketClient.shared.reject(receiverId: info.senderId, sessionId: info.id, callType: info.callType, reason: reason)
+            state.incomingCall = nil
+        }
+        if let sessionId = state.activeSessionId, let participantId = state.activeParticipantId, let callType = state.activeCallType {
+            CallWebSocketClient.shared.end(
+                receiverId: participantId,
+                sessionId: sessionId,
+                callType: callType,
+                durationSeconds: state.callDurationSeconds,
+                reason: reason
+            )
+        }
+        WebRtcCallManager.shared.end()
+        state.onCallEnded(sessionId: state.activeSessionId ?? "force_all")
     }
 
     public func onOpen() {}
@@ -309,21 +358,56 @@ public final class CallSocketBridge: NSObject, CallSocketListener {
     public func onEvent(_ event: CallEvent) {
         DispatchQueue.main.async {
             let mine = SessionStore.shared.userId ?? ""
-            if event.type == "call_invite", event.receiverId == mine {
-                GlobalCallState.shared.setCallActive(true, sessionId: event.sessionId, participantId: event.senderId, callType: event.callType)
+            if !mine.isEmpty && event.senderId == mine { return }
+            let state = GlobalCallState.shared
+            switch event.type ?? "" {
+            case "call_invite":
+                guard event.receiverId == mine else { return }
+                if state.isCallActive {
+                    CallWebSocketClient.shared.reject(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType, reason: "busy")
+                    return
+                }
                 self.bind(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType)
                 CallWebSocketClient.shared.ringing(receiverId: event.senderId, sessionId: event.sessionId, callType: event.callType)
-            }
-            if event.type == "call_end" || event.type == "call_reject" {
+                self.presentIncoming(event)
+            case "call_accept":
+                guard state.activeSessionId == event.sessionId else { return }
+                state.isAnswered = true
+                state.isRinging = false
+                WebRtcCallManager.shared.createOffer()
+            case "call_ringing":
+                if state.activeSessionId == event.sessionId { state.isRinging = true }
+            case "call_end", "call_reject":
                 WebRtcCallManager.shared.end()
-                GlobalCallState.shared.onCallEnded(sessionId: event.sessionId)
-                return
-            }
-            if let signal = event.signalType {
+                state.onCallEnded(sessionId: event.sessionId)
+            case "call_signal":
+                guard state.activeSessionId == event.sessionId else { return }
                 var payload: [String: Any] = [:]
                 event.signalPayload?.forEach { payload[$0.key] = $0.value }
-                WebRtcCallManager.shared.handleSignal(signalType: signal, payload: payload)
+                WebRtcCallManager.shared.handleSignal(signalType: event.signalType, payload: payload)
+            default:
+                break
+            }
+        }
+    }
+
+    private func presentIncoming(_ event: CallEvent) {
+        let cached = GlobalCallState.shared.contactNames[event.senderId] ?? ""
+        let known = realPersonLabel(names: [cached, event.senderName], phone: GlobalCallState.shared.contactPhones[event.senderId], ids: [event.senderId])
+        GlobalCallState.shared.incomingCall = IncomingCallInfo(id: event.sessionId, senderId: event.senderId, callerName: known, callType: event.callType)
+        guard known.isEmpty else { return }
+        Task {
+            guard let profile = await LiveJSON.userProfile(event.senderId) else { return }
+            let local = profile.phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(profile.phone)
+            let name = realPersonLabel(local: local, names: [profile.displayName, profile.username], phone: profile.phone, ids: [event.senderId])
+            await MainActor.run {
+                GlobalCallState.shared.updateContactInfo(id: event.senderId, name: name, phone: profile.phone)
+                if GlobalCallState.shared.incomingCall?.id == event.sessionId {
+                    GlobalCallState.shared.incomingCall = IncomingCallInfo(id: event.sessionId, senderId: event.senderId, callerName: name, callType: event.callType)
+                }
             }
         }
     }
 }
+
+

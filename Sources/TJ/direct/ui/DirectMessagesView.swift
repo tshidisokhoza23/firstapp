@@ -186,6 +186,23 @@ public struct DirectMessagesView: View {
                     timestamp: LiveJSON.int64(json["started_at"])
                 )
             }
+            for index in callLogs.indices {
+                let call = callLogs[index]
+                let ids = [call.contactId, call.callerId, call.calleeId]
+                let current = realPersonLabel(names: [call.contactName], ids: ids)
+                if !current.isEmpty && !looksLikePhone(current) {
+                    callLogs[index].contactName = current
+                    continue
+                }
+                let userId = call.contactId.isEmpty ? (call.callerId == SessionStore.shared.userId ? call.calleeId : call.callerId) : call.contactId
+                guard !userId.isEmpty, let profile = await LiveJSON.userProfile(userId) else {
+                    if !current.isEmpty { callLogs[index].contactName = current }
+                    continue
+                }
+                let local = profile.phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(profile.phone)
+                let resolved = realPersonLabel(local: local, names: [profile.displayName, profile.username, call.contactName], phone: profile.phone, ids: ids + [userId])
+                if !resolved.isEmpty { callLogs[index].contactName = resolved }
+            }
         } catch {
             callError = error.localizedDescription
         }
@@ -275,7 +292,7 @@ public struct DirectMessagesView: View {
         var items: [DirectConversationItem] = []
         for chat in filtered {
             let cid = chat.otherUserId?.isEmpty == false ? chat.otherUserId! : chat.id
-            let name = chat.senderName.isEmpty ? "Direct" : chat.senderName
+            let name = chat.displayName
             let phone = chat.phoneNumber ?? ""
             let timeStr = chat.timestamp > 0 ? formatter.string(from: Date(timeIntervalSince1970: Double(chat.timestamp) / 1000)) : ""
             let item = DirectConversationItem(

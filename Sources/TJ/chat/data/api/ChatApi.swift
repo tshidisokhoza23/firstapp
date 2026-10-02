@@ -261,6 +261,7 @@ public struct ChatSummary: Codable, Sendable {
     public let isAdmin: Bool
     public let adminsCanPost: Bool
     public let contactId: String?
+    public let contactName: String?
     public let channelId: String?
     public let phoneNumber: String?
     public let avatarUrl: String?
@@ -283,6 +284,7 @@ public struct ChatSummary: Codable, Sendable {
         case isAdmin = "is_admin"
         case adminsCanPost = "admins_can_post"
         case contactId = "contact_id"
+        case contactName = "contact_name"
         case channelId = "channel_id"
         case phoneNumber = "phone_number"
         case avatarUrl = "avatar_url"
@@ -307,6 +309,7 @@ public struct ChatSummary: Codable, Sendable {
         self.isAdmin = (try? container.decode(Bool.self, forKey: .isAdmin)) ?? false
         self.adminsCanPost = (try? container.decode(Bool.self, forKey: .adminsCanPost)) ?? false
         self.contactId = try? container.decodeIfPresent(String.self, forKey: .contactId)
+        self.contactName = try? container.decodeIfPresent(String.self, forKey: .contactName)
         self.channelId = try? container.decodeIfPresent(String.self, forKey: .channelId)
         self.phoneNumber = try? container.decodeIfPresent(String.self, forKey: .phoneNumber)
         self.avatarUrl = try? container.decodeIfPresent(String.self, forKey: .avatarUrl)

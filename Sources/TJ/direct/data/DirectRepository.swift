@@ -145,7 +145,7 @@ public final class DirectRepository: ObservableObject, DirectRepositoryProtocol 
         let newChat = DirectChat(
             id: conversationId,
             otherUserId: contactId,
-            senderName: contactName.isEmpty ? "User" : contactName,
+            senderName: contactName,
             avatarUrl: avatar
         )
 

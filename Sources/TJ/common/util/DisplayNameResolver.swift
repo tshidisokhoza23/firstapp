@@ -39,6 +39,30 @@ public func sanitizeDisplayName(name: String?, id: String? = nil, phone: String?
     return ""
 }
 
+/// Saved phone-book name, otherwise a real profile name, otherwise the number.
+/// Never returns "User", "Chat", or a raw id.
+public func realPersonLabel(local: String? = nil, names: [String?] = [], phone: String? = nil, ids: [String] = []) -> String {
+    let generic = ["chat", "direct", "mingle", "group", "channel", "group chat", "user", "mingle user", "mingle contact"]
+    func accepted(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !generic.contains(trimmed.lowercased()), !isIdString(trimmed) else { return nil }
+        for id in ids where !id.isEmpty && isIdString(trimmed, id: id) {
+            return nil
+        }
+        return trimmed
+    }
+    if let local = accepted(local) { return local }
+    for name in names {
+        if let name = accepted(name) { return name }
+    }
+    let cleanPhone = phone?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if !cleanPhone.isEmpty {
+        return CountryUtils.formatDisplayPhone(cleanPhone)
+    }
+    return ""
+}
+
 public func looksLikePhone(_ value: String?) -> Bool {
     guard let value = value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
     let digits = value.filter { $0.isNumber }.count
@@ -95,16 +119,11 @@ public final class DisplayNameResolver {
             }
         }
 
-        // 3. Fallback to phone number or user ID
         if !cleanPhone.isEmpty {
             return CountryUtils.formatDisplayPhone(cleanPhone)
         }
 
-        if let user = user, !user.id.isEmpty {
-            return user.id
-        }
-
-        return "User"
+        return ""
     }
 
     public func clearCache() {

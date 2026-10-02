@@ -34,14 +34,14 @@ public enum API {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.httpBody = body
-        if let token = SessionStore.shared.token, !token.isEmpty {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AuthSession.apply(to: &req)
+        if req.value(forHTTPHeaderField: "Content-Type") == nil {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return req
     }
 
-    public static func data(_ path: String, method: String = "GET", query: [String: String]? = nil, json: [String: Any]? = nil) async throws -> Data {
+    public static func data(_ path: String, method: String = "GET", query: [String: String]? = nil, json: [String: Any]? = nil, retry: Bool = true) async throws -> Data {
         var base = AppBackend.apiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let fullPath = path.hasPrefix("/") ? path : "/\(path)"
         guard var components = URLComponents(string: "\(base)\(fullPath)") else {
@@ -50,6 +50,7 @@ public enum API {
         if let query = query, !query.isEmpty {
             components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
         }
+        AuthSession.apply(to: &components, path: fullPath)
         guard let url = components.url else {
             throw APIError.badURL
         }
@@ -57,14 +58,15 @@ public enum API {
         req.httpMethod = method
         if let json = json {
             req.httpBody = try? JSONSerialization.data(withJSONObject: json)
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        if let token = SessionStore.shared.token, !token.isEmpty {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        AuthSession.apply(to: &req)
 
         let (responseData, response) = try await URLSession.shared.data(for: req)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+        if retry, statusCode == 401, !AuthSession.isAuthPath(fullPath), await AuthSession.refresh() {
+            return try await data(path, method: method, query: query, json: json, retry: false)
+        }
         guard (200...299).contains(statusCode) else {
             let msg = String(data: responseData, encoding: .utf8) ?? "Server error"
             throw APIError.status(statusCode, msg)
@@ -200,6 +202,7 @@ public final class NetworkClient: @unchecked Sendable {
         if let queryItems = queryItems, !queryItems.isEmpty {
             components.queryItems = queryItems
         }
+        AuthSession.apply(to: &components, path: fullPath)
         guard let url = components.url else {
             throw URLError(.badURL)
         }
@@ -215,9 +218,7 @@ public final class NetworkClient: @unchecked Sendable {
         if req.value(forHTTPHeaderField: "Content-Type") == nil {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        if req.value(forHTTPHeaderField: "Authorization") == nil, let token = SessionStore.shared.token, !token.isEmpty {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        AuthSession.apply(to: &req)
 
         let (data, response) = try await session.data(for: req)
 
@@ -225,11 +226,8 @@ public final class NetworkClient: @unchecked Sendable {
             throw URLError(.badServerResponse)
         }
 
-        if httpResponse.statusCode == 401 {
-            DispatchQueue.main.async {
-                SessionStore.shared.clearSession()
-            }
-            let message = "Unauthorized: Session or token expired. Please sign in again."
+        if httpResponse.statusCode == 401, !AuthSession.isAuthPath(path) {
+            let message = String(data: data, encoding: .utf8) ?? "Unauthorized"
             throw NSError(domain: "NetworkClient", code: 401, userInfo: [NSLocalizedDescriptionKey: message])
         }
 

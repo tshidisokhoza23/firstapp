@@ -341,11 +341,20 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
     public func syncChats() async -> Resource<Bool> {
         do {
             let res = try await chatApi.getChats()
-            let entities = res.chats.map { summary -> ChatEntity in
+            var entities = res.chats.map { summary -> ChatEntity in
+                let rawType = summary.type.uppercased()
+                let type = ConversationType(rawValue: rawType) ?? .direct
+                let ids = [summary.conversationId, summary.contactId ?? ""]
+                let phone = summary.phoneNumber ?? ""
+                let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
+                let isRoom = rawType.contains("GROUP") || rawType.contains("CHANNEL")
+                let name = isRoom
+                    ? realPersonLabel(names: [summary.title], ids: ids)
+                    : realPersonLabel(local: local, names: [summary.contactName, summary.title], phone: phone, ids: ids)
                 return ChatEntity(
                     id: summary.conversationId,
-                    type: ConversationType(rawValue: summary.type.uppercased()) ?? .direct,
-                    senderName: summary.title,
+                    type: type,
+                    senderName: name,
                     lastMessage: summary.lastMessage,
                     timestamp: summary.time,
                     unreadCount: summary.unreadCount,
@@ -361,6 +370,21 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
                     phoneNumber: summary.phoneNumber,
                     lastSeen: summary.lastSeen
                 )
+            }
+            for index in entities.indices {
+                let row = entities[index]
+                guard row.type == .direct || row.type == .jobChat || row.type == .mingle else { continue }
+                guard let userId = row.otherUserId, !userId.isEmpty else { continue }
+                let ids = [userId, row.id]
+                let current = realPersonLabel(names: [row.senderName], phone: row.phoneNumber, ids: ids)
+                if !current.isEmpty && !looksLikePhone(current) { continue }
+                guard let profile = await LiveJSON.userProfile(userId) else { continue }
+                let phone = profile.phone.isEmpty ? (row.phoneNumber ?? "") : profile.phone
+                let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
+                let resolved = realPersonLabel(local: local, names: [profile.displayName, profile.username], phone: phone, ids: ids)
+                guard !resolved.isEmpty else { continue }
+                entities[index].senderName = resolved
+                entities[index].phoneNumber = phone.isEmpty ? row.phoneNumber : phone
             }
             await localDb.upsertChats(entities)
             return .success(true)

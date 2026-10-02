@@ -159,9 +159,6 @@ public struct ChatTabView: View {
 
             Divider()
 
-            // Active Call Overlay Banner
-            CallBannerOverlay()
-
             // Sub Tab Content
             switch selectedTab {
             case 0:
