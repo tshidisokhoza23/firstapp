@@ -107,6 +107,7 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
     private var urlSession: URLSession?
     private var listeners = NSHashTable<AnyObject>.weakObjects()
     private var pendingMessages: [OutgoingCallEvent] = []
+    private var pendingRaw: [String] = []
 
     private var isConnected = false
     private var isConnecting = false
@@ -203,6 +204,29 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
 
     private func handleIncomingText(_ text: String) {
         guard let data = text.data(using: .utf8) else { return }
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let rawPayload = obj["signal_payload"] as? [String: Any] ?? [:]
+            var payload: [String: String] = [:]
+            for (key, value) in rawPayload {
+                payload[key] = LiveJSON.string(value)
+            }
+            let event = CallEvent(
+                type: LiveJSON.string(obj["type"]).nilIfEmpty,
+                senderId: LiveJSON.string(obj["sender_id"]),
+                receiverId: LiveJSON.string(obj["receiver_id"]),
+                sessionId: LiveJSON.string(obj["session_id"]),
+                callType: CallType.fromWire(LiveJSON.string(obj["call_type"])),
+                signalType: LiveJSON.string(obj["signal_type"]).nilIfEmpty,
+                signalPayload: payload,
+                durationSeconds: LiveJSON.int(obj["duration_seconds"]),
+                endReason: LiveJSON.string(obj["end_reason"]).nilIfEmpty,
+                timestamp: LiveJSON.string(obj["timestamp"]).nilIfEmpty
+            )
+            if !event.sessionId.isEmpty || event.type != nil {
+                notifyEvent(event)
+                return
+            }
+        }
         do {
             let wireEvent = try JSONDecoder().decode(WireCallEvent.self, from: data)
             let event = CallEvent(
@@ -246,7 +270,23 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
     }
 
     public func signal(receiverId: String, sessionId: String, callType: CallType, signalType: String, signalPayload: [String: String]) {
-        send(OutgoingCallEvent(type: "call_signal", receiverId: receiverId, sessionId: sessionId, callType: callType.wireValue, signalType: signalType, signalPayload: signalPayload, durationSeconds: 0, endReason: nil))
+        signalObject(receiverId: receiverId, sessionId: sessionId, callType: callType, signalType: signalType, signalPayload: signalPayload)
+    }
+
+    public func signalObject(receiverId: String, sessionId: String, callType: CallType, signalType: String, signalPayload: [String: Any]) {
+        let body: [String: Any] = [
+            "type": "call_signal",
+            "receiver_id": receiverId,
+            "session_id": sessionId,
+            "call_type": callType.wireValue,
+            "signal_type": signalType,
+            "signal_payload": signalPayload,
+            "duration_seconds": 0
+        ]
+        guard JSONSerialization.isValidJSONObject(body),
+              let data = try? JSONSerialization.data(withJSONObject: body),
+              let text = String(data: data, encoding: .utf8) else { return }
+        sendText(text)
     }
 
     private func send(_ event: OutgoingCallEvent) {
@@ -265,6 +305,22 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
                 if let error = error {
                     print("[CallWebSocket] Send failure: \(error.localizedDescription)")
                 }
+            }
+        }
+    }
+
+    private func sendText(_ jsonString: String) {
+        lock.lock()
+        let activeTask = webSocketTask
+        let currentlyConnected = isConnected
+        if !currentlyConnected {
+            pendingRaw.append(jsonString)
+        }
+        lock.unlock()
+        guard currentlyConnected, let task = activeTask else { return }
+        task.send(.string(jsonString)) { error in
+            if let error = error {
+                print("[CallWebSocket] Send failure: \(error.localizedDescription)")
             }
         }
     }
@@ -291,11 +347,16 @@ public final class CallWebSocketClient: NSObject, URLSessionWebSocketDelegate, @
         isConnected = true
         isConnecting = false
         let queued = pendingMessages
+        let raw = pendingRaw
         pendingMessages.removeAll()
+        pendingRaw.removeAll()
         lock.unlock()
 
         for event in queued {
             send(event)
+        }
+        for text in raw {
+            sendText(text)
         }
         notifyOpen()
     }

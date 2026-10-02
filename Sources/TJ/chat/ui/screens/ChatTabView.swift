@@ -23,7 +23,7 @@ public struct ChatTabView: View {
     @State private var showCreateChannel: Bool = false
     @State private var showPostJob: Bool = false
     @State private var activeStory: UserStory? = nil
-    @State private var showAddStory: Bool = false
+    @State private var storyStart: AndroidStoryFlow.Start?
     @State private var storyDraft: String = ""
 
     private let subTabs = ["Chats", "Channels", "Jobs", "Rewards"]
@@ -221,11 +221,21 @@ public struct ChatTabView: View {
             )
         }
         .fullScreenCover(item: $activeStory) { story in
-            StoryViewer(
-                sampleStoryGroup: story,
-                onClose: { activeStory = nil }
+            StoryViewer(story: story, onClose: { activeStory = nil })
+        }
+        .fullScreenCover(item: $storyStart) { start in
+            AndroidStoryFlow(
+                start: start,
+                stories: storyRepository.userStories,
+                currentUserId: SessionStore.shared.userId,
+                onClose: { storyStart = nil },
+                onPosted: {
+                    storyStart = nil
+                    Task { await storyRepository.syncStories() }
+                }
             )
         }
+        .task { await storyRepository.syncStories() }
     }
 
     // MARK: - Chats Tab Content matching Screenshot 1
@@ -237,8 +247,11 @@ public struct ChatTabView: View {
                     // Horizontal Stories Header Row matching Android Screenshot 1
                     StoriesHeaderRow(
                         stories: storyRepository.userStories,
+                        currentUserId: SessionStore.shared.userId,
                         onStoryClick: { activeStory = $0 },
-                        onMediaStoryClick: { showAddStory = true }
+                        onMediaStoryClick: { storyStart = .media },
+                        onTextStoryClick: { storyStart = .text },
+                        onPostedStoriesClick: { storyStart = .posted }
                     )
                     .padding(.vertical, 8)
 

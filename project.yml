@@ -10,6 +10,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 8.0.0
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: 125.0.0
 
 targets:
   TJ:
@@ -30,6 +33,7 @@ targets:
               - com.googleusercontent.apps.303703683011-6ksjg0b8uakesl9a821ri05tokrg41f2
     dependencies:
       - package: GoogleSignIn
+      - package: WebRTC
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tpsk.TJ

@@ -243,7 +243,7 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
         case .channel:
             return "Channel"
         default:
-            return id.isEmpty ? "User" : id
+            return "User"
         }
     }
 

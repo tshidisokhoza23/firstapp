@@ -14,7 +14,11 @@ public struct WSEnvelope: Codable, Sendable {
 public struct WSAnyCodable: Codable, Sendable {
     public let value: Sendable
 
-    public var stringValue: String? { value as? String }
+    public var stringValue: String? {
+        if let text = value as? String { return text }
+        if let number = value as? NSNumber { return number.stringValue }
+        return nil
+    }
     public var boolValue: Bool? { value as? Bool }
     public var intValue: Int? { value as? Int }
     public var int64Value: Int64? {
@@ -192,12 +196,11 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
                     let message = try await task.receive()
                     switch message {
                     case .string(let text):
-                        if let data = text.data(using: .utf8),
-                           let env = try? JSONDecoder().decode(WSEnvelope.self, from: data) {
+                        if let data = text.data(using: .utf8), let env = Self.envelope(from: data) {
                             eventsSubject.send(env)
                         }
                     case .data(let data):
-                        if let env = try? JSONDecoder().decode(WSEnvelope.self, from: data) {
+                        if let env = Self.envelope(from: data) {
                             eventsSubject.send(env)
                         }
                     @unknown default:
@@ -226,6 +229,33 @@ public final class WebSocketManager: NSObject, @unchecked Sendable {
                 }
             }
         }
+    }
+
+    private static func envelope(from data: Data) -> WSEnvelope? {
+        if let decoded = try? JSONDecoder().decode(WSEnvelope.self, from: data), decoded.type != nil {
+            return decoded
+        }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let type = obj["type"] as? String
+        let rawPayload = (obj["payload"] as? [String: Any]) ?? obj
+        var payload: [String: WSAnyCodable] = [:]
+        for (key, value) in rawPayload where key != "type" {
+            payload[key] = WSAnyCodable(Self.codableValue(value))
+        }
+        return WSEnvelope(type: type, payload: payload)
+    }
+
+    private static func codableValue(_ value: Any) -> Sendable {
+        if let text = value as? String { return text }
+        if let flag = value as? Bool { return flag }
+        if let number = value as? NSNumber { return number.int64Value }
+        if let list = value as? [Any] { return list.map { WSAnyCodable(codableValue($0)) } }
+        if let dict = value as? [String: Any] {
+            var nested: [String: WSAnyCodable] = [:]
+            for (key, item) in dict { nested[key] = WSAnyCodable(codableValue(item)) }
+            return nested
+        }
+        return String(describing: value)
     }
 
     private func handleDisconnect() {

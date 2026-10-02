@@ -127,6 +127,38 @@ public class ChatViewModel: ObservableObject {
                 self.fetchChats()
             }
             .store(in: &cancellables)
+
+        WebSocketManager.shared.connect()
+        _ = AppRuntime.chatRepository
+        WebSocketManager.shared.eventsSubject
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                self?.applyRealtime(event)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyRealtime(_ event: WSEnvelope) {
+        let type = event.type ?? ""
+        guard type == "message_new" || type == "message_ack" || type == "INCOMING_MSG" else { return }
+        let payload = event.payload ?? [:]
+        func text(_ key: String) -> String { payload[key]?.stringValue ?? "" }
+        let conversationId = text("conversation_id")
+        guard !conversationId.isEmpty else { return }
+        let clientId = text("client_msg_id").isEmpty ? text("client_uuid") : text("client_msg_id")
+        let messageId = text("message_id").isEmpty ? text("id") : text("message_id")
+        if activeChatId == conversationId {
+            if var msgs = uiState.messages.data,
+               let idx = msgs.firstIndex(where: { $0.clientId == clientId || $0.id == clientId || $0.id == messageId }),
+               !messageId.isEmpty {
+                msgs[idx].id = messageId
+                msgs[idx].status = .delivered
+                uiState.messages = .success(msgs)
+            } else if type != "message_ack" {
+                fetchMessages(chatId: conversationId)
+            }
+        }
+        fetchChats()
     }
 
     public func setActiveSubTab(_ tabIndex: Int) {
@@ -187,21 +219,13 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations")
-                struct Envelope: Decodable {
-                    let conversations: [ChatMessage]?
-                    let chats: [ChatMessage]?
-                    let data: [ChatMessage]?
-                }
-                var list: [ChatMessage] = []
-                if let env = try? JSONDecoder().decode(Envelope.self, from: data) {
-                    list = env.conversations ?? env.chats ?? env.data ?? []
-                } else if let direct = try? JSONDecoder().decode([ChatMessage].self, from: data) {
-                    list = direct
-                }
-                self.uiState.chats = .success(list)
+                self.uiState.chats = .success(LiveJSON.chats(from: data))
                 self.uiState.isChatsFetching = false
             } catch {
                 self.uiState.isChatsFetching = false
+                if self.uiState.chats.data == nil {
+                    self.uiState.error = "Could not load chats"
+                }
             }
         }
     }
@@ -212,19 +236,13 @@ public class ChatViewModel: ObservableObject {
         Task {
             do {
                 let data = try await API.data("conversations/\(chatId)/messages")
-                struct MsgEnvelope: Decodable {
-                    let messages: [Message]?
-                    let items: [Message]?
-                }
-                var msgs: [Message] = []
-                if let env = try? JSONDecoder().decode(MsgEnvelope.self, from: data) {
-                    msgs = env.messages ?? env.items ?? []
-                } else if let direct = try? JSONDecoder().decode([Message].self, from: data) {
-                    msgs = direct
-                }
+                let msgs = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
                 self.uiState.messages = .success(msgs)
             } catch {
-                self.uiState.messages = .success([])
+                self.uiState.error = "Could not load messages"
+                if self.uiState.messages.data == nil {
+                    self.uiState.messages = .error("Could not load messages", [])
+                }
             }
         }
     }
@@ -253,8 +271,9 @@ public class ChatViewModel: ObservableObject {
         audioAmplitudes: [Int]? = nil,
         scheduledAt: Int64? = nil
     ) {
+        let outgoingId = clientId ?? UUID().uuidString
         let msg = Message(
-            id: clientId ?? UUID().uuidString,
+            id: outgoingId,
             conversationId: chatId,
             content: body,
             senderId: uiState.currentUser?.id ?? "me",
@@ -273,7 +292,8 @@ public class ChatViewModel: ObservableObject {
             longitude: longitude,
             replyToId: replyToId,
             replyToText: replyToText,
-            replyToSenderName: replyToSenderName
+            replyToSenderName: replyToSenderName,
+            clientId: outgoingId
         )
 
         var current = uiState.messages.data ?? []
@@ -281,17 +301,34 @@ public class ChatViewModel: ObservableObject {
         uiState.messages = .success(current)
 
         Task {
+            let clientId = msg.id
             var bodyObj: [String: Any] = [
-                "content": body,
-                "message_type": messageType,
+                "client_uuid": clientId,
+                "message_text": body,
+                "media_type": messageType.uppercased(),
                 "media_urls": mediaUrls
             ]
             if let duration { bodyObj["duration"] = duration }
             if let fileName { bodyObj["file_name"] = fileName }
-
-            if (try? await API.data("conversations/\(chatId)/messages", method: "POST", json: bodyObj)) != nil {
-                if var msgs = self.uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == msg.id }) {
+            if let fileSize { bodyObj["file_size"] = fileSize }
+            if let contactName { bodyObj["contact_name"] = contactName }
+            if let contactPhone { bodyObj["contact_phone"] = contactPhone }
+            if let latitude { bodyObj["latitude"] = latitude }
+            if let longitude { bodyObj["longitude"] = longitude }
+            if let replyToId { bodyObj["reply_to_id"] = replyToId }
+            if let replyToText { bodyObj["reply_to_text"] = replyToText }
+            if let replyToSenderName { bodyObj["reply_to_sender_name"] = replyToSenderName }
+            WebSocketManager.shared.connect()
+            do {
+                _ = try await API.data("conversations/\(chatId)/messages", method: "POST", json: bodyObj)
+                if var msgs = self.uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == clientId || $0.clientId == clientId }) {
                     msgs[idx].status = .delivered
+                    self.uiState.messages = .success(msgs)
+                }
+            } catch {
+                self.uiState.error = "Message was not sent"
+                if var msgs = self.uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == clientId }) {
+                    msgs[idx].status = .failed
                     self.uiState.messages = .success(msgs)
                 }
             }
@@ -368,6 +405,57 @@ public class ChatViewModel: ObservableObject {
         uiState.messages = .success([])
     }
 
+    public func startVoiceOrVideoCall(receiverId: String, callType: CallType, name: String) {
+        guard !receiverId.isEmpty else {
+            uiState.error = "This chat has no person to call"
+            return
+        }
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            Task { @MainActor in
+                guard granted else {
+                    self.uiState.error = "Microphone permission is required to call"
+                    return
+                }
+                await self.placeCall(receiverId: receiverId, callType: callType, name: name)
+            }
+        }
+    }
+
+    private func placeCall(receiverId: String, callType: CallType, name: String) async {
+        let token = SessionStore.shared.token ?? ""
+        guard !token.isEmpty else {
+            uiState.error = "Sign in again before calling"
+            return
+        }
+        CallSocketBridge.shared.bind(receiverId: receiverId, sessionId: "", callType: callType)
+        CallWebSocketClient.shared.connect(listener: CallSocketBridge.shared, serverUrl: AppBackend.wsBaseURL, authToken: token)
+        var ice: [[String: Any]] = [["urls": "stun:stun.l.google.com:19302"], ["urls": "stun:stun1.l.google.com:19302"]]
+        if let data = try? await API.data("calls/ice_servers") {
+            let rows = LiveJSON.list(data, keys: ["ice_servers"])
+            if !rows.isEmpty { ice = rows }
+        }
+        WebRtcCallManager.shared.setIceServers(ice)
+        do {
+            let data = try await API.data("calls/initiate", method: "POST", json: [
+                "receiver_id": receiverId,
+                "call_type": callType.wireValue
+            ])
+            let sessionId = LiveJSON.string(LiveJSON.object(data)["session_id"])
+            guard !sessionId.isEmpty else {
+                uiState.error = "Call could not start"
+                return
+            }
+            GlobalCallState.shared.updateContactInfo(id: receiverId, name: name, phone: nil)
+            GlobalCallState.shared.setCallActive(true, sessionId: sessionId, participantId: receiverId, callType: callType)
+            CallSocketBridge.shared.bind(receiverId: receiverId, sessionId: sessionId, callType: callType)
+            WebRtcCallManager.shared.start(callType: callType)
+            CallWebSocketClient.shared.invite(receiverId: receiverId, sessionId: sessionId, callType: callType)
+            WebRtcCallManager.shared.createOffer()
+        } catch {
+            uiState.error = "Call could not start"
+        }
+    }
+
     public func starMessage(messageId: String, isStarred: Bool) {
         if var msgs = uiState.messages.data, let idx = msgs.firstIndex(where: { $0.id == messageId }) {
             msgs[idx].isStarred = isStarred
@@ -381,10 +469,6 @@ public class ChatViewModel: ObservableObject {
 
     public func refreshBlockedUsers() {
         blockedUserIds = []
-    }
-
-    public func startVoiceOrVideoCall(receiverId: String, callType: CallType, name: String) {
-        GlobalCallState.shared.startCall(receiverId: receiverId, isVideo: callType == .video)
     }
 
     public func blockUser(userId: String) {

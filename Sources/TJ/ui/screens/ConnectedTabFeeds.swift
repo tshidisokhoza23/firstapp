@@ -2,6 +2,7 @@ import SwiftUI
 import AVKit
 import PhotosUI
 import UniformTypeIdentifiers
+import UIKit
 
 public struct FeedPost: Identifiable, Codable, Sendable {
     public let id: String
@@ -90,6 +91,14 @@ public struct FeedPost: Identifiable, Codable, Sendable {
 
     var mediaURL: URL? { Self.resolve(mediaURLs.first) }
 
+    var playbackURL: URL? {
+        let preferred = mediaURLs.first { raw in
+            let lower = raw.lowercased()
+            return !lower.contains("thumb") && (lower.contains(".mp4") || lower.contains(".m3u8") || lower.contains(".mov") || lower.contains("video"))
+        } ?? mediaURLs.first { !$0.lowercased().contains("thumb") } ?? mediaURLs.first
+        return Self.resolve(preferred)
+    }
+
     static func resolve(_ raw: String?) -> URL? {
         guard let raw, !raw.isEmpty else { return nil }
         if raw.hasPrefix("http") { return URL(string: raw) }
@@ -118,6 +127,7 @@ enum MediaActions {
     static func bookmark(_ id: String) async { _ = try? await API.data("posts/\(id)/bookmark", method: "POST") }
     static func repost(_ id: String) async { _ = try? await API.data("posts/\(id)/repost", method: "POST") }
     static func view(_ id: String) async { _ = try? await API.data("posts/\(id)/view", method: "POST") }
+    static func share(_ id: String) async { _ = try? await API.data("posts/\(id)/share", method: "POST") }
     static func reply(_ id: String, text: String) async throws {
         _ = try await API.data("posts/\(id)/replies", method: "POST", json: ["reply_text": text])
     }
@@ -241,7 +251,9 @@ struct SocialFeedView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(posts) { post in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(posts) { post in
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 10) {
                                 Button { onProfileClick(post.authorId) } label: {
@@ -304,49 +316,39 @@ struct SocialFeedView: View {
                             }
                             .buttonStyle(.plain)
 
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    PillInteractionButton(title: "Reply \(post.repliesCount)")
-                                    PillInteractionButton(title: "Like \(post.likes)")
+                            HStack(spacing: 8) {
+                                Button { selectedPost = post } label: {
+                                    Text("Reply \(post.repliesCount)")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color(UIColor.secondarySystemBackground))
+                                        .clipShape(Capsule())
                                 }
+                                .buttonStyle(.borderless)
+                                Button {
+                                    Task { await MediaActions.like(post.id) }
+                                } label: {
+                                    Text("Like \(post.likes)")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color(UIColor.secondarySystemBackground))
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.borderless)
                             }
                         }
                         .padding(.vertical, 8)
-                    }
-                    .listStyle(.plain)
-                }
-            }
-        }
-        .sheet(item: $selectedPost) { post in
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Button(action: { onProfileClick(post.authorId) }) {
-                            Text(post.title)
-                                .font(.headline)
-                        }
-                        if !post.authorHandle.isEmpty {
-                            Text("@\(post.authorHandle)").font(.subheadline).foregroundColor(.secondary)
-                        }
-                        Text(post.content).font(.body)
-                        if let url = post.mediaURL {
-                            AsyncImage(url: url) { image in
-                                image.resizable().scaledToFit()
-                            } placeholder: {
-                                ProgressView()
+                        .padding(.horizontal, 16)
                             }
                         }
                     }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .navigationTitle("Post")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") { selectedPost = nil }
-                    }
                 }
             }
+        }
+        .fullScreenCover(item: $selectedPost) { post in
+            PostDetailView(post: post, onProfileClick: onProfileClick, onClose: { selectedPost = nil })
         }
         .task { await load() }
         .refreshable { await load() }
@@ -369,7 +371,8 @@ struct SocialFeedView: View {
     private func load() async {
         do {
             let data = try await API.data("media/feed", query: ["limit": "20", "offset": "0"])
-            posts = FeedPost.decodeList(data)
+            let parsed = LiveJSON.posts(from: data)
+            posts = parsed.isEmpty ? FeedPost.decodeList(data) : parsed
             status = posts.isEmpty ? "No posts yet" : ""
         } catch {
             status = error.localizedDescription
@@ -410,6 +413,7 @@ struct ShortsFeedView: View {
     @State private var shorts: [FeedPost] = []
     @State private var status = "Loading shorts..."
     @State private var selectedShort: FeedPost?
+    @State private var page = 0
 
     var body: some View {
         Group {
@@ -421,9 +425,9 @@ struct ShortsFeedView: View {
                 .padding()
             } else {
                 GeometryReader { proxy in
-                    TabView {
-                        ForEach(shorts) { short in
-                            ShortClipView(post: short, onProfile: {
+                    TabView(selection: $page) {
+                        ForEach(Array(shorts.enumerated()), id: \.element.id) { index, short in
+                            ShortClipView(post: short, isActive: page == index, onProfile: {
                                 if !short.authorId.isEmpty {
                                     onProfileClick(short.authorId)
                                 }
@@ -432,6 +436,7 @@ struct ShortsFeedView: View {
                             })
                             .rotationEffect(.degrees(-90))
                             .frame(width: proxy.size.width, height: proxy.size.height)
+                            .tag(index)
                         }
                     }
                     .frame(width: proxy.size.height, height: proxy.size.width)
@@ -442,26 +447,8 @@ struct ShortsFeedView: View {
                 .ignoresSafeArea()
             }
         }
-        .sheet(item: $selectedShort) { post in
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Button(post.title) { onProfileClick(post.authorId) }
-                        Text(post.content)
-                        if let url = post.mediaURL {
-                            VideoPlayer(player: AVPlayer(url: url))
-                                .frame(height: 420)
-                        }
-                    }
-                    .padding()
-                }
-                .navigationTitle("Post")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") { selectedShort = nil }
-                    }
-                }
-            }
+        .fullScreenCover(item: $selectedShort) { post in
+            PostDetailView(post: post, onProfileClick: onProfileClick, onClose: { selectedShort = nil })
         }
         .task { await load() }
         .refreshable { await load() }
@@ -470,7 +457,8 @@ struct ShortsFeedView: View {
     private func load() async {
         do {
             let data = try await API.data("media/feed/shorts", query: ["page": "1"])
-            shorts = FeedPost.decodeList(data)
+            let parsed = LiveJSON.posts(from: data)
+            shorts = parsed.isEmpty ? FeedPost.decodeList(data) : parsed
             status = shorts.isEmpty ? "No shorts yet" : ""
         } catch {
             status = error.localizedDescription
@@ -482,6 +470,7 @@ struct ShortsFeedView: View {
 
 private struct ShortClipView: View {
     let post: FeedPost
+    var isActive: Bool = false
     let onProfile: () -> Void
     var onOpen: () -> Void = {}
     @State private var player: AVPlayer?
@@ -489,8 +478,15 @@ private struct ShortClipView: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             // Full Screen Video Player
-            if let player {
-                VideoPlayer(player: player)
+            if lShortPlayerSurface(player: player)
+                    .ignoresSafeArea()
+            } else if let image = post.mediaURL {
+                AsyncImage(url: image) { loaded in
+                    loaded.resizable().scaledToFill()
+                } placeholder: {
+                    Color.black
+                }
+            VideoPlayer(player: player)
                     .ignoresSafeArea()
             } else {
                 Color.black.ignoresSafeArea()
@@ -561,13 +557,17 @@ private struct ShortClipView: View {
                         .clipShape(Circle())
                     }
 
-                    VStack(spacing: 4) {
-                        Image(systemName: post.isLiked ? "heart.fill" : "heart")
-                            .font(.system(size: 28))
-                            .foregroundColor(post.isLiked ? .red : .white)
-                        Text("\(post.likes)")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                    Button {
+                        Task { await MediaActions.like(post.id) }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: post.isLiked ? "heart.fill" : "heart")
+                                .font(.system(size: 28))
+                                .foregroundColor(post.isLiked ? .red : .white)
+                            Text("\(post.likes)")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                     }
 
                     Button(action: onOpen) {
@@ -581,24 +581,30 @@ private struct ShortClipView: View {
                         }
                     }
 
-                    // Save Button
-                    VStack(spacing: 4) {
-                        Image(systemName: post.isBookmarked ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 26))
-                            .foregroundColor(.white)
-                        Text("Save")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                    Button {
+                        Task { await MediaActions.bookmark(post.id) }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: post.isBookmarked ? "bookmark.fill" : "bookmark")
+                                .font(.system(size: 26))
+                                .foregroundColor(.white)
+                            Text("Save")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                     }
 
-                    // Share Button
-                    VStack(spacing: 4) {
-                        Image(systemName: "arrowshape.turn.up.right.fill")
-                            .font(.system(size: 26))
-                            .foregroundColor(.white)
-                        Text("Share")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                    Button {
+                        Task { await MediaActions.share(post.id) }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "arrowshape.turn.up.right.fill")
+                                .font(.system(size: 26))
+                                .foregroundColor(.white)
+                            Text("Share")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                     }
 
                     // Option Menu Dots
@@ -612,16 +618,46 @@ private struct ShortClipView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
-        .onAppear {
-            if player == nil, let url = post.mediaURL {
-                let next = AVPlayer(url: url)
-                player = next
-                next.play()
-            } else {
-                player?.play()
-            }
-            Task { await MediaActions.view(post.id) }
+        .onAppear { startPlayback() }
+        .onChange(of: isActive) { active in
+            if active { startPlayback() } else { player?.pause() }
         }
         .onDisappear { player?.pause() }
+
+    private func startPlayback() {
+        guard isActive || player == nil else {
+            player?.play()
+            return
+        }
+        guard let url = post.playbackURL ?? post.mediaURL else { return }
+        if player == nil {
+            let next = AVPlayer(url: url)
+            next.isMuted = false
+            player = next
+        }
+        if isActive {
+            player?.play()
+            Task { await MediaActions.view(post.id) }
+        }
     }
+}
+
+private struct ShortPlayerSurface: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> ShortPlayerView {
+        let view = ShortPlayerView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateUIView(_ uiView: ShortPlayerView, context: Context) {
+        uiView.playerLayer.player = player
+    }
+}
+
+private final class ShortPlayerView: UIView {
+    override static var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
 }

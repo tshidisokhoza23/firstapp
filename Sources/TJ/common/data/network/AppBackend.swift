@@ -222,5 +222,10 @@ public enum AppRuntime {
     @MainActor
     public static func connectRealtime() {
         WebSocketManager.shared.connect()
+        _ = chatRepository
+        let token = SessionStore.shared.token ?? ""
+        if !token.isEmpty {
+            CallWebSocketClient.shared.connect(listener: CallSocketBridge.shared, serverUrl: AppBackend.wsBaseURL, authToken: token)
+        }
     }
 }

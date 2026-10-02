@@ -81,7 +81,16 @@ enum LiveJSON {
         let contactId = string(json["contact_id"])
         let phone = type == .mingle ? "" : string(json["phone_number"])
         let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
-        let server = [contactName, title].first { !isIdString($0, id: id) && !isIdString($0, id: contactId) && $0.lowercased() != "chat" && $0.lowercased() != "direct" }
+        let server = [contactName, title].first { candidate in
+            let lower = candidate.lowercased()
+            return !candidate.isEmpty
+                && !isIdString(candidate, id: id)
+                && !isIdString(candidate, id: contactId)
+                && !isOpaqueId(candidate)
+                && lower != "chat"
+                && lower != "direct"
+                && lower != "mingle"
+        }
         let name = local ?? server ?? phone
         return ChatMessage(
             id: id,
@@ -131,6 +140,7 @@ enum LiveJSON {
         default: type = urls.isEmpty ? .text : .image
         }
         let body = string(json["content"]).isEmpty ? string(json["message_text"]) : string(json["content"])
+        let client = string(json["client_msg_id"]).isEmpty ? string(json["client_uuid"]) : string(json["client_msg_id"])
         return Message(
             id: id,
             conversationId: string(json["conversation_id"]),
@@ -146,8 +156,15 @@ enum LiveJSON {
             duration: string(json["duration"]).nilIfEmpty,
             isRead: bool(json["is_read"]),
             isDelivered: bool(json["is_delivered"]),
-            clientId: string(json["client_msg_id"]).nilIfEmpty
+            clientId: client.nilIfEmpty
         )
+    }
+
+    static func isOpaqueId(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 16 else { return false }
+        let allowed = CharacterSet(charactersIn: "0123456789abcdefABCDEF-")
+        return trimmed.unicodeScalars.allSatisfy { allowed.contains($0) }
     }
 
     static func posts(from data: Data) -> [FeedPost] {
