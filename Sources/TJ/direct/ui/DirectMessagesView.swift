@@ -130,6 +130,7 @@ public struct DirectMessagesView: View {
         }
     }
 
+    @MainActor
     private func resolvedCallName(_ call: CallLog) -> String {
         let cached = GlobalCallState.shared.contactNames[call.contactId]
         let phone = GlobalCallState.shared.contactPhones[call.contactId] ?? ""
@@ -160,7 +161,7 @@ public struct DirectMessagesView: View {
             guard !id.isEmpty else { return nil }
             let phone = LiveJSON.string(row["phone_number"])
             let name = LiveJSON.string(row["display_name"])
-            return ChatMessage(id: id, senderName: name.isEmpty ? phone : name, phoneNumber: phone, otherUserId: id, avatarUrl: LiveJSON.string(row["avatar_url"]).nilIfEmpty)
+            return ChatMessage(id: id, senderName: name.isEmpty ? phone : name, avatarUrl: LiveJSON.string(row["avatar_url"]).nilIfEmpty, phoneNumber: phone, otherUserId: id)
         }
     }
 
@@ -245,7 +246,7 @@ public struct DirectMessagesView: View {
                         .shadow(radius: 6)
                 }
                 .padding(.trailing, 20)
-                .padding(.bottCall
+                .padding(.bottom, 20)
             }
             .navigationTitle("Direct Messages")
             .alert("Direct Message Notice", isPresented: $showAlertToast) {

@@ -177,6 +177,9 @@ public struct ChatTabView: View {
                 rewardsTabContent
             default:
                 chatsTabContent
+            }
+        }
+        .onAppear {
             channelsViewModel.fetchChannels()
             Task { await rewardViewModel.fetchAdverts() }
             Task { await storyRepository.syncStories() }
@@ -193,10 +196,7 @@ public struct ChatTabView: View {
         )) {
             Button("OK", role: .cancel) { viewModel.uiState.error = nil }
         } message: {
-            Text(viewModel.uiState.error ?? "".fetchAdverts() }
-            Task { await storyRepository.syncStories() }
-            jobViewModel.fetchJobs()
-            viewModel.connectCallSocket()
+            Text(viewModel.uiState.error ?? "")
         }
         .sheet(isPresented: $showTopMenu) {
             TopMoreMenuSheetView(

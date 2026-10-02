@@ -505,7 +505,7 @@ struct StoryRowPlayer: View {
 
     private func load() async {
         _ = await StoryRepository.shared.syncStories()
-        let all = StoryRepository.shared.userStories
+        let all = await StoryRepository.shared.userStories
         let mine = AndroidStoryFlow.myStory(in: all, userId: SessionStore.shared.userId)
         var ordered: [UserStory] = []
         if let mine, !mine.stories.isEmpty { ordered.append(mine) }

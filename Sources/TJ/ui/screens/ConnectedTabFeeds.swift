@@ -276,7 +276,6 @@ struct SocialFeedView: View {
                                 Image(systemName: "ellipsis")
                                     .foregroundColor(.secondary)
                             }
-                            }
 
                             Button {
                                 selectedPost = post
@@ -351,6 +350,7 @@ struct SocialFeedView: View {
         }
         .task { await load() }
         .refreshable { await load() }
+    }
 
     private func attachPhoto(_ item: PhotosPickerItem) async {
         defer { photoItem = nil }

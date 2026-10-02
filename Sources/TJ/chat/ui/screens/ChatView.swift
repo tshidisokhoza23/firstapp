@@ -116,6 +116,9 @@ public struct ChatView: View {
             },
             onShowProfile: onShowProfile,
             onAvatarClick: onAvatarClick,
+            onInitiateCall: { receiverId, name, callType in
+                viewModel.startVoiceOrVideoCall(receiverId: receiverId, callType: callType, name: name)
+            },
             onClearChat: { clearConversation() },
             onDeleteChat: { deleteConversation() },
             onDeleteSelectedMessages: {
@@ -130,10 +133,7 @@ public struct ChatView: View {
             onPinSelectedMessage: { pinSelected() },
             onEditSelectedMessage: { editSelected() },
             onForwardSelectedMessages: { forwardSelected() },
-            onClearSelectedMessages: { selectedMessageIds.removeAll() },
-            onInitiateCall: { receiverId, name, callType in
-                viewModel.startVoiceOrVideoCall(receiverId: receiverId, callType: callType, name: name)
-            }
+            onClearSelectedMessages: { selectedMessageIds.removeAll() }
         )
     }
 
