@@ -375,7 +375,18 @@ public class ChatViewModel: ObservableObject {
             GlobalCallState.shared.updateContactInfo(id: receiverId, name: name, phone: nil)
         }
         connectCallSocket()
-        Task {
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            Task { @MainActor in
+                guard granted else {
+                    self.uiState.error = "Microphone permission is required to place a call."
+                    return
+                }
+                await self.placeCall(receiverId: receiverId, callType: callType, name: name)
+            }
+        }
+    }
+
+    private func placeCall(receiverId: String, callType: CallType, name: String) async {
             if let data = try? await API.data("calls/ice_servers") {
                 WebRtcCallManager.shared.setIceServers(Self.iceServers(from: data))
             }
@@ -398,7 +409,6 @@ public class ChatViewModel: ObservableObject {
                 GlobalCallState.shared.setCallActive(false, sessionId: nil, participantId: nil, callType: callType)
                 self.uiState.error = error.localizedDescription
             }
-        }
     }
 
     private static func iceServers(from data: Data) -> [[String: Any]] {

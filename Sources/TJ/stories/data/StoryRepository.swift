@@ -17,13 +17,15 @@ public struct ApiViewer: Identifiable, Codable, Equatable {
     public let userName: String
     public let avatarUrl: String?
     public let viewedAt: Int64
+    public var viewedLabel: String = ""
 
-    public init(id: String = UUID().uuidString, userId: String, userName: String, avatarUrl: String? = nil, viewedAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) {
+    public init(id: String = UUID().uuidString, userId: String, userName: String, avatarUrl: String? = nil, viewedAt: Int64 = 0, viewedLabel: String = "") {
         self.id = id
         self.userId = userId
         self.userName = userName
         self.avatarUrl = avatarUrl
         self.viewedAt = viewedAt
+        self.viewedLabel = viewedLabel
     }
 }
 
@@ -162,15 +164,22 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
     // MARK: - Get Story Viewers
 
     public func getStoryViewers(storyId: String) async throws -> [ApiViewer] {
-        let url = baseURL.appendingPathComponent("\(storyId)/viewers")
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw URLError(.badServerResponse)
+        let data = try await API.data("chats/stories/\(storyId)/viewers")
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let list = json["viewers"] as? [Any] else { return [] }
+        return list.compactMap { row -> ApiViewer? in
+            guard let row = row as? [String: Any] else { return nil }
+            let id = (row["id"] as? String) ?? ""
+            guard !id.isEmpty else { return nil }
+            let name = (row["display_name"] as? String) ?? (row["user_name"] as? String) ?? ""
+            return ApiViewer(
+                id: id,
+                userId: id,
+                userName: name,
+                avatarUrl: row["avatar_url"] as? String,
+                viewedLabel: (row["viewed_at"] as? String) ?? ""
+            )
         }
-        struct ViewersResponse: Codable {
-            let viewers: [ApiViewer]
-        }
-        return try JSONDecoder().decode(ViewersResponse.self, from: data).viewers
     }
 
     // MARK: - Helper Methods

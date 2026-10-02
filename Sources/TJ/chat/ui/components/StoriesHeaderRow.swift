@@ -7,6 +7,7 @@ public struct StoriesHeaderRow: View {
     public var onMediaStoryClick: () -> Void = {}
     public var onTextStoryClick: () -> Void = {}
     public var onPostedStoriesClick: () -> Void = {}
+    @State private var showStoryActions = false
 
     public init(
         stories: [UserStory],
@@ -30,9 +31,12 @@ public struct StoriesHeaderRow: View {
 
     private var otherStories: [UserStory] {
         let mine = myStory
-        return stories.filter { story in
-            story.id != mine?.id && story.userName != "My Story" && story.userName != "My Number"
+        let others = stories.filter { story in
+            story.id != mine?.id && story.userId != mine?.userId && story.userName != "My Story" && story.userName != "My Number"
         }
+        let fresh = others.filter { !$0.allViewed }
+        let seen = others.filter { $0.allViewed }
+        return fresh + seen
     }
 
     public var body: some View {
@@ -50,12 +54,16 @@ public struct StoriesHeaderRow: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
+        .confirmationDialog("Add Story", isPresented: $showStoryActions, titleVisibility: .visible) {
+            Button("Media story", action: onMediaStoryClick)
+            Button("Text story", action: onTextStoryClick)
+            Button("Posted stories", action: onPostedStoriesClick)
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     private var addStoryItem: some View {
-        Menu {
-            storyMenu
-        } label: {
+        Button(action: { showStoryActions = true }) {
             VStack(spacing: 6) {
                 ZStack {
                     Circle()
@@ -69,16 +77,17 @@ public struct StoriesHeaderRow: View {
                     .font(.system(size: 11, weight: .bold))
             }
         }
+        .buttonStyle(.plain)
     }
 
     private func myStoryItem(_ story: UserStory) -> some View {
         VStack(spacing: 6) {
             ZStack(alignment: .bottomTrailing) {
-                storyRing(story)
-                    .onTapGesture { onStoryClick(story) }
-                Menu {
-                    storyMenu
-                } label: {
+                Button(action: { onStoryClick(story) }) {
+                    storyRing(story)
+                }
+                .buttonStyle(.plain)
+                Button(action: { showStoryActions = true }) {
                     Image(systemName: "plus")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
@@ -86,6 +95,7 @@ public struct StoriesHeaderRow: View {
                         .background(Color.accentColor)
                         .clipShape(Circle())
                 }
+                .buttonStyle(.plain)
             }
             Text("My Story")
                 .font(.system(size: 11, weight: .bold))
@@ -93,14 +103,17 @@ public struct StoriesHeaderRow: View {
     }
 
     private func storyItem(_ story: UserStory) -> some View {
-        VStack(spacing: 6) {
-            storyRing(story)
-            Text(story.userName.components(separatedBy: " ").first ?? story.userName)
-                .font(.system(size: 11, weight: story.allViewed ? .regular : .bold))
-                .lineLimit(1)
-                .frame(width: 64)
+        Button(action: { onStoryClick(story) }) {
+            VStack(spacing: 6) {
+                storyRing(story)
+                Text(story.userName.components(separatedBy: " ").first ?? story.userName)
+                    .font(.system(size: 11, weight: story.allViewed ? .regular : .bold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .frame(width: 64)
+            }
         }
-        .onTapGesture { onStoryClick(story) }
+        .buttonStyle(.plain)
     }
 
     private func storyRing(_ story: UserStory) -> some View {
@@ -120,13 +133,6 @@ public struct StoriesHeaderRow: View {
                 storyInitials(story.userName)
             }
         }
-    }
-
-    @ViewBuilder
-    private var storyMenu: some View {
-        Button("Media story", action: onMediaStoryClick)
-        Button("Text story", action: onTextStoryClick)
-        Button("Posted stories", action: onPostedStoriesClick)
     }
 
     private func storyInitials(_ name: String) -> some View {

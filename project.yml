@@ -36,5 +36,6 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "TJ uses your location to show people nearby on Court."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "TJ uses the microphone to record voice notes and calls."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "TJ uses your photos and videos for chats, stories, posts, and shorts."
+        INFOPLIST_KEY_NSContactsUsageDescription: "TJ uses your contacts to show saved names and find people already on TJ."
         INFOPLIST_KEY_GIDClientID: "303703683011-6ksjg0b8uakesl9a821ri05tokrg41f2.apps.googleusercontent.com"
         INFOPLIST_KEY_GIDServerClientID: "303703683011-g2p7atop0uackslr2eq9fnsja5jlfk7u.apps.googleusercontent.com"

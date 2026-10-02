@@ -138,14 +138,21 @@ struct LiveChatScreen: View {
             if let data = try? await API.data("chats/dm", method: "POST", json: ["contact_id": conversationId]),
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let convID = json["conversation_id"] as? String, !convID.isEmpty {
-                chat = ChatMessage(id: convID, senderName: name ?? "Chat", otherUserId: conversationId)
+                chat = ChatMessage(id: convID, senderName: resolvedRouteName(name), otherUserId: conversationId)
                 viewModel.fetchMessages(chatId: convID)
                 return
             }
-            chat = ChatMessage(id: conversationId, senderName: name ?? "Chat", otherUserId: conversationId)
+            chat = ChatMessage(id: conversationId, senderName: resolvedRouteName(name), otherUserId: conversationId)
             viewModel.fetchMessages(chatId: conversationId)
         }
     }
+}
+
+private func resolvedRouteName(_ name: String?) -> String {
+    let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let blocked = ["chat", "direct", "mingle", "mingle user", "unknown"]
+    if trimmed.isEmpty || blocked.contains(trimmed.lowercased()) { return "" }
+    return trimmed
 }
 
 struct ChatDetailPlaceholderView: View {
@@ -157,14 +164,14 @@ struct ChatDetailPlaceholderView: View {
             Image(systemName: "bubble.left.and.bubble.right.fill")
                 .font(.system(size: 48))
                 .foregroundColor(.blue)
-            Text(name ?? "Chat Session")
+            Text(resolvedRouteName(name))
                 .font(.title2)
                 .fontWeight(.bold)
-            Text("Conversation ID: \(conversationId)")
+            Text(conversationId)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
-        .navigationTitle(name ?? "Chat")
+        .navigationTitle(resolvedRouteName(name))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -237,11 +237,39 @@ public struct ApiChannel: Codable, Identifiable, Sendable {
     public let isAdmin: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description
+        case id, name, description, followers
         case avatarUrl = "avatar_url"
         case subscriberCount = "subscriber_count"
         case isSubscribed = "is_subscribed"
         case isAdmin = "is_admin"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        avatarUrl = try c.decodeIfPresent(String.self, forKey: .avatarUrl)
+        if let count = try? c.decode(Int.self, forKey: .followers) {
+            subscriberCount = count
+        } else if let count = try? c.decode(Int.self, forKey: .subscriberCount) {
+            subscriberCount = count
+        } else {
+            subscriberCount = 0
+        }
+        isSubscribed = try c.decodeIfPresent(Bool.self, forKey: .isSubscribed) ?? false
+        isAdmin = try c.decodeIfPresent(Bool.self, forKey: .isAdmin) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(avatarUrl, forKey: .avatarUrl)
+        try c.encode(subscriberCount, forKey: .followers)
+        try c.encode(isSubscribed, forKey: .isSubscribed)
+        try c.encode(isAdmin, forKey: .isAdmin)
     }
 }
 

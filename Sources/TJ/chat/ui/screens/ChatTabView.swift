@@ -24,6 +24,7 @@ public struct ChatTabView: View {
     @State private var showPostJob: Bool = false
     @State private var activeStory: UserStory? = nil
     @State private var storyStart: AndroidStoryFlow.Start? = nil
+    @State private var remotePeople: [ChatMessage] = []
 
     private let subTabs = ["Chats", "Channels", "Jobs", "Rewards"]
 
@@ -81,6 +82,9 @@ public struct ChatTabView: View {
 
                         TextField("Search chats, contacts, messages...", text: $searchQuery)
                             .textFieldStyle(PlainTextFieldStyle())
+                            .onChange(of: searchQuery) { query in
+                                Task { await searchPeople(query) }
+                            }
 
                         if !searchQuery.isEmpty {
                             Button(action: { searchQuery = "" }) {
@@ -173,12 +177,23 @@ public struct ChatTabView: View {
                 rewardsTabContent
             default:
                 chatsTabContent
-            }
-        }
-        .onAppear {
-            viewModel.fetchChats()
             channelsViewModel.fetchChannels()
             Task { await rewardViewModel.fetchAdverts() }
+            Task { await storyRepository.syncStories() }
+            jobViewModel.fetchJobs()
+            viewModel.connectCallSocket()
+            Task {
+                _ = await ContactSyncManager.shared.requestContactsAccess()
+                viewModel.fetchChats()
+            }
+        }
+        .alert("Call", isPresented: Binding(
+            get: { viewModel.uiState.error != nil },
+            set: { if !$0 { viewModel.uiState.error = nil } }
+        )) {
+            Button("OK", role: .cancel) { viewModel.uiState.error = nil }
+        } message: {
+            Text(viewModel.uiState.error ?? "".fetchAdverts() }
             Task { await storyRepository.syncStories() }
             jobViewModel.fetchJobs()
             viewModel.connectCallSocket()
@@ -223,8 +238,8 @@ public struct ChatTabView: View {
             )
         }
         .fullScreenCover(item: $activeStory) { story in
-            StoryViewer(
-                sampleStoryGroup: story,
+            StoryRowPlayer(
+                startUserId: story.userId.isEmpty ? story.id : story.userId,
                 onClose: { activeStory = nil }
             )
         }
@@ -259,6 +274,16 @@ public struct ChatTabView: View {
                     .padding(.vertical, 8)
 
                     Divider()
+
+                    if isSearchActive && !remotePeople.isEmpty {
+                        ForEach(remotePeople) { person in
+                            ChatItemRow(chat: person) {
+                                onChatSelected(person)
+                            }
+                            .onTapGesture { onChatSelected(person) }
+                            Divider().padding(.leading, 72)
+                        }
+                    }
 
                     // Archived Header Item
                     if archivedCount > 0 {
@@ -456,65 +481,47 @@ public struct ChatTabView: View {
 
     // MARK: - Rewards Tab Content matching Screenshot 3
 
+    private var rewardDashboard: RewardDashboard? {
+        if case .success(let dash) = rewardViewModel.uiState { return dash }
+        return nil
+    }
+
     private var rewardsTabContent: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Total Points Header Card matching Screenshot 3
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
+                    HStack(alignment: .center) {
                         HStack(spacing: 4) {
                             Text("Total Points")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.secondary)
+                                .lineLimit(1)
                             Image(systemName: "info.circle")
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                         }
-
-                        Spacer()
-
+                        Spacer(minLength: 12)
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("Today")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.secondary)
-                            Text("0")
+                                .lineLimit(1)
+                            Text(todayAdCount)
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.primary)
+                                .lineLimit(1)
                         }
                     }
-
                     HStack(spacing: 8) {
                         Image(systemName: "star.circle.fill")
                             .font(.system(size: 32))
                             .foregroundColor(.orange)
-
                         Text("\(Int(rewardViewModel.points))")
                             .font(.system(size: 36, weight: .black))
                             .foregroundColor(.primary)
-                if case .error(let message, _) = rewardViewModel.adverts {
-                    Text(message)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                ForEach(rewardViewModel.adverts.data ?? []) { ad in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Sponsored")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.orange)
-                        Text(ad.advertiserName.isEmpty ? ad.title : ad.advertiserName)
-                            .font(.system(size: 16, weight: .bold))
-                        Text(ad.contentText.isEmpty ? ad.title : ad.contentText)
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                            .lineLimit(3)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(16)
-                }
-
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Spacer(minLength: 0)
                     }
                 }
                 .padding(20)
@@ -522,65 +529,122 @@ public struct ChatTabView: View {
                 .background(Color(UIColor.secondarySystemBackground))
                 .cornerRadius(20)
 
-                // Daily Tasks Title
+                if case .error(let message, _) = rewardViewModel.adverts {
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if !(rewardViewModel.adverts.data ?? []).isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(rewardViewModel.adverts.data ?? []) { ad in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Sponsored")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.orange)
+                                        .lineLimit(1)
+                                    Text(ad.advertiserName.isEmpty ? ad.title : ad.advertiserName)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .lineLimit(1)
+                                    Text(ad.contentText.isEmpty ? ad.title : ad.contentText)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                                .padding(14)
+                                .frame(width: 260, alignment: .leading)
+                                .background(Color(UIColor.secondarySystemBackground))
+                                .cornerRadius(16)
+                            }
+                        }
+                    }
+                }
+
                 Text("Daily Tasks")
                     .font(.system(size: 18, weight: .bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Tasks Items matching Screenshot 3
-                let dailyTasks = [
-                    ("Watch Daily Special", "+10 points"),
-                    ("Premium Partner Ad", "+10 points"),
-                    ("Bonus Content Unlock", "+10 points"),
-                    ("Sponsor Spotlight", "+10 points")
-                ]
-
-                ForEach(dailyTasks, id: \.0) { task in
+                let tasks = rewardDashboard?.tasks ?? []
+                if tasks.isEmpty {
+                    Text("No tasks from the server")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                ForEach(tasks) { task in
                     HStack(spacing: 16) {
                         ZStack {
                             Circle()
                                 .fill(Color.orange.opacity(0.12))
                                 .frame(width: 48, height: 48)
-
                             Image(systemName: "play.circle.fill")
                                 .font(.system(size: 24))
                                 .foregroundColor(.orange)
                         }
-
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(task.0)
+                            Text(task.title)
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(.primary)
-
-                            Text(task.1)
+                                .lineLimit(1)
+                            Text("+\(Int(task.points)) points")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.orange)
+                                .lineLimit(1)
                         }
-
                         Spacer()
-
                         Button(action: {
-                            rewardViewModel.showRewardedAd(taskId: task.0, onReward: {})
+                            rewardViewModel.showRewardedAd(taskId: task.id, onReward: {})
                         }) {
-                            Text("Watch")
+                            Text(task.isCompleted ? "Done" : "Watch")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 10)
-                                .background(Color.appPrimary)
+                                .background(task.isCompleted ? Color.gray : Color.appPrimary)
                                 .cornerRadius(12)
                         }
+                        .disabled(task.isCompleted)
                     }
                     .padding(16)
                     .background(Color(UIColor.secondarySystemBackground))
                     .cornerRadius(16)
                 }
-
-                Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
         }
+    }
+
+    private func searchPeople(_ query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            remotePeople = []
+            return
+        }
+        guard let data = try? await API.data("search", query: ["query": trimmed, "type": "chats"]) else { return }
+        let rows = (LiveJSON.object(data)["contacts"] as? [[String: Any]]) ?? []
+        remotePeople = rows.compactMap { row in
+            let id = LiveJSON.string(row["id"])
+            guard !id.isEmpty else { return nil }
+            let phone = LiveJSON.string(row["phone_number"])
+            let serverName = LiveJSON.string(row["display_name"])
+            let username = LiveJSON.string(row["username"])
+            let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
+            let name = (local?.isEmpty == false) ? local! : (!serverName.isEmpty ? serverName : (!username.isEmpty ? username : phone))
+            return ChatMessage(
+                id: id,
+                senderName: name,
+                avatarUrl: LiveJSON.string(row["avatar_url"]).nilIfEmpty,
+                phoneNumber: phone,
+                otherUserId: id
+            )
+        }
+    }
+
+    private var todayAdCount: String {
+        guard let dash = rewardDashboard else { return "" }
+        return "\(dash.adsWatchedToday)/\(dash.maxDailyAds)"
     }
 }
 

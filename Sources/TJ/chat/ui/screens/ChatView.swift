@@ -45,7 +45,8 @@ public struct ChatView: View {
 
     private var sanitizedName: String {
         let name = chat.consistentName()
-        return name.isEmpty ? "Chat" : name
+        if !name.isEmpty { return name }
+        return chat.phoneNumber ?? ""
     }
 
     private var messagesList: [Message] {

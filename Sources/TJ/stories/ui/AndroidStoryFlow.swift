@@ -16,6 +16,7 @@ public struct AndroidStoryFlow: View {
     @State private var step: Start
     @State private var share: ShareDraft?
     @State private var playing: UserStory?
+    @State private var playIndex = 0
     @State private var note = ""
     private let stories: [UserStory]
     private let currentUserId: String?
@@ -33,7 +34,7 @@ public struct AndroidStoryFlow: View {
     public var body: some View {
         Group {
             if let playing {
-                StoryViewer(sampleStoryGroup: playing, onClose: {
+                StoryViewer(story: playing, startIndex: playIndex, onClose: {
                     self.playing = nil
                     if step == .posted { return }
                     onClose()
@@ -43,6 +44,7 @@ public struct AndroidStoryFlow: View {
                     onPosted()
                     let latest = StoryRepository.shared.userStories
                     if let mine = AndroidStoryFlow.myStory(in: latest.isEmpty ? stories : latest, userId: currentUserId) {
+                        playIndex = 0
                         playing = mine
                     } else {
                         onClose()
@@ -64,9 +66,12 @@ public struct AndroidStoryFlow: View {
                     )
                 case .posted:
                     PostedStoriesScreen(
-                        story: AndroidStoryFlow.myStory(in: stories, userId: currentUserId),
+                        currentUserId: currentUserId,
                         onBack: onClose,
-                        onOpen: { playing = $0 },
+                        onOpen: { story, index in
+                            playIndex = index
+                            playing = story
+                        },
                         onText: { step = .text },
                         onMedia: { step = .media }
                     )
@@ -154,10 +159,7 @@ struct NewStoryScreen: View {
         }
         .photosPicker(isPresented: $showPicker, selection: $pickerItem, matching: .any(of: [.images, .videos]))
         .onChange(of: pickerItem) { item in
-            guard let item else {
-                if preview == nil { onBack() }
-                return
-            }
+            guard let item else { return }
             Task { await load(item) }
         }
     }
@@ -320,43 +322,74 @@ struct ShareStoryScreen: View {
 }
 
 struct PostedStoriesScreen: View {
-    let story: UserStory?
+    var currentUserId: String?
     var onBack: () -> Void
-    var onOpen: (UserStory) -> Void
+    var onOpen: (UserStory, Int) -> Void
     var onText: () -> Void
     var onMedia: () -> Void
 
+    @ObservedObject private var repository = StoryRepository.shared
+    @State private var query = ""
+
+    private var mine: UserStory? {
+        AndroidStoryFlow.myStory(in: repository.userStories, userId: currentUserId)
+    }
+
+    private var items: [StoryItem] {
+        let stories = mine?.stories ?? []
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return stories }
+        return stories.filter { $0.content.localizedCaseInsensitiveContains(trimmed) }
+    }
+
     var body: some View {
         NavigationStack {
-            ScrollView(.horizontal) {
-                HStack(spacing: 20) {
-                    if let story {
-                        ForEach(story.stories) { item in
-                            VStack {
-                                if let raw = item.contentUrl, let url = FeedPost.resolve(raw) {
-                                    AsyncImage(url: url) { image in
-                                        image.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Color.gray
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let mine, !items.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 20) {
+                                ForEach(Array(items.enumerated()), id: \.element.id) { offset, item in
+                                    Button(action: { onOpen(mine, index(of: item)) }) {
+                                        postedItem(item, name: mine.userName)
                                     }
-                                    .frame(width: 92, height: 140)
-                                    .clipped()
-                                } else {
-                                    Text(item.content)
-                                        .font(.caption)
-                                        .frame(width: 92, height: 140)
-                                        .background(item.backgroundColor)
-                                        .foregroundColor(.white)
+                                    .buttonStyle(.plain)
+                                    .id(offset)
                                 }
                             }
-                            .onTapGesture { onOpen(story) }
+                            .padding(.vertical, 4)
                         }
+                    } else {
+                        Button(action: onMedia) {
+                            HStack(spacing: 16) {
+                                ZStack(alignment: .bottomTrailing) {
+                                    Circle()
+                                        .fill(Color.accentColor)
+                                        .frame(width: 54, height: 54)
+                                        .overlay(Text(String((mine?.userName ?? "M").prefix(1)).uppercased()).foregroundColor(.white).font(.title3.bold()))
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 20, height: 20)
+                                        .background(Color.accentColor)
+                                        .clipShape(Circle())
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("My Story").font(.system(size: 16, weight: .bold))
+                                    Text("Tap to add to your story").font(.system(size: 14)).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 8)
                     }
                 }
-                .padding()
+                .padding(.horizontal, 16)
             }
             .navigationTitle("Posted stories")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $query, prompt: "Search stories...")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: onBack) { Image(systemName: "chevron.left") }
@@ -380,6 +413,127 @@ struct PostedStoriesScreen: View {
                 }
                 .padding()
             }
+            .task { _ = await repository.syncStories() }
+        }
+    }
+
+    private func index(of item: StoryItem) -> Int {
+        mine?.stories.firstIndex(where: { $0.id == item.id }) ?? 0
+    }
+
+    private func postedItem(_ item: StoryItem, name: String) -> some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle().stroke(Color.accentColor, lineWidth: 2).frame(width: 70, height: 70)
+                if let raw = item.contentUrl, let url = FeedPost.resolve(raw) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.black.opacity(0.8)
+                    }
+                    .frame(width: 62, height: 62)
+                    .clipShape(Circle())
+                } else if item.type == .text, !item.content.isEmpty {
+                    Text(item.content)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .padding(4)
+                        .frame(width: 62, height: 62)
+                        .background(item.backgroundColor)
+                        .clipShape(Circle())
+                } else {
+                    Text(String(name.prefix(1)).uppercased())
+                        .foregroundColor(.white)
+                        .frame(width: 62, height: 62)
+                        .background(item.backgroundColor)
+                        .clipShape(Circle())
+                }
+            }
+            HStack(spacing: 4) {
+                Image(systemName: "eye.fill").font(.system(size: 12))
+                Text("\(item.viewsCount) views").font(.system(size: 12, weight: .bold))
+            }
+            .foregroundColor(.accentColor)
+            Text(StoryTime.ago(item.createdAt, fallback: item.timestamp))
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+enum StoryTime {
+    static func ago(_ createdAt: Int64, fallback: String = "") -> String {
+        guard createdAt > 0 else { return fallback.isEmpty ? "recently" : fallback }
+        let seconds = max(0, Int(Date().timeIntervalSince1970) - Int(createdAt / 1000))
+        if seconds < 60 { return "just now" }
+        if seconds < 3600 { return "\(seconds / 60)m" }
+        if seconds < 86400 { return "\(seconds / 3600)h" }
+        return "\(seconds / 86400)d"
+    }
+}
+
+struct StoryRowPlayer: View {
+    let startUserId: String
+    var onClose: () -> Void
+    @State private var queue: [UserStory] = []
+    @State private var position = 0
+    @State private var loaded = false
+    @State private var missing = false
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            if loaded, queue.indices.contains(position) {
+                StoryViewer(story: queue[position], onClose: onClose, onFinished: advance)
+                    .id(queue[position].id)
+            } else if missing {
+                VStack(spacing: 12) {
+                    Text("This story has expired or is no longer available.")
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                    Button("Close", action: onClose).foregroundColor(.white)
+                }
+                .padding(32)
+            } else {
+                ProgressView().tint(.white)
+            }
+        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        _ = await StoryRepository.shared.syncStories()
+        let all = StoryRepository.shared.userStories
+        let mine = AndroidStoryFlow.myStory(in: all, userId: SessionStore.shared.userId)
+        var ordered: [UserStory] = []
+        if let mine, !mine.stories.isEmpty { ordered.append(mine) }
+        let others = all.filter { story in
+            story.id != mine?.id && story.userId != mine?.userId && story.userName != "My Story"
+        }
+        ordered.append(contentsOf: others.filter { !$0.allViewed })
+        ordered.append(contentsOf: others.filter { $0.allViewed })
+        let wanted = startUserId.replacingOccurrences(of: "user_", with: "")
+        if let index = ordered.firstIndex(where: { story in
+            [story.id, story.userId].contains { key in
+                key == startUserId || key.replacingOccurrences(of: "user_", with: "") == wanted
+            }
+        }) {
+            queue = ordered
+            position = index
+            loaded = true
+        } else {
+            missing = true
+            loaded = true
+        }
+    }
+
+    private func advance() {
+        if position + 1 < queue.count {
+            position += 1
+        } else {
+            onClose()
         }
     }
 }

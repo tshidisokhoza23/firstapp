@@ -66,16 +66,26 @@ public struct DirectMessagesView: View {
     }
 
     @State private var callLogs: [CallLog] = []
+    @State private var callPeople: [ChatMessage] = []
     @State private var callError = ""
 
     public var body: some View {
         NavigationStack {
             Group {
-                if callLogs.isEmpty {
+                if visibleCalls.isEmpty && callPeople.isEmpty {
                     Text(callError.isEmpty ? "No calls yet" : callError)
                         .foregroundColor(.secondary)
                 } else {
-                    List(callLogs) { call in
+                    List {
+                        ForEach(callPeople) { person in
+                            Button {
+                                ChatViewModel().startVoiceOrVideoCall(receiverId: person.otherUserId ?? person.id, callType: .voice, name: person.consistentName())
+                            } label: {
+                                Text(person.consistentName().isEmpty ? (person.phoneNumber ?? "") : person.consistentName())
+                                    .lineLimit(1)
+                            }
+                        }
+                        ForEach(visibleCalls) { call in
                         Button {
                             let receiver = call.contactId.isEmpty ? (call.calleeId.isEmpty ? call.callerId : call.calleeId) : call.contactId
                             ChatViewModel().startVoiceOrVideoCall(
@@ -85,10 +95,19 @@ public struct DirectMessagesView: View {
                             )
                         } label: {
                             HStack {
+                                AsyncImage(url: FeedPost.resolve(call.contactAvatar)) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    Circle().fill(Color.gray.opacity(0.3))
+                                        .overlay(Text(String(resolvedCallName(call).prefix(1)).uppercased()).foregroundColor(.white))
+                                }
+                                .frame(width: 44, height: 44)
+                                .clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(resolvedCallName(call))
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(.primary)
+                                        .lineLimit(1)
                                     Text(call.status.lowercased())
                                         .font(.caption)
                                         .foregroundColor(call.status.lowercased() == "missed" ? .red : .green)
@@ -98,14 +117,14 @@ public struct DirectMessagesView: View {
                                     .foregroundColor(.accentColor)
                             }
                         }
+                        }
                     }
                 }
             }
             .navigationTitle("Calls")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Image(systemName: "magnifyingglass")
-                }
+            .searchable(text: $searchText, prompt: "Search calls and people")
+            .onChange(of: searchText) { query in
+                Task { await searchPeople(query) }
             }
             .task { await loadCallLogs() }
         }
@@ -116,11 +135,33 @@ public struct DirectMessagesView: View {
         let phone = GlobalCallState.shared.contactPhones[call.contactId] ?? ""
         let local = phone.isEmpty ? nil : ContactSyncManager.shared.getContactNameByNumber(phone)
         if let local, !local.isEmpty { return local }
-        if !isIdString(call.contactName, id: call.contactId), !call.contactName.isEmpty, call.contactName.lowercased() != "chat" {
+        if !isIdString(call.contactName, id: call.contactId), !call.contactName.isEmpty, call.contactName.lowercased() != "chat", call.contactName.lowercased() != "direct" {
             return call.contactName
         }
-        if let cached, !cached.isEmpty, !isIdString(cached, id: call.contactId) { return cached }
-        return phone.isEmpty ? call.contactName : phone
+        if let cached, !cached.isEmpty, !isIdString(cached, id: call.contactId), cached.lowercased() != "chat", cached.lowercased() != "direct" { return cached }
+        if !phone.isEmpty { return phone }
+        return ""
+    }
+
+    private var visibleCalls: [CallLog] {
+        callLogs.filter { searchText.isEmpty || resolvedCallName($0).localizedCaseInsensitiveContains(searchText) || $0.status.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    private func searchPeople(_ query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            callPeople = []
+            return
+        }
+        guard let data = try? await API.data("search", query: ["query": trimmed, "type": "chats"]) else { return }
+        let rows = (LiveJSON.object(data)["contacts"] as? [[String: Any]]) ?? []
+        callPeople = rows.compactMap { row in
+            let id = LiveJSON.string(row["id"])
+            guard !id.isEmpty else { return nil }
+            let phone = LiveJSON.string(row["phone_number"])
+            let name = LiveJSON.string(row["display_name"])
+            return ChatMessage(id: id, senderName: name.isEmpty ? phone : name, phoneNumber: phone, otherUserId: id, avatarUrl: LiveJSON.string(row["avatar_url"]).nilIfEmpty)
+        }
     }
 
     private func loadCallLogs() async {
@@ -204,7 +245,7 @@ public struct DirectMessagesView: View {
                         .shadow(radius: 6)
                 }
                 .padding(.trailing, 20)
-                .padding(.bottom, 20)
+                .padding(.bottCall
             }
             .navigationTitle("Direct Messages")
             .alert("Direct Message Notice", isPresented: $showAlertToast) {

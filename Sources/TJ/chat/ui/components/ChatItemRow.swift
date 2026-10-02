@@ -20,7 +20,8 @@ public struct ChatItemRow: View {
 
     private var name: String {
         let n = chat.consistentName()
-        return n.isEmpty ? "Chat" : n
+        if !n.isEmpty { return n }
+        return chat.phoneNumber ?? ""
     }
 
     private var formattedTime: String {
@@ -33,7 +34,7 @@ public struct ChatItemRow: View {
     public var body: some View {
         HStack(spacing: 12) {
             ZStack(alignment: .bottomTrailing) {
-                if let urlString = chat.avatarUrl, let url = URL(string: urlString) {
+                if let url = FeedPost.resolve(chat.avatarUrl) {
                     AsyncImage(url: url) { phase in
                         if let image = phase.image {
                             image.resizable().scaledToFill()

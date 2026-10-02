@@ -51,40 +51,34 @@ public struct StoryViewer: View {
     @State private var sentReactionEmoji: String? = nil
 
     private let liveStory: UserStory?
-    private let sampleStoryGroup = UserStoryGroup(
-        id: "g1",
-        username: "alex_morgan",
-        avatarGradient: [.blue, .purple],
-        timeAgo: "2 hours ago",
-        slides: [
-            StorySlide(id: "s1", mediaSymbol: "mountain.2.fill", caption: "Sunrise hike up Mt. Tamalpais! 🌄🥾", backgroundGradient: [.indigo, .purple]),
-            StorySlide(id: "s2", mediaSymbol: "cup.and.saucer.fill", caption: "Espresso & SwiftUI coding session ☕📱", backgroundGradient: [.brown, .orange]),
-            StorySlide(id: "s3", mediaSymbol: "sparkles", caption: "Exciting new TJ app release candidate is live! 🚀", backgroundGradient: [.blue, .cyan])
-        ]
-    )
+    private let startIndex: Int
+    private let onFinished: (() -> Void)?
+    @State private var viewers: [ApiViewer] = []
+    @State private var viewersNote = ""
 
     private let quickEmojis = ["❤️", "🔥", "😂", "👏", "😮", "🎉"]
 
     private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
-    public init(onClose: (() -> Void)? = nil) {
-        self.liveStory = nil
-        self.onClose = onClose
-    }
-
-    public init(story: UserStory, onClose: (() -> Void)? = nil) {
+    public init(story: UserStory, startIndex: Int = 0, onClose: (() -> Void)? = nil, onFinished: (() -> Void)? = nil) {
         self.liveStory = story
+        self.startIndex = startIndex
         self.onClose = onClose
+        self.onFinished = onFinished
     }
 
-    /// Kept so older call sites can open a real story group.
-    public init(sampleStoryGroup: UserStory, onClose: (() -> Void)? = nil) {
+    /// Older call sites pass the live story under this name. It is not sample data.
+    public init(sampleStoryGroup: UserStory, startIndex: Int = 0, onClose: (() -> Void)? = nil, onFinished: (() -> Void)? = nil) {
         self.liveStory = sampleStoryGroup
+        self.startIndex = startIndex
         self.onClose = onClose
+        self.onFinished = onFinished
     }
 
     private var displayGroup: UserStoryGroup {
-        guard let liveStory else { return sampleStoryGroup }
+        guard let liveStory else {
+            return UserStoryGroup(id: "", username: "", avatarGradient: [.black], timeAgo: "", slides: [])
+        }
         let slides = liveStory.stories.map { item in
             StorySlide(
                 id: item.id,
@@ -98,18 +92,60 @@ public struct StoryViewer: View {
         return UserStoryGroup(
             id: liveStory.id,
             username: liveStory.userName,
-            avatarGradient: [.blue, .purple],
+            avatarGradient: [liveStory.stories.first?.backgroundColor ?? .black, .black],
             timeAgo: liveStory.lastUpdated,
-            slides: slides.isEmpty ? [StorySlide(id: liveStory.id, mediaSymbol: "text.alignleft", caption: "No story", backgroundGradient: [.gray, .black])] : slides
+            slides: slides
         )
+    }
+
+    private var isOwnStory: Bool {
+        guard let liveStory else { return false }
+        let mine = SessionStore.shared.userId ?? ""
+        let bare = mine.replacingOccurrences(of: "user_", with: "")
+        return [liveStory.id, liveStory.userId].contains { key in
+            key == mine || key.replacingOccurrences(of: "user_", with: "") == bare
+        }
+    }
+
+    private var headerTime: String {
+        let item = liveStory?.stories.indices.contains(activeSlideIndex) == true ? liveStory?.stories[activeSlideIndex] : liveStory?.stories.last
+        if let item {
+            return StoryTime.ago(item.createdAt, fallback: item.timestamp)
+        }
+        if let ms = Int64(displayGroup.timeAgo) {
+            return StoryTime.ago(ms)
+        }
+        return displayGroup.timeAgo
+    }
+
+    private var currentViews: Int {
+        guard let liveStory, liveStory.stories.indices.contains(activeSlideIndex) else { return 0 }
+        return liveStory.stories[activeSlideIndex].viewsCount
     }
 
     private var currentSlide: StorySlide {
         let slides = displayGroup.slides
-        return slides[min(activeSlideIndex, max(slides.count - 1, 0))]
+        guard !slides.isEmpty else {
+            return StorySlide(id: "empty", mediaSymbol: "circle", backgroundGradient: [.black, .black])
+        }
+        return slides[min(max(activeSlideIndex, 0), slides.count - 1)]
     }
 
     public var body: some View {
+        if displayGroup.slides.isEmpty {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                Text("This story has expired or is no longer available.")
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(32)
+            }
+        } else {
+            playback
+        }
+    }
+
+    private var playback: some View {
         ZStack {
             // Full Screen Background & Media Content
             LinearGradient(colors: currentSlide.backgroundGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -194,34 +230,33 @@ public struct StoryViewer: View {
 
                     // User Header
                     HStack(spacing: 10) {
-                        Circle()
-                            .fill(LinearGradient(colors: displayGroup.avatarGradient, startPoint: .top, endPoint: .bottom))
-                            .frame(width: 38, height: 38)
-                            .overlay(Image(systemName: "person.fill").foregroundColor(.white).font(.caption))
+                        storyAvatar
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(displayGroup.username)
                                 .font(.subheadline.bold())
                                 .foregroundColor(.white)
 
-                            Text(displayGroup.timeAgo)
+                            Text(headerTime)
                                 .font(.caption2)
                                 .foregroundColor(.white.opacity(0.8))
                         }
 
                         Spacer()
 
-                        Button(action: { showViewersSheet = true }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "eye.fill")
-                                Text("24")
+                        if isOwnStory {
+                            Button(action: { showViewersSheet = true }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "eye.fill")
+                                    Text("\(currentViews)")
+                                }
+                                .font(.caption.bold())
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.black.opacity(0.3))
+                                .cornerRadius(12)
                             }
-                            .font(.caption.bold())
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.3))
-                            .cornerRadius(12)
                         }
 
                         Button(action: { onClose?() }) {
@@ -245,7 +280,7 @@ public struct StoryViewer: View {
                         .padding(.bottom, 20)
                 }
 
-                // Quick Reply & Emoji Reactions Bar
+                if !isOwnStory {
                 VStack(spacing: 12) {
                     // Emoji Pills
                     HStack(spacing: 12) {
@@ -290,6 +325,7 @@ public struct StoryViewer: View {
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 16)
+                }
             }
         }
         .onReceive(timer) { _ in
@@ -305,6 +341,9 @@ public struct StoryViewer: View {
             viewersSheetView
         }
         .onAppear {
+            if displayGroup.slides.indices.contains(startIndex) {
+                activeSlideIndex = startIndex
+            }
             markCurrentViewed()
             loadSlideMedia()
         }
@@ -343,6 +382,8 @@ public struct StoryViewer: View {
         if activeSlideIndex < displayGroup.slides.count - 1 {
             activeSlideIndex += 1
             slideProgress = 0.0
+        } else if let onFinished {
+            onFinished()
         } else {
             onClose?()
         }
@@ -373,9 +414,18 @@ public struct StoryViewer: View {
         guard let data = try? await API.data("chats/dm", method: "POST", json: ["contact_id": userId]),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let convID = json["conversation_id"] as? String, !convID.isEmpty else { return }
+        let item = liveStory?.stories.indices.contains(activeSlideIndex) == true ? liveStory?.stories[activeSlideIndex] : nil
+        let storyId = (item?.id ?? "").replacingOccurrences(of: "story_", with: "").components(separatedBy: "|").first ?? ""
+        let bareUser = userId.replacingOccurrences(of: "user_", with: "")
+        let replyId = bareUser.isEmpty ? "story_\(storyId)" : "story_\(storyId)|\(bareUser)"
+        let summary = item?.content.isEmpty == false ? (item?.content ?? "") : (item?.type.rawValue ?? "story")
         _ = try? await API.data("conversations/\(convID)/messages", method: "POST", json: [
+            "client_uuid": UUID().uuidString,
             "message_text": trimmed,
-            "message_type": "text"
+            "message_type": "TEXT",
+            "reply_to_id": replyId,
+            "reply_to_text": "[Story] \(summary)",
+            "reply_to_sender_name": liveStory?.userName ?? ""
         ])
     }
 
@@ -384,45 +434,71 @@ public struct StoryViewer: View {
             sentReactionEmoji = emoji
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation {
-                sentReactionEmoji = nil
+            withAnimation { sentReactionEmoji = nil }
+        }
+    }
+
+    private var storyAvatar: some View {
+        Group {
+            if let raw = liveStory?.userAvatarUrl, let url = FeedPost.resolve(raw) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.white.opacity(0.2)
+                }
+            } else {
+                Text(String(displayGroup.username.prefix(1)).uppercased())
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
             }
         }
+        .frame(width: 38, height: 38)
+        .background(Color.white.opacity(0.2))
+        .clipShape(Circle())
     }
 
     private var viewersSheetView: some View {
         NavigationStack {
             List {
-                Section(header: Text("STORY VIEWERS (24)")) {
-                    ForEach(1...8, id: \.self) { i in
+                if viewers.isEmpty {
+                    Text(viewersNote.isEmpty ? "No views yet" : viewersNote)
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(viewers) { viewer in
                         HStack(spacing: 12) {
-                            Circle()
-                                .fill(Color.blue.opacity(0.2))
+                            if let raw = viewer.avatarUrl, let url = FeedPost.resolve(raw) {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    Color.gray.opacity(0.2)
+                                }
                                 .frame(width: 40, height: 40)
-                                .overlay(Text("U\(i)").font(.caption.bold()))
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Viewer User #\(i)")
-                                    .font(.subheadline.bold())
-                                Text("@viewer_\(i)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                .clipShape(Circle())
                             }
-                            Spacer()
-                            Text("\(i * 5)m ago")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(viewer.userName)
+                                    .font(.subheadline.bold())
+                                if !viewer.viewedLabel.isEmpty {
+                                    Text(viewer.viewedLabel)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
                         }
                     }
                 }
             }
             .navigationTitle("Viewers")
             .navigationBarItems(trailing: Button("Done") { showViewersSheet = false })
+            .task {
+                guard let item = liveStory?.stories.indices.contains(activeSlideIndex) == true ? liveStory?.stories[activeSlideIndex] : nil else { return }
+                do {
+                    viewers = try await StoryRepository.shared.getStoryViewers(storyId: item.id)
+                } catch {
+                    viewersNote = error.localizedDescription
+                }
+            }
         }
         .presentationDetents([.medium, .large])
     }
-}
-
-#Preview {
-    StoryViewer()
 }

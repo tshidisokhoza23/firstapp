@@ -234,14 +234,7 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
         if let phone = phoneNumber, !phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return CountryUtils.formatDisplayPhone(phone)
         }
-        switch type {
-        case .group:
-            return "Group"
-        case .channel:
-            return "Channel"
-        default:
-            return ""
-        }
+        return ""
     }
 
     public var profileHint: String? {
@@ -267,7 +260,8 @@ public struct ChatMessage: Identifiable, Codable, Equatable, Hashable, Sendable 
 private extension String {
     func takeIfValidName(key: String) -> String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty || isIdString(trimmed, key: key) { return nil }
+        let blocked = ["chat", "direct", "mingle", "mingle user", "unknown", "group", "channel", "tj"]
+        if trimmed.isEmpty || isIdString(trimmed, key: key) || blocked.contains(trimmed.lowercased()) { return nil }
         return trimmed
     }
 }

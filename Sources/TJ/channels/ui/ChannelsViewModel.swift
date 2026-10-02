@@ -17,10 +17,11 @@ public final class ChannelsViewModel: ObservableObject {
 
     public func fetchChannels() {
         Task {
-            if let list = try? await repository.getChannels() {
+            do {
+                let list = try await repository.getChannels()
                 self.channels = .success(list)
-            } else {
-                self.channels = .error("Failed to fetch channels")
+            } catch {
+                self.channels = .error(error.localizedDescription)
             }
         }
     }
