@@ -398,7 +398,18 @@ interface ChatDao {
         insertMessage(reconciledMsg)
     }
 
-    @Query("SELECT * FROM messages WHERE status IN ('PENDING', 'FAILED') ORDER BY timestamp ASC")
+    @Query("""
+        SELECT * FROM messages
+        WHERE status IN ('PENDING', 'FAILED')
+           OR (
+                status = 'SENDING'
+                AND mediaUrls IS NOT NULL
+                AND mediaUrls NOT IN ('', '[]', 'null')
+                AND mediaUrls NOT LIKE '%file:%'
+                AND mediaUrls NOT LIKE '%content:%'
+           )
+        ORDER BY timestamp ASC
+    """)
     suspend fun getPendingMessages(): List<MessageEntity>
 
     @Query("UPDATE messages SET status = :status WHERE clientId = :clientId OR id = :clientId")

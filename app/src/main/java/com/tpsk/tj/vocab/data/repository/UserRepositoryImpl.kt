@@ -632,17 +632,36 @@ class UserRepositoryImpl @Inject constructor(
 
     override fun requestOTP(phoneNumber: String, countryCode: String?): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
-        
-        // GLOBAL TEST BYPASS: Skip SMS for ALL numbers
-        emit(Resource.Success("TEST MODE: OTP Disabled. Use any code."))
+        try {
+            val body = mutableMapOf("phone_number" to phoneNumber)
+            if (!countryCode.isNullOrBlank()) body["country_code"] = countryCode
+            val response = withTimeout(15000) { authApi.requestOTP(body) }
+            if (response.isSuccessful) {
+                emit(Resource.Success(response.body()?.status ?: "Code sent"))
+            } else {
+                emit(Resource.Error(response.errorBody()?.string() ?: "Failed to send code"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException && e !is kotlinx.coroutines.TimeoutCancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
     }
 
 
     override fun verifyOTP(phoneNumber: String, code: String): Flow<Resource<Boolean>> = flow {
         emit(Resource.Loading())
-        
-        // GLOBAL TEST BYPASS: Accept ANY code
-        emit(Resource.Success(true))
+        try {
+            val body = mapOf("phone_number" to phoneNumber, "code" to code)
+            val response = withTimeout(15000) { authApi.verifyOTP(body) }
+            if (response.isSuccessful) {
+                emit(Resource.Success(true))
+            } else {
+                emit(Resource.Error(response.errorBody()?.string() ?: "Invalid code"))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException && e !is kotlinx.coroutines.TimeoutCancellationException) throw e
+            emit(Resource.Error(e.toUserMessage()))
+        }
     }
 
     override fun logout(): Flow<Resource<Boolean>> = flow {

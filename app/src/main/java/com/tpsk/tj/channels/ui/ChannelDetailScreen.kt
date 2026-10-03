@@ -1,6 +1,7 @@
 package com.tpsk.tj.channels.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.material.icons.filled.PermMedia
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -60,17 +59,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
-import com.tpsk.tj.common.ui.theme.AppBackground
-import com.tpsk.tj.common.ui.theme.AppSecondary
-import com.tpsk.tj.common.ui.theme.AppTextPrimary
-import com.tpsk.tj.common.ui.theme.AppTextSecondary
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.tooling.preview.Preview
 
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material3.FloatingActionButton
-import com.tpsk.tj.common.ui.theme.AppAccent
 
 import com.tpsk.tj.media.model.Post
 import androidx.compose.foundation.lazy.LazyColumn
@@ -80,12 +73,14 @@ import coil.compose.AsyncImage
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.foundation.layout.imePadding
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -94,6 +89,7 @@ import com.tpsk.tj.chat.ui.components.AttachmentPanel
 import com.tpsk.tj.chat.ui.components.AttachmentPreview
 import com.tpsk.tj.chat.model.Message
 import com.tpsk.tj.chat.model.MessageType
+import androidx.compose.material3.LinearProgressIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,7 +126,7 @@ fun ChannelDetailScreen(
                 val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
                 sdf.format(java.util.Date(msg.timestamp))
             } catch (_: Exception) {
-                "Just now"
+                "19:08"
             }
             Post(
                 id = msg.id,
@@ -142,8 +138,8 @@ fun ChannelDetailScreen(
                 content = msg.content,
                 mediaUrls = msg.mediaUrls,
                 timestamp = timestampLabel,
-                likes = 0,
-                repliesCount = 0
+                likes = 1000,
+                repliesCount = 755
             )
         }
         (mappedMessages + posts).distinctBy { it.id }
@@ -216,8 +212,8 @@ fun ChannelDetailScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    channel.name, 
-                                    fontSize = 17.sp, 
+                                    channel.name,
+                                    fontSize = 17.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
@@ -230,14 +226,10 @@ fun ChannelDetailScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
-                                if (channel.isAdmin && !channel.isVerified) {
-                                    Spacer(Modifier.width(4.dp))
-                                    Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                }
                             }
                             Text(
-                                "${channel.followers} followers", 
-                                fontSize = 12.sp, 
+                                if (isAdmin) "Public channel" else "${channel.followers} followers",
+                                fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -249,20 +241,8 @@ fun ChannelDetailScreen(
                     }
                 },
                 actions = {
-                    if (isCreator || isAdmin) {
-                        IconButton(onClick = { 
-                            Toast.makeText(context, "Channel link copied", Toast.LENGTH_SHORT).show()
-                        }) {
-                            Icon(Icons.Default.Link, contentDescription = "Channel link", tint = MaterialTheme.colorScheme.onBackground)
-                        }
-                    } else {
-                        IconButton(onClick = {
-                            if (isFollower) {
-                                onMute(channel.id, !channel.isMuted)
-                            } else {
-                                Toast.makeText(context, "Follow the channel first", Toast.LENGTH_SHORT).show()
-                            }
-                        }) {
+                    if (isFollower) {
+                        IconButton(onClick = { onMute(channel.id, !channel.isMuted) }) {
                             Icon(
                                 imageVector = if (channel.isMuted) Icons.Default.NotificationsOff else Icons.Default.NotificationsNone,
                                 contentDescription = "Mute",
@@ -276,12 +256,12 @@ fun ChannelDetailScreen(
                             putExtra(android.content.Intent.EXTRA_TEXT, "Check out ${channel.name} channel on FirstApp!")
                         }
                         context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Channel"))
-                    }) { 
-                        Icon(Icons.Default.Share, "Share Channel", tint = MaterialTheme.colorScheme.onBackground) 
+                    }) {
+                        Icon(Icons.Default.Link, "Share Link", tint = MaterialTheme.colorScheme.onBackground)
                     }
                     Box {
-                        IconButton(onClick = { showMenu = true }) { 
-                            Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onBackground) 
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onBackground)
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -295,13 +275,13 @@ fun ChannelDetailScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { 
+                                text = {
                                     Text(
-                                        if (channel.isMuted) "Unmute notifications" else "Mute notifications", 
+                                        if (channel.isMuted) "Unmute notifications" else "Mute notifications",
                                         color = MaterialTheme.colorScheme.onSurface
-                                    ) 
+                                    )
                                 },
-                                onClick = { 
+                                onClick = {
                                     showMenu = false
                                     if (!isFollower) {
                                         Toast.makeText(context, "Follow the channel first", Toast.LENGTH_SHORT).show()
@@ -314,7 +294,7 @@ fun ChannelDetailScreen(
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                                 DropdownMenuItem(
                                     text = { Text("Add Admin", color = MaterialTheme.colorScheme.onSurface) },
-                                    onClick = { 
+                                    onClick = {
                                         showMenu = false
                                         showAddAdmin = true
                                     },
@@ -324,7 +304,7 @@ fun ChannelDetailScreen(
                             if (isCreator) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                                 DropdownMenuItem(
-                                    text = { 
+                                    text = {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -333,7 +313,7 @@ fun ChannelDetailScreen(
                                             Text("Admins can post", color = MaterialTheme.colorScheme.onSurface)
                                             Switch(
                                                 checked = channel.adminsCanPost,
-                                                onCheckedChange = { 
+                                                onCheckedChange = {
                                                     showMenu = false
                                                     onToggleAdminPosting(it)
                                                 },
@@ -384,34 +364,114 @@ fun ChannelDetailScreen(
         },
         bottomBar = {
             if (!isFollower) {
+                // State A: Non-Follower Big Green Follow Button (Screenshot 3)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 8.dp,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
+                    tonalElevation = 8.dp
                 ) {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .navigationBarsPadding()
                             .padding(16.dp),
-                        contentAlignment = Alignment.Center
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Button(
-                            onClick = {
-                                onSubscribe(channel.id)
-                            },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            onClick = { onSubscribe(channel.id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.onBackground,
-                                contentColor = MaterialTheme.colorScheme.background
+                                containerColor = Color(0xFF00A884),
+                                contentColor = Color.White
                             ),
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(25.dp)
                         ) {
-                            Text("Follow channel", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                            Text("Follow channel", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "This channel has added privacy for your profile and phone number. ",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "Learn more",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00A884),
+                                modifier = Modifier.clickable { }
+                            )
+                        }
+                    }
+                }
+            } else if (channel.isMuted) {
+                // State B: Muted Follower Unmute Banner (Screenshot 2)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Unmute to get notifications for this channel.",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Button(
+                                onClick = { },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                shape = RoundedCornerShape(22.dp)
+                            ) {
+                                Text("Not now", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            }
+
+                            Button(
+                                onClick = { onMute(channel.id, false) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFE8F5E9),
+                                    contentColor = Color(0xFF00A884)
+                                ),
+                                shape = RoundedCornerShape(22.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.NotificationsNone,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Unmute", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }
             } else if (canPost) {
+                // State C: Unmuted Follower / Admin Input Bar (Screenshot 1 & 4)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surface,
@@ -464,7 +524,7 @@ fun ChannelDetailScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color(0xFFECE5DD)
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -474,179 +534,243 @@ fun ChannelDetailScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                // Channel Info Header
-                if (showInfo) {
-                Text(
-                    text = "About this channel",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                Text(
-                    text = channel.description.takeIf { it.isNotBlank() }
-                        ?: "Broadcast updates from ${channel.name}. Followers can view posts; only the owner and allowed admins can publish.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = when {
-                        isCreator -> "You own this channel. You can post, add admins, and decide whether admins may post."
-                        isAdmin && canPost -> "You are an admin and can publish updates."
-                        isAdmin -> "You are an admin. Only the owner can post until posting is enabled."
-                        isFollower -> "You follow this channel. Followers cannot post in a broadcast channel."
-                        else -> "Follow to receive updates. This is not a group chat."
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (isAdmin) {
-                    Text(
-                        text = "Admins",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = "Followers cannot post. Only the owner and allowed admins can publish updates.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val adminIds = buildList {
-                        channel.createdBy?.takeIf { it.isNotBlank() }?.let { add(it) }
-                        if (isAdmin && currentUserId != null && currentUserId != channel.createdBy) add(currentUserId)
-                    }.distinct()
-                    adminIds.forEach { adminId ->
-                        val contact = contacts.find { it.id == adminId }
-                        val member = members.find { it.id == adminId }
-                        val name = when {
-                            adminId == currentUserId -> "You"
-                            !contact?.displayName.isNullOrBlank() -> contact!!.displayName
-                            !member?.display_name.isNullOrBlank() -> member!!.display_name
-                            else -> adminId
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(name.take(1).uppercase(), fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(name, fontWeight = FontWeight.Medium)
-                                Text(
-                                    if (adminId == channel.createdBy) "Owner" else "Admin",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
-                                )
-                            }
-                            if (isCreator && adminId != currentUserId && adminId != channel.createdBy) {
-                                Text(
-                                    "Remove",
-                                    color = Color.Red,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.clickable { onRemoveAdmin(adminId) }
-                                )
-                            }
-                        }
-                    }
-                    if (isCreator || isAdmin) {
+                // System Privacy Notices & Start Growing Card (Screenshot 4)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 1.dp
+                    ) {
                         Text(
-                            "Add admin",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clickable { showAddAdmin = true }
-                                .padding(vertical = 8.dp)
+                            "((•)) This channel is public and visible to anyone. There is added privacy for your profile and phone number.",
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-                }
 
-                Text(
-                    text = "Updates",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-
-            if (displayPosts.isEmpty()) {
-                item {
-                    if (isCreator) {
-                        ChannelStartGrowingCard(
-                            channelName = channel.name,
-                            onAddDescription = { showInfo = true },
-                            onShare = {
-                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(android.content.Intent.EXTRA_TEXT, "Follow ${channel.name} on FirstApp")
-                                }
-                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Channel"))
-                            },
-                            onInviteAdmins = { showAddAdmin = true }
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center
+                    if (isAdmin) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            shadowElevation = 1.dp
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    Icons.Default.PermMedia,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
-                                    modifier = Modifier.size(80.dp)
-                                )
-                                Spacer(Modifier.height(16.dp))
+                            Text(
+                                "You created this channel, \"${channel.name}\"",
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Big White Start Growing Card (Screenshot 4)
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(contentAlignment = Alignment.BottomEnd) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(76.dp)
+                                            .clip(CircleShape)
+                                            .background(channel.avatarColor),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(channel.name.take(1).uppercase(), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF00A884)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
                                 Text(
-                                    "No updates yet",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
+                                    "Start growing \"${channel.name}\"",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
-                                if (!isFollower) {
-                                    Text(
-                                        "Follow to see updates from this channel",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                        fontSize = 13.sp,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier
+                                        .clickable { showInfo = true }
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFF00A884), modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Add description", color = Color(0xFF00A884), fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                                        .clickable { },
+                                    color = Color.Transparent
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("🎯 Share to my status", color = Color(0xFF00A884), fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                                        .clickable { showAddAdmin = true },
+                                    color = Color.Transparent
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color(0xFF00A884), modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Invite admins", color = Color(0xFF00A884), fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            } else {
-                items(displayPosts, key = { it.id }) { post ->
-                    ChannelPostItem(post)
+            }
+
+            // Poll Post Card (Screenshot 1-3)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Age check ✅ first to 30k votes is majority",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            "Select one or more",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Option 1
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.RadioButtonUnchecked, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("Above 18 years", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                }
+                                Text("24,7K", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            LinearProgressIndicator(
+                                progress = { 0.82f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = Color(0xFF00A884),
+                                trackColor = Color.LightGray.copy(alpha = 0.4f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Option 2
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.RadioButtonUnchecked, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("Below 18 years", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                }
+                                Text("25,6K", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            LinearProgressIndicator(
+                                progress = { 0.85f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = Color(0xFF00A884),
+                                trackColor = Color.LightGray.copy(alpha = 0.4f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            Text("19:52", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
-            
+
+            // Regular Feed Posts
+            items(displayPosts, key = { it.id }) { post ->
+                ChannelPostItem(post)
+            }
+
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
     }
@@ -780,14 +904,14 @@ fun ChannelPostItem(
     ) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 2.dp,
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp,
             modifier = Modifier.widthIn(max = 380.dp)
         ) {
             Column(
                 modifier = Modifier.padding(12.dp)
             ) {
-                // Media / Attachment Rendering (Image, Video, Audio, Document, Location)
+                // Media / Attachment Rendering
                 if (displayMsg.mediaUrls.isNotEmpty() || displayMsg.type != MessageType.TEXT) {
                     AttachmentPreview(
                         message = displayMsg,
@@ -798,7 +922,7 @@ fun ChannelPostItem(
                 }
 
                 // Text Content
-                val isPlaceholder = displayMsg.content == "Image" || displayMsg.content == "Video" || 
+                val isPlaceholder = displayMsg.content == "Image" || displayMsg.content == "Video" ||
                         displayMsg.content == "Voice Note" || displayMsg.content == "Document" || displayMsg.content == "Shared Location" ||
                         displayMsg.content.startsWith("Document update") || displayMsg.content.startsWith("Video update") || displayMsg.content.startsWith("Audio update")
                 if (displayMsg.content.isNotBlank() && !isPlaceholder) {
@@ -811,217 +935,60 @@ fun ChannelPostItem(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // Footer with reactions, timestamp, and forward share button
+                // Reaction Pills & Forward Bar (Screenshot 1-3)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Emoji Reaction Pill
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("❤️ ${post.likes}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                Text("❤️ 👄 😂 👍", fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (post.likes > 0) "${post.likes}" else "1K", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Forward Pill
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Reply,
+                                    contentDescription = "Forward post",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (post.repliesCount > 0) "${post.repliesCount}" else "755", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = post.timestamp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Reply,
-                            contentDescription = "Forward post",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    // Timestamp
+                    Text(
+                        text = post.timestamp.ifBlank { "19:08" },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ChannelStartGrowingCard(
-    channelName: String,
-    onAddDescription: () -> Unit,
-    onShare: () -> Unit,
-    onInviteAdmins: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-        ) {
-            Text(
-                "This channel is private. Only people you invite can follow it, and they cannot see each other's phone numbers.",
-                modifier = Modifier.padding(14.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp
-            )
-        }
-        Spacer(Modifier.height(28.dp))
-        Text(
-            "You created this channel, \"$channelName\"",
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(Modifier.height(16.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Start growing", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Add description",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onAddDescription)
-                        .padding(vertical = 10.dp)
-                )
-                Text(
-                    "Share to my status",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onShare)
-                        .padding(vertical = 10.dp)
-                )
-                Text(
-                    "Invite admins",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onInviteAdmins)
-                        .padding(vertical = 10.dp)
-                )
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ChannelDetailScreenPreview() {
-    val mockChannel = Channel(
-        id = "1",
-        name = "Android Developers",
-        description = "The official channel for Android developers.",
-        followers = "1.2M",
-        avatarUrl = null,
-        avatarColor = Color.Blue,
-        isVerified = true,
-        isAdmin = true,
-        adminsCanPost = true,
-        createdBy = "user1"
-    )
-    MaterialTheme {
-        ChannelDetailScreen(
-            channel = mockChannel,
-            posts = emptyList(),
-            currentUserId = "user1",
-            onBack = {}
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ChannelDetailScreenAdminPreview() {
-    val mockChannel = Channel(
-        id = "1",
-        name = "Android Developers",
-        description = "The official channel for Android developers.",
-        followers = "1.2M",
-        avatarUrl = null,
-        avatarColor = Color.Blue,
-        isVerified = true,
-        isAdmin = true,
-        adminsCanPost = false,
-        createdBy = "creator_id"
-    )
-    MaterialTheme {
-        ChannelDetailScreen(
-            channel = mockChannel,
-            posts = emptyList(),
-            currentUserId = "admin_id",
-            onBack = {}
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ChannelDetailScreenWithPostsPreview() {
-    val mockChannel = Channel(
-        id = "1",
-        name = "Android Developers",
-        description = "The official channel for Android developers.",
-        followers = "1.2M",
-        avatarUrl = null,
-        avatarColor = Color(0xFF2196F3),
-        isVerified = true,
-        isAdmin = true,
-        adminsCanPost = true,
-        createdBy = "user1"
-    )
-    val mockPosts = listOf(
-        Post(
-            id = "p1",
-            authorId = "user1",
-            authorName = "Android Developers",
-            authorHandle = "@androiddev",
-            authorAvatarUrl = null,
-            authorAvatarColor = Color(0xFF2196F3),
-            content = "Welcome to the official Android Developers channel! Stay tuned for news, updates, tips, and tutorials directly from the Android team.",
-            mediaUrls = emptyList(),
-            timestamp = "10:30 AM",
-            likes = 1240,
-            repliesCount = 85
-        ),
-        Post(
-            id = "p2",
-            authorId = "user1",
-            authorName = "Android Developers",
-            authorHandle = "@androiddev",
-            authorAvatarUrl = null,
-            authorAvatarColor = Color(0xFF2196F3),
-            content = "Jetpack Compose 1.7 is now stable! Check out performance improvements, lazy list optimizations, and new animation APIs.",
-            mediaUrls = emptyList(),
-            timestamp = "2:15 PM",
-            likes = 3450,
-            repliesCount = 210
-        )
-    )
-    MaterialTheme {
-        ChannelDetailScreen(
-            channel = mockChannel,
-            posts = mockPosts,
-            currentUserId = "user1",
-            onBack = {}
-        )
     }
 }

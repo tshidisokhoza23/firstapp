@@ -119,6 +119,7 @@ class ChatRepositoryImpl @Inject constructor(
                     subscribeToTopics()
                     // Atomic sync catch-up on connect
                     scope.launch { syncDelta().collect {} }
+                    ChatOutboxWorker.enqueue(context)
                 }
             }
             .launchIn(scope)
@@ -669,6 +670,11 @@ class ChatRepositoryImpl @Inject constructor(
         )
         if (sentLive) {
             chatDao.updateMessageStatus(clientUuid, MessageStatus.SENDING)
+        } else {
+            // The optimistic bubble is already SENDING. insertMessages keeps the
+            // higher status, so a media send would stay SENDING and the outbox
+            // would never POST it. Force PENDING before the worker reads.
+            chatDao.updateMessageStatus(clientUuid, MessageStatus.PENDING)
         }
 
         emit(Resource.Success(pendingMsg))
