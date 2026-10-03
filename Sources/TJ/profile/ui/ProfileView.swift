@@ -329,7 +329,10 @@ public struct ProfileView: View {
         let path = (userId == "me" || userId == "currentUser" || userId.isEmpty) ? "users/me" : "users/\(userId)"
         if let data = try? await API.data(path),
            let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: data) {
-            loalet root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            loadedUser = envelope.user
+            isFollowing = envelope.user.isFollowing
+            if path == "users/me" { SessionStore.shared.updateUser(envelope.user) }
+            if let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 let user = (root["user"] as? [String: Any]) ?? root
                 if let number = user["profile_views"] as? Int {
                     profileViews = number
@@ -339,9 +342,6 @@ public struct ProfileView: View {
                     profileViews = nil
                 }
             }
-            if dedUser = envelope.user
-            isFollowing = envelope.user.isFollowing
-            if path == "users/me" { SessionStore.shared.updateUser(envelope.user) }
         } else if path == "users/me" {
             loadedUser = SessionStore.shared.user
         }
