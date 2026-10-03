@@ -349,17 +349,33 @@ fun ChatMessagesScreen(
         val durationLabel = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
         val amps = capturedAmplitudes.toList()
 
-        uri.path?.let { path ->
-            chatViewModel.sendMediaMessage(
-                currentChat.id,
-                File(path),
-                "audio_message",
-                "Voice Note",
-                durationLabel,
-                amps
-            )
+        val file = voiceNoteFile(uri)
+        if (file == null || !file.exists() || file.length() == 0L) {
+            showToast("Voice note was not saved")
+            return
         }
+        chatViewModel.sendMediaMessage(
+            currentChat.id,
+            file,
+            "audio_message",
+            "Voice Note",
+            durationLabel,
+            amps
+        )
         reviewingVoiceNoteUri = null
+    }
+
+    fun voiceNoteFile(uri: Uri): File? {
+        if (uri.scheme == "file" && !uri.path.isNullOrBlank()) return File(uri.path!!)
+        return try {
+            val out = File(context.cacheDir, "VOICE_${System.currentTimeMillis()}.m4a")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                out.outputStream().use { input.copyTo(it) }
+            } ?: return null
+            out
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun discardVoiceNote() {

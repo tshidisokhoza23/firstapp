@@ -265,12 +265,21 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun voiceNoteMime(name: String): String? = when {
+        name.endsWith(".m4a", true) || name.endsWith(".aac", true) -> "audio/mp4"
+        name.endsWith(".mp3", true) -> "audio/mpeg"
+        name.endsWith(".ogg", true) -> "audio/ogg"
+        name.endsWith(".3gp", true) -> "audio/3gpp"
+        name.endsWith(".wav", true) -> "audio/wav"
+        else -> null
+    }
+
     override fun uploadFile(file: File, folder: String?): Flow<Resource<UploadResponse>> = flow {
         emit(Resource.Loading())
         try {
-            val mediaType = URLConnection.guessContentTypeFromName(file.name)
-                ?.toMediaTypeOrNull()
-                ?: "application/octet-stream".toMediaTypeOrNull()
+            val mediaType = (URLConnection.guessContentTypeFromName(file.name)
+                ?: voiceNoteMime(file.name)
+                ?: "application/octet-stream").toMediaTypeOrNull()
             val requestFile = file.asRequestBody(mediaType)
             val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
             val folderBody = folder?.toRequestBody("text/plain".toMediaTypeOrNull())

@@ -35,6 +35,10 @@ class ChatViewModel @Inject constructor(
     private val sessionManager: com.tpsk.tj.common.domain.auth.SessionManager
 ) : ViewModel() {
 
+    // Media uploads must finish after the chat screen closes. viewModelScope
+    // is cancelled in onCleared and was dropping the photo or voice note.
+    private val sendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
@@ -272,7 +276,7 @@ class ChatViewModel @Inject constructor(
         replyToId: String? = null, replyToText: String? = null, replyToSenderName: String? = null,
         clientId: String? = null, audioAmplitudes: List<Int>? = null, scheduledAt: Long? = null
     ) {
-        viewModelScope.launch {
+        sendScope.launch {
             // Detect and fetch link preview if it's a text message with a link
             var linkPreview: com.tpsk.tj.chat.model.LinkPreview? = null
             if (messageType.lowercase() == "text" && scheduledAt == null) {
@@ -671,7 +675,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMediaMessage(chatId: String, file: java.io.File, type: String, name: String? = null, duration: String? = null, audioAmplitudes: List<Int>? = null) {
-        viewModelScope.launch {
+        sendScope.launch {
             val clientUuid = java.util.UUID.randomUUID().toString()
             val localUri = android.net.Uri.fromFile(file).toString()
             val finalType = if (type == "audio" || type == "audio_message") "audio_message" else type
@@ -697,9 +701,10 @@ class ChatViewModel @Inject constructor(
             )
             repository.saveMessage(chatId, optimisticMsg)
             
-            // 2. Upload and finalize
+            // 2. Upload and finalize. media_chat is on the server allowlist.
+            // chat/$type is rejected by older servers, so the photo never left the phone.
             _uiState.update { it.copy(isLoading = true) }
-            accountRepository.uploadFile(file, "chat/$type").collect { res ->
+            accountRepository.uploadFile(file, "media_chat").collect { res ->
                 if (res is Resource.Success && res.data != null) {
                     val serverUrl = res.data.url
                     repository.updateMessageInCache(
@@ -736,7 +741,7 @@ class ChatViewModel @Inject constructor(
             } else null
         } else null
 
-        viewModelScope.launch {
+        sendScope.launch {
             val clientUuid = java.util.UUID.randomUUID().toString()
             val finalType = if (type == "audio" || type == "audio_message") "audio_message" else type
             val bodyText = name ?: type.replaceFirstChar { it.uppercase() }
@@ -759,7 +764,7 @@ class ChatViewModel @Inject constructor(
             )
             repository.saveMessage(chatId, optimisticMsg)
             _uiState.update { it.copy(isLoading = true) }
-            accountRepository.uploadUri(context, uri, "chat/$type").collect { res ->
+            accountRepository.uploadUri(context, uri, "media_chat").collect { res ->
                 if (res is Resource.Success && res.data != null) {
                     val serverUrl = res.data.url
                     repository.updateMessageInCache(
@@ -790,7 +795,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMediaMessages(chatId: String, files: List<java.io.File>, type: String, caption: String? = null) {
-        viewModelScope.launch {
+        sendScope.launch {
             val finalType = if (type == "audio") "audio_message" else type
             val bodyText = if (!caption.isNullOrBlank()) caption else type.replaceFirstChar { it.uppercase() }
 
@@ -819,7 +824,7 @@ class ChatViewModel @Inject constructor(
                 val uploadedUrls = mutableListOf<String>()
                 val uploadJobs = files.map { file ->
                     launch {
-                        accountRepository.uploadFile(file, "chat/$type").collect { res ->
+                        accountRepository.uploadFile(file, "media_chat").collect { res ->
                             if (res is Resource.Success && res.data != null) {
                                 synchronized(uploadedUrls) { uploadedUrls.add(res.data.url) }
                             }
@@ -838,6 +843,7 @@ class ChatViewModel @Inject constructor(
                     files.forEach { it.delete() }
                 } else {
                     repository.updateMessageStatus(clientUuid, MessageStatus.FAILED)
+                    _uiState.update { it.copy(error = "Photo was not uploaded") }
                 }
             } else {
                 // Separate bubbles for non-images

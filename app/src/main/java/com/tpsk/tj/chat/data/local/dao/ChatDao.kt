@@ -286,7 +286,11 @@ interface ChatDao {
                 existing.type != MessageType.TEXT &&
                 (existing.contactName != null || existing.type == MessageType.CONTACT)
             ) existing.type else incoming.type
+            val alreadyConfirmed = existing != null &&
+                existing.status.rank() >= MessageStatus.SENT.rank() &&
+                existing.id != incoming.id
             val reconciled = incoming.copy(
+                id = if (alreadyConfirmed) existing?.id ?: incoming.id else incoming.id,
                 mediaUrls = mediaUrls,
                 status = status,
                 type = keptType,
@@ -298,9 +302,13 @@ interface ChatDao {
                 contactName = incoming.contactName?.takeIf { it.isNotBlank() } ?: existing?.contactName,
                 contactPhone = incoming.contactPhone?.takeIf { it.isNotBlank() } ?: existing?.contactPhone,
                 latitude = incoming.latitude ?: existing?.latitude,
-                longitude = incoming.longitude ?: existing?.longitude
+                longitude = incoming.longitude ?: existing?.longitude,
+                duration = incoming.duration?.takeIf { it.isNotBlank() } ?: existing?.duration,
+                fileName = incoming.fileName?.takeIf { it.isNotBlank() } ?: existing?.fileName,
+                fileSize = incoming.fileSize?.takeIf { it.isNotBlank() } ?: existing?.fileSize,
+                audioAmplitudes = incoming.audioAmplitudes?.takeIf { it.isNotEmpty() } ?: existing?.audioAmplitudes
             )
-            if (existing != null && existing.id != reconciled.id && existing.id.isNotBlank()) {
+            if (!alreadyConfirmed && existing != null && existing.id != reconciled.id && existing.id.isNotBlank()) {
                 deleteMessage(existing.id)
             }
             insertMessage(reconciled)

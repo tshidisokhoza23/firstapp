@@ -670,17 +670,30 @@ class ChatRepositoryImpl @Inject constructor(
         )
         if (sentLive) {
             chatDao.updateMessageStatus(clientUuid, MessageStatus.SENDING)
-        } else {
-            // The optimistic bubble is already SENDING. insertMessages keeps the
-            // higher status, so a media send would stay SENDING and the outbox
-            // would never POST it. Force PENDING before the worker reads.
-            chatDao.updateMessageStatus(clientUuid, MessageStatus.PENDING)
+            emit(Resource.Success(pendingMsg))
+            return@flow
         }
 
-        emit(Resource.Success(pendingMsg))
-
-        if (!sentLive) {
+        // The optimistic bubble is already SENDING. insertMessages keeps the
+        // higher status, so a media send would stay SENDING and the outbox
+        // would never POST it. Force PENDING, then POST now. The worker is
+        // only the retry if this call has no network.
+        chatDao.updateMessageStatus(clientUuid, MessageStatus.PENDING)
+        val remoteReady = scheduledAt == null && mediaUrls.isNotEmpty() &&
+            mediaUrls.none { it.startsWith("file:") || it.startsWith("content:") }
+        if (!remoteReady) {
+            emit(Resource.Success(pendingMsg))
             ChatOutboxWorker.enqueue(context)
+            return@flow
+        }
+
+        val stored = chatDao.getMessageByClientId(clientUuid) ?: pendingMsg.toEntity(chatId)
+        val posted = postPendingMessage(stored)
+        if (posted.sent) {
+            emit(Resource.Success(pendingMsg.copy(status = MessageStatus.SENT)))
+        } else {
+            if (posted.retry) ChatOutboxWorker.enqueue(context)
+            emit(Resource.Error(posted.error ?: "Could not send"))
         }
     }
 
@@ -1327,59 +1340,80 @@ class ChatRepositoryImpl @Inject constructor(
         if (pending.isEmpty()) return
 
         Log.d("ChatRepository", "Syncing ${pending.size} pending messages from OutboxWorker")
+        var retry = false
         for (entity in pending) {
-            // Guard against syncing messages whose media is still uploading
-            val hasLocalMediaUris = entity.mediaUrls.any { it.startsWith("file:") || it.startsWith("content:") }
-            if (hasLocalMediaUris) {
+            // A local file is still uploading. Posting it would send a path the
+            // other phone cannot open.
+            if (entity.mediaUrls.any { it.startsWith("file:") || it.startsWith("content:") }) {
                 Log.d("ChatRepository", "Skipping outbox sync for msg id=${entity.id} because media upload is still in progress")
                 continue
             }
-            try {
-                chatDao.updateMessageStatus(entity.clientId ?: entity.id, MessageStatus.SENDING)
-                val wireBody = when (entity.type) {
-                    MessageType.CONTACT -> com.tpsk.tj.chat.model.MessageMarkers.contactWire(
-                        entity.contactName, entity.contactPhone, entity.content
-                    )
-                    else -> com.tpsk.tj.chat.model.MessageMarkers.storyWire(
-                        entity.content, entity.replyToId, entity.replyToText, entity.replyToSenderName
-                    )
-                }
-                val response = chatApi.sendMessage(
-                    conversationID = entity.conversationId,
-                    request = SendMessageRequest(
-                        client_uuid = entity.clientId ?: entity.id,
-                        message_text = wireBody,
-                        media_type = entity.type.name.uppercase(),
-                        media_urls = entity.mediaUrls,
-                        duration = entity.duration,
-                        file_name = entity.fileName,
-                        file_size = entity.fileSize,
-                        contact_name = entity.contactName,
-                        contact_phone = entity.contactPhone,
-                        latitude = entity.latitude,
-                        longitude = entity.longitude,
-                        reply_to_id = entity.replyToId,
-                        reply_to_text = entity.replyToText,
-                        reply_to_sender_name = entity.replyToSenderName,
-                        scheduled_at = entity.scheduledAt,
-                        link_preview = entity.linkPreview,
-                        audio_amplitudes = entity.audioAmplitudes
-                    )
-                )
+            if (postPendingMessage(entity).retry) retry = true
+        }
+        if (retry) throw java.io.IOException("pending chat sends remain")
+    }
 
-                if (response.isSuccessful && response.body() != null) {
-                    val privKey = sessionManager.getPrivateKey()
-                    val myUserId = sessionManager.getUserId()
-                    val serverMsg = mapApiMessage(response.body()!!.message, privKey, myUserId)
-                    chatDao.confirmSentMessage(entity.clientId ?: entity.id, serverMsg.toEntity(entity.conversationId))
-                } else {
-                    chatDao.updateMessageStatus(entity.clientId ?: entity.id, MessageStatus.FAILED)
-                }
-            } catch (e: Exception) {
-                Log.e("ChatRepository", "Failed to sync pending message id=${entity.id}", e)
-                chatDao.updateMessageStatus(entity.clientId ?: entity.id, MessageStatus.FAILED)
-                throw e
+    private data class PendingPost(val sent: Boolean, val retry: Boolean, val error: String?)
+
+    private suspend fun postPendingMessage(entity: MessageEntity): PendingPost {
+        val chatDao = chatDaoProvider.get()
+        val key = entity.clientId?.takeIf { it.isNotBlank() } ?: entity.id
+        if (entity.mediaUrls.any { it.startsWith("file:") || it.startsWith("content:") }) {
+            return PendingPost(sent = false, retry = false, error = null)
+        }
+        return try {
+            chatDao.updateMessageStatus(key, MessageStatus.SENDING)
+            val wireBody = when (entity.type) {
+                MessageType.CONTACT -> com.tpsk.tj.chat.model.MessageMarkers.contactWire(
+                    entity.contactName, entity.contactPhone, entity.content
+                )
+                else -> com.tpsk.tj.chat.model.MessageMarkers.storyWire(
+                    entity.content, entity.replyToId, entity.replyToText, entity.replyToSenderName
+                )
             }
+            val response = chatApi.sendMessage(
+                conversationID = entity.conversationId,
+                request = SendMessageRequest(
+                    client_uuid = key,
+                    message_text = wireBody,
+                    media_type = entity.type.name.uppercase(),
+                    media_urls = entity.mediaUrls,
+                    duration = entity.duration,
+                    file_name = entity.fileName,
+                    file_size = entity.fileSize,
+                    contact_name = entity.contactName,
+                    contact_phone = entity.contactPhone,
+                    latitude = entity.latitude,
+                    longitude = entity.longitude,
+                    reply_to_id = entity.replyToId,
+                    reply_to_text = entity.replyToText,
+                    reply_to_sender_name = entity.replyToSenderName,
+                    scheduled_at = entity.scheduledAt,
+                    link_preview = entity.linkPreview,
+                    audio_amplitudes = entity.audioAmplitudes
+                )
+            )
+            if (response.isSuccessful && response.body()?.message != null) {
+                val serverMsg = mapApiMessage(response.body()!!.message, sessionManager.getPrivateKey(), sessionManager.getUserId())
+                chatDao.confirmSentMessage(key, serverMsg.toEntity(entity.conversationId))
+                PendingPost(sent = true, retry = false, error = null)
+            } else if (response.isSuccessful) {
+                chatDao.updateMessageStatus(key, MessageStatus.SENT)
+                PendingPost(sent = true, retry = false, error = null)
+            } else if (response.code() in 400..499) {
+                val detail = response.errorBody()?.string()?.take(180)?.trim().orEmpty()
+                chatDao.updateMessageStatus(key, MessageStatus.FAILED)
+                PendingPost(sent = false, retry = false, error = detail.ifBlank { "Could not send (${response.code()})" })
+            } else {
+                chatDao.updateMessageStatus(key, MessageStatus.PENDING)
+                PendingPost(sent = false, retry = true, error = "Could not send (${response.code()})")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Failed to send message id=${entity.id}", e)
+            chatDao.updateMessageStatus(key, MessageStatus.PENDING)
+            PendingPost(sent = false, retry = true, error = e.message ?: "Could not send")
         }
     }
 

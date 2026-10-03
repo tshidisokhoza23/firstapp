@@ -170,8 +170,10 @@ object NetworkModule {
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            // Photos and voice notes are multipart uploads. 15s dropped them
+            // before the server stored the file.
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
             .pingInterval(30, TimeUnit.SECONDS)
             .build()
     }
