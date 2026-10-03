@@ -145,6 +145,23 @@ class GroupRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun updateDescription(groupId: String, description: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        val trimmed = description.trim()
+        if (trimmed.isEmpty()) {
+            emit(Resource.Error("Description is required"))
+            return@flow
+        }
+        try {
+            val response = chatApi.updateGroupDescription(groupId, com.tpsk.tj.chat.data.api.GroupDescriptionRequest(trimmed))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error("Description was not saved"))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Description was not saved"))
+        }
+    }
+
     private suspend fun persistGroupInfo(requestedId: String, info: GroupInfoResponse) {
         val name = info.title?.takeIf { it.isNotBlank() } ?: info.name?.takeIf { it.isNotBlank() } ?: return
         rememberGroupName(requestedId, name, info.avatar_url, info.conversation_id, info.created_by)

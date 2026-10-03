@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,6 +33,7 @@ fun DevicesScreen(
     viewModel: DevicesViewModel = hiltViewModel()
 ) {
     val sessions by viewModel.sessions.collectAsState()
+    val note by viewModel.note.collectAsState()
 
     Scaffold(
         topBar = {
@@ -83,7 +83,7 @@ fun DevicesScreen(
             if (currentSession != null) {
                 Text("This Device", color = AppAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
                 DeviceItem(
-                    icon = if (currentSession.deviceName.contains("PC")) Icons.Default.Computer else Icons.Default.Smartphone,
+                    icon = Icons.Default.Smartphone,
                     name = currentSession.deviceName,
                     details = "${currentSession.location}",
                     status = currentSession.lastActive,
@@ -97,7 +97,7 @@ fun DevicesScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { otherSessions.forEach { viewModel.terminateSession(it.id) } }
+                        .clickable { viewModel.revokeOthers() }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -112,7 +112,7 @@ fun DevicesScreen(
                 
                 otherSessions.forEach { session ->
                     DeviceItem(
-                        icon = if (session.deviceName.contains("PC")) Icons.Default.Computer else Icons.Default.Smartphone,
+                        icon = Icons.Default.Smartphone,
                         name = session.deviceName,
                         details = "${session.location}",
                         status = session.lastActive,
@@ -121,6 +121,9 @@ fun DevicesScreen(
                 }
             }
 
+            if (note.isNotEmpty()) {
+                Text(note, color = AppTextSecondary, fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+            }
             Spacer(modifier = Modifier.height(100.dp))
         }
     }

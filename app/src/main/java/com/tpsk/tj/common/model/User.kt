@@ -20,6 +20,7 @@ data class User(
     @SerializedName("missing_fields") val missingFields: List<String>? = emptyList(),
 
     @SerializedName("followers_count") val followersCount: Int = 0,
+    @SerializedName("profile_views") val profileViews: Int? = null,
     @SerializedName("following_count") val followingCount: Int = 0,
     @SerializedName("is_following") val isFollowing: Boolean = false,
     

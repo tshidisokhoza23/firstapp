@@ -144,6 +144,27 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
+    fun saveDescription(groupId: String, text: String) {
+        viewModelScope.launch {
+            repository.updateDescription(groupId, text).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        _toast.value = "Description saved"
+                        fetchGroupInfo(groupId)
+                    }
+                    is Resource.Error -> {
+                        chatRepository.sendMessage(groupId, text).collect { sent ->
+                            if (sent is Resource.Success || sent is Resource.Error) {
+                                _toast.value = "Description posted in the group. The server did not save it on the group yet."
+                            }
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        }
+    }
+
     fun rename(groupId: String, name: String) {
         viewModelScope.launch {
             repository.renameGroup(groupId, name).collect { res ->

@@ -284,6 +284,16 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
                         onRemoveAdmin = { userId -> viewModel.removeAdmin(channel.id, userId) },
                         onToggleAdminPosting = { viewModel.toggleAdminPosting(channelId, it) },
                         onReportChannel = { id, reason -> chatViewModel.reportUser(id, reason) },
+                        onShareStatus = {
+                            viewModel.shareToStatus(channel.name) { ok ->
+                                Toast.makeText(
+                                    context,
+                                    if (ok) "Shared to your status" else "Status was not posted",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        onSaveDescription = { text -> viewModel.saveDescription(channel.id, text) },
                         onOpenDiscussion = {
                             Toast.makeText(context, "Channels use posts, not a 1:1 chat.", Toast.LENGTH_SHORT).show()
                         }
@@ -793,7 +803,16 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onSharedMedia = { navController.navigate(Screen.SharedMedia.createRoute(groupId)) },
             onMediaClick = { url, type ->
                 navController.navigate(Screen.MediaViewer.createRoute(url, type))
-            }
+            },
+            onReport = { reason ->
+                val owner = groupInfo.data?.created_by?.takeIf { it.isNotBlank() } ?: chat.createdBy
+                if (owner.isNullOrBlank()) {
+                    Toast.makeText(context, "The group owner was not returned", Toast.LENGTH_SHORT).show()
+                } else {
+                    chatViewModel.reportUser(owner, reason)
+                }
+            },
+            onSaveDescription = { text -> viewModel.saveDescription(groupId, text) }
         )
     }
 

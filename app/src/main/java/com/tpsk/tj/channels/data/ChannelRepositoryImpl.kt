@@ -2,6 +2,7 @@ package com.tpsk.tj.channels.data
 
 import android.util.Log
 import com.tpsk.tj.channels.data.api.ChannelApi
+import com.tpsk.tj.channels.data.api.DescriptionRequest
 import com.tpsk.tj.channels.domain.ChannelRepository
 import com.tpsk.tj.chat.data.local.dao.ChannelDao
 import com.tpsk.tj.chat.data.local.dao.ChatDao
@@ -237,6 +238,18 @@ class ChannelRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             emit(Resource.Error(e.message ?: "Offline"))
+        }
+    }
+
+    override fun updateDescription(channelId: String, description: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = channelApi.updateDescription(channelId, DescriptionRequest(description))
+            if (response.isSuccessful) emit(Resource.Success(true))
+            else emit(Resource.Error(response.errorBody()?.string() ?: "Description was not saved"))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: "Description was not saved"))
         }
     }
 

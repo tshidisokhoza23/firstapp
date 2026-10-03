@@ -6,5 +6,7 @@ data class PrivacySettings(
     val show_read_receipts: Boolean = true,
     val who_can_add_to_groups: String = "everyone",
     val who_can_see_stories: String = "my_contacts",
-    val excluded_story_user_ids: List<String> = emptyList()
+    val excluded_story_user_ids: List<String> = emptyList(),
+    val who_can_see_phone: String? = null,
+    val who_can_see_photo: String? = null
 )

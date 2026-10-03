@@ -42,6 +42,7 @@ fun PrivacySettingsScreen(
     
     var showLastSeenDialog by remember { mutableStateOf(false) }
     var showPhoneNumberDialog by remember { mutableStateOf(false) }
+    var showPhotoDialog by remember { mutableStateOf(false) }
     var showStoriesPrivacyDialog by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
 
@@ -90,14 +91,41 @@ fun PrivacySettingsScreen(
     }
 
     if (showPhoneNumberDialog) {
-        AlertDialog(
-            onDismissRequest = { showPhoneNumberDialog = false },
-            title = { Text("Phone number") },
-            text = { Text("Your phone number is used to sign in. Who can see it cannot be changed yet.") },
-            confirmButton = {
-                TextButton(onClick = { showPhoneNumberDialog = false }) { Text("OK") }
-            }
-        )
+        val phoneAudience = settings.who_can_see_phone
+        if (phoneAudience == null) {
+            AlertDialog(
+                onDismissRequest = { showPhoneNumberDialog = false },
+                title = { Text("Phone number") },
+                text = { Text("Your phone number is used to sign in. Who can see it cannot be changed yet.") },
+                confirmButton = {
+                    TextButton(onClick = { showPhoneNumberDialog = false }) { Text("OK") }
+                }
+            )
+        } else {
+            PrivacyOptionDialog(
+                title = "Who can see my phone number",
+                currentOption = phoneAudience,
+                onOptionSelected = {
+                    viewModel.updateSettings(settings.copy(who_can_see_phone = it))
+                    showPhoneNumberDialog = false
+                },
+                onDismiss = { showPhoneNumberDialog = false }
+            )
+        }
+    }
+    if (showPhotoDialog) {
+        val photoAudience = settings.who_can_see_photo
+        if (photoAudience != null) {
+            PrivacyOptionDialog(
+                title = "Who can see my profile photo",
+                currentOption = photoAudience,
+                onOptionSelected = {
+                    viewModel.updateSettings(settings.copy(who_can_see_photo = it))
+                    showPhotoDialog = false
+                },
+                onDismiss = { showPhotoDialog = false }
+            )
+        }
     }
 
     Scaffold(
@@ -136,7 +164,11 @@ fun PrivacySettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     PrivacyItemUnique(title = "Blocked Users", subtitle = "Manage blocked accounts", onClick = onNavigateToBlockedUsers)
-                    PrivacyItemUnique(title = "Phone Number", subtitle = "Used to sign in", onClick = { showPhoneNumberDialog = true })
+                    PrivacyItemUnique(
+                        title = "Phone Number",
+                        subtitle = settings.who_can_see_phone?.replace("_", " ")?.replaceFirstChar { it.uppercase() } ?: "Used to sign in",
+                        onClick = { showPhoneNumberDialog = true }
+                    )
                     PrivacyItemUnique(title = "Last Seen & Online", subtitle = settings.show_last_seen.replace("_", " ").replaceFirstChar { it.uppercase() }, onClick = { showLastSeenDialog = true })
                     PrivacyItemUnique(
                         title = "Stories",
@@ -148,9 +180,13 @@ fun PrivacySettingsScreen(
                     )
                     PrivacyItemUnique(
                         title = "Profile Photos",
-                        subtitle = "Shown on your profile",
+                        subtitle = settings.who_can_see_photo?.replace("_", " ")?.replaceFirstChar { it.uppercase() } ?: "Shown on your profile",
                         onClick = {
-                            android.widget.Toast.makeText(context, "Profile photo audience cannot be changed yet", android.widget.Toast.LENGTH_SHORT).show()
+                            if (settings.who_can_see_photo == null) {
+                                android.widget.Toast.makeText(context, "Profile photo audience cannot be changed yet", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                showPhotoDialog = true
+                            }
                         }
                     )
                 }

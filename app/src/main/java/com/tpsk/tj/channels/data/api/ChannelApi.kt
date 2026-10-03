@@ -33,6 +33,12 @@ interface ChannelApi {
     @POST("chats/channels")
     suspend fun createChannel(@Body request: CreateChannelRequest): Response<ApiChannel>
 
+    @PATCH("chats/channels/{channelId}/description")
+    suspend fun updateDescription(
+        @Path("channelId") channelId: String,
+        @Body request: DescriptionRequest
+    ): Response<StatusResponse>
+
     @PATCH("chats/channels/{channelId}/avatar")
     suspend fun updateChannelAvatar(
         @Path("channelId") channelId: String,
@@ -57,3 +63,5 @@ interface ChannelApi {
     @HTTP(method = "DELETE", path = "chats/channels/{channelId}/admins", hasBody = true)
     suspend fun removeChannelAdmin(@Path("channelId") channelId: String, @Body request: UserIdRequest): Response<StatusResponse>
 }
+
+data class DescriptionRequest(val description: String)

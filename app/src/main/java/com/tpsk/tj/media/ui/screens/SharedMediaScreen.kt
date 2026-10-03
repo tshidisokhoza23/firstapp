@@ -45,7 +45,7 @@ fun SharedMediaScreen(
     }
 
     val mediaMessagesResource by viewModel.mediaMessages.collectAsState()
-    val mediaMessages = mediaMessagesResource.data ?: emptyList()
+    val mediaMessages = if (chat.mediaVisibility) mediaMessagesResource.data ?: emptyList() else emptyList()
 
     var fullScreenVideoUri by remember { mutableStateOf<String?>(null) }
     var fullScreenImageUri by remember { mutableStateOf<String?>(null) }
@@ -71,7 +71,10 @@ fun SharedMediaScreen(
     ) { padding ->
         if (mediaMessages.isEmpty()) {
             Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No shared media found", color = AppTextSecondary)
+                Text(
+                    if (chat.mediaVisibility) "No shared media found" else "Media is hidden for this chat on this phone",
+                    color = AppTextSecondary
+                )
             }
         } else {
             LazyVerticalGrid(

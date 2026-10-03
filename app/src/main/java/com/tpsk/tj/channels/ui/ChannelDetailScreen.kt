@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -109,7 +110,9 @@ fun ChannelDetailScreen(
     onRemoveAdmin: (String) -> Unit = {},
     onToggleAdminPosting: (Boolean) -> Unit = {},
     onOpenDiscussion: () -> Unit = {},
-    onReportChannel: (String, String) -> Unit = { _, _ -> }
+    onReportChannel: (String, String) -> Unit = { _, _ -> },
+    onShareStatus: () -> Unit = {},
+    onSaveDescription: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
@@ -117,6 +120,31 @@ fun ChannelDetailScreen(
     var showAddAdmin by remember { mutableStateOf(false) }
     var showUnfollowConfirm by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
+    var showDescriptionDialog by remember { mutableStateOf(false) }
+    var descriptionDraft by remember { mutableStateOf("") }
+    if (showDescriptionDialog) {
+        AlertDialog(
+            onDismissRequest = { showDescriptionDialog = false },
+            title = { Text("Add description") },
+            text = {
+                OutlinedTextField(
+                    value = descriptionDraft,
+                    onValueChange = { descriptionDraft = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val text = descriptionDraft.trim()
+                    if (text.isNotEmpty()) onSaveDescription(text)
+                    showDescriptionDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                Button(onClick = { showDescriptionDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
     var postText by remember { mutableStateOf("") }
     var showAttachments by remember { mutableStateOf(false) }
 
@@ -617,7 +645,7 @@ fun ChannelDetailScreen(
 
                                 Row(
                                     modifier = Modifier
-                                        .clickable { showInfo = true }
+                                        .clickable { descriptionDraft = channel.description; showDescriptionDialog = true }
                                         .padding(vertical = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -633,7 +661,7 @@ fun ChannelDetailScreen(
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(24.dp))
                                         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
-                                        .clickable { },
+                                        .clickable { onShareStatus() },
                                     color = Color.Transparent
                                 ) {
                                     Row(

@@ -6,6 +6,7 @@ import com.tpsk.tj.common.util.Resource
 import com.tpsk.tj.chat.model.Channel
 import com.tpsk.tj.chat.model.Message
 import com.tpsk.tj.channels.domain.ChannelRepository
+import com.tpsk.tj.stories.domain.StoryRepository
 import com.tpsk.tj.common.domain.auth.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,8 @@ class ChannelDetailViewModel @Inject constructor(
     private val repository: ChannelRepository,
     private val chatRepository: com.tpsk.tj.domain.repository.ChatRepository,
     private val sessionManager: SessionManager,
-    private val accountRepository: com.tpsk.tj.account.domain.repository.AccountRepository
+    private val accountRepository: com.tpsk.tj.account.domain.repository.AccountRepository,
+    private val storyRepository: StoryRepository
 ) : ViewModel() {
 
     val currentUserId: String? get() = sessionManager.getUserId()
@@ -237,5 +239,35 @@ class ChannelDetailViewModel @Inject constructor(
 
     fun createPost(channelId: String, content: String, mediaUrls: List<String>) {
         sendMessage(channelId, content, mediaUrls, if (mediaUrls.isNotEmpty()) "image" else "text")
+    }
+
+    fun shareToStatus(name: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            storyRepository.createStory(
+                content = "Check out $name channel on FirstApp!",
+                type = "text",
+                privacy = "contacts"
+            ).collect { res ->
+                if (res is Resource.Success) onDone(true)
+                if (res is Resource.Error) onDone(false)
+            }
+        }
+    }
+
+    fun saveDescription(channelId: String, text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            repository.updateDescription(channelId, trimmed).collect { res ->
+                when (res) {
+                    is Resource.Success -> _toast.value = "Description saved"
+                    is Resource.Error -> {
+                        sendMessage(channelId, trimmed, emptyList(), "text")
+                        _toast.value = "Description posted to the channel. The server did not save it on the channel yet."
+                    }
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 }

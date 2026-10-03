@@ -13,6 +13,7 @@ interface ChannelRepository {
     fun createChannel(name: String, description: String, avatarUrl: String? = null): Flow<Resource<Channel>>
     fun getChannel(channelId: String): Flow<Resource<Channel>>
     fun updateChannelAvatar(channelId: String, avatarUrl: String): Flow<Resource<Boolean>>
+    fun updateDescription(channelId: String, description: String): Flow<Resource<Boolean>>
     fun searchChannels(query: String): Flow<List<Channel>>
     fun addAdmin(channelId: String, userId: String): Flow<Resource<Boolean>>
     fun removeAdmin(channelId: String, userId: String): Flow<Resource<Boolean>>

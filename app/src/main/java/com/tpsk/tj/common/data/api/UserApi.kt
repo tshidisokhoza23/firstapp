@@ -56,6 +56,15 @@ interface UserApi {
     @GET("users/blocked")
     suspend fun getBlockedUsers(): Response<BlockedUsersResponse>
 
+    @GET("users/me/sessions")
+    suspend fun listSessions(): Response<SessionsResponse>
+
+    @POST("users/me/sessions/revoke-others")
+    suspend fun revokeOtherSessions(@Body request: RefreshTokenRequest): Response<StatusResponse>
+
+    @DELETE("users/me/sessions/{sessionId}")
+    suspend fun revokeSession(@Path("sessionId") sessionId: String): Response<StatusResponse>
+
     @GET("users/privacy")
     suspend fun getPrivacySettings(): Response<PrivacySettings>
 
@@ -133,6 +142,8 @@ data class UpdateUserRequest(
 
 data class GoogleSignInRequest(val id_token: String)
 data class RefreshTokenRequest(val refresh_token: String)
+data class SessionRow(val id: String = "", val created_at: Long = 0, val expires_at: Long = 0)
+data class SessionsResponse(val sessions: List<SessionRow> = emptyList())
 data class CompleteProfileRequest(
     val display_name: String? = null,
     val username: String? = null,

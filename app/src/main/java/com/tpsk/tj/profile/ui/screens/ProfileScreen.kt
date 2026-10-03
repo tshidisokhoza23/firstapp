@@ -341,9 +341,11 @@ fun ProfileView(
                                 Spacer(Modifier.width(4.dp))
                                 Text("Following", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                             }
-                            Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
-                            Text("0", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text("Views", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            if (user?.profileViews != null) {
+                                Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
+                                Text("${user.profileViews}", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("Views", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            }
 
                             if (user?.location != null && user.location!!.isNotEmpty()) {
                                 Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))

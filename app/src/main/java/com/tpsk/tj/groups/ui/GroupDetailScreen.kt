@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -106,7 +107,9 @@ fun GroupDetailScreen(
     onRename: (String) -> Unit = {},
     onChangeAvatar: (Uri) -> Unit = {},
     onSharedMedia: () -> Unit,
-    onMediaClick: (String, String) -> Unit
+    onMediaClick: (String, String) -> Unit,
+    onReport: (String) -> Unit = {},
+    onSaveDescription: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -125,6 +128,10 @@ fun GroupDetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var renameText by remember(groupName) { mutableStateOf(groupName) }
+    var showReport by remember { mutableStateOf(false) }
+    var showDescription by remember { mutableStateOf(false) }
+    var descriptionText by remember(info?.description) { mutableStateOf(info?.description.orEmpty()) }
+    val visibleMedia = if (chat.mediaVisibility) sharedMedia else emptyList()
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) onChangeAvatar(uri)
     }
@@ -293,16 +300,16 @@ fun GroupDetailScreen(
             item {
                 ListItem(
                     headlineContent = { Text("Media, links, and docs") },
-                    trailingContent = { Text("${sharedMedia.size}", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    modifier = Modifier.clickable(onClick = onSharedMedia),
+                    trailingContent = { Text("${visibleMedia.size}", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    modifier = Modifier.clickable(enabled = chat.mediaVisibility, onClick = onSharedMedia),
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
-                if (sharedMedia.isNotEmpty()) {
+                if (visibleMedia.isNotEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        sharedMedia.take(4).forEach { message ->
+                        visibleMedia.take(4).forEach { message ->
                             val url = message.mediaUrls.firstOrNull().orEmpty()
                             Box(
                                 modifier = Modifier
@@ -431,9 +438,18 @@ fun GroupDetailScreen(
                     modifier = Modifier.clickable { showLeaveConfirm = true },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
+                if (isAdmin) {
+                    ListItem(
+                        headlineContent = { Text("Add description") },
+                        leadingContent = { Icon(Icons.Default.Edit, null, tint = AppAccent) },
+                        modifier = Modifier.clickable { showDescription = true },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
                 ListItem(
                     headlineContent = { Text("Report group", color = Color.Red) },
                     leadingContent = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
+                    modifier = Modifier.clickable { showReport = true },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
             }
@@ -500,6 +516,42 @@ fun GroupDetailScreen(
         )
     }
 
+    if (showDescription) {
+        AlertDialog(
+            onDismissRequest = { showDescription = false },
+            title = { Text("Add description") },
+            text = {
+                OutlinedTextField(
+                    value = descriptionText,
+                    onValueChange = { descriptionText = it.take(500) },
+                    placeholder = { Text("Group description") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val next = descriptionText.trim()
+                    if (next.isNotEmpty()) onSaveDescription(next)
+                    showDescription = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showDescription = false }) { Text("Cancel") } }
+        )
+    }
+    if (showReport) {
+        AlertDialog(
+            onDismissRequest = { showReport = false },
+            title = { Text("Report group") },
+            text = {
+                Column {
+                    listOf("Spam", "Harassment", "Inappropriate content").forEach { reason ->
+                        TextButton(onClick = { showReport = false; onReport(reason) }) { Text(reason) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showReport = false }) { Text("Cancel") } }
+        )
+    }
     if (showLeaveConfirm) {
         AlertDialog(
             onDismissRequest = { showLeaveConfirm = false },

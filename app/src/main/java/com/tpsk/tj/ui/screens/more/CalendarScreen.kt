@@ -25,18 +25,26 @@ import com.tpsk.tj.common.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import com.tpsk.tj.common.ui.viewmodel.CalendarViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(onBack: () -> Unit, viewModel: CalendarViewModel = hiltViewModel()) {
     var currentMonth by remember { mutableStateOf(Calendar.getInstance()) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("tj_local_events", Context.MODE_PRIVATE) }
+    var events by remember { mutableStateOf(loadLocalEvents(prefs)) }
+    var showAdd by remember { mutableStateOf(false) }
+    var draftTitle by remember { mutableStateOf("") }
+    var draftTime by remember { mutableStateOf("") }
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Calendar", color = AppTextPrimary, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
+                navigationIcon = {showAdd = true
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AppTextPrimary)
                     }
@@ -74,11 +82,15 @@ fun CalendarScreen(onBack: () -> Unit, viewModel: CalendarViewModel = hiltViewMo
                 modifier = Modifier.padding(16.dp)
             )
 
-            val events = listOf(
-                CalendarEvent("Team Sync", "10:00 AM", "Office", Color(0xFF2196F3)),
-                CalendarEvent("Client Call", "1:30 PM", "Zoom", Color(0xFF4CAF50)),
-                CalendarEvent("Design Review", "4:00 PM", "Meeting Room B", Color(0xFFFF9800))
+            Text(
+                "Events on this phone only. There is no shared calendar service.",
+                color = AppTextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
+            if (events.isEmpty()) {
+                Text("No events on this phone.", color = AppTextSecondary, modifier = Modifier.padding(16.dp))
+            }
 
             LazyColumn {
                 items(events) { event ->
@@ -87,6 +99,32 @@ fun CalendarScreen(onBack: () -> Unit, viewModel: CalendarViewModel = hiltViewMo
                 }
             }
         }
+    }
+    if (showAdd) {
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            title = { Text("Add event") },
+            text = {
+                Column {
+                    OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Title") })
+                    OutlinedTextField(value = draftTime, onValueChange = { draftTime = it }, label = { Text("Time") })
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val title = draftTitle.trim()
+                    if (title.isNotEmpty()) {
+                        val next = events + CalendarEvent(title, draftTime.trim().ifBlank { "Time not set" }, "This phone", AppAccent)
+                        saveLocalEvents(prefs, next)
+                        events = next
+                        draftTitle = ""
+                        draftTime = ""
+                    }
+                    showAdd = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } }
+        )
     }
 }
 
@@ -202,3 +240,15 @@ fun EventItem(event: CalendarEvent) {
 }
 
 data class CalendarEvent(val title: String, val time: String, val location: String, val color: Color)
+
+private fun loadLocalEvents(prefs: android.content.SharedPreferences): List<CalendarEvent> {
+    return prefs.getString("events", "").orEmpty().lineSequence().mapNotNull { line ->
+        val parts = line.split("\u001f")
+        if (parts.size < 2 || parts[0].isBlank()) null
+        else CalendarEvent(parts[0], parts[1], "This phone", Color(0xFF2196F3))
+    }.toList()
+}
+
+private fun saveLocalEvents(prefs: android.content.SharedPreferences, events: List<CalendarEvent>) {
+    prefs.edit().putString("events", events.joinToString("\n") { "${it.title}\u001f${it.time}" }).apply()
+}
