@@ -9,6 +9,8 @@ struct SecuritySettingsForm: View {
     @State private var pin = ""
     @State private var message = ""
     @State private var showPhone = false
+    @State private var phoneAudience: String?
+    @State private var photoAudience: String?
     @State private var ready = false
     @State private var loadedLastSeen = "everyone"
     @State private var loadedOnline = "everyone"
@@ -44,7 +46,28 @@ struct SecuritySettingsForm: View {
             Toggle("Read receipts", isOn: $readReceipts)
                 .onChange(of: readReceipts) { _ in Task { await saveIfReady() } }
             Section("Phone number") {
-                Button("Your phone number") { showPhone = true }
+                if let phoneAudience {
+                    Picker("Who can see your phone number", selection: Binding(get: { phoneAudience }, set: { self.phoneAudience = $0; Task { await save() } })) {
+                        Text("Everyone").tag("everyone")
+                        Text("My contacts").tag("my_contacts")
+                        Text("Nobody").tag("nobody")
+                    }
+                } else {
+                    Button("Your phone number") { showPhone = true }
+                }
+            }
+            if let photoAudience {
+                Section("Profile photo") {
+                    Picker("Who can see your profile photo", selection: Binding(get: { photoAudience }, set: { self.photoAudience = $0; Task { await save() } })) {
+                        Text("Everyone").tag("everyone")
+                        Text("My contacts").tag("my_contacts")
+                        Text("Nobody").tag("nobody")
+                    }
+                }
+            } else {
+                Text("Profile photo audience cannot be changed yet.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             Section("Passcode lock") {
                 SecureField("4-digit PIN", text: $pin)
@@ -77,9 +100,6 @@ struct SecuritySettingsForm: View {
                     }
                 }
             }
-            Text("Profile photo audience cannot be changed yet.")
-                .font(.caption)
-                .foregroundColor(.secondary)
             if !message.isEmpty {
                 Text(message).font(.caption).foregroundColor(.secondary)
             }
@@ -104,6 +124,10 @@ struct SecuritySettingsForm: View {
             let story = LiveJSON.string(json["who_can_see_stories"])
             if story == "my_contacts" || story == "my_contacts_except" { stories = story }
             if json["show_read_receipts"] != nil { readReceipts = LiveJSON.bool(json["show_read_receipts"]) }
+            let phone = LiveJSON.string(json["who_can_see_phone"])
+            phoneAudience = phone.isEmpty ? nil : phone
+            let photo = LiveJSON.string(json["who_can_see_photo"])
+            photoAudience = photo.isEmpty ? nil : photo
         }
         loadedLastSeen = lastSeen
         loadedOnline = online
@@ -125,13 +149,16 @@ struct SecuritySettingsForm: View {
     }
 
     private func save() async {
+        var body: [String: Any] = [
+            "show_last_seen": lastSeen,
+            "show_online_status": online,
+            "show_read_receipts": readReceipts,
+            "who_can_see_stories": stories
+        ]
+        if let phoneAudience { body["who_can_see_phone"] = phoneAudience }
+        if let photoAudience { body["who_can_see_photo"] = photoAudience }
         do {
-            _ = try await API.data("users/privacy", method: "PUT", json: [
-                "show_last_seen": lastSeen,
-                "show_online_status": online,
-                "show_read_receipts": readReceipts,
-                "who_can_see_stories": stories
-            ])
+            _ = try await API.data("users/privacy", method: "PUT", json: body)
             message = "Saved"
         } catch {
             message = error.localizedDescription

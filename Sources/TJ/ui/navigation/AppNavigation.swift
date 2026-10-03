@@ -271,6 +271,7 @@ struct SettingsSubDetailView: View {
     @State private var showOnline = true
     @State private var notificationsOn = UserDefaults.standard.bool(forKey: "tj_notifications_on")
     @State private var blocked: [(id: String, name: String)] = []
+    @State private var sessions: [(id: String, created: String)] = []
 
     var body: some View {
         Form {
@@ -302,9 +303,20 @@ struct SettingsSubDetailView: View {
                 }
             case "Sessions":
                 Text("This phone")
-                Text("No other sessions were returned.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                if sessions.isEmpty {
+                    Text("No other sessions were returned.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(sessions, id: \.id) { session in
+                        HStack {
+                            Text("Signed in \(session.created)")
+                            Spacer()
+                            Button("Sign out") { Task { await revoke(session.id) } }
+                        }
+                    }
+                    Button("Sign out other phones") { Task { await revokeOthers() } }
+                }
             case "Account", "Account Settings":
                 if let name = SessionStore.shared.user?.displayName, !name.isEmpty { Text(name) }
                 if let phone = SessionStore.shared.user?.phoneNumber, !phone.isEmpty { Text(phone) }
@@ -331,6 +343,48 @@ struct SettingsSubDetailView: View {
         .task {
             await loadPrivacy()
             if title == "Security" || title == "Privacy & Security" { await loadBlocked() }
+            if title == "Sessions" { await loadSessions() }
+        }
+    }
+
+    private func loadSessions() async {
+        guard let data = try? await API.data("users/me/sessions") else { return }
+        let rows = LiveJSON.list(data, keys: ["sessions"])
+        sessions = rows.compactMap { row in
+            let id = LiveJSON.string(row["id"])
+            guard !id.isEmpty else { return nil }
+            let millis = LiveJSON.int64(row["created_at"])
+            let created: String
+            if millis > 0 {
+                let date = Date(timeIntervalSince1970: TimeInterval(millis) / 1000)
+                created = DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .short)
+            } else {
+                created = "at an unknown time"
+            }
+            return (id, created)
+        }
+    }
+
+    private func revoke(_ id: String) async {
+        do {
+            _ = try await API.data("users/me/sessions/\(id)", method: "DELETE")
+            await loadSessions()
+        } catch {
+            note = "Could not sign out that session"
+        }
+    }
+
+    private func revokeOthers() async {
+        guard let token = SessionStore.shared.refreshToken, !token.isEmpty else {
+            note = "This phone has no refresh token to keep"
+            return
+        }
+        do {
+            _ = try await API.data("users/me/sessions/revoke-others", method: "POST", json: ["refresh_token": token])
+            await loadSessions()
+            note = "Other phones were signed out"
+        } catch {
+            note = "Could not sign out other phones"
         }
     }
 

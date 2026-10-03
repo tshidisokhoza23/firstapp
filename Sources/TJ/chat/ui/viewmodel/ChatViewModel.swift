@@ -295,7 +295,7 @@ public class ChatViewModel: ObservableObject {
                 }
             }
             merged.sort { $0.timestamp < $1.timestamp }
-            uiState.messages = .success(merged)
+            uiState.messages = .success(ChatExpiry.dropExpired(merged, chatId: chatId))
         } catch {
             uiState.error = "Could not load messages"
             if uiState.messages.data == nil {

@@ -81,6 +81,9 @@ struct GroupInfoScreen: View {
     @State private var memberAction: InfoPerson?
     @State private var openedMedia: String?
     @State private var avatarItem: PhotosPickerItem?
+    @State private var showReport = false
+    @State private var showDescription = false
+    @State private var descriptionDraft = ""
 
     private var mine: String { SessionStore.shared.userId ?? "" }
     private var isAdmin: Bool { people.contains { $0.id == mine && ($0.isAdmin || $0.isCreator) } || createdBy == mine }
@@ -124,6 +127,9 @@ struct GroupInfoScreen: View {
                         }
                         .disabled(!isAdmin)
                         if isAdmin {
+                            Button("Add description") { descriptionDraft = details; showDescription = true }
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(hex: "00A884"))
                             Text("Tap the name to rename")
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
@@ -240,13 +246,21 @@ struct GroupInfoScreen: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                     }
-                    HStack(spacing: 16) {
-                        Image(systemName: "trash").foregroundColor(.red)
-                        Text("Report group").foregroundColor(.red)
-                        Spacer()
+                    Button { showReport = true } label: {
+                        HStack(spacing: 16) {
+                            Image(systemName: "trash").foregroundColor(.red)
+                            Text("Report group").foregroundColor(.red)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 28)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 28)
+                    .confirmationDialog("Report group", isPresented: $showReport, titleVisibility: .visible) {
+                        Button("Spam") { Task { await reportGroup("Spam") } }
+                        Button("Harassment") { Task { await reportGroup("Harassment") } }
+                        Button("Inappropriate content") { Task { await reportGroup("Inappropriate content") } }
+                        Button("Cancel", role: .cancel) {}
+                    }
                 }
             }
             .navigationTitle("Group info")
@@ -267,6 +281,7 @@ struct GroupInfoScreen: View {
                             Image(systemName: "ellipsis")
                         }
                     }
+        .sheet(isPresented: $showDescription) { descriptionSheet }
                 }
             }
         }
@@ -407,6 +422,18 @@ struct GroupInfoScreen: View {
         }
     }
 
+    private var descriptionSheet: some View {
+        NavigationStack {
+            Form {
+                TextField("Description", text: $descriptionDraft, axis: .vertical)
+                Button("Save") { Task { await saveDescription() } }
+                    .disabled(descriptionDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .navigationTitle("Group description")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showDescription = false } } }
+        }
+    }
+
     private var renameSheet: some View {
         NavigationStack {
             Form {
@@ -452,6 +479,7 @@ struct GroupInfoScreen: View {
     }
 
     private func loadMedia(_ id: String) async -> [InfoMedia] {
+        guard ChatExpiry.mediaVisible(id) else { return [] }
         guard let data = try? await API.data("conversations/\(id)/messages") else { return [] }
         return LiveJSON.list(data, keys: ["messages"]).compactMap { row in
             let type = LiveJSON.string(row["media_type"]).lowercased()
@@ -460,9 +488,45 @@ struct GroupInfoScreen: View {
                 url = urls.compactMap { $0 as? String }.first ?? ""
             }
             guard !url.isEmpty, !type.isEmpty, type != "text" else { return nil }
-            let id = LiveJSON.string(row["message_id"])
+            let messageId = LiveJSON.string(row["message_id"])
             let file = LiveJSON.string(row["file_name"])
-            return InfoMedia(id: id.isEmpty ? url : id, title: file.isEmpty ? type.replacingOccurrences(of: "_", with: " ") : file, url: url, kind: type)
+            return InfoMedia(id: messageId.isEmpty ? url : messageId, title: file.isEmpty ? type.replacingOccurrences(of: "_", with: " ") : file, url: url, kind: type)
+        }
+    }
+
+    private func reportGroup(_ reason: String) async {
+        guard !createdBy.isEmpty else {
+            note = "The group owner was not returned"
+            return
+        }
+        do {
+            _ = try await API.data("users/\(createdBy)/report", method: "POST", json: ["reason": reason])
+            note = "Report sent"
+        } catch {
+            note = error.localizedDescription
+        }
+    }
+
+    private func saveDescription() async {
+        let text = descriptionDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        do {
+            _ = try await API.data("chats/groups/\(target())/description", method: "PATCH", json: ["description": text])
+            details = text
+            showDescription = false
+            note = "Description saved"
+        } catch {
+            do {
+                _ = try await API.data("conversations/\(conversationId)/messages", method: "POST", json: [
+                    "client_uuid": UUID().uuidString,
+                    "message_text": text,
+                    "media_type": "TEXT"
+                ])
+                showDescription = false
+                note = "Description posted to the group. The server did not save it on the group yet."
+            } catch {
+                note = error.localizedDescription
+            }
         }
     }
 
@@ -964,6 +1028,10 @@ struct DirectChatInfoScreen: View {
             let rows = LiveJSON.list(blockedData, keys: ["users", "blocked"])
             blocked = rows.contains { LiveJSON.string($0["id"]) == userId }
         }
+        guard ChatExpiry.mediaVisible(chat.id) else {
+            media = []
+            return
+        }
         guard let data = try? await API.data("conversations/\(chat.id)/messages") else { return }
         media = LiveJSON.list(data, keys: ["messages"]).compactMap { row in
             let type = LiveJSON.string(row["media_type"]).lowercased()
@@ -1130,8 +1198,10 @@ struct ChannelChatInfoScreen: View {
             }
         }
         .alert("Channel", isPresented: Binding(get: { !note.isEmpty }, set: { if !$0 { note = "" } })) {
-            Button("OK", role: .cancel) { note = "" }
-        } message: { Text(note) }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(note)
+        }
     }
 
     private func load() async {
@@ -1177,13 +1247,20 @@ struct ChannelChatInfoScreen: View {
         let text = descriptionDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         do {
+            _ = try await API.data("chats/channels/\(conversationId)/description", method: "PATCH", json: ["description": text])
+            details = text
+            showDescription = false
+            note = "Description saved"
+            return
+        } catch {}
+        do {
             _ = try await API.data("conversations/\(conversationId)/messages", method: "POST", json: [
                 "client_uuid": UUID().uuidString,
                 "message_text": text,
                 "media_type": "TEXT"
             ])
             showDescription = false
-            note = "Description posted to the channel"
+            note = "Description posted to the channel. The server did not save it on the channel yet."
         } catch { note = error.localizedDescription }
     }
 }

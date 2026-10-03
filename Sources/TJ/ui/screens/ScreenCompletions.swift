@@ -165,6 +165,7 @@ struct SharedFilesView: View {
             let conversationId = id.isEmpty ? LiveJSON.string(chat["id"]) : id
             let rawType = LiveJSON.string(chat["type"]).lowercased()
             if rawType.contains("mingle") || conversationId.hasPrefix("mingle_") { continue }
+            if !ChatExpiry.mediaVisible(conversationId) { continue }
             guard !conversationId.isEmpty,
                   let messages = try? await API.data("conversations/\(conversationId)/messages") else { continue }
             for row in LiveJSON.list(messages, keys: ["messages"]) {
@@ -203,6 +204,9 @@ struct OpenedMedia: Identifiable {
 
 struct MonthCalendarView: View {
     @State private var month = Date()
+    @State private var events: [LocalCalendarEvent] = LocalCalendarEvent.load()
+    @State private var showAdd = false
+    @State private var draft = ""
 
     var body: some View {
         VStack(spacing: 16) {
@@ -229,13 +233,49 @@ struct MonthCalendarView: View {
                 }
             }
             .padding(.horizontal)
-            Text("No events were returned.")
-                .foregroundColor(.secondary)
+            if events.isEmpty {
+                Text("No events on this phone.")
+                    .foregroundColor(.secondary)
+            } else {
+                List {
+                    ForEach(events) { event in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.title)
+                            Text(event.day).font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                    .onDelete { offsets in
+                        events.remove(atOffsets: offsets)
+                        LocalCalendarEvent.save(events)
+                    }
+                }
+            }
             Spacer()
         }
         .padding(.top)
         .navigationTitle("Calendar")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Add") { draft = ""; showAdd = true }
+            }
+        }
+        .alert("Add event", isPresented: $showAdd) {
+            TextField("What and when", text: $draft)
+            Button("Save") { addEvent() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This stays on this phone. There is no shared calendar service.")
+        }
+    }
+
+    private func addEvent() {
+        let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return }
+        let day = DateFormatter.localizedString(from: month, dateStyle: .medium, timeStyle: .none)
+        events.append(LocalCalendarEvent(id: UUID().uuidString, title: title, day: day))
+        LocalCalendarEvent.save(events)
+        draft = ""
     }
 
     private func shift(_ value: Int) {
@@ -251,6 +291,24 @@ struct MonthCalendarView: View {
         let parts = Calendar.current.dateComponents([.year, .month], from: month)
         let start = Calendar.current.date(from: parts) ?? month
         return Calendar.current.component(.weekday, from: start) - 1
+    }
+}
+
+struct LocalCalendarEvent: Identifiable, Codable {
+    let id: String
+    let title: String
+    let day: String
+
+    static func load() -> [LocalCalendarEvent] {
+        guard let data = UserDefaults.standard.data(forKey: "tj_local_events"),
+              let rows = try? JSONDecoder().decode([LocalCalendarEvent].self, from: data) else { return [] }
+        return rows
+    }
+
+    static func save(_ rows: [LocalCalendarEvent]) {
+        if let data = try? JSONEncoder().encode(rows) {
+            UserDefaults.standard.set(data, forKey: "tj_local_events")
+        }
     }
 }
 

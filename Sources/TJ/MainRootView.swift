@@ -32,6 +32,8 @@ public struct MainRootView: View {
     @State private var otpPhone: String? = nil
     @State private var selectedTab: Int = 0
     @State private var storyLaunch: StoryLaunch?
+    @State private var joinCode: String?
+    @State private var joinError = ""
 
     public init() {}
 
@@ -127,6 +129,17 @@ public struct MainRootView: View {
         .fullScreenCover(item: $storyLaunch) { launch in
             StoryRowPlayer(startUserId: launch.userId, startStoryId: launch.storyId, onClose: { storyLaunch = nil })
         }
+        .alert("Join group?", isPresented: Binding(get: { joinCode != nil }, set: { if !$0 { joinCode = nil } })) {
+            Button("Join") { Task { await joinPendingGroup() } }
+            Button("Cancel", role: .cancel) { joinCode = nil }
+        } message: {
+            Text("This opens the group from the invite link.")
+        }
+        .alert("Invite", isPresented: Binding(get: { !joinError.isEmpty }, set: { if !$0 { joinError = "" } })) {
+            Button("OK", role: .cancel) { joinError = "" }
+        } message: {
+            Text(joinError)
+        }
     }
 
     private func handleLoginSuccess(response: AuthResponse?) {
@@ -157,22 +170,44 @@ public struct MainRootView: View {
     }
 
     private func handleDeepLink(url: URL) {
-        print("[MainRootView] Handling deep link URL: \(url.absoluteString)")
         let scheme = url.scheme ?? ""
         let host = url.host ?? ""
         let path = url.path
-
-        if scheme == "firstapp" || scheme == "tj" {
-            switch host {
-            case "chat":
-                let conversationId = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                navigationPath.append(RootRoute.chat(id: conversationId))
-            case "join":
-                let inviteCode = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                navigationPath.append(RootRoute.joinGroup(inviteCode: inviteCode))
-            default:
-                break
+        guard scheme == "firstapp" || scheme == "tj" else { return }
+        switch host {
+        case "chat":
+            let conversationId = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard !conversationId.isEmpty else { return }
+            NotificationCenter.default.post(name: TJEvents.openChat, object: nil, userInfo: ["id": conversationId])
+        case "join":
+            let inviteCode = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if !inviteCode.isEmpty { joinCode = inviteCode }
+        case "group":
+            let parts = path.split(separator: "/").map(String.init)
+            if parts.count >= 2, parts[0] == "invite", !parts[1].isEmpty {
+                joinCode = parts[1]
             }
+        default:
+            break
+        }
+    }
+
+    private func joinPendingGroup() async {
+        guard let code = joinCode?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty else { return }
+        joinCode = nil
+        do {
+            let data = try await API.data("chats/groups/join/\(code)", method: "POST")
+            let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            let conversation = LiveJSON.string(json["conversation_id"])
+            let group = LiveJSON.string(json["group_id"])
+            let id = conversation.isEmpty ? group : conversation
+            guard !id.isEmpty else {
+                joinError = "The server did not return the group"
+                return
+            }
+            NotificationCenter.default.post(name: TJEvents.openChat, object: nil, userInfo: ["id": id])
+        } catch {
+            joinError = "Could not join this group"
         }
     }
 }

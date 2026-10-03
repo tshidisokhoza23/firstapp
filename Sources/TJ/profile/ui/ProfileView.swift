@@ -14,6 +14,7 @@ public struct ProfileView: View {
     @State private var showSearch = false
     @State private var showAlerts = false
     @State private var showSettings = false
+    @State private var profileViews: Int?
 
     private var resolvedUserId: String {
         if userId != "me" && userId != "currentUser" && !userId.isEmpty { return userId }
@@ -103,9 +104,11 @@ public struct ProfileView: View {
                                 }
                             }
                             .foregroundColor(.primary)
-                            Text("•").foregroundColor(.secondary)
-                            Text("0").fontWeight(.bold)
-                            Text("Views").foregroundColor(.secondary)
+                            if let profileViews {
+                                Text("•").foregroundColor(.secondary)
+                                Text("\(profileViews)").fontWeight(.bold)
+                                Text("Views").foregroundColor(.secondary)
+                            }
                         }
                         .font(.system(size: 14))
                     }
@@ -326,7 +329,17 @@ public struct ProfileView: View {
         let path = (userId == "me" || userId == "currentUser" || userId.isEmpty) ? "users/me" : "users/\(userId)"
         if let data = try? await API.data(path),
            let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: data) {
-            loadedUser = envelope.user
+            loalet root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let user = (root["user"] as? [String: Any]) ?? root
+                if let number = user["profile_views"] as? Int {
+                    profileViews = number
+                } else if let number = user["profile_views"] as? NSNumber {
+                    profileViews = number.intValue
+                } else {
+                    profileViews = nil
+                }
+            }
+            if dedUser = envelope.user
             isFollowing = envelope.user.isFollowing
             if path == "users/me" { SessionStore.shared.updateUser(envelope.user) }
         } else if path == "users/me" {
