@@ -928,12 +928,15 @@ struct DirectChatInfoScreen: View {
     }
 
     private func placeCall(_ type: CallType) {
-        let target = userId.isEmpty ? "" : userId
-        guard !target.isEmpty else {
-            note = "No contact to call"
-            return
+        let target = userId
+        let label = chat.consistentName()
+        Task { @MainActor in
+            guard !target.isEmpty else {
+                note = "No contact to call"
+                return
+            }
+            ChatViewModel().startVoiceOrVideoCall(receiverId: target, callType: type, name: label)
         }
-        ChatViewModel().startVoiceOrVideoCall(receiverId: target, callType: type, name: chat.consistentName())
     }
 
     private static func lastSeen(_ millis: Int64) -> String {
