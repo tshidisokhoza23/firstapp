@@ -310,7 +310,11 @@ public struct MingleView: View {
                 .font(.system(size: 20, weight: .bold))
                 .multilineTextAlignment(.center)
             Text(copy.body)
-               emptyReason == "DAILY_LIMIT" {
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            if emptyReason == "DAILY_LIMIT" {
                 Button(action: { Task { await extendFeed("coins") } }) {
                     Text(extendCost > 0 ? "See 30 more for \(extendCost) coins" : "Daily limit")
                         .font(.system(size: 15, weight: .bold))
@@ -329,13 +333,7 @@ public struct MingleView: View {
                     Text("Watch 1 ad for 20 more profiles")
                         .font(.system(size: 15, weight: .bold))
                 }
-            } else if  .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            if !cintroCost > 0
-                 ? "One message, up to 150 characters. This costs \(introCost) points and cannot be refunded. They will not see that it was paid."
-                 : "One message, up to 150 characters. The server sets the price. It cannot be refunded, and t
+            } else if !copy.action.isEmpty {
                 Button(action: { emptyAction(copy.action) }) {
                     Text(copy.action)
                         .font(.system(size: 15, weight: .bold))
@@ -375,9 +373,9 @@ public struct MingleView: View {
                 }
                 introTarget = nil
                 introText = ""
-                Task introCost > 0 ? "Send for \(introCost) points" : "Waiting for the server price: target.id, name: target.name, message: text) }
+                Task { await sendIntro(recipientId: target.id, name: target.name, message: text) }
             }) {
-                Text("Send for \(introCost) points")
+                Text(introCost > 0 ? "Send for \(introCost) points" : "Waiting for the server price")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -704,11 +702,7 @@ public struct MingleView: View {
         do {
             let data = try await API.data("mingle/boost", method: "POST", json: [:])
             applyEconomy(LiveJSON.object(data))
-            note = "Profile b
-    var onSuperLike: () -> Void = {}
-    var onBoost: () -> Void = {}
-    var superLikeCost: Int = 0
-    var boostCost: Int = 0oosted for 30 minutes"
+            note = "Profile boosted for 30 minutes"
         } catch {
             let message = MingleCopy.serverMessage(error)
             if message.localizedCaseInsensitiveContains("insufficient") {
@@ -749,6 +743,10 @@ public struct CandidateCardView: View {
     var onLike: () -> Void
     var onChat: () -> Void
     var onPreview: () -> Void
+    var onSuperLike: () -> Void = {}
+    var onBoost: () -> Void = {}
+    var superLikeCost: Int = 0
+    var boostCost: Int = 0
     @State private var photoIndex = 0
 
     public var body: some View {
@@ -774,7 +772,13 @@ public struct CandidateCardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 18))
             .padding(.horizontal, 16)
-            .padding(.tstar.fill", .yellow, onSuperLike)
+            .padding(.top, 12)
+
+            HStack(spacing: 28) {
+                round("xmark", .red, onPass)
+                if superLikeCost > 0 {
+                    round("star.fill", .yellow, onSuperLike)
+                }
                 round("bubble.left.fill", .appPrimary, onChat)
                 round("heart.fill", .appPrimary, onLike)
             }
@@ -783,11 +787,7 @@ public struct CandidateCardView: View {
                 Button("Boost for \(boostCost) coins, 30 minutes", action: onBoost)
                     .font(.system(size: 13, weight: .bold))
                     .padding(.bottom, 8)
-            }, onPass)
-                round("bubble.left.fill", .appPrimary, onChat)
-                round("heart.fill", .appPrimary, onLike)
             }
-            .padding(.vertical, 16)
         }
     }
 

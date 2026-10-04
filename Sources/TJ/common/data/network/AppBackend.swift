@@ -250,7 +250,7 @@ public final class TJAPIProtocol: URLProtocol {
             if let response {
                 let mime = (response as? HTTPURLResponse)?.mimeType?.lowercased() ?? ""
                 let path = url.path.lowercased()
-                let method = mutable.httpMethod?.uppercased() ?? "GET"
+                let method = mutable.httpMethod.uppercased()
                 let media = method == "GET" && (
                     mime.hasPrefix("image/") || mime.hasPrefix("video/") || mime.hasPrefix("audio/")
                     || path.contains("/uploads/") || path.contains("/storage/")

@@ -252,10 +252,8 @@ public class ChatViewModel: ObservableObject {
     public func fetchChats() {
         uiState.isChatsFetching = true
         Task {
-            if self.uiState.chats.data == nil {
-                let cached = AppDiskCache.loadResponse(path: "conversations", query: nil).map { LiveJSON.chats(from: $0) } ?? []
-                let stored = await LocalDatabase.shared.getChats().map { $0.toModel() }
-                let visible = (cached.isEmpty ? stored : cached).filter { !$0.isSecretMingleChat }
+            if self.uiState.chats.data == nil, let cached = AppDiskCache.loadResponse(path: "conversations", query: nil) {
+                let visible = LiveJSON.chats(from: cached).filter { !$0.isSecretMingleChat }
                 if !visible.isEmpty {
                     self.uiState.chats = .success(visible)
                 }
@@ -281,15 +279,6 @@ public class ChatViewModel: ObservableObject {
         livePoll = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-        if uiState.messages.data == nil {
-            let cached = AppDiskCache.loadResponse(path: "conversations/\(chatId)/messages", query: nil)
-                .map { LiveJSON.messages(from: $0, myUserId: SessionStore.shared.userId) } ?? []
-            let stored = await LocalDatabase.shared.getMessages(conversationId: chatId).map { $0.toModel() }
-            let first = cached.isEmpty ? stored : cached
-            if !first.isEmpty {
-                uiState.messages = .success(ChatExpiry.dropExpired(first, chatId: chatId))
-            }
-        }
                 if self.activeChatId != chatId { return }
                 await self.loadMessages(chatId)
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -298,6 +287,12 @@ public class ChatViewModel: ObservableObject {
     }
 
     private func loadMessages(_ chatId: String) async {
+        if uiState.messages.data == nil, let cached = AppDiskCache.loadResponse(path: "conversations/\(chatId)/messages", query: nil) {
+            let first = LiveJSON.messages(from: cached, myUserId: SessionStore.shared.userId)
+            if !first.isEmpty {
+                uiState.messages = .success(ChatExpiry.dropExpired(first, chatId: chatId))
+            }
+        }
         do {
             let data = try await API.data("conversations/\(chatId)/messages")
             let server = LiveJSON.messages(from: data, myUserId: SessionStore.shared.userId)
