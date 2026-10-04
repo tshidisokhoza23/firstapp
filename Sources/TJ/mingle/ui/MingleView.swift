@@ -326,8 +326,10 @@ public struct MingleView: View {
                 }
                 .disabled(extendCost <= 0)
                 Button(action: {
-                    RewardedAds.shared.show(taskId: "mingle_feed_extend") {
-                        Task { await extendFeed("ad") }
+                    Task { @MainActor in
+                        RewardedAds.shared.show(taskId: "mingle_feed_extend") {
+                            Task { await extendFeed("ad") }
+                        }
                     }
                 }) {
                     Text("Watch 1 ad for 20 more profiles")
