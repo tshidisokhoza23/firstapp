@@ -90,9 +90,12 @@ public struct MingleView: View {
     @State private var introTarget: MingleProfile?
     @State private var introText = ""
     @State private var userCoins = 0
-    @State private var minBalance = 40
-    @State private var freeLikesRemaining = 20
-    @State private var introCost = 100
+    @State private var minBalance = 0
+    @State private var freeLikesRemaining = 0
+    @State private var introCost = 0
+    @State private var superLikeCost = 0
+    @State private var boostCost = 0
+    @State private var extendCost = 0
     @State private var lastSwiped: MingleProfile?
     @State private var myName = ""
     @State private var myAge = ""
@@ -199,7 +202,11 @@ public struct MingleView: View {
                         introText = ""
                         introTarget = candidate
                     },
-                    onPreview: { note = "Secret Mingle Profile - Profile details are kept private." }
+                    onPreview: { note = "Secret Mingle Profile - Profile details are kept private." },
+                    onSuperLike: { Task { await swipe(candidate, action: "super_like") } },
+                    onBoost: { Task { await boost() } },
+                    superLikeCost: superLikeCost,
+                    boostCost: boostCost
                 )
             }
         }
@@ -303,11 +310,32 @@ public struct MingleView: View {
                 .font(.system(size: 20, weight: .bold))
                 .multilineTextAlignment(.center)
             Text(copy.body)
-                .font(.system(size: 14))
+               emptyReason == "DAILY_LIMIT" {
+                Button(action: { Task { await extendFeed("coins") } }) {
+                    Text(extendCost > 0 ? "See 30 more for \(extendCost) coins" : "Daily limit")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.appPrimary)
+                        .clipShape(Capsule())
+                }
+                .disabled(extendCost <= 0)
+                Button(action: {
+                    RewardedAds.shared.show(taskId: "mingle_feed_extend") {
+                        Task { await extendFeed("ad") }
+                    }
+                }) {
+                    Text("Watch 1 ad for 20 more profiles")
+                        .font(.system(size: 15, weight: .bold))
+                }
+            } else if  .font(.system(size: 14))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
-            if !copy.action.isEmpty {
+            if !cintroCost > 0
+                 ? "One message, up to 150 characters. This costs \(introCost) points and cannot be refunded. They will not see that it was paid."
+                 : "One message, up to 150 characters. The server sets the price. It cannot be refunded, and t
                 Button(action: { emptyAction(copy.action) }) {
                     Text(copy.action)
                         .font(.system(size: 15, weight: .bold))
@@ -340,14 +368,14 @@ public struct MingleView: View {
                 .foregroundColor(.secondary)
             Button(action: {
                 let text = introText.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !text.isEmpty else { return }
+                guard !text.isEmpty, introCost > 0 else { return }
                 if MingleCopy.hasLink(text) {
                     note = "intro must be plain text up to 150 characters with no links"
                     return
                 }
                 introTarget = nil
                 introText = ""
-                Task { await sendIntro(recipientId: target.id, name: target.name, message: text) }
+                Task introCost > 0 ? "Send for \(introCost) points" : "Waiting for the server price: target.id, name: target.name, message: text) }
             }) {
                 Text("Send for \(introCost) points")
                     .font(.system(size: 16, weight: .bold))
@@ -473,6 +501,12 @@ public struct MingleView: View {
         else if let cost = json["like_cost"] as? Int, cost > 0 { likeCost = cost }
         if let next = json["next_like_cost"] as? Double { nextLikeCost = Int(next) }
         else if let next = json["next_like_cost"] as? Int { nextLikeCost = next }
+        if let cost = json["super_like_cost"] as? Double, cost > 0 { superLikeCost = Int(cost) }
+        else if let cost = json["super_like_cost"] as? Int, cost > 0 { superLikeCost = cost }
+        if let cost = json["boost_cost"] as? Double, cost > 0 { boostCost = Int(cost) }
+        else if let cost = json["boost_cost"] as? Int, cost > 0 { boostCost = cost }
+        if let cost = json["extend_cost"] as? Double, cost > 0 { extendCost = Int(cost) }
+        else if let cost = json["extend_cost"] as? Int, cost > 0 { extendCost = cost }
     }
 
     private func saveMe() async {
@@ -569,8 +603,8 @@ public struct MingleView: View {
     }
 
     private func swipe(_ profile: MingleProfile, action: String) async {
-        let price = freeLikesRemaining > 0 ? 0 : max(nextLikeCost, likeCost)
-        if action == "like", price > 0, userCoins < price + minBalance {
+        let price = action == "super_like" ? superLikeCost : (freeLikesRemaining > 0 ? 0 : max(nextLikeCost, likeCost))
+        if action == "like" || action == "super_like", price > 0, userCoins < price + minBalance {
             showPointsGate = true
             return
         }
@@ -625,6 +659,50 @@ public struct MingleView: View {
             } else {
                 note = "Request sent"
             }
+        } catch {
+            let message = MingleCopy.serverMessage(error)
+            if message.localizedCaseInsensitiveContains("insufficient") {
+                showPointsGate = true
+            } else {
+                note = message
+            }
+        }
+    }
+
+    private func extendFeed(_ method: String) async {
+        do {
+            let data = try await API.data("mingle/feed/extend", method: "POST", json: ["method": method])
+            applyEconomy(LiveJSON.object(data))
+            await loadFeed()
+        } catch {
+            let message = MingleCopy.serverMessage(error)
+            if message.localizedCaseInsensitiveContains("insufficient") {
+                showPointsGate = true
+            } else if (error as NSError).code == 404 || message.localizedCaseInsensitiveContains("not found") {
+                note = "This action is not on the server this phone uses"
+            } else {
+                note = message
+            }
+        }
+    }
+
+    private func boost() async {
+        guard boostCost > 0 else {
+            note = "Boost price has not loaded from the server"
+            return
+        }
+        if userCoins < boostCost + minBalance {
+            showPointsGate = true
+            return
+        }
+        do {
+            let data = try await API.data("mingle/boost", method: "POST", json: [:])
+            applyEconomy(LiveJSON.object(data))
+            note = "Profile b
+    var onSuperLike: () -> Void = {}
+    var onBoost: () -> Void = {}
+    var superLikeCost: Int = 0
+    var boostCost: Int = 0oosted for 30 minutes"
         } catch {
             let message = MingleCopy.serverMessage(error)
             if message.localizedCaseInsensitiveContains("insufficient") {
@@ -690,10 +768,16 @@ public struct CandidateCardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 18))
             .padding(.horizontal, 16)
-            .padding(.top, 12)
-
-            HStack(spacing: 28) {
-                round("xmark", .red, onPass)
+            .padding(.tstar.fill", .yellow, onSuperLike)
+                round("bubble.left.fill", .appPrimary, onChat)
+                round("heart.fill", .appPrimary, onLike)
+            }
+            .padding(.vertical, 16)
+            if boostCost > 0 {
+                Button("Boost for \(boostCost) coins, 30 minutes", action: onBoost)
+                    .font(.system(size: 13, weight: .bold))
+                    .padding(.bottom, 8)
+            }, onPass)
                 round("bubble.left.fill", .appPrimary, onChat)
                 round("heart.fill", .appPrimary, onLike)
             }

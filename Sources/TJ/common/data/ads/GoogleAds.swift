@@ -50,9 +50,9 @@ final class RewardedAds: ObservableObject {
     @Published var batchCount = 0
     @Published var cooldownSeconds = 0
 
-    private let shortCooldown: TimeInterval = 10
-    private let longCooldown: TimeInterval = 30 * 60
-    private let batchLimit = 4
+    private let shortCooldown: TimeInterval = 90
+    private let longCooldown: TimeInterval = 0
+    private let batchLimit = 6
     private var timer: Timer?
 
     private init() {
@@ -68,8 +68,8 @@ final class RewardedAds: ObservableObject {
     var buttonTitle: String {
         if AdConfig.rewardedUnit == nil { return "Rewarded ad unit is not set" }
         if cooldownSeconds == 0 { return "Watch Rewarded Ad (+10 Pts)" }
-        if cooldownSeconds < 60 { return "Wait \(cooldownSeconds)s" }
-        return "Ad Limit Reached (4/4)"
+        if cooldownSeconds < 120 { return "Wait \(cooldownSeconds)s" }
+        return "Ad limit reached"
     }
 
     private var messageHandler: ((String) -> Void)?

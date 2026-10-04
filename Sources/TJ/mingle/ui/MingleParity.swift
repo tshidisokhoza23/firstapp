@@ -10,6 +10,7 @@ struct MingleActivityItem: Identifiable {
     let actionText: String
     let timeAgo: String
     let conversationId: String
+    var locked: Bool = false
 
     var isMatch: Bool { type == "match" }
     var isRequest: Bool { type == "message_request" }
@@ -64,6 +65,8 @@ enum MingleCopy {
             return ("You've already seen everyone nearby", "Passed and liked profiles stay hidden. Increase your radius to look farther.", "Increase Radius")
         case "PREFERENCES":
             return ("No one matches your filters", "People nearby are outside the age range or gender you are looking for.", "Edit filters")
+        case "DAILY_LIMIT":
+            return ("Daily profile limit reached", "The free daily browse is used. Spend coins or watch a completed rewarded ad for more profiles.", "")
         default:
             return ("No one else is on Mingle nearby", "When someone nearby opens Mingle and adds a photo, they will show up here.", "Check again")
         }
@@ -110,6 +113,7 @@ struct MingleActivitySheet: View {
                 } else {
                     List(rows) { item in
                         Button {
+                            if item.locked { return }
                             if item.isRequest {
                                 showRequests = true
                             } else {
@@ -122,6 +126,12 @@ struct MingleActivitySheet: View {
                                     Text(item.isRequest ? item.actionText : [item.actorName, item.actionText].filter { !$0.isEmpty }.joined(separator: " "))
                                         .foregroundColor(.primary)
                                         .lineLimit(2)
+                                    if item.locked {
+                                        Button("Unlock this like") {
+                                            Task { await unlock(item.actorId) }
+                                        }
+                                        .font(.caption.bold())
+                                    }
                                     Text(item.timeAgo).font(.caption).foregroundColor(.secondary)
                                 }
                             }
@@ -162,10 +172,21 @@ struct MingleActivitySheet: View {
                     type: type,
                     actionText: MingleCopy.activityText(type),
                     timeAgo: MingleCopy.relative(Int64(created) ?? 0),
-                    conversationId: LiveJSON.string(item["conversation_id"])
+                    conversationId: LiveJSON.string(item["conversation_id"]),
+                    locked: item["locked"] as? Bool == true
                 )
             }
             note = rows.isEmpty ? "No Mingle Activity Yet" : ""
+        } catch {
+            note = MingleCopy.serverMessage(error)
+        }
+    }
+
+    private func unlock(_ actorId: String) async {
+        guard !actorId.isEmpty else { return }
+        do {
+            _ = try await API.data("mingle/admirers/\(actorId)/unlock", method: "POST")
+            await load()
         } catch {
             note = MingleCopy.serverMessage(error)
         }
