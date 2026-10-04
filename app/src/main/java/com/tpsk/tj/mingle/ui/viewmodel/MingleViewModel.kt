@@ -249,7 +249,7 @@ class MingleViewModel @Inject constructor(
                         if (photos.isEmpty()) return@mapNotNull null
                         MingleProfile(
                             id = candidateId,
-                            name = candidate.name.orEmpty().ifBlank { "Mingle user" },
+                            name = candidate.name.orEmpty().trim().takeUnless { it.equals("Mingle user", ignoreCase = true) || it.equals("User", ignoreCase = true) }.orEmpty(),
                             age = candidate.age,
                             distanceKm = candidate.distance_km.roundToInt(),
                             bio = candidate.bio.orEmpty(),
