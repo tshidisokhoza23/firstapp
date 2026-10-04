@@ -627,47 +627,36 @@ public struct ChannelPostCardView: View {
                 .cornerRadius(12)
             }
 
-            // Reactions & Forward Pill Row (Screenshots 1-3)
+            // Reactions & Forward Pill Row
             HStack(spacing: 8) {
-                // Emoji Reaction Pill
-                HStack(spacing: 4) {
-                    Text("❤️ 👄 😂 👍")
-                        .font(.system(size: 12))
-                    Text(post.isLiked ? "Liked" : "")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
+                // Emoji Reaction Pill (only shown if post is liked)
+                if post.isLiked {
+                    HStack(spacing: 4) {
+                        Text("❤️ 👍")
+                            .font(.system(size: 12))
+                        Text("Liked")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(uiColor: .systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color(uiColor: .systemBackground))
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
-
-                // Forward Pill
-                HStack(spacing: 4) {
-                    Image(systemName: "arrowshape.turn.up.right.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                    Text("Forward")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color(uiColor: .systemBackground))
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
 
                 Spacer()
 
                 // Timestamp Pill
-                Text(post.timestamp)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color(uiColor: .systemBackground))
-                    .cornerRadius(12)
+                if !post.timestamp.isEmpty {
+                    Text(post.timestamp)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(uiColor: .systemBackground))
+                        .cornerRadius(12)
+                }
             }
         }
         .padding(12)
