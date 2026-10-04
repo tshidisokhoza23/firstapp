@@ -257,8 +257,8 @@ private fun MingleActivityRow(
                 )
 
                 if (item.locked) {
-                    TextButtounlockLabel
-                        Text("Unlock for ${mingleViewModel.uiState.collectAsState().value.admirerCost.toInt()} coins")
+                    TextButton(onClick = onUnlock) {
+                        Text(unlockLabel)
                     }
                 }
                 Spacer(modifier = Modifier.height(2.dp))

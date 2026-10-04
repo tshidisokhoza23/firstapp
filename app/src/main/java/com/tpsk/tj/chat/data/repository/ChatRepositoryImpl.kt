@@ -632,16 +632,29 @@ class ChatRepositoryImpl @Inject constructor(
             val displaySummary = formatLastMessageSummary(visibleBody, type)
             val existing = chatDao.searchChatsById(chatId)
             if (existing == null) {
+                val channels = channelDaoProvider.get().getChannelsOnce()
+                val channelObj = channels.find { it.id == chatId || it.conversationId == chatId }
+                val isChannel = channelObj != null
+                val conversationType = when {
+                    isChannel -> com.tpsk.tj.common.model.ConversationType.CHANNEL
+                    chatId.startsWith("mingle_") -> com.tpsk.tj.common.model.ConversationType.MINGLE
+                    else -> com.tpsk.tj.common.model.ConversationType.DIRECT
+                }
                 val newChat = com.tpsk.tj.chat.data.local.entity.ChatEntity(
                     id = chatId,
-                    type = if (chatId.startsWith("mingle_")) com.tpsk.tj.common.model.ConversationType.MINGLE else com.tpsk.tj.common.model.ConversationType.DIRECT,
-                    senderName = contactName ?: contactPhone ?: "Chat",
+                    type = conversationType,
+                    senderName = channelObj?.name ?: contactName ?: contactPhone ?: "Chat",
                     lastMessage = displaySummary,
                     timestamp = pendingMsg.timestamp,
                     unreadCount = 0,
                     lastMessageIsFromMe = true,
                     lastMessageRead = false,
-                    otherUserId = if (!chatId.startsWith("mingle_")) chatId else null
+                    otherUserId = if (conversationType == com.tpsk.tj.common.model.ConversationType.DIRECT) chatId else null,
+                    avatarUrl = channelObj?.avatarUrl,
+                    isAdmin = channelObj?.isAdmin ?: false,
+                    isSubscribed = channelObj?.isSubscribed ?: false,
+                    adminsCanPost = channelObj?.adminsCanPost ?: false,
+                    createdBy = channelObj?.createdBy
                 )
                 chatDao.insertChats(listOf(newChat))
             } else {

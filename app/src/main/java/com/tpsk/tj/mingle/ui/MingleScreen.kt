@@ -1231,7 +1231,7 @@ private fun MingleCard(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Action Buttons Bar (Pass, Like, Meet Chat)
+            // Action Buttons Bar (Pass, SuperLike, Like, Meet Chat)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1250,7 +1250,11 @@ private fun MingleCard(
                     modifier = Modifier.size(52.dp)
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Pass", modifier = Modifier.size(26.dp))
-                }SuperLike,
+                }
+
+                // SuperLike Button
+                FloatingActionButton(
+                    onClick = onSuperLike,
                     containerColor = Color(0xFFFFC107),
                     contentColor = Color.Black,
                     shape = CircleShape,
@@ -1258,9 +1262,6 @@ private fun MingleCard(
                 ) {
                     Icon(Icons.Default.Star, contentDescription = if (superLikeCost > 0) "Super like, $superLikeCost coins" else "Super like", modifier = Modifier.size(26.dp))
                 }
-
-                FloatingActionButton(
-                    onClick = on
 
                 // Like Button (Heart)
                 FloatingActionButton(
@@ -1274,11 +1275,6 @@ private fun MingleCard(
                 }
 
                 // Meet / Direct Chat Button
-            if (boostCost > 0) {
-                TextButton(onClick = onBoost, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    Text("Boost for $boostCost coins, 30 minutes", color = Color.White)
-                }
-            }
                 FloatingActionButton(
                     onClick = onChat,
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -1431,13 +1427,13 @@ private fun emptyDeckCopy(reason: String?, radiusKm: Int, hasLocationPermission:
             title = "No photos nearby",
             body = "People in range have not added a Mingle photo yet, so their cards stay hidden.",
             action = EmptyDeckAction.REFRESH,
+            actionLabel = "Check again"
+        )
         "DAILY_LIMIT" -> EmptyDeckCopy(
             title = "Daily profile limit reached",
             body = "The free daily browse is used. Spend coins or watch a completed rewarded ad for more profiles.",
             action = EmptyDeckAction.NONE,
             actionLabel = ""
-        )
-            actionLabel = "Check again"
         )
         "DIFFERENT_COUNTRY" -> EmptyDeckCopy(
             title = "No one from your country",

@@ -192,7 +192,7 @@ class ChannelDetailViewModel @Inject constructor(
                     _toast.value = "Update sent"
                     loadMessages(convId)
                 } else if (res is Resource.Error) {
-                    _toast.value = "Only the owner and allowed admins can post"
+                    _toast.value = res.message ?: "Only the owner and allowed admins can post"
                 }
             }
         }
