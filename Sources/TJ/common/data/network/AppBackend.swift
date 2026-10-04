@@ -247,7 +247,16 @@ public final class TJAPIProtocol: URLProtocol {
                 client?.urlProtocol(self, didFailWithError: error)
                 return
             }
-            if let response { client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed) }
+            if let response {
+                let mime = (response as? HTTPURLResponse)?.mimeType?.lowercased() ?? ""
+                let path = url.path.lowercased()
+                let method = mutable.httpMethod?.uppercased() ?? "GET"
+                let media = method == "GET" && (
+                    mime.hasPrefix("image/") || mime.hasPrefix("video/") || mime.hasPrefix("audio/")
+                    || path.contains("/uploads/") || path.contains("/storage/")
+                )
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: media ? .allowed : .notAllowed)
+            }
             if let data { client?.urlProtocol(self, didLoad: data) }
             client?.urlProtocolDidFinishLoading(self)
         }

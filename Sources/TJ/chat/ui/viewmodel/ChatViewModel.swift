@@ -252,6 +252,14 @@ public class ChatViewModel: ObservableObject {
     public func fetchChats() {
         uiState.isChatsFetching = true
         Task {
+            if self.uiState.chats.data == nil {
+                let cached = AppDiskCache.loadResponse(path: "conversations", query: nil).map { LiveJSON.chats(from: $0) } ?? []
+                let stored = await LocalDatabase.shared.getChats().map { $0.toModel() }
+                let visible = (cached.isEmpty ? stored : cached).filter { !$0.isSecretMingleChat }
+                if !visible.isEmpty {
+                    self.uiState.chats = .success(visible)
+                }
+            }
             do {
                 let data = try await API.data("conversations")
                 let chats = await LiveJSON.enrichMissingProfiles(LiveJSON.chats(from: data))
@@ -273,6 +281,15 @@ public class ChatViewModel: ObservableObject {
         livePoll = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
+        if uiState.messages.data == nil {
+            let cached = AppDiskCache.loadResponse(path: "conversations/\(chatId)/messages", query: nil)
+                .map { LiveJSON.messages(from: $0, myUserId: SessionStore.shared.userId) } ?? []
+            let stored = await LocalDatabase.shared.getMessages(conversationId: chatId).map { $0.toModel() }
+            let first = cached.isEmpty ? stored : cached
+            if !first.isEmpty {
+                uiState.messages = .success(ChatExpiry.dropExpired(first, chatId: chatId))
+            }
+        }
                 if self.activeChatId != chatId { return }
                 await self.loadMessages(chatId)
                 try? await Task.sleep(nanoseconds: 2_000_000_000)

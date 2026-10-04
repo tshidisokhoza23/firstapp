@@ -321,13 +321,19 @@ public actor LocalDatabase {
 
     public init(userId: String? = nil) {
         self.currentUserId = userId
+        restore()
     }
 
     public func setUserId(_ userId: String) {
-        if currentUserId != userId {
-            currentUserId = userId
-            clearAll()
-        }
+        guard currentUserId != userId else { return }
+        currentUserId = userId
+        chats.removeAll()
+        messages.removeAll()
+        contacts.removeAll()
+        adverts.removeAll()
+        callLogs.removeAll()
+        syncCursors.removeAll()
+        restore()
     }
 
     public func clearAll() {
@@ -337,6 +343,44 @@ public actor LocalDatabase {
         adverts.removeAll()
         callLogs.removeAll()
         syncCursors.removeAll()
+        AppDiskCache.remove(name: storeName())
+    }
+
+    private func storeName() -> String {
+        if let currentUserId, !currentUserId.isEmpty {
+            return "local-db-\(currentUserId)"
+        }
+        return "local-db"
+    }
+
+    private func restore() {
+        guard let snap = AppDiskCache.loadCodable(LocalSnapshot.self, name: storeName()) else { return }
+        chats = snap.chats
+        messages = snap.messages
+        contacts = snap.contacts
+        adverts = snap.adverts
+        callLogs = snap.callLogs
+        syncCursors = snap.syncCursors
+    }
+
+    private func persist() {
+        if messages.count > 3000 {
+            let pending = messages.values.filter { $0.status == .pending || $0.status == .sending }
+            let recent = messages.values.sorted { $0.timestamp > $1.timestamp }.prefix(3000)
+            var kept: [String: MessageEntity] = [:]
+            for message in pending + recent {
+                kept[message.id] = message
+            }
+            messages = kept
+        }
+        AppDiskCache.saveCodable(LocalSnapshot(
+            chats: chats,
+            messages: messages,
+            contacts: contacts,
+            adverts: adverts,
+            callLogs: callLogs,
+            syncCursors: syncCursors
+        ), name: storeName())
     }
 
     // MARK: - Chats
@@ -345,6 +389,7 @@ public actor LocalDatabase {
         for chat in list {
             chats[chat.id] = chat
         }
+        persist()
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .didUpdateChats, object: nil)
         }
@@ -360,6 +405,7 @@ public actor LocalDatabase {
 
     public func deleteChat(id: String) {
         chats.removeValue(forKey: id)
+        persist()
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .didUpdateChats, object: nil)
         }
@@ -372,6 +418,7 @@ public actor LocalDatabase {
             existing.lastMessageIsFromMe = isFromMe
             existing.lastMessageRead = isRead
             chats[chatId] = existing
+            persist()
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: .didUpdateChats, object: nil)
             }
@@ -382,6 +429,7 @@ public actor LocalDatabase {
         if var existing = chats[chatId] {
             existing.unreadCount += 1
             chats[chatId] = existing
+            persist()
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: .didUpdateChats, object: nil)
             }
@@ -392,6 +440,7 @@ public actor LocalDatabase {
         if var existing = chats[chatId] {
             existing.unreadCount = 0
             chats[chatId] = existing
+            persist()
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: .didUpdateChats, object: nil)
             }
@@ -406,6 +455,7 @@ public actor LocalDatabase {
             messages[msg.id] = msg
             convIds.insert(msg.conversationId)
         }
+        persist()
         DispatchQueue.main.async {
             for convId in convIds {
                 NotificationCenter.default.post(name: .didUpdateMessages, object: convId)
@@ -426,6 +476,7 @@ public actor LocalDatabase {
 
     public func deleteMessage(id: String) {
         messages.removeValue(forKey: id)
+        persist()
     }
 
     public func clearMessages(conversationId: String) {
@@ -433,6 +484,7 @@ public actor LocalDatabase {
         for id in toRemove {
             messages.removeValue(forKey: id)
         }
+        persist()
     }
 
     public func getPendingMessages() -> [MessageEntity] {
@@ -445,6 +497,7 @@ public actor LocalDatabase {
         for c in list {
             contacts[c.id] = c
         }
+        persist()
     }
 
     public func getContacts() -> [ContactEntity] {
@@ -461,6 +514,7 @@ public actor LocalDatabase {
         for a in list {
             adverts[a.id] = a
         }
+        persist()
     }
 
     public func getAdverts() -> [AdvertEntity] {
@@ -475,6 +529,7 @@ public actor LocalDatabase {
         if var existing = adverts[id] {
             existing.isViewed = true
             adverts[id] = existing
+            persist()
         }
     }
 
@@ -486,5 +541,15 @@ public actor LocalDatabase {
 
     public func upsertSyncCursor(_ cursor: SyncCursorEntity) {
         syncCursors[cursor.entityType] = cursor
+        persist()
     }
+}
+
+private struct LocalSnapshot: Codable {
+    var chats: [String: ChatEntity]
+    var messages: [String: MessageEntity]
+    var contacts: [String: ContactEntity]
+    var adverts: [String: AdvertEntity]
+    var callLogs: [String: CallLogEntity]
+    var syncCursors: [String: SyncCursorEntity]
 }

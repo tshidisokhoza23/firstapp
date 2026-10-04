@@ -58,6 +58,13 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
     ) {
         self.baseURL = baseURL
         self.currentUserId = currentUserId
+        let cutoff = Int64(Date().timeIntervalSince1970 * 1000) - Self.dayInMillis
+        let saved = AppDiskCache.loadCodable([UserStory].self, name: "stories") ?? []
+        userStories = saved.compactMap { story in
+            var copy = story
+            copy.stories = story.stories.filter { $0.createdAt >= cutoff }
+            return copy.stories.isEmpty ? nil : copy
+        }
     }
 
     // MARK: - Observe Stories
@@ -195,6 +202,7 @@ public final class StoryRepository: ObservableObject, StoryRepositoryProtocol {
 
         merged.sort { ($0.stories.map { $0.createdAt }.max() ?? 0) > ($1.stories.map { $0.createdAt }.max() ?? 0) }
         self.userStories = merged
+        AppDiskCache.saveCodable(merged, name: "stories")
     }
 
     private func cacheOwnPostedStory(

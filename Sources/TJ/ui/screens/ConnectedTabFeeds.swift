@@ -611,16 +611,21 @@ struct SocialFeedView: View {
     }
 
     private func load() async {
+        var query = ["limit": "20", "offset": "0"]
+        let categoryId = categories[selectedCategory].0
+        if categoryId != "all" { query["category_id"] = categoryId }
+        if posts.isEmpty, let cached = AppDiskCache.loadResponse(path: "media/feed", query: query) {
+            let parsed = LiveJSON.posts(from: cached)
+            posts = parsed.isEmpty ? FeedPost.decodeList(cached) : parsed
+            if !posts.isEmpty { status = "" }
+        }
         do {
-            var query = ["limit": "20", "offset": "0"]
-            let categoryId = categories[selectedCategory].0
-            if categoryId != "all" { query["category_id"] = categoryId }
             let data = try await API.data("media/feed", query: query)
             let parsed = LiveJSON.posts(from: data)
             posts = parsed.isEmpty ? FeedPost.decodeList(data) : parsed
             status = posts.isEmpty ? "No posts yet" : ""
         } catch {
-            status = error.localizedDescription
+            if posts.isEmpty { status = error.localizedDescription }
         }
     }
 }
@@ -923,6 +928,11 @@ struct ShortsFeedView: View {
     }
 
     private func load() async {
+        if shorts.isEmpty, let cached = AppDiskCache.loadResponse(path: "media/feed/shorts", query: ["page": "1"]) {
+            let parsed = LiveJSON.posts(from: cached)
+            shorts = parsed.isEmpty ? FeedPost.decodeList(cached) : parsed
+            if !shorts.isEmpty { status = "" }
+        }
         do {
             var collected: [FeedPost] = []
             for page in 1...5 {
@@ -938,7 +948,7 @@ struct ShortsFeedView: View {
             shorts = collected
             status = shorts.isEmpty ? "No shorts yet" : ""
         } catch {
-            status = error.localizedDescription
+            if shorts.isEmpty { status = error.localizedDescription }
         }
     }
 

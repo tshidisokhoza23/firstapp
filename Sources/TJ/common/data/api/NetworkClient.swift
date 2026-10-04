@@ -62,7 +62,16 @@ public enum API {
         }
         AuthSession.apply(to: &req)
 
-        let (responseData, response) = try await URLSession.shared.data(for: req)
+        let responseData: Data
+        let response: URLResponse
+        do {
+            (responseData, response) = try await URLSession.shared.data(for: req)
+        } catch {
+            if method == "GET", !AuthSession.isAuthPath(fullPath), let cached = AppDiskCache.loadResponse(path: path, query: query) {
+                return cached
+            }
+            throw error
+        }
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
         if retry, statusCode == 401, !AuthSession.isAuthPath(fullPath), await AuthSession.refresh() {
             return try await data(path, method: method, query: query, json: json, retry: false)
@@ -70,6 +79,9 @@ public enum API {
         guard (200...299).contains(statusCode) else {
             let msg = String(data: responseData, encoding: .utf8) ?? "Server error"
             throw APIError.status(statusCode, msg)
+        }
+        if method == "GET", !AuthSession.isAuthPath(fullPath) {
+            AppDiskCache.saveResponse(path: path, query: query, data: responseData)
         }
         return responseData
     }

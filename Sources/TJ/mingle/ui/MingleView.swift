@@ -446,12 +446,15 @@ public struct MingleView: View {
             let items = LiveJSON.list(data, keys: ["items"])
             var resultProfiles: [MingleProfile] = []
             for item in items {
-                let id = LiveJSON.string(item["id"])
+                let primaryId = LiveJSON.string(item["id"])
+                let id = primaryId.isEmpty ? LiveJSON.string(item["user_id"]) : primaryId
                 let photos = photoURLs(item["photos"])
                 guard !id.isEmpty, !photos.isEmpty else { continue }
+                let primaryName = LiveJSON.string(item["name"])
+                let rawName = primaryName.isEmpty ? LiveJSON.string(item["display_name"]) : primaryName
                 resultProfiles.append(MingleProfile(
                     id: id,
-                    name: MingleCopy.realName(LiveJSON.string(item["name"])),
+                    name: MingleCopy.realName(rawName),
                     age: Int(LiveJSON.string(item["age"])) ?? 0,
                     occupation: "",
                     distanceKm: Double(LiveJSON.string(item["distance_km"])) ?? 0,
@@ -482,9 +485,12 @@ public struct MingleView: View {
     private func photoURLs(_ value: Any?) -> [String] {
         guard let rows = value as? [Any] else { return [] }
         return rows.compactMap { row in
+            if let url = row as? String, !url.isEmpty { return url }
             guard let photo = row as? [String: Any] else { return nil }
             let url = LiveJSON.string(photo["url"])
-            return url.isEmpty ? nil : url
+            if !url.isEmpty { return url }
+            let media = LiveJSON.string(photo["media_url"])
+            return media.isEmpty ? nil : media
         }
     }
 

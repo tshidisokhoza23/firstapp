@@ -84,8 +84,10 @@ public final class TJApplicationState: NSObject, ObservableObject, UNUserNotific
     }
 
     @objc private func handleMemoryWarning() {
-        print("[TJApplicationState] Memory warning received. Clearing caches...")
-        URLCache.shared.removeAllCachedResponses()
+        let disk = URLCache.shared.diskCapacity
+        URLCache.shared.memoryCapacity = 0
+        URLCache.shared.memoryCapacity = 50 * 1024 * 1024
+        URLCache.shared.diskCapacity = disk
     }
 
     // MARK: - Background Tasks (WorkManager / Periodic Sync Equivalent)
