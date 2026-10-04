@@ -121,13 +121,16 @@ fun MingleNotificationScreen(
                 items(mingleNotifications, key = { it.id }) { item ->
                     MingleActivityRow(
                         item = item,
+                        unlockLabel = if (uiState.admirerCost > 0) "Unlock for ${uiState.admirerCost.toInt()} coins" else "Unlock",
                         onClick = {
+                            if (item.locked) return@MingleActivityRow
                             if (item.type == MingleActivityType.MESSAGE_REQUEST) {
                                 navController.navigate(Screen.MingleMessageRequests.route)
                             } else {
                                 selectedNotificationForPreview = item
                             }
-                        }
+                        },
+                        onUnlock = { mingleViewModel.unlockAdmirer(item.actorId) }
                     )
                 }
             }
@@ -149,7 +152,9 @@ fun MingleNotificationScreen(
 @Composable
 private fun MingleActivityRow(
     item: MingleActivityNotification,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    unlockLabel: String = "Unlock",
+    onUnlock: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
@@ -232,7 +237,9 @@ private fun MingleActivityRow(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (item.type == MingleActivityType.MESSAGE_REQUEST) {
+                    text = if (item.locked) {
+                        androidx.compose.ui.text.AnnotatedString(item.actionText)
+                    } else if (item.type == MingleActivityType.MESSAGE_REQUEST) {
                         androidx.compose.ui.text.AnnotatedString(item.actionText)
                     } else {
                         buildAnnotatedString {
@@ -249,6 +256,11 @@ private fun MingleActivityRow(
                     overflow = TextOverflow.Ellipsis
                 )
 
+                if (item.locked) {
+                    TextButtounlockLabel
+                        Text("Unlock for ${mingleViewModel.uiState.collectAsState().value.admirerCost.toInt()} coins")
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(

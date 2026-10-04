@@ -21,5 +21,6 @@ data class MingleActivityNotification(
     val actionText: String,
     val timeAgo: String,
     val photoUrl: String? = null,
-    val conversationId: String? = null
+    val conversationId: String? = null,
+    val locked: Boolean = false
 )

@@ -99,7 +99,7 @@ class AdvertsViewModel @Inject constructor(
         return ((secs + 59) / 60).coerceAtLeast(1)
     }
 
-    fun showRewardedAd(activity: Activity, adUnitId: String, advertId: String) {
+    fun showRewardedAd(activity: Activity, adUnitId: String, advertId: String, onRewarded: (() -> Unit)? = null) {
         viewModelScope.launch {
             val user = userRepository.observeCurrentUser().firstOrNull()
             if (user != null) {
@@ -112,12 +112,12 @@ class AdvertsViewModel @Inject constructor(
                         viewModelScope.launch {
                             try {
                                 val success = com.tpsk.tj.chat.rewards.data.RewardsManager.awardPoints(10.0, "REWARDED_AD", "Watched rewarded ad")
-                                val watched = poolManager.batchCount.value
                                 _toastMessage.value = if (success) {
-                                    "Earned 10 points! ($watched/4 ads before the longer wait)"
+                                    "Earned 10 coins"
                                 } else {
-                                    "The ad finished, but points were not added."
+                                    "The ad finished, but coins were not added."
                                 }
+                                if (success) onRewarded?.invoke()
                             } catch (e: Exception) {
                                 android.util.Log.e("AdvertsViewModel", "Failed to award points", e)
                                 _toastMessage.value = "The ad finished, but points were not added."

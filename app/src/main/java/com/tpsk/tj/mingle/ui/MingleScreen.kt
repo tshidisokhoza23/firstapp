@@ -338,7 +338,33 @@ fun MingleScreen(
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (copy.action != EmptyDeckAction.NONE) {
+                            if (uiState.emptyReason == "DAILY_LIMIT") {
+                                Spacer(modifier = Modifier.height(20.dp))
+                                val extendPrice = uiState.extendCost.toInt()
+                                Button(
+                                    onClick = { mingleViewModel.extendFeed("coins") },
+                                    enabled = extendPrice > 0,
+                                    shape = RoundedCornerShape(24.dp)
+                                ) {
+                                    Text(if (extendPrice > 0) "See 30 more for $extendPrice coins" else "Daily limit")
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        val activity = context as? android.app.Activity
+                                        if (activity != null) {
+                                            advertsViewModel.showRewardedAd(
+                                                activity,
+                                                com.tpsk.tj.common.data.ads.AdUnitConfig.REWARDED_POINTS_ID,
+                                                "mingle_feed_extend"
+                                            ) { mingleViewModel.extendFeed("ad") }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(24.dp)
+                                ) {
+                                    Text("Watch 1 ad for 20 more profiles")
+                                }
+                            } else if (copy.action != EmptyDeckAction.NONE) {
                                 Spacer(modifier = Modifier.height(20.dp))
                                 Button(
                                     onClick = {
@@ -420,7 +446,32 @@ fun MingleScreen(
                                 },
                                 onProfileClick = {
                                     Toast.makeText(context, "🔒 Secret Mingle Profile - Profile details are kept private.", Toast.LENGTH_SHORT).show()
-                                }
+                                },
+                                onSuperLike = {
+                                    if (!hasUploadedProfile) {
+                                        showUploadPhotosSheet = true
+                                        return@MingleCard
+                                    }
+                                    val price = uiState.superLikeCost
+                                    val available = maxOf(uiState.balance, points.toDouble(), currentUser?.walletBalance ?: 0.0)
+                                    if (price > 0 && available + 0.001 < price) {
+                                        showPointsGateDialog = true
+                                        return@MingleCard
+                                    }
+                                    mingleViewModel.swipe(
+                                        profile = profile,
+                                        action = "super_like",
+                                        candidateName = profile.name,
+                                        onMatched = { conversationId ->
+                                            Toast.makeText(context, "It's a match with ${profile.name}!", Toast.LENGTH_SHORT).show()
+                                            navController.navigate(Screen.Chat.createRoute(conversationId, type = "mingle", displayName = profile.name))
+                                        },
+                                        onInsufficientPoints = { showPointsGateDialog = true }
+                                    )
+                                },
+                                onBoost = { mingleViewModel.boostProfile() },
+                                superLikeCost = uiState.superLikeCost.toInt(),
+                                boostCost = uiState.boostCost.toInt()
                             )
                         }
                     }
@@ -518,7 +569,11 @@ fun MingleScreen(
                 Text("Say hi to ${target.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "One message, up to 150 characters. This costs ${uiState.introCost.toInt()} points and cannot be refunded. They will not see that it was paid.",
+                    if (uiState.introCost > 0) {
+                        "One message, up to 150 characters. This costs ${uiState.introCost.toInt()} points and cannot be refunded. They will not see that it was paid."
+                    } else {
+                        "One message, up to 150 characters. The server sets the price. It cannot be refunded, and they will not see that it was paid."
+                    },
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -549,11 +604,11 @@ fun MingleScreen(
                             }
                         )
                     },
-                    enabled = introText.trim().isNotEmpty(),
+                    enabled = introText.trim().isNotEmpty() && uiState.introCost > 0,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp)
                 ) {
-                    Text("Send for ${uiState.introCost.toInt()} points")
+                    Text(if (uiState.introCost > 0) "Send for ${uiState.introCost.toInt()} points" else "Waiting for the server price")
                 }
             }
         }
@@ -1012,7 +1067,11 @@ private fun MingleCard(
     onLike: () -> Unit,
     onPass: () -> Unit,
     onChat: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onSuperLike: () -> Unit = {},
+    onBoost: () -> Unit = {},
+    superLikeCost: Int = 0,
+    boostCost: Int = 0
 ) {
     val horizontalPagerState = rememberPagerState(pageCount = { profile.photos.size.coerceAtLeast(1) })
     val scope = rememberCoroutineScope()
@@ -1191,7 +1250,17 @@ private fun MingleCard(
                     modifier = Modifier.size(52.dp)
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Pass", modifier = Modifier.size(26.dp))
+                }SuperLike,
+                    containerColor = Color(0xFFFFC107),
+                    contentColor = Color.Black,
+                    shape = CircleShape,
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = if (superLikeCost > 0) "Super like, $superLikeCost coins" else "Super like", modifier = Modifier.size(26.dp))
                 }
+
+                FloatingActionButton(
+                    onClick = on
 
                 // Like Button (Heart)
                 FloatingActionButton(
@@ -1205,6 +1274,11 @@ private fun MingleCard(
                 }
 
                 // Meet / Direct Chat Button
+            if (boostCost > 0) {
+                TextButton(onClick = onBoost, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text("Boost for $boostCost coins, 30 minutes", color = Color.White)
+                }
+            }
                 FloatingActionButton(
                     onClick = onChat,
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -1223,6 +1297,11 @@ private fun MingleCard(
 private fun MingleNativeAdCard(
     onContinue: () -> Unit
 ) {
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(failed) {
+        if (failed) onContinue()
+    }
+    if (failed) return
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1271,7 +1350,8 @@ private fun MingleNativeAdCard(
                 contentAlignment = Alignment.Center
             ) {
                 com.tpsk.tj.common.ui.components.NativeAdCard(
-                    adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID
+                    adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+                    onFailed = { failed = true }
                 )
             }
 
@@ -1351,6 +1431,12 @@ private fun emptyDeckCopy(reason: String?, radiusKm: Int, hasLocationPermission:
             title = "No photos nearby",
             body = "People in range have not added a Mingle photo yet, so their cards stay hidden.",
             action = EmptyDeckAction.REFRESH,
+        "DAILY_LIMIT" -> EmptyDeckCopy(
+            title = "Daily profile limit reached",
+            body = "The free daily browse is used. Spend coins or watch a completed rewarded ad for more profiles.",
+            action = EmptyDeckAction.NONE,
+            actionLabel = ""
+        )
             actionLabel = "Check again"
         )
         "DIFFERENT_COUNTRY" -> EmptyDeckCopy(

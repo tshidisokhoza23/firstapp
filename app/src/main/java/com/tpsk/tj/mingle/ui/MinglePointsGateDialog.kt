@@ -75,7 +75,7 @@ fun MinglePointsGateDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "You need more points for this. Watch an ad or open your wallet. Browsing Mingle stays free.",
+                    text = "You need more coins for this. A completed rewarded ad adds 10 coins, up to 6 a day. Coin packs are not in Google Play yet.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

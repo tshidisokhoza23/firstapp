@@ -60,7 +60,8 @@ fun NativeAdCard(
 fun NativeAdCard(
     adUnitId: String,
     modifier: Modifier = Modifier,
-    layoutResId: Int = R.layout.item_media_native_ad
+    layoutResId: Int = R.layout.item_media_native_ad,
+    onFailed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var nativeAd by remember { mutableStateOf<NativeAd?>(null) }
@@ -76,6 +77,7 @@ fun NativeAdCard(
             .withAdListener(object : AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     android.util.Log.e("NativeAdCard", "Ad Load Failed: ${error.message} (Code: ${error.code})")
+                    onFailed()
                 }
             })
             .build()

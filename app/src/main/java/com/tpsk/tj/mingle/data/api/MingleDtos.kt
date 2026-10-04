@@ -52,8 +52,16 @@ data class MingleFeedResponse(
     val like_cost: Double = 10.0,
     val next_like_cost: Double = 0.0,
     val min_balance: Double = 40.0,
-    val free_likes_remaining: Int = 20,
-    val intro_cost: Double = 100.0
+    val free_likes_remaining: Int = 25,
+    val intro_cost: Double = 0.0,
+    val free_profiles_remaining: Int = 50,
+    val super_like_cost: Double = 0.0,
+    val admirer_cost: Double = 0.0,
+    val boost_cost: Double = 0.0,
+    val extend_cost: Double = 0.0,
+    val extend_grant: Int = 0,
+    val ad_extend_grant: Int = 0,
+    val rewarded_ad_coins: Double = 0.0
 )
 
 data class MingleLocationRequest(
@@ -120,7 +128,15 @@ data class MingleActivityDto(
     val type: String? = null,
     val photo_url: String? = null,
     val conversation_id: String? = null,
-    val created_at: Long = 0
+    val created_at: Long = 0,
+    val locked: Boolean = false
+)
+
+data class MingleEconomyResult(
+    val balance: Double = 0.0,
+    val free_profiles_remaining: Int = 0,
+    val boost_until: Long = 0,
+    val error: String? = null
 )
 
 data class MingleActivityResponse(

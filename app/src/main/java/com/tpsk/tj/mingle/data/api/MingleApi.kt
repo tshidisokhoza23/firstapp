@@ -62,4 +62,13 @@ interface MingleApi {
         @Path("introId") introId: String,
         @Body request: MingleIntroRespondRequest
     ): Response<MingleIntroDto>
+
+    @POST("mingle/feed/extend")
+    suspend fun extendFeed(@Body request: Map<String, String>): Response<MingleEconomyResult>
+
+    @POST("mingle/boost")
+    suspend fun boost(): Response<MingleEconomyResult>
+
+    @POST("mingle/admirers/{userId}/unlock")
+    suspend fun unlockAdmirer(@Path("userId") userId: String): Response<MingleEconomyResult>
 }

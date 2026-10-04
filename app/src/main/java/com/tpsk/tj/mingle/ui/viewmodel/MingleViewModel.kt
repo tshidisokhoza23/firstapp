@@ -44,8 +44,13 @@ data class MingleUiState(
     val balance: Double = 0.0,
     val likeCost: Double = 10.0,
     val nextLikeCost: Double = 0.0,
-    val freeLikesRemaining: Int = 20,
-    val introCost: Double = 100.0,
+    val freeLikesRemaining: Int = 0,
+    val introCost: Double = 0.0,
+    val superLikeCost: Double = 0.0,
+    val boostCost: Double = 0.0,
+    val admirerCost: Double = 0.0,
+    val extendCost: Double = 0.0,
+    val profilesRemaining: Int = 0,
     val intros: List<MingleIntroDto> = emptyList(),
     val minBalance: Double = 0.0,
     val hasLocationPermission: Boolean = false,
@@ -283,11 +288,16 @@ class MingleViewModel @Inject constructor(
                         hasMore = feed?.has_more == true,
                         radiusKm = (feed?.radius_km ?: radius).toFloat(),
                         balance = feedBalance ?: _uiState.value.balance,
-                        likeCost = feed?.like_cost ?: 10.0,
-                        nextLikeCost = feed?.next_like_cost ?: if ((feed?.free_likes_remaining ?: 20) > 0) 0.0 else (feed?.like_cost ?: 10.0),
+                        likeCost = feed?.like_cost ?: _uiState.value.likeCost,
+                        nextLikeCost = feed?.next_like_cost ?: _uiState.value.nextLikeCost,
                         freeLikesRemaining = feed?.free_likes_remaining ?: _uiState.value.freeLikesRemaining,
-                        introCost = feed?.intro_cost?.takeIf { it > 0 } ?: 100.0,
-                        minBalance = feed?.min_balance ?: 0.0,
+                        introCost = feed?.intro_cost ?: _uiState.value.introCost,
+                        superLikeCost = feed?.super_like_cost ?: _uiState.value.superLikeCost,
+                        boostCost = feed?.boost_cost ?: _uiState.value.boostCost,
+                        admirerCost = feed?.admirer_cost ?: _uiState.value.admirerCost,
+                        extendCost = feed?.extend_cost ?: _uiState.value.extendCost,
+                        profilesRemaining = feed?.free_profiles_remaining ?: _uiState.value.profilesRemaining,
+                        minBalance = feed?.min_balance ?: _uiState.value.minBalance,
                         error = null
                     )
                 }
@@ -342,6 +352,70 @@ class MingleViewModel @Inject constructor(
     private fun restoreProfile(profile: MingleProfile) {
         if (_uiState.value.profiles.any { it.id == profile.id }) return
         _uiState.value = _uiState.value.copy(profiles = listOf(profile) + _uiState.value.profiles)
+    }
+
+    fun extendFeed(method: String) {
+        viewModelScope.launch {
+            repository.extendFeed(method).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        val data = result.data
+                        _uiState.value = _uiState.value.copy(
+                            balance = data?.balance ?: _uiState.value.balance,
+                            profilesRemaining = data?.free_profiles_remaining ?: _uiState.value.profilesRemaining,
+                            needsPoints = false,
+                            error = null
+                        )
+                        refreshLocationAndFeed()
+                    }
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(
+                        needsPoints = result.message == "INSUFFICIENT_POINTS",
+                        error = result.message
+                    )
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun boostProfile() {
+        viewModelScope.launch {
+            repository.boost().collect { result ->
+                when (result) {
+                    is Resource.Success -> _uiState.value = _uiState.value.copy(
+                        balance = result.data?.balance ?: _uiState.value.balance,
+                        error = null
+                    )
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(
+                        needsPoints = result.message == "INSUFFICIENT_POINTS",
+                        error = result.message
+                    )
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun unlockAdmirer(actorId: String) {
+        if (actorId.isBlank()) return
+        viewModelScope.launch {
+            repository.unlockAdmirer(actorId).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            balance = result.data?.balance ?: _uiState.value.balance,
+                            error = null
+                        )
+                        loadActivity()
+                    }
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(
+                        needsPoints = result.message == "INSUFFICIENT_POINTS",
+                        error = result.message
+                    )
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
     fun rewind(onRewound: () -> Unit = {}) {
@@ -736,13 +810,14 @@ private fun MingleActivityDto.toNotification(): MingleActivityNotification {
     return MingleActivityNotification(
         id = id.orEmpty(),
         actorId = actor_id.orEmpty(),
-        actorName = actor_name.orEmpty().ifBlank { "Someone" },
+        actorName = if (locked) "" else actor_name.orEmpty(),
         actorAvatarUrl = actor_avatar_url ?: photo_url,
         type = mappedType,
         actionText = actionText,
         timeAgo = created_at.toRelativeTime(),
         photoUrl = photo_url,
-        conversationId = conversation_id
+        conversationId = conversation_id,
+        locked = locked
     )
 }
 

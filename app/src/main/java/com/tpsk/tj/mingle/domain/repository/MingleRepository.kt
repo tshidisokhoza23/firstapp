@@ -20,4 +20,7 @@ interface MingleRepository {
     fun sendIntro(recipientId: String, message: String): Flow<Resource<MingleIntroDto>>
     fun listIntros(): Flow<Resource<List<MingleIntroDto>>>
     fun respondIntro(introId: String, action: String, senderName: String? = null): Flow<Resource<MingleIntroDto>>
+    fun extendFeed(method: String): Flow<Resource<MingleEconomyResult>>
+    fun boost(): Flow<Resource<MingleEconomyResult>>
+    fun unlockAdmirer(userId: String): Flow<Resource<MingleEconomyResult>>
 }

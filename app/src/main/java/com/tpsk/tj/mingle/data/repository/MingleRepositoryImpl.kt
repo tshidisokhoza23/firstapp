@@ -285,6 +285,44 @@ class MingleRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun extendFeed(method: String): Flow<Resource<MingleEconomyResult>> = economyCall("Unable to extend the feed") {
+        api.extendFeed(mapOf("method" to method))
+    }
+
+    override fun boost(): Flow<Resource<MingleEconomyResult>> = economyCall("Unable to boost this profile") {
+        api.boost()
+    }
+
+    override fun unlockAdmirer(userId: String): Flow<Resource<MingleEconomyResult>> = economyCall("Unable to unlock this like") {
+        api.unlockAdmirer(userId)
+    }
+
+    private fun economyCall(
+        fallback: String,
+        call: suspend () -> retrofit2.Response<MingleEconomyResult>
+    ): Flow<Resource<MingleEconomyResult>> = flow {
+        try {
+            val response = call()
+            val body = response.body()
+            if (response.code() == 402) {
+                emit(Resource.Error("INSUFFICIENT_POINTS", lastData = body))
+                return@flow
+            }
+            if (response.code() == 404) {
+                emit(Resource.Error("This action is not on the server this app is using"))
+                return@flow
+            }
+            if (response.isSuccessful && body != null) {
+                emit(Resource.Success(body))
+            } else {
+                emit(Resource.Error(parseError(response.errorBody()?.string(), fallback)))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emit(Resource.Error(e.message ?: fallback))
+        }
+    }
+
     private suspend fun saveMingleChatLocally(conversationId: String, candidateName: String?, targetUserId: String, lastMessage: String) {
         if (conversationId.isBlank()) return
         try {
