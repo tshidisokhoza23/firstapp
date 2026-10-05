@@ -39,8 +39,8 @@ public final class WebRtcCallManager: NSObject, RTCPeerConnectionDelegate, @unch
 
     public static let shared = WebRtcCallManager()
     private static let fallbackIce = [
-        RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]),
-        RTCIceServer(urlStrings: ["turn:openrelay.metered.ca:80", "turn:openrelay.metered.ca:443", "turn:openrelay.metered.ca:443?transport=tcp"], username: "openrelayproject", credential: "openrelayproject")
+        RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:137.66.50.206:3478"]),
+        RTCIceServer(urlStrings: ["turn:137.66.50.206:3478", "turn:137.66.50.206:3478?transport=tcp"], username: "turnuser", credential: "turnpassword123")
     ]
 
     public override init() {
