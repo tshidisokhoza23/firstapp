@@ -242,8 +242,6 @@ struct NativeAdCover: View {
 
 struct StoryAdSlot: View {
     @State private var open = false
-    @State private var loaded = false
-    var body: some View {
     #if canImport(GoogleMobileAds)
     private let ad: GADNativeAd?
     init() {
@@ -265,13 +263,15 @@ struct StoryAdSlot: View {
             .buttonStyle(.plain)
             .frame(width: 76)
             .fullScreenCover(isPresented: $open) {
-                NativeAdCover(continueTitle: "Close", preloaded: ad, onContinue: { open = false })
+                NativeAdCover(continueTitle: "Close", onContinue: { open = false }, preloaded: ad)
             }
         }
     }
     #else
     var body: some View { EmptyView() }
     #endif
+}
+
 #if canImport(GoogleMobileAds)
 private struct BannerAdRepresentable: UIViewRepresentable {
     @Binding var visible: Bool
@@ -364,9 +364,7 @@ final class NativeAdPool: NSObject, GADNativeAdLoaderDelegate {
 
 private struct NativeAdBox: UIViewRepresentable {
     var fullScreen: Bool
-    var failed: Binding<Bool> = .constant(false)
-    var loaded: Binding<Bool> = .constant(false)
-preloaded: GADNativeAd? = nil
+    var preloaded: GADNativeAd? = nil
     var failed: Binding<Bool> = .constant(false)
     var loaded: Binding<Bool> = .constant(false)
 
@@ -382,6 +380,8 @@ preloaded: GADNativeAd? = nil
             view.isHidden = true
             context.coordinator.load(into: view)
         }
+        return view
+    }
 
     func updateUIView(_ uiView: NativeAdContainer, context: Context) {}
 
