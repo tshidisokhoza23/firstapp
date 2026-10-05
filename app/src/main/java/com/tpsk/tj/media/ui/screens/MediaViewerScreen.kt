@@ -26,6 +26,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import com.tpsk.tj.common.util.MediaUtils
+import com.tpsk.tj.media.data.ShortsVideoCache
 import com.tpsk.tj.media.ui.components.ActiveVideoPlayback
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -46,8 +48,15 @@ fun MediaViewerScreen(
     ) {
         if (type == "video") {
             val exoPlayer = remember(url) {
-                androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
+                androidx.media3.exoplayer.ExoPlayer.Builder(context)
+                    .setMediaSourceFactory(
+                        androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                            ShortsVideoCache.dataSourceFactory(context)
+                        )
+                    )
+                    .build()
             }
+            val posterUrl = MediaUtils.posterUrl(url)
             val playerView = remember(url) { mutableStateOf<PlayerView?>(null) }
             var isBuffering by remember { mutableStateOf(true) }
             var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -95,12 +104,21 @@ fun MediaViewerScreen(
                 }
             }
 
+            if (!posterUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = posterUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+            }
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
                         player = exoPlayer
                         useController = true
                         resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                         playerView.value = this
                     }
                 },

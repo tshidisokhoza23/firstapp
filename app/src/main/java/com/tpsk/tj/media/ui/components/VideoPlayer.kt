@@ -17,7 +17,11 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
+import com.tpsk.tj.common.util.MediaUtils
+import com.tpsk.tj.media.data.ShortsVideoCache
 import kotlinx.coroutines.delay
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -37,7 +41,9 @@ fun VideoPlayer(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val playerInstance = remember(videoUrl) {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(ShortsVideoCache.dataSourceFactory(context)))
+            .build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
@@ -107,13 +113,24 @@ fun VideoPlayer(
         }
     }
 
+    val posterUrl = MediaUtils.posterUrl(videoUrl)
     Box(modifier = modifier.background(Color.Black)) {
+        if (!posterUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = posterUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit
+            )
+        }
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = playerInstance
                     this.useController = useController
                     this.resizeMode = resizeMode
+                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT

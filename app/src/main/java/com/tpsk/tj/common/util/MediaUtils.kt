@@ -115,6 +115,15 @@ object MediaUtils {
         )
     }
 
+    /** Sibling WebP poster written next to optimized MP4 uploads. */
+    fun posterUrl(videoUrl: String?): String? {
+        if (videoUrl.isNullOrBlank()) return null
+        val match = Regex("(?i)\\.(mp4|mov|m4v|webm|mkv)(\\?.*)?$").find(videoUrl) ?: return null
+        val ext = match.groupValues[1]
+        val query = match.groupValues.getOrElse(2) { "" }
+        return videoUrl.dropLast(ext.length + 1 + query.length) + "webp" + query
+    }
+
     fun formatUrl(url: String?): String? {
         if (url == null || url.isEmpty()) return null
         

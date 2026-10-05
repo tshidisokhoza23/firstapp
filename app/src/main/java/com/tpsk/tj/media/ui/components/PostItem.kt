@@ -707,7 +707,9 @@ fun FeedNativeAdCard(adManager: AdManager, adUnitId: String, post: Post) {
     Box(modifier = Modifier.fillMaxWidth()) {
         com.tpsk.tj.common.ui.components.DynamicAdCard(
             adManager = adManager,
-            adUnitId = adUnitId.ifBlank { com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID }
+            adUnitId = adUnitId.ifBlank { com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID },
+            slotKey = "post_ad_${post.id}",
+            reserveSlot = true
         )
         Surface(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp), color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(4.dp)) {
             Text("Ad", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))

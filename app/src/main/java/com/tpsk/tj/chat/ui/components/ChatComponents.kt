@@ -659,13 +659,20 @@ fun FullScreenVideoPlayer(uri: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val playerView = remember(uri) { mutableStateOf<androidx.media3.ui.PlayerView?>(null) }
     val exoPlayer = remember(uri) {
-        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context)
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                    com.tpsk.tj.media.data.ShortsVideoCache.dataSourceFactory(context)
+                )
+            )
+            .build().apply {
             setMediaItem(androidx.media3.common.MediaItem.fromUri(Uri.parse(uri)))
             repeatMode = androidx.media3.common.Player.REPEAT_MODE_OFF
             prepare()
             playWhenReady = true
         }
     }
+    val posterUrl = com.tpsk.tj.common.util.MediaUtils.posterUrl(uri)
 
     LaunchedEffect(exoPlayer) {
         com.tpsk.tj.media.ui.components.ActiveVideoPlayback.claim(exoPlayer)
@@ -679,12 +686,20 @@ fun FullScreenVideoPlayer(uri: String, onBack: () -> Unit) {
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        if (!posterUrl.isNullOrBlank()) {
+            coil.compose.AsyncImage(
+                model = posterUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         AndroidView(
             factory = {
                 androidx.media3.ui.PlayerView(context).apply {
                     player = exoPlayer
                     useController = true
-                    setBackgroundColor(android.graphics.Color.BLACK)
+                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     playerView.value = this
                 }
             },

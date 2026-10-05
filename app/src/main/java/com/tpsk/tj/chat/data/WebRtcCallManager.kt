@@ -165,13 +165,13 @@ class WebRtcCallManager(context: Context) {
         val defaultIceServers = listOf(
             PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
             PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
+            PeerConnection.IceServer.builder("stun:137.66.50.206:3478").createIceServer(),
             PeerConnection.IceServer.builder(
                 listOf(
-                    "turn:openrelay.metered.ca:80",
-                    "turn:openrelay.metered.ca:443",
-                    "turn:openrelay.metered.ca:443?transport=tcp"
+                    "turn:137.66.50.206:3478",
+                    "turn:137.66.50.206:3478?transport=tcp"
                 )
-            ).setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
+            ).setUsername("turnuser").setPassword("turnpassword123").createIceServer()
         )
 
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers ?: defaultIceServers).apply {

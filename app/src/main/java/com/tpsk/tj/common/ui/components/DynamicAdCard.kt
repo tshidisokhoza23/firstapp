@@ -1,22 +1,32 @@
 package com.tpsk.tj.common.ui.components
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
+import android.view.ViewGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.tpsk.tj.common.data.ads.AdManager
-import com.google.android.gms.ads.nativead.NativeAd
-import com.google.android.gms.ads.nativead.NativeAdView
-import android.view.LayoutInflater
-import android.view.ViewGroup
-import android.widget.TextView
-import android.widget.Button
-import com.tpsk.tj.R
-
 import com.google.android.gms.ads.AdView
+import com.tpsk.tj.R
+import com.tpsk.tj.common.data.ads.AdManager
+import com.tpsk.tj.common.data.ads.FeedAdSlots
+import com.tpsk.tj.common.data.ads.NativeAdPool
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun DynamicAdCard(
     adManager: AdManager,
@@ -24,73 +34,129 @@ fun DynamicAdCard(
     modifier: Modifier = Modifier,
     isBanner: Boolean = false,
     isShortsAd: Boolean = false,
+    slotKey: String = adUnitId,
+    playMedia: Boolean = false,
+    reserveSlot: Boolean = false,
     onAdRevenuePaid: ((Double) -> Unit)? = null
 ) {
-    val context = LocalContext.current
-    var adObject by remember { mutableStateOf<Any?>(null) }
-    var failed by remember { mutableStateOf(false) }
-    DisposableEffect(adUnitId, isShortsAd, isBanner) {
-        if (isBanner) {
-            adManager.loadBannerAd(
-                context = context,
-                adUnitId = adUnitId,
-                onAdLoaded = { adObject = it },
-                onAdFailed = { failed = true }
-            )
-        } else if (isShortsAd) {
-            adManager.loadShortsNativeAd(
-                context = context,
-                adUnitId = adUnitId,
-                onAdLoaded = { adObject = it },
-                onAdFailed = { failed = true },
-                onAdRevenuePaid = onAdRevenuePaid
-            )
-        } else {
-            adManager.loadNativeAd(
-                context = context,
-                adUnitId = adUnitId,
-                onAdLoaded = { adObject = it },
-                onAdFailed = { failed = true },
-                onAdRevenuePaid = onAdRevenuePaid
-            )
-        }
-        onDispose {
-            adManager.destroyAd(adObject)
-        }
-    }
-
-    if (adObject == null) {
-        if (failed || !isShortsAd) return
-        Box(modifier = modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-            androidx.compose.material3.CircularProgressIndicator()
-        }
+    if (isBanner) {
+        BannerAdCard(adManager, adUnitId, modifier)
         return
     }
-
-    if (adObject is NativeAd) {
-        val ad = adObject as NativeAd
-        AndroidView(
+    if (isShortsAd) {
+        FullScreenPooledAd(
+            adManager = adManager,
+            adUnitId = adUnitId,
+            slotKey = slotKey,
+            playMedia = playMedia,
+            layoutResId = R.layout.item_short_native_ad,
             modifier = modifier
-                .fillMaxWidth()
-                .then(if (isShortsAd) Modifier.fillMaxSize() else Modifier.defaultMinSize(minHeight = 180.dp)),
-            factory = { ctx ->
-                val layoutRes = if (isShortsAd) R.layout.item_short_native_ad else R.layout.item_media_native_ad
-                val view = LayoutInflater.from(ctx).inflate(layoutRes, null) as NativeAdView
-                prepareNativeAdView(view, isShortsAd)
-                bindNativeAd(view, ad)
-                view
-            },
-            update = { view -> bindNativeAd(view, ad) }
         )
+        return
     }
-else if (adObject is AdView) {
-        AndroidView(
-            modifier = modifier.fillMaxWidth(),
-            factory = { _ ->
-                val adView = adObject as AdView
-                (adView.parent as? ViewGroup)?.removeView(adView)
-                adView
-            }
+    FeedPooledAd(
+        adManager = adManager,
+        adUnitId = adUnitId,
+        slotKey = slotKey,
+        reserveSlot = reserveSlot,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun BannerAdCard(
+    adManager: AdManager,
+    adUnitId: String,
+    modifier: Modifier
+) {
+    val context = LocalContext.current
+    var adObject by remember(adUnitId) { mutableStateOf<Any?>(null) }
+    DisposableEffect(adUnitId) {
+        adManager.loadBannerAd(
+            context = context,
+            adUnitId = adUnitId,
+            onAdLoaded = { adObject = it },
+            onAdFailed = { }
         )
+        onDispose { adManager.destroyAd(adObject) }
+    }
+    val banner = adObject as? AdView ?: return
+    AndroidView(
+        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 50.dp),
+        factory = { _ ->
+            (banner.parent as? ViewGroup)?.removeView(banner)
+            banner
+        }
+    )
+}
+
+@Composable
+private fun FullScreenPooledAd(
+    adManager: AdManager,
+    adUnitId: String,
+    slotKey: String,
+    playMedia: Boolean,
+    layoutResId: Int,
+    modifier: Modifier
+) {
+    val ad = awaitPooledNativeAd(
+        adManager = adManager,
+        unitId = adUnitId,
+        portrait = true,
+        slotKey = slotKey
+    )
+    Box(modifier.fillMaxSize().background(Color.Black)) {
+        if (ad == null) {
+            NativeAdShimmer(Modifier.fillMaxSize())
+        } else {
+            ReadyNativeAd(
+                adObject = ad,
+                modifier = Modifier.fillMaxSize(),
+                layoutResId = layoutResId,
+                playMedia = playMedia,
+                cornerRadius = 0
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeedPooledAd(
+    adManager: AdManager,
+    adUnitId: String,
+    slotKey: String,
+    reserveSlot: Boolean,
+    modifier: Modifier
+) {
+    val context = LocalContext.current
+    val claimed = remember(slotKey) {
+        NativeAdPool.take(adManager, context, adUnitId, portrait = false)
+    }
+    val show = reserveSlot || FeedAdSlots.reserveIfReady(slotKey, claimed != null)
+    val ad = awaitPooledNativeAd(
+        adManager = adManager,
+        unitId = adUnitId,
+        portrait = false,
+        slotKey = slotKey,
+        initial = claimed,
+        fetch = show && claimed == null
+    )
+    if (!show) return
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(320.dp)
+            .clip(RoundedCornerShape(12.dp))
+    ) {
+        if (ad == null) {
+            NativeAdShimmer(Modifier.fillMaxSize())
+        } else {
+            ReadyNativeAd(
+                adObject = ad,
+                modifier = Modifier.fillMaxSize(),
+                layoutResId = R.layout.item_media_native_ad,
+                playMedia = false
+            )
+        }
     }
 }

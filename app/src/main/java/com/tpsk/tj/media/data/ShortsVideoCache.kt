@@ -42,12 +42,14 @@ object ShortsVideoCache {
         return simpleCache ?: synchronized(this) {
             simpleCache ?: run {
                 val cacheDir = File(appContext(context).cacheDir, "shorts_video_cache")
-                val evictor = LeastRecentlyUsedCacheEvictor(200 * 1024 * 1024L) // 200MB cache
+                val evictor = LeastRecentlyUsedCacheEvictor(512 * 1024 * 1024L) // Shared 512MB video cache
                 val databaseProvider = StandaloneDatabaseProvider(appContext(context))
                 SimpleCache(cacheDir, evictor, databaseProvider).also { simpleCache = it }
             }
         }
     }
+
+    fun dataSourceFactory(context: Context): CacheDataSource.Factory = createCacheDataSourceFactory(context)
 
     private fun createCacheDataSourceFactory(context: Context): CacheDataSource.Factory {
         val httpFactory = DefaultHttpDataSource.Factory()
@@ -64,10 +66,14 @@ object ShortsVideoCache {
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
+    fun acquirePlayer(context: Context, url: String): ExoPlayer = acquirePlayer(context, url, loop = true)
+
     @Synchronized
-    fun acquirePlayer(context: Context, url: String): ExoPlayer {
+    fun acquirePlayer(context: Context, url: String, loop: Boolean): ExoPlayer {
+        val repeat = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         val existing = playerPool[url]
         if (existing != null) {
+            existing.repeatMode = repeat
             poolUrls.remove(url)
             poolUrls.add(url)
             return existing
@@ -85,7 +91,7 @@ object ShortsVideoCache {
             .setMediaSourceFactory(DefaultMediaSourceFactory(createCacheDataSourceFactory(context)))
             .build()
             .apply {
-                repeatMode = Player.REPEAT_MODE_ONE
+                repeatMode = repeat
                 setMediaItem(MediaItem.fromUri(url))
                 prepare()
             }

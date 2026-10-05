@@ -671,12 +671,14 @@ fun MainFeedSection(
                             onFollowClick = onFollowUser
                         )
 
-                        // REQUIREMENT: Inject 1 native ad unit every 4 content posts
+                        // Every 4th post. The slot is omitted unless an ad is already pooled,
+                        // so the row never grows after the first layout.
                         if ((index + 1) % 4 == 0) {
                             com.tpsk.tj.common.ui.components.DynamicAdCard(
                                 adManager = adManager,
                                 adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
-                                modifier = Modifier.padding(vertical = 8.dp)
+                                slotKey = "feed_${post.id}",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                             )
                         }
                 }

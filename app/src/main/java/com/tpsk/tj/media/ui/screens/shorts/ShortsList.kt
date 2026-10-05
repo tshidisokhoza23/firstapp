@@ -107,7 +107,7 @@ fun ShortsList(
 
     VerticalPager(
         state = pagerState, 
-        beyondViewportPageCount = 1,
+        beyondViewportPageCount = 2,
         modifier = Modifier.fillMaxSize(),
         key = { page -> 
             if (isAdPage(page)) "ad_$page"
@@ -116,20 +116,24 @@ fun ShortsList(
                 if (idx < shorts.itemCount) shorts[idx]?.id ?: "short_$page"
                 else "empty_$page"
             }
-        }
+        },
+        contentType = { page -> if (isAdPage(page)) "native_ad" else "short" }
     ) { page ->
         if (isAdPage(page)) {
+            val playAd = pagerState.currentPage == page && pagerState.currentPageOffsetFraction == 0f
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black)
-                    .padding(bottom = bottomPadding) // REQUIREMENT: Avoid nav bar clipping
+                    .padding(bottom = bottomPadding)
             ) {
                 com.tpsk.tj.common.ui.components.DynamicAdCard(
                     adManager = adManager,
                     adUnitId = AdUnitConfig.NATIVE_SHORTS_ID,
                     modifier = Modifier.fillMaxSize(),
-                    isShortsAd = true
+                    isShortsAd = true,
+                    slotKey = "short_ad_$page",
+                    playMedia = playAd
                 )
             }
         } else {

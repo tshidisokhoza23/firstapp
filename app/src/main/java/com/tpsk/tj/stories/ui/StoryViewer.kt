@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.stories.ui
 
 import androidx.compose.animation.core.Animatable
@@ -144,11 +146,8 @@ fun StoryViewer(
 
     val exoPlayer = remember(currentStory.id, formattedMediaUrl, visualType) {
         if (visualType == StoryType.VIDEO && !formattedMediaUrl.isNullOrBlank()) {
-            ExoPlayer.Builder(context).build().apply {
-                repeatMode = Player.REPEAT_MODE_OFF
+            com.tpsk.tj.media.data.ShortsVideoCache.acquirePlayer(context, formattedMediaUrl, loop = false).apply {
                 setPlaybackSpeed(1f)
-                setMediaItem(MediaItem.fromUri(formattedMediaUrl))
-                prepare()
                 seekTo(0)
                 playWhenReady = false
             }
@@ -157,8 +156,22 @@ fun StoryViewer(
         }
     }
 
-    DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer?.release() }
+    DisposableEffect(formattedMediaUrl, exoPlayer) {
+        onDispose {
+            if (!formattedMediaUrl.isNullOrBlank()) {
+                com.tpsk.tj.media.data.ShortsVideoCache.releasePlayer(formattedMediaUrl)
+            }
+        }
+    }
+
+    LaunchedEffect(currentStoryIndex, stories) {
+        val upcoming = stories.drop(currentStoryIndex).take(3).mapNotNull { story ->
+            val url = formatMediaUrl(story.contentUrl)
+            if (storyVisualType(story, url) == StoryType.VIDEO) url else null
+        }
+        if (upcoming.isNotEmpty()) {
+            com.tpsk.tj.media.data.ShortsVideoCache.preload(context, upcoming)
+        }
     }
 
     val progress = remember { Animatable(0f) }
@@ -376,18 +389,15 @@ fun StoryViewer(
                 }
                 StoryType.VIDEO -> {
                     if (exoPlayer != null) {
-                        if (isVideoBuffering) {
-                            val poster = userStory.userAvatarUrl?.takeIf { it.isNotBlank() }
-                            if (poster != null) {
-                                AsyncImage(
-                                    model = formatMediaUrl(poster) ?: poster,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Box(Modifier.fillMaxSize().background(Color.Black))
-                            }
+                        val poster = com.tpsk.tj.common.util.MediaUtils.posterUrl(formattedMediaUrl)
+                            ?: userStory.userAvatarUrl?.takeIf { it.isNotBlank() }?.let { formatMediaUrl(it) ?: it }
+                        if (!poster.isNullOrBlank()) {
+                            AsyncImage(
+                                model = poster,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
                         }
                         AndroidView(
                             factory = { viewContext ->
@@ -395,6 +405,8 @@ fun StoryViewer(
                                     .inflate(com.tpsk.tj.R.layout.story_player_view, null) as androidx.media3.ui.PlayerView)
                             },
                             update = { view ->
+                                view.setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                                 if (view.player !== exoPlayer) view.player = exoPlayer
                             },
                             modifier = Modifier

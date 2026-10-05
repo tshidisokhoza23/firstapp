@@ -96,20 +96,30 @@ fun StoryScreen(
     var usersSinceAd by remember { mutableIntStateOf(0) }
     val postedArchive = !initialPlay
 
-    LaunchedEffect(viewingUserStory, postedArchive, showingStoryAd) {
-        if (!postedArchive && viewingUserStory != null && !showingStoryAd && loadedAdObject == null && !isAdLoading) {
-            isAdLoading = true
-            adManager.loadNativeAd(
-                context = context,
-                adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
-                onAdLoaded = { ad ->
-                    loadedAdObject = ad
-                    isAdLoading = false
-                },
-                onAdFailed = {
-                    isAdLoading = false
-                }
+    LaunchedEffect(Unit) {
+        com.tpsk.tj.common.data.ads.NativeAdPool.warm(
+            adManager,
+            context,
+            com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+            portrait = true,
+            target = 2
+        )
+    }
+
+    LaunchedEffect(viewingUserStory, postedArchive, showingStoryAd, loadedAdObject) {
+        if (postedArchive || viewingUserStory == null || showingStoryAd || loadedAdObject != null) return@LaunchedEffect
+        repeat(8) {
+            val ad = com.tpsk.tj.common.data.ads.NativeAdPool.take(
+                adManager,
+                context,
+                com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+                portrait = true
             )
+            if (ad != null) {
+                loadedAdObject = ad
+                return@LaunchedEffect
+            }
+            kotlinx.coroutines.delay(300)
         }
     }
 

@@ -103,6 +103,7 @@ class PostUploadWorker @AssistedInject constructor(
 
             // 1. Process all attached images: downsample, strip EXIF metadata & upload to server
             val processedImageUrls = mutableListOf<String>()
+            var firstThumb: String? = null
             for (uriStr in uriStrings) {
                 if (uriStr.startsWith("http:") || uriStr.startsWith("https:") || uriStr.startsWith("uploads/")) {
                     processedImageUrls.add(uriStr)
@@ -119,9 +120,13 @@ class PostUploadWorker @AssistedInject constructor(
 
                     val uploadResponse = mediaApi.uploadMedia(body, folderBody)
                     if (uploadResponse.isSuccessful && uploadResponse.body() != null) {
-                        val serverMediaUrl = uploadResponse.body()!!.url
+                        val uploaded = uploadResponse.body()!!
+                        val serverMediaUrl = uploaded.url
                         Log.d("PostUploadWorker", "Uploaded clean image to server: $serverMediaUrl")
                         processedImageUrls.add(serverMediaUrl)
+                        if (firstThumb.isNullOrBlank()) {
+                            firstThumb = uploaded.thumbnailUrl
+                        }
                     } else {
                         Log.e("PostUploadWorker", "Media upload failed with code ${uploadResponse.code()}")
                         throw IllegalStateException("Image upload failed with status code ${uploadResponse.code()}")
@@ -139,7 +144,8 @@ class PostUploadWorker @AssistedInject constructor(
                 poll_options = pollOptions,
                 parent_post_id = parentPostId,
                 root_post_id = rootPostId,
-                repost_of_id = repostOfId
+                repost_of_id = repostOfId,
+                thumbnail_url = firstThumb
             )
 
             // 3. Post payload to backend

@@ -35,5 +35,7 @@ data class ForgotPasswordRequest(val email_or_username: String)
 data class UploadResponse(
     val url: String,
     val file_name: String,
-    val file_size: Long
+    val file_size: Long,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String? = null,
+    @SerializedName("content_type") val contentType: String? = null
 )

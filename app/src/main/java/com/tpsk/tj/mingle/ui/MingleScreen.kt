@@ -61,6 +61,15 @@ fun MingleScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        com.tpsk.tj.common.data.ads.NativeAdPool.warm(
+            advertsViewModel.adManager,
+            context,
+            com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+            portrait = true,
+            target = 2
+        )
+    }
     val uiState by mingleViewModel.uiState.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
     val contacts by userViewModel.contacts.collectAsState()
@@ -389,11 +398,21 @@ fun MingleScreen(
                 } else {
                     VerticalPager(
                         state = verticalPagerState,
-                        modifier = Modifier.fillMaxSize()
+                        beyondViewportPageCount = 2,
+                        modifier = Modifier.fillMaxSize(),
+                        key = { pageIndex ->
+                            val isAd = (pageIndex + 1) % (profilesBetweenAds + 1) == 0
+                            if (isAd) "ad_$pageIndex" else "profile_$pageIndex"
+                        }
                     ) { pageIndex ->
                         val isAdPage = (pageIndex + 1) % (profilesBetweenAds + 1) == 0
                         if (isAdPage) {
+                            val playAd = verticalPagerState.currentPage == pageIndex &&
+                                verticalPagerState.currentPageOffsetFraction == 0f
                             MingleNativeAdCard(
+                                adManager = advertsViewModel.adManager,
+                                playMedia = playAd,
+                                slotKey = "mingle_ad_$pageIndex",
                                 onContinue = {
                                     if (pageIndex < totalPages - 1) {
                                         scope.launch { verticalPagerState.animateScrollToPage(pageIndex + 1) }
@@ -1291,13 +1310,17 @@ private fun MingleCard(
 
 @Composable
 private fun MingleNativeAdCard(
+    adManager: com.tpsk.tj.common.data.ads.AdManager,
+    playMedia: Boolean,
+    slotKey: String,
     onContinue: () -> Unit
 ) {
-    var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(failed) {
-        if (failed) onContinue()
-    }
-    if (failed) return
+    val ad = com.tpsk.tj.common.ui.components.awaitPooledNativeAd(
+        adManager = adManager,
+        unitId = com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
+        portrait = true,
+        slotKey = slotKey
+    )
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1345,10 +1368,17 @@ private fun MingleNativeAdCard(
                     .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                com.tpsk.tj.common.ui.components.NativeAdCard(
-                    adUnitId = com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID,
-                    onFailed = { failed = true }
-                )
+                if (ad == null) {
+                    com.tpsk.tj.common.ui.components.NativeAdShimmer(Modifier.fillMaxSize())
+                } else {
+                    com.tpsk.tj.common.ui.components.ReadyNativeAd(
+                        adObject = ad,
+                        modifier = Modifier.fillMaxSize(),
+                        layoutResId = com.tpsk.tj.R.layout.item_short_native_ad,
+                        playMedia = playMedia,
+                        cornerRadius = 16
+                    )
+                }
             }
 
             Button(
