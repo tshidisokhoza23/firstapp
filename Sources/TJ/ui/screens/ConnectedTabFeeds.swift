@@ -502,7 +502,8 @@ struct SocialFeedView: View {
             SocialMenuSheet(
                 onProfile: {
                     showSocialMenu = false
-                    if let id = SessionStore.shared.userId { onProfileClick(id) }
+                    let myId = UserDefaults.standard.string(forKey: "tj_user_id") ?? ""
+                    if !myId.isEmpty { onProfileClick(myId) }
                 },
                 onCreate: { showSocialMenu = false; showCreatePost = true },
                 onNotifications: { showSocialMenu = false; showSocialNotes = true },
@@ -734,7 +735,7 @@ struct FeedPostCard: View {
 
                 Spacer()
 
-                if !shown.isAuthorFollowed && shown.authorId != SessionStore.shared.userId {
+                if !shown.isAuthorFollowed && shown.authorId != (UserDefaults.standard.string(forKey: "tj_user_id") ?? "") {
                     Button("Follow") {
                         Task { _ = try? await API.data("users/\(shown.authorId)/follow", method: "POST") }
                     }
