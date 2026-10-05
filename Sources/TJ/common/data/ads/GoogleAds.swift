@@ -201,11 +201,11 @@ struct NativeAdRow: View {
 
 struct NativeAdCover: View {
     var continueTitle: String
-    var onContinue: () -> Void
     var slot: String = "cover"
     #if canImport(GoogleMobileAds)
     var preloaded: GADNativeAd? = nil
     #endif
+    var onContinue: () -> Void
     @State private var failed = false
     @State private var loaded = false
 
@@ -263,7 +263,7 @@ struct StoryAdSlot: View {
             .buttonStyle(.plain)
             .frame(width: 76)
             .fullScreenCover(isPresented: $open) {
-                NativeAdCover(continueTitle: "Close", onContinue: { open = false }, preloaded: ad)
+                NativeAdCover(continueTitle: "Close", preloaded: ad) { open = false }
             }
         }
     }
