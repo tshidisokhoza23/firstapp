@@ -23,6 +23,9 @@ public struct FeedPost: Identifiable, Codable, Sendable {
     var quoteCount: Int
     var isReposted: Bool
     let mediaType: String
+    var isVerifiedAuthor: Bool
+    var timestamp: Int64
+    var isAuthorFollowed: Bool
     var repostOfId: String
     var originalAuthorId: String
     var originalAuthorName: String
@@ -73,6 +76,9 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         quoteCount: Int = 0,
         isReposted: Bool = false,
         mediaType: String = "",
+        isVerifiedAuthor: Bool = false,
+        timestamp: Int64 = 0,
+        isAuthorFollowed: Bool = false,
         repostOfId: String = "",
         originalAuthorId: String = "",
         originalAuthorName: String = "",
@@ -101,6 +107,9 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         self.quoteCount = quoteCount
         self.isReposted = isReposted
         self.mediaType = mediaType
+        self.isVerifiedAuthor = isVerifiedAuthor
+        self.timestamp = timestamp
+        self.isAuthorFollowed = isAuthorFollowed
         self.repostOfId = repostOfId
         self.originalAuthorId = originalAuthorId
         self.originalAuthorName = originalAuthorName
@@ -154,6 +163,9 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         postType = try c.decodeIfPresent(String.self, forKey: .postType) ?? ""
         isLiked = (try? c.decode(Bool.self, forKey: .isLiked)) ?? false
         isBookmarked = (try? c.decode(Bool.self, forKey: .isBookmarked)) ?? false
+        isVerifiedAuthor = false
+        timestamp = 0
+        isAuthorFollowed = false
         repostOfId = ""
         originalAuthorId = ""
         originalAuthorName = ""
@@ -175,6 +187,22 @@ public struct FeedPost: Identifiable, Codable, Sendable {
         if !authorName.isEmpty { return authorName }
         if !authorHandle.isEmpty { return "@\(authorHandle)" }
         return ""
+    }
+
+    var formattedTimestamp: String {
+        guard timestamp > 0 else { return "" }
+        let now = Date().timeIntervalSince1970
+        let ts = timestamp > 1_000_000_000_000 ? Double(timestamp) / 1000 : Double(timestamp)
+        let seconds = max(0, Int64(now - ts))
+        if seconds < 60 { return "now" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = minutes / 60
+        if hours < 24 { return "\(hours)h" }
+        let days = hours / 24
+        if days < 7 { return "\(days)d" }
+        let weeks = days / 7
+        return "\(weeks)w"
     }
 
     var mediaURL: URL? { Self.resolve(mediaURLs.first) }
@@ -641,49 +669,83 @@ struct FeedPostCard: View {
     var onShare: () -> Void
     var onMore: () -> Void
 
+    @State private var isExpanded = false
     private var shown: FeedPost { post.displayPost }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+            // Repost Header
             if post.isSimpleRepost {
                 HStack(spacing: 8) {
-                    Image(systemName: "repeat")
-                        .font(.system(size: 12, weight: .bold))
+                    Image(systemName: "arrow.2.squarepath")
+                        .font(.system(size: 13, weight: .bold))
                     Text("\(post.authorName) reposted")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                 }
                 .foregroundColor(.secondary)
             }
+
+            // Top Row: Profile Header & Follow Button
             HStack(spacing: 10) {
                 Button(action: onProfile) {
                     AsyncImage(url: FeedPost.resolve(shown.authorAvatar)) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Circle()
-                            .fill(Color.gray.opacity(0.3))
-                            .overlay(Text(String(shown.title.prefix(1)).uppercased()).font(.system(size: 16, weight: .bold)).foregroundColor(.white))
+                            .fill(Color.appPrimary.opacity(0.15))
+                            .overlay(
+                                Text(String(shown.title.prefix(1)).uppercased())
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.appPrimary)
+                            )
                     }
-                    .frame(width: 44, height: 44)
+                    .frame(width: 42, height: 42)
                     .clipShape(Circle())
                 }
                 .buttonStyle(.borderless)
 
                 Button(action: onProfile) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(shown.title.isEmpty ? shown.authorHandle : shown.title)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            Text(shown.title.isEmpty ? (shown.authorHandle.isEmpty ? "User" : shown.authorHandle) : shown.title)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                            if shown.isVerifiedAuthor {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(red: 0.00, green: 0.82, blue: 1.00))
+                            }
+                            if !shown.formattedTimestamp.isEmpty {
+                                Text("· \(shown.formattedTimestamp)")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                         if !shown.authorHandle.isEmpty {
                             Text("@\(shown.authorHandle)")
                                 .font(.system(size: 13))
                                 .foregroundColor(.secondary)
+                                .lineLimit(1)
                         }
                     }
                 }
                 .buttonStyle(.borderless)
 
                 Spacer()
+
+                if !shown.isAuthorFollowed && shown.authorId != SessionStore.shared.userId {
+                    Button("Follow") {
+                        Task { _ = try? await API.data("users/\(shown.authorId)/follow", method: "POST") }
+                    }
+                    .font(.system(size: 13, weight: .bold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Color.primary)
+                    .foregroundColor(Color(UIColor.systemBackground))
+                    .clipShape(Capsule())
+                    .buttonStyle(.borderless)
+                }
 
                 Button(action: onMore) {
                     Image(systemName: "ellipsis")
@@ -693,61 +755,251 @@ struct FeedPostCard: View {
                 .buttonStyle(.borderless)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                if !shown.content.isEmpty {
+            // Caption Text
+            if !shown.content.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(shown.content)
-                        .font(.system(size: 16))
+                        .font(.system(size: 15))
+                        .lineSpacing(3)
                         .foregroundColor(.primary)
+                        .lineLimit(isExpanded ? nil : 5)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if let original = post.quotedPost, !post.isSimpleRepost {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(original.title)
-                            .font(.system(size: 14, weight: .bold))
-                        if !original.content.isEmpty {
-                            Text(original.content)
-                                .font(.system(size: 14))
-                                .lineLimit(4)
-                        }
+                    if !isExpanded && shown.content.count > 200 {
+                        Button("Show More") { isExpanded = true }
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.appPrimary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                 }
-                if let url = shown.mediaURL, !shown.playsAsVideo {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.black.opacity(0.8)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 240)
-                    .clipped()
-                    .cornerRadius(16)
-                } else if post.playsAsVideo, let url = post.playbackURL ?? post.mediaURL {
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onOpen)
+            }
+
+            // Media Grid or Video Player
+            if !shown.mediaURLs.isEmpty {
+                if shown.playsAsVideo, let url = shown.playbackURL ?? shown.mediaURL {
                     FeedVideoPreview(url: url)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 240)
+                        .frame(height: 260)
                         .clipped()
-                        .cornerRadius(16)
+                        .cornerRadius(12)
+                        .contentShape(Rectangle())
+                        .onTapGesture(perform: onOpen)
+                } else {
+                    PostMediaGrid(urls: shown.mediaURLs, onMediaClick: { _ in onOpen() })
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture(perform: onOpen)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    PostPill(text: "Reply \(post.repliesCount)", action: onReply)
-                    PostPill(text: "Repost \(post.repostCount)", selected: post.isReposted, tint: Color(red: 0, green: 0.73, blue: 0.49), action: onRepost)
-                    PostPill(text: "Like \(post.likes)", selected: post.isLiked, tint: Color(red: 0.976, green: 0.094, blue: 0.502), action: onLike)
-                    PostPill(text: "Views \(post.views)", action: {})
-                    PostPill(text: post.isBookmarked ? "Saved \(post.quoteCount)" : "Save \(post.quoteCount)", selected: post.isBookmarked, tint: Color(red: 0.114, green: 0.608, blue: 0.941), action: onSave)
-                    PostPill(text: "Share \(post.shares)", action: onShare)
+            // Quoted Post Embed
+            if let original = post.quotedPost, !post.isSimpleRepost {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        AsyncImage(url: FeedPost.resolve(original.authorAvatar)) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Circle().fill(Color.gray.opacity(0.3))
+                        }
+                        .frame(width: 20, height: 20)
+                        .clipShape(Circle())
+
+                        Text(original.title)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.primary)
+                        if !original.authorHandle.isEmpty {
+                            Text("@\(original.authorHandle)")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    if !original.content.isEmpty {
+                        Text(original.content)
+                            .font(.system(size: 14))
+                            .lineLimit(3)
+                            .foregroundColor(.primary)
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onOpen)
+            }
+
+            // Social Action Bar
+            PostActionBar(
+                post: post,
+                onReply: onReply,
+                onRepost: onRepost,
+                onLike: onLike,
+                onSave: onSave,
+                onShare: onShare
+            )
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+    }
+}
+
+private struct PostMediaGrid: View {
+    let urls: [String]
+    var onMediaClick: (Int) -> Void
+
+    var body: some View {
+        let validURLs = urls.compactMap { FeedPost.resolve($0) }
+        guard !validURLs.isEmpty else { return AnyView(EmptyView()) }
+
+        if validURLs.count == 1 {
+            return AnyView(
+                AsyncImage(url: validURLs[0]) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 250)
+                .clipped()
+                .cornerRadius(12)
+                .contentShape(Rectangle())
+                .onTapGesture { onMediaClick(0) }
+            )
+        } else if validURLs.count == 2 {
+            return AnyView(
+                HStack(spacing: 4) {
+                    gridImage(validURLs[0], index: 0)
+                    gridImage(validURLs[1], index: 1)
+                }
+                .frame(height: 200)
+                .cornerRadius(12)
+            )
+        } else if validURLs.count == 3 {
+            return AnyView(
+                HStack(spacing: 4) {
+                    gridImage(validURLs[0], index: 0)
+                    VStack(spacing: 4) {
+                        gridImage(validURLs[1], index: 1)
+                        gridImage(validURLs[2], index: 2)
+                    }
+                }
+                .frame(height: 220)
+                .cornerRadius(12)
+            )
+        } else {
+            return AnyView(
+                VStack(spacing: 4) {
+                    HStack(spacing: 4) {
+                        gridImage(validURLs[0], index: 0)
+                        gridImage(validURLs[1], index: 1)
+                    }
+                    HStack(spacing: 4) {
+                        gridImage(validURLs[2], index: 2)
+                        ZStack {
+                            gridImage(validURLs[3], index: 3)
+                            if validURLs.count > 4 {
+                                Color.black.opacity(0.5)
+                                Text("+\(validURLs.count - 4)")
+                                    .font(.title2.bold())
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 240)
+                .cornerRadius(12)
+            )
+        }
+    }
+
+    private func gridImage(_ url: URL, index: Int) -> some View {
+        AsyncImage(url: url) { image in
+            image.resizable().scaledToFill()
+        } placeholder: {
+            Color.gray.opacity(0.2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .contentShape(Rectangle())
+        .onTapGesture { onMediaClick(index) }
+    }
+}
+
+private struct PostActionBar: View {
+    let post: FeedPost
+    var onReply: () -> Void
+    var onRepost: () -> Void
+    var onLike: () -> Void
+    var onSave: () -> Void
+    var onShare: () -> Void
+
+    var body: some View {
+        HStack {
+            actionButton(
+                icon: "bubble.left",
+                count: post.repliesCount,
+                color: .secondary,
+                action: onReply
+            )
+            Spacer()
+            actionButton(
+                icon: "arrow.2.squarepath",
+                count: post.repostCount,
+                color: post.isReposted ? Color(red: 0.00, green: 0.73, blue: 0.49) : .secondary,
+                action: onRepost
+            )
+            Spacer()
+            actionButton(
+                icon: post.isLiked ? "heart.fill" : "heart",
+                count: post.likes,
+                color: post.isLiked ? Color(red: 0.976, green: 0.094, blue: 0.502) : .secondary,
+                action: onLike
+            )
+            Spacer()
+            actionButton(
+                icon: "chart.bar",
+                count: post.views,
+                color: .secondary,
+                action: {}
+            )
+            Spacer()
+            actionButton(
+                icon: post.isBookmarked ? "bookmark.fill" : "bookmark",
+                count: post.quoteCount,
+                color: post.isBookmarked ? Color(red: 0.114, green: 0.608, blue: 0.941) : .secondary,
+                action: onSave
+            )
+            Spacer()
+            Button(action: onShare) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 15))
+                    .foregroundColor(.secondary)
+                    .frame(minWidth: 32, minHeight: 32)
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.top, 4)
+    }
+
+    private func actionButton(icon: String, count: Int, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 15))
+                if count > 0 {
+                    Text(formatNumber(count))
+                        .font(.system(size: 12, weight: .medium))
                 }
             }
+            .foregroundColor(color)
+            .frame(minWidth: 32, minHeight: 32)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 16)
+        .buttonStyle(.borderless)
+    }
+
+    private func formatNumber(_ num: Int) -> String {
+        if num >= 1_000_000 { return String(format: "%.1fM", Double(num) / 1_000_000) }
+        if num >= 1_000 { return String(format: "%.1fK", Double(num) / 1_000) }
+        return "\(num)"
     }
 }
 

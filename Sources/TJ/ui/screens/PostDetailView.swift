@@ -46,7 +46,7 @@ struct PostDetailView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     if post.isSimpleRepost {
                         HStack(spacing: 8) {
-                            Image(systemName: "repeat")
+                            Image(systemName: "arrow.2.squarepath")
                             Text("\(post.authorName) reposted")
                         }
                         .font(.system(size: 13, weight: .medium))
@@ -54,9 +54,38 @@ struct PostDetailView: View {
                     }
                     HStack(spacing: 10) {
                         Button { onProfileClick(post.displayPost.authorId) } label: {
+                            AsyncImage(url: FeedPost.resolve(post.displayPost.authorAvatar)) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                Circle().fill(Color.appPrimary.opacity(0.15))
+                                    .overlay(
+                                        Text(String(post.displayPost.title.prefix(1)).uppercased())
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.appPrimary)
+                                    )
+                            }
+                            .frame(width: 44, height: 44)
+                            .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button { onProfileClick(post.displayPost.authorId) } label: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(post.displayPost.title.isEmpty ? "Post" : post.displayPost.title)
-                                    .font(.headline)
+                                HStack(spacing: 4) {
+                                    Text(post.displayPost.title.isEmpty ? "User" : post.displayPost.title)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.primary)
+                                    if post.displayPost.isVerifiedAuthor {
+                                        Image(systemName: "checkmark.seal.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(Color(red: 0.00, green: 0.82, blue: 1.00))
+                                    }
+                                    if !post.displayPost.formattedTimestamp.isEmpty {
+                                        Text("· \(post.displayPost.formattedTimestamp)")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
                                 if !post.displayPost.authorHandle.isEmpty {
                                     Text("@\(post.displayPost.authorHandle)").font(.subheadline).foregroundColor(.secondary)
                                 }
@@ -75,42 +104,39 @@ struct PostDetailView: View {
                         }
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3)))
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2)))
                     }
                     if let url = videoURL ?? post.displayPost.playbackURL ?? post.displayPost.mediaURL {
                         if post.displayPost.playsAsVideo || isVideo(url) {
                             VideoPlayer(player: AVPlayer(url: videoURL ?? url))
                                 .frame(height: 280)
-                        } else {
-                            AsyncImage(url: url) { image in
-                                image.resizable().scaledToFit()
-                            } placeholder: {
-                                ProgressView()
-                            }
+                                .cornerRadius(12)
+                        } else if !post.displayPost.mediaURLs.isEmpty {
+                            PostMediaGrid(urls: post.displayPost.mediaURLs, onMediaClick: { _ in })
                         }
                     }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            detailPill("Reply \(replies.count == 0 ? post.repliesCount : replies.count)") {}
-                            detailPill(reposted ? "Reposted \(reposts)" : "Repost \(reposts)", selected: reposted) { showRepost = true }
-                            detailPill(liked ? "Liked \(likes)" : "Like \(likes)", selected: liked) {
-                                liked.toggle()
-                                likes += liked ? 1 : -1
-                                Task { await MediaActions.like(post.id) }
-                            }
-                            detailPill("Views \(post.views)") {}
-                            detailPill(saved ? "Saved \(post.quoteCount)" : "Save \(post.quoteCount)", selected: saved) {
-                                saved.toggle()
-                                Task { await MediaActions.bookmark(post.id) }
-                            }
-                            detailPill("Share \(shares)") {
-                                shares += 1
-                                MediaActions.shareSheet(post)
-                                Task { await MediaActions.share(post.id) }
-                            }
-                            detailPill("More") { showMore = true }
+                    Divider()
+                    PostActionBar(
+                        post: post,
+                        onReply: { draft = post.displayPost.authorHandle.isEmpty ? "" : "@\(post.displayPost.authorHandle) " },
+                        onRepost: { showRepost = true },
+                        onLike: {
+                            liked.toggle()
+                            likes += liked ? 1 : -1
+                            Task { await MediaActions.like(post.id) }
+                        },
+                        onSave: {
+                            saved.toggle()
+                            Task { await MediaActions.bookmark(post.id) }
+                        },
+                        onShare: {
+                            shares += 1
+                            MediaActions.shareSheet(post)
+                            Task { await MediaActions.share(post.id) }
                         }
-                    }
+                    )
                     Divider()
                     Text("Replies").font(.headline)
                     if replies.isEmpty {
