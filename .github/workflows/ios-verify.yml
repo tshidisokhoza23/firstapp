@@ -1,6 +1,8 @@
 name: Verify iOS Compilation
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
