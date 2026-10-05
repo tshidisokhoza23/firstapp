@@ -1037,6 +1037,330 @@ private struct FeedVideoPreview: View {
     }
 }
 
+private struct SocialMenuSheet: View {
+    var onProfile: () -> Void
+    var onCreate: () -> Void
+    var onNotifications: () -> Void
+    var onMessages: () -> Void
+    var onSettings: () -> Void
+    var onSaved: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Social").font(.headline).padding(.top, 16).padding(.bottom, 8)
+            menuRow("View Profile", onProfile)
+            menuRow("Create Post", onCreate)
+            menuRow("Notifications", onNotifications)
+            menuRow("Direct Messages", onMessages)
+            menuRow("Settings", onSettings)
+            menuRow("Saved Posts", onSaved)
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private func menuRow(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).foregroundColor(.primary).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 12)
+        }
+    }
+}
+
+struct CreatePostSheet: View {
+    var replyToPost: FeedPost? = nil
+    var quotingPost: FeedPost? = nil
+    var onPost: (String, [String]) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var postText = ""
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var loadedData: [Data] = []
+    @State private var uploadedURLs: [String] = []
+    @State private var selectedLocation: String? = nil
+    @State private var showPoll = false
+    @State private var pollOptions: [String] = ["", ""]
+    @State private var isPosting = false
+    @State private var note = ""
+
+    private let charLimit = 280
+
+    private var canPost: Bool {
+        let textValid = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let mediaValid = !loadedData.isEmpty || !uploadedURLs.isEmpty
+        let pollValid = showPoll && pollOptions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return (textValid || mediaValid || pollValid) && postText.count <= charLimit
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Replying To Banner
+                        if let replyToPost {
+                            HStack(spacing: 4) {
+                                Text("Replying to")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                Text("@\(replyToPost.authorHandle.isEmpty ? "user" : replyToPost.authorHandle)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                            }
+                        }
+
+                        // User Avatar & Text Editor
+                        HStack(alignment: .top, spacing: 12) {
+                            Circle()
+                                .fill(Color.appPrimary)
+                                .frame(width: 42, height: 42)
+                                .overlay(
+                                    Image(systemName: "person.fill")
+                                        .foregroundColor(.white)
+                                )
+
+                            TextField(
+                                replyToPost != nil ? "Post your reply" : "What's happening?",
+                                text: $postText,
+                                axis: .vertical
+                            )
+                            .font(.system(size: 18))
+                            .lineSpacing(4)
+                            .frame(minHeight: 100, alignment: .topLeading)
+                        }
+
+                        // Location Badge
+                        if let selectedLocation {
+                            HStack(spacing: 6) {
+                                Image(systemName: "mappin.and.ellipse")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                                Text(selectedLocation)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                                Button {
+                                    self.selectedLocation = nil
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color(red: 0.114, green: 0.608, blue: 0.941).opacity(0.12))
+                            .clipShape(Capsule())
+                        }
+
+                        // Poll Creator Options
+                        if showPoll {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Poll Options")
+                                    .font(.system(size: 14, weight: .bold))
+
+                                ForEach(pollOptions.indices, id: \.self) { idx in
+                                    TextField("Choice \(idx + 1)", text: $pollOptions[idx])
+                                        .textFieldStyle(.roundedBorder)
+                                }
+
+                                if pollOptions.count < 4 {
+                                    Button("+ Add Choice") {
+                                        pollOptions.append("")
+                                    }
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                                }
+                            }
+                            .padding(12)
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .cornerRadius(12)
+                        }
+
+                        // Attached Photo Thumbnails Row with Remove (X) Overlay
+                        if !loadedData.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(loadedData.indices, id: \.self) { idx in
+                                        ZStack(alignment: .topTrailing) {
+                                            if let uiImage = UIImage(data: loadedData[idx]) {
+                                                Image(uiImage: uiImage)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 130, height: 130)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            }
+                                            Button {
+                                                loadedData.remove(at: idx)
+                                                if selectedPhotos.indices.contains(idx) {
+                                                    selectedPhotos.remove(at: idx)
+                                                }
+                                            } label: {
+                                                Image(systemName: "xmark")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(.white)
+                                                    .frame(width: 24, height: 24)
+                                                    .background(Color.black.opacity(0.6))
+                                                    .clipShape(Circle())
+                                            }
+                                            .padding(6)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Quoted Post Card Preview
+                        if let quotingPost {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 6) {
+                                    Text(quotingPost.title)
+                                        .font(.system(size: 14, weight: .bold))
+                                    if !quotingPost.authorHandle.isEmpty {
+                                        Text("@\(quotingPost.authorHandle)")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                if !quotingPost.content.isEmpty {
+                                    Text(quotingPost.content)
+                                        .font(.system(size: 13))
+                                        .lineLimit(3)
+                                }
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                        }
+
+                        if !note.isEmpty {
+                            Text(note)
+                                .font(.system(size: 12))
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(16)
+                }
+
+                Divider()
+
+                // Reply Scope & Media Action Bar
+                VStack(spacing: 8) {
+                    HStack {
+                        Image(systemName: "globe")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                        Text("Everyone can reply")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                    HStack {
+                        PhotosPicker(
+                            selection: $selectedPhotos,
+                            maxSelectionCount: 4,
+                            matching: .any(of: [.images, .videos])
+                        ) {
+                            Image(systemName: "photo.on.rectangle")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                                .frame(width: 36, height: 36)
+                        }
+                        .disabled(loadedData.count >= 4)
+
+                        Button {
+                            showPoll.toggle()
+                            if showPoll { loadedData.removeAll() }
+                        } label: {
+                            Image(systemName: "chart.bar.doc.horizontal")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                                .frame(width: 36, height: 36)
+                        }
+
+                        Button {
+                            selectedLocation = selectedLocation == nil ? "Cape Town, SA" : nil
+                        } label: {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color(red: 0.114, green: 0.608, blue: 0.941))
+                                .frame(width: 36, height: 36)
+                        }
+
+                        Spacer()
+
+                        let remaining = charLimit - postText.count
+                        Text("\(remaining)")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(remaining < 0 ? .red : .secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                }
+                .background(Color(UIColor.secondarySystemBackground))
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(replyToPost != nil ? "Reply" : "Post") {
+                        Task { await publish() }
+                    }
+                    .font(.system(size: 14, weight: .bold))
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 7)
+                    .background(canPost && !isPosting ? Color(red: 0.114, green: 0.608, blue: 0.941) : Color(red: 0.114, green: 0.608, blue: 0.941).opacity(0.4))
+                    .foregroundColor(.white)
+                    .clipShape(Capsule())
+                    .disabled(!canPost || isPosting)
+                }
+            }
+            .onChange(of: selectedPhotos) { items in
+                Task { await loadSelectedPhotos(items) }
+            }
+        }
+    }
+
+    private func loadSelectedPhotos(_ items: [PhotosPickerItem]) async {
+        var datas: [Data] = []
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                datas.append(data)
+            }
+        }
+        loadedData = datas
+    }
+
+    private func publish() async {
+        guard canPost, !isPosting else { return }
+        isPosting = true
+        defer { isPosting = false }
+
+        var urls: [String] = []
+        for (idx, data) in loadedData.enumerated() {
+            if let url = try? await MediaActions.upload(data: data, filename: "post_\(idx).jpg", mime: "image/jpeg", folder: "posts") {
+                urls.append(url)
+            }
+        }
+
+        let text = postText.trimmingCharacters(in: .whitespacesAndNewlines)
+        onPost(text, urls)
+        dismiss()
+    }
+}
+
 /// Android Scroll tab: `GET media/feed/shorts` matching Screenshot 8.
 public struct ConnectedShortsFeedView: View {
     public var onProfileClick: (String) -> Void
