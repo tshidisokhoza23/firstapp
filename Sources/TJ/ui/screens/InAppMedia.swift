@@ -3,8 +3,27 @@ import AVFoundation
 import AVKit
 
 enum AuthenticatedMedia {
-    static func localFile(for remote: URL) async -> URL? {
+    static func posterURL(for media: URL) -> URL? {
+        let ext = media.pathExtension.lowercased()
+        guard ["mp4", "mov", "m4v", "webm", "mkv"].contains(ext) else { return nil }
+        return media.deletingPathExtension().appendingPathExtension("webp")
+    }
+
+    static func cachedFile(for remote: URL) -> URL? {
         if remote.isFileURL { return remote }
+        let dest = cacheDestination(for: remote)
+        guard FileManager.default.fileExists(atPath: dest.path),
+              ((try? dest.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) > 0 else { return nil }
+        return dest
+    }
+
+    static func prefetch(_ urls: [URL]) {
+        for url in urls.prefix(3) where cachedFile(for: url) == nil {
+            Task { _ = await localFile(for: url) }
+        }
+    }
+
+    private static func cacheDestination(for remote: URL) -> URL {
         var hash: UInt64 = 1469598103934665603
         for byte in remote.absoluteString.utf8 {
             hash ^= UInt64(byte)
@@ -12,7 +31,12 @@ enum AuthenticatedMedia {
         }
         let leaf = remote.lastPathComponent.replacingOccurrences(of: "/", with: "_")
         let ext = remote.pathExtension.isEmpty ? "mp4" : remote.pathExtension
-        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(String(hash, radix: 16))-\(leaf).\(ext)")
+        return FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(String(hash, radix: 16))-\(leaf).\(ext)")
+    }
+
+    static func localFile(for remote: URL) async -> URL? {
+        if remote.isFileURL { return remote }
+        let dest = cacheDestination(for: remote)
         if FileManager.default.fileExists(atPath: dest.path),
            (try? dest.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) ?? 0 > 0 {
             return dest

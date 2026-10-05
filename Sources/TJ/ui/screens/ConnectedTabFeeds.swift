@@ -447,7 +447,7 @@ struct SocialFeedView: View {
                                     onMore: { moreTarget = post }
                                 )
                                 if (index + 1) % 4 == 0 {
-                                    NativeAdRow()
+                                    NativeAdRow(slot: "feed-\(post.id)")
                                 }
                             }
                         }
@@ -822,6 +822,7 @@ struct ShortsFeedView: View {
     @State private var showShortSearch = false
     @State private var commentShort: FeedPost?
     @State private var dismissedShortAds: Set<Int> = []
+    @State private var showShortsAd = false
 
     var body: some View {
         Group {
@@ -885,13 +886,27 @@ struct ShortsFeedView: View {
                 .ignoresSafeArea()
             }
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { shorts.indices.contains(page) && (page + 1) % 8 == 0 && !dismissedShortAds.contains(page) && AdConfig.nativeUnit != nil },
-            set: { if !$0, shorts.indices.contains(page) { dismissedShortAds.insert(page) } }
-        )) {
-            NativeAdCover(continueTitle: "Continue") {
-                dismissedShortAds.insert(page)
+        .onChange(of: page) { newPage in
+            guard shorts.indices.contains(newPage), (newPage + 1) % 8 == 0, !dismissedShortAds.contains(newPage) else { return }
+            #if canImport(GoogleMobileAds)
+            if NativeAdPool.shared.claim(slot: "short-\(newPage)") != nil {
+                showShortsAd = true
+            } else {
+                dismissedShortAds.insert(newPage)
             }
+            #else
+            dismissedShortAds.insert(newPage)
+            #endif
+        }
+        .fullScreenCover(isPresented: $showShortsAd) {
+            #if canImport(GoogleMobileAds)
+            NativeAdCover(continueTitle: "Continue", slot: "short-\(page)") {
+                dismissedShortAds.insert(page)
+                showShortsAd = false
+            }
+            #else
+            Color.clear.onAppear { showShortsAd = false }
+            #endif
         }
         .fullScreenCover(isPresented: Binding(get: { selectedShort != nil }, set: { if !$0 { selectedShort = nil } })) {
             if let post = selectedShort {
@@ -923,7 +938,12 @@ struct ShortsFeedView: View {
                 }
             )
         }
-        .task { await load() }
+        .task {
+            #if canImport(GoogleMobileAds)
+            NativeAdPool.shared.warm()
+            #endif
+            await load()
+        }
         .refreshable { await load() }
     }
 

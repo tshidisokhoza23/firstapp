@@ -27,7 +27,9 @@ enum GoogleAds {
     static func start() {
         guard AdConfig.isConfigured else { return }
         #if canImport(GoogleMobileAds)
-        GADMobileAds.sharedInstance().start(completionHandler: nil)
+        GADMobileAds.sharedInstance().start { _ in
+            DispatchQueue.main.async { NativeAdPool.shared.warm() }
+        }
         #endif
     }
 }
@@ -174,20 +176,36 @@ struct LiveBannerAd: View {
 }
 
 struct NativeAdRow: View {
-    var body: some View {
-        #if canImport(GoogleMobileAds)
-        if AdConfig.nativeUnit != nil {
-            NativeAdBox(fullScreen: false)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 0)
-        }
-        #endif
+    var slot: String = "feed"
+    #if canImport(GoogleMobileAds)
+    private let ad: GADNativeAd?
+    init(slot: String = "feed") {
+        self.slot = slot
+        ad = NativeAdPool.shared.claim(slot: slot)
     }
+    var body: some View {
+        if let ad {
+            NativeAdBox(fullScreen: false, preloaded: ad)
+                .frame(maxWidth: .infinity)
+                .frame(height: 320)
+                .clipped()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+        }
+    }
+    #else
+    init(slot: String = "feed") { self.slot = slot }
+    var body: some View { EmptyView() }
+    #endif
 }
 
 struct NativeAdCover: View {
     var continueTitle: String
     var onContinue: () -> Void
+    var slot: String = "cover"
+    #if canImport(GoogleMobileAds)
+    var preloaded: GADNativeAd? = nil
+    #endif
     @State private var failed = false
     @State private var loaded = false
 
@@ -195,31 +213,26 @@ struct NativeAdCover: View {
         #if canImport(GoogleMobileAds)
         ZStack {
             Color.black.ignoresSafeArea()
-            if !loaded && !failed {
+            if !loaded {
                 ProgressView().tint(.white)
             }
-            NativeAdBox(fullScreen: true, failed: $failed, loaded: $loaded)
+            NativeAdBox(fullScreen: true, preloaded: preloaded ?? NativeAdPool.shared.claim(slot: slot), failed: $failed, loaded: $loaded)
                 .opacity(loaded ? 1 : 0)
-            if loaded {
-                VStack {
-                    Text("Sponsored Ad")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.top, 24)
-                    Spacer()
-                    Button(continueTitle, action: onContinue)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 14)
-                        .background(Color(hex: "E91E63"))
-                        .clipShape(Capsule())
-                        .padding(.bottom, 32)
-                }
+            VStack {
+                Text("Sponsored")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.top, 24)
+                Spacer()
+                Button(continueTitle, action: onContinue)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(Color(hex: "E91E63"))
+                    .clipShape(Capsule())
+                    .padding(.bottom, 32)
             }
-        }
-        .onChange(of: failed) { value in
-            if value { onContinue() }
         }
         #else
         Color.clear.onAppear(perform: onContinue)
@@ -231,36 +244,34 @@ struct StoryAdSlot: View {
     @State private var open = false
     @State private var loaded = false
     var body: some View {
-        #if canImport(GoogleMobileAds)
-        if AdConfig.nativeUnit != nil {
-            ZStack {
-                NativeAdBox(fullScreen: false, loaded: $loaded)
-                    .frame(width: 1, height: 1)
-                    .opacity(0)
-                if loaded {
-                    Button { open = true } label: {
-                        VStack(spacing: 6) {
-                            Circle()
-                                .fill(Color.black.opacity(0.8))
-                                .frame(width: 64, height: 64)
-                                .overlay(Image(systemName: "megaphone.fill").foregroundColor(.white))
-                            Text("Sponsored")
-                                .font(.system(size: 11, weight: .bold))
-                                .lineLimit(1)
-                        }
-                    }
-                    .buttonStyle(.plain)
+    #if canImport(GoogleMobileAds)
+    private let ad: GADNativeAd?
+    init() {
+        ad = NativeAdPool.shared.claim(slot: "story-tray")
+    }
+    var body: some View {
+        if let ad {
+            Button { open = true } label: {
+                VStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.black.opacity(0.8))
+                        .frame(width: 64, height: 64)
+                        .overlay(Image(systemName: "megaphone.fill").foregroundColor(.white))
+                    Text("Sponsored")
+                        .font(.system(size: 11, weight: .bold))
+                        .lineLimit(1)
                 }
             }
-            .frame(width: loaded ? nil : 0, height: loaded ? nil : 0)
+            .buttonStyle(.plain)
+            .frame(width: 76)
             .fullScreenCover(isPresented: $open) {
-                NativeAdCover(continueTitle: "Close", onContinue: { open = false })
+                NativeAdCover(continueTitle: "Close", preloaded: ad, onContinue: { open = false })
             }
         }
-        #endif
     }
-}
-
+    #else
+    var body: some View { EmptyView() }
+    #endif
 #if canImport(GoogleMobileAds)
 private struct BannerAdRepresentable: UIViewRepresentable {
     @Binding var visible: Bool
@@ -296,8 +307,66 @@ private struct BannerAdRepresentable: UIViewRepresentable {
     }
 }
 
+final class NativeAdPool: NSObject, GADNativeAdLoaderDelegate {
+    static let shared = NativeAdPool()
+    private var ready: [GADNativeAd] = []
+    private var claimed: [String: GADNativeAd] = [:]
+    private var skipped: Set<String> = []
+    private var inflight = 0
+    private let target = 3
+    private var loader: GADAdLoader?
+
+    func warm() {
+        guard inflight + ready.count < target else { return }
+        guard let unit = AdConfig.nativeUnit, let root = AppChrome.topViewController() else { return }
+        let need = target - ready.count - inflight
+        guard need > 0 else { return }
+        inflight += need
+        let loader = GADAdLoader(adUnitID: unit, rootViewController: root, adTypes: [.native], options: nil)
+        self.loader = loader
+        loader.delegate = self
+        for _ in 0..<need {
+            loader.load(GADRequest())
+        }
+    }
+
+    func claim(slot: String) -> GADNativeAd? {
+        if let existing = claimed[slot] { return existing }
+        if skipped.contains(slot) { return nil }
+        warm()
+        guard let ad = ready.first else {
+            skipped.insert(slot)
+            return nil
+        }
+        ready.removeFirst()
+        claimed[slot] = ad
+        warm()
+        return ad
+    }
+
+    func take() -> GADNativeAd? {
+        warm()
+        guard !ready.isEmpty else { return nil }
+        return ready.removeFirst()
+    }
+
+    var hasReady: Bool { !ready.isEmpty }
+
+    func adLoader(_ adLoader: GADAdLoader, didReceive nativeAd: GADNativeAd) {
+        inflight = max(0, inflight - 1)
+        ready.append(nativeAd)
+    }
+
+    func adLoader(_ adLoader: GADAdLoader, didFailToReceiveAdWithError error: Error) {
+        inflight = max(0, inflight - 1)
+    }
+}
+
 private struct NativeAdBox: UIViewRepresentable {
     var fullScreen: Bool
+    var failed: Binding<Bool> = .constant(false)
+    var loaded: Binding<Bool> = .constant(false)
+preloaded: GADNativeAd? = nil
     var failed: Binding<Bool> = .constant(false)
     var loaded: Binding<Bool> = .constant(false)
 
@@ -305,10 +374,14 @@ private struct NativeAdBox: UIViewRepresentable {
 
     func makeUIView(context: Context) -> NativeAdContainer {
         let view = NativeAdContainer(fullScreen: fullScreen)
-        view.isHidden = true
-        context.coordinator.load(into: view)
-        return view
-    }
+        if let preloaded {
+            view.bind(preloaded)
+            view.isHidden = false
+            context.coordinator.loaded.wrappedValue = true
+        } else {
+            view.isHidden = true
+            context.coordinator.load(into: view)
+        }
 
     func updateUIView(_ uiView: NativeAdContainer, context: Context) {}
 

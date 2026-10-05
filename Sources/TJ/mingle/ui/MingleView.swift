@@ -80,6 +80,7 @@ public struct MingleView: View {
     @State private var showNotifications = false
     @State private var showPointsGate = false
     @State private var showMingleAd = false
+    @State private var mingleAdSlot = "mingle"
     @State private var swipesSinceAd = 0
     @State private var showWallet = false
     @State private var locationDenied = false
@@ -284,8 +285,13 @@ public struct MingleView: View {
             }, onDismiss: { showPointsGate = false })
             .presentationDetents([.medium])
         }
+        .onAppear {
+            #if canImport(GoogleMobileAds)
+            NativeAdPool.shared.warm()
+            #endif
+        }
         .fullScreenCover(isPresented: $showMingleAd) {
-            NativeAdCover(continueTitle: "Continue Mingling") { showMingleAd = false }
+            NativeAdCover(continueTitle: "Continue Mingling", slot: mingleAdSlot) { showMingleAd = false }
         }
         .sheet(isPresented: $showWallet) {
             WalletView()
@@ -626,7 +632,13 @@ public struct MingleView: View {
             swipesSinceAd += 1
             if swipesSinceAd >= 8 {
                 swipesSinceAd = 0
-                showMingleAd = true
+                #if canImport(GoogleMobileAds)
+                let slot = "mingle-\(profile.id)"
+                if NativeAdPool.shared.claim(slot: slot) != nil {
+                    mingleAdSlot = slot
+                    showMingleAd = true
+                }
+                #endif
             }
             if profiles.count < 3 { await loadFeed(reset: false) }
             let conversationId = LiveJSON.string(json["conversation_id"])

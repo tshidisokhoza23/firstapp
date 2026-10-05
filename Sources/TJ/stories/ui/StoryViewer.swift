@@ -164,6 +164,13 @@ public struct StoryViewer: View {
                 .ignoresSafeArea()
 
             if let player = storyPlayer {
+                if let poster = storyPosterURL {
+                    AsyncImage(url: poster) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill().ignoresSafeArea()
+                        }
+                    }
+                }
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             } else if let raw = currentSlide.mediaURL, let url = FeedPost.resolve(raw), currentSlide.mediaSymbol != "video.fill" {
@@ -385,16 +392,26 @@ public struct StoryViewer: View {
         }
     }
 
+    private var storyPosterURL: URL? {
+        guard let raw = currentSlide.mediaURL, let url = FeedPost.resolve(raw) else { return nil }
+        return AuthenticatedMedia.posterURL(for: url)
+    }
+
     private func loadSlideMedia() {
         storyPlayer?.pause()
         storyPlayer = nil
         videoHoldSeconds = 0
+        prefetchUpcomingSlides()
         guard currentSlide.mediaSymbol == "video.fill",
               let raw = currentSlide.mediaURL,
               let url = FeedPost.resolve(raw) else { return }
-        let player = AVPlayer(url: url)
+        let playURL = AuthenticatedMedia.cachedFile(for: url) ?? url
+        let player = AVPlayer(url: playURL)
         storyPlayer = player
         player.play()
+        if playURL == url {
+            Task { _ = await AuthenticatedMedia.localFile(for: url) }
+        }
         Task {
             for _ in 0..<40 {
                 let seconds = player.currentItem?.duration.seconds ?? 0
@@ -407,6 +424,14 @@ public struct StoryViewer: View {
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
         }
+    }
+
+    private func prefetchUpcomingSlides() {
+        let upcoming = displayGroup.slides.dropFirst(activeSlideIndex).prefix(3).compactMap { slide -> URL? in
+            guard let raw = slide.mediaURL else { return nil }
+            return FeedPost.resolve(raw)
+        }
+        AuthenticatedMedia.prefetch(Array(upcoming))
     }
 
     private func deleteCurrentStory() async {
