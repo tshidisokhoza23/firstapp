@@ -843,7 +843,7 @@ struct FeedPostCard: View {
     }
 }
 
-private struct PostMediaGrid: View {
+struct PostMediaGrid: View {
     let urls: [String]
     var onMediaClick: (Int) -> Void
 
@@ -925,7 +925,7 @@ private struct PostMediaGrid: View {
     }
 }
 
-private struct PostActionBar: View {
+struct PostActionBar: View {
     let post: FeedPost
     var onReply: () -> Void
     var onRepost: () -> Void
