@@ -116,8 +116,7 @@ fun ShortsList(
                 if (idx < shorts.itemCount) shorts[idx]?.id ?: "short_$page"
                 else "empty_$page"
             }
-        },
-        contentType = { page -> if (isAdPage(page)) "native_ad" else "short" }
+        }
     ) { page ->
         if (isAdPage(page)) {
             val playAd = pagerState.currentPage == page && pagerState.currentPageOffsetFraction == 0f
