@@ -3,7 +3,7 @@ name: Build iOS App
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build:
@@ -26,9 +26,6 @@ jobs:
 
       - name: Build App (Unsigned)
         run: |
-          # Absolute BUILD_DIR. A relative path is resolved inside each Swift
-          # package checkout, so Google Sign-In resource bundles never land
-          # where the app copy phase looks for them.
           xcodebuild clean build \
             -project TJ.xcodeproj \
             -scheme TJ \
