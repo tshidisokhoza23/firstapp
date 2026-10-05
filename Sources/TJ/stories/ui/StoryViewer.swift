@@ -1,5 +1,5 @@
 import SwiftUI
-import AVKit
+import AVFoundation
 
 // MARK: - Story Item Models
 
@@ -159,76 +159,120 @@ public struct StoryViewer: View {
 
     private var playback: some View {
         ZStack {
-            // Full Screen Background & Media Content
-            LinearGradient(colors: currentSlide.backgroundGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+            Color.clear
+            storyTapZones
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            storyCanvas
                 .ignoresSafeArea()
+        }
+        .overlay(alignment: .top) {
+            storyHeader
+                .padding(.top, 8)
+                .padding(.horizontal)
+        }
+        .overlay(alignment: .bottom) {
+            storyFooter
+                .padding(.bottom, 8)
+                .padding(.horizontal)
+        }
+        .onReceive(timer) { _ in
+            guard !isPaused else { return }
+            let duration = currentSlide.mediaSymbol == "video.fill" ? videoHoldSeconds : currentSlide.durationSeconds
+            guard duration > 0 else { return }
+            let step = 0.1 / duration
+            if slideProgress + step >= 1.0 {
+                goToNextSlide()
+            } else {
+                slideProgress += step
+            }
+        }
+        .alert("Delete story update?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) { Task { await deleteCurrentStory() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This story will be removed.")
+        }
+        .sheet(isPresented: $showViewersSheet) {
+            viewersSheetView
+        }
+        .onAppear {
+            if displayGroup.slides.indices.contains(startIndex) {
+                activeSlideIndex = startIndex
+            }
+            markCurrentViewed()
+            loadSlideMedia()
+        }
+        .onChange(of: activeSlideIndex) { _ in
+            markCurrentViewed()
+            loadSlideMedia()
+        }
+        .onDisappear {
+            storyPlayer?.pause()
+            storyPlayer = nil
+        }
+    }
 
+    private var storyCanvas: some View {
+        ZStack {
+            LinearGradient(colors: currentSlide.backgroundGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
             if let player = storyPlayer {
                 if let poster = storyPosterURL {
-                    AsyncImage(url: poster) { phase in
-                        if let image = phase.image {
-                            image.resizable().scaledToFill().ignoresSafeArea()
-                        }
-                    }
+                    StoryFitImage(url: poster)
                 }
-                VideoPlayer(player: player)
-                    .ignoresSafeArea()
+                StoryPlayerSurface(player: player)
             } else if let raw = currentSlide.mediaURL, let url = FeedPost.resolve(raw), currentSlide.mediaSymbol != "video.fill" {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill().ignoresSafeArea()
-                    } else {
-                        Color.black.ignoresSafeArea()
-                    }
-                }
-            }
-
-            VStack {
-                Spacer()
-
-                if storyPlayer == nil && currentSlide.mediaURL == nil {
+                StoryFitImage(url: url)
+            } else {
+                VStack(spacing: 20) {
                     Image(systemName: currentSlide.mediaSymbol)
                         .font(.system(size: 130))
                         .foregroundColor(.white.opacity(0.85))
                         .shadow(radius: 12)
+                    if let caption = currentSlide.caption {
+                        Text(caption)
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
                 }
-
-                if let caption = currentSlide.caption {
+            }
+            if currentSlide.mediaURL != nil, let caption = currentSlide.caption {
+                VStack {
+                    Spacer()
                     Text(caption)
                         .font(.title3.bold())
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
-                        .padding(.top, 20)
+                        .padding(.bottom, 132)
                 }
-
-                Spacer()
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+    }
 
-            // Interactive Touch Zones
-            HStack(spacing: 0) {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        goToPreviousSlide()
-                    }
+    private var storyTapZones: some View {
+        HStack(spacing: 0) {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { goToPreviousSlide() }
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { goToNextSlide() }
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPaused = true }
+                .onEnded { _ in isPaused = false }
+        )
+    }
 
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        goToNextSlide()
-                    }
-            }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isPaused = true }
-                    .onEnded { _ in isPaused = false }
-            )
-
-            // Overlays (Top Header & Bottom Reply)
-            VStack {
-                // Top Progress Bars & User Info
-                VStack(spacing: 10) {
+    private var storyHeader: some View {
+        VStack(spacing: 10) {
                     // Segmented Progress Bar
                     HStack(spacing: 4) {
                         ForEach(0..<displayGroup.slides.count, id: \.self) { idx in
@@ -293,21 +337,17 @@ public struct StoryViewer: View {
                                 .padding(8)
                         }
                     }
-                }
-                .padding(.horizontal)
-                .padding(.top, 12)
+        }
+    }
 
-                Spacer()
-
-                // Reaction Toast Animation
-                if let emoji = sentReactionEmoji {
-                    Text(emoji)
-                        .font(.system(size: 60))
-                        .transition(.scale.combined(with: .opacity))
-                        .padding(.bottom, 20)
-                }
-
-                if !isOwnStory {
+    private var storyFooter: some View {
+        VStack(spacing: 12) {
+            if let emoji = sentReactionEmoji {
+                Text(emoji)
+                    .font(.system(size: 60))
+                    .transition(.scale.combined(with: .opacity))
+            }
+            if !isOwnStory {
                 VStack(spacing: 12) {
                     // Emoji Pills
                     HStack(spacing: 12) {
@@ -350,45 +390,7 @@ public struct StoryViewer: View {
                         }
                     }
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 16)
-                }
             }
-        }
-        .onReceive(timer) { _ in
-            guard !isPaused else { return }
-            let duration = currentSlide.mediaSymbol == "video.fill" ? videoHoldSeconds : currentSlide.durationSeconds
-            guard duration > 0 else { return }
-            let step = 0.1 / duration
-            if slideProgress + step >= 1.0 {
-                goToNextSlide()
-            } else {
-                slideProgress += step
-            }
-        }
-        .alert("Delete story update?", isPresented: $confirmDelete) {
-            Button("Delete", role: .destructive) { Task { await deleteCurrentStory() } }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This story will be removed.")
-        }
-        .sheet(isPresented: $showViewersSheet) {
-            viewersSheetView
-        }
-        .onAppear {
-            if displayGroup.slides.indices.contains(startIndex) {
-                activeSlideIndex = startIndex
-            }
-            markCurrentViewed()
-            loadSlideMedia()
-        }
-        .onChange(of: activeSlideIndex) { _ in
-            markCurrentViewed()
-            loadSlideMedia()
-        }
-        .onDisappear {
-            storyPlayer?.pause()
-            storyPlayer = nil
         }
     }
 
@@ -396,6 +398,53 @@ public struct StoryViewer: View {
         guard let raw = currentSlide.mediaURL, let url = FeedPost.resolve(raw) else { return nil }
         return AuthenticatedMedia.posterURL(for: url)
     }
+
+private struct StoryFitImage: View {
+    let url: URL
+
+    var body: some View {
+        AsyncImage(url: url) { phase in
+            if let image = phase.image {
+                image
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Color.black
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct StoryPlayerSurface: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> StoryPlayerHost {
+        let view = StoryPlayerHost()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        return view
+    }
+
+    func updateUIView(_ uiView: StoryPlayerHost, context: Context) {
+        if uiView.playerLayer.player !== player {
+            uiView.playerLayer.player = player
+        }
+        uiView.playerLayer.videoGravity = .resizeAspect
+    }
+}
+
+private final class StoryPlayerHost: UIView {
+    override static var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .black
+    }
+
+    required init?(coder: NSCoder) { nil }
+}
 
     private func loadSlideMedia() {
         storyPlayer?.pause()
