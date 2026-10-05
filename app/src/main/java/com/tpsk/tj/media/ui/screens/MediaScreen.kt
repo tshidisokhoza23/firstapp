@@ -635,7 +635,7 @@ fun MainFeedSection(
                 count = posts.itemCount,
                 key = { index ->
                     val id = posts.peek(index)?.id
-                    if (id.isNullOrBlank()) "loading_post_$index" else "${id}_$index"
+                    if (id.isNullOrBlank()) "loading_post_$index" else id
                 },
                 contentType = posts.itemContentType { "post" }
             ) { index ->

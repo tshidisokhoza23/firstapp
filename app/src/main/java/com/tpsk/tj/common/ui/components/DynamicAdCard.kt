@@ -23,7 +23,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.ads.AdView
 import com.tpsk.tj.R
 import com.tpsk.tj.common.data.ads.AdManager
-import com.tpsk.tj.common.data.ads.FeedAdSlots
 import com.tpsk.tj.common.data.ads.NativeAdPool
 
 @Suppress("UNUSED_PARAMETER")
@@ -120,6 +119,21 @@ private fun FullScreenPooledAd(
     }
 }
 
+object FeedAdCache {
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
+    fun get(slotKey: String): Any? = cache[slotKey]
+
+    fun put(slotKey: String, ad: Any) {
+        cache[slotKey] = ad
+    }
+
+    fun clear() {
+        cache.clear()
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun FeedPooledAd(
     adManager: AdManager,
@@ -129,30 +143,38 @@ private fun FeedPooledAd(
     modifier: Modifier
 ) {
     val context = LocalContext.current
-    val claimed = remember(slotKey) {
-        NativeAdPool.take(adManager, context, adUnitId, portrait = false)
+    val cachedAd = remember(slotKey) {
+        FeedAdCache.get(slotKey)
     }
-    val show = reserveSlot || FeedAdSlots.reserveIfReady(slotKey, claimed != null)
+    val claimed = remember(slotKey) {
+        cachedAd ?: NativeAdPool.take(adManager, context, adUnitId, portrait = false)
+    }
+    if (claimed != null) {
+        FeedAdCache.put(slotKey, claimed)
+    }
     val ad = awaitPooledNativeAd(
         adManager = adManager,
         unitId = adUnitId,
         portrait = false,
         slotKey = slotKey,
         initial = claimed,
-        fetch = show && claimed == null
+        fetch = true
     )
-    if (!show) return
+    if (ad != null) {
+        FeedAdCache.put(slotKey, ad)
+    }
     Box(
         modifier
             .fillMaxWidth()
             .height(320.dp)
             .clip(RoundedCornerShape(12.dp))
     ) {
-        if (ad == null) {
+        val displayAd = ad ?: cachedAd
+        if (displayAd == null) {
             NativeAdShimmer(Modifier.fillMaxSize())
         } else {
             ReadyNativeAd(
-                adObject = ad,
+                adObject = displayAd,
                 modifier = Modifier.fillMaxSize(),
                 layoutResId = R.layout.item_media_native_ad,
                 playMedia = false

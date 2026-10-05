@@ -69,7 +69,6 @@ fun ReadyNativeAd(
             },
             onRelease = { container ->
                 container.removeAllViews()
-                nativeAd.destroy()
             }
         )
     }
