@@ -24,6 +24,7 @@ public protocol ChatRepository: Sendable {
     ) async -> Resource<Message>
 
     func syncDelta() async -> Resource<Int64>
+    func syncContacts(phoneNumbers: [String]) async -> Resource<[Contact]>
     func getChats() async -> Resource<[ChatMessage]>
     func getChatById(chatId: String) async -> Resource<ChatMessage>
     func getMessages(chatId: String) async -> Resource<[Message]>
@@ -122,37 +123,45 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
         let payload = envelope.payload ?? [:]
 
         switch event {
-        case "message_new":
-            let convId = payload["conversation_id"]?.stringValue ?? ""
+        case "message_new", "new_message", "new_chat", "chat_created", "conversation_created":
+            _ = await self.syncChats()
+            _ = await self.syncDelta()
+
+            let convId = payload["conversation_id"]?.stringValue ?? payload["id"]?.stringValue ?? ""
+            if !convId.isEmpty {
+                let topicPayload: [String: WSAnyCodable] = ["topic": WSAnyCodable("chat:\(convId)")]
+                try? await webSocketManager.send(type: "subscribe", payload: topicPayload)
+            }
+
             let msgId = payload["id"]?.stringValue ?? payload["message_id"]?.stringValue ?? UUID().uuidString
             let text = payload["message_text"]?.stringValue ?? payload["content"]?.stringValue ?? ""
             let senderId = payload["sender_id"]?.stringValue ?? ""
             let myUserId = currentUserIdProvider() ?? ""
 
-            guard !convId.isEmpty else { return }
+            if !convId.isEmpty && !text.isEmpty {
+                let mediaType = payload["media_type"]?.stringValue ?? payload["message_type"]?.stringValue ?? "TEXT"
+                var mediaUrls = payload["media_urls"]?.arrayValue?.compactMap(\.stringValue) ?? []
+                if mediaUrls.isEmpty, let one = payload["media_url"]?.stringValue, !one.isEmpty {
+                    mediaUrls = [one]
+                }
+                let msg = Message(
+                    id: msgId,
+                    conversationId: convId,
+                    content: text,
+                    senderId: senderId,
+                    timestamp: payload["created_at"]?.int64Value ?? Int64(Date().timeIntervalSince1970 * 1000),
+                    isFromMe: senderId == myUserId,
+                    type: chatMediaType(mediaType),
+                    mediaUrls: mediaUrls,
+                    fileName: payload["file_name"]?.stringValue,
+                    duration: payload["duration"]?.stringValue
+                )
 
-            let mediaType = payload["media_type"]?.stringValue ?? payload["message_type"]?.stringValue ?? "TEXT"
-            var mediaUrls = payload["media_urls"]?.arrayValue?.compactMap(\.stringValue) ?? []
-            if mediaUrls.isEmpty, let one = payload["media_url"]?.stringValue, !one.isEmpty {
-                mediaUrls = [one]
-            }
-            let msg = Message(
-                id: msgId,
-                conversationId: convId,
-                content: text,
-                senderId: senderId,
-                timestamp: payload["created_at"]?.int64Value ?? Int64(Date().timeIntervalSince1970 * 1000),
-                isFromMe: senderId == myUserId,
-                type: chatMediaType(mediaType),
-                mediaUrls: mediaUrls,
-                fileName: payload["file_name"]?.stringValue,
-                duration: payload["duration"]?.stringValue
-            )
-
-            await localDb.upsertMessages([msg.toEntity(chatId: convId)])
-            await localDb.updateLastMessage(chatId: convId, text: text, time: msg.timestamp, isFromMe: msg.isFromMe, isRead: false)
-            if !msg.isFromMe {
-                await localDb.incrementUnread(chatId: convId)
+                await localDb.upsertMessages([msg.toEntity(chatId: convId)])
+                await localDb.updateLastMessage(chatId: convId, text: text, time: msg.timestamp, isFromMe: msg.isFromMe, isRead: false)
+                if !msg.isFromMe {
+                    await localDb.incrementUnread(chatId: convId)
+                }
             }
 
         case "read_receipt", "read_ack":
@@ -301,6 +310,34 @@ public final class ChatRepositoryImpl: ChatRepository, @unchecked Sendable {
             )
             await localDb.upsertSyncCursor(newCursor)
             return .success(response.latestSequence)
+        } catch {
+            return .error(error.localizedDescription)
+        }
+    }
+
+    public func syncContacts(phoneNumbers: [String] = []) async -> Resource<[Contact]> {
+        let localContacts = ContactSyncManager.shared.fetchAllContacts()
+        let numbers = (phoneNumbers + localContacts.map { $0.phoneNumber }).filter { !$0.isEmpty }
+        guard !numbers.isEmpty else { return .success([]) }
+
+        do {
+            let response = try await chatApi.syncContacts(phoneNumbers: numbers)
+            let localByPhone = Dictionary(uniqueKeysWithValues: localContacts.map { ($0.phoneNumber, $0.displayName) })
+
+            let registered = response.contacts.map { apiUser in
+                let phone = apiUser.phoneNumber ?? ""
+                let name = localByPhone[phone] ?? apiUser.displayName
+                return Contact(
+                    id: apiUser.id,
+                    username: apiUser.username,
+                    displayName: name,
+                    avatarUrl: apiUser.avatarUrl,
+                    phoneNumber: phone,
+                    isRegistered: true
+                )
+            }
+            _ = await syncChats()
+            return .success(registered)
         } catch {
             return .error(error.localizedDescription)
         }

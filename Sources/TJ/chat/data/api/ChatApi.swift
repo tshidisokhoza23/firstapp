@@ -1,4 +1,38 @@
-import Foundation
+public struct SyncContactsRequest: Codable, Sendable {
+    public let phoneNumbers: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case phoneNumbers = "phone_numbers"
+    }
+
+    public init(phoneNumbers: [String]) {
+        self.phoneNumbers = phoneNumbers
+    }
+}
+
+public struct ApiContactUser: Codable, Sendable {
+    public let id: String
+    public let username: String
+    public let displayName: String
+    public let phoneNumber: String?
+    public let avatarUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case username
+        case displayName = "display_name"
+        case phoneNumber = "phone_number"
+        case avatarUrl = "avatar_url"
+    }
+}
+
+public struct ContactsResponse: Codable, Sendable {
+    public let contacts: [ApiContactUser]
+
+    public init(contacts: [ApiContactUser] = []) {
+        self.contacts = contacts
+    }
+}
 
 public struct ReadReceiptRequest: Codable, Sendable {
     public let lastReadMessageId: String
@@ -22,6 +56,10 @@ public final class ChatApi: @unchecked Sendable {
 
     public func getChats() async throws -> ChatSummaryResponse {
         try await client.request(path: "conversations")
+    }
+
+    public func syncContacts(phoneNumbers: [String]) async throws -> ContactsResponse {
+        try await client.request(path: "users/sync-contacts", method: .post, body: SyncContactsRequest(phoneNumbers: phoneNumbers))
     }
 
     public func getMessages(conversationID: String, cursor: String? = nil, limit: Int? = 50) async throws -> MessagesResponse {
