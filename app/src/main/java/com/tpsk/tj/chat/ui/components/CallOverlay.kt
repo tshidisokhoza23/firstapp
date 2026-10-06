@@ -41,6 +41,7 @@ fun CallOverlay(
     val callManager = viewModel.webRtcCallManager
     val tonePlayer = viewModel.callTonePlayer
     val isCallActive by GlobalCallState.isCallActive.collectAsState()
+    val isMinimized by GlobalCallState.isMinimized.collectAsState()
     val activeCallType by GlobalCallState.activeCallType.collectAsState()
     val participantId by GlobalCallState.activeParticipantId.collectAsState()
     val sessionId by GlobalCallState.activeSessionId.collectAsState()
@@ -60,49 +61,180 @@ fun CallOverlay(
             } ?: ""
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.95f))
-        ) {
-            if (activeCallType == CallType.VIDEO) {
-                VideoCallContent(participantName, isConnectionEstablished, isRinging, isAnswered, durationSeconds, callManager)
-            } else {
-                VoiceCallContent(participantName, isConnectionEstablished, isRinging, isAnswered, durationSeconds)
-            }
+        if (isMinimized) {
+            DraggableCallBubble(
+                name = participantName,
+                isVideo = activeCallType == CallType.VIDEO,
+                isConnected = isConnectionEstablished,
+                durationSeconds = durationSeconds,
+                callManager = callManager,
+                onExpand = { GlobalCallState.setMinimized(false) }
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+            ) {
+                if (activeCallType == CallType.VIDEO) {
+                    VideoCallContent(participantName, isConnectionEstablished, isRinging, isAnswered, durationSeconds, callManager)
+                } else {
+                    VoiceCallContent(participantName, isConnectionEstablished, isRinging, isAnswered, durationSeconds)
+                }
 
-            // Banner Ad (only before connection is established)
-            if (!isConnectionEstablished) {
-                com.tpsk.tj.common.ui.components.BannerAdView(
+                // Caret Top Left Button to Minimize
+                IconButton(
+                    onClick = { GlobalCallState.setMinimized(true) },
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
                         .statusBarsPadding()
-                        .padding(top = 16.dp)
+                        .padding(top = 12.dp, start = 12.dp)
+                        .align(Alignment.TopStart)
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Minimize Call",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                // Banner Ad (only before connection is established)
+                if (!isConnectionEstablished) {
+                    com.tpsk.tj.common.ui.components.BannerAdView(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            .padding(top = 16.dp)
+                    )
+                }
+
+                // Call Controls
+                CallControls(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 48.dp),
+                    isMuted = false,
+                    isSpeakerOn = activeCallType == CallType.VIDEO,
+                    isVideo = activeCallType == CallType.VIDEO,
+                    onMuteToggle = { callManager.setMicEnabled(it) },
+                    onSpeakerToggle = { callManager.setSpeakerEnabled(it) },
+                    onEndCall = {
+                        sessionId?.let { sid ->
+                            participantId?.let { pid ->
+                                viewModel.callWebSocketClient.end(pid, sid, activeCallType ?: CallType.VOICE, GlobalCallState.callDurationSeconds.value)
+                            }
+                            GlobalCallState.onCallEnded(sid)
+                        }
+                        callManager.end()
+                        tonePlayer.stop()
+                    },
+                    onSwitchCamera = { callManager.switchCamera() }
                 )
             }
+        }
+    }
+}
 
-            // Call Controls
-            CallControls(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 48.dp),
-                isMuted = false, // TODO: track state
-                isSpeakerOn = activeCallType == CallType.VIDEO,
-                isVideo = activeCallType == CallType.VIDEO,
-                onMuteToggle = { callManager.setMicEnabled(it) },
-                onSpeakerToggle = { callManager.setSpeakerEnabled(it) },
-                onEndCall = {
-                    sessionId?.let { sid ->
-                        participantId?.let { pid ->
-                            viewModel.callWebSocketClient.end(pid, sid, activeCallType ?: CallType.VOICE, GlobalCallState.callDurationSeconds.value)
+@Composable
+private fun DraggableCallBubble(
+    name: String,
+    isVideo: Boolean,
+    isConnected: Boolean,
+    durationSeconds: Int,
+    callManager: WebRtcCallManager,
+    onExpand: () -> Unit
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        val density = LocalDensity.current
+        val widthPx = with(density) { 130.dp.toPx() }
+        val heightPx = with(density) { 180.dp.toPx() }
+        val margin = with(density) { 16.dp.toPx() }
+        val parentWidth = constraints.maxWidth.toFloat()
+        val parentHeight = constraints.maxHeight.toFloat()
+        var offset by remember(parentWidth, parentHeight) {
+            mutableStateOf(Offset(margin, margin))
+        }
+
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+                .size(width = 130.dp, height = 180.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .border(2.dp, Color(0xFF1D9BF0), RoundedCornerShape(16.dp))
+                .background(Color.Black)
+                .pointerInput(parentWidth, parentHeight) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        var moved = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            val delta = change.positionChange()
+                            if (!moved && delta.getDistance() > 8f) moved = true
+                            if (moved) {
+                                change.consume()
+                                val maxX = (parentWidth - widthPx - margin).coerceAtLeast(margin)
+                                val maxY = (parentHeight - heightPx - margin).coerceAtLeast(margin)
+                                offset = Offset(
+                                    (offset.x + delta.x).coerceIn(margin, maxX),
+                                    (offset.y + delta.y).coerceIn(margin, maxY)
+                                )
+                            }
                         }
-                        GlobalCallState.onCallEnded(sid)
+                        if (!moved) onExpand()
                     }
-                    callManager.end()
-                    tonePlayer.stop()
-                },
-                onSwitchCamera = { callManager.switchCamera() }
-            )
+                }
+        ) {
+            if (isVideo && isConnected) {
+                CallVideoView(
+                    modifier = Modifier.fillMaxSize(),
+                    callManager = callManager,
+                    onView = { view -> callManager.attachRemoteRenderer(view) }
+                )
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = Color.DarkGray
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(name.take(1).uppercase(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(
+                        if (isConnected) formatDuration(durationSeconds) else "Calling...",
+                        color = Color(0xFF1D9BF0),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onExpand,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(28.dp)
+                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+            ) {
+                Icon(
+                    Icons.Default.OpenInFull,
+                    contentDescription = "Expand Call",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
@@ -363,7 +495,7 @@ private fun CallControls(
         IconButton(
             onClick = { 
                 muted = !muted
-                onMuteToggle(!muted) // If muted is true (UI shows mic-off), call setMicEnabled(false)
+                onMuteToggle(!muted)
             },
             modifier = Modifier
                 .size(56.dp)
@@ -394,4 +526,3 @@ private fun formatDuration(seconds: Int): String {
     val secs = seconds % 60
     return "%02d:%02d".format(java.util.Locale.US, mins, secs)
 }
-

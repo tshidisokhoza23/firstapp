@@ -283,6 +283,22 @@ class MainActivity : FragmentActivity() {
             val isDarkModePref by viewModel.isDarkMode.collectAsState()
             val selectedLanguage by viewModel.selectedLanguage.collectAsState()
 
+            val view = androidx.compose.ui.platform.LocalView.current
+            val isCallActive by GlobalCallState.isCallActive.collectAsState()
+            val activeCallType by GlobalCallState.activeCallType.collectAsState()
+
+            DisposableEffect(isCallActive, activeCallType) {
+                val window = (view.context as? android.app.Activity)?.window
+                if (isCallActive && activeCallType == CallType.VIDEO) {
+                    window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                onDispose {
+                    window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+
             LaunchedEffect(selectedLanguage) {
                 val localeCode = when (selectedLanguage) {
                     "Afrikaans" -> "af"

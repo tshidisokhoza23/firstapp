@@ -40,12 +40,20 @@ object GlobalCallState {
     private val _callDurationSeconds = MutableStateFlow(0)
     val callDurationSeconds: StateFlow<Int> = _callDurationSeconds.asStateFlow()
 
+    private val _isMinimized = MutableStateFlow(false)
+    val isMinimized: StateFlow<Boolean> = _isMinimized.asStateFlow()
+
+    fun setMinimized(minimized: Boolean) {
+        _isMinimized.value = minimized
+    }
+
     fun setCallActive(active: Boolean, sessionId: String? = null, participantId: String? = null, callType: CallType? = null) {
         _isCallActive.value = active
         _activeSessionId.value = sessionId
         _activeParticipantId.value = participantId
         _activeCallType.value = callType
         if (!active) {
+            _isMinimized.value = false
             _isConnectionEstablished.value = false
             _isRinging.value = false
             _isAnswered.value = false

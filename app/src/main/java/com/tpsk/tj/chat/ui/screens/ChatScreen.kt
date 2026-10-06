@@ -203,6 +203,18 @@ fun ChatMessagesScreen(
 
     // Audio Recording State
     var isRecording by remember { mutableStateOf(false) }
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(isRecording) {
+        val window = (view.context as? android.app.Activity)?.window
+        if (isRecording) {
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
     val capturedAmplitudes = remember { mutableStateListOf<Int>() }
     var recordingDurationSeconds by remember { mutableIntStateOf(0) }
     var reviewingVoiceNoteUri by remember { mutableStateOf<Uri?>(null) }
