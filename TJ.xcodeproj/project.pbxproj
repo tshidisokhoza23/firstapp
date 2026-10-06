@@ -33,6 +33,7 @@
 		23B74C279CBABC02B27B5972 /* DataStorageSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C46EA3DF5D1D60C26EEB352 /* DataStorageSettingsView.swift */; };
 		272126EA4409A34E5478BB4F /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 253B4187F19783272D9EFD56 /* NetworkMonitor.swift */; };
 		2D2BE84C4A1C2CAF694BBDBC /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15AB1A51914BF6067E37F63B /* AppNavigation.swift */; };
+		2DD48BA98B6F57F083E59B04 /* StoryViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA6E87224CC513AA203C3839 /* StoryViewerSheet.swift */; };
 		2DE03F379A5B628760E1A91D /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E805A3DFC2933360412BFAE /* LoginView.swift */; };
 		2F14C4C4399AC0BA33CF34A3 /* StoryViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2B800923ED7694B0EE6B6F /* StoryViewer.swift */; };
 		310E75C59B9E576010F311D6 /* AppLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD42A66A1FC7D15EF22A8DA /* AppLogo.swift */; };
@@ -142,6 +143,7 @@
 		BB48893AE05BE597A57CCF86 /* GroupRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 956F5A135DFCB8D35B8F30D4 /* GroupRepository.swift */; };
 		BED736D56FCC078313B30FBC /* JobEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DD25CD5719961D75584570 /* JobEntities.swift */; };
 		BF2B4D387B5408476DD994AC /* IncomingCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EECA5C2864606C46BAF5 /* IncomingCallView.swift */; };
+		BFA41716DEA1352298590FAD /* StoriesRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C4E663CB03579DFF222883 /* StoriesRowView.swift */; };
 		BFFA822D4EBC48C292BE3A34 /* ImageExportEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3552070E82B02AB762C8D64C /* ImageExportEngine.swift */; };
 		C0901C58B98885E312321708 /* JobLocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49177EC749166144B1894420 /* JobLocalStore.swift */; };
 		C1651F28C2C2B142E719F5D5 /* Mappers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74AF083F0EF8CCE9155C4ED2 /* Mappers.swift */; };
@@ -206,6 +208,7 @@
 		09CC01E17D290BFB5428CDC5 /* ChannelDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelDetailView.swift; sourceTree = "<group>"; };
 		0A202885BAAB3FD22B3CFF60 /* RewardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardViewModel.swift; sourceTree = "<group>"; };
 		0B776B4A7342F378F173FD19 /* DeviceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSession.swift; sourceTree = "<group>"; };
+		12C4E663CB03579DFF222883 /* StoriesRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesRowView.swift; sourceTree = "<group>"; };
 		137B4DEC6D681C9B80DDC35C /* ChannelsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelsViewModel.swift; sourceTree = "<group>"; };
 		156B412D98D8187B6070E13D /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
 		157C8FDBB9B068997621E5E7 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -326,6 +329,7 @@
 		9F2C8EDDE9E0371B476E1A17 /* JobDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobDetailView.swift; sourceTree = "<group>"; };
 		A2DA9B0E4232FA54C5FE42A1 /* AuthRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepository.swift; sourceTree = "<group>"; };
 		A3EBCD144515C7E78DC1AF62 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		AA6E87224CC513AA203C3839 /* StoryViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryViewerSheet.swift; sourceTree = "<group>"; };
 		AA94BD79CDCFBD1EEA16394C /* ContactPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPickerView.swift; sourceTree = "<group>"; };
 		AADEB7929B1F94CC537B3F91 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		B37A80569EAD06A212503A34 /* VocabRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabRepository.swift; sourceTree = "<group>"; };
@@ -621,6 +625,8 @@
 				7CB902EA4024BA3345641ED5 /* ChatActionDialog.swift */,
 				8BF4FDA401FB6612ABDDBF7B /* ChatsListView.swift */,
 				8F9036B8046C14C27CB9798A /* ContactPickerView.swift */,
+				12C4E663CB03579DFF222883 /* StoriesRowView.swift */,
+				AA6E87224CC513AA203C3839 /* StoryViewerSheet.swift */,
 				D2B1A09D4CFDC99E8C9DF5EF /* data */,
 				51BB4E37ABE3692989CEB5FC /* jobs */,
 				18EE81C56E299E29CFFD568E /* model */,
@@ -1335,161 +1341,161 @@
 			path = ui;
 			sourceTree = "<group>";
 		};
-		"TEMP_0470FA6B-DC10-4715-81C9-624EC2E5D0F8" /* data */ = {
+		"TEMP_0B898D5B-F4B7-4C5B-A9B8-2D99ED6956DE" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_145D4D7C-AB05-4E9A-871A-21D7613EA337" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_14E04E16-2B99-47A3-B615-218231E80830" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_221EAE6B-3079-491B-B7C4-B461DE9D2E03" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = data;
 			sourceTree = "<group>";
 		};
-		"TEMP_0478D400-2FB9-4FFC-AF44-3078BF554EC6" /* domain */ = {
+		"TEMP_24EBCA64-9FE4-4F2F-A908-FB9C2A18280F" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_07714166-EEAD-465D-913D-4B8056DD69C9" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_1452DB94-03DF-430C-8C2F-36F57DD2A2C9" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_1521A315-6E0A-4B2E-A344-68C12840421F" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_1D1B8D05-D7D1-40B3-B658-3D7B1A4C5DAB" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_249249A1-6335-40FB-92AB-739B86EECF20" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_2D51C521-B7A7-4D35-B38D-635BA79352EE" /* ui */ = {
+		"TEMP_2B36EE20-72B7-4847-8578-FBC47EEC4116" /* ui */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = ui;
 			sourceTree = "<group>";
 		};
-		"TEMP_3CCF1C72-7EEC-472B-A26C-4970AF56C9B5" /* domain */ = {
+		"TEMP_3E56D89A-37DE-483F-9446-74AE21FB0823" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_42635D52-BE31-4EC6-BBA1-06AA02F3511D" /* data */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = data;
-			sourceTree = "<group>";
-		};
-		"TEMP_4915E32B-8DF3-4EDA-B7E6-84D7EF9BBF8C" /* data */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = data;
-			sourceTree = "<group>";
-		};
-		"TEMP_4CA47717-AAEF-4D9F-91D8-48AC119DE2B8" /* local */ = {
+		"TEMP_5BCD1E68-6D2E-4BEF-8124-C811FD57C249" /* local */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = local;
 			sourceTree = "<group>";
 		};
-		"TEMP_743B8C51-6BD8-4BE4-847B-74052B231066" /* data */ = {
+		"TEMP_6353C2F1-AA7E-4FDB-B0CF-6E3BC31E5B6C" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_63BD353A-F098-4351-A649-8900541A5D65" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = data;
 			sourceTree = "<group>";
 		};
-		"TEMP_8880F5D0-41CE-40F2-93A2-24E5C482AE3A" /* rewards */ = {
+		"TEMP_64172B8D-C833-468C-8829-5AC6E4B0B17F" /* screens */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = screens;
+			sourceTree = "<group>";
+		};
+		"TEMP_64DEB647-F546-408E-A98A-5ABD613BCC25" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_771A282F-F920-4974-AA82-09C868AF76FF" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_783DC4FC-528B-4EB9-8882-EE361A79A27A" /* screens */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = screens;
+			sourceTree = "<group>";
+		};
+		"TEMP_9ED0BD62-7239-45C8-9822-1BC1EC00D480" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_AC4FAB96-F8FB-4250-A76B-B72621D757E6" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_B43315EC-53A2-460A-832B-8C54AC515790" /* rewards */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = rewards;
 			sourceTree = "<group>";
 		};
-		"TEMP_A5D29EFA-2C72-409A-B1AF-2BC635FA575F" /* domain */ = {
+		"TEMP_BAA96732-6E84-495D-A1D0-560690BF7D05" /* data */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = data;
+			sourceTree = "<group>";
+		};
+		"TEMP_BD1C373B-E6E8-4AD8-B0D0-ACC16E4AC591" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_B3072985-E8D6-46F5-89B7-E76749AB4F88" /* screens */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = screens;
-			sourceTree = "<group>";
-		};
-		"TEMP_BAD12989-8044-4E67-B35A-6D8C6C3ED961" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_C140DEE0-742B-44C5-B9FA-E019C913A3E7" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_C5AA9C16-C2E5-4A9B-A0AA-D0DF07555726" /* local */ = {
+		"TEMP_C236A3AE-774B-4B4B-A840-33332CFF5284" /* local */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = local;
 			sourceTree = "<group>";
 		};
-		"TEMP_C9F95E61-D06C-4E6A-AA1E-D640F2716D84" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_CA89DA00-62BF-41DB-B5A8-87145EFE8957" /* domain */ = {
+		"TEMP_E2D8907C-26F4-4EB6-B33F-4EF576E7253E" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_E9D3C2EE-C739-41D5-A9C6-A26C89B47F55" /* screens */ = {
+		"TEMP_E8655DE9-36B1-4928-ACB8-F01DCA0A21F9" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
-			path = screens;
+			path = data;
 			sourceTree = "<group>";
 		};
-		"TEMP_F0B9965C-578D-40A9-A6CC-1D092BFDC24E" /* domain */ = {
+		"TEMP_EC1EBE63-034C-433C-B688-2E3DFB1BD1C6" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1732,10 +1738,12 @@
 				F18EA8722280AE253BEF8E79 /* StorageManager.swift in Sources */,
 				E8754A399038C2B5DAB000D7 /* StorageManager.swift in Sources */,
 				83506C9C2A24BE44CFC4BBFF /* StoriesHeaderRow.swift in Sources */,
+				BFA41716DEA1352298590FAD /* StoriesRowView.swift in Sources */,
 				779175FD8109340153F380B1 /* Story.swift in Sources */,
 				0336501369EB62D5AA15360A /* StoryModels.swift in Sources */,
 				AD31DC00DBF4E85FA222ACE8 /* StoryRepository.swift in Sources */,
 				2F14C4C4399AC0BA33CF34A3 /* StoryViewer.swift in Sources */,
+				2DD48BA98B6F57F083E59B04 /* StoryViewerSheet.swift in Sources */,
 				E5C5FE6C33A611F6CFE4B668 /* TJApiServices.swift in Sources */,
 				439C6853C6DF19A5BB182F17 /* TJApp.swift in Sources */,
 				6B91AC7D13A8835F2D6C17E5 /* TJApplicationState.swift in Sources */,
