@@ -45,7 +45,7 @@ struct ChatActionDialog: View {
 
     @State private var showingMuteSheet: Bool = false
     @State private var showingDeleteAlert: Bool = false
-    @State private var deleteMediaFromStorage: Bool = false
+    @State private var deleteMediaFromStorage: Bool = true
 
     var body: some View {
         NavigationView {
@@ -93,7 +93,7 @@ struct ChatActionDialog: View {
                     Button(action: {
                         showingDeleteAlert = true
                     }) {
-                        Label("Delete Chat", systemImage: "trash.fill")
+                        Label("Delete Chat for Me", systemImage: "trash.fill")
                             .foregroundColor(.red)
                     }
                 }
@@ -112,13 +112,13 @@ struct ChatActionDialog: View {
                 }
             }
             .alert("Delete Chat with \(chat.name)?", isPresented: $showingDeleteAlert) {
-                Button("Delete Chat", role: .destructive) {
+                Button("Delete for Me", role: .destructive) {
                     onDeleteChat(deleteMediaFromStorage)
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("Are you sure you want to permanently delete this chat?")
+                Text("This chat will be cleared from your conversation list. The other recipient will still keep their chat history.")
             }
         }
     }
