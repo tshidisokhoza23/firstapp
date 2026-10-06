@@ -170,9 +170,20 @@ class ChatRepositoryImpl @Inject constructor(
         Log.d("ChatRepository", "handleIncomingEvent: type='$event'")
 
         when (event) {
-            "message_new" -> {
+            "message_new", "new_message", "new_chat", "chat_created", "conversation_created" -> {
                 envelope.payload?.let { payload ->
                     try {
+                        val newConvId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull
+                            ?: payload["id"]?.jsonPrimitive?.contentOrNull
+                        if (!newConvId.isNullOrBlank()) {
+                            scope.launch {
+                                try {
+                                    webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$newConvId") })
+                                    syncChats().collect {}
+                                    syncDelta().collect {}
+                                } catch (_: Exception) {}
+                            }
+                        }
                         val apiMsg = parseIncomingApiMessage(payload)
                         val myUserId = sessionManager.getUserId()
                         val privKey = sessionManager.getPrivateKey()
