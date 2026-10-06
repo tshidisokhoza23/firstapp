@@ -1,0 +1,40 @@
+# Local Linux USB Deployment Commands for iPhone (Ubuntu)
+# The following commands were executed to detect, pair, install, and verify the .ipa package on the physical iPhone:
+#
+# 1. Check required deployment tools:
+# # which ideviceinstaller idevicepair ios-deploy
+#
+# 2. Detect connected iPhone device UDID:
+# # idevice_id -l
+# # Output: 00008030-000E415C1446802E
+#
+# 3. Validate USB pairing and trust status:
+# # idevicepair validate
+# # Output: SUCCESS: Validated pairing with device 00008030-000E415C1446802E
+#
+# 4. Search for compiled/signed .ipa packages:
+# # find /home/pablito -name "*.ipa" 2>/dev/null
+# # Output: /home/pablito/Downloads/TJ-signed.ipa
+#
+# 5. Check IPA file size and metadata:
+# # ls -lh /home/pablito/Downloads/TJ-signed.ipa
+#
+# 6. Install signed IPA directly onto connected iPhone:
+# # ideviceinstaller -u 00008030-000E415C1446802E -i /home/pablito/Downloads/TJ-signed.ipa
+# # Output: Install: InstallComplete (100%)
+#
+# 7. Verify installed application bundle ID on device:
+# # ideviceinstaller -u 00008030-000E415C1446802E -l | grep com.tpsk.TJ
+# # Output: com.tpsk.TJ.PNX9HSN9VY, "1", "TJ"
+
+name: Local iOS Installation Commands
+
+on:
+  workflow_dispatch:
+
+jobs:
+  info:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Instructions
+        run: echo "This file contains reference CLI commands in comments for local Linux USB installation."

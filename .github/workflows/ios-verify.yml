@@ -47,3 +47,33 @@ jobs:
         with:
           name: TJ-iOS-App
           path: TJ.ipa
+
+# ==============================================================================
+# LOCAL UBUNTU USB INSTALLATION COMMANDS (REFERENCE)
+# ==============================================================================
+# # 1. Check CLI deployment tools:
+# # which ideviceinstaller idevicepair ios-deploy
+#
+# # 2. Detect connected iPhone device UDID:
+# # idevice_id -l
+# # Output: 00008030-000E415C1446802E
+#
+# # 3. Validate USB pairing with iPhone:
+# # idevicepair validate
+# # Output: SUCCESS: Validated pairing with device 00008030-000E415C1446802E
+#
+# # 4. Find compiled & signed IPA file:
+# # find /home/pablito -name "*.ipa" 2>/dev/null
+# # Output: /home/pablito/Downloads/TJ-signed.ipa
+#
+# # 5. Inspect IPA size:
+# # ls -lh /home/pablito/Downloads/TJ-signed.ipa
+#
+# # 6. Install signed IPA onto iPhone via USB:
+# # ideviceinstaller -u 00008030-000E415C1446802E -i /home/pablito/Downloads/TJ-signed.ipa
+# # Output: Install: InstallComplete (100%)
+#
+# # 7. Verify installed app bundle ID:
+# # ideviceinstaller -u 00008030-000E415C1446802E -l | grep com.tpsk.TJ
+# # Output: com.tpsk.TJ.PNX9HSN9VY, "1", "TJ"
+# ==============================================================================
