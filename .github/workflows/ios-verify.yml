@@ -1,10 +1,13 @@
-name: Verify iOS Compilation
+name: Build & Package iOS App
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   check-build:
+    name: Build & Package
     runs-on: macos-14
     steps:
       - name: Checkout Code
@@ -21,7 +24,7 @@ jobs:
           sed -i '' 's/objectVersion = [0-9]*/objectVersion = 56/g' TJ.xcodeproj/project.pbxproj
           sed -i '' 's/compatibilityVersion = ".*";/compatibilityVersion = "Xcode 15.0";/g' TJ.xcodeproj/project.pbxproj
 
-      - name: Compile and Detect Errors
+      - name: Compile App
         run: |
           xcodebuild clean build \
             -project TJ.xcodeproj \
@@ -32,3 +35,15 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             BUILD_DIR="$PWD/build"
+
+      - name: Package into .ipa
+        run: |
+          mkdir -p Payload
+          cp -r "$PWD/build/Release-iphoneos/TJ.app" Payload/
+          zip -r TJ.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TJ-iOS-App
+          path: TJ.ipa
