@@ -1,29 +1,31 @@
 # Local Linux USB Deployment Commands for iPhone (Ubuntu)
-# The following commands were executed to detect, pair, install, and verify the .ipa package on the physical iPhone:
 #
-# 1. Check required deployment tools:
-# # which ideviceinstaller idevicepair ios-deploy
+# Step 1: Push Code to GitHub
+# # cd /home/pablito/StudioProjects/TJ
+# # git push origin main
 #
-# 2. Detect connected iPhone device UDID:
-# # idevice_id -l
-# # Output: 00008030-000E415C1446802E
+# Step 2: Check GitHub Actions Build & Download .ipa
+# # gh run list --repo pikasop303-a11y/tj
+# # gh run download --repo pikasop303-a11y/tj --name TJ-iOS-App --dir ~/Downloads/
 #
-# 3. Validate USB pairing and trust status:
+# Step 3: Verify the Signed .ipa File
+# # ls -lh ~/Downloads/TJ-signed.ipa
+#
+# Step 4: USB Device Pair & Validation
+# # sudo apt install usbmuxd libimobiledevice6 libimobiledevice-utils ideviceinstaller
+# # idevicepair pair
 # # idevicepair validate
 # # Output: SUCCESS: Validated pairing with device 00008030-000E415C1446802E
 #
-# 4. Search for compiled/signed .ipa packages:
-# # find /home/pablito -name "*.ipa" 2>/dev/null
-# # Output: /home/pablito/Downloads/TJ-signed.ipa
+# Step 5: Detect Connected Device UDID
+# # idevice_id -l
+# # Output: 00008030-000E415C1446802E
 #
-# 5. Check IPA file size and metadata:
-# # ls -lh /home/pablito/Downloads/TJ-signed.ipa
-#
-# 6. Install signed IPA directly onto connected iPhone:
-# # ideviceinstaller -u 00008030-000E415C1446802E -i /home/pablito/Downloads/TJ-signed.ipa
+# Step 6: Install .ipa File onto iPhone
+# # ideviceinstaller -u 00008030-000E415C1446802E -i ~/Downloads/TJ-signed.ipa
 # # Output: Install: InstallComplete (100%)
 #
-# 7. Verify installed application bundle ID on device:
+# Step 7: Verify App Installation on Device
 # # ideviceinstaller -u 00008030-000E415C1446802E -l | grep com.tpsk.TJ
 # # Output: com.tpsk.TJ.PNX9HSN9VY, "1", "TJ"
 
