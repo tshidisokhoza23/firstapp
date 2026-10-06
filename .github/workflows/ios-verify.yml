@@ -1,4 +1,4 @@
-name: Build and Package iOS App
+name: Verify iOS Compilation
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   check-build:
-    name: Build and Package
+    name: Verify iOS Compilation
     runs-on: macos-14
     steps:
       - name: Checkout Code
