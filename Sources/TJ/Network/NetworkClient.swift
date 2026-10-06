@@ -139,7 +139,33 @@ class NetworkClient: ObservableObject {
         return try await requestOTP(phoneNumber: phoneNumber) ? "otp_sent" : "failed"
     }
 
-    // MARK: - Fetch Chats (Handles JSON Wrapper { "chats": [...] })
+    // MARK: - Initiate DM (Un-hides chat on server)
+    func initiateDM(contactId: String) async -> String? {
+        guard let url = URL(string: "\(baseURL)/chats/dm") else { return nil }
+        do {
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            if let token = authToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            let body = ["contact_id": contactId]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let convId = json["conversation_id"] as? String {
+                    return convId
+                }
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    // MARK: - Fetch Chats
     func fetchChats() async -> [ChatItem] {
         guard let url = URL(string: "\(baseURL)/chats") else { return ChatItem.samples }
         do {
