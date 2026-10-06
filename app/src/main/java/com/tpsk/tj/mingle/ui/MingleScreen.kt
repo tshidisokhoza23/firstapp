@@ -1374,7 +1374,7 @@ private fun MingleNativeAdCard(
                     com.tpsk.tj.common.ui.components.ReadyNativeAd(
                         adObject = ad,
                         modifier = Modifier.fillMaxSize(),
-                        layoutResId = com.tpsk.tj.R.layout.item_short_native_ad,
+                        layoutResId = com.tpsk.tj.R.layout.item_mingle_native_ad,
                         playMedia = playMedia,
                         cornerRadius = 16
                     )
