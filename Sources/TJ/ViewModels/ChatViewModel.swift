@@ -56,6 +56,17 @@ class ChatViewModel: ObservableObject {
                             )
                             self.chats.remove(at: index)
                             self.chats.insert(updatedChat, at: 0)
+                        } else {
+                            let newChatCard = ChatItem(
+                                id: chatId,
+                                name: sender,
+                                lastMessage: content,
+                                timestamp: "Just now",
+                                unreadCount: 1,
+                                avatarUrl: "https://i.pravatar.cc/150?u=\(chatId)",
+                                isOnline: true
+                            )
+                            self.chats.insert(newChatCard, at: 0)
                         }
                     }
                 }
@@ -81,9 +92,12 @@ class ChatViewModel: ObservableObject {
     func sendMessage() {
         guard !messageInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let text = messageInputText
+        let targetChatId = activeChat?.id ?? "c1"
+        let targetChatName = activeChat?.name ?? "Conversation"
+
         let newMessage = ChatMessage(
             id: UUID().uuidString,
-            chatId: activeChat?.id ?? "c1",
+            chatId: targetChatId,
             senderName: "Alex",
             content: text,
             timestamp: "Just now",
@@ -94,6 +108,34 @@ class ChatViewModel: ObservableObject {
         activeChatMessages.append(newMessage)
         messageInputText = ""
 
-        WebSocketManager.shared.send(type: "chat_message", payload: ["content": text, "chatId": activeChat?.id ?? "c1"])
+        DispatchQueue.main.async {
+            if let index = self.chats.firstIndex(where: { $0.id == targetChatId }) {
+                let oldChat = self.chats[index]
+                let updated = ChatItem(
+                    id: oldChat.id,
+                    name: oldChat.name,
+                    lastMessage: text,
+                    timestamp: "Just now",
+                    unreadCount: oldChat.unreadCount,
+                    avatarUrl: oldChat.avatarUrl,
+                    isOnline: oldChat.isOnline
+                )
+                self.chats.remove(at: index)
+                self.chats.insert(updated, at: 0)
+            } else {
+                let newChatCard = ChatItem(
+                    id: targetChatId,
+                    name: targetChatName,
+                    lastMessage: text,
+                    timestamp: "Just now",
+                    unreadCount: 0,
+                    avatarUrl: "https://i.pravatar.cc/150?u=\(targetChatId)",
+                    isOnline: true
+                )
+                self.chats.insert(newChatCard, at: 0)
+            }
+        }
+
+        WebSocketManager.shared.send(type: "chat_message", payload: ["content": text, "chatId": targetChatId, "conversation_id": targetChatId])
     }
 }

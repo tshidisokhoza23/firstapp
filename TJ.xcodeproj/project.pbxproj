@@ -56,6 +56,7 @@
 		422A966042CA004FAB934541 /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D0B3A3F225A900371D8AB1D /* WebSocketManager.swift */; };
 		431330037488BC29C7A39BFA /* Advert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020D07A61110489459695AD7 /* Advert.swift */; };
 		439C6853C6DF19A5BB182F17 /* TJApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA8FFC7D471B1C6168945D4 /* TJApp.swift */; };
+		44EBE5AF82CAA6B754359330 /* NetworkClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A5AB13C883CD1387ADCCE4 /* NetworkClient.swift */; };
 		4515BD13A8BF7E6287115861 /* MediaPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0207F64E59AAB0DE6A5A74CF /* MediaPickerView.swift */; };
 		46337AB8796A439F85C2BE92 /* ChatProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5354E0D28104D7C8EE35BDA7 /* ChatProfileView.swift */; };
 		4767E34E27FB775500875F12 /* PrivacySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E31E75A4C6960FE472F4E3 /* PrivacySettings.swift */; };
@@ -277,6 +278,7 @@
 		5D5361389517F88BDAF5F5CD /* ChatExpiry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatExpiry.swift; sourceTree = "<group>"; };
 		5DEC0E50DADB31DFB8CC3A37 /* ChatHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHeaderView.swift; sourceTree = "<group>"; };
 		5E0175FBF57BF932260C7EFF /* JobRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRepository.swift; sourceTree = "<group>"; };
+		66A5AB13C883CD1387ADCCE4 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
 		6729461081877C835D97F5B8 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		67E3FFFBED4E2332B8895084 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		69E5A5C325FF79A686F076AC /* TJApiServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TJApiServices.swift; sourceTree = "<group>"; };
@@ -1267,6 +1269,7 @@
 			isa = PBXGroup;
 			children = (
 				18A46859068719D1946E4F3E /* MediaPolicyEngine.swift */,
+				66A5AB13C883CD1387ADCCE4 /* NetworkClient.swift */,
 				253B4187F19783272D9EFD56 /* NetworkMonitor.swift */,
 				9588F50764C5834C1CF867AC /* WebSocketManager.swift */,
 			);
@@ -1329,165 +1332,165 @@
 			path = ui;
 			sourceTree = "<group>";
 		};
-		"TEMP_1BEEDF98-4E8C-4679-9E77-88F5336353CD" /* ui */ = {
+		"TEMP_0492F692-7EB5-457A-A832-08C02ACBAE46" /* local */ = {
 			isa = PBXGroup;
 			children = (
 			);
-			path = ui;
+			path = local;
 			sourceTree = "<group>";
 		};
-		"TEMP_1E7536DA-79FE-4264-9530-7A1C32C474E9" /* domain */ = {
+		"TEMP_0B77F52B-82BC-4FE9-8AE0-EB8195FD7F2A" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_22952BE6-F068-4921-8F8B-44BB955439BC" /* data */ = {
+		"TEMP_29F680C5-81D5-4D5E-8E29-460AD913DA41" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_2D90DDCB-755B-4EE8-A375-F6F7801C895F" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = data;
 			sourceTree = "<group>";
 		};
-		"TEMP_459E2013-E8D3-4568-A03F-9251A770ED47" /* domain */ = {
+		"TEMP_30F0B642-0372-4825-8070-A2A8E560DCDB" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_4C813A70-8E69-4341-BC8D-DC855AF8BE52" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_4F387DEF-8254-4C26-8419-4BAFB6CA132D" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_5DCCFD60-6A52-41D4-9791-DF0464AC884F" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_5E6FE073-94BF-4BC1-94EC-F7AD4EB834B8" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_6E95BE70-3052-42B7-A8F9-FD4064B6125F" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_7BB2CDFB-D12E-4F39-868C-DB09F6E632C2" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_7FE28006-48DB-4E61-B177-D56F3E468F7B" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_820A13EC-5279-4F0C-A640-67E53086CB80" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_8A090B6F-77F8-4FC3-A1C4-9088907BD224" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_AC02B9DF-4A78-4700-B7DE-B90CD6ACAD54" /* data */ = {
+		"TEMP_5513038C-4A07-467B-96D0-232B6C052A7D" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = data;
 			sourceTree = "<group>";
 		};
-		"TEMP_BC52A054-4913-46C7-A56B-EDD81A0A4A80" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_CF27423F-2460-45C4-8A37-FF415392C3FD" /* data */ = {
+		"TEMP_5B55B9FD-BA4E-472A-8222-625A99D4A168" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = data;
 			sourceTree = "<group>";
 		};
-		"TEMP_D459B403-177F-409C-A066-6AFBDC5D69FE" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_D913B1D8-A18B-4F05-83AB-5B90F93CF5EE" /* domain */ = {
+		"TEMP_5EA2A30E-C8A6-49A2-83B2-BC43FF65FE22" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_DD418744-69E9-4BBE-AD01-F9376325F075" /* local */ = {
+		"TEMP_67C77235-D2C2-432E-8C45-FFD3EEAEE06D" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
-			path = local;
+			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_E63DAD3D-692D-48FB-8EE6-6B0C6D8958AD" /* data */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = data;
-			sourceTree = "<group>";
-		};
-		"TEMP_EEA199BC-CBB3-4A62-9DB1-F23D0CB8AC68" /* rewards */ = {
+		"TEMP_721331DC-9FAD-4D41-B6A6-2B1FE794F2D1" /* rewards */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = rewards;
 			sourceTree = "<group>";
 		};
-		"TEMP_F7C47062-10DB-4BD9-8FD7-34F8FC832125" /* screens */ = {
+		"TEMP_760F374B-6B9E-41AA-ACB7-5AA5B6381F77" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_9E0AB908-1824-48C2-B2E7-E067E94D73D7" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_B3A58024-A89C-4514-877B-BDF90A7E972E" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_B4722C29-4CE0-479F-8F1D-BE2EA1E83195" /* ui */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = ui;
+			sourceTree = "<group>";
+		};
+		"TEMP_B85823F3-36FC-4BA7-9C54-FD5D820F465E" /* data */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = data;
+			sourceTree = "<group>";
+		};
+		"TEMP_B972F003-EC40-41F9-A4BD-34AD252F7B98" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_BCB88964-12B4-411B-B195-BCF5BA5CA178" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_C4369701-CFC5-42AE-B32E-2B43FC9E9878" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_C9104021-0B33-4AAC-9C43-F6B21D42B137" /* screens */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = screens;
 			sourceTree = "<group>";
 		};
-		"TEMP_FE2604DF-1A05-4222-9144-1D0E4EBBD94B" /* screens */ = {
+		"TEMP_CD22E887-37FA-41B5-AB2C-66B0A386524D" /* screens */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = screens;
+			sourceTree = "<group>";
+		};
+		"TEMP_D00BF74F-B343-42B1-A7EF-F3CFEB1A8A30" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_E90C5F20-167A-4285-B673-6E7FED968108" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_EDABE363-88BA-4CA6-80C5-D1DE78AD8550" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1685,6 +1688,7 @@
 				732EBA309D4EDDE6BB7B782A /* MusicPlayerView.swift in Sources */,
 				E00C01C6CE3E6DE37EF0DB8C /* MusicService.swift in Sources */,
 				D842128C6456F2774F3F3686 /* NetworkClient.swift in Sources */,
+				44EBE5AF82CAA6B754359330 /* NetworkClient.swift in Sources */,
 				D7B9145D7CB6E9197AD17970 /* NetworkEnvironment.swift in Sources */,
 				272126EA4409A34E5478BB4F /* NetworkMonitor.swift in Sources */,
 				EA5CF10EB4FFCDABDBBFC7FC /* OtpVerificationView.swift in Sources */,
