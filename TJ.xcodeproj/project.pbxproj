@@ -151,6 +151,7 @@
 		CF4FFFE5CD0F11E22D9B67F7 /* LocalDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40AE39CC9556D01ED2F37A5E /* LocalDatabase.swift */; };
 		D1729E70DE4F8FC04B768F8F /* ShareUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0384690BD9FCE7D7100E307F /* ShareUtils.swift */; };
 		D2962B37A718800CC424FBDB /* Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B23EEC4F43A54B64EFCB3A7 /* Job.swift */; };
+		D2C073ABB598A4E9DAE89E0C /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9588F50764C5834C1CF867AC /* WebSocketManager.swift */; };
 		D39683C55E0D9E0346FC9EE3 /* RewardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51D505D8C7253A0615AB155E /* RewardModels.swift */; };
 		D4F3447BEEEB6907226CDFCB /* JobProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E29F7563FF9E9437BD136E8 /* JobProfileView.swift */; };
 		D598964D45EF3D8F5944F2B8 /* JobApplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3377F111449D7A770BADBA3 /* JobApplication.swift */; };
@@ -170,6 +171,7 @@
 		E8754A399038C2B5DAB000D7 /* StorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22BE6B5B959A4048E8B24B74 /* StorageManager.swift */; };
 		E92AC9D75C9F289957B27AD8 /* UserProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0297F8F408F705CEC2439ECD /* UserProfileView.swift */; };
 		E97E74DE11EFB17826C4C6B3 /* ScreenCompletions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46A8930F0082B0A47A73E21 /* ScreenCompletions.swift */; };
+		EA564C8A6E3E5717146648BB /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445F53363DE409E5DD63563C /* ChatViewModel.swift */; };
 		EA5CF10EB4FFCDABDBBFC7FC /* OtpVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D22EAB2E9D1BFD54F7D20B /* OtpVerificationView.swift */; };
 		EB1B0F8D9DF6B3CAD9077FBD /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5A2D1A9F75839783447C25 /* Conversation.swift */; };
 		EBACACE17B700E54B81E9A27 /* MainRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A8D5D917B7BB2566F362768 /* MainRootView.swift */; };
@@ -247,6 +249,7 @@
 		3F23BBEEFA88E6A85E3A4CC3 /* VocabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabView.swift; sourceTree = "<group>"; };
 		40AE39CC9556D01ED2F37A5E /* LocalDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDatabase.swift; sourceTree = "<group>"; };
 		445C029055B5847016209C88 /* ChannelDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelDetailViewModel.swift; sourceTree = "<group>"; };
+		445F53363DE409E5DD63563C /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		44FB6B25EE15D7DB5FF25B7D /* SideNavMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideNavMenuSheet.swift; sourceTree = "<group>"; };
 		4582EC424654AAE4ABCB7D62 /* Channel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Channel.swift; sourceTree = "<group>"; };
 		461A65CA0427EA51D174A6EE /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
@@ -309,6 +312,7 @@
 		937A66614080BF203916B629 /* CreatePostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePostView.swift; sourceTree = "<group>"; };
 		93930D6F3E7FFEC7CC40FECE /* VideoProcessingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessingEngine.swift; sourceTree = "<group>"; };
 		956F5A135DFCB8D35B8F30D4 /* GroupRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupRepository.swift; sourceTree = "<group>"; };
+		9588F50764C5834C1CF867AC /* WebSocketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketManager.swift; sourceTree = "<group>"; };
 		95F584DC0C91C6B632950793 /* StoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryModels.swift; sourceTree = "<group>"; };
 		96FC0BA595EFDDDA929FB48D /* PostJobView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostJobView.swift; sourceTree = "<group>"; };
 		97DCC92AD07F5FD212C6FA1E /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
@@ -857,6 +861,14 @@
 			path = ui;
 			sourceTree = "<group>";
 		};
+		80DD111D1D346D270CA98570 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				445F53363DE409E5DD63563C /* ChatViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
 		838EFD9E0DB0736C7C172E2F /* account */ = {
 			isa = PBXGroup;
 			children = (
@@ -917,6 +929,7 @@
 				35AFE610E93352291B0ACA34 /* stories */,
 				C61AA355A628506E24F696E1 /* Theme */,
 				20BAB3A72ED78F42FA1EEA64 /* ui */,
+				80DD111D1D346D270CA98570 /* ViewModels */,
 				2B698E2B1B899595F18B31BD /* vocab */,
 				69761C65670CA05BB3E32F6C /* wallet */,
 			);
@@ -1255,6 +1268,7 @@
 			children = (
 				18A46859068719D1946E4F3E /* MediaPolicyEngine.swift */,
 				253B4187F19783272D9EFD56 /* NetworkMonitor.swift */,
+				9588F50764C5834C1CF867AC /* WebSocketManager.swift */,
 			);
 			path = Network;
 			sourceTree = "<group>";
@@ -1315,165 +1329,165 @@
 			path = ui;
 			sourceTree = "<group>";
 		};
-		"TEMP_13F68C81-3105-4817-942C-BEC7CEFAC669" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_2874278D-7C67-4148-8FF5-A164E4BC26D4" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_32BA6723-31A6-4F1D-AF0E-B867D7F17E4F" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_3346F48C-3333-4321-BD32-207B1E3F6CF2" /* screens */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = screens;
-			sourceTree = "<group>";
-		};
-		"TEMP_43721401-8E14-4FB4-8F6C-6489C3580B31" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_4FB6A820-22FB-42A3-84DF-B66F1389D399" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_60C5EC3E-DC15-4507-B770-4D457ACCCC44" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_6B2EB86E-0DCE-4502-9BF1-C6775A8CE72C" /* data */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = data;
-			sourceTree = "<group>";
-		};
-		"TEMP_75AA3F16-C271-4DF6-B023-2B4EEE45E575" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_778C2C2B-8F44-4EEA-977F-D49CB5F96BE6" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_7C44E6A2-4B31-49B3-94DC-798765C2207F" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_80065A10-C854-451E-A259-C3B444AD5801" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_81475A6B-404B-46D6-8360-F86FE7B960FE" /* screens */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = screens;
-			sourceTree = "<group>";
-		};
-		"TEMP_9551BB98-0D0C-4B7A-AF2B-D4C5076AA70D" /* local */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = local;
-			sourceTree = "<group>";
-		};
-		"TEMP_98017C0D-B571-406F-AF52-CC3AB2E5F477" /* ui */ = {
+		"TEMP_1BEEDF98-4E8C-4679-9E77-88F5336353CD" /* ui */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = ui;
 			sourceTree = "<group>";
 		};
-		"TEMP_B448D517-1DD9-4513-B1C5-1370F967B0D3" /* domain */ = {
+		"TEMP_1E7536DA-79FE-4264-9530-7A1C32C474E9" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_B53C7475-9884-4B3C-B66C-AB55D06347DE" /* domain */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = domain;
-			sourceTree = "<group>";
-		};
-		"TEMP_CF352C41-CAF6-4877-92BB-C828E5CCBCCD" /* rewards */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = rewards;
-			sourceTree = "<group>";
-		};
-		"TEMP_CFF799D1-E999-46AB-AD94-31476DF3061B" /* data */ = {
+		"TEMP_22952BE6-F068-4921-8F8B-44BB955439BC" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = data;
 			sourceTree = "<group>";
 		};
-		"TEMP_D06E3D70-5FBA-47C8-B199-0A35F2B14584" /* domain */ = {
+		"TEMP_459E2013-E8D3-4568-A03F-9251A770ED47" /* domain */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = domain;
 			sourceTree = "<group>";
 		};
-		"TEMP_D3B0ED67-75AD-4882-B3C7-E972AF7C2B9C" /* data */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = data;
-			sourceTree = "<group>";
-		};
-		"TEMP_E3103AF6-A969-493E-8AFD-0520CEC264EC" /* local */ = {
+		"TEMP_4C813A70-8E69-4341-BC8D-DC855AF8BE52" /* local */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = local;
 			sourceTree = "<group>";
 		};
-		"TEMP_FB87E06C-D338-4E80-841D-ECB9563646E5" /* data */ = {
+		"TEMP_4F387DEF-8254-4C26-8419-4BAFB6CA132D" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_5DCCFD60-6A52-41D4-9791-DF0464AC884F" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_5E6FE073-94BF-4BC1-94EC-F7AD4EB834B8" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_6E95BE70-3052-42B7-A8F9-FD4064B6125F" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_7BB2CDFB-D12E-4F39-868C-DB09F6E632C2" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_7FE28006-48DB-4E61-B177-D56F3E468F7B" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_820A13EC-5279-4F0C-A640-67E53086CB80" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_8A090B6F-77F8-4FC3-A1C4-9088907BD224" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_AC02B9DF-4A78-4700-B7DE-B90CD6ACAD54" /* data */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = data;
+			sourceTree = "<group>";
+		};
+		"TEMP_BC52A054-4913-46C7-A56B-EDD81A0A4A80" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_CF27423F-2460-45C4-8A37-FF415392C3FD" /* data */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = data;
+			sourceTree = "<group>";
+		};
+		"TEMP_D459B403-177F-409C-A066-6AFBDC5D69FE" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_D913B1D8-A18B-4F05-83AB-5B90F93CF5EE" /* domain */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
+		"TEMP_DD418744-69E9-4BBE-AD01-F9376325F075" /* local */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = local;
+			sourceTree = "<group>";
+		};
+		"TEMP_E63DAD3D-692D-48FB-8EE6-6B0C6D8958AD" /* data */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = data;
+			sourceTree = "<group>";
+		};
+		"TEMP_EEA199BC-CBB3-4A62-9DB1-F23D0CB8AC68" /* rewards */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = rewards;
+			sourceTree = "<group>";
+		};
+		"TEMP_F7C47062-10DB-4BD9-8FD7-34F8FC832125" /* screens */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = screens;
+			sourceTree = "<group>";
+		};
+		"TEMP_FE2604DF-1A05-4222-9144-1D0E4EBBD94B" /* screens */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = screens;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1600,6 +1614,7 @@
 				CC0DF64471F3E6251AFEC700 /* ChatService.swift in Sources */,
 				AD6063762D2178F59462EDD8 /* ChatTabView.swift in Sources */,
 				8E5F37F800B60FE5E499ABD7 /* ChatView.swift in Sources */,
+				EA564C8A6E3E5717146648BB /* ChatViewModel.swift in Sources */,
 				4B81C112EC924459A2A5D0A6 /* ChatViewModel.swift in Sources */,
 				4DF500A30AC18AD2BD1A9435 /* ChatsListView.swift in Sources */,
 				FD047E4361529D2E55BF1D18 /* CommonRepositories.swift in Sources */,
@@ -1727,6 +1742,7 @@
 				1AEEDD2D0B420E352B30DEEB /* WalletView.swift in Sources */,
 				F3020757616E64DC5B01A6FC /* WebRtcCallManager.swift in Sources */,
 				422A966042CA004FAB934541 /* WebSocketManager.swift in Sources */,
+				D2C073ABB598A4E9DAE89E0C /* WebSocketManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
