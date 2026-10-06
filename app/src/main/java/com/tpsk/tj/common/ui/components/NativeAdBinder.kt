@@ -76,6 +76,7 @@ internal fun bindNativeAd(view: NativeAdView, ad: NativeAd) {
         }
     }
     view.mediaView?.mediaContent = ad.mediaContent
+    view.mediaView?.setImageScaleType(ImageView.ScaleType.CENTER_CROP)
     if (view.tag != ad) {
         view.tag = ad
         view.setNativeAd(ad)

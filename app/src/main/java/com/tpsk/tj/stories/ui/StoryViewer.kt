@@ -370,11 +370,45 @@ fun StoryViewer(
             when (visualType) {
                 StoryType.AD -> {
                     if (currentStory.adObject != null) {
-                        com.tpsk.tj.common.ui.components.NativeAdCard(
-                            adObject = currentStory.adObject,
-                            modifier = Modifier.fillMaxSize(),
-                            layoutResId = com.tpsk.tj.R.layout.item_story_native_ad
-                        )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            com.tpsk.tj.common.ui.components.NativeAdCard(
+                                adObject = currentStory.adObject,
+                                modifier = Modifier.fillMaxSize(),
+                                layoutResId = com.tpsk.tj.R.layout.item_story_native_ad
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(0.7f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(0.3f)
+                                        .fillMaxHeight()
+                                        .clickable {
+                                            if (currentStoryIndex > 0) {
+                                                scope.launch { progress.snapTo(0f) }
+                                                currentStoryIndex--
+                                            } else {
+                                                onNavigateToUser(-1, currentStoryIndex)
+                                            }
+                                        }
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(0.7f)
+                                        .fillMaxHeight()
+                                        .clickable {
+                                            if (currentStoryIndex < stories.size - 1) {
+                                                scope.launch { progress.snapTo(0f) }
+                                                currentStoryIndex++
+                                            } else {
+                                                onNavigateToUser(1, currentStoryIndex)
+                                            }
+                                        }
+                                )
+                            }
+                        }
                     }
                 }
                 StoryType.TEXT -> {
