@@ -3,15 +3,8 @@ import SwiftUI
 struct ContactPickerView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var chatViewModel: ChatViewModel
+    @ObservedObject var contactsManager = ContactsManager.shared
     @State private var searchText: String = ""
-
-    let contacts = [
-        ("Alice Smith", "c1", "Online"),
-        ("Bob Johnson", "c2", "Offline"),
-        ("Charlie Brown", "c3", "Online"),
-        ("Diana Prince", "c4", "Offline"),
-        ("Evan Wright", "c5", "Online")
-    ]
 
     var body: some View {
         NavigationView {
@@ -27,21 +20,21 @@ struct ContactPickerView: View {
                 .padding(.horizontal)
 
                 List {
-                    Section(header: Text("Frequently Contacted")) {
-                        ForEach(contacts.filter { searchText.isEmpty || $0.0.localizedCaseInsensitiveContains(searchText) }, id: \.1) { contact in
+                    Section(header: Text("Synced Contacts & Story Creators")) {
+                        ForEach(contactsManager.contacts.filter { searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText) || $0.phoneNumber.contains(searchText) }) { contact in
                             Button(action: {
                                 Task { @MainActor in
-                                    let _ = await NetworkClient.shared.initiateDM(contactId: contact.1)
+                                    let _ = await NetworkClient.shared.initiateDM(contactId: contact.id)
                                     let newChat = ChatItem(
-                                        id: contact.1,
-                                        name: contact.0,
+                                        id: contact.id,
+                                        name: contact.name,
                                         lastMessage: "Conversation active",
                                         timestamp: "Just now",
                                         unreadCount: 0,
-                                        avatarUrl: "https://i.pravatar.cc/150?u=\(contact.1)",
-                                        isOnline: contact.2 == "Online"
+                                        avatarUrl: contact.avatarUrl,
+                                        isOnline: contact.isOnline
                                     )
-                                    if let existingIndex = chatViewModel.chats.firstIndex(where: { $0.id == contact.1 }) {
+                                    if let existingIndex = chatViewModel.chats.firstIndex(where: { $0.id == contact.id }) {
                                         chatViewModel.chats.remove(at: existingIndex)
                                     }
                                     chatViewModel.chats.insert(newChat, at: 0)
@@ -55,17 +48,17 @@ struct ContactPickerView: View {
                                         .foregroundColor(AppColors.greyMedium)
 
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(contact.0)
+                                        Text(contact.name)
                                             .font(.headline)
                                             .foregroundColor(.primary)
-                                        Text(contact.2)
+                                        Text(contact.phoneNumber)
                                             .font(.caption)
-                                            .foregroundColor(contact.2 == "Online" ? .green : AppColors.greyMedium)
+                                            .foregroundColor(AppColors.greyMedium)
                                     }
 
                                     Spacer()
 
-                                    if contact.2 == "Online" {
+                                    if contact.isOnline {
                                         Circle()
                                             .fill(Color.green)
                                             .frame(width: 10, height: 10)
@@ -77,7 +70,7 @@ struct ContactPickerView: View {
                 }
                 .listStyle(PlainListStyle())
             }
-            .navigationTitle("New Chat / Restore")
+            .navigationTitle("Contacts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

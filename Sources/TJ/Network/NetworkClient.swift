@@ -167,7 +167,7 @@ class NetworkClient: ObservableObject {
 
     // MARK: - Fetch Chats
     func fetchChats() async -> [ChatItem] {
-        guard let url = URL(string: "\(baseURL)/chats") else { return ChatItem.samples }
+        guard let url = URL(string: "\(baseURL)/chats") else { return [] }
         do {
             var request = URLRequest(url: url)
             if let token = authToken {
@@ -176,40 +176,39 @@ class NetworkClient: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
                 if let wrapper = try? JSONDecoder().decode(ChatsResponseContainer.self, from: data) {
-                    let items = wrapper.chats ?? wrapper.conversations ?? []
-                    if !items.isEmpty { return items }
+                    return wrapper.chats ?? wrapper.conversations ?? []
                 }
-                if let items = try? JSONDecoder().decode([ChatItem].self, from: data), !items.isEmpty {
+                if let items = try? JSONDecoder().decode([ChatItem].self, from: data) {
                     return items
                 }
             }
-            return ChatItem.samples
+            return []
         } catch {
-            return ChatItem.samples
+            return []
         }
     }
 
     // MARK: - Fetch Social Posts
     func fetchSocialPosts() async -> [SocialPost] {
-        guard let url = URL(string: "\(baseURL)/social/posts") else { return SocialPost.samples }
+        guard let url = URL(string: "\(baseURL)/social/posts") else { return [] }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let posts = try JSONDecoder().decode([SocialPost].self, from: data)
-            return posts.isEmpty ? SocialPost.samples : posts
+            return posts
         } catch {
-            return SocialPost.samples
+            return []
         }
     }
 
     // MARK: - Fetch Mingle Candidates
     func fetchMingleCandidates(radiusKm: Double) async -> [MingleProfileModel] {
-        guard let url = URL(string: "\(baseURL)/mingle/candidates?radius=\(radiusKm)") else { return MingleProfileModel.samples }
+        guard let url = URL(string: "\(baseURL)/mingle/candidates?radius=\(radiusKm)") else { return [] }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let candidates = try JSONDecoder().decode([MingleProfileModel].self, from: data)
-            return candidates.isEmpty ? MingleProfileModel.samples : candidates
+            return candidates
         } catch {
-            return MingleProfileModel.samples
+            return []
         }
     }
 }
