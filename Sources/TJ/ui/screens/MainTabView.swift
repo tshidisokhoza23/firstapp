@@ -1,15 +1,16 @@
 import SwiftUI
 
-// MARK: - Bottom Navigation Item Enum (Matching firstapp's BottomNavItem)
+// MARK: - Bottom Navigation Item Enum (Matching "chat, social, scroll, job, more")
 
 public enum BottomNavItem: Int, CaseIterable, Identifiable {
     case chat = 0
     case social = 1
     case scroll = 2
-    case mingle = 3
-    case stream = 4
-    case ride = 5
-    case more = 6
+    case jobs = 3
+    case mingle = 4
+    case stream = 5
+    case ride = 6
+    case more = 7
 
     public var id: Int { rawValue }
 
@@ -18,6 +19,7 @@ public enum BottomNavItem: Int, CaseIterable, Identifiable {
         case .chat: return "Chat"
         case .social: return "Social"
         case .scroll: return "Scroll"
+        case .jobs: return "Job"
         case .mingle: return "Court"
         case .stream: return "Stream"
         case .ride: return "Ride"
@@ -30,6 +32,7 @@ public enum BottomNavItem: Int, CaseIterable, Identifiable {
         case .chat: return "message.fill"
         case .social: return "globe"
         case .scroll: return "video.fill"
+        case .jobs: return "briefcase.fill"
         case .mingle: return "sparkles"
         case .stream: return "music.note"
         case .ride: return "car.fill"
@@ -38,7 +41,7 @@ public enum BottomNavItem: Int, CaseIterable, Identifiable {
     }
 
     public static var barItems: [BottomNavItem] {
-        [.chat, .social, .scroll, .mingle, .more]
+        [.chat, .social, .scroll, .jobs, .more]
     }
 
     public static func fromIndex(_ index: Int) -> BottomNavItem {
@@ -112,6 +115,9 @@ public struct MainTabView: View {
                             }
                         )
 
+                    case .jobs:
+                        JobProfileView(onClose: {})
+
                     case .mingle:
                         ConnectedMingleFeedView(
                             onProfileClick: { id in
@@ -134,7 +140,7 @@ public struct MainTabView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Custom Bottom Navigation Bar matching Android Screenshot 1
+                // Custom Bottom Navigation Bar
                 CustomMainBottomBar(
                     selectedItem: currentTab,
                     onSelect: { item in
@@ -202,12 +208,14 @@ public struct MainTabView: View {
                 onSelectRoute: { route in
                     showMoreSheet = false
                     switch route {
+                    case .mingle:
+                        selectedIndex = BottomNavItem.mingle.rawValue
                     case .stream:
                         selectedIndex = BottomNavItem.stream.rawValue
                     case .ride:
                         selectedIndex = BottomNavItem.ride.rawValue
                     case .jobs:
-                        activeSheetRoute = .jobs
+                        selectedIndex = BottomNavItem.jobs.rawValue
                     case .vocab:
                         activeSheetRoute = .vocab
                     case .wallet:
@@ -223,7 +231,7 @@ public struct MainTabView: View {
                     }
                 }
             )
-            .presentationDetents([.height(340)])
+            .presentationDetents([.height(380)])
         }
         .onReceive(NotificationCenter.default.publisher(for: TJEvents.openChat)) { note in
             let id = note.userInfo?["id"] as? String ?? ""
@@ -254,6 +262,17 @@ public struct MainTabView: View {
         }
         .sheet(item: $activeSheetRoute) { route in
             switch route {
+            case .mingle:
+                ConnectedMingleFeedView(
+                    onProfileClick: { id in
+                        activeSheetRoute = nil
+                        router.navigate(to: .profile(userId: id))
+                    },
+                    onChatClick: { id in
+                        activeSheetRoute = nil
+                        router.navigate(to: .chatDetail(conversationId: id, participantName: nil))
+                    }
+                )
             case .stream:
                 MusicPlayerView()
             case .ride:
@@ -291,7 +310,7 @@ public struct MainTabView: View {
     }
 }
 
-// MARK: - Custom Bottom Navigation Bar Component matching Screenshot 1
+// MARK: - Custom Bottom Navigation Bar Component
 
 public struct CustomMainBottomBar: View {
     public let selectedItem: BottomNavItem
@@ -311,7 +330,7 @@ public struct CustomMainBottomBar: View {
                         ZStack {
                             if isSelected {
                                 Capsule()
-                                    .fill(Color.appBottomNavPill) // #D0E1FB
+                                    .fill(Color.appBottomNavPill)
                                     .frame(width: 58, height: 32)
                             }
 
@@ -332,7 +351,7 @@ public struct CustomMainBottomBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color.appBottomNavBg) // #EBF1FB
+        .background(Color.appBottomNavBg)
         .overlay(
             Rectangle()
                 .frame(height: 0.5)
@@ -342,10 +361,10 @@ public struct CustomMainBottomBar: View {
     }
 }
 
-// MARK: - More Shortcuts Sheet View matching Screenshot 4
+// MARK: - More Shortcuts Sheet View with Court / Mingle shortcut
 
 public enum MoreShortcutRoute: String, Identifiable {
-    case stream, ride, jobs, vocab, wallet, profile, settings, files, calendar
+    case mingle, stream, ride, jobs, vocab, wallet, profile, settings, files, calendar
     public var id: String { rawValue }
 }
 
@@ -359,6 +378,7 @@ public struct MoreShortcutsSheetView: View {
     }
 
     private let shortcuts: [(route: MoreShortcutRoute, title: String, icon: String, color: Color, isEnabled: Bool)] = [
+        (.mingle, "Court", "sparkles", Color.purple, true),
         (.wallet, "Wallet", "creditcard.fill", Color(red: 1.0, green: 0.8, blue: 0.4), true),
         (.files, "Files", "folder.fill", Color.yellow, true),
         (.calendar, "Calendar", "calendar", Color.pink, true),
@@ -369,7 +389,6 @@ public struct MoreShortcutsSheetView: View {
 
     public var body: some View {
         VStack(spacing: 20) {
-            // Header: Shortcuts Title + X Close Button
             HStack {
                 Text("Shortcuts")
                     .font(.system(size: 20, weight: .bold))
@@ -389,7 +408,6 @@ public struct MoreShortcutsSheetView: View {
             .padding(.horizontal, 24)
             .padding(.top, 20)
 
-            // 3-Column Shortcuts Grid matching Screenshot 4
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
                 ForEach(shortcuts, id: \.route) { item in
                     Button(action: {
