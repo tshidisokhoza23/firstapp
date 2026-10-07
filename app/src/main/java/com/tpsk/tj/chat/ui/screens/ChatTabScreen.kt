@@ -182,7 +182,7 @@ fun ChatsListScreen(
     LaunchedEffect(selectedTabItem) {
         when (selectedTabItem) {
             1 -> channelsViewModel.fetchChannels()
-            2 -> jobViewModel.fetchJobs()
+            2 -> chatViewModel.fetchChats()
             3 -> advertsViewModel.initializePool(context, AdUnitConfig.REWARDED_POINTS_ID)
         }
     }
@@ -627,7 +627,9 @@ fun ChatsListScreen(
                                     else -> {
                                         val standardChats = remember(sanitizedChats) {
                                             sanitizedChats.filter {
-                                                it.type != ConversationType.MINGLE && !it.isMingle && !it.id.startsWith("mingle_")
+                                                it.type != ConversationType.MINGLE &&
+                                                    it.type != ConversationType.JOB_CHAT &&
+                                                    !it.isMingle && !it.id.startsWith("mingle_")
                                             }
                                         }
                                         ChatList(
@@ -731,10 +733,23 @@ fun ChatsListScreen(
                                             onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                                         )
                                     } else {
-                                        DataStateHandler(jobsState) { jobs -> 
-                                            JobList(jobs, topBarHeight = 0.dp) { 
-                                                navController.navigate(Screen.JobDetail.createRoute(it.id)) 
-                                            } 
+                                        val jobChats = sanitizedChats.filter { it.type == ConversationType.JOB_CHAT }
+                                        if (jobChats.isEmpty()) {
+                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                Text("No job chats yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        } else {
+                                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                                items(jobChats, key = { it.id }) { chat ->
+                                                    ChatItem(
+                                                        chat = chat,
+                                                        modifier = Modifier.clickable {
+                                                            navController.navigate(Screen.Chat.createRoute(chat.id, type = "job_chat"))
+                                                        }
+                                                    )
+                                                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1052,79 +1067,157 @@ fun SearchResultsView(
     val showMusic = type == SearchType.GLOBAL || type == SearchType.MUSIC
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        if (showContacts && contacts.size > 0) {
-            item { SearchSectionHeader("People & Contacts") }
-            items(items = contacts, key = { "contact_" + it.id }) { contactItem: Contact ->
-                Column(modifier = Modifier.clickable { onContactClick(contactItem) }) {
-                    ContactSearchItem(contactItem)
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-        }
+        searchContactRows(showContacts, contacts, onContactClick)
+        searchJobRows(showJobs, jobs, onJobClick)
+        searchChannelRows(showChannels, channels, currentUserId, onChannelClick)
+        searchPostRows(posts, autoplayEnabled, autoplayGifsEnabled, onPostClick)
+        searchChatRows(showChats, allChats, onChatClick)
+        searchMessageRows(showMessages, messages, onMessageClick)
+    }
+}
 
-        if (showJobs && jobs.size > 0) {
-            item { SearchSectionHeader("Jobs") }
-            items(jobs, key = { "job_" + it.id }) { job ->
-                Column(modifier = Modifier.clickable { onJobClick(job) }) {
-                    JobItem(job = job, onClick = { onJobClick(job) })
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-        }
+private fun LazyListScope.searchContactRows(
+    show: Boolean,
+    contacts: List<Contact>,
+    onContactClick: (Contact) -> Unit
+) {
+    if (!show || contacts.isEmpty()) return
+    item(key = "header_contacts") { SearchSectionHeader("People & Contacts") }
+    items(items = contacts, key = { "contact_" + it.id }) { contactItem ->
+        SearchContactRow(contactItem, onContactClick)
+    }
+}
 
-        if (showChannels && channels.size > 0) {
-            item { SearchSectionHeader("Channels") }
-            items(channels, key = { "channel_" + it.id }) { channel ->
-                Column(modifier = Modifier.clickable { onChannelClick(channel) }) {
-                    ChannelItem(
-                        channel = channel,
-                        currentUserId = currentUserId,
-                        onClick = { onChannelClick(channel) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-        }
+private fun LazyListScope.searchJobRows(
+    show: Boolean,
+    jobs: List<Job>,
+    onJobClick: (Job) -> Unit
+) {
+    if (!show || jobs.isEmpty()) return
+    item(key = "header_jobs") { SearchSectionHeader("Jobs") }
+    items(items = jobs, key = { "job_" + it.id }) { job ->
+        SearchJobRow(job, onJobClick)
+    }
+}
 
-        if (posts.isNotEmpty()) {
-            item { SearchSectionHeader("Media Posts") }
-            items(posts, key = { "post_" + it.id }) { post ->
-                Column(modifier = Modifier.clickable { onPostClick(post) }) {
-                    com.tpsk.tj.media.ui.components.PostItem(
-                        adManager = com.tpsk.tj.common.data.ads.AdMobManagerImpl(), 
-                        post = post,
-                        autoplayEnabled = autoplayEnabled,
-                        autoplayGifsEnabled = autoplayGifsEnabled,
-                        onClick = { onPostClick(post) },
-                        onLike = { _, _, _ -> },
-                        onRepostClick = { },
-                        onReplyClick = { _, _ -> },
-                        onProfileClick = { }
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-        }
+private fun LazyListScope.searchChannelRows(
+    show: Boolean,
+    channels: List<Channel>,
+    currentUserId: String?,
+    onChannelClick: (Channel) -> Unit
+) {
+    if (!show || channels.isEmpty()) return
+    item(key = "header_channels") { SearchSectionHeader("Channels") }
+    items(items = channels, key = { "channel_" + it.id }) { channel ->
+        SearchChannelRow(channel, currentUserId, onChannelClick)
+    }
+}
 
-        if (showChats && allChats.size > 0) {
-            item { SearchSectionHeader("Chats") }
-            items(allChats, key = { "chat_" + it.id }) { chat ->
-                Column(modifier = Modifier.clickable { onChatClick(chat) }) {
-                    ChatItem(chat)
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-        }
+private fun LazyListScope.searchPostRows(
+    posts: List<com.tpsk.tj.media.model.Post>,
+    autoplayEnabled: Boolean,
+    autoplayGifsEnabled: Boolean,
+    onPostClick: (com.tpsk.tj.media.model.Post) -> Unit
+) {
+    if (posts.isEmpty()) return
+    item(key = "header_posts") { SearchSectionHeader("Media Posts") }
+    items(items = posts, key = { "post_" + it.id }) { post ->
+        SearchPostRow(post, autoplayEnabled, autoplayGifsEnabled, onPostClick)
+    }
+}
 
-        if (showMessages && messages.size > 0) {
-            item { SearchSectionHeader("Messages") }
-            items(messages, key = { "message_" + it.id }) { message ->
-                Column(modifier = Modifier.clickable { onMessageClick(message) }) {
-                    MessageSearchItem(message)
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-        }
+private fun LazyListScope.searchChatRows(
+    show: Boolean,
+    chats: List<ChatMessage>,
+    onChatClick: (ChatMessage) -> Unit
+) {
+    if (!show || chats.isEmpty()) return
+    item(key = "header_chats") { SearchSectionHeader("Chats") }
+    items(items = chats, key = { "chat_" + it.id }) { chat ->
+        SearchChatRow(chat, onChatClick)
+    }
+}
+
+private fun LazyListScope.searchMessageRows(
+    show: Boolean,
+    messages: List<Message>,
+    onMessageClick: (Message) -> Unit
+) {
+    if (!show || messages.isEmpty()) return
+    item(key = "header_messages") { SearchSectionHeader("Messages") }
+    items(items = messages, key = { "message_" + it.id }) { message ->
+        SearchMessageRow(message, onMessageClick)
+    }
+}
+
+@Composable
+private fun SearchContactRow(contact: Contact, onContactClick: (Contact) -> Unit) {
+    Column(modifier = Modifier.clickable { onContactClick(contact) }) {
+        ContactSearchItem(contact)
+        HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun SearchJobRow(job: Job, onJobClick: (Job) -> Unit) {
+    Column(modifier = Modifier.clickable { onJobClick(job) }) {
+        JobItem(job = job, onClick = { onJobClick(job) })
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun SearchChannelRow(
+    channel: Channel,
+    currentUserId: String?,
+    onChannelClick: (Channel) -> Unit
+) {
+    Column(modifier = Modifier.clickable { onChannelClick(channel) }) {
+        ChannelItem(
+            channel = channel,
+            currentUserId = currentUserId,
+            onClick = { onChannelClick(channel) }
+        )
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun SearchPostRow(
+    post: com.tpsk.tj.media.model.Post,
+    autoplayEnabled: Boolean,
+    autoplayGifsEnabled: Boolean,
+    onPostClick: (com.tpsk.tj.media.model.Post) -> Unit
+) {
+    Column(modifier = Modifier.clickable { onPostClick(post) }) {
+        com.tpsk.tj.media.ui.components.PostItem(
+            adManager = com.tpsk.tj.common.data.ads.AdMobManagerImpl(),
+            post = post,
+            autoplayEnabled = autoplayEnabled,
+            autoplayGifsEnabled = autoplayGifsEnabled,
+            onClick = { onPostClick(post) },
+            onLike = { _, _, _ -> },
+            onRepostClick = { },
+            onReplyClick = { _, _ -> },
+            onProfileClick = { }
+        )
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun SearchChatRow(chat: ChatMessage, onChatClick: (ChatMessage) -> Unit) {
+    Column(modifier = Modifier.clickable { onChatClick(chat) }) {
+        ChatItem(chat)
+        HorizontalDivider(modifier = Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun SearchMessageRow(message: Message, onMessageClick: (Message) -> Unit) {
+    Column(modifier = Modifier.clickable { onMessageClick(message) }) {
+        MessageSearchItem(message)
+        HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 

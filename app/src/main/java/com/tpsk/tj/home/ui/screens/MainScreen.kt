@@ -84,6 +84,7 @@ fun MainScreen(
             val tabRouteName = when(item) {
                 BottomNavItem.Social -> "social"
                 BottomNavItem.Scroll -> "scroll"
+                BottomNavItem.Jobs -> "jobs"
                 BottomNavItem.Mingle -> "mingle"
                 BottomNavItem.Stream -> "stream"
                 BottomNavItem.Ride -> "ride"
@@ -182,6 +183,10 @@ fun MainScreen(
                                 onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
                                 initialShortId = initialShortId,
                                 mediaViewModel = hiltViewModel(key = "shorts_feed")
+                            )
+                            BottomNavItem.Jobs -> com.tpsk.tj.chat.jobs.ui.screens.JobsHomeScreen(
+                                navController = navController,
+                                bottomPadding = innerPadding.calculateBottomPadding()
                             )
                             BottomNavItem.Mingle -> com.tpsk.tj.mingle.ui.MingleScreen(
                                 navController = navController,

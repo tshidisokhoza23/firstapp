@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,6 +45,7 @@ fun MoreShortcutsSheet(
     onNavigate: (String) -> Unit
 ) {
     val shortcuts = java.util.Arrays.asList(
+        ShortcutItem("Court", Icons.Outlined.AutoAwesome, Color(0xFFE91E63), Screen.Main.createRoute(tab = "mingle"), isEnabled = true),
         ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
         ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route, isEnabled = false),
         ShortcutItem("Stream", Icons.Default.MusicNote, Color(0xFF9C27B0), Screen.Stream.route, isEnabled = false),
@@ -67,7 +69,7 @@ fun MoreShortcutsSheet(
                     .fillMaxWidth()
                     .clickable(enabled = false) { }
                     .padding(horizontal = 8.dp)
-                    .padding(bottom = 16.dp + bottomPadding), // Gap above bottom nav
+                    .padding(bottom = 16.dp + bottomPadding),
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface
             ) {

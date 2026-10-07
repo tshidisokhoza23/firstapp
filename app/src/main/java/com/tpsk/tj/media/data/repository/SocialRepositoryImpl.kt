@@ -249,7 +249,10 @@ class SocialRepositoryImpl @Inject constructor(
         try {
             val response = socialApi.getReplies(postId)
             if (response.isSuccessful && response.body() != null) {
-                val replies = mapMediaReplyItems(response.body()!!.items)
+                val body = response.body()!!
+                val fromItems = mapMediaReplyItems(body.items ?: emptyList())
+                val fromFlat = body.replies?.map { mapApiPost(it) } ?: emptyList()
+                val replies = if (fromItems.isNotEmpty()) fromItems else fromFlat
                 emit(Resource.Success(replies))
             } else {
                 emit(Resource.Error("Fail"))

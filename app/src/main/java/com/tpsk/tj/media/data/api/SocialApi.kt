@@ -178,7 +178,10 @@ data class ApiSocialNotification(
 
 data class FeedResponse(val items: List<ApiFeedItem>)
 data class AdRevenueRequest(val post_id: String, val revenue: Double, val ad_unit_id: String)
-data class RepliesResponse(val items: List<ApiReplyItem>)
+data class RepliesResponse(
+    val items: List<ApiReplyItem>? = null,
+    val replies: List<ApiPost>? = null
+)
 data class BoostRequest(val total_budget_cents: Int, val duration_days: Int)
 data class CreateMediaReplyRequest(val reply_text: String)
 data class ToggleRepliesLockRequest(val replies_locked: Boolean)

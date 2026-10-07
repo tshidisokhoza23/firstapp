@@ -15,9 +15,9 @@ import kotlin.text.*
 fun mapMediaFeedItems(items: List<ApiFeedItem>): List<Post> = items.mapNotNull { item ->
     val itemType = item.type.uppercase(java.util.Locale.ROOT)
     when (itemType) {
+        // Ads are placed by the feed screen. Mapping server ad rows here
+        // showed a second ad and shifted the list.
         "POST", "INTERNAL_AD", "NATIVE_AD" -> item.post?.let { mapApiPost(it, itemType) }
-        "EXTERNAL_AD_PLACEHOLDER" -> mapExternalAdPlaceholder(item.placeholder)
-        "AD_UNIT" -> mapAdUnitPlaceholder(item)
         else -> null
     }
 }
