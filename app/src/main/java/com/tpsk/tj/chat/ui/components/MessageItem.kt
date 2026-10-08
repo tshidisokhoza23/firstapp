@@ -1070,7 +1070,7 @@ fun ClickableLinkText(
     val context = LocalContext.current
     val annotatedString = buildAnnotatedString {
         // 1. Parse Markdown & Links
-        val markdownRegex = Regex("(\\*\\*?.*?\\*\\*?|__?.*?__?|~~.*?~~|`.*?`|https?://\\S+|www\\.\\S+)")
+        val markdownRegex = Regex("(\\*\\*?.*?\\*\\*?|__?.*?__?|~~.*?~~|`.*?`|https?://\\S+|www\\.\\S+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}|\\+?[0-9][0-9\\s().-]{6,}[0-9])")
         var lastIndex = 0
         
         val matches = markdownRegex.findAll(text)
@@ -1114,9 +1114,18 @@ fun ClickableLinkText(
                     }
                 }
                 // Links
-                matchText.startsWith("http") || matchText.startsWith("www.") -> {
-                    val link = matchText
-                    pushStringAnnotation(tag = "URL", annotation = link)
+                matchText.startsWith("http") || matchText.startsWith("www.") || matchText.contains("@") || matchText.any { it.isDigit() } -> {
+                    val kind = when {
+                        matchText.startsWith("http") || matchText.startsWith("www.") -> "URL"
+                        matchText.contains("@") -> "EMAIL"
+                        else -> "PHONE"
+                    }
+                    val target = when (kind) {
+                        "URL" -> if (matchText.startsWith("www.")) "https://$matchText" else matchText
+                        "EMAIL" -> "mailto:$matchText"
+                        else -> "tel:${matchText.filter { it.isDigit() || it == '+' }}"
+                    }
+                    pushStringAnnotation(tag = "URL", annotation = target)
                     withStyle(
                         style = SpanStyle(
                             color = if (color == Color.White) Color.White else Color(0xFF2196F3),
@@ -1124,7 +1133,7 @@ fun ClickableLinkText(
                             fontWeight = FontWeight.Bold
                         )
                     ) {
-                        append(link)
+                        append(matchText)
                     }
                     pop()
                 }
@@ -1146,7 +1155,7 @@ fun ClickableLinkText(
         onClick = { offset ->
             annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
                 .firstOrNull()?.let { annotation ->
-                    val url = if (!annotation.item.startsWith("http")) "https://${annotation.item}" else annotation.item
+                    val url = annotation.item
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                         context.startActivity(intent)

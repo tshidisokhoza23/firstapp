@@ -416,13 +416,12 @@ fun VerticalFeedPostCard(
                         .fillMaxWidth()
                         .padding(start = contentPadding, top = 4.dp, bottom = 4.dp)
                 ) {
-                    Text(
+                    HashtagText(
                         text = displayPost.content,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         lineHeight = 20.sp,
-                        maxLines = if (isExpanded) Int.MAX_VALUE else 5,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = if (isExpanded) Int.MAX_VALUE else 5
                     )
                     if (!isExpanded && displayPost.content.length > 200) {
                         Text("Show More", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true } )
@@ -599,6 +598,18 @@ fun VerticalFeedPostCard(
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
                     )
+                    if (!isOwnPost) {
+                        var showTip by remember(post.id) { mutableStateOf(false) }
+                        PostPill(
+                            text = "Tip",
+                            onClick = { showTip = true },
+                            backgroundColor = pillBgColor,
+                            textColor = pillTextColor
+                        )
+                        if (showTip) {
+                            com.tpsk.tj.wallet.ui.TipPostDialog(postId = post.id, onDismiss = { showTip = false })
+                        }
+                    }
                 }
             }
         }

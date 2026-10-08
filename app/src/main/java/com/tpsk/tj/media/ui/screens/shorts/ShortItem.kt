@@ -403,6 +403,17 @@ fun ShortItem(
                         onLikeClick(short.id) 
                     }
                 )
+                if (!isOwnPost) {
+                    var showTip by remember(short.id) { mutableStateOf(false) }
+                    ShortActionButton(
+                        icon = Icons.Default.VolunteerActivism,
+                        text = "Tip",
+                        onClick = { showTip = true }
+                    )
+                    if (showTip) {
+                        com.tpsk.tj.wallet.ui.TipPostDialog(postId = short.id, onDismiss = { showTip = false })
+                    }
+                }
                 ShortActionButton(
                     icon = Icons.AutoMirrored.Filled.Comment,
                     text = formatShortNumber(short.repliesCount),
@@ -425,7 +436,10 @@ fun ShortItem(
                         onExternalShareClick(short.id, short.shares)
                         val sendIntent = android.content.Intent().apply {
                             action = android.content.Intent.ACTION_SEND
-                            putExtra(android.content.Intent.EXTRA_TEXT, videoUrl ?: "")
+                            val caption = short.content.trim()
+                            val link = "https://firstapp.com/post/${short.id}"
+                            val intro = "Watch this short on TJ"
+                            putExtra(android.content.Intent.EXTRA_TEXT, if (caption.isBlank()) "$intro\n$link" else "$intro\n$caption\n$link")
                             type = "text/plain"
                         }
                         context.startActivity(android.content.Intent.createChooser(sendIntent, null))
@@ -491,12 +505,11 @@ fun ShortItem(
                 if (short.content.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
+                    com.tpsk.tj.media.ui.components.HashtagText(
                         text = short.content,
                         color = Color.White,
                         fontSize = 15.sp,
                         maxLines = if (isExpanded) Int.MAX_VALUE else 2,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null

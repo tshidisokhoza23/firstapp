@@ -287,7 +287,7 @@ fun CreatePostScreen(
                     decorationBox = { innerTextField ->
                         if (postText.isEmpty()) {
                             Text(
-                                text = if (replyToPost != null) "Post your reply" else "What's happening?",
+                                text = if (replyToPost != null) "Post your reply" else "What's happening? Add #hashtags",
                                 fontSize = 18.sp,
                                 color = Color.Gray
                             )
