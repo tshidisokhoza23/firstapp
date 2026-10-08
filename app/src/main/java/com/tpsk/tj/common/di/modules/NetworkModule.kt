@@ -5,6 +5,7 @@ import com.tpsk.tj.auth.data.api.AuthApi
 import com.tpsk.tj.chat.data.api.ChatApi
 import com.tpsk.tj.chat.jobs.data.api.JobApi
 import com.tpsk.tj.chat.rewards.data.api.RewardsApi
+import com.tpsk.tj.wallet.data.api.CreatorWalletApi
 import com.tpsk.tj.common.domain.auth.SessionManager
 import com.tpsk.tj.common.data.api.SystemApi
 import com.tpsk.tj.common.data.api.UserApi
@@ -231,6 +232,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideRewardsApi(retrofit: Retrofit): RewardsApi = retrofit.create(RewardsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideCreatorWalletApi(retrofit: Retrofit): CreatorWalletApi = retrofit.create(CreatorWalletApi::class.java)
 
     @Provides
     @Singleton

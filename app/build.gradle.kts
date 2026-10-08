@@ -161,6 +161,7 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.play.services.auth)
     implementation(libs.play.services.ads)
+    implementation("com.android.billingclient:billing:7.1.1")
     implementation(libs.play.services.location)
     implementation(libs.places)
     implementation(libs.google.maps.services)

@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,7 +69,7 @@ fun HashtagText(
 @Composable
 private fun HashtagResultsDialog(tag: String, onDismiss: () -> Unit) {
     val viewModel: MediaViewModel = hiltViewModel()
-    val results by viewModel.searchResults.collectAsStateSafe()
+    val results by viewModel.searchResults.collectAsState()
     LaunchedEffect(tag) { viewModel.search("#$tag", true) }
     val posts = (results as? Resource.Success)?.data.orEmpty()
     AlertDialog(
@@ -86,9 +87,4 @@ private fun HashtagResultsDialog(tag: String, onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
-}
-
-@Composable
-private fun <T> kotlinx.coroutines.flow.StateFlow<T>.collectAsStateSafe(): androidx.compose.runtime.State<T> {
-    return androidx.compose.runtime.collectAsState()
 }
