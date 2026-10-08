@@ -25,6 +25,9 @@ interface PostDao {
     @Query("DELETE FROM posts WHERE feedType = :feedType")
     suspend fun clearPosts(feedType: String)
 
+    @Query("DELETE FROM posts WHERE feedType = :feedType AND id NOT IN (:keepIds)")
+    suspend fun deletePostsExcept(feedType: String, keepIds: List<String>)
+
     @Query("DELETE FROM posts WHERE id = :postId")
     suspend fun deletePostById(postId: String)
 

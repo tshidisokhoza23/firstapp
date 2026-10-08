@@ -631,16 +631,41 @@ fun MainFeedSection(
                 }
             }
 
+            val organicCount = posts.itemCount
+            val postsPerAd = 5
+            val adSlots = organicCount / postsPerAd
+            val rowCount = organicCount + adSlots
             items(
-                count = posts.itemCount,
-                key = { index ->
-                    val id = posts.peek(index)?.id
-                    if (id.isNullOrBlank()) "loading_post_$index" else id
+                count = rowCount,
+                key = { row ->
+                    val adsBefore = row / (postsPerAd + 1)
+                    val isAd = adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots
+                    if (isAd) "feed-ad-$adsBefore" else {
+                        val postIndex = row - adsBefore
+                        posts.peek(postIndex)?.id?.let { "post-$it" } ?: "loading-post-$postIndex"
+                    }
                 },
-                contentType = posts.itemContentType { "post" }
-            ) { index ->
-                val post = posts[index]
-                if (post != null) {
+                contentType = { row ->
+                    val adsBefore = row / (postsPerAd + 1)
+                    if (adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots) "ad" else "post"
+                }
+            ) { row ->
+                val adsBefore = row / (postsPerAd + 1)
+                val isAd = adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots
+                if (isAd) {
+                    com.tpsk.tj.common.ui.components.DynamicAdCard(
+                        adManager = adManager,
+                        adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
+                        slotKey = "feed-ad-$adsBefore",
+                        reserveSlot = true,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                } else {
+                    val postIndex = row - adsBefore
+                    val post = if (postIndex < posts.itemCount) posts[postIndex] else null
+                    if (post == null) {
+                        PostItemShimmer()
+                    } else {
                         val isPlaying = activePostId != null && activePostId == post.id
                         val isOwn = remember(post.authorId, post.authorHandle, ownProfileId, ownProfileHandle) {
                             post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle)
@@ -670,27 +695,14 @@ fun MainFeedSection(
                             onShareClick = onShareClick,
                             onFollowClick = onFollowUser
                         )
-
-                        // Every 4th post. The slot is omitted unless an ad is already pooled,
-                        // so the row never grows after the first layout.
-                        if ((index + 1) % 4 == 0) {
-                            com.tpsk.tj.common.ui.components.DynamicAdCard(
-                                adManager = adManager,
-                                adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
-                                slotKey = "feed_${post.id}",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            )
-                        }
+                    }
                 }
             }
-            
-            // Block fetching more until first 30 posts and ads are loaded
-            if (posts.itemCount >= 30 && !adsLoaded && preloadedAds.isEmpty()) {
-                 item(key = "ads_loading", contentType = "ads_loading") {
-                     Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                         CircularProgressIndicator(color = AppPrimary)
-                     }
-                 }
+
+            if (posts.loadState.append is LoadState.Loading) {
+                item(key = "feed-loading-more", contentType = "loading-more") {
+                    PostItemShimmer()
+                }
             }
         }
     }

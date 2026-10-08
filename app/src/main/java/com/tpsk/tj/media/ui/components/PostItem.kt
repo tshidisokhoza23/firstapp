@@ -92,7 +92,7 @@ fun PostItem(
     onFollowClick: (String, Boolean) -> Unit = { _, _ -> },
     onMoreClick: (Post) -> Unit = {}
 ) {
-    if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT) {
+    if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT || post.type == PostType.NATIVE_AD || post.type == PostType.INTERNAL_AD) {
         if (displayMode == PostDisplayMode.FEED) {
             FeedNativeAdCard(
                 adManager = adManager,

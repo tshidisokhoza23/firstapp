@@ -139,7 +139,17 @@ fun ShortsList(
             val shortIndex = getShortIndex(page)
             val currentShort = if (shortIndex < shorts.itemCount) shorts[shortIndex] else null
             
-            if (currentShort != null) {
+            if (currentShort == null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .padding(bottom = bottomPadding),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(color = Color.White)
+                }
+            } else if (currentShort != null) {
                 // Allow interaction for all types that are rendered as ShortItem
                 val isInteractiveShort = currentShort.type != com.tpsk.tj.media.model.PostType.AD_UNIT && currentShort.type != com.tpsk.tj.media.model.PostType.EXTERNAL_AD_PLACEHOLDER
                 

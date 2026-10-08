@@ -62,10 +62,7 @@ class PostRemoteMediator(
                         ensureSuccessful(response)
                         val data = response.body() ?: emptyList()
                         val mapped = data.map { mapApiPost(it, "short") }
-                        mapped.filter { 
-                            (it.type == PostType.SHORT || it.type == PostType.INTERNAL_AD || it.type == PostType.NATIVE_AD || it.type == PostType.AD_UNIT) &&
-                            (it.mediaUrls.isNotEmpty() || it.type == PostType.AD_UNIT)
-                        }
+                        mapped.filter { it.type == PostType.SHORT && it.mediaUrls.isNotEmpty() }
                     }
                     "media" -> {
                         val response = socialApi.getMediaFeed(page = page, categoryId = categoryId)
@@ -79,7 +76,7 @@ class PostRemoteMediator(
                         val response = socialApi.getFeed(limit = limit, offset = offset, categoryId = categoryId)
                         ensureSuccessful(response)
                         val data = response.body()?.items ?: emptyList()
-                        mapMediaFeedItems(data)
+                        mapMediaFeedItems(data).filterNot { isServerAd(it.type, it.id) }
                     }
                 }
             } else {
@@ -88,19 +85,19 @@ class PostRemoteMediator(
                 val data = response.body() ?: emptyList()
                 val mapped = data.map { mapApiPost(it, if (apiFeedType == "short") "short" else null) }
                 if (apiFeedType == "short") {
-                    mapped.filter { 
-                        (it.type == PostType.SHORT || it.type == PostType.INTERNAL_AD || it.type == PostType.NATIVE_AD || it.type == PostType.AD_UNIT) &&
-                        (it.mediaUrls.isNotEmpty() || it.type == PostType.AD_UNIT)
-                    }
+                    mapped.filter { it.type == PostType.SHORT && it.mediaUrls.isNotEmpty() }
                 } else {
-                    mapped
+                    mapped.filterNot { isServerAd(it.type, it.id) }
                 }
             }
 
             val uniquePosts = apiPosts
-                .filter { it.id.isNotBlank() && it.id !in HiddenPosts.ids }
+                .filter { it.id.isNotBlank() && it.id !in HiddenPosts.ids && !isServerAd(it.type, it.id) }
                 .distinctBy { it.id }
             val endOfPaginationReached = apiPosts.isEmpty()
+            if (loadType == LoadType.REFRESH && uniquePosts.isEmpty()) {
+                return MediatorResult.Success(endOfPaginationReached = false)
+            }
 
             val appDatabase = databaseProvider()
             appDatabase.withTransaction {
@@ -115,13 +112,15 @@ class PostRemoteMediator(
                             entity.id !in incomingIds &&
                             (now - ts) < 120_000L
                     }
-
-                    appDatabase.postRemoteKeysDao().clearRemoteKeys(dbFeedType)
-                    appDatabase.postDao().clearPosts(dbFeedType)
-
                     if (newlyCreatedLocally.isNotEmpty()) {
                         appDatabase.postDao().insertPosts(newlyCreatedLocally)
                     }
+                    appDatabase.postDao().insertPosts(uniquePosts.map { it.toPostEntity(dbFeedType) })
+                    val keepIds = incomingIds + newlyCreatedLocally.map { it.id }
+                    if (keepIds.isNotEmpty()) {
+                        appDatabase.postDao().deletePostsExcept(dbFeedType, keepIds.toList())
+                    }
+                    appDatabase.postRemoteKeysDao().clearRemoteKeys(dbFeedType)
                 }
                 if (uniquePosts.isNotEmpty()) {
                     val prevKey = if (page == 1) null else page - 1
@@ -146,6 +145,13 @@ class PostRemoteMediator(
             }
             return MediatorResult.Error(exception)
         }
+    }
+
+    private fun isServerAd(type: PostType, id: String): Boolean {
+        if (type == PostType.AD_UNIT || type == PostType.EXTERNAL_AD_PLACEHOLDER || type == PostType.NATIVE_AD || type == PostType.INTERNAL_AD) {
+            return true
+        }
+        return id.startsWith("ad_unit_") || id.startsWith("external_ad_") || id.startsWith("native-ad")
     }
 
     private fun isCorruptDatabase(error: Throwable): Boolean {
