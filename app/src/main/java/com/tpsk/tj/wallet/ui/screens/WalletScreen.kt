@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpsk.tj.common.ui.theme.*
 import com.tpsk.tj.chat.ui.viewmodel.AdvertsViewModel
+import com.tpsk.tj.wallet.ui.CreatorWalletSection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +109,16 @@ fun WalletScreen(
 
             item {
                 Text(
+                    "Ad points are rewards for watching ads. They are not rand, cannot be tipped, and cannot be withdrawn.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+            }
+
+            item { CreatorWalletSection() }
+
+            item {
+                Text(
                     "Quick Actions",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
@@ -183,7 +194,7 @@ fun WalletScreen(
                 RewardBenefitItem("Exclusive Themes", "Unlock premium app themes and icons.", Icons.Default.Palette)
             }
             item {
-                RewardBenefitItem("Donate", "Convert points to real currency for charities.", Icons.Default.Favorite)
+                RewardBenefitItem("Not cash", "Ad points cannot be converted into money or donated as currency.", Icons.Default.Favorite)
             }
 
             item {
