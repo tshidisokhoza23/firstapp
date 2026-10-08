@@ -125,62 +125,77 @@ fun MediaAdShimmer() {
             .fillMaxWidth()
             .padding(12.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            ShimmerEffect(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .fillMaxWidth(0.3f)
-                            .height(14.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                    )
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .width(30.dp)
-                            .height(14.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                ShimmerEffect(
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                ShimmerEffect(
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                ShimmerEffect(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    ShimmerEffect(modifier = Modifier.width(80.dp).height(32.dp).clip(RoundedCornerShape(16.dp)))
-                    Row {
-                        for (i in 0..3) {
-                            ShimmerEffect(modifier = Modifier.size(18.dp).clip(CircleShape))
-                            if (i < 3) Spacer(modifier = Modifier.width(20.dp))
-                        }
-                    }
-                }
+        MediaAdShimmerHeader()
+    }
+}
+
+@Composable
+private fun MediaAdShimmerHeader() {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        ShimmerEffect(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        MediaAdShimmerBody(modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun MediaAdShimmerBody(modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        MediaAdShimmerTitle()
+        Spacer(modifier = Modifier.height(8.dp))
+        ShimmerBar(widthFraction = 0.9f)
+        Spacer(modifier = Modifier.height(4.dp))
+        ShimmerBar(widthFraction = 0.6f)
+        Spacer(modifier = Modifier.height(12.dp))
+        ShimmerEffect(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clip(RoundedCornerShape(14.dp))
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        MediaAdShimmerActions()
+    }
+}
+
+@Composable
+private fun MediaAdShimmerTitle() {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        ShimmerBar(widthFraction = 0.3f)
+        ShimmerEffect(
+            modifier = Modifier
+                .width(30.dp)
+                .height(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+        )
+    }
+}
+
+@Composable
+private fun MediaAdShimmerActions() {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        ShimmerEffect(modifier = Modifier.width(80.dp).height(32.dp).clip(RoundedCornerShape(16.dp)))
+        Row {
+            repeat(4) { index ->
+                ShimmerEffect(modifier = Modifier.size(18.dp).clip(CircleShape))
+                if (index < 3) Spacer(modifier = Modifier.width(20.dp))
             }
         }
     }
+}
+
+@Composable
+private fun ShimmerBar(widthFraction: Float) {
+    ShimmerEffect(
+        modifier = Modifier
+            .fillMaxWidth(widthFraction)
+            .height(14.dp)
+            .clip(RoundedCornerShape(4.dp))
+    )
 }
 
 @Composable
