@@ -337,7 +337,7 @@ class MediaViewModel @Inject constructor(
 
     fun suggestReply(postId: String, onResult: (String) -> Unit) {
         viewModelScope.launch {
-            val reply = runCatching { studioApi.smartReplies(postId).body()?.replies?.firstOrNull() }.getOrNull()
+            val reply = runCatching { studioApi.smartReplies(postId).body()?.suggestions?.firstOrNull() }.getOrNull()
             if (!reply.isNullOrBlank()) onResult(reply)
         }
     }
@@ -359,9 +359,16 @@ class MediaViewModel @Inject constructor(
                 return@launch
             }
             val response = runCatching {
-                studioApi.artistHelper(com.tpsk.tj.common.data.api.ArtistHelperRequest(imageUrl = imageUrl, story = "Write a caption for this image.", title = "Photo"))
+                studioApi.artistHelper(
+                    com.tpsk.tj.common.data.api.ArtistHelperRequest(
+                        taskType = "caption_generator",
+                        title = "Photo",
+                        story = "Write a caption for this image.",
+                        imageUrl = imageUrl
+                    )
+                )
             }.getOrNull()
-            onResult(response?.body()?.caption ?: "AI caption is unavailable until the server has an AI key.")
+            onResult(response?.body()?.result?.ifBlank { null } ?: "AI caption is unavailable until the server has an AI key.")
         }
     }
 

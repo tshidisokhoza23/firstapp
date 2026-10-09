@@ -54,7 +54,8 @@ data class ArtistHelperRequest(
     @SerializedName("theme") val theme: String? = null,
     @SerializedName("medium") val medium: String? = null,
     @SerializedName("price") val price: String? = null,
-    @SerializedName("story") val story: String? = null
+    @SerializedName("story") val story: String? = null,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 data class ArtistHelperResponse(

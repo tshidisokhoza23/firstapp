@@ -87,17 +87,6 @@ interface StudioApi {
     suspend fun artistHelper(@Body body: ArtistHelperRequest): Response<ArtistHelperResponse>
 }
 
-data class SmartRepliesResponse(@SerializedName("suggestions") val replies: List<String> = emptyList())
-data class ArtistHelperRequest(
-    @SerializedName("image_url") val imageUrl: String = "",
-    @SerializedName("story") val story: String = "",
-    @SerializedName("title") val title: String = ""
-)
-data class ArtistHelperResponse(
-    @SerializedName("result") val caption: String = "",
-    @SerializedName("suggestions") val suggestions: List<String> = emptyList()
-)
-
 data class ComposeMetaDto(
     @SerializedName("content") val content: String = "",
     @SerializedName("mood") val mood: String = "",
@@ -164,6 +153,7 @@ data class TopicsResponse(
 data class TopicsRequest(@SerializedName("topics") val topics: List<String>)
 data class GifDto(
     @SerializedName("id") val id: String = "",
+    @SerializedName("title") val title: String = "",
     @SerializedName("url") val url: String = "",
     @SerializedName("preview") val preview: String = ""
 )
