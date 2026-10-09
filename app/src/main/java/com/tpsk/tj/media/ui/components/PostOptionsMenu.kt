@@ -32,6 +32,7 @@ fun PostOptionsMenu(
     onCopyLink: () -> Unit = {},
     onBookmark: () -> Unit,
     onNotInterested: (() -> Unit)? = null,
+    onContext: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -109,6 +110,16 @@ fun PostOptionsMenu(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )
 
+            if (onContext != null) {
+                MenuActionItem(
+                    icon = Icons.Outlined.Info,
+                    label = "Notes, edits, and reputation",
+                    onClick = {
+                        onContext()
+                        onDismiss()
+                    }
+                )
+            }
             MenuActionItem(
                 icon = Icons.Outlined.Share,
                 label = "Share via...",

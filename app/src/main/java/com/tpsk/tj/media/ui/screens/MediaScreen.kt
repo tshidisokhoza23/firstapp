@@ -186,6 +186,7 @@ fun MediaScreen(
     val adsLoaded by mediaViewModel.adsLoaded.collectAsState()
 
     var showPostMoreOptions by remember { mutableStateOf<Post?>(null) }
+    var postContextText by remember { mutableStateOf<String?>(null) }
 
     val backgroundBrush = if (LocalIsDarkTheme.current) {
         Brush.verticalGradient(
@@ -503,7 +504,22 @@ fun MediaScreen(
                     onBookmarkPost(targetPost.id)
                     showPostMoreOptions = null
                 },
+                onContext = {
+                    val id = targetPost.id
+                    val authorId = targetPost.authorId
+                    showPostMoreOptions = null
+                    mediaViewModel.loadPostContext(id, authorId) { text -> postContextText = text }
+                },
                 onDismiss = { showPostMoreOptions = null }
+            )
+        }
+
+        if (postContextText != null) {
+            AlertDialog(
+                onDismissRequest = { postContextText = null },
+                title = { Text("Post context") },
+                text = { Text(postContextText.orEmpty()) },
+                confirmButton = { TextButton(onClick = { postContextText = null }) { Text("Close") } }
             )
         }
 

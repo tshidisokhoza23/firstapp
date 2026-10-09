@@ -27,7 +27,7 @@ class MediaCacheVerificationTests {
 
     @Before
     fun setup() {
-        repository = SocialRepositoryImpl(socialApi, userApi, postDao, contactDao, appDatabase, displayNameResolver, realtimeEngagementManager)
+        repository = SocialRepositoryImpl(socialApi, userApi, postDao, contactDao, appDatabase, displayNameResolver, realtimeEngagementManager, mockk(relaxed = true))
     }
 
     @Test

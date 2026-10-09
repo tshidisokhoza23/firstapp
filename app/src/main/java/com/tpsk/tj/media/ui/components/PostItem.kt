@@ -409,6 +409,23 @@ fun VerticalFeedPostCard(
                 }
             }
 
+            if (displayPost.mood.isNotBlank() || displayPost.aiAssisted || displayPost.collaborators.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.padding(start = contentPadding, top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (displayPost.mood.isNotBlank()) {
+                        Text(displayPost.mood, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (displayPost.aiAssisted) {
+                        Text("Improved with AI", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    if (displayPost.collaborators.isNotEmpty()) {
+                        Text("${displayPost.collaborators.size} collaborator${if (displayPost.collaborators.size == 1) "" else "s"}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                }
+            }
+
             // 2. MIDDLE ROW: CAPTION
             if (displayPost.content.isNotBlank()) {
                 Column(
@@ -600,12 +617,24 @@ fun VerticalFeedPostCard(
                     )
                     if (!isOwnPost) {
                         var showTip by remember(post.id) { mutableStateOf(false) }
-                        PostPill(
-                            text = "Tip",
+                        Surface(
                             onClick = { showTip = true },
-                            backgroundColor = pillBgColor,
-                            textColor = pillTextColor
-                        )
+                            shape = RoundedCornerShape(50),
+                            color = Color.Transparent,
+                            modifier = Modifier.background(
+                                Brush.horizontalGradient(listOf(Color(0xFF8A2BE2).copy(alpha = 0.3f), Color(0xFF00E5FF).copy(alpha = 0.3f))),
+                                RoundedCornerShape(50)
+                            )
+                        ) {
+                            Text(
+                                text = "Tip 💸",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color(0xFF00E5FF),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                maxLines = 1
+                            )
+                        }
                         if (showTip) {
                             com.tpsk.tj.wallet.ui.TipPostDialog(postId = post.id, onDismiss = { showTip = false })
                         }

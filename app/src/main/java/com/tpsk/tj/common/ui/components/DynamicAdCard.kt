@@ -23,7 +23,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.ads.AdView
 import com.tpsk.tj.R
 import com.tpsk.tj.common.data.ads.AdManager
-import com.tpsk.tj.common.data.ads.NativeAdPool
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -98,16 +97,18 @@ private fun FullScreenPooledAd(
     layoutResId: Int,
     modifier: Modifier
 ) {
+    val cached = remember(slotKey) { FeedAdCache.get(slotKey) }
     val ad = awaitPooledNativeAd(
         adManager = adManager,
         unitId = adUnitId,
         portrait = true,
-        slotKey = slotKey
-    )
+        slotKey = slotKey,
+        initial = cached,
+        fetch = cached == null
+    ) ?: cached
+    if (ad != null) FeedAdCache.put(slotKey, ad)
     Box(modifier.fillMaxSize().background(Color.Black)) {
-        if (ad == null) {
-            NativeAdShimmer(Modifier.fillMaxSize())
-        } else {
+        if (ad != null) {
             ReadyNativeAd(
                 adObject = ad,
                 modifier = Modifier.fillMaxSize(),
@@ -143,38 +144,26 @@ private fun FeedPooledAd(
     modifier: Modifier
 ) {
     val context = LocalContext.current
-    val cachedAd = remember(slotKey) {
-        FeedAdCache.get(slotKey)
-    }
-    val claimed = remember(slotKey) {
-        cachedAd ?: NativeAdPool.take(adManager, context, adUnitId, portrait = false)
-    }
-    if (claimed != null) {
-        FeedAdCache.put(slotKey, claimed)
-    }
+    val cachedAd = remember(slotKey) { FeedAdCache.get(slotKey) }
     val ad = awaitPooledNativeAd(
         adManager = adManager,
         unitId = adUnitId,
         portrait = false,
         slotKey = slotKey,
-        initial = claimed,
-        fetch = true
-    )
-    if (ad != null) {
-        FeedAdCache.put(slotKey, ad)
-    }
+        initial = cachedAd,
+        fetch = cachedAd == null
+    ) ?: cachedAd
+    if (ad != null) FeedAdCache.put(slotKey, ad)
+    if (ad == null && !reserveSlot) return
     Box(
         modifier
             .fillMaxWidth()
-            .height(320.dp)
+            .then(if (ad == null) Modifier.height(0.dp) else Modifier.height(320.dp))
             .clip(RoundedCornerShape(12.dp))
     ) {
-        val displayAd = ad ?: cachedAd
-        if (displayAd == null) {
-            NativeAdShimmer(Modifier.fillMaxSize())
-        } else {
+        if (ad != null) {
             ReadyNativeAd(
-                adObject = displayAd,
+                adObject = ad,
                 modifier = Modifier.fillMaxSize(),
                 layoutResId = R.layout.item_media_native_ad,
                 playMedia = false

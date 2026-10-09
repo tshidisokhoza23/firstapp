@@ -32,7 +32,7 @@ class PostAndReplyEngagementTests {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = MediaViewModel(socialRepository, accountRepository, adManager, postWebSocketClient)
+        viewModel = MediaViewModel(socialRepository, accountRepository, adManager, postWebSocketClient, mockk(relaxed = true))
     }
 
     @After

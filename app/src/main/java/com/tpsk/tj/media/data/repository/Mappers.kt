@@ -123,7 +123,10 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         replySettings = apiPost.reply_settings ?: "everyone",
         updatedAt = apiPost.updated_at?.toString(),
         hasThread = apiPost.has_thread,
-        threadCount = apiPost.thread_count
+        threadCount = apiPost.thread_count,
+        mood = apiPost.mood.orEmpty(),
+        aiAssisted = apiPost.ai_assisted,
+        collaborators = apiPost.collaborators.orEmpty()
     )
 }
 

@@ -36,7 +36,8 @@ class SocialRepositoryImpl @Inject constructor(
     private val contactDao: com.tpsk.tj.chat.data.local.dao.ContactDao,
     private val appDatabaseProvider: Provider<AppDatabase>,
     private val displayNameResolver: com.tpsk.tj.common.util.DisplayNameResolver,
-    private val realtimeEngagementManager: RealtimeEngagementManager
+    private val realtimeEngagementManager: RealtimeEngagementManager,
+    private val studioApi: com.tpsk.tj.common.data.api.StudioApi
 ) : SocialRepository {
 
     init {
@@ -193,7 +194,7 @@ class SocialRepositoryImpl @Inject constructor(
         emitAll(getPostsFlowInternal(type))
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?, repostOfId: String?, thumbnailUrl: String?): Flow<Resource<Boolean>> = flow {
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?, repostOfId: String?, thumbnailUrl: String?, compose: com.tpsk.tj.common.data.api.ComposeMetaDto?): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             
@@ -219,6 +220,13 @@ class SocialRepositoryImpl @Inject constructor(
                 if (mappedPost.id.isNotBlank()) {
                     runCatching {
                         postDao.insertPosts(listOf(mappedPost.toPostEntity(feedType = postType ?: "standard")))
+                    }
+                    if (compose != null) {
+                        val applied = studioApi.applyCompose(mappedPost.id, compose)
+                        if (!applied.isSuccessful) {
+                            emit(Resource.Error("Post was created, but its audience or schedule was not saved"))
+                            return@flow
+                        }
                     }
                 }
                 emit(Resource.Success(true))

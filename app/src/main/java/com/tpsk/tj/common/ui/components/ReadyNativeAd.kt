@@ -37,12 +37,8 @@ fun ReadyNativeAd(
     cornerRadius: Int = 12
 ) {
     val nativeAd = adObject as? NativeAd ?: return
-    var bound by remember(adObject) { mutableStateOf(false) }
 
     Box(modifier) {
-        if (!bound) {
-            NativeAdShimmer(Modifier.fillMaxSize())
-        }
         AndroidView(
             modifier = Modifier
                 .fillMaxSize()
@@ -56,19 +52,20 @@ fun ReadyNativeAd(
                 )
                 prepareNativeAdView(adView, fillParent = true)
                 bindNativeAd(adView, nativeAd)
+                adView.tag = nativeAd
                 container.addView(adView)
-                container.post { bound = true }
                 container
             },
             update = { container ->
                 val adView = container.getChildAt(0) as? NativeAdView ?: return@AndroidView
                 if (adView.tag != nativeAd) {
                     bindNativeAd(adView, nativeAd)
+                    adView.tag = nativeAd
                 }
-                applyPlayback(adView, playMedia)
-            },
-            onRelease = { container ->
-                container.removeAllViews()
+                if (playbackState[adView] != playMedia) {
+                    playbackState[adView] = playMedia
+                    applyPlayback(adView, playMedia)
+                }
             }
         )
     }
@@ -112,6 +109,8 @@ fun awaitPooledNativeAd(
     }
     return ad
 }
+
+private val playbackState = java.util.WeakHashMap<NativeAdView, Boolean>()
 
 private fun applyPlayback(adView: NativeAdView, play: Boolean) {
     val media = adView.mediaView?.mediaContent ?: return

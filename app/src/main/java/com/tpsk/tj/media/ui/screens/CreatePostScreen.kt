@@ -6,6 +6,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -60,7 +61,56 @@ fun CreatePostScreen(
     var isPostingState by remember { mutableStateOf(false) }
     var showAiAssistSheet by remember { mutableStateOf(false) }
     var isAiImproved by remember { mutableStateOf(false) }
-    var selectedVisibility by remember { mutableStateOf("Public") }
+    var selectedVisibility by remember { mutableStateOf("public") }
+    var selectedCircleId by remember { mutableStateOf("") }
+    var selectedMood by remember { mutableStateOf("") }
+    var scheduledAt by remember { mutableStateOf<Long?>(null) }
+    var collaborators by remember { mutableStateOf(listOf<com.tpsk.tj.common.data.api.PersonDto>()) }
+    var circles by remember { mutableStateOf(listOf<com.tpsk.tj.common.data.api.CircleDto>()) }
+    var showAudience by remember { mutableStateOf(false) }
+    var showSchedule by remember { mutableStateOf(false) }
+    var showCollaborators by remember { mutableStateOf(false) }
+    var showMood by remember { mutableStateOf(false) }
+    var showLocationDialog by remember { mutableStateOf(false) }
+    var locationDraft by remember { mutableStateOf("") }
+    var peopleQuery by remember { mutableStateOf("") }
+    var people by remember { mutableStateOf(listOf<com.tpsk.tj.common.data.api.PersonDto>()) }
+    var voicePath by remember { mutableStateOf<String?>(null) }
+    var recording by remember { mutableStateOf(false) }
+    var draftLabel by remember { mutableStateOf("") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var recorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
+
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) draftLabel = "Microphone permission is needed for a voice note"
+    }
+
+    LaunchedEffect(Unit) {
+        mediaViewModel.loadDraft { draft ->
+            if (postText.isBlank() && draft.content.isNotBlank()) {
+                postText = draft.content
+                selectedMood = draft.mood.orEmpty()
+                selectedVisibility = draft.audience.ifBlank { "public" }
+                selectedCircleId = draft.circleId.orEmpty()
+                draftLabel = "Draft restored"
+            }
+        }
+    }
+
+    LaunchedEffect(postText, selectedMood, selectedVisibility) {
+        if (postText.isBlank()) return@LaunchedEffect
+        kotlinx.coroutines.delay(800)
+        draftLabel = "Saving draft"
+        mediaViewModel.saveDraft(
+            com.tpsk.tj.common.data.api.ComposeMetaDto(
+                content = postText,
+                mood = selectedMood,
+                audience = selectedVisibility,
+                circleId = selectedCircleId
+            )
+        )
+        draftLabel = "Draft saved"
+    }
 
     val charLimit = 280
     val canPost = (postText.isNotBlank() || selectedImageUris.isNotEmpty() || showPoll) && postText.length <= charLimit
@@ -110,7 +160,7 @@ fun CreatePostScreen(
                             color = if (remaining < 0) Color.Red else Color(0xFF00E5FF)
                         )
                         Text(
-                            text = "Draft saved",
+                            text = draftLabel.ifBlank { " " },
                             fontSize = 10.sp,
                             color = Color.Gray
                         )
@@ -123,7 +173,7 @@ fun CreatePostScreen(
                             if (!canPost || isPostingState) return@Button
                             isPostingState = true
 
-                            val imageUriStrings = selectedImageUris.map { it.toString() }
+                            val imageUriStrings = selectedImageUris.map { it.toString() } + listOfNotNull(voicePath)
                             val postType = when {
                                 showPoll -> "poll"
                                 replyToPost != null -> "reply"
@@ -140,7 +190,16 @@ fun CreatePostScreen(
                                 location = selectedLocation,
                                 parentPostId = replyToPost?.id,
                                 rootPostId = replyToPost?.rootPostId ?: replyToPost?.id,
-                                repostOfId = quotingPost?.id
+                                repostOfId = quotingPost?.id,
+                                compose = com.tpsk.tj.common.data.api.ComposeMetaDto(
+                                    content = postText,
+                                    mood = selectedMood,
+                                    audience = selectedVisibility,
+                                    circleId = selectedCircleId,
+                                    scheduledAt = scheduledAt,
+                                    aiAssisted = isAiImproved,
+                                    collaborators = collaborators.map { it.id }
+                                )
                             )
 
                             onPostCreated()
@@ -182,7 +241,10 @@ fun CreatePostScreen(
                     // Public Dropdown row
                     Row(
                         modifier = Modifier
-                            .clickable { /* Select Scope */ }
+                            .clickable {
+                                mediaViewModel.loadCircles { circles = it }
+                                showAudience = true
+                            }
                             .padding(horizontal = 16.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -194,7 +256,11 @@ fun CreatePostScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "$selectedVisibility ▾",
+                            text = when (selectedVisibility) {
+                                "followers" -> "Followers ▾"
+                                "circle" -> "Circle ▾"
+                                else -> "Public ▾"
+                            },
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF00E5FF)
@@ -245,7 +311,44 @@ fun CreatePostScreen(
                             Icon(Icons.Outlined.Poll, contentDescription = "Poll", tint = Color(0xFF00E5FF))
                         }
 
-                        IconButton(onClick = { selectedLocation = "Cape Town, SA" }) {
+                        IconButton(onClick = {
+                            pickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.SingleMimeType("image/gif")))
+                        }) {
+                            Text("GIF", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+
+                        IconButton(onClick = {
+                            if (!recording && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                                return@IconButton
+                            }
+                            if (recording) {
+                                runCatching { recorder?.stop(); recorder?.release() }
+                                recorder = null
+                                recording = false
+                            } else {
+                                val file = java.io.File(context.cacheDir, "post_voice_${System.currentTimeMillis()}.m4a")
+                                val next = android.media.MediaRecorder()
+                                runCatching {
+                                    next.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                                    next.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+                                    next.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
+                                    next.setOutputFile(file.absolutePath)
+                                    next.prepare()
+                                    next.start()
+                                    recorder = next
+                                    voicePath = file.absolutePath
+                                    recording = true
+                                }.onFailure { next.release() }
+                            }
+                        }) {
+                            Icon(if (recording) Icons.Default.Stop else Icons.Outlined.Mic, contentDescription = "Voice note", tint = Color(0xFF00E5FF))
+                        }
+
+                        IconButton(onClick = {
+                            locationDraft = selectedLocation.orEmpty()
+                            showLocationDialog = true
+                        }) {
                             Icon(Icons.Outlined.LocationOn, contentDescription = "Location", tint = Color(0xFF00E5FF))
                         }
 
@@ -258,11 +361,11 @@ fun CreatePostScreen(
                             )
                         }
 
-                        IconButton(onClick = { }) {
+                        IconButton(onClick = { showSchedule = true }) {
                             Icon(Icons.Outlined.Schedule, contentDescription = "Schedule", tint = Color(0xFF00E5FF))
                         }
 
-                        IconButton(onClick = { }) {
+                        IconButton(onClick = { showCollaborators = true }) {
                             Icon(Icons.Outlined.Group, contentDescription = "Collaborators", tint = Color(0xFF00E5FF))
                         }
                     }
@@ -286,7 +389,18 @@ fun CreatePostScreen(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .border(2.dp, gradientBrush, CircleShape)
+                        .border(3.dp, gradientBrush, CircleShape)
+                        .drawWithContent {
+                            drawContent()
+                            val sweep = (postText.length.coerceIn(0, charLimit) / charLimit.toFloat()) * 360f
+                            drawArc(
+                                color = Color(0xFF00E5FF),
+                                startAngle = -90f,
+                                sweepAngle = sweep,
+                                useCenter = false,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx())
+                            )
+                        }
                         .padding(3.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF333333))
@@ -342,14 +456,14 @@ fun CreatePostScreen(
                         shape = RoundedCornerShape(16.dp),
                         color = Color.Transparent,
                         border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.6f)),
-                        modifier = Modifier.clickable { showAiAssistSheet = true }
+                        modifier = Modifier.clickable { showMood = true }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "Feeling creative ✨",
+                                text = if (selectedMood.isBlank()) "Add a mood" else selectedMood,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF00E5FF)
@@ -443,6 +557,100 @@ fun CreatePostScreen(
     }
 
     // AI Assist Sheet Dialog
+    if (showAudience) {
+        AlertDialog(
+            onDismissRequest = { showAudience = false },
+            title = { Text("Who can see this") },
+            text = {
+                Column {
+                    TextButton(onClick = { selectedVisibility = "public"; selectedCircleId = ""; showAudience = false }) { Text("Public") }
+                    TextButton(onClick = { selectedVisibility = "followers"; selectedCircleId = ""; showAudience = false }) { Text("Followers only") }
+                    circles.forEach { circle ->
+                        TextButton(onClick = {
+                            selectedVisibility = "circle"
+                            selectedCircleId = circle.id
+                            showAudience = false
+                        }) { Text(circle.name.ifBlank { "Circle" }) }
+                    }
+                    if (circles.isEmpty()) Text("Create a circle from the social menu to post to one.", color = Color.Gray, fontSize = 12.sp)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAudience = false }) { Text("Close") } }
+        )
+    }
+    if (showMood) {
+        val moods = listOf("Feeling creative", "Hot take", "Question", "Excited", "Grateful")
+        AlertDialog(
+            onDismissRequest = { showMood = false },
+            title = { Text("Mood") },
+            text = {
+                Column {
+                    moods.forEach { mood ->
+                        TextButton(onClick = { selectedMood = mood; showMood = false }) { Text(mood) }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { selectedMood = ""; showMood = false }) { Text("Clear") } }
+        )
+    }
+    if (showLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationDialog = false },
+            title = { Text("Location") },
+            text = {
+                OutlinedTextField(value = locationDraft, onValueChange = { locationDraft = it }, label = { Text("Place") })
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedLocation = locationDraft.trim().ifBlank { null }
+                    showLocationDialog = false
+                }) { Text("Save") }
+            }
+        )
+    }
+    if (showSchedule) {
+        AlertDialog(
+            onDismissRequest = { showSchedule = false },
+            title = { Text("Schedule") },
+            text = { Text(if (scheduledAt == null) "Publish one hour from now, or clear the schedule." else "Scheduled.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scheduledAt = System.currentTimeMillis() + 60 * 60 * 1000
+                    showSchedule = false
+                }) { Text("In 1 hour") }
+            },
+            dismissButton = {
+                TextButton(onClick = { scheduledAt = null; showSchedule = false }) { Text("Post now") }
+            }
+        )
+    }
+    if (showCollaborators) {
+        AlertDialog(
+            onDismissRequest = { showCollaborators = false },
+            title = { Text("Collaborators") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = peopleQuery,
+                        onValueChange = {
+                            peopleQuery = it
+                            mediaViewModel.searchPeople(it) { found -> people = found }
+                        },
+                        label = { Text("Search people") }
+                    )
+                    people.forEach { person ->
+                        TextButton(onClick = {
+                            if (collaborators.none { it.id == person.id }) collaborators = collaborators + person
+                        }) { Text(person.handle.ifBlank { person.name }) }
+                    }
+                    if (collaborators.isNotEmpty()) {
+                        Text("Added: " + collaborators.joinToString { it.handle.ifBlank { it.name } }, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showCollaborators = false }) { Text("Done") } }
+        )
+    }
     if (showAiAssistSheet) {
         val repo = aiRepository ?: rememberAiRepository()
         AiAssistSheet(

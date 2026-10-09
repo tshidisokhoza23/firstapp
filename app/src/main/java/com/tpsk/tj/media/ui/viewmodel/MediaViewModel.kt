@@ -30,7 +30,8 @@ class MediaViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
     private val accountRepository: AccountRepository,
     private val adManager: com.tpsk.tj.common.data.ads.AdManager,
-    private val postWebSocketClient: PostWebSocketClient
+    private val postWebSocketClient: PostWebSocketClient,
+    private val studioApi: com.tpsk.tj.common.data.api.StudioApi
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
@@ -283,6 +284,61 @@ class MediaViewModel @Inject constructor(
         }
     }
 
+    fun loadDraft(onResult: (com.tpsk.tj.common.data.api.ComposeDraftDto) -> Unit) {
+        viewModelScope.launch {
+            val draft = runCatching { studioApi.loadDraft().body() }.getOrNull()
+            if (draft != null) onResult(draft)
+        }
+    }
+
+    fun saveDraft(meta: com.tpsk.tj.common.data.api.ComposeMetaDto) {
+        viewModelScope.launch {
+            runCatching { studioApi.saveDraft(meta) }
+        }
+    }
+
+    fun searchPeople(query: String, onResult: (List<com.tpsk.tj.common.data.api.PersonDto>) -> Unit) {
+        viewModelScope.launch {
+            val people = runCatching { studioApi.searchPeople(query).body()?.people.orEmpty() }.getOrDefault(emptyList())
+            onResult(people)
+        }
+    }
+
+    fun loadPostContext(postId: String, authorId: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val notes = runCatching { studioApi.listNotes(postId).body()?.notes.orEmpty() }.getOrDefault(emptyList())
+            val edits = runCatching { studioApi.editHistory(postId).body()?.edits.orEmpty() }.getOrDefault(emptyList())
+            val score = runCatching { studioApi.reputation(authorId).body() }.getOrNull()
+            val text = buildString {
+                append(score?.note ?: "Reputation is calculated from real posts, replies, and followers.")
+                if (score != null) append("\nScore ${score.score}: ${score.posts} posts, ${score.helpfulReplies} replies, ${score.followers} followers.")
+                append("\n\nCommunity notes")
+                if (notes.isEmpty()) append("\nNone yet.") else notes.forEach { append("\n@${it.author}: ${it.body}") }
+                append("\n\nEdit history")
+                if (edits.isEmpty()) append("\nNo edits.") else edits.forEach { append("\n${it.previousText}") }
+            }
+            onResult(text)
+        }
+    }
+
+    fun addCommunityNote(postId: String, body: String) {
+        viewModelScope.launch { runCatching { studioApi.addNote(postId, com.tpsk.tj.common.data.api.NoteRequest(body)) } }
+    }
+
+    fun exportPosts(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val posts = runCatching { studioApi.exportMine().body()?.posts.orEmpty() }.getOrDefault(emptyList())
+            onResult(if (posts.isEmpty()) "No posts to export." else posts.joinToString("\n\n") { it.content })
+        }
+    }
+
+    fun loadCircles(onResult: (List<com.tpsk.tj.common.data.api.CircleDto>) -> Unit) {
+        viewModelScope.launch {
+            val circles = runCatching { studioApi.listCircles().body()?.circles.orEmpty() }.getOrDefault(emptyList())
+            onResult(circles)
+        }
+    }
+
     fun createPost(
         content: String, 
         mediaUris: List<String> = emptyList(), 
@@ -294,7 +350,8 @@ class MediaViewModel @Inject constructor(
         location: String? = null,
         parentPostId: String? = null,
         rootPostId: String? = null,
-        repostOfId: String? = null
+        repostOfId: String? = null,
+        compose: com.tpsk.tj.common.data.api.ComposeMetaDto? = null
     ) {
         if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty()) && repostOfId == null) return
         if (!posting.compareAndSet(false, true)) return
@@ -375,7 +432,7 @@ class MediaViewModel @Inject constructor(
                 return@launch
             }
 
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId, repostOfId = repostOfId, thumbnailUrl = thumbnailUrl).collect { res ->
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId, repostOfId = repostOfId, thumbnailUrl = thumbnailUrl, compose = compose).collect { res ->
                 if (res is Resource.Success) {
                     _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }

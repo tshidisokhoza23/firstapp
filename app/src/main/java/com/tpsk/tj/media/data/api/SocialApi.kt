@@ -259,7 +259,10 @@ data class ApiPost(
     @SerializedName("original_post") val original_post: ApiPost? = null,
     val poll: ApiPostPoll? = null,
     val ad: ApiAdvert? = null,
-    val media: List<ApiPostMedia>? = null
+    val media: List<ApiPostMedia>? = null,
+    val mood: String? = null,
+    @SerializedName("ai_assisted") val ai_assisted: Boolean = false,
+    val collaborators: List<String>? = null
 )
 
 data class ApiPostMedia(

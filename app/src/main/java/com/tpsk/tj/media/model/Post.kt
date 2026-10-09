@@ -60,7 +60,10 @@ data class Post(
     val tags: List<String> = emptyList(),
     val ad: Advert? = null,
     val originalPost: Post? = null,
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    val mood: String = "",
+    val aiAssisted: Boolean = false,
+    val collaborators: List<String> = emptyList()
 )
 
 fun Post.isOwnedBy(userId: String?, userHandle: String? = null): Boolean {
