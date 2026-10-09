@@ -15,14 +15,14 @@ private val DarkColorScheme = darkColorScheme(
     primary = AppPrimary,
     secondary = GreyDark,
     tertiary = AppAccent,
-    background = Black, 
+    background = AppBackgroundDarkTop,
     surface = GreyDark,
     onPrimary = White,
     onSecondary = White,
     onBackground = White,
     onSurface = White,
-    outline = GreyMedium,
-    surfaceVariant = Black
+    outline = DividerColor,
+    surfaceVariant = SurfaceElevated
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -41,7 +41,7 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun TJTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
