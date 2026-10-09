@@ -26,7 +26,8 @@ class PostRemoteMediator(
     private val authorId: String,
     private val apiFeedType: String = "standard",
     private val dbFeedType: String = "standard",
-    private val categoryId: String? = null
+    private val categoryId: String? = null,
+    private val qualityMode: String? = null
 ) : RemoteMediator<Int, PostEntity>() {
 
     override suspend fun load(
@@ -73,14 +74,14 @@ class PostRemoteMediator(
                     else -> {
                         val limit = state.config.pageSize
                         val offset = (page - 1) * limit
-                        val response = socialApi.getFeed(limit = limit, offset = offset, categoryId = categoryId)
+                        val response = socialApi.getFeed(limit = limit, offset = offset, categoryId = categoryId, quality = qualityMode)
                         ensureSuccessful(response)
                         val data = response.body()?.items ?: emptyList()
                         mapMediaFeedItems(data).filterNot { isServerAd(it.type, it.id) }
                     }
                 }
             } else {
-                val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = apiFeedType, categoryId = categoryId)
+                val response = socialApi.getPosts(page = page, following = following, authorId = authorId, feedType = apiFeedType, categoryId = categoryId, quality = qualityMode)
                 ensureSuccessful(response)
                 val data = response.body() ?: emptyList()
                 val mapped = data.map { mapApiPost(it, if (apiFeedType == "short") "short" else null) }

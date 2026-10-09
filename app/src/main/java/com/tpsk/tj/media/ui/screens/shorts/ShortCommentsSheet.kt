@@ -38,6 +38,7 @@ fun ShortCommentsOverlay(
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     onDismiss: () -> Unit,
     onSendReply: (String, String?) -> Unit,
+    onSuggestReply: ((String) -> Unit) -> Unit = {},
     onLikeReply: (Post) -> Unit = {}
 ) {
     var replyText by remember(shortId) { mutableStateOf("") }
@@ -199,6 +200,7 @@ fun ShortCommentsOverlay(
                             )
                         )
                         
+                        TextButton(onClick = { onSuggestReply { replyText = it } }) { Text("Suggest") }
                         if (replyText.isNotBlank()) {
                             Spacer(Modifier.width(8.dp))
                             IconButton(

@@ -2,8 +2,11 @@ package com.tpsk.tj.media.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tpsk.tj.common.data.api.CommissionDto
+import com.tpsk.tj.common.data.api.CommissionStatusRequest
 import com.tpsk.tj.common.data.api.CreatorPostStatDto
 import com.tpsk.tj.common.data.api.CreatorSettingsRequest
+import com.tpsk.tj.common.data.api.RevenueSplitDto
 import com.tpsk.tj.common.data.api.StudioApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +20,7 @@ data class CommissionRequest(
     val id: String,
     val clientName: String,
     val budget: String,
-    val deadline: String,
+    val brief: String,
     val status: String
 )
 
@@ -46,7 +49,9 @@ data class CreatorDashboardUiState(
     val note: String? = null,
     val posts: List<CreatorPostStatDto> = emptyList(),
     val commissionRequests: List<CommissionRequest> = emptyList(),
-    val activeCommissions: List<ActiveCommission> = emptyList()
+    val activeCommissions: List<ActiveCommission> = emptyList(),
+    val revenueSplits: List<RevenueSplitDto> = emptyList(),
+    val exportText: String? = null
 )
 
 @HiltViewModel
@@ -79,7 +84,29 @@ class CreatorDashboardViewModel @Inject constructor(
     }
 
     fun updateCommissionStatus(requestId: String, newStatus: String) {
-        _uiState.value = _uiState.value.copy(note = "Commission requests are not available yet.")
+        viewModelScope.launch {
+            val response = runCatching {
+                studioApi.updateCommission(requestId, CommissionStatusRequest(newStatus.lowercase()))
+            }.getOrNull()
+            if (response == null || !response.isSuccessful) {
+                _uiState.value = _uiState.value.copy(note = "Could not update that commission")
+                return@launch
+            }
+            load(_uiState.value.selectedTimeRange)
+        }
+    }
+
+    fun exportPosts() {
+        viewModelScope.launch {
+            val posts = runCatching { studioApi.exportMine().body()?.posts.orEmpty() }.getOrDefault(emptyList())
+            _uiState.value = _uiState.value.copy(
+                exportText = if (posts.isEmpty()) "No posts to export." else posts.joinToString("\n\n") { it.content }
+            )
+        }
+    }
+
+    fun clearExport() {
+        _uiState.value = _uiState.value.copy(exportText = null)
     }
 
     private fun load(range: String) {
@@ -106,8 +133,9 @@ class CreatorDashboardViewModel @Inject constructor(
                     acceptCommissions = body.acceptCommissions,
                     isArtist = body.isArtist,
                     posts = body.posts,
-                    commissionRequests = emptyList(),
-                    activeCommissions = emptyList(),
+                    commissionRequests = body.commissionRequests.map { it.toRequest() },
+                    activeCommissions = body.activeCommissions.map { it.toActive() },
+                    revenueSplits = body.revenueSplits,
                     loaded = true,
                     note = null
                 )
@@ -126,6 +154,21 @@ class CreatorDashboardViewModel @Inject constructor(
             }
         }
     }
+
+    private fun CommissionDto.toRequest() = CommissionRequest(
+        id = id,
+        clientName = requester.ifBlank { "User" },
+        budget = formatRand(budgetCents),
+        brief = brief,
+        status = status
+    )
+
+    private fun CommissionDto.toActive() = ActiveCommission(
+        id = id,
+        clientName = requester.ifBlank { artist }.ifBlank { "User" },
+        title = brief.ifBlank { "Commission" },
+        progressStage = status
+    )
 
     private fun formatRand(cents: Int): String {
         val sign = if (cents < 0) "-" else ""

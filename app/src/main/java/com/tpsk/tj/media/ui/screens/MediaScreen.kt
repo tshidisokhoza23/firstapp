@@ -187,6 +187,7 @@ fun MediaScreen(
 
     var showPostMoreOptions by remember { mutableStateOf<Post?>(null) }
     var postContextText by remember { mutableStateOf<String?>(null) }
+    var postContextId by remember { mutableStateOf<String?>(null) }
 
     val backgroundBrush = if (LocalIsDarkTheme.current) {
         Brush.verticalGradient(
@@ -508,7 +509,15 @@ fun MediaScreen(
                     val id = targetPost.id
                     val authorId = targetPost.authorId
                     showPostMoreOptions = null
+                    postContextId = id
                     mediaViewModel.loadPostContext(id, authorId) { text -> postContextText = text }
+                },
+                onRequestCommission = {
+                    val artistId = targetPost.authorId
+                    showPostMoreOptions = null
+                    mediaViewModel.requestCommission(artistId, "Commission request from your post") { message ->
+                        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                    }
                 },
                 onDismiss = { showPostMoreOptions = null }
             )
@@ -519,7 +528,17 @@ fun MediaScreen(
                 onDismissRequest = { postContextText = null },
                 title = { Text("Post context") },
                 text = { Text(postContextText.orEmpty()) },
-                confirmButton = { TextButton(onClick = { postContextText = null }) { Text("Close") } }
+                confirmButton = { TextButton(onClick = { postContextText = null }) { Text("Close") } },
+                dismissButton = {
+                    val noteId = Regex("[0-9a-fA-F-]{36}").find(postContextText.orEmpty())?.value
+                    val postId = postContextId
+                    if (noteId != null && postId != null) {
+                        TextButton(onClick = {
+                            mediaViewModel.voteNote(postId, noteId)
+                            postContextText = null
+                        }) { Text("Helpful") }
+                    }
+                }
             )
         }
 

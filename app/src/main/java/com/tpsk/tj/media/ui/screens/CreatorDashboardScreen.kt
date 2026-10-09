@@ -32,6 +32,14 @@ fun CreatorDashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isArtist = uiState.isArtist
+    uiState.exportText?.let { exported ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearExport() },
+            title = { Text("Your posts") },
+            text = { Text(exported) },
+            confirmButton = { TextButton(onClick = { viewModel.clearExport() }) { Text("Close") } }
+        )
+    }
 
     val gradientBrush = Brush.horizontalGradient(
         colors = listOf(Color(0xFF8A2BE2), Color(0xFF00E5FF))
@@ -266,7 +274,7 @@ fun CreatorDashboardScreen(
                                         Text(req.clientName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         Text(req.budget, color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     }
-                                    Text("Deadline: ${req.deadline} • Status: ${req.status}", color = Color.Gray, fontSize = 12.sp)
+                                    Text("${req.brief.ifBlank { "No brief" }} • ${req.status}", color = Color.Gray, fontSize = 12.sp)
 
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -315,24 +323,7 @@ fun CreatorDashboardScreen(
                                 Column {
                                     Text("${active.title} — ${active.clientName}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    Text("Current stage: ${active.progressStage}", color = Color(0xFF00E5FF), fontSize = 12.sp)
-
-                                    // Stage Progress Row
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.padding(top = 8.dp)
-                                    ) {
-                                        listOf("Sketch", "Lineart", "Color", "Done").forEach { stage ->
-                                            val isCurrentOrPast = stage == active.progressStage || stage == "Sketch"
-                                            Box(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(6.dp)
-                                                    .clip(RoundedCornerShape(3.dp))
-                                                    .background(if (isCurrentOrPast) Color(0xFF00E5FF) else Color(0xFF444444))
-                                            )
-                                        }
-                                    }
+                                    Text("Status: ${active.progressStage}", color = Color(0xFF00E5FF), fontSize = 12.sp)
                                 }
                             }
                         }
@@ -386,6 +377,18 @@ fun CreatorDashboardScreen(
                             )
                         }
 
+                        if (uiState.revenueSplits.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Agreed tip splits", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            uiState.revenueSplits.forEach { split ->
+                                Text(
+                                    "${split.percent}% of recorded tips on ${split.text.ifBlank { "a post" }}",
+                                    color = Color.Gray,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Row(
@@ -393,18 +396,11 @@ fun CreatorDashboardScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedButton(
-                                onClick = { },
+                                onClick = { viewModel.exportPosts() },
                                 border = BorderStroke(1.dp, Color(0xFF00E5FF)),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Set Prices", color = Color(0xFF00E5FF), fontSize = 12.sp)
-                            }
-                            OutlinedButton(
-                                onClick = { },
-                                border = BorderStroke(1.dp, Color.Gray),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Payout Settings", color = Color.White, fontSize = 12.sp)
+                                Text("Export posts", color = Color(0xFF00E5FF), fontSize = 12.sp)
                             }
                         }
                     }

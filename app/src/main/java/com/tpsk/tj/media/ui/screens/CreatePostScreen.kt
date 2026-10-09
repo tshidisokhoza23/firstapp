@@ -201,7 +201,11 @@ fun CreatePostScreen(
                                     circleId = selectedCircleId,
                                     scheduledAt = scheduledAt,
                                     aiAssisted = isAiImproved,
-                                    collaborators = collaborators.map { it.id }
+                                    collaborators = collaborators.map { it.id },
+                                    splits = if (collaborators.isEmpty()) emptyList() else {
+                                        val each = 100 / (collaborators.size + 1)
+                                        collaborators.map { com.tpsk.tj.common.data.api.SplitInputDto(it.id, each.coerceAtLeast(1)) }
+                                    }
                                 )
                             )
 
@@ -356,6 +360,44 @@ fun CreatePostScreen(
                         }
 
                         // AI Assist Sparkle Button
+                        IconButton(onClick = {
+                            val image = selectedImageUris.firstOrNull()?.toString()
+                            if (image == null) return@IconButton
+                            mediaViewModel.artistCaption(image) { caption ->
+                                if (caption.isNotBlank()) postText = caption
+                            }
+                        }) {
+                            Icon(Icons.Default.Star, "AI caption", tint = Color(0xFF8A2BE2))
+                        }
+                        var showGif by remember { mutableStateOf(false) }
+                        IconButton(onClick = { showGif = true }) {
+                            Icon(Icons.Default.Image, "GIF", tint = Color(0xFF8A2BE2))
+                        }
+                        if (showGif) {
+                            var query by remember { mutableStateOf("") }
+                            var gifs by remember { mutableStateOf(listOf<com.tpsk.tj.common.data.api.GifDto>()) }
+                            var gifError by remember { mutableStateOf<String?>(null) }
+                            AlertDialog(
+                                onDismissRequest = { showGif = false },
+                                title = { Text("GIFs") },
+                                text = {
+                                    Column {
+                                        OutlinedTextField(query, { query = it }, label = { Text("Search") })
+                                        gifError?.let { Text(it, color = Color(0xFFFF6B6B)) }
+                                        gifs.forEach { gif ->
+                                            TextButton(onClick = {
+                                                postText = listOf(postText, gif.url).filter { it.isNotBlank() }.joinToString("\n")
+                                                showGif = false
+                                            }) { Text(gif.title.ifBlank { gif.url }) }
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { mediaViewModel.searchGifs(query) { found, error -> gifs = found; gifError = error } }) { Text("Search") }
+                                },
+                                dismissButton = { TextButton(onClick = { showGif = false }) { Text("Close") } }
+                            )
+                        }
                         IconButton(onClick = { showAiAssistSheet = true }) {
                             Icon(
                                 Icons.Default.AutoAwesome,

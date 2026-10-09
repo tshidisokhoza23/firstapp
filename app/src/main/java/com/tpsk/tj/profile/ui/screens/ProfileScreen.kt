@@ -143,11 +143,12 @@ fun ProfileView(
             }
         )
     }
-    val tabs = remember {
+    val tabs = remember(remoteUser, currentUser) {
         val l = ArrayList<String>()
         l.add("Posts")
         l.add("Replies")
         l.add("Media")
+        l.add("Portfolio")
         l.add("Shorts")
         l
     }
@@ -273,47 +274,68 @@ fun ProfileView(
                                 }
                             }
 
-                        if (user != null && !user.avatarUrl.isNullOrBlank()) {
-                             val url = user.avatarUrl!!
-                             AsyncImage(
-                                model = MediaUtils.formatUrl(url),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .clip(CircleShape)
-                                    .background(AppSecondary)
-                                    .clickable { 
-                                        if (isMyProfile) {
-                                            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                        } else {
-                                            onNavigateToMediaViewer(url, "image", 0L)
-                                        }
-                                    },
-                                contentScale = ContentScale.Crop,
-                                error = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary),
-                                fallback = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary)
-                            )
-                        } else {
+                        val gradientBrush = Brush.horizontalGradient(
+                            colors = listOf(Color(0xFF8A2BE2), Color(0xFF00E5FF))
+                        )
+                        Box(contentAlignment = Alignment.BottomEnd) {
                             Box(
                                 modifier = Modifier
-                                    .size(72.dp)
-                                    .clip(CircleShape)
-                                    .background(AppSecondary)
-                                    .clickable {
-                                        if (isMyProfile) {
-                                            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
+                                    .size(76.dp)
+                                    .border(2.dp, gradientBrush, CircleShape)
+                                    .padding(3.dp)
                             ) {
-                                Icon(Icons.Default.Person, null, tint = Color.White)
-                                if (isMyProfile) {
+                                if (user != null && !user.avatarUrl.isNullOrBlank()) {
+                                     val url = user.avatarUrl!!
+                                     AsyncImage(
+                                        model = MediaUtils.formatUrl(url),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape)
+                                            .background(AppSecondary)
+                                            .clickable { 
+                                                if (isMyProfile) {
+                                                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                                } else {
+                                                    onNavigateToMediaViewer(url, "image", 0L)
+                                                }
+                                            },
+                                        contentScale = ContentScale.Crop,
+                                        error = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary),
+                                        fallback = androidx.compose.ui.graphics.painter.ColorPainter(AppSecondary)
+                                    )
+                                } else {
                                     Box(
-                                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.1f)),
-                                        contentAlignment = Alignment.BottomEnd
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape)
+                                            .background(AppSecondary)
+                                            .clickable {
+                                                if (isMyProfile) {
+                                                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp).padding(4.dp))
+                                        Icon(Icons.Default.Person, null, tint = Color.White)
                                     }
+                                }
+                            }
+
+                            if (user?.isArtist == true || isMyProfile) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.Transparent,
+                                    modifier = Modifier
+                                        .background(gradientBrush, RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "Artist",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
@@ -341,19 +363,76 @@ fun ProfileView(
                                 Spacer(Modifier.width(4.dp))
                                 Text("Following", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                             }
-                            if (user?.profileViews != null) {
-                                Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
-                                Text("${user.profileViews}", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("Views", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Star, null, tint = Color(0xFF00E5FF), modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(2.dp))
+                                Text("Reputation 82", color = Color(0xFF00E5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (user?.isArtist == true || isMyProfile) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xFF00E676).copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, Color(0xFF00E676))
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00E676)))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Open for Commissions", color = Color(0xFF00E676), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
 
-                            if (user?.location != null && user.location!!.isNotEmpty()) {
-                                Box(modifier = Modifier.size(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(user.location!!, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.horizontalScroll(rememberScrollState())
+                            ) {
+                                listOf("Digital Character Design", "Concept Art", "Illustration").forEach { tag ->
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color(0xFF242424),
+                                        border = BorderStroke(1.dp, Color(0xFF333333))
+                                    ) {
+                                        Text(tag, color = Color(0xFF00E5FF), fontSize = 11.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                    }
                                 }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedButton(
+                                onClick = { onNavigateToMore() },
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                border = BorderStroke(1.dp, Color(0xFF333333))
+                            ) {
+                                Text("Circles", fontSize = 12.sp, color = Color.White)
+                            }
+                            OutlinedButton(
+                                onClick = { onNavigateToMore() },
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                border = BorderStroke(1.dp, Color(0xFF333333))
+                            ) {
+                                Text("Analytics", fontSize = 12.sp, color = Color.White)
+                            }
+                            OutlinedButton(
+                                onClick = { onNavigateToMore() },
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                border = BorderStroke(1.dp, Color(0xFF333333))
+                            ) {
+                                Text("Monetize", fontSize = 12.sp, color = Color.White)
                             }
                         }
 
@@ -555,6 +634,72 @@ fun ProfileView(
                                         }
                                     )
                                     HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                                }
+                            }
+                        }
+                    }
+                    "Portfolio" -> {
+                        item {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                ) {
+                                    listOf("All", "Available", "Sold", "Process").forEachIndexed { idx, filter ->
+                                        Surface(
+                                            onClick = {},
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = if (idx == 0) Color(0xFF00E5FF).copy(alpha = 0.2f) else Color(0xFF242424),
+                                            border = BorderStroke(1.dp, if (idx == 0) Color(0xFF00E5FF) else Color(0xFF333333))
+                                        ) {
+                                            Text(
+                                                filter,
+                                                color = if (idx == 0) Color(0xFF00E5FF) else Color.White,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                val portfolioItems = listOf(
+                                    Triple("Cyberpunk Neon Character", "1.2K Views • 45 Tips", "Series: Neo-Tokyo"),
+                                    Triple("Ethereal Landscape", "850 Views • 22 Tips", "Series: Mythos"),
+                                    Triple("Mecha Unit 04 Concept", "2.1K Views • 89 Tips", "Series: Mecha Warfare"),
+                                    Triple("Portrait Study #12", "600 Views • 15 Tips", "Series: Daily Sketches")
+                                )
+
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    portfolioItems.chunked(2).forEach { row ->
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            row.forEach { (artTitle, stats, series) ->
+                                                Card(
+                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF242424)),
+                                                    border = BorderStroke(1.dp, Color(0xFF333333)),
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Column {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(130.dp)
+                                                                .background(Brush.linearGradient(listOf(Color(0xFF8A2BE2), Color(0xFF00E5FF))))
+                                                        )
+                                                        Column(modifier = Modifier.padding(8.dp)) {
+                                                            Text(artTitle, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                                            Text(series, color = Color(0xFF00E5FF), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                                            Text(stats, color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

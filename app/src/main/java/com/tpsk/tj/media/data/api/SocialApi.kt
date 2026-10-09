@@ -11,7 +11,8 @@ interface SocialApi {
     suspend fun getFeed(
         @Query("limit") limit: Int = 20,
         @Query("offset") offset: Int = 0,
-        @Query("category_id") categoryId: String? = null
+        @Query("category_id") categoryId: String? = null,
+        @Query("quality") quality: String? = null
     ): Response<FeedResponse>
 
     @GET("media/posts/{id}/replies")
@@ -44,7 +45,8 @@ interface SocialApi {
         @Query("channel_id") channelId: String? = null,
         @Query("user_id") authorId: String,
         @Query("type") feedType: String,
-        @Query("category_id") categoryId: String? = null
+        @Query("category_id") categoryId: String? = null,
+        @Query("quality") quality: String? = null
     ): Response<List<ApiPost>>
 
     @GET("media/feed/shorts")

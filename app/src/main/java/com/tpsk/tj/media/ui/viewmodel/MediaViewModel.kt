@@ -306,14 +306,18 @@ class MediaViewModel @Inject constructor(
 
     fun loadPostContext(postId: String, authorId: String, onResult: (String) -> Unit) {
         viewModelScope.launch {
-            val notes = runCatching { studioApi.listNotes(postId).body()?.notes.orEmpty() }.getOrDefault(emptyList())
+            val contextCard = runCatching { studioApi.postContext(postId).body() }.getOrNull()
+            val notes = contextCard?.notes ?: runCatching { studioApi.listNotes(postId).body()?.notes.orEmpty() }.getOrDefault(emptyList())
             val edits = runCatching { studioApi.editHistory(postId).body()?.edits.orEmpty() }.getOrDefault(emptyList())
             val score = runCatching { studioApi.reputation(authorId).body() }.getOrNull()
             val text = buildString {
                 append(score?.note ?: "Reputation is calculated from real posts, replies, and followers.")
                 if (score != null) append("\nScore ${score.score}: ${score.posts} posts, ${score.helpfulReplies} replies, ${score.followers} followers.")
+                append("\n\nLinks in this post")
+                val links = contextCard?.links.orEmpty()
+                if (links.isEmpty()) append("\nNone.") else links.forEach { append("\n$it") }
                 append("\n\nCommunity notes")
-                if (notes.isEmpty()) append("\nNone yet.") else notes.forEach { append("\n@${it.author}: ${it.body}") }
+                if (notes.isEmpty()) append("\nNone yet.") else notes.forEach { append("\n${it.id} @${it.author}: ${it.body} (${it.helpfulCount} helpful)") }
                 append("\n\nEdit history")
                 if (edits.isEmpty()) append("\nNo edits.") else edits.forEach { append("\n${it.previousText}") }
             }
@@ -323,6 +327,54 @@ class MediaViewModel @Inject constructor(
 
     fun addCommunityNote(postId: String, body: String) {
         viewModelScope.launch { runCatching { studioApi.addNote(postId, com.tpsk.tj.common.data.api.NoteRequest(body)) } }
+    }
+
+    fun voteNote(postId: String, noteId: String) {
+        viewModelScope.launch {
+            runCatching { studioApi.voteNote(postId, noteId, com.tpsk.tj.common.data.api.NoteVoteRequest(true)) }
+        }
+    }
+
+    fun suggestReply(postId: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val reply = runCatching { studioApi.smartReplies(postId).body()?.replies?.firstOrNull() }.getOrNull()
+            if (!reply.isNullOrBlank()) onResult(reply)
+        }
+    }
+
+    fun searchGifs(query: String, onResult: (List<com.tpsk.tj.common.data.api.GifDto>, String?) -> Unit) {
+        viewModelScope.launch {
+            val response = runCatching { studioApi.searchGifs(query) }.getOrNull()
+            val message = response?.errorBody()?.string()?.let { raw ->
+                Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.getOrNull(1)
+            }
+            onResult(response?.body()?.gifs.orEmpty(), if (response?.isSuccessful == true) null else message ?: "GIF search is unavailable")
+        }
+    }
+
+    fun artistCaption(imageUrl: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
+                onResult("Post the photo first, then use AI caption on the uploaded image.")
+                return@launch
+            }
+            val response = runCatching {
+                studioApi.artistHelper(com.tpsk.tj.common.data.api.ArtistHelperRequest(imageUrl = imageUrl, story = "Write a caption for this image.", title = "Photo"))
+            }.getOrNull()
+            onResult(response?.body()?.caption ?: "AI caption is unavailable until the server has an AI key.")
+        }
+    }
+
+    fun requestCommission(artistId: String, brief: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val response = runCatching {
+                studioApi.createCommission(com.tpsk.tj.common.data.api.CommissionCreateRequest(artistId, brief))
+            }.getOrNull()
+            val message = response?.errorBody()?.string()?.let { raw ->
+                Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.getOrNull(1)
+            }
+            onResult(if (response?.isSuccessful == true) "Commission request sent." else message ?: "Could not send commission request")
+        }
     }
 
     fun exportPosts(onResult: (String) -> Unit) {

@@ -33,6 +33,7 @@ fun PostOptionsMenu(
     onBookmark: () -> Unit,
     onNotInterested: (() -> Unit)? = null,
     onContext: (() -> Unit)? = null,
+    onRequestCommission: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -110,6 +111,16 @@ fun PostOptionsMenu(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )
 
+            if (!isOwner && onRequestCommission != null) {
+                MenuActionItem(
+                    icon = Icons.Outlined.Edit,
+                    label = "Request a commission",
+                    onClick = {
+                        onRequestCommission()
+                        onDismiss()
+                    }
+                )
+            }
             if (onContext != null) {
                 MenuActionItem(
                     icon = Icons.Outlined.Info,

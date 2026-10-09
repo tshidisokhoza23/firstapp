@@ -46,12 +46,13 @@ class SocialRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalPagingApi::class)
     override fun getPostsPaging(following: Boolean, authorId: String, feedType: String, categoryId: String?, qualityMode: String?): Flow<PagingData<Post>> {
+        val qualityKey = qualityMode?.trim()?.lowercase().orEmpty().ifBlank { "balanced" }
         val finalFeedType = when {
             categoryId != null -> "${feedType}_cat_$categoryId"
             authorId.isNotBlank() -> "${feedType}_user_$authorId"
             following -> "following"
             else -> feedType
-        }
+        } + "_q_$qualityKey"
         
         Log.d("SocialRepo", "getPostsPaging: following=$following, authorId=$authorId, feedType=$feedType, final=$finalFeedType")
         
@@ -73,7 +74,8 @@ class SocialRepositoryImpl @Inject constructor(
                 authorId = authorId,
                 apiFeedType = feedType,
                 dbFeedType = finalFeedType,
-                categoryId = categoryId
+                categoryId = categoryId,
+                qualityMode = qualityKey
             ),
             pagingSourceFactory = pagingSourceFactory
         ).flow.flowMap { pagingData ->
@@ -548,10 +550,10 @@ private fun Post.matchesQuality(mode: String?): Boolean {
     val key = mode?.trim()?.lowercase().orEmpty()
     if (key.isBlank() || key == "off" || key == "balanced") return true
     return when (key) {
-        "high" -> mediaUrls.isNotEmpty() || likes >= 3 || views >= 20 || isVerifiedAuthor
+        "high" -> !isShouty(content) && !isBait(content) && (mediaUrls.isNotEmpty() || repliesCount > 0 || content.count { it.isLetter() } >= 40)
         "following" -> isAuthorFollowed
-        "topics" -> tags.isNotEmpty() || content.contains('#') || (category.isNotBlank() && category != "general")
-        "calm" -> !isShouty(content)
+        "topics" -> true
+        "calm" -> !isShouty(content) && !isBait(content)
         else -> true
     }
 }
@@ -560,4 +562,9 @@ private fun isShouty(content: String): Boolean {
     val letters = content.filter { it.isLetter() }
     if (letters.length >= 20 && letters.count { it.isUpperCase() } * 10 >= letters.length * 7) return true
     return content.contains("!!!")
+}
+
+private fun isBait(content: String): Boolean {
+    val lower = content.lowercase()
+    return listOf("like if", "share if", "you won't believe", "you wont believe", "follow me for").any { lower.contains(it) }
 }

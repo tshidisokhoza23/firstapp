@@ -257,6 +257,7 @@ fun ShortsTabScreen(
                     onSendReply = { content, parentId ->
                         mediaViewModel.createPost(content, parentPostId = parentId ?: activeId, rootPostId = activeId, postType = "reply")
                     },
+                    onSuggestReply = { apply -> mediaViewModel.suggestReply(activeId, apply) },
                     onLikeReply = { reply ->
                         mediaViewModel.likePost(reply.id, reply.likes, reply.isLiked)
                     }
