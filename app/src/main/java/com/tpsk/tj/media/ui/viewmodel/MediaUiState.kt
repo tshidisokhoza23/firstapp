@@ -24,5 +24,6 @@ data class MediaUiState(
     val isUploading: Boolean = false,
     val activePostId: String? = null,
     val categories: List<Category> = DefaultCategories,
-    val selectedCategoryId: String? = null
+    val selectedCategoryId: String? = null,
+    val qualityMode: String = "balanced"
 )

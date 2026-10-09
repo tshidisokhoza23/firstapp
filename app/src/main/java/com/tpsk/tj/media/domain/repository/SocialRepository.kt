@@ -13,7 +13,7 @@ interface SocialRepository {
     fun getFollowingPosts(page: Int, feedType: String): Flow<Resource<List<Post>>>
     fun getChannelPosts(channelId: String, page: Int, feedType: String): Flow<Resource<List<Post>>>
     fun getUserPosts(userId: String, feedType: String, page: Int): Flow<Resource<List<Post>>>
-    fun getPostsPaging(following: Boolean, authorId: String, feedType: String, categoryId: String? = null): Flow<PagingData<Post>>
+    fun getPostsPaging(following: Boolean, authorId: String, feedType: String, categoryId: String? = null, qualityMode: String? = null): Flow<PagingData<Post>>
     suspend fun updatePostLikeLocally(postId: String, likes: Long, isLiked: Boolean)
     suspend fun updatePostRepostLocally(postId: String, repostCount: Long, isReposted: Boolean)
     suspend fun updatePostShareLocally(postId: String, shares: Long)

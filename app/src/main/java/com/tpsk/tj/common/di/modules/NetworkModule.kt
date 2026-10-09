@@ -7,6 +7,8 @@ import com.tpsk.tj.chat.jobs.data.api.JobApi
 import com.tpsk.tj.chat.rewards.data.api.RewardsApi
 import com.tpsk.tj.wallet.data.api.CreatorWalletApi
 import com.tpsk.tj.common.domain.auth.SessionManager
+import com.tpsk.tj.common.data.api.AiApi
+import com.tpsk.tj.common.data.api.StudioApi
 import com.tpsk.tj.common.data.api.SystemApi
 import com.tpsk.tj.common.data.api.UserApi
 import com.tpsk.tj.common.data.network.ActivePassiveInterceptor
@@ -244,4 +246,12 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideMingleApi(retrofit: Retrofit): MingleApi = retrofit.create(MingleApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideAiApi(retrofit: Retrofit): AiApi = retrofit.create(AiApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideStudioApi(retrofit: Retrofit): StudioApi = retrofit.create(StudioApi::class.java)
 }

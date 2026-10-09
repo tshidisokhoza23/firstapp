@@ -128,12 +128,16 @@ fun MediaScreen(
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
     onProfileClick: (String) -> Unit = {},
+    onNavigateToCircles: () -> Unit = {},
+    onNavigateToCreatorDashboard: () -> Unit = {},
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
     onRequestCreatePost: (replyId: String?, quoteId: String?) -> Unit = { _, _ -> },
     categories: List<Category> = emptyList(),
     selectedCategoryId: String? = null,
     onCategorySelected: (String?) -> Unit = {},
+    selectedQualityMode: String = "balanced",
+    onQualityModeSelected: (String) -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
@@ -332,7 +336,9 @@ fun MediaScreen(
                             onPostViewed = onPostViewed,
                             categories = categories,
                             selectedCategoryId = selectedCategoryId,
-                            onCategorySelected = onCategorySelected
+                            onCategorySelected = onCategorySelected,
+                            selectedQualityMode = selectedQualityMode,
+                            onQualityModeSelected = onQualityModeSelected
                         )
                     }
                 }
@@ -387,14 +393,26 @@ fun MediaScreen(
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
+                    HorizontalDivider(color = Color(0xFF333333), modifier = Modifier.padding(vertical = 4.dp))
                     ListItem(
-                        headlineContent = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
-                        leadingContent = { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface) },
+                        headlineContent = { Text("Circles", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold) },
+                        leadingContent = { Icon(Icons.Default.Group, null, tint = Color(0xFF00E5FF)) },
                         modifier = Modifier.clickable {
                             showTopMoreSheet = false
+                            onNavigateToCircles()
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
+                    ListItem(
+                        headlineContent = { Text("Creator Dashboard", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold) },
+                        leadingContent = { Icon(Icons.Default.Dashboard, null, tint = Color(0xFF00E5FF)) },
+                        modifier = Modifier.clickable {
+                            showTopMoreSheet = false
+                            onNavigateToCreatorDashboard()
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(color = Color(0xFF333333), modifier = Modifier.padding(vertical = 4.dp))
                     ListItem(
                         headlineContent = { Text("Saved Posts", color = MaterialTheme.colorScheme.onSurface) },
                         leadingContent = { Icon(Icons.Default.Bookmark, null, tint = MaterialTheme.colorScheme.primary) },
@@ -536,6 +554,8 @@ fun MainFeedSection(
     categories: List<Category> = emptyList(),
     selectedCategoryId: String? = null,
     onCategorySelected: (String?) -> Unit = {},
+    selectedQualityMode: String = "balanced",
+    onQualityModeSelected: (String) -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     when {
@@ -626,7 +646,9 @@ fun MainFeedSection(
                     CategoryChipBar(
                         categories = categories,
                         selectedCategoryId = selectedCategoryId,
-                        onCategorySelected = onCategorySelected
+                        onCategorySelected = onCategorySelected,
+                        selectedQualityMode = selectedQualityMode,
+                        onQualityModeSelected = onQualityModeSelected
                     )
                 }
             }

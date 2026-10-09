@@ -116,6 +116,8 @@ sealed class Screen(val route: String) {
         fun createRoute(replyId: String? = null, quoteId: String? = null) =
             "create_post?replyId=${android.net.Uri.encode(replyId ?: "")}&quoteId=${android.net.Uri.encode(quoteId ?: "")}"
     }
+    object Circles : Screen("circles")
+    object CreatorDashboard : Screen("creator_dashboard")
     object TermsAndPrivacy : Screen("terms_and_privacy?url={url}&title={title}") {
         fun createRoute(url: String = "https://firstappserver.fly.dev/privacy", title: String = "Terms of Service & Privacy Policy") =
             "terms_and_privacy?url=${android.net.Uri.encode(url)}&title=${android.net.Uri.encode(title)}"

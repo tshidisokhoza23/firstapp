@@ -1,12 +1,12 @@
 package com.tpsk.tj.media.ui.screens
 
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -34,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tpsk.tj.LocalCurrentUser
+import com.tpsk.tj.common.data.repository.AiRepository
 import com.tpsk.tj.media.model.Post
+import com.tpsk.tj.media.ui.components.AiAssistSheet
 import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,7 +47,8 @@ fun CreatePostScreen(
     quotingPost: Post? = null,
     onDismiss: () -> Unit,
     onPostCreated: () -> Unit,
-    mediaViewModel: MediaViewModel
+    mediaViewModel: MediaViewModel,
+    aiRepository: AiRepository? = null
 ) {
     val currentUser = LocalCurrentUser.current
 
@@ -54,11 +58,13 @@ fun CreatePostScreen(
     var showPoll by remember { mutableStateOf(false) }
     var pollOptions by remember { mutableStateOf(listOf("", "")) }
     var isPostingState by remember { mutableStateOf(false) }
+    var showAiAssistSheet by remember { mutableStateOf(false) }
+    var isAiImproved by remember { mutableStateOf(false) }
+    var selectedVisibility by remember { mutableStateOf("Public") }
 
     val charLimit = 280
     val canPost = (postText.isNotBlank() || selectedImageUris.isNotEmpty() || showPoll) && postText.length <= charLimit
 
-    // Photo picker launcher (standard Android PhotoPicker, avoids broad storage permissions)
     val pickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 4)
     ) { uris ->
@@ -73,19 +79,45 @@ fun CreatePostScreen(
         }
     }
 
+    val gradientBrush = Brush.horizontalGradient(
+        colors = listOf(Color(0xFF8A2BE2), Color(0xFF00E5FF))
+    )
+
     Scaffold(
+        containerColor = Color(0xFF1A1A1A),
         modifier = Modifier
             .fillMaxSize()
-            .imePadding(), // Pins bottom toolbar directly above keyboard
+            .imePadding(),
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1A1A)),
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                     }
                 },
                 actions = {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.padding(end = 12.dp)
+                    ) {
+                        val remaining = charLimit - postText.length
+                        Text(
+                            text = "$remaining",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (remaining < 0) Color.Red else Color(0xFF00E5FF)
+                        )
+                        Text(
+                            text = "Draft saved",
+                            fontSize = 10.sp,
+                            color = Color.Gray
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     Button(
                         onClick = {
                             if (!canPost || isPostingState) return@Button
@@ -100,7 +132,6 @@ fun CreatePostScreen(
                             }
                             val finalPoll = if (showPoll) pollOptions.filter { it.isNotBlank() } else null
 
-                            // One create path only. A second worker upload was publishing a duplicate post.
                             mediaViewModel.createPost(
                                 content = postText,
                                 mediaUris = imageUriStrings,
@@ -112,62 +143,73 @@ fun CreatePostScreen(
                                 repostOfId = quotingPost?.id
                             )
 
-                            // 3. Instantly pop back to feed with zero UI lag
                             onPostCreated()
                         },
                         enabled = canPost && !isPostingState,
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1D9BF0),
-                            disabledContainerColor = Color(0xFF1D9BF0).copy(alpha = 0.5f)
+                            containerColor = Color.Transparent,
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
                         ),
-                        modifier = Modifier.padding(end = 12.dp)
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .background(gradientBrush, RoundedCornerShape(20.dp))
                     ) {
-                        Text(
-                            text = if (replyToPost != null) "Reply" else "Post",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Box(
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Share",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
             )
         },
         bottomBar = {
             Surface(
-                tonalElevation = 2.dp,
+                color = Color(0xFF242424).copy(alpha = 0.95f),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                border = BorderStroke(1.dp, Color(0xFF333333)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
-                    // Reply permission row
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    // Public Dropdown row
                     Row(
                         modifier = Modifier
-                            .clickable { /* Show Reply Scope Picker */ }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .clickable { /* Select Scope */ }
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.Public,
                             contentDescription = null,
-                            tint = Color(0xFF1D9BF0),
+                            tint = Color(0xFF00E5FF),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Everyone can reply",
+                            text = "$selectedVisibility ▾",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1D9BF0)
+                            color = Color(0xFF00E5FF)
                         )
                     }
 
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF333333))
 
-                    // Media action bar & Character counter
+                    // Tool Icons Row (Teal outlines)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .navigationBarsPadding()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
@@ -175,10 +217,19 @@ fun CreatePostScreen(
                                 pickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
                                 )
-                            },
-                            enabled = selectedImageUris.size < 4
+                            }
                         ) {
-                            Icon(Icons.Outlined.Image, contentDescription = "Add Images", tint = Color(0xFF1D9BF0))
+                            Icon(Icons.Outlined.Image, contentDescription = "Image", tint = Color(0xFF00E5FF))
+                        }
+
+                        IconButton(
+                            onClick = {
+                                pickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.SingleMimeType("video/*"))
+                                )
+                            }
+                        ) {
+                            Icon(Icons.Outlined.Videocam, contentDescription = "Video", tint = Color(0xFF00E5FF))
                         }
 
                         IconButton(
@@ -191,24 +242,29 @@ fun CreatePostScreen(
                                 }
                             }
                         ) {
-                            Icon(Icons.Outlined.Poll, contentDescription = "Add Poll", tint = Color(0xFF1D9BF0))
+                            Icon(Icons.Outlined.Poll, contentDescription = "Poll", tint = Color(0xFF00E5FF))
                         }
 
                         IconButton(onClick = { selectedLocation = "Cape Town, SA" }) {
-                            Icon(Icons.Outlined.LocationOn, contentDescription = "Add Location", tint = Color(0xFF1D9BF0))
+                            Icon(Icons.Outlined.LocationOn, contentDescription = "Location", tint = Color(0xFF00E5FF))
                         }
 
-                        Spacer(modifier = Modifier.weight(1f))
+                        // AI Assist Sparkle Button
+                        IconButton(onClick = { showAiAssistSheet = true }) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = "AI Assist",
+                                tint = Color(0xFF00E5FF)
+                            )
+                        }
 
-                        // Character count indicator
-                        val remaining = charLimit - postText.length
-                        Text(
-                            text = "$remaining",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (remaining < 0) Color.Red else Color.Gray,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
+                        IconButton(onClick = { }) {
+                            Icon(Icons.Outlined.Schedule, contentDescription = "Schedule", tint = Color(0xFF00E5FF))
+                        }
+
+                        IconButton(onClick = { }) {
+                            Icon(Icons.Outlined.Group, contentDescription = "Collaborators", tint = Color(0xFF00E5FF))
+                        }
                     }
                 }
             }
@@ -221,34 +277,19 @@ fun CreatePostScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            if (replyToPost != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Replying to ",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "@${replyToPost.authorHandle}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1D9BF0)
-                    )
-                }
-            }
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                // User Avatar
+            // Main Input Area with Avatar Progress Ring
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(48.dp)
+                        .border(2.dp, gradientBrush, CircleShape)
+                        .padding(3.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF1D9BF0))
+                        .background(Color(0xFF333333))
                 ) {
                     if (!currentUser?.avatarUrl.isNullOrEmpty()) {
                         AsyncImage(
@@ -271,96 +312,101 @@ fun CreatePostScreen(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Auto-expanding Post Input Field
-                BasicTextField(
-                    value = postText,
-                    onValueChange = { postText = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 8.dp),
-                    textStyle = TextStyle(
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 24.sp
-                    ),
-                    cursorBrush = SolidColor(Color(0xFF1D9BF0)),
-                    decorationBox = { innerTextField ->
-                        if (postText.isEmpty()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    BasicTextField(
+                        value = postText,
+                        onValueChange = { postText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(
+                            fontSize = 18.sp,
+                            color = Color.White,
+                            lineHeight = 24.sp
+                        ),
+                        cursorBrush = SolidColor(Color(0xFF00E5FF)),
+                        decorationBox = { innerTextField ->
+                            if (postText.isEmpty()) {
+                                Text(
+                                    text = if (replyToPost != null) "Post your reply..." else "Share your thoughts...",
+                                    fontSize = 18.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Feeling creative pill
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.Transparent,
+                        border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.6f)),
+                        modifier = Modifier.clickable { showAiAssistSheet = true }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
                             Text(
-                                text = if (replyToPost != null) "Post your reply" else "What's happening? Add #hashtags",
-                                fontSize = 18.sp,
-                                color = Color.Gray
+                                text = "Feeling creative ✨",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF00E5FF)
                             )
                         }
-                        innerTextField()
                     }
-                )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Template Chips (Horizontal Scroll)
+            Text(
+                text = "TEMPLATES",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            val templates = listOf(
+                "🔥 Hot take" to "Hot take: ",
+                "❓ Question" to "Question for the community: ",
+                "🧵 Thread" to "Thread 🧵 (1/N):\n",
+                "📢 Announcement" to "📢 Big announcement: "
+            )
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(templates) { (label, prefix) ->
+                    Surface(
+                        onClick = {
+                            if (!postText.startsWith(prefix)) {
+                                postText = prefix + postText
+                            }
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFF242424),
+                        border = BorderStroke(1.dp, Color(0xFF333333))
+                    ) {
+                        Text(
+                            text = label,
+                            color = Color(0xFF00E5FF),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Location Badge
-            if (selectedLocation != null) {
-                Row(
-                    modifier = Modifier
-                        .background(Color(0xFF1D9BF0).copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.LocationOn, null, tint = Color(0xFF1D9BF0), modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(selectedLocation!!, color = Color(0xFF1D9BF0), fontSize = 12.sp)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        Icons.Default.Close,
-                        null,
-                        tint = Color(0xFF1D9BF0),
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clickable { selectedLocation = null }
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            // Poll Creator Options
-            if (showPoll) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Poll Options", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        pollOptions.forEachIndexed { index, option ->
-                            OutlinedTextField(
-                                value = option,
-                                onValueChange = { newValue ->
-                                    val newList = pollOptions.toMutableList()
-                                    newList[index] = newValue
-                                    pollOptions = newList
-                                },
-                                placeholder = { Text("Choice ${index + 1}") },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                        }
-                        if (pollOptions.size < 4) {
-                            TextButton(
-                                onClick = { pollOptions = pollOptions + "" }
-                            ) {
-                                Text("+ Add Choice", color = Color(0xFF1D9BF0))
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Attached Media Grid with Remove (X) buttons
+            // Attached Media Grid
             if (selectedImageUris.isNotEmpty()) {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -371,7 +417,7 @@ fun CreatePostScreen(
                             modifier = Modifier
                                 .size(140.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .background(Color(0xFF2A2A2A))
                         ) {
                             AsyncImage(
                                 model = uri,
@@ -392,36 +438,21 @@ fun CreatePostScreen(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Quoted Post Card Preview
-            if (quotingPost != null) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .background(quotingPost.authorAvatarColor)
-                            ) {
-                                AsyncImage(model = quotingPost.authorAvatarUrl, null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Text(quotingPost.authorName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(" @${quotingPost.authorHandle}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(quotingPost.content, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+
+    // AI Assist Sheet Dialog
+    if (showAiAssistSheet) {
+        val repo = aiRepository ?: rememberAiRepository()
+        AiAssistSheet(
+            initialText = postText,
+            aiRepository = repo,
+            onDismiss = { showAiAssistSheet = false },
+            onApplyText = { newText, _, isImproved ->
+                postText = newText
+                isAiImproved = isImproved
+            }
+        )
     }
 }

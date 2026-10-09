@@ -217,4 +217,19 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onUserProfileClick = { userId -> navController.navigate(Screen.UserProfile.createRoute(userId)) }
         )
     }
+
+    composable(route = Screen.Circles.route) {
+        com.tpsk.tj.chat.ui.screens.CirclesScreen(
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(route = Screen.CreatorDashboard.route) {
+        com.tpsk.tj.media.ui.screens.CreatorDashboardScreen(
+            onBack = { navController.popBackStack() },
+            onCreatePostClick = {
+                navController.navigate(Screen.CreatePost.createRoute())
+            }
+        )
+    }
 }

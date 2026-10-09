@@ -54,6 +54,8 @@ fun MediaTabScreen(
             categories = uiState.categories,
             selectedCategoryId = uiState.selectedCategoryId,
             onCategorySelected = { mediaViewModel.selectCategory(it) },
+            selectedQualityMode = uiState.qualityMode,
+            onQualityModeSelected = { mediaViewModel.selectQualityMode(it) },
             onPostSelect = { post ->
                 if (post != null) {
                     mediaViewModel.selectPost(post)
@@ -91,6 +93,8 @@ fun MediaTabScreen(
             onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
             onSavedPostsClick = { navController.navigate(Screen.SavedPosts.route) },
             onNotificationsClick = { navController.navigate(Screen.SocialNotification.route) },
+            onNavigateToCircles = { navController.navigate(Screen.Circles.route) },
+            onNavigateToCreatorDashboard = { navController.navigate(Screen.CreatorDashboard.route) },
             onAdRevenueLogged = { pid, rev, uid -> mediaViewModel.onAdRevenueLogged(pid, rev, uid) },
             onShortClick = { short ->
                 // REQUIREMENT: Universal Entry Point for shorts

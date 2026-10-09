@@ -182,26 +182,33 @@ class MediaViewModel @Inject constructor(
 
     private var currentFeedType: String? = null
 
-    fun loadFeed(type: String, categoryId: String? = null, forceReload: Boolean = false) {
+    fun loadFeed(type: String, categoryId: String? = null, forceReload: Boolean = false, qualityMode: String? = null) {
         val currentCategory = _uiState.value.selectedCategoryId
-        if (!forceReload && currentFeedType == type && currentCategory == categoryId) return
+        val quality = qualityMode ?: _uiState.value.qualityMode
+        if (!forceReload && currentFeedType == type && currentCategory == categoryId && _uiState.value.qualityMode == quality && qualityMode == null) return
         currentFeedType = type
 
         _uiState.update { 
             it.copy(
                 selectedCategoryId = categoryId,
+                qualityMode = quality,
                 posts = socialRepository.getPostsPaging(
                     following = (type == "following"),
                     authorId = "",
                     feedType = type,
-                    categoryId = if (categoryId == "all") null else categoryId
+                    categoryId = if (categoryId == "all") null else categoryId,
+                    qualityMode = quality
                 ).cachedIn(viewModelScope)
             )
         }
     }
 
     fun selectCategory(categoryId: String?) {
-        loadFeed(currentFeedType ?: "standard", categoryId)
+        loadFeed(currentFeedType ?: "standard", categoryId, qualityMode = _uiState.value.qualityMode)
+    }
+
+    fun selectQualityMode(mode: String) {
+        loadFeed(currentFeedType ?: "standard", _uiState.value.selectedCategoryId, forceReload = true, qualityMode = mode)
     }
 
     private fun connectPostRealtime() {
