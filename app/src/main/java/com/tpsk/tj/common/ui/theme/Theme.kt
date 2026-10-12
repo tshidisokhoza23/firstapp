@@ -12,23 +12,23 @@ import androidx.compose.ui.platform.LocalContext
 val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 private val DarkColorScheme = darkColorScheme(
-    primary = AppPrimary,
-    secondary = GreyDark,
-    tertiary = AppAccent,
-    background = AppBackgroundDarkTop,
-    surface = GreyDark,
+    primary = DarkPrimary,
+    secondary = DarkSurface,
+    tertiary = DarkAccent,
+    background = DarkBackground,
+    surface = DarkSurface,
     onPrimary = White,
     onSecondary = White,
     onBackground = White,
     onSurface = White,
-    outline = DividerColor,
-    surfaceVariant = SurfaceElevated
+    outline = Color(0xFF2A2C34),
+    surfaceVariant = DarkSurface
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = AppPrimary,
+    primary = LightPrimary,
     secondary = Color(0xFFF2F2F7),
-    tertiary = AppAccent,
+    tertiary = LightAccent,
     background = White,
     surface = White,
     onPrimary = White,
@@ -41,7 +41,7 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun TJTheme(
-    darkTheme: Boolean = true,
+    darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

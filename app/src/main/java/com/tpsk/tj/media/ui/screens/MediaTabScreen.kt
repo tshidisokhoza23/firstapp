@@ -1,8 +1,13 @@
 package com.tpsk.tj.media.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -28,8 +33,6 @@ fun MediaTabScreen(
     mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
-    val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
-    val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
     val currentUser = com.tpsk.tj.LocalCurrentUser.current
     val pagedPosts = uiState.posts.collectAsLazyPagingItems()
 
@@ -75,44 +78,26 @@ fun MediaTabScreen(
             onDeletePost = { mediaViewModel.deletePost(it) },
             onBookmarkPost = { mediaViewModel.bookmarkPost(it) }, 
             onPostViewed = { mediaViewModel.viewPost(it) }, 
-            onProfileViewChange = { /* Handle internal profile view if needed */ }, 
+            onProfileViewChange = { }, 
             onGetUserPosts = onGetUserPosts,
             userViewModel = userViewModel,
-            mediaViewModel = mediaViewModel,
-            onPlaySong = { s, q -> musicViewModel.playSong(s, q) }, 
-            onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
-            onFollowUser = { userId, isFollowed -> 
-                if (isFollowed) mediaViewModel.unfollowUser(userId)
-                else mediaViewModel.followUser(userId)
-            },
-            onArtistClick = { artistName -> musicViewModel.requestArtist(artistName) },
-            onCallClick = { userId, type -> chatViewModel.startVoiceOrVideoCall(receiverId = userId, callType = type) },
-            onCreatePostClick = 0,
-            onRefresh = { mediaViewModel.refreshAll() },
-            refreshTrigger = uiState.refreshTrigger,
-            onDirectMessagesClick = { navController.navigate(Screen.MediaMessages.route) },
-            onSavedPostsClick = { navController.navigate(Screen.SavedPosts.route) },
-            onNotificationsClick = { navController.navigate(Screen.SocialNotification.route) },
-            onNavigateToCircles = { navController.navigate(Screen.Circles.route) },
-            onNavigateToCreatorDashboard = { navController.navigate(Screen.CreatorDashboard.route) },
-            onAdRevenueLogged = { pid, rev, uid -> mediaViewModel.onAdRevenueLogged(pid, rev, uid) },
-            onShortClick = { short ->
-                // REQUIREMENT: Universal Entry Point for shorts
-                navController.navigate(Screen.Main.createRoute(tab = "scroll", shortId = short.id))
-            },
-            onMediaClick = { url, type, pos ->
-                navController.navigate(Screen.MediaViewer.createRoute(url, type, pos))
-            },
-            onShareClick = { post ->
-                mediaViewModel.sharePost(post.id, post.shares)
-                com.tpsk.tj.common.util.ShareUtils.sharePost(navController.context, post)
-            },
-            onProfileClick = { userId ->
-                navController.navigate(Screen.UserProfile.createRoute(userId))
-            },
-            autoplayEnabled = autoplayEnabled,
-            autoplayGifsEnabled = autoplayGifsEnabled,
-            bottomPadding = bottomPadding
+            mediaViewModel = mediaViewModel
         )
+
+        // Social Feed Floating Action Button (FAB)
+        FloatingActionButton(
+            onClick = { navController.navigate(Screen.CreatePost.createRoute()) },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 20.dp, bottom = 20.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = Color.White
+        ) {
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = "Create Post",
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
