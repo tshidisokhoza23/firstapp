@@ -67,17 +67,26 @@ class JobViewModel @Inject constructor(
 
     fun fetchJobs() {
         val chip = _feedChip.value
-        val featuredOnly = chip == "Featured"
-        val jobType = if (chip == "All" || featuredOnly) null else chip
+        val category = if (chip == "All") null else chip
         val salary = _salaryMin.value.toDoubleOrNull()
         viewModelScope.launch {
             repository.getJobs(
-                jobType = jobType,
-                featuredOnly = featuredOnly,
                 location = _location.value.trim().ifBlank { null },
                 salaryMin = salary,
-                postedWithinDays = _postedWithinDays.value.takeIf { it > 0 }
+                postedWithinDays = _postedWithinDays.value.takeIf { it > 0 },
+                category = category
             ).collect { _jobs.value = it }
+        }
+    }
+
+    fun search(query: String) {
+        val category = _feedChip.value.takeUnless { it == "All" }
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                fetchJobs()
+            } else {
+                repository.searchJobs(query, category = category).collect { _jobs.value = it }
+            }
         }
     }
 

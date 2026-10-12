@@ -1,17 +1,36 @@
 package com.tpsk.tj.chat.jobs.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.tpsk.tj.chat.jobs.model.Job
@@ -20,8 +39,15 @@ import com.tpsk.tj.chat.jobs.ui.viewmodel.JobViewModel
 import com.tpsk.tj.common.data.ads.AdUnitConfig
 import com.tpsk.tj.common.ui.components.NativeAdCard
 import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.home.ui.components.AppLogo
 import com.tpsk.tj.ui.navigation.Screen
 
+private val jobCategories = listOf(
+    "All", "General", "IT", "Finance", "Sales", "Healthcare", "Education",
+    "Engineering", "Marketing", "Hospitality", "Logistics", "Admin", "Legal", "Construction"
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JobsHomeScreen(
     navController: NavController,
@@ -34,9 +60,70 @@ fun JobsHomeScreen(
     val salaryMin by viewModel.salaryMin.collectAsState()
     val postedWithin by viewModel.postedWithinDays.collectAsState()
     val myJobs by viewModel.myJobs.collectAsState()
-    val chips = listOf("All", "Full-time", "Part-time", "Remote", "Featured")
     val dateChips = listOf(0 to "Any date", 1 to "24h", 7 to "7 days", 30 to "30 days")
+    var showMenu by remember { mutableStateOf(false) }
+    var searching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val gradient = Brush.horizontalGradient(listOf(Color(0xFF8A2BE2), Color(0xFF00E5FF)))
     Column(modifier = Modifier.fillMaxSize().padding(bottom = bottomPadding)) {
+        if (searching) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = {
+                    query = it
+                    viewModel.search(it)
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                singleLine = true,
+                placeholder = { Text("Search jobs") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    IconButton(onClick = {
+                        searching = false
+                        query = ""
+                        viewModel.fetchJobs()
+                    }) { Icon(Icons.Default.Close, contentDescription = "Close search") }
+                }
+            )
+        } else {
+            CenterAlignedTopAppBar(
+                title = { AppLogo(size = 36.dp) },
+                navigationIcon = {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { searching = true }) {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+            )
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(jobCategories) { chip ->
+                val selected = selectedChip == chip
+                Surface(
+                    onClick = { viewModel.selectFeedChip(chip) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (selected) Color.Transparent else Color(0xFF242424),
+                    border = if (selected) null else BorderStroke(1.dp, Color(0xFF333333)),
+                    modifier = if (selected) Modifier.background(gradient, RoundedCornerShape(20.dp)) else Modifier
+                ) {
+                    Text(
+                        chip,
+                        color = if (selected) Color.White else Color(0xFF00E5FF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -62,18 +149,6 @@ fun JobsHomeScreen(
         ) {
             dateChips.forEach { (days, label) ->
                 FilterChip(selected = postedWithin == days, onClick = { viewModel.setPostedWithinDays(days) }, label = { Text(label) })
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            chips.forEach { chip ->
-                FilterChip(
-                    selected = selectedChip == chip,
-                    onClick = { viewModel.selectFeedChip(chip) },
-                    label = { Text(chip) }
-                )
             }
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -104,19 +179,53 @@ fun JobsHomeScreen(
             }
         }
         }
+    }
+    if (showMenu) {
         val context = androidx.compose.ui.platform.LocalContext.current
-        TextButton(onClick = { viewModel.fetchMyJobs() }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("My listings") }
-        TextButton(onClick = { viewModel.anonymizeJobData() }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Anonymize my applications") }
-        val mine = (myJobs as? Resource.Success)?.data.orEmpty()
-        mine.take(5).forEach { job ->
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(job.title, modifier = Modifier.weight(1f))
-                TextButton(onClick = { viewModel.closeJob(job.id) }) { Text("Close") }
-                TextButton(onClick = {
-                    viewModel.renewJob(job.id) { url ->
-                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
-                    }
-                }) { Text("Renew") }
+        ModalBottomSheet(onDismissRequest = { showMenu = false }) {
+            ListItem(
+                headlineContent = { Text("Post a job") },
+                leadingContent = { Icon(Icons.Default.Add, null) },
+                modifier = Modifier.clickable {
+                    showMenu = false
+                    navController.navigate(Screen.PostJob.route)
+                }
+            )
+            ListItem(
+                headlineContent = { Text("My applications") },
+                leadingContent = { Icon(Icons.Default.Work, null) },
+                modifier = Modifier.clickable {
+                    showMenu = false
+                    navController.navigate(Screen.Applications.route)
+                }
+            )
+            ListItem(
+                headlineContent = { Text("Job profile") },
+                leadingContent = { Icon(Icons.Default.Person, null) },
+                modifier = Modifier.clickable {
+                    showMenu = false
+                    navController.navigate(Screen.JobProfile.route)
+                }
+            )
+            ListItem(
+                headlineContent = { Text("My listings") },
+                leadingContent = { Icon(Icons.Default.Bookmark, null) },
+                modifier = Modifier.clickable { viewModel.fetchMyJobs() }
+            )
+            val mine = (myJobs as? Resource.Success)?.data.orEmpty()
+            mine.take(8).forEach { job ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(job.title, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { viewModel.closeJob(job.id) }) { Text("Close") }
+                    TextButton(onClick = {
+                        viewModel.renewJob(job.id) { url ->
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                        }
+                    }) { Text("Renew") }
+                }
+            }
+            TextButton(onClick = { viewModel.anonymizeJobData(); showMenu = false }, modifier = Modifier.padding(16.dp)) {
+                Text("Anonymize my applications")
             }
         }
     }

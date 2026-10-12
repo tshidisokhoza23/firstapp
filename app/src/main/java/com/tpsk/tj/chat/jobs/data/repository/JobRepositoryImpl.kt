@@ -29,9 +29,10 @@ class JobRepositoryImpl @Inject constructor(
         location: String?,
         salaryMin: Double?,
         postedWithinDays: Int?,
-        query: String?
+        query: String?,
+        category: String?
     ): Flow<Resource<List<Job>>> = flow {
-        val filtering = !jobType.isNullOrBlank() || featuredOnly || !location.isNullOrBlank() || salaryMin != null || postedWithinDays != null || !query.isNullOrBlank()
+        val filtering = !jobType.isNullOrBlank() || featuredOnly || !location.isNullOrBlank() || salaryMin != null || postedWithinDays != null || !query.isNullOrBlank() || !category.isNullOrBlank()
         val cachedEntities = jobDao.getJobs().first()
         val cached = cachedEntities.map { it.toModel() }
         if (!filtering && cached.isNotEmpty()) {
@@ -48,7 +49,8 @@ class JobRepositoryImpl @Inject constructor(
                 location = location,
                 salaryMin = salaryMin,
                 postedWithinDays = postedWithinDays,
-                query = query
+                query = query,
+                category = category
             )
             if (response.isSuccessful) {
                 val apiJobs = response.body()?.jobs ?: emptyList<ApiJob>()
@@ -210,7 +212,8 @@ class JobRepositoryImpl @Inject constructor(
         salaryMin: Double?,
         jobType: String?,
         featuredOnly: Boolean,
-        postedWithinDays: Int?
+        postedWithinDays: Int?,
+        category: String?
     ): Flow<Resource<List<Job>>> = flow {
         emit(Resource.Loading())
         try {
@@ -220,7 +223,8 @@ class JobRepositoryImpl @Inject constructor(
                 salaryMin = salaryMin,
                 jobType = jobType,
                 featured = if (featuredOnly) true else null,
-                postedWithinDays = postedWithinDays
+                postedWithinDays = postedWithinDays,
+                category = category
             )
             if (response.isSuccessful) {
                 emit(Resource.Success(response.body()?.jobs.orEmpty().map { it.toModel() }))

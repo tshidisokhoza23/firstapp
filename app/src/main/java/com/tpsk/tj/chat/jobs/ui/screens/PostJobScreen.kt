@@ -2,6 +2,7 @@ package com.tpsk.tj.chat.jobs.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -22,7 +23,7 @@ fun PostJobScreen(
     viewModel: JobViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("General") }
     var description by remember { mutableStateOf("") }
     var skills by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
@@ -79,18 +80,12 @@ fun PostJobScreen(
                 )
             )
 
-            OutlinedTextField(
-                value = category,
-                onValueChange = { category = it },
-                label = { Text("Category (e.g., Software, General Work)") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                )
-            )
+            Text("Category", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("General", "IT", "Finance", "Sales", "Healthcare", "Education", "Engineering", "Marketing", "Hospitality", "Logistics", "Admin", "Legal", "Construction").forEach { item ->
+                    FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item) })
+                }
+            }
 
             OutlinedTextField(
                 value = description,
