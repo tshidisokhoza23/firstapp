@@ -289,38 +289,20 @@ fun ChatsListScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTabItem == index
-                            val animatedColor by animateColorAsState(
-                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                label = "tabColor"
-                            )
-                            val animatedContentColor by animateColorAsState(
-                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                label = "tabContentColor"
-                            )
-                            
-                            Surface(
-                                onClick = { 
+                            com.tpsk.tj.common.ui.components.AppFilterChip(
+                                text = title,
+                                isSelected = isSelected,
+                                onClick = {
                                     selectedTabItem = index
                                     chatViewModel.setActiveSubTab(index)
-                                },
-                                color = animatedColor,
-                                shape = RoundedCornerShape(24.dp),
-                                border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                            ) {
-                                Text(
-                                    text = title,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    color = animatedContentColor,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
+                                }
+                            )
                         }
                     }
                 }

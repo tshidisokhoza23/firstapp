@@ -593,100 +593,101 @@ fun MainFeedSection(
     onQualityModeSelected: (String) -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
-    when {
-        posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(5) { PostItemShimmer() }
-            }
-            return
-        }
-        posts.loadState.refresh is LoadState.Error && posts.itemCount == 0 -> {
-            val error = (posts.loadState.refresh as LoadState.Error).error
-            Column(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(text = "Could not load media feed", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = error.localizedMessage ?: "Connection error", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { posts.retry(); onRefresh() }) { Text("Retry") }
-            }
-            return
-        }
-        posts.itemCount == 0 && posts.loadState.refresh is LoadState.NotLoading -> {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(text = "No posts yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text(text = "Be the first to post!", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-            }
-            return
-        }
-    }
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Category Chips Bar is ALWAYS rendered at the top of the feed
+        CategoryChipBar(
+            categories = categories,
+            selectedCategoryId = selectedCategoryId,
+            onCategorySelected = onCategorySelected,
+            selectedQualityMode = selectedQualityMode,
+            onQualityModeSelected = onQualityModeSelected
+        )
 
-    PullToRefreshBox(
-        isRefreshing = posts.loadState.refresh is LoadState.Loading,
-        onRefresh = onRefresh,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        val listState = rememberLazyListState()
-        var activePostId by remember { mutableStateOf<String?>(null) }
-
-        LaunchedEffect(listState) {
-            snapshotFlow { listState.isScrollInProgress }
-                .distinctUntilChanged()
-                .collect { isScrolling ->
-                    if (!isScrolling) {
-                        kotlinx.coroutines.delay(200)
-                        if (!listState.isScrollInProgress) {
-                            val layoutInfo = listState.layoutInfo
-                            val visibleItems = layoutInfo.visibleItemsInfo
-                            if (visibleItems.isNotEmpty()) {
-                                val center = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-                                var minDistance = Int.MAX_VALUE
-                                var closestIndex = -1
-                                for (item in visibleItems) {
-                                    val itemCenter = item.offset + (item.size / 2)
-                                    val distance = Math.abs(itemCenter - center)
-                                    if (distance < minDistance) {
-                                        minDistance = distance
-                                        closestIndex = item.index
-                                    }
-                                }
-                                if (closestIndex != -1 && closestIndex < posts.itemCount) {
-                                    activePostId = posts.peek(closestIndex)?.id
-                                }
-                            }
+        Box(modifier = Modifier.weight(1f)) {
+            when {
+                posts.loadState.refresh is LoadState.Loading && posts.itemCount == 0 -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(5) { PostItemShimmer() }
+                    }
+                }
+                posts.loadState.refresh is LoadState.Error && posts.itemCount == 0 -> {
+                    val error = (posts.loadState.refresh as LoadState.Error).error
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = "Could not load media feed", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = error.localizedMessage ?: "Connection error", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { posts.retry(); onRefresh() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF14B8A6), contentColor = Color.White)
+                        ) {
+                            Text("Retry", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-        }
-
-        LaunchedEffect(activePostId) {
-            activePostId?.let { onPostViewed(it) }
-        }
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
-        ) {
-            if (categories.isNotEmpty()) {
-                item(contentType = "categories_bar") {
-                    CategoryChipBar(
-                        categories = categories,
-                        selectedCategoryId = selectedCategoryId,
-                        onCategorySelected = onCategorySelected,
-                        selectedQualityMode = selectedQualityMode,
-                        onQualityModeSelected = onQualityModeSelected
-                    )
+                posts.itemCount == 0 && posts.loadState.refresh is LoadState.NotLoading -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = "No posts yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text(text = "Be the first to post!", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                    }
                 }
-            }
+                else -> {
+                    PullToRefreshBox(
+                        isRefreshing = posts.loadState.refresh is LoadState.Loading,
+                        onRefresh = onRefresh,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        val listState = rememberLazyListState()
+                        var activePostId by remember { mutableStateOf<String?>(null) }
+
+                        LaunchedEffect(listState) {
+                            snapshotFlow { listState.isScrollInProgress }
+                                .distinctUntilChanged()
+                                .collect { isScrolling ->
+                                    if (!isScrolling) {
+                                        kotlinx.coroutines.delay(200)
+                                        if (!listState.isScrollInProgress) {
+                                            val layoutInfo = listState.layoutInfo
+                                            val visibleItems = layoutInfo.visibleItemsInfo
+                                            if (visibleItems.isNotEmpty()) {
+                                                val center = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                                                var minDistance = Int.MAX_VALUE
+                                                var closestIndex = -1
+                                                for (item in visibleItems) {
+                                                    val itemCenter = item.offset + (item.size / 2)
+                                                    val distance = Math.abs(itemCenter - center)
+                                                    if (distance < minDistance) {
+                                                        minDistance = distance
+                                                        closestIndex = item.index
+                                                    }
+                                                }
+                                                if (closestIndex != -1 && closestIndex < posts.itemCount) {
+                                                    activePostId = posts.peek(closestIndex)?.id
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                        }
+
+                        LaunchedEffect(activePostId) {
+                            activePostId?.let { onPostViewed(it) }
+                        }
+
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
+                        ) {
 
             val organicCount = posts.itemCount
             val postsPerAd = 5
@@ -759,6 +760,10 @@ fun MainFeedSection(
             if (posts.loadState.append is LoadState.Loading) {
                 item(key = "feed-loading-more", contentType = "loading-more") {
                     PostItemShimmer()
+                }
+            }
+                        }
+                    }
                 }
             }
         }

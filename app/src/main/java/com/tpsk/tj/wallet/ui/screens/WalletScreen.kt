@@ -1,26 +1,41 @@
 package com.tpsk.tj.wallet.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallReceived
+import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tpsk.tj.common.ui.theme.*
 import com.tpsk.tj.chat.ui.viewmodel.AdvertsViewModel
 import com.tpsk.tj.wallet.ui.CreatorWalletSection
+
+data class WalletTxItem(
+    val id: String,
+    val title: String,
+    val counterparty: String,
+    val timestamp: String,
+    val amountFormatted: String,
+    val isCredit: Boolean,
+    val status: String = "Completed"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,12 +44,38 @@ fun WalletScreen(
     advertsViewModel: AdvertsViewModel
 ) {
     val points by advertsViewModel.points.collectAsState()
-    val hourlyAdCount by advertsViewModel.hourlyAdCount.collectAsState()
+    var selectedFilter by remember { mutableStateOf("All") }
+    val filters = listOf("All", "Received", "Sent", "Payouts")
+
+    var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    val gradientBackground = Brush.linearGradient(
+        colors = listOf(Color(0xFF3F51B5), Color(0xFF8E24AA), Color(0xFF1E88E5))
+    )
+
+    val sampleTransactions = remember {
+        listOf(
+            WalletTxItem("1", "Reward Bonus", "TJ Rewards", "Today", "+10.0 pts", true),
+            WalletTxItem("2", "Post Tip", "Creator Tip", "Yesterday", "-5.0 pts", false)
+        )
+    }
+
+    val filteredTxs = remember(selectedFilter, sampleTransactions) {
+        sampleTransactions.filter { tx ->
+            when (selectedFilter) {
+                "Received" -> tx.isCredit
+                "Sent" -> !tx.isCredit
+                "Payouts" -> tx.title.contains("Payout", ignoreCase = true)
+                else -> true
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Wallet", fontWeight = FontWeight.Bold) },
+                modifier = Modifier.statusBarsPadding(),
+                title = { Text("Wallet", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -60,202 +101,331 @@ fun WalletScreen(
                 .fillMaxSize()
                 .padding(padding),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // Balance Card View matching iOS
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(24.dp),
-                    tonalElevation = 8.dp
+                    shape = RoundedCornerShape(20.dp),
+                    shadowElevation = 8.dp
                 ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Box(
+                        modifier = Modifier
+                            .background(gradientBackground)
+                            .padding(20.dp)
                     ) {
-                        Text(
-                            text = "Total Balance",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Stars,
-                                contentDescription = null,
-                                tint = Color.Yellow,
-                                modifier = Modifier.size(40.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = Color.Yellow,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Ad points",
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(
+                                    text = "Not cash",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = java.lang.String.format(java.util.Locale.US, "%.2f", points),
+                                    color = Color.White,
+                                    fontSize = 38.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "points",
+                                    color = Color(0xFF00E5FF),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                )
+                            }
+
                             Text(
-                                text = java.lang.String.format(java.util.Locale.US, "%.1f", points),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 48.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Points",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(top = 16.dp)
+                                text = "Ad points cannot be tipped or withdrawn. Creator coins are a separate purchase.",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
                             )
                         }
                     }
                 }
             }
 
-            item {
-                Text(
-                    "Ad points are rewards for watching ads. They are not rand, cannot be tipped, and cannot be withdrawn.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
-                )
-            }
-
-            item { CreatorWalletSection() }
-
-            item {
-                Text(
-                    "Quick Actions",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-
+            // Quick Actions Row matching iOS
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    WalletActionItem(
-                        icon = Icons.Default.History,
-                        label = "History",
-                        modifier = Modifier.weight(1f)
-                    )
-                    WalletActionItem(
-                        icon = Icons.Default.Redeem,
-                        label = "Redeem",
-                        modifier = Modifier.weight(1f)
-                    )
-                    WalletActionItem(
+                    WalletActionButton(
+                        title = "Coins",
                         icon = Icons.Default.CardGiftcard,
-                        label = "Vouchers",
-                        modifier = Modifier.weight(1f)
+                        color = Color(0xFF2196F3),
+                        modifier = Modifier.weight(1f),
+                        onClick = { toastMessage = "Buy coin packs below. Coins can only tip posts inside TJ." }
+                    )
+                    WalletActionButton(
+                        title = "Bank",
+                        icon = Icons.Default.AccountBalance,
+                        color = Color(0xFF4CAF50),
+                        modifier = Modifier.weight(1f),
+                        onClick = { toastMessage = "Verify bank details in the creator wallet section below." }
+                    )
+                    WalletActionButton(
+                        title = "Hold",
+                        icon = Icons.Default.Schedule,
+                        color = Color(0xFF9C27B0),
+                        modifier = Modifier.weight(1f),
+                        onClick = { toastMessage = "Creator earnings stay on hold for 14 days and are taxable income." }
+                    )
+                    WalletActionButton(
+                        title = "Payout",
+                        icon = Icons.Default.Payments,
+                        color = Color(0xFFFF9800),
+                        modifier = Modifier.weight(1f),
+                        onClick = { toastMessage = "Payouts require a verified South African bank account." }
                     )
                 }
             }
 
+            // Creator Coins Section
+            item { CreatorWalletSection() }
+
+            // Linked Payout Methods Section matching iOS
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "LINKED PAYOUT METHODS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
+                    )
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Earn more points by watching rewarded ads on the Home screen tab!",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp
-                        )
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalance,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "No payout method on file",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Text(
+                                text = "Primary",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
-            
+
+            // Transaction History Section matching iOS
             item {
-                Text(
-                    "Reward Benefits",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                )
-            }
-            
-            item {
-                RewardBenefitItem("Mingle Secret Chatting", "Use points to match and chat on Mingle. Completed ads earn 10 points, with 10s between ads and 30 minutes after every 4 ($hourlyAdCount/4).", Icons.Default.Groups)
-            }
-            item {
-                RewardBenefitItem("Remove Ads", "Use points to browse ad-free for 24 hours.", Icons.Default.Block)
-            }
-            item {
-                RewardBenefitItem("Exclusive Themes", "Unlock premium app themes and icons.", Icons.Default.Palette)
-            }
-            item {
-                RewardBenefitItem("Not cash", "Ad points cannot be converted into money or donated as currency.", Icons.Default.Favorite)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "TRANSACTION HISTORY",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
+                    )
+
+                    // Filter Pills
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(filters) { filter ->
+                            val isSelected = selectedFilter == filter
+                            Surface(
+                                onClick = { selectedFilter = filter },
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = filter,
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column {
+                            if (filteredTxs.isEmpty()) {
+                                Text(
+                                    text = "No transactions found",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            } else {
+                                filteredTxs.forEachIndexed { index, tx ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(42.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (tx.isCredit) Color(0xFF4CAF50).copy(alpha = 0.15f) else Color(0xFFF44336).copy(alpha = 0.15f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (tx.isCredit) Icons.AutoMirrored.Filled.CallReceived else Icons.AutoMirrored.Filled.CallMade,
+                                                    contentDescription = null,
+                                                    tint = if (tx.isCredit) Color(0xFF4CAF50) else Color(0xFFF44336),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = tx.title,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "${tx.counterparty} • ${tx.timestamp}",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = tx.amountFormatted,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (tx.isCredit) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = tx.status,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF4CAF50)
+                                            )
+                                        }
+                                    }
+                                    if (index < filteredTxs.size - 1) {
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                            modifier = Modifier.padding(horizontal = 16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             item {
-                Spacer(modifier = Modifier.height(100.dp))
+                Spacer(modifier = Modifier.height(60.dp))
             }
         }
+    }
+
+    toastMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { toastMessage = null },
+            title = { Text("Wallet Notice") },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(onClick = { toastMessage = null }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 
 @Composable
-fun WalletActionItem(
+fun WalletActionButton(
+    title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    modifier: Modifier = Modifier
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
     Surface(
-        onClick = { /* TODO */ },
+        onClick = onClick,
         modifier = modifier,
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@Composable
-fun RewardBenefitItem(
-    title: String,
-    description: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

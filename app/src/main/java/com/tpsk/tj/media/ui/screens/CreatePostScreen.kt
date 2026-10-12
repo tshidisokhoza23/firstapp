@@ -41,7 +41,7 @@ import com.tpsk.tj.media.model.Post
 import com.tpsk.tj.media.ui.components.AiAssistSheet
 import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreatePostScreen(
     replyToPost: Post? = null,
@@ -54,6 +54,7 @@ fun CreatePostScreen(
     val currentUser = LocalCurrentUser.current
 
     var postText by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("Technology") }
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var selectedLocation by remember { mutableStateOf<String?>(null) }
     var showPoll by remember { mutableStateOf(false) }
@@ -142,33 +143,23 @@ fun CreatePostScreen(
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1A1A)),
-                title = {},
+                title = {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        val remaining = charLimit - postText.length
+                        Text(
+                            text = "$remaining",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (remaining < 0) Color(0xFFEF4444) else Color(0xFF14B8A6)
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                     }
                 },
                 actions = {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier.padding(end = 12.dp)
-                    ) {
-                        val remaining = charLimit - postText.length
-                        Text(
-                            text = "$remaining",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (remaining < 0) Color(0xFFEF4444) else Color(0xFF14B8A6)
-                        )
-                        Text(
-                            text = draftLabel.ifBlank { " " },
-                            fontSize = 10.sp,
-                            color = Color.Gray
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
                     Button(
                         onClick = {
                             if (!canPost || isPostingState) return@Button
@@ -494,23 +485,25 @@ fun CreatePostScreen(
                         }
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Feeling creative pill
+                    // Add a mood pill button (28.dp compact height)
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = Color.Transparent,
                         border = BorderStroke(1.dp, Color(0xFF14B8A6).copy(alpha = 0.6f)),
-                        modifier = Modifier.clickable { showMood = true }
+                        modifier = Modifier
+                            .height(28.dp)
+                            .clickable { showMood = true }
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = if (selectedMood.isBlank()) "Add a mood" else selectedMood,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Medium,
                                 color = Color(0xFF14B8A6)
                             )
                         }
@@ -518,47 +511,100 @@ fun CreatePostScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Template Chips (Horizontal Scroll)
+            // CATEGORY Section
+            Text(
+                text = "CATEGORY",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
+            val categoriesList = listOf(
+                "All", "Technology", "Music", "Gaming",
+                "Sports", "News", "Entertainment", "Art",
+                "Lifestyle", "Business", "Education", "Health",
+                "Food", "Comedy", "Relationships"
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+            ) {
+                categoriesList.forEach { cat ->
+                    val isSelected = selectedCategory == cat
+                    Surface(
+                        onClick = { selectedCategory = cat },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) Color.Transparent else Color(0xFF1E1E1E),
+                        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFF14B8A6).copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .height(30.dp)
+                            .then(if (isSelected) Modifier.background(gradientBrush, RoundedCornerShape(16.dp)) else Modifier)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = cat,
+                                color = if (isSelected) Color.White else Color(0xFF14B8A6),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // TEMPLATES Section
             Text(
                 text = "TEMPLATES",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Gray,
                 letterSpacing = 1.sp,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 6.dp)
             )
 
             val templates = listOf(
                 "🔥 Hot take" to "Hot take: ",
                 "❓ Question" to "Question for the community: ",
-                "🧵 Thread" to "Thread 🧵 (1/N):\n",
-                "📢 Announcement" to "📢 Big announcement: "
+                "🧵 Thread" to "Thread 🧵 (1/N):\n"
             )
 
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
-                items(templates) { (label, prefix) ->
+                templates.forEach { (label, prefix) ->
                     Surface(
                         onClick = {
                             if (!postText.startsWith(prefix)) {
                                 postText = prefix + postText
                             }
                         },
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFF242424),
-                        border = BorderStroke(1.dp, Color(0xFF333333))
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E1E1E),
+                        border = BorderStroke(1.dp, Color(0xFF14B8A6).copy(alpha = 0.6f)),
+                        modifier = Modifier.height(30.dp)
                     ) {
-                        Text(
-                            text = label,
-                            color = Color(0xFF14B8A6),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                color = Color(0xFF14B8A6),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
