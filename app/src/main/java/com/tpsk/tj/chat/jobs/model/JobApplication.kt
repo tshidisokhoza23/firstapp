@@ -19,5 +19,16 @@ enum class ApplicationStatus(val label: String, val color: Color) {
     REVIEWING("Reviewing", Color(0xFF64B5F6)),
     INTERVIEW("Interview", Color(0xFF81C784)),
     REJECTED("Rejected", Color(0xFFE57373)),
-    OFFERED("Offered", Color(0xFFBA68C8))
+    OFFERED("Offered", Color(0xFFBA68C8));
+
+    companion object {
+        fun fromServer(value: String): ApplicationStatus = when (value.trim().lowercase()) {
+            "submitted", "pending" -> PENDING
+            "viewed", "reviewed", "shortlisted", "reviewing" -> REVIEWING
+            "interview" -> INTERVIEW
+            "rejected" -> REJECTED
+            "hired", "offered" -> OFFERED
+            else -> PENDING
+        }
+    }
 }

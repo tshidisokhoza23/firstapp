@@ -22,28 +22,57 @@ class JobRepositoryImpl @Inject constructor(
     private val jobApplicationDao: JobApplicationDao,
 ) : JobRepository {
 
-    override fun getJobs(page: Int): Flow<Resource<List<Job>>> = flow {
+    override fun getJobs(
+        page: Int,
+        jobType: String?,
+        featuredOnly: Boolean,
+        location: String?,
+        salaryMin: Double?,
+        postedWithinDays: Int?,
+        query: String?
+    ): Flow<Resource<List<Job>>> = flow {
+        val filtering = !jobType.isNullOrBlank() || featuredOnly || !location.isNullOrBlank() || salaryMin != null || postedWithinDays != null || !query.isNullOrBlank()
         val cachedEntities = jobDao.getJobs().first()
         val cached = cachedEntities.map { it.toModel() }
-        if (cached.isNotEmpty()) {
+        if (!filtering && cached.isNotEmpty()) {
             emit(Resource.Loading(cached))
         } else {
             emit(Resource.Loading())
         }
 
         try {
-            val response = jobApi.getJobs(page)
+            val response = jobApi.getJobs(
+                page = page,
+                jobType = jobType,
+                featured = if (featuredOnly) true else null,
+                location = location,
+                salaryMin = salaryMin,
+                postedWithinDays = postedWithinDays,
+                query = query
+            )
             if (response.isSuccessful) {
                 val apiJobs = response.body()?.jobs ?: emptyList<ApiJob>()
                 Log.d("JobRepo", "Fetched ${apiJobs.size} jobs from network")
                 val jobs = apiJobs.map { aj: ApiJob -> aj.toModel() }
+                if (filtering) {
+                    emit(Resource.Success(jobs))
+                    return@flow
+                }
                 if (page == 1) jobDao.clearJobs()
                 jobDao.insertJobs(jobs.map { it.toEntity() })
             } else {
                 Log.e("JobRepo", "getJobs network failed: ${response.code()} ${response.errorBody()?.string()}")
+                if (filtering) {
+                    emit(Resource.Error("Could not load jobs", cached))
+                    return@flow
+                }
             }
         } catch (e: Exception) { 
             Log.e("JobRepo", "getJobs failed with exception", e)
+            if (filtering) {
+                emit(Resource.Error(e.localizedMessage ?: "Network error", cached))
+                return@flow
+            }
         }
 
         emitAll(jobDao.getJobs().flowMap { entities ->
@@ -131,7 +160,20 @@ class JobRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Error")) }
     }
 
-    override fun createJob(title: String, description: String, category: String, skills: List<String>, durationDays: Int): Flow<Resource<Job>> = flow {
+    override fun createJob(
+        title: String,
+        description: String,
+        category: String,
+        skills: List<String>,
+        durationDays: Int,
+        company: String?,
+        locationCity: String?,
+        jobType: String?,
+        packageType: String,
+        salaryMin: Double?,
+        salaryMax: Double?,
+        requirements: String?
+    ): Flow<Resource<Job>> = flow {
         emit(Resource.Loading())
         try {
             val req = CreateJobRequest(
@@ -140,6 +182,13 @@ class JobRepositoryImpl @Inject constructor(
                 job_category = category.ifBlank { "General" },
                 required_skills = skills,
                 duration_days = durationDays,
+                company = company,
+                location_city = locationCity,
+                job_type = jobType,
+                package_type = packageType,
+                salary_min = salaryMin,
+                salary_max = salaryMax,
+                requirements = requirements,
                 category = category.ifBlank { "General" },
                 skills = skills
             )
@@ -155,17 +204,79 @@ class JobRepositoryImpl @Inject constructor(
         } catch (e: Exception) { emit(Resource.Error("Network error: ${e.message}")) }
     }
 
-    override fun searchJobs(query: String): Flow<Resource<List<Job>>> = flow {
+    override fun searchJobs(
+        query: String,
+        location: String?,
+        salaryMin: Double?,
+        jobType: String?,
+        featuredOnly: Boolean,
+        postedWithinDays: Int?
+    ): Flow<Resource<List<Job>>> = flow {
         emit(Resource.Loading())
         try {
-            val response = jobApi.getJobs(page = 1) 
+            val response = jobApi.search(
+                query = query,
+                location = location,
+                salaryMin = salaryMin,
+                jobType = jobType,
+                featured = if (featuredOnly) true else null,
+                postedWithinDays = postedWithinDays
+            )
             if (response.isSuccessful) {
-                val apiJobs = response.body()?.jobs ?: emptyList<ApiJob>()
-                val filtered = apiJobs.filter { aj: ApiJob ->
-                    aj.title.contains(query, ignoreCase = true) || aj.company_name.contains(query, ignoreCase = true)
-                }.map { f: ApiJob -> f.toModel() }
-                emit(Resource.Success(filtered))
+                emit(Resource.Success(response.body()?.jobs.orEmpty().map { it.toModel() }))
+            } else {
+                emit(Resource.Error("Search failed"))
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            emit(Resource.Error(e.localizedMessage ?: "Search failed"))
+        }
+    }
+
+    override suspend fun reportJob(jobId: String, reason: String, details: String): Resource<Boolean> {
+        return try {
+            val response = jobApi.reportJob(jobId, ReportJobRequest(reason, details))
+            if (response.isSuccessful) Resource.Success(true) else Resource.Error("Could not report job")
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Could not report job")
+        }
+    }
+
+    override suspend fun anonymizeJobData(): Resource<Boolean> {
+        return try {
+            val response = jobApi.anonymizeJobData()
+            if (response.isSuccessful) Resource.Success(true) else Resource.Error("Could not anonymize job data")
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Could not anonymize job data")
+        }
+    }
+
+    override fun listMyJobs(): Flow<Resource<List<Job>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = jobApi.getMyJobs()
+            if (response.isSuccessful) emit(Resource.Success(response.body()?.jobs.orEmpty().map { it.toModel() }))
+            else emit(Resource.Error("Could not load your jobs"))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.localizedMessage ?: "Could not load your jobs"))
+        }
+    }
+
+    override suspend fun closeJob(jobId: String): Resource<Boolean> {
+        return try {
+            val response = jobApi.closeJob(jobId)
+            if (response.isSuccessful) Resource.Success(true) else Resource.Error("Could not close job")
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Could not close job")
+        }
+    }
+
+    override suspend fun renewJob(jobId: String, packageType: String): Resource<String?> {
+        return try {
+            val response = jobApi.renewJob(jobId, RenewJobRequest(packageType))
+            if (response.isSuccessful) Resource.Success(response.body()?.authorization_url)
+            else Resource.Error("Could not renew job")
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Could not renew job")
+        }
     }
 }

@@ -20,6 +20,16 @@ class JobViewModel @Inject constructor(
 
     private val _jobs = MutableStateFlow<Resource<List<Job>>>(Resource.Loading())
     val jobs: StateFlow<Resource<List<Job>>> = _jobs.asStateFlow()
+    private val _feedChip = MutableStateFlow("All")
+    val feedChip: StateFlow<String> = _feedChip.asStateFlow()
+    private val _location = MutableStateFlow("")
+    val location: StateFlow<String> = _location.asStateFlow()
+    private val _salaryMin = MutableStateFlow("")
+    val salaryMin: StateFlow<String> = _salaryMin.asStateFlow()
+    private val _postedWithinDays = MutableStateFlow(0)
+    val postedWithinDays: StateFlow<Int> = _postedWithinDays.asStateFlow()
+    private val _myJobs = MutableStateFlow<Resource<List<Job>>>(Resource.Loading())
+    val myJobs: StateFlow<Resource<List<Job>>> = _myJobs.asStateFlow()
 
     private val _jobProfile = MutableStateFlow<JobProfileData?>(null)
     val jobProfile: StateFlow<JobProfileData?> = _jobProfile.asStateFlow()
@@ -35,8 +45,64 @@ class JobViewModel @Inject constructor(
         fetchJobApplications()
     }
 
+    fun selectFeedChip(chip: String) {
+        _feedChip.value = chip
+        fetchJobs()
+    }
+
+    fun setLocation(value: String) {
+        _location.value = value
+        fetchJobs()
+    }
+
+    fun setSalaryMin(value: String) {
+        _salaryMin.value = value
+        fetchJobs()
+    }
+
+    fun setPostedWithinDays(days: Int) {
+        _postedWithinDays.value = days
+        fetchJobs()
+    }
+
     fun fetchJobs() {
-        viewModelScope.launch { repository.getJobs().collect { _jobs.value = it } }
+        val chip = _feedChip.value
+        val featuredOnly = chip == "Featured"
+        val jobType = if (chip == "All" || featuredOnly) null else chip
+        val salary = _salaryMin.value.toDoubleOrNull()
+        viewModelScope.launch {
+            repository.getJobs(
+                jobType = jobType,
+                featuredOnly = featuredOnly,
+                location = _location.value.trim().ifBlank { null },
+                salaryMin = salary,
+                postedWithinDays = _postedWithinDays.value.takeIf { it > 0 }
+            ).collect { _jobs.value = it }
+        }
+    }
+
+    fun fetchMyJobs() {
+        viewModelScope.launch { repository.listMyJobs().collect { _myJobs.value = it } }
+    }
+
+    fun closeJob(jobId: String) {
+        viewModelScope.launch {
+            if (repository.closeJob(jobId) is Resource.Success) fetchMyJobs()
+        }
+    }
+
+    fun renewJob(jobId: String, packageType: String = "basic", onCheckout: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = repository.renewJob(jobId, packageType)
+            val url = (result as? Resource.Success)?.data
+            if (!url.isNullOrBlank()) onCheckout(url)
+        }
+    }
+
+    fun anonymizeJobData(onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            onDone(repository.anonymizeJobData() is Resource.Success)
+        }
     }
 
     fun fetchJobApplications() {
@@ -67,11 +133,25 @@ class JobViewModel @Inject constructor(
         viewModelScope.launch { repository.withdrawApplication(applicationId).collect { } }
     }
 
-    fun createJob(title: String, description: String, category: String, skills: List<String>, durationDays: Int) {
+    fun createJob(
+        title: String,
+        description: String,
+        category: String,
+        skills: List<String>,
+        durationDays: Int,
+        company: String? = null,
+        locationCity: String? = null,
+        jobType: String? = null,
+        packageType: String = "basic",
+        salaryMin: Double? = null,
+        salaryMax: Double? = null,
+        requirements: String? = null
+    ) {
         viewModelScope.launch {
-            repository.createJob(title, description, category, skills, durationDays).collect { 
-                _createJobResult.value = it 
-            }
+            repository.createJob(
+                title, description, category, skills, durationDays,
+                company, locationCity, jobType, packageType, salaryMin, salaryMax, requirements
+            ).collect { _createJobResult.value = it }
         }
     }
 }

@@ -24,13 +24,20 @@ fun PostJobScreen(
     var title by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var durationDays by remember { mutableStateOf("1") }
     var skills by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
+    var packageType by remember { mutableStateOf("basic") }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val createResult by viewModel.createJobResult.collectAsState()
 
     LaunchedEffect(createResult) {
-        if (createResult is com.tpsk.tj.common.util.Resource.Success) {
+        val result = createResult
+        if (result is com.tpsk.tj.common.util.Resource.Success) {
+            val url = result.data?.authorizationUrl
+            if (!url.isNullOrBlank()) {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+            }
             onBack()
         }
     }
@@ -100,9 +107,9 @@ fun PostJobScreen(
             )
 
             OutlinedTextField(
-                value = durationDays,
-                onValueChange = { durationDays = it },
-                label = { Text("Duration (Days)") },
+                value = location,
+                onValueChange = { location = it },
+                label = { Text("Location") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -111,6 +118,10 @@ fun PostJobScreen(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = packageType == "basic", onClick = { packageType = "basic" }, label = { Text("Basic R119") })
+                FilterChip(selected = packageType == "featured", onClick = { packageType = "featured" }, label = { Text("Featured R279") })
+            }
 
             OutlinedTextField(
                 value = skills,
@@ -129,9 +140,8 @@ fun PostJobScreen(
 
             Button(
                 onClick = {
-                    val days = durationDays.toIntOrNull() ?: 1
                     val skillsList = skills.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    viewModel.createJob(title, description, category, skillsList, days)
+                    viewModel.createJob(title, description, category, skillsList, 30, locationCity = location, packageType = packageType)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -139,11 +149,11 @@ fun PostJobScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Text("Post Job (R${(durationDays.toIntOrNull() ?: 1) * 20}.00)")
+                Text(if (packageType == "featured") "Post featured job (R279)" else "Post job (R119)")
             }
             
             Text(
-                "Posting cost is R20 per day. Your wallet will be charged upon posting.",
+                "Listings run for 30 days. Payment opens after you post, unless you have a credit.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,

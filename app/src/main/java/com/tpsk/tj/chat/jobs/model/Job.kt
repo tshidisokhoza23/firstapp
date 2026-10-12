@@ -22,5 +22,10 @@ data class Job(
     val sourcePartner: String? = null,
     val trackingApplyUrl: String? = null,
     val hasAppliedInternal: Boolean = false,
-    val hasClickedExternal: Boolean = false
+    val hasClickedExternal: Boolean = false,
+    val isFeatured: Boolean = false,
+    val viewsCount: Long = 0,
+    val paymentRequired: Boolean = false,
+    val authorizationUrl: String? = null,
+    val listingStatus: String? = null
 )

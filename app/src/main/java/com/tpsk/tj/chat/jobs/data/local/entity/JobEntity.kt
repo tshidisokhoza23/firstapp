@@ -22,5 +22,7 @@ data class JobEntity(
     val sourcePartner: String? = null,
     val trackingApplyUrl: String? = null,
     val hasAppliedInternal: Boolean = false,
-    val hasClickedExternal: Boolean = false
+    val hasClickedExternal: Boolean = false,
+    val isFeatured: Boolean = false,
+    val viewsCount: Long = 0
 )

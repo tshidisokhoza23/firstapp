@@ -70,6 +70,14 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
         Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
+                Text(job.companyName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                if (job.isFeatured) {
+                    Surface(color = Color(0xFFFFD700).copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
+                        Text("FEATURED", color = Color(0xFFB8860B), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
             Text(
                 text = job.title,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -78,14 +86,9 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
                 maxLines = 2
             )
             
+            if (job.isVerified || job.isExternal) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = job.companyName,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
-                    fontSize = 15.sp
-                )
                 if (job.isVerified) {
-                    Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.Filled.Verified,
                         contentDescription = "Verified",
@@ -108,6 +111,7 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
                         )
                     }
                 }
+            }
             }
             
             Text(
@@ -144,7 +148,7 @@ fun JobItem(job: Job, onClick: () -> Unit = {}) {
 
             if (job.postedTime > 0L) {
                 Text(
-                    text = formatPostedTime(job.postedTime),
+                    text = formatPostedTime(job.postedTime) + if (job.viewsCount > 0) " • ${job.viewsCount} views" else "",
                     modifier = Modifier.padding(top = 4.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     fontSize = 12.sp

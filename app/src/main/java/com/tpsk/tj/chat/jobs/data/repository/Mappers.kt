@@ -25,7 +25,9 @@ fun Job.toEntity() = JobEntity(
     sourcePartner = sourcePartner,
     trackingApplyUrl = trackingApplyUrl,
     hasAppliedInternal = hasAppliedInternal,
-    hasClickedExternal = hasClickedExternal
+    hasClickedExternal = hasClickedExternal,
+    isFeatured = isFeatured,
+    viewsCount = viewsCount
 )
 
 fun JobEntity.toModel() = Job(
@@ -47,7 +49,9 @@ fun JobEntity.toModel() = Job(
     sourcePartner = sourcePartner,
     trackingApplyUrl = trackingApplyUrl,
     hasAppliedInternal = hasAppliedInternal,
-    hasClickedExternal = hasClickedExternal
+    hasClickedExternal = hasClickedExternal,
+    isFeatured = isFeatured,
+    viewsCount = viewsCount
 )
 
 fun JobApplication.toEntity() = JobApplicationEntity(
