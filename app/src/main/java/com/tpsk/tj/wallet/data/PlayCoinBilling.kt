@@ -70,7 +70,7 @@ class PlayCoinBilling @Inject constructor(
         return suspendCancellableCoroutine { cont ->
             client.queryProductDetailsAsync(params) { result, details ->
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    cont.resume(details)
+                    cont.resume(details.productDetailsList)
                 } else cont.resume(emptyList())
             }
         }
