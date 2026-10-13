@@ -37,6 +37,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundleProdRelease --no-daemon
 
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TJ-Android-Internal-AAB
+          path: app/build/outputs/bundle/prodRelease/*.aab
+
       - name: Upload to Google Play Internal Track
         uses: r0adkll/upload-google-play@v1
         with:
