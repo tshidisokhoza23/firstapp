@@ -27,12 +27,19 @@ android {
         manifestPlaceholders["admobAppId"] = "ca-app-pub-4322207563956922~3347511713"
     }
 
+    val envKeystorePath = System.getenv("KEYSTORE_PATH")
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     val keystoreProperties = Properties()
-    if (keystorePropertiesFile.exists()) {
-        keystorePropertiesFile.inputStream().use { stream -> keystoreProperties.load(stream) }
-        signingConfigs {
-            create("release") {
+
+    signingConfigs {
+        create("release") {
+            if (!envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists()) {
+                storeFile = file(envKeystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            } else if (keystorePropertiesFile.exists()) {
+                keystorePropertiesFile.inputStream().use { stream -> keystoreProperties.load(stream) }
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")

@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.DropdownMenu
@@ -333,9 +334,14 @@ private fun StoryContextMenu(
         modifier = Modifier.background(MaterialTheme.colorScheme.surface)
     ) {
         DropdownMenuItem(
-            text = { Text("Image & Video", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("Image story", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onMediaStory,
             leadingIcon = { Icon(Icons.Default.CameraAlt, null, tint = MaterialTheme.colorScheme.onSurface) }
+        )
+        DropdownMenuItem(
+            text = { Text("Video story", color = MaterialTheme.colorScheme.onSurface) },
+            onClick = onMediaStory,
+            leadingIcon = { Icon(Icons.Default.Videocam, null, tint = MaterialTheme.colorScheme.onSurface) }
         )
         DropdownMenuItem(
             text = { Text("Text story", color = MaterialTheme.colorScheme.onSurface) },
