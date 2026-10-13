@@ -128,8 +128,8 @@ fun MediaGrid(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 280.dp, max = 520.dp)
-                            .aspectRatio(4f / 3f)
+                            .heightIn(min = 360.dp, max = 520.dp)
+                            .aspectRatio(3f / 4f)
                             .clip(shape)
                             .background(Color.DarkGray.copy(alpha = 0.2f))
                     ) {
@@ -150,7 +150,7 @@ fun MediaGrid(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(280.dp),
+                        .height(380.dp),
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     urls.take(2).forEach { rawUrl ->
@@ -175,7 +175,7 @@ fun MediaGrid(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(300.dp),
+                        .height(420.dp),
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     val url0 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[0]) ?: urls[0]
@@ -223,7 +223,7 @@ fun MediaGrid(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(320.dp),
+                        .height(450.dp),
                     verticalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     Row(

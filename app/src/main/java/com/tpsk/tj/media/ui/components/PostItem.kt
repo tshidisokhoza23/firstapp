@@ -461,8 +461,8 @@ fun VerticalFeedPostCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = contentPadding)
-                            .heightIn(min = 280.dp, max = 540.dp)
-                            .aspectRatio(displayPost.aspectRatio?.toFloat() ?: (4f / 3f))
+                            .heightIn(min = 360.dp, max = 520.dp)
+                            .aspectRatio(displayPost.aspectRatio?.toFloat() ?: (3f / 4f))
                             .clip(RoundedCornerShape(12.dp))
                             .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                             .background(Color.Black)
