@@ -13,14 +13,14 @@ plugins {
 
 android {
     namespace = "com.tpsk.tj"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.tpsk.tj"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 36
+        versionCode = 2
+        versionName = "1.0.1"
         multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -160,7 +160,7 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.play.services.auth)
     implementation(libs.play.services.ads)
-    implementation("com.android.billingclient:billing:7.1.1")
+    implementation("com.android.billingclient:billing-ktx:8.0.0")
     implementation(libs.play.services.location)
     implementation(libs.places)
     implementation(libs.google.maps.services)
