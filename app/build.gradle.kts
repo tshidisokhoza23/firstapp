@@ -27,17 +27,17 @@ android {
         manifestPlaceholders["admobAppId"] = "ca-app-pub-4322207563956922~3347511713"
     }
 
-    val envKeystorePath = System.getenv("KEYSTORE_PATH")
+    val envKeystorePath = System.getenv("KEYSTORE_PATH") ?: "release-keystore.jks"
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     val keystoreProperties = Properties()
 
     signingConfigs {
         create("release") {
-            if (!envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists()) {
+            if (file(envKeystorePath).exists()) {
                 storeFile = file(envKeystorePath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "androidkeystorepass"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "releasekey"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "androidkeystorepass"
             } else if (keystorePropertiesFile.exists()) {
                 keystorePropertiesFile.inputStream().use { stream -> keystoreProperties.load(stream) }
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
@@ -95,22 +95,14 @@ android {
             enableUnitTestCoverage = true
         }
         release {
-            // Shrink unused code and resources for size. Do not obfuscate:
-            // renaming Kotlin suspend signatures made every Retrofit call crash.
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Debug key lets a release variant install over the debug app on a device.
-            // Drop a keystore.properties at the project root to sign for Play instead.
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
         }
     }
     compileOptions {
