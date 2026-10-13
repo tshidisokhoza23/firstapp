@@ -333,7 +333,7 @@ private fun StoryContextMenu(
         modifier = Modifier.background(MaterialTheme.colorScheme.surface)
     ) {
         DropdownMenuItem(
-            text = { Text("Media story", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("Image & Video", color = MaterialTheme.colorScheme.onSurface) },
             onClick = onMediaStory,
             leadingIcon = { Icon(Icons.Default.CameraAlt, null, tint = MaterialTheme.colorScheme.onSurface) }
         )
