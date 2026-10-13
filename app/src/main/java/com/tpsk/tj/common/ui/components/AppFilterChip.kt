@@ -19,12 +19,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpsk.tj.common.ui.theme.LocalIsDarkTheme
 
-val DarkChipActiveGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF8A2BE2), Color(0xFF00E5FF))
-)
-
-val LightChipActiveGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF0B57D0), Color(0xFF0284C7))
+val DefaultChipActiveGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFFA855F7), Color(0xFF14B8A6))
 )
 
 @Composable
@@ -36,44 +32,31 @@ fun AppFilterChip(
 ) {
     val isDark = LocalIsDarkTheme.current
 
-    val chipBgColor = if (isSelected) {
-        Color.Transparent
-    } else {
-        if (isDark) Color(0xFF242424) else Color(0xFFF2F4F8)
-    }
-
-    val chipBorderColor = if (isSelected) {
-        Color.Transparent
-    } else {
-        if (isDark) Color(0xFF333333) else Color(0xFFE0E0E0)
-    }
-
-    val activeGradient = if (isDark) DarkChipActiveGradient else LightChipActiveGradient
-
-    val textColor = if (isSelected) {
-        Color.White
-    } else {
-        if (isDark) Color(0xFF00E5FF) else MaterialTheme.colorScheme.primary
-    }
+    val unselectedBg = if (isDark) Color(0xFF242424) else Color(0xFFF2F4F8)
+    val unselectedBorder = if (isDark) Color(0xFF333333) else Color(0xFFE0E0E0)
+    val unselectedTextColor = if (isDark) Color(0xFF00E5FF) else MaterialTheme.colorScheme.primary
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = chipBgColor,
-        border = BorderStroke(1.dp, chipBorderColor),
-        modifier = modifier
-            .height(32.dp)
-            .then(if (isSelected) Modifier.background(activeGradient, RoundedCornerShape(16.dp)) else Modifier)
+        color = if (isSelected) Color.Transparent else unselectedBg,
+        border = BorderStroke(1.dp, if (isSelected) Color.Transparent else unselectedBorder),
+        modifier = modifier.height(32.dp)
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+            modifier = Modifier
+                .then(
+                    if (isSelected) Modifier.background(DefaultChipActiveGradient, RoundedCornerShape(16.dp))
+                    else Modifier
+                )
+                .padding(horizontal = 14.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = text,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = textColor
+                color = if (isSelected) Color.White else unselectedTextColor
             )
         }
     }
