@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpsk.tj.common.ui.components.AppFilterChip
+import com.tpsk.tj.common.ui.theme.LocalIsDarkTheme
 import com.tpsk.tj.media.model.Category
 
 @Composable
@@ -30,6 +31,12 @@ fun CategoryChipBar(
     onQualityModeSelected: (String) -> Unit = {}
 ) {
     var showQualityMenu by remember { mutableStateOf(false) }
+    val isDark = LocalIsDarkTheme.current
+
+    val surfaceColor = if (isDark) Color(0xFF242424) else Color(0xFFF2F4F8)
+    val borderColor = if (isDark) Color(0xFF333333) else Color(0xFFE0E0E0)
+    val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+    val accentColor = if (isDark) Color(0xFF00E5FF) else MaterialTheme.colorScheme.primary
 
     val qualityOptions = listOf(
         "off" to "Off",
@@ -73,8 +80,8 @@ fun CategoryChipBar(
             Surface(
                 onClick = { showQualityMenu = true },
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF242424),
-                border = BorderStroke(1.dp, Color(0xFF333333)),
+                color = surfaceColor,
+                border = BorderStroke(1.dp, borderColor),
                 modifier = Modifier.height(28.dp)
             ) {
                 Row(
@@ -84,13 +91,13 @@ fun CategoryChipBar(
                     Icon(
                         imageVector = Icons.Default.Tune,
                         contentDescription = "Quality Mode",
-                        tint = Color(0xFF00E5FF),
+                        tint = accentColor,
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Quality: $qualityLabel ▾",
-                        color = Color.White,
+                        color = textColor,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -100,7 +107,7 @@ fun CategoryChipBar(
             DropdownMenu(
                 expanded = showQualityMenu,
                 onDismissRequest = { showQualityMenu = false },
-                modifier = Modifier.background(Color(0xFF242424))
+                modifier = Modifier.background(surfaceColor)
             ) {
                 qualityOptions.forEach { (key, option) ->
                     val isChecked = selectedQualityMode == key
@@ -108,10 +115,10 @@ fun CategoryChipBar(
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (isChecked) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                 }
-                                Text(option, color = if (isChecked) Color(0xFF00E5FF) else Color.White, fontSize = 13.sp)
+                                Text(option, color = if (isChecked) accentColor else textColor, fontSize = 13.sp)
                             }
                         },
                         onClick = {

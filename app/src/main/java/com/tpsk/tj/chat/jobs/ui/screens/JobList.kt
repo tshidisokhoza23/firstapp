@@ -46,9 +46,8 @@ fun JobsHomeScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     val filters = listOf(
-        "All", "Full-time", "Part-time", "Remote",
-        "Technology", "Design", "Marketing", "Sales",
-        "Engineering", "Customer Service", "Featured"
+        "All", "General", "IT", "Finance", "Sales", "Healthcare", "Education",
+        "Engineering", "Marketing", "Hospitality", "Logistics", "Admin", "Legal", "Construction"
     )
 
     val backgroundBrush = if (com.tpsk.tj.common.ui.theme.LocalIsDarkTheme.current) {
@@ -222,18 +221,11 @@ fun JobsHomeScreen(
 }
 
 private fun filterJobs(jobs: List<Job>, filter: String): List<Job> {
-    return when (filter) {
-        "Full-time" -> jobs.filter { it.jobType.contains("full", ignoreCase = true) }
-        "Part-time" -> jobs.filter { it.jobType.contains("part", ignoreCase = true) }
-        "Remote" -> jobs.filter { it.location.contains("remote", ignoreCase = true) || it.jobType.contains("remote", ignoreCase = true) }
-        "Featured" -> jobs.filter { it.isFeatured }
-        "Technology" -> jobs.filter { it.title.contains("tech", ignoreCase = true) || it.title.contains("developer", ignoreCase = true) || it.title.contains("software", ignoreCase = true) || it.description.contains("tech", ignoreCase = true) }
-        "Design" -> jobs.filter { it.title.contains("design", ignoreCase = true) || it.title.contains("ui", ignoreCase = true) || it.title.contains("ux", ignoreCase = true) }
-        "Marketing" -> jobs.filter { it.title.contains("market", ignoreCase = true) || it.title.contains("seo", ignoreCase = true) }
-        "Sales" -> jobs.filter { it.title.contains("sale", ignoreCase = true) }
-        "Engineering" -> jobs.filter { it.title.contains("engineer", ignoreCase = true) }
-        "Customer Service" -> jobs.filter { it.title.contains("support", ignoreCase = true) || it.title.contains("service", ignoreCase = true) }
-        else -> jobs
+    if (filter == "All") return jobs
+    return jobs.filter { job ->
+        job.jobType.contains(filter, ignoreCase = true) ||
+        job.title.contains(filter, ignoreCase = true) ||
+        job.description.contains(filter, ignoreCase = true)
     }
 }
 
