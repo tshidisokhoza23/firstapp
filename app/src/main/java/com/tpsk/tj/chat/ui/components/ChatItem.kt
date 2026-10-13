@@ -123,8 +123,8 @@ fun ChatItem(
                 Text(
                     text = displayName,
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
