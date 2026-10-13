@@ -57,13 +57,14 @@ fun AppNavigation(
             val shortId = backStackEntry.arguments?.getString("shortId")
             
             LaunchedEffect(tabArg) {
-                if (tabArg != null && tabArg.length > 0) {
+                if (!tabArg.isNullOrEmpty()) {
                     val tabIndex = when(tabArg) {
                         "social" -> 1
                         "scroll" -> 2
-                        "mingle" -> 3
-                        "stream" -> 4
-                        "ride" -> 5
+                        "jobs" -> 3
+                        "mingle" -> 4
+                        "stream" -> 5
+                        "ride" -> 6
                         else -> 0
                     }
                     viewModel.setSelectedBottomItem(tabIndex)
