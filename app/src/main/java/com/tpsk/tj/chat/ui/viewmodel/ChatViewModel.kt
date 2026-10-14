@@ -207,7 +207,9 @@ class ChatViewModel @Inject constructor(
 
     fun fetchChats() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isChatsFetching = true) }
+            if (_uiState.value.chats.data.isNullOrEmpty()) {
+                _uiState.update { it.copy(isChatsFetching = true) }
+            }
             
             val syncJob = launch {
                 repository.syncChats().collect { res ->
@@ -237,14 +239,11 @@ class ChatViewModel @Inject constructor(
 
     fun fetchMessages(chatId: String) {
         _activeChatId.value = chatId
-        // Must restart the collection whenever the chat actually changes -- the
-        // previous guard only checked "is some job still running", which is true
-        // forever once any chat has been opened, so switching to a different
-        // conversation never re-subscribed and the message list stayed stuck on
-        // whichever chat was opened first in this ViewModel's lifetime.
         if (messagesJobChatId != chatId) {
             messagesJob?.cancel()
             messagesJobChatId = chatId
+            
+            // Instantly emit cached messages from Room DB on frame 0
             messagesJob = viewModelScope.launch {
                 repository.getMessages(chatId)
                     .collect { res ->
@@ -253,7 +252,7 @@ class ChatViewModel @Inject constructor(
             }
         }
         
-        // Trigger network sync
+        // Trigger background network sync
         viewModelScope.launch {
             repository.fetchMessages(chatId).collect { }
         }
@@ -266,7 +265,6 @@ class ChatViewModel @Inject constructor(
         messagesJob?.cancel()
         messagesJob = null
         messagesJobChatId = null
-        _uiState.update { it.copy(messages = Resource.Success(emptyList())) }
     }
 
     fun sendMessage(
