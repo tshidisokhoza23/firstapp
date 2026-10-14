@@ -24,6 +24,20 @@ import com.tpsk.tj.R
 import com.tpsk.tj.common.data.ads.AdManager
 import kotlinx.coroutines.delay
 
+object SlotAdRegistry {
+    private val map = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
+    fun get(slotKey: String): Any? = map[slotKey]
+
+    fun put(slotKey: String, ad: Any) {
+        map[slotKey] = ad
+    }
+
+    fun clear() {
+        map.clear()
+    }
+}
+
 /**
  * Binds a native ad that is already loaded. The parent must already have a
  * fixed size. This composable never changes that size.
@@ -50,6 +64,7 @@ fun ReadyNativeAd(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
+                (adView.parent as? ViewGroup)?.removeView(adView)
                 prepareNativeAdView(adView, fillParent = true)
                 bindNativeAd(adView, nativeAd)
                 adView.tag = nativeAd
@@ -59,6 +74,7 @@ fun ReadyNativeAd(
             update = { container ->
                 val adView = container.getChildAt(0) as? NativeAdView ?: return@AndroidView
                 if (adView.tag != nativeAd) {
+                    (adView.parent as? ViewGroup)?.removeView(adView)
                     bindNativeAd(adView, nativeAd)
                     adView.tag = nativeAd
                 }
@@ -88,20 +104,30 @@ fun awaitPooledNativeAd(
     val context = androidx.compose.ui.platform.LocalContext.current
     var ad by remember(slotKey) {
         mutableStateOf(
-            initial ?: if (fetch) {
-                com.tpsk.tj.common.data.ads.NativeAdPool.take(adManager, context, unitId, portrait)
-            } else {
-                null
-            }
+            initial
+                ?: SlotAdRegistry.get(slotKey)
+                ?: if (fetch) {
+                    com.tpsk.tj.common.data.ads.NativeAdPool.take(adManager, context, unitId, portrait)?.also {
+                        SlotAdRegistry.put(slotKey, it)
+                    }
+                } else {
+                    null
+                }
         )
     }
     LaunchedEffect(slotKey, unitId, portrait, fetch) {
         if (!fetch || ad != null) return@LaunchedEffect
+        val cached = SlotAdRegistry.get(slotKey)
+        if (cached != null) {
+            ad = cached
+            return@LaunchedEffect
+        }
         com.tpsk.tj.common.data.ads.NativeAdPool.warm(adManager, context, unitId, portrait)
         repeat(12) {
-            delay(250)
+            delay(200)
             val next = com.tpsk.tj.common.data.ads.NativeAdPool.take(adManager, context, unitId, portrait)
             if (next != null) {
+                SlotAdRegistry.put(slotKey, next)
                 ad = next
                 return@LaunchedEffect
             }
@@ -124,5 +150,3 @@ private fun applyPlayback(adView: NativeAdView, play: Boolean) {
         controller.mute(true)
     }
 }
-
-

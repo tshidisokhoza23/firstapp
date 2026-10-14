@@ -97,7 +97,7 @@ private fun FullScreenPooledAd(
     layoutResId: Int,
     modifier: Modifier
 ) {
-    val cached = remember(slotKey) { FeedAdCache.get(slotKey) }
+    val cached = remember(slotKey) { SlotAdRegistry.get(slotKey) ?: FeedAdCache.get(slotKey) }
     val ad = awaitPooledNativeAd(
         adManager = adManager,
         unitId = adUnitId,
@@ -106,7 +106,12 @@ private fun FullScreenPooledAd(
         initial = cached,
         fetch = cached == null
     ) ?: cached
-    if (ad != null) FeedAdCache.put(slotKey, ad)
+
+    if (ad != null) {
+        FeedAdCache.put(slotKey, ad)
+        SlotAdRegistry.put(slotKey, ad)
+    }
+
     Box(modifier.fillMaxSize().background(Color.Black)) {
         if (ad != null) {
             ReadyNativeAd(
@@ -144,7 +149,7 @@ private fun FeedPooledAd(
     modifier: Modifier
 ) {
     val context = LocalContext.current
-    val cachedAd = remember(slotKey) { FeedAdCache.get(slotKey) }
+    val cachedAd = remember(slotKey) { SlotAdRegistry.get(slotKey) ?: FeedAdCache.get(slotKey) }
     val ad = awaitPooledNativeAd(
         adManager = adManager,
         unitId = adUnitId,
@@ -153,8 +158,14 @@ private fun FeedPooledAd(
         initial = cachedAd,
         fetch = cachedAd == null
     ) ?: cachedAd
-    if (ad != null) FeedAdCache.put(slotKey, ad)
+
+    if (ad != null) {
+        FeedAdCache.put(slotKey, ad)
+        SlotAdRegistry.put(slotKey, ad)
+    }
+
     if (ad == null && !reserveSlot) return
+
     Box(
         modifier
             .fillMaxWidth()
@@ -168,6 +179,8 @@ private fun FeedPooledAd(
                 layoutResId = R.layout.item_media_native_ad,
                 playMedia = false
             )
+        } else if (reserveSlot) {
+            NativeAdShimmer(modifier = Modifier.fillMaxSize())
         }
     }
 }
