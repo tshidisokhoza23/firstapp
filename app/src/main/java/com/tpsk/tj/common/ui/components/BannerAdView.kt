@@ -11,14 +11,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.LoadAdError
-
-import com.tpsk.tj.common.data.ads.AdUnitConfig
 import com.tpsk.tj.BuildConfig
+import com.tpsk.tj.common.data.ads.AdUnitConfig
 
 @Composable
 fun BannerAdView(
@@ -27,6 +29,30 @@ fun BannerAdView(
 ) {
     var adLoaded by remember { mutableStateOf(false) }
     var adError by remember { mutableStateOf<String?>(null) }
+    var currentAdView by remember { mutableStateOf<AdView?>(null) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, currentAdView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> currentAdView?.pause()
+                Lifecycle.Event.ON_RESUME -> currentAdView?.resume()
+                Lifecycle.Event.ON_DESTROY -> {
+                    currentAdView?.destroy()
+                    currentAdView = null
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            currentAdView?.pause()
+            currentAdView?.destroy()
+            currentAdView = null
+        }
+    }
 
     Box(
         modifier = modifier
@@ -50,7 +76,7 @@ fun BannerAdView(
                 .fillMaxWidth()
                 .wrapContentHeight(),
             factory = { ctx ->
-                AdView(ctx).apply {
+                val adView = AdView(ctx).apply {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
@@ -81,6 +107,8 @@ fun BannerAdView(
                     }
                     loadAd(AdRequest.Builder().build())
                 }
+                currentAdView = adView
+                adView
             },
             update = { view ->
                 if (view.adUnitId != adUnitId) {
