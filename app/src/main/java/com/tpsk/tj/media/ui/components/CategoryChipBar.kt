@@ -2,9 +2,11 @@ package com.tpsk.tj.media.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -29,7 +31,8 @@ fun CategoryChipBar(
     modifier: Modifier = Modifier,
     selectedQualityMode: String = "balanced",
     onQualityModeSelected: (String) -> Unit = {},
-    onContestsClick: () -> Unit = {}
+    onContestsClick: () -> Unit = {},
+    onTrendingClick: () -> Unit = {}
 ) {
     var showQualityMenu by remember { mutableStateOf(false) }
     val isDark = LocalIsDarkTheme.current
@@ -76,9 +79,12 @@ fun CategoryChipBar(
             }
         }
 
-        // Quality Mode Dropdown Chip & Contests Button Row
+        // Quality Mode Dropdown Chip, Contests & Trending Button Row
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -151,6 +157,27 @@ fun CategoryChipBar(
                     Text(
                         text = "🏆 Contests",
                         color = Color(0xFF60A5FA),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // 🔥 Trending Chip Button
+            Surface(
+                onClick = onTrendingClick,
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFFEF4444).copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                modifier = Modifier.height(28.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "🔥 Trending",
+                        color = Color(0xFFF87171),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )

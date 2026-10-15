@@ -60,6 +60,7 @@ fun MediaTabScreen(
             selectedQualityMode = uiState.qualityMode,
             onQualityModeSelected = { mediaViewModel.selectQualityMode(it) },
             onContestsClick = { navController.navigate(Screen.ContestDiscovery.route) },
+            onTrendingClick = { navController.navigate(Screen.TrendingFeed.route) },
             onPostSelect = { post ->
                 if (post != null) {
                     mediaViewModel.selectPost(post)

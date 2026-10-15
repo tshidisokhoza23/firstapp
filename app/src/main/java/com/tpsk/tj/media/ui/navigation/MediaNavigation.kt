@@ -269,4 +269,14 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             }
         )
     }
+
+    composable(route = Screen.TrendingFeed.route) {
+        com.tpsk.tj.ui.screens.trending.TrendingFeedScreen(
+            onNavigateBack = { navController.popBackStack() },
+            onTopicClick = { topic ->
+                val tag = if (topic.startsWith("#")) topic else "#$topic"
+                navController.navigate(Screen.ContestFeed.createRoute(tag))
+            }
+        )
+    }
 }

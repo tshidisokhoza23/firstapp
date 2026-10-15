@@ -127,4 +127,5 @@ sealed class Screen(val route: String) {
         fun createRoute(hashtag: String) = "contest_feed/${android.net.Uri.encode(hashtag)}"
     }
     object CreateContest : Screen("create_contest")
+    object TrendingFeed : Screen("trending_feed")
 }
