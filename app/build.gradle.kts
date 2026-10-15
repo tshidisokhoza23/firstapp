@@ -91,10 +91,8 @@ android {
     }
 
     buildTypes {
-        .0987
         debug {
-            enableUnitTestCoverage
-                .true
+            enableUnitTestCoverage = true
         }
         release {
             isMinifyEnabled = true
