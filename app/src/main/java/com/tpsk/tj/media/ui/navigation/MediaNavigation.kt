@@ -232,4 +232,41 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             }
         )
     }
+
+    composable(route = Screen.ContestDiscovery.route) {
+        com.tpsk.tj.ui.screens.contest.ContestDiscoveryScreen(
+            onNavigateBack = { navController.popBackStack() },
+            onSelectContest = { hashtag ->
+                navController.navigate(Screen.ContestFeed.createRoute(hashtag))
+            },
+            onCreateContestClick = {
+                navController.navigate(Screen.CreateContest.route)
+            }
+        )
+    }
+
+    composable(
+        route = Screen.ContestFeed.route,
+        arguments = listOf(navArgument("hashtag") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val hashtag = backStackEntry.arguments?.getString("hashtag") ?: ""
+        com.tpsk.tj.ui.screens.contest.ContestFeedScreen(
+            hashtag = hashtag,
+            onNavigateBack = { navController.popBackStack() },
+            onPostClick = { postId ->
+                navController.navigate(Screen.PostDetail.createRoute(postId))
+            }
+        )
+    }
+
+    composable(route = Screen.CreateContest.route) {
+        com.tpsk.tj.ui.screens.contest.CreateContestScreen(
+            onNavigateBack = { navController.popBackStack() },
+            onContestCreated = { hashtag ->
+                navController.navigate(Screen.ContestFeed.createRoute(hashtag)) {
+                    popUpTo(Screen.ContestDiscovery.route)
+                }
+            }
+        )
+    }
 }

@@ -138,6 +138,9 @@ fun CreatePostScreen(
         Brush.horizontalGradient(colors = listOf(Color(0xFF0B57D0), Color(0xFF0284C7)))
     }
     val accentColor = if (isDark) Color(0xFF14B8A6) else MaterialTheme.colorScheme.primary
+    var showContestDialog by remember { mutableStateOf(false) }
+    var contestHashtagInput by remember { mutableStateOf("") }
+    var managerAccessCodeInput by remember { mutableStateOf("") }
     var artistTags by remember { mutableStateOf(setOf<String>()) }
 
     Scaffold(
@@ -289,6 +292,12 @@ fun CreatePostScreen(
                             }
                         ) {
                             Icon(Icons.Outlined.Image, contentDescription = "Image", tint = accentColor)
+                        }
+
+                        IconButton(
+                            onClick = { showContestDialog = true }
+                        ) {
+                            Text("🏆", fontSize = 18.sp)
                         }
 
                         IconButton(
@@ -718,6 +727,51 @@ fun CreatePostScreen(
             onApplyText = { newText, _, isImproved ->
                 postText = newText
                 isAiImproved = isImproved
+            }
+        )
+    }
+
+    if (showContestDialog) {
+        AlertDialog(
+            onDismissRequest = { showContestDialog = false },
+            title = { Text("🏆 Enter Contest", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = contestHashtagInput,
+                        onValueChange = { contestHashtagInput = it },
+                        label = { Text("Contest Hashtag (e.g. #MissThembisa)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = managerAccessCodeInput,
+                        onValueChange = { managerAccessCodeInput = it },
+                        label = { Text("Verified Manager Access Code") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (contestHashtagInput.isNotBlank()) {
+                            val tag = if (contestHashtagInput.startsWith("#")) contestHashtagInput else "#$contestHashtagInput"
+                            if (!postText.contains(tag)) {
+                                postText = if (postText.isBlank()) tag else "$postText $tag"
+                            }
+                        }
+                        showContestDialog = false
+                    }
+                ) {
+                    Text("Attach Entry")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showContestDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
     }

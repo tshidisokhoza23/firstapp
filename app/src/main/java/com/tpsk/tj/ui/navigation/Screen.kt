@@ -122,4 +122,9 @@ sealed class Screen(val route: String) {
         fun createRoute(url: String = "https://firstappserver.fly.dev/privacy", title: String = "Terms of Service & Privacy Policy") =
             "terms_and_privacy?url=${android.net.Uri.encode(url)}&title=${android.net.Uri.encode(title)}"
     }
+    object ContestDiscovery : Screen("contest_discovery")
+    object ContestFeed : Screen("contest_feed/{hashtag}") {
+        fun createRoute(hashtag: String) = "contest_feed/${android.net.Uri.encode(hashtag)}"
+    }
+    object CreateContest : Screen("create_contest")
 }

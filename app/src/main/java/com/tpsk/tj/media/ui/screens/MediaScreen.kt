@@ -138,6 +138,7 @@ fun MediaScreen(
     onCategorySelected: (String?) -> Unit = {},
     selectedQualityMode: String = "balanced",
     onQualityModeSelected: (String) -> Unit = {},
+    onContestsClick: () -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
@@ -340,7 +341,8 @@ fun MediaScreen(
                             selectedCategoryId = selectedCategoryId,
                             onCategorySelected = onCategorySelected,
                             selectedQualityMode = selectedQualityMode,
-                            onQualityModeSelected = onQualityModeSelected
+                            onQualityModeSelected = onQualityModeSelected,
+                            onContestsClick = onContestsClick
                         )
                     }
                 }
@@ -591,6 +593,7 @@ fun MainFeedSection(
     onCategorySelected: (String?) -> Unit = {},
     selectedQualityMode: String = "balanced",
     onQualityModeSelected: (String) -> Unit = {},
+    onContestsClick: () -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -600,7 +603,8 @@ fun MainFeedSection(
             selectedCategoryId = selectedCategoryId,
             onCategorySelected = onCategorySelected,
             selectedQualityMode = selectedQualityMode,
-            onQualityModeSelected = onQualityModeSelected
+            onQualityModeSelected = onQualityModeSelected,
+            onContestsClick = onContestsClick
         )
 
         Box(modifier = Modifier.weight(1f)) {

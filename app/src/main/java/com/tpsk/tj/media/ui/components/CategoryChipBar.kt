@@ -28,7 +28,8 @@ fun CategoryChipBar(
     onCategorySelected: (String?) -> Unit,
     modifier: Modifier = Modifier,
     selectedQualityMode: String = "balanced",
-    onQualityModeSelected: (String) -> Unit = {}
+    onQualityModeSelected: (String) -> Unit = {},
+    onContestsClick: () -> Unit = {}
 ) {
     var showQualityMenu by remember { mutableStateOf(false) }
     val isDark = LocalIsDarkTheme.current
@@ -75,56 +76,83 @@ fun CategoryChipBar(
             }
         }
 
-        // Quality Mode Dropdown Chip Row
-        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
+        // Quality Mode Dropdown Chip & Contests Button Row
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box {
+                Surface(
+                    onClick = { showQualityMenu = true },
+                    shape = RoundedCornerShape(16.dp),
+                    color = surfaceColor,
+                    border = BorderStroke(1.dp, borderColor),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Quality Mode",
+                            tint = accentColor,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Quality: $qualityLabel ▾",
+                            color = textColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showQualityMenu,
+                    onDismissRequest = { showQualityMenu = false },
+                    modifier = Modifier.background(surfaceColor)
+                ) {
+                    qualityOptions.forEach { (key, option) ->
+                        val isChecked = selectedQualityMode == key
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isChecked) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Text(option, color = if (isChecked) accentColor else textColor, fontSize = 13.sp)
+                                }
+                            },
+                            onClick = {
+                                onQualityModeSelected(key)
+                                showQualityMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // 🏆 Contests Chip Button
             Surface(
-                onClick = { showQualityMenu = true },
+                onClick = onContestsClick,
                 shape = RoundedCornerShape(16.dp),
-                color = surfaceColor,
-                border = BorderStroke(1.dp, borderColor),
+                color = Color(0xFF2563EB).copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, Color(0xFF2563EB)),
                 modifier = Modifier.height(28.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = "Quality Mode",
-                        tint = accentColor,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Quality: $qualityLabel ▾",
-                        color = textColor,
+                        text = "🏆 Contests",
+                        color = Color(0xFF60A5FA),
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            DropdownMenu(
-                expanded = showQualityMenu,
-                onDismissRequest = { showQualityMenu = false },
-                modifier = Modifier.background(surfaceColor)
-            ) {
-                qualityOptions.forEach { (key, option) ->
-                    val isChecked = selectedQualityMode == key
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (isChecked) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                }
-                                Text(option, color = if (isChecked) accentColor else textColor, fontSize = 13.sp)
-                            }
-                        },
-                        onClick = {
-                            onQualityModeSelected(key)
-                            showQualityMenu = false
-                        }
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
