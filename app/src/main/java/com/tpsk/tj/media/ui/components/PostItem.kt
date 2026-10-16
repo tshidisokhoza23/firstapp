@@ -132,7 +132,10 @@ fun PostItem(
                     onBookmarkClick = { onBookmark(post.id) },
                     onFollowClick = { onFollowClick(displayPost.authorId, displayPost.isAuthorFollowed) },
                     onMoreClick = { onMoreClick(post) },
-                    onProfileClick = { onProfileClick(displayPost.authorId) },
+                    onProfileClick = { id ->
+                        val target = id.ifBlank { displayPost.authorHandle }
+                        if (target.isNotBlank()) onProfileClick(target)
+                    },
                     onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
                     onQuotedPostClick = onQuotedPostClick,
                     onVotePoll = onVotePoll,
@@ -340,6 +343,8 @@ fun VerticalFeedPostCard(
                     .padding(top = 8.dp, bottom = 8.dp, start = contentPadding),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val targetProfileId = displayPost.authorId.ifBlank { displayPost.authorHandle }.ifBlank { post.authorId }.ifBlank { post.authorHandle }
+
                 if (!showThreadLine) {
                     val avatarUrl = remember(displayPost.authorAvatarUrl) {
                         com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl)
@@ -352,7 +357,7 @@ fun VerticalFeedPostCard(
                             .size(42.dp)
                             .clip(CircleShape)
                             .background(displayPost.authorAvatarColor)
-                            .clickable { onProfileClick(displayPost.authorId) }
+                            .clickable { if (targetProfileId.isNotBlank()) onProfileClick(targetProfileId) }
                     ) {
                         AsyncImage(
                             model = avatarUrl,
@@ -370,7 +375,7 @@ fun VerticalFeedPostCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onProfileClick(displayPost.authorId) }
+                        .clickable { if (targetProfileId.isNotBlank()) onProfileClick(targetProfileId) }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
