@@ -570,6 +570,35 @@ fun VerticalFeedPostCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (post.isContest) {
+                        com.tpsk.tj.ui.screens.contest.ContestVoteButton(
+                            initialVotes = post.likes.toInt().coerceAtLeast(10)
+                        )
+                    }
+
+                    var showTip by remember(post.id) { mutableStateOf(false) }
+                    Surface(
+                        onClick = { showTip = true },
+                        shape = RoundedCornerShape(50),
+                        color = Color.Transparent,
+                        modifier = Modifier.background(
+                            Brush.horizontalGradient(listOf(Color(0xFF8A2BE2).copy(alpha = 0.3f), Color(0xFF00E5FF).copy(alpha = 0.3f))),
+                            RoundedCornerShape(50)
+                        )
+                    ) {
+                        Text(
+                            text = "Tip 💸",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color(0xFF00E5FF),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            maxLines = 1
+                        )
+                    }
+                    if (showTip) {
+                        com.tpsk.tj.wallet.ui.TipPostDialog(postId = post.id, onDismiss = { showTip = false })
+                    }
+
                     PostPill(
                         text = replyText, 
                         onClick = onCommentClick,
@@ -615,30 +644,6 @@ fun VerticalFeedPostCard(
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
                     )
-                    if (!isOwnPost) {
-                        var showTip by remember(post.id) { mutableStateOf(false) }
-                        Surface(
-                            onClick = { showTip = true },
-                            shape = RoundedCornerShape(50),
-                            color = Color.Transparent,
-                            modifier = Modifier.background(
-                                Brush.horizontalGradient(listOf(Color(0xFF8A2BE2).copy(alpha = 0.3f), Color(0xFF00E5FF).copy(alpha = 0.3f))),
-                                RoundedCornerShape(50)
-                            )
-                        ) {
-                            Text(
-                                text = "Tip 💸",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF00E5FF),
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                maxLines = 1
-                            )
-                        }
-                        if (showTip) {
-                            com.tpsk.tj.wallet.ui.TipPostDialog(postId = post.id, onDismiss = { showTip = false })
-                        }
-                    }
                 }
             }
         }

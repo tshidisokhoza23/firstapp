@@ -63,6 +63,7 @@ data class Post(
     val updatedAt: String? = null,
     val mood: String = "",
     val aiAssisted: Boolean = false,
+    val isContest: Boolean = false,
     val collaborators: List<String> = emptyList()
 )
 

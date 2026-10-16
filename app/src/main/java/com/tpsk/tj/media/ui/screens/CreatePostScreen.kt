@@ -138,6 +138,7 @@ fun CreatePostScreen(
         Brush.horizontalGradient(colors = listOf(Color(0xFF0B57D0), Color(0xFF0284C7)))
     }
     val accentColor = if (isDark) Color(0xFF14B8A6) else MaterialTheme.colorScheme.primary
+    var isContestSelected by remember { mutableStateOf(false) }
     var showContestDialog by remember { mutableStateOf(false) }
     var contestHashtagInput by remember { mutableStateOf("") }
     var managerAccessCodeInput by remember { mutableStateOf("") }
@@ -271,6 +272,66 @@ fun CreatePostScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = accentColor
                         )
+                    }
+
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                    // Contest Checkbox Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isContestSelected = !isContestSelected }
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isContestSelected,
+                            onCheckedChange = { isContestSelected = it },
+                            colors = CheckboxDefaults.colors(checkedColor = accentColor)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "🏆 Enter Contest / Pageant",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    if (isContestSelected) {
+                        val validHashtags = remember { listOf("#missthembisa", "#thembisatalent", "#misssoweto", "#gautengpageant", "#missection1") }
+                        val currentCleanTag = contestHashtagInput.trim().lowercase()
+                        val isValidTag = currentCleanTag.isBlank() || validHashtags.contains(if (currentCleanTag.startsWith("#")) currentCleanTag else "#$currentCleanTag")
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = contestHashtagInput,
+                                onValueChange = { contestHashtagInput = it },
+                                label = { Text("Contest Hashtag (e.g. #MissThembisa)") },
+                                isError = !isValidTag,
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (!isValidTag) {
+                                Text(
+                                    text = "Hashtag must match an active contest (e.g. #MissThembisa)",
+                                    color = Color(0xFFEF4444),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            OutlinedTextField(
+                                value = managerAccessCodeInput,
+                                onValueChange = { managerAccessCodeInput = it },
+                                label = { Text("Manager Access Code (e.g. MGR-THEMB-1001)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
 
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
