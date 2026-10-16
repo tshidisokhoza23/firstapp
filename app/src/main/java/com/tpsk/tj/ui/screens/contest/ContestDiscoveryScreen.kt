@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,10 +40,20 @@ fun ContestDiscoveryScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("Trending") }
 
+    val topContests = remember {
+        listOf(
+            "#MissThembisa" to "4.2k voters",
+            "#ThembisaTalent" to "3.8k voters",
+            "#ThembisaQueen" to "3.1k voters",
+            "#MissSoweto" to "2.9k voters",
+            "#GautengPageant" to "2.4k voters"
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Contests & Pageants", fontWeight = FontWeight.Bold, color = Color.White) },
+                title = { Text("Contests & Hashtags", fontWeight = FontWeight.Bold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
@@ -116,13 +127,13 @@ fun ContestDiscoveryScreen(
                 }
             } else {
                 // Top 20 Carousel
-                Text("🔥 Top Pageants This Week", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                Text("🔥 Top Contests This Week", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(5) { idx ->
+                    itemsIndexed(topContests) { idx, (tag, voters) ->
                         Card(
                             modifier = Modifier
                                 .width(130.dp)
-                                .clickable { onSelectContest("#MissThembisa") },
+                                .clickable { onSelectContest(tag) },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = DarkSurface)
                         ) {
@@ -145,8 +156,8 @@ fun ContestDiscoveryScreen(
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("#MissThembisa", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
-                                Text("4.2k voters", color = Color.Gray, fontSize = 11.sp)
+                                Text(tag, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+                                Text(voters, color = Color.Gray, fontSize = 11.sp)
                             }
                         }
                     }

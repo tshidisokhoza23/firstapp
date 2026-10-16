@@ -18,7 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -577,36 +577,27 @@ fun VerticalFeedPostCard(
                     }
 
                     var showTip by remember(post.id) { mutableStateOf(false) }
-                    Surface(
+                    PostPill(
+                        text = "Tip 💸",
+                        icon = Icons.Outlined.AttachMoney,
                         onClick = { showTip = true },
-                        shape = RoundedCornerShape(50),
-                        color = Color.Transparent,
-                        modifier = Modifier.background(
-                            Brush.horizontalGradient(listOf(Color(0xFF8A2BE2).copy(alpha = 0.3f), Color(0xFF00E5FF).copy(alpha = 0.3f))),
-                            RoundedCornerShape(50)
-                        )
-                    ) {
-                        Text(
-                            text = "Tip 💸",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF00E5FF),
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            maxLines = 1
-                        )
-                    }
+                        backgroundColor = pillBgColor,
+                        textColor = Color(0xFF00E5FF)
+                    )
                     if (showTip) {
                         com.tpsk.tj.wallet.ui.TipPostDialog(postId = post.id, onDismiss = { showTip = false })
                     }
 
                     PostPill(
                         text = replyText, 
+                        icon = Icons.Outlined.ChatBubbleOutline,
                         onClick = onCommentClick,
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
                     )
                     PostPill(
                         text = repostText, 
+                        icon = Icons.Default.Repeat,
                         onClick = onRepostClick,
                         isSelected = post.isReposted,
                         selectedColor = Color(0xFF00BA7C),
@@ -615,6 +606,7 @@ fun VerticalFeedPostCard(
                     )
                     PostPill(
                         text = likeText, 
+                        icon = if (post.isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onLikeClick()
@@ -626,12 +618,14 @@ fun VerticalFeedPostCard(
                     )
                     PostPill(
                         text = viewsText, 
+                        icon = Icons.Outlined.BarChart,
                         onClick = {},
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
                     )
                     PostPill(
                         text = saveText, 
+                        icon = if (post.isBookmarked) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
                         onClick = onBookmarkClick,
                         isSelected = post.isBookmarked,
                         selectedColor = Color(0xFF1D9BF0),
@@ -640,6 +634,7 @@ fun VerticalFeedPostCard(
                     )
                     PostPill(
                         text = shareText, 
+                        icon = Icons.Outlined.IosShare,
                         onClick = onShareClick,
                         backgroundColor = pillBgColor,
                         textColor = pillTextColor
@@ -662,6 +657,7 @@ private fun formatCount(count: Long): String {
 @Composable
 private fun PostPill(
     text: String,
+    icon: ImageVector? = null,
     onClick: () -> Unit,
     isSelected: Boolean = false,
     selectedColor: Color = Color.Unspecified,
@@ -673,13 +669,26 @@ private fun PostPill(
         shape = RoundedCornerShape(50),
         color = backgroundColor
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            maxLines = 1
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
+                maxLines = 1
+            )
+        }
     }
 }
 
