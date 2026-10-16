@@ -36,19 +36,25 @@ fun CreateContestScreen(
     var generatedCodes by remember { mutableStateOf<List<String>>(emptyList()) }
     var isSubmitted by remember { mutableStateOf(false) }
 
+    val bgColor = MaterialTheme.colorScheme.background
+    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val accentColor = MaterialTheme.colorScheme.primary
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Host a Pageant / Contest", fontWeight = FontWeight.Bold, color = Color.White) },
+                title = { Text("Host a Pageant / Contest", fontWeight = FontWeight.Bold, color = textColor) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = textColor)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
             )
         },
-        containerColor = DarkBg
+        containerColor = bgColor
     ) { padding ->
         Column(
             modifier = Modifier
@@ -67,12 +73,12 @@ fun CreateContestScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = DarkSurface,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = accentColor,
+                        unfocusedBorderColor = surfaceColor,
+                        focusedContainerColor = surfaceColor,
+                        unfocusedContainerColor = surfaceColor,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor
                     )
                 )
 
@@ -87,12 +93,12 @@ fun CreateContestScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = DarkSurface,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = accentColor,
+                        unfocusedBorderColor = surfaceColor,
+                        focusedContainerColor = surfaceColor,
+                        unfocusedContainerColor = surfaceColor,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor
                     )
                 )
 
@@ -106,12 +112,12 @@ fun CreateContestScreen(
                         .height(100.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = DarkSurface,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = accentColor,
+                        unfocusedBorderColor = surfaceColor,
+                        focusedContainerColor = surfaceColor,
+                        unfocusedContainerColor = surfaceColor,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor
                     )
                 )
 
@@ -123,12 +129,12 @@ fun CreateContestScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = DarkSurface,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = accentColor,
+                        unfocusedBorderColor = surfaceColor,
+                        focusedContainerColor = surfaceColor,
+                        unfocusedContainerColor = surfaceColor,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor
                     )
                 )
 
@@ -151,7 +157,7 @@ fun CreateContestScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("🚀 Create and Launch Contest", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
@@ -159,7 +165,7 @@ fun CreateContestScreen(
             } else {
                 // Generated Manager Access Codes View
                 Text("✅ Contest Created Successfully!", color = GoldYellow, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("Share these Manager Access Codes with contestant managers. Each code grants 1 verified entry to $hashtag.", color = Color.Gray, fontSize = 13.sp)
+                Text("Share these Manager Access Codes with contestant managers. Each code grants 1 verified entry to $hashtag.", color = secondaryTextColor, fontSize = 13.sp)
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -167,18 +173,18 @@ fun CreateContestScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(DarkSurface, RoundedCornerShape(12.dp))
+                            .background(surfaceColor, RoundedCornerShape(12.dp))
                             .padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(code, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(code, color = textColor, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         IconButton(onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText("Manager Code", code))
                             Toast.makeText(context, "Code copied!", Toast.LENGTH_SHORT).show()
                         }) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = AccentBlue)
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = accentColor)
                         }
                     }
                 }
@@ -190,7 +196,7 @@ fun CreateContestScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Go to Contest Feed", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)

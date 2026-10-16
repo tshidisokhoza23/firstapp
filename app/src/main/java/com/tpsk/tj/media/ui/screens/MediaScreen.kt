@@ -649,9 +649,21 @@ fun MainFeedSection(
                     }
                 }
                 else -> {
+                    var isManualRefreshing by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(posts.loadState.refresh) {
+                        if (posts.loadState.refresh !is LoadState.Loading) {
+                            isManualRefreshing = false
+                        }
+                    }
+
                     PullToRefreshBox(
-                        isRefreshing = posts.loadState.refresh is LoadState.Loading,
-                        onRefresh = onRefresh,
+                        isRefreshing = isManualRefreshing,
+                        onRefresh = {
+                            isManualRefreshing = true
+                            posts.refresh()
+                            onRefresh()
+                        },
                         modifier = Modifier.fillMaxSize()
                     ) {
                         val listState = rememberLazyListState()

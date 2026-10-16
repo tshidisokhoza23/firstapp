@@ -4,12 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,10 +17,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.tpsk.tj.MainActivity
+import com.tpsk.tj.common.data.ads.AdMobManagerImpl
+import com.tpsk.tj.media.model.Post
+import com.tpsk.tj.media.ui.components.PostItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,25 +35,33 @@ fun ContestFeedScreen(
     onPostClick: (String) -> Unit = {}
 ) {
     val cleanHashtag = if (hashtag.startsWith("#")) hashtag else "#$hashtag"
+    val context = LocalContext.current
+    val adManager = remember(context) { (context as? MainActivity)?.adManager ?: AdMobManagerImpl() }
+
+    val bgColor = MaterialTheme.colorScheme.background
+    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val accentColor = MaterialTheme.colorScheme.primary
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(cleanHashtag, fontWeight = FontWeight.Bold, color = Color.White) },
+                title = { Text(cleanHashtag, fontWeight = FontWeight.Bold, color = textColor) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = textColor)
                     }
                 },
                 actions = {
                     IconButton(onClick = { /* Share contest */ }) {
-                        Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
+                        Icon(Icons.Default.Share, contentDescription = "Share", tint = textColor)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
             )
         },
-        containerColor = DarkBg
+        containerColor = bgColor
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -63,7 +75,7 @@ fun ContestFeedScreen(
                         .fillMaxWidth()
                         .padding(16.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface)
+                    colors = CardDefaults.cardColors(containerColor = surfaceColor)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -76,7 +88,7 @@ fun ContestFeedScreen(
                         ) {
                             Text(
                                 text = "$cleanHashtag • Week 1",
-                                color = AccentBlue,
+                                color = accentColor,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
@@ -126,23 +138,43 @@ fun ContestFeedScreen(
             item {
                 Text(
                     text = "Contestant Submissions",
-                    color = Color.White,
+                    color = textColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
 
-            // Contest Posts
-            items((1..10).toList()) { rank ->
-                ContestPostCard(
-                    rank = rank,
-                    candidateName = "Candidate #$rank",
-                    managerHandle = "@mgr_thembisa",
-                    caption = "Vote for me in $cleanHashtag! Representation matters. ✨",
-                    photoUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
-                    initialVotes = 1500 - (rank * 110)
+            // Contest Posts rendered as normal PostItem
+            itemsIndexed((1..10).toList()) { _, rank ->
+                val contestPost = remember(rank, cleanHashtag) {
+                    Post(
+                        id = "contest_post_$rank",
+                        authorId = "candidate_$rank",
+                        authorName = "Candidate #$rank",
+                        authorHandle = "candidate_$rank",
+                        authorAvatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
+                        authorAvatarColor = Color(0xFF2563EB),
+                        isVerifiedAuthor = true,
+                        content = "Vote for me in $cleanHashtag! Representation matters. ✨",
+                        mediaUrls = listOf("https://images.unsplash.com/photo-1534528741775-53994a69daeb"),
+                        mediaType = "image",
+                        timestamp = "${rank}h ago",
+                        likes = (1500 - rank * 110).toLong(),
+                        repliesCount = (12 + rank).toLong(),
+                        repostCount = (5 + rank).toLong(),
+                        views = (4200 - rank * 200).toLong(),
+                        shares = (18 + rank).toLong(),
+                        isContest = true
+                    )
+                }
+
+                PostItem(
+                    adManager = adManager,
+                    post = contestPost,
+                    onClick = { onPostClick(contestPost.id) }
                 )
+                HorizontalDivider(color = surfaceColor)
             }
         }
     }
@@ -183,83 +215,7 @@ private fun PodiumContestant(
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text(name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text("$votes votes", color = Color.Gray, fontSize = 11.sp)
-    }
-}
-
-@Composable
-private fun ContestPostCard(
-    rank: Int,
-    candidateName: String,
-    managerHandle: String,
-    caption: String,
-    photoUrl: String,
-    initialVotes: Int
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row: Rank Badge & Manager
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = GoldYellow, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Rank #$rank",
-                        color = GoldYellow,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
-                Text(managerHandle, color = Color.Gray, fontSize = 12.sp)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Caption
-            Text(caption, color = Color.White, fontSize = 14.sp)
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Candidate Photo
-            AsyncImage(
-                model = photoUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(280.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Bottom Action Bar with Voting Button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(candidateName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-
-                ContestVoteButton(
-                    initialVotes = initialVotes,
-                    candidateName = candidateName,
-                    onCastVote = { votes, pts ->
-                        // Vote committed
-                    }
-                )
-            }
-        }
+        Text(name, color = MaterialTheme.colorScheme.onBackground, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("$votes votes", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
     }
 }

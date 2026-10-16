@@ -543,9 +543,9 @@ fun VerticalFeedPostCard(
 
             // 4. BOTTOM ROW: INTERACTIONS (ADAPTIVE TEXT PILLS)
             val isDark = isSystemInDarkTheme()
-            val barBgColor = if (isDark) Color(0xFF0B101B) else MaterialTheme.colorScheme.surface
-            val pillBgColor = if (isDark) Color(0xFF1A2232) else Color(0xFFF3F4F6)
-            val pillTextColor = if (isDark) Color(0xFFD1D5DB) else Color(0xFF4B5563)
+            val barBgColor = Color.Transparent
+            val pillBgColor = if (isDark) Color(0xFF1E2228) else Color(0xFFF2F4F8)
+            val pillTextColor = if (isDark) Color(0xFFF3F4F6) else Color(0xFF1F2937)
 
             val replyText = remember(displayPost.repliesCount) { "Reply ${formatCount(displayPost.repliesCount)}" }
             val repostText = remember(post.repostCount) { "Repost ${formatCount(post.repostCount)}" }
