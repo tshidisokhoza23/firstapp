@@ -254,7 +254,8 @@ private fun ContestPostCard(
 
                 ContestVoteButton(
                     initialVotes = initialVotes,
-                    onCastVote = { isAd ->
+                    candidateName = candidateName,
+                    onCastVote = { votes, pts ->
                         // Vote committed
                     }
                 )

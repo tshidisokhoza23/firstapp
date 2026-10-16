@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import com.tpsk.tj.ui.navigation.Screen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -276,26 +277,45 @@ fun CreatePostScreen(
 
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
-                    // Contest Checkbox Row
+                    // Contest Checkbox & Host Option Row
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { isContestSelected = !isContestSelected }
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 16.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Checkbox(
-                            checked = isContestSelected,
-                            onCheckedChange = { isContestSelected = it },
-                            colors = CheckboxDefaults.colors(checkedColor = accentColor)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "🏆 Enter Contest / Pageant",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { isContestSelected = !isContestSelected }
+                        ) {
+                            Checkbox(
+                                checked = isContestSelected,
+                                onCheckedChange = { isContestSelected = it },
+                                colors = CheckboxDefaults.colors(checkedColor = accentColor)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "🏆 Enter Contest",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                onDismiss()
+                                com.tpsk.tj.common.util.GlobalNavigation.navigateTo(Screen.CreateContest.route)
+                            }
+                        ) {
+                            Text(
+                                text = "+ Host Contest",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = accentColor
+                            )
+                        }
                     }
 
                     if (isContestSelected) {

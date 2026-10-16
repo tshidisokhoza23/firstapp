@@ -1,73 +1,232 @@
 package com.tpsk.tj.ui.screens.contest
 
 import android.app.Activity
-import androidx.compose.foundation.layout.height
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.ads.rewarded.RewardedAd
 
-enum class VoteState { FREE_AVAILABLE, WATCH_AD, COMPLETED_LOCKED }
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContestVoteButton(
     initialVotes: Int,
+    candidateName: String = "Candidate",
     rewardedAd: RewardedAd? = null,
-    onCastVote: (isAdVote: Boolean) -> Unit = {}
+    onCastVote: (voteCount: Int, pointsSpent: Int) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
-    var voteCount by remember { mutableIntStateOf(initialVotes) }
-    var voteState by remember { mutableStateOf(VoteState.FREE_AVAILABLE) }
-
-    val (buttonText, containerColor) = when (voteState) {
-        VoteState.FREE_AVAILABLE -> "Vote ($voteCount)" to Color(0xFF2563EB)
-        VoteState.WATCH_AD -> "Vote Again (Watch Ad)" to Color(0xFF7C3AED)
-        VoteState.COMPLETED_LOCKED -> "Voted Today ✓" to Color(0xFF374151)
-    }
+    var currentVotes by remember { mutableIntStateOf(initialVotes) }
+    var userPointsBalance by remember { mutableIntStateOf(20) } // Default user points
+    var showVoteSheet by remember { mutableStateOf(false) }
 
     Button(
-        onClick = {
-            when (voteState) {
-                VoteState.FREE_AVAILABLE -> {
-                    voteCount++
-                    voteState = VoteState.WATCH_AD
-                    onCastVote(false)
+        onClick = { showVoteSheet = true },
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF2563EB),
+            contentColor = Color.White
+        ),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.height(36.dp)
+    ) {
+        Text(
+            text = "Vote ($currentVotes)",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+    }
+
+    if (showVoteSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showVoteSheet = false },
+            containerColor = Color(0xFF1E2228)
+        ) {
+            InteractiveVotingSheetContent(
+                candidateName = candidateName,
+                currentVotes = currentVotes,
+                userPointsBalance = userPointsBalance,
+                rewardedAd = rewardedAd,
+                onConfirmVote = { votesToCast, ptsCost ->
+                    if (userPointsBalance >= ptsCost) {
+                        userPointsBalance -= ptsCost
+                        currentVotes += votesToCast
+                        onCastVote(votesToCast, ptsCost)
+                        Toast.makeText(context, "Vote recorded! $ptsCost points deducted. Thanks for supporting $candidateName.", Toast.LENGTH_LONG).show()
+                        showVoteSheet = false
+                    } else {
+                        Toast.makeText(context, "Insufficient points. Watch an ad to top up (+10 pts)!", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onTopUpPoints = { added ->
+                    userPointsBalance += added
+                    Toast.makeText(context, "+$added points added to your balance!", Toast.LENGTH_SHORT).show()
                 }
-                VoteState.WATCH_AD -> {
+            )
+        }
+    }
+}
+
+@Composable
+private fun InteractiveVotingSheetContent(
+    candidateName: String,
+    currentVotes: Int,
+    userPointsBalance: Int,
+    rewardedAd: RewardedAd?,
+    onConfirmVote: (votesToCast: Int, ptsCost: Int) -> Unit,
+    onTopUpPoints: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    var voteQty by remember { mutableIntStateOf(1) }
+    val pointsCost = voteQty * 5
+    val hasEnoughPoints = userPointsBalance >= pointsCost
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Vote for $candidateName",
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp
+        )
+
+        Text(
+            text = "Current Votes: $currentVotes",
+            color = Color.Gray,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+        )
+
+        // Quantity Selector: [-] [ N Votes ] [+]
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            IconButton(
+                onClick = { if (voteQty > 1) voteQty-- },
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color(0xFF2A303A), CircleShape)
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = Color.White)
+            }
+
+            Text(
+                text = "$voteQty Vote${if (voteQty == 1) "" else "s"}",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(100.dp)
+            )
+
+            IconButton(
+                onClick = { if (voteQty < 20) voteQty++ },
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color(0xFF2563EB), CircleShape)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Increase", tint = Color.White)
+            }
+        }
+
+        Text(
+            text = "Cost: $pointsCost Points (5 pts / vote)",
+            color = Color(0xFFF59E0B),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+        )
+
+        // User Points Balance Badge
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFF2A303A),
+            modifier = Modifier.padding(bottom = 16.dp)
+        ) {
+            Text(
+                text = "Your Balance: $userPointsBalance Points",
+                color = if (hasEnoughPoints) Color(0xFF10B981) else Color(0xFFEF4444),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        // Confirm Vote Button
+        Button(
+            onClick = { onConfirmVote(voteQty, pointsCost) },
+            enabled = hasEnoughPoints,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF2563EB),
+                disabledContainerColor = Color(0xFF374151),
+                disabledContentColor = Color.Gray
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        ) {
+            Text(
+                text = if (hasEnoughPoints) "Confirm Vote ($pointsCost pts)" else "Need ${pointsCost - userPointsBalance} More Points",
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = Color.White
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Ad Top-Up Option
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Running low on points?", color = Color.Gray, fontSize = 12.sp)
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            OutlinedButton(
+                onClick = {
                     val activity = context as? Activity
                     if (activity != null && rewardedAd != null) {
                         rewardedAd.show(activity) { _ ->
-                            voteCount++
-                            voteState = VoteState.COMPLETED_LOCKED
-                            onCastVote(true)
+                            onTopUpPoints(10)
                         }
                     } else {
-                        // Fallback if ad is unavailable
-                        voteCount++
-                        voteState = VoteState.COMPLETED_LOCKED
-                        onCastVote(true)
+                        // Fallback top up
+                        onTopUpPoints(10)
                     }
-                }
-                VoteState.COMPLETED_LOCKED -> { /* Locked */ }
+                },
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF7C3AED)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+            ) {
+                Text("🎬 Watch Video Ad (+10 pts)", color = Color(0xFFA78BFA), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
-        },
-        enabled = voteState != VoteState.COMPLETED_LOCKED,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            disabledContainerColor = Color(0xFF1E2228),
-            disabledContentColor = Color.Gray
-        ),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.height(38.dp)
-    ) {
-        Text(text = buttonText, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
