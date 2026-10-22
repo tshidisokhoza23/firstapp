@@ -83,7 +83,7 @@ class NearbyRepository @Inject constructor(
                         coarseAreaName = api.area_name,
                         distanceKm = api.distance_km,
                         likeCount = api.like_count,
-                        replyCount = api.reply_count,
+                        replyCount = maxOf(api.reply_count, api.replies?.size ?: 0),
                         isLiked = api.is_liked,
                         createdAt = parseIsoTime(api.created_at),
                         replies = api.replies?.map { r ->
