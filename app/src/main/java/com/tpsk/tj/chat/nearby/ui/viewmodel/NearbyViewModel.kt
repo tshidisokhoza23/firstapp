@@ -187,6 +187,21 @@ class NearbyViewModel @Inject constructor(
 
     fun openThread(post: NearbyPost) {
         _uiState.value = _uiState.value.copy(activeThreadPost = post)
+        viewModelScope.launch {
+            repository.getRepliesForPost(post.id).collect { res ->
+                if (res is Resource.Success && res.data != null) {
+                    val currentActive = _uiState.value.activeThreadPost
+                    if (currentActive?.id == post.id) {
+                        _uiState.value = _uiState.value.copy(
+                            activeThreadPost = currentActive.copy(
+                                replyCount = res.data.size,
+                                replies = res.data
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun closeThread() {

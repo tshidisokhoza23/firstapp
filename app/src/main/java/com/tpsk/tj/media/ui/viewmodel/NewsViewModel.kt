@@ -18,9 +18,6 @@ class NewsViewModel @Inject constructor(
     private val newsRepository: NewsRepository
 ) : ViewModel() {
 
-    private val _selectedCategory = MutableStateFlow("All")
-    val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
-
     private val _articles = MutableStateFlow<List<NewsArticle>>(emptyList())
     val articles: StateFlow<List<NewsArticle>> = _articles.asStateFlow()
 
@@ -30,40 +27,75 @@ class NewsViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isPaginationLoading = MutableStateFlow(false)
+    val isPaginationLoading: StateFlow<Boolean> = _isPaginationLoading.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private var nextCursor: String? = null
+    private var canLoadMore = true
+
     init {
-        loadNews("All")
+        loadInitialNews()
     }
 
-    fun selectCategory(category: String) {
-        _selectedCategory.value = category
-        loadNews(category)
-    }
-
-    fun loadNews(category: String) {
+    fun loadInitialNews() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            nextCursor = null
+            canLoadMore = true
 
-            newsRepository.getNews(category).collect { resource ->
+            newsRepository.getNews(cursor = null, limit = 30).collect { resource ->
                 when (resource) {
                     is Resource.Loading -> {
                         _isLoading.value = true
                     }
                     is Resource.Success -> {
                         _isLoading.value = false
-                        val list = resource.data.orEmpty()
+                        val (list, cursor) = resource.data ?: Pair(emptyList(), null)
+                        nextCursor = cursor
+                        canLoadMore = !cursor.isNullOrBlank() && list.isNotEmpty()
                         _articles.value = list
                         updateFeedItems(list)
                     }
                     is Resource.Error -> {
                         _isLoading.value = false
                         _errorMessage.value = resource.message ?: "Failed to load news"
-                        val list = resource.data.orEmpty()
+                        val (list, _) = resource.data ?: Pair(emptyList(), null)
                         _articles.value = list
                         updateFeedItems(list)
+                    }
+                }
+            }
+        }
+    }
+
+    fun loadMoreNews() {
+        if (_isPaginationLoading.value || !canLoadMore || nextCursor.isNullOrBlank()) return
+
+        viewModelScope.launch {
+            _isPaginationLoading.value = true
+            val currentCursor = nextCursor
+
+            newsRepository.getNews(cursor = currentCursor, limit = 30).collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        _isPaginationLoading.value = true
+                    }
+                    is Resource.Success -> {
+                        _isPaginationLoading.value = false
+                        val (newList, cursor) = resource.data ?: Pair(emptyList(), null)
+                        nextCursor = cursor
+                        canLoadMore = !cursor.isNullOrBlank() && newList.isNotEmpty()
+
+                        val combined = (_articles.value + newList).distinctBy { it.id }
+                        _articles.value = combined
+                        updateFeedItems(combined)
+                    }
+                    is Resource.Error -> {
+                        _isPaginationLoading.value = false
                     }
                 }
             }

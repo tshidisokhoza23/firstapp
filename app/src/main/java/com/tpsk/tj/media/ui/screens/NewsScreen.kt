@@ -1,21 +1,16 @@
 package com.tpsk.tj.media.ui.screens
 
 import android.content.Intent
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -28,12 +23,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.tpsk.tj.media.ui.viewmodel.NewsViewModel
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.tpsk.tj.common.data.ads.AdUnitConfig
+import com.tpsk.tj.common.ui.components.NativeAdCard
+import com.tpsk.tj.media.ui.viewmodel.NewsViewModel
 import com.tpsk.tj.media.util.NewsCustomTabsHelper
 
 data class NewsArticle(
@@ -65,11 +61,24 @@ fun NewsScreen(
     newsViewModel: NewsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val selectedCategory by newsViewModel.selectedCategory.collectAsState()
     val feedItems by newsViewModel.feedItems.collectAsState()
     val isLoading by newsViewModel.isLoading.collectAsState()
+    val isPaginationLoading by newsViewModel.isPaginationLoading.collectAsState()
 
-    val categories = listOf("All", "Local", "Sports", "Entertainment", "National", "World")
+    val listState = rememberLazyListState()
+
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+            lastVisibleItem.index >= feedItems.size - 4
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            newsViewModel.loadMoreNews()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -97,31 +106,6 @@ fun NewsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Horizontal Categories Bar
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                items(categories) { cat ->
-                    val isSelected = selectedCategory == cat
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = if (isSelected) Color(0xFF00B4D8) else MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.clickable { newsViewModel.selectCategory(cat) }
-                    ) {
-                        Text(
-                            text = cat,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
-                }
-            }
-
             if (isLoading && feedItems.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -132,8 +116,8 @@ fun NewsScreen(
                     CircularProgressIndicator(color = Color(0xFF00B4D8))
                 }
             } else {
-                // News List with In-Feed Native Ads
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -171,7 +155,20 @@ fun NewsScreen(
                                 )
                             }
                             is NewsFeedItem.NativeAdItem -> {
-                                NewsNativeAdCard(adId = item.adId)
+                                NativeAdCard(adUnitId = AdUnitConfig.NATIVE_POSTS_ID)
+                            }
+                        }
+                    }
+
+                    if (isPaginationLoading) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = Color(0xFF00B4D8), modifier = Modifier.size(28.dp))
                             }
                         }
                     }
@@ -198,7 +195,6 @@ fun NewsCard(
             .clickable { onArticleClick() }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Cover Image
             AsyncImage(
                 model = article.imageUrl,
                 contentDescription = article.title,
@@ -210,7 +206,6 @@ fun NewsCard(
             )
 
             Column(modifier = Modifier.padding(16.dp)) {
-                // Article Title
                 Text(
                     text = article.title,
                     fontSize = 18.sp,
@@ -221,7 +216,6 @@ fun NewsCard(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Source & Relative Time
                 Text(
                     text = "${article.sourceName} • ${article.timeAgo}",
                     fontSize = 13.sp,
@@ -230,12 +224,10 @@ fun NewsCard(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Bottom Action Row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Comments Count Button (Launches Full-Screen Discussion)
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -263,7 +255,6 @@ fun NewsCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Like Button
                     IconButton(
                         onClick = onLike,
                         modifier = Modifier.size(32.dp)
@@ -278,7 +269,6 @@ fun NewsCard(
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Cyan "Share to Chat ➔" Button
                     Button(
                         onClick = onShareToChat,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B4D8)),
@@ -300,72 +290,6 @@ fun NewsCard(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun NewsNativeAdCard(adId: String) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF00B4D8)
-                ) {
-                    Text(
-                        text = "SPONSORED",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = "AdChoices",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = "Discover Top South African Tech & Local Offers",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Upgrade your mobile experience with high-speed fiber, exclusive device deals, and premium digital rewards.",
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = { /* Open Ad Link */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B4D8)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text("Visit Website", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             }
         }
     }

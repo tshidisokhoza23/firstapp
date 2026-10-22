@@ -3,6 +3,9 @@ package com.tpsk.tj.chat.nearby.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
+import com.tpsk.tj.chat.nearby.data.api.CreateNearbyPostRequest
+import com.tpsk.tj.chat.nearby.data.api.CreateNearbyReplyRequest
+import com.tpsk.tj.chat.nearby.data.api.NearbyApi
 import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
 import com.tpsk.tj.common.util.Resource
@@ -10,24 +13,26 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
 
 @Singleton
 class NearbyRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val nearbyApi: NearbyApi
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences("nearby_location_prefs", Context.MODE_PRIVATE)
     private val reportedPostIds = mutableSetOf<String>()
     private val blockedUserIds = mutableSetOf<String>()
     private var lastPostTimestampMs: Long = 0L
 
-    private val localPosts = MutableStateFlow<List<NearbyPost>>(createInitialSamplePosts())
+    private val localPosts = MutableStateFlow<List<NearbyPost>>(emptyList())
 
     fun saveCoarseLocation(lat: Double, lng: Double, areaName: String) {
-        // Privacy rule: Round coordinates to 2 decimal places on device
         val roundedLat = (lat * 100).roundToInt() / 100.0
         val roundedLng = (lng * 100).roundToInt() / 100.0
         prefs.edit()
@@ -58,15 +63,51 @@ class NearbyRepository @Inject constructor(
     ): Flow<Resource<List<NearbyPost>>> = flow {
         emit(Resource.Loading())
         try {
-            val areaName = selectedCity ?: getCachedCoarseAreaName()
-            val filtered = localPosts.value.filter { post ->
-                !reportedPostIds.contains(post.id) &&
-                        !blockedUserIds.contains(post.userId) &&
-                        post.distanceKm <= radiusKm
+            val response = nearbyApi.getPosts(
+                lat = if (lat != 0.0) lat else null,
+                lng = if (lng != 0.0) lng else null,
+                radius = radiusKm,
+                area = selectedCity
+            )
+            if (response.isSuccessful && response.body() != null) {
+                val apiPosts = response.body()!!.posts
+                val mapped = apiPosts.map { api ->
+                    NearbyPost(
+                        id = api.id,
+                        userId = api.user_id,
+                        authorName = api.author_name,
+                        authorAvatarUrl = api.author_avatar_url,
+                        authorAvatarColor = Color(0xFF00B4D8),
+                        content = api.content,
+                        coarseAreaName = api.area_name,
+                        distanceKm = api.distance_km,
+                        likeCount = api.like_count,
+                        replyCount = api.reply_count,
+                        isLiked = api.is_liked,
+                        createdAt = parseIsoTime(api.created_at),
+                        replies = api.replies?.map { r ->
+                            NearbyReply(
+                                id = r.id,
+                                postId = r.post_id,
+                                userId = r.user_id,
+                                authorName = r.author_name,
+                                authorAvatarUrl = r.author_avatar_url,
+                                authorAvatarColor = Color(0xFFE91E63),
+                                content = r.content,
+                                createdAt = parseIsoTime(r.created_at)
+                            )
+                        } ?: emptyList()
+                    )
+                }.filter { post ->
+                    !reportedPostIds.contains(post.id) && !blockedUserIds.contains(post.userId)
+                }
+                localPosts.value = mapped
+                emit(Resource.Success(mapped))
+            } else {
+                emit(Resource.Error("Unable to fetch nearby posts from server", localPosts.value))
             }
-            emit(Resource.Success(filtered))
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Unable to fetch nearby posts"))
+            emit(Resource.Error(e.message ?: "Network error fetching nearby posts", localPosts.value))
         }
     }
 
@@ -86,49 +127,63 @@ class NearbyRepository @Inject constructor(
             return@flow
         }
 
-        val now = System.currentTimeMillis()
-        if (now - lastPostTimestampMs < 2 * 60 * 1000L) {
-            val remainingSec = ((2 * 60 * 1000L - (now - lastPostTimestampMs)) / 1000L).coerceAtLeast(1)
-            emit(Resource.Error("Rate limit: Please wait $remainingSec seconds before posting again"))
-            return@flow
-        }
-
         emit(Resource.Loading())
-        val areaName = getCachedCoarseAreaName()
-        val newPost = NearbyPost(
-            id = "nearby_" + UUID.randomUUID().toString().take(8),
-            userId = authorId,
-            authorName = authorName,
-            authorAvatarUrl = authorAvatarUrl,
-            authorAvatarColor = Color(0xFF00B4D8),
-            content = trimmed,
-            coarseAreaName = areaName,
-            distanceKm = 0.5,
-            likeCount = 0,
-            replyCount = 0,
-            isLiked = false,
-            createdAt = now
-        )
-
-        lastPostTimestampMs = now
-        localPosts.value = listOf(newPost) + localPosts.value
-        emit(Resource.Success(newPost))
+        try {
+            val req = CreateNearbyPostRequest(
+                content = trimmed,
+                area_name = getCachedCoarseAreaName(),
+                latitude = getCachedCoarseLat(),
+                longitude = getCachedCoarseLng()
+            )
+            val response = nearbyApi.createPost(req)
+            if (response.isSuccessful && response.body() != null) {
+                val api = response.body()!!
+                val newPost = NearbyPost(
+                    id = api.id,
+                    userId = api.user_id,
+                    authorName = if (api.author_name.isNotBlank() && api.author_name != "User") api.author_name else authorName,
+                    authorAvatarUrl = api.author_avatar_url ?: authorAvatarUrl,
+                    authorAvatarColor = Color(0xFF00B4D8),
+                    content = api.content,
+                    coarseAreaName = api.area_name,
+                    distanceKm = 0.5,
+                    likeCount = api.like_count,
+                    replyCount = api.reply_count,
+                    isLiked = false,
+                    createdAt = parseIsoTime(api.created_at)
+                )
+                localPosts.value = listOf(newPost) + localPosts.value
+                emit(Resource.Success(newPost))
+            } else {
+                emit(Resource.Error("Failed to publish post on server"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error creating post"))
+        }
     }
 
     fun likePost(postId: String): Flow<Resource<NearbyPost>> = flow {
-        val current = localPosts.value
-        val updated = current.map { post ->
-            if (post.id == postId) {
-                val newLiked = !post.isLiked
-                val newLikes = if (newLiked) post.likeCount + 1 else (post.likeCount - 1).coerceAtLeast(0)
-                post.copy(isLiked = newLiked, likeCount = newLikes)
+        try {
+            emit(Resource.Loading())
+            val response = nearbyApi.toggleLike(postId)
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val updated = localPosts.value.map { post ->
+                    if (post.id == postId) {
+                        post.copy(isLiked = body.is_liked, likeCount = body.like_count)
+                    } else {
+                        post
+                    }
+                }
+                localPosts.value = updated
+                updated.find { it.id == postId }?.let { emit(Resource.Success(it)) }
+                    ?: emit(Resource.Error("Post not found"))
             } else {
-                post
+                emit(Resource.Error("Could not toggle like on server"))
             }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error toggling like"))
         }
-        localPosts.value = updated
-        updated.find { it.id == postId }?.let { emit(Resource.Success(it)) }
-            ?: emit(Resource.Error("Post not found"))
     }
 
     fun replyToPost(
@@ -144,29 +199,66 @@ class NearbyRepository @Inject constructor(
             return@flow
         }
 
-        val newReply = NearbyReply(
-            id = "reply_" + UUID.randomUUID().toString().take(8),
-            postId = postId,
-            userId = authorId,
-            authorName = authorName,
-            authorAvatarUrl = authorAvatarUrl,
-            authorAvatarColor = Color(0xFFE91E63),
-            content = trimmed,
-            createdAt = System.currentTimeMillis()
-        )
-
-        val updated = localPosts.value.map { post ->
-            if (post.id == postId) {
-                post.copy(
-                    replyCount = post.replyCount + 1,
-                    replies = post.replies + newReply
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.createReply(postId, CreateNearbyReplyRequest(trimmed))
+            if (response.isSuccessful && response.body() != null) {
+                val r = response.body()!!
+                val newReply = NearbyReply(
+                    id = r.id,
+                    postId = r.post_id,
+                    userId = r.user_id,
+                    authorName = if (r.author_name.isNotBlank() && r.author_name != "User") r.author_name else authorName,
+                    authorAvatarUrl = r.author_avatar_url ?: authorAvatarUrl,
+                    authorAvatarColor = Color(0xFFE91E63),
+                    content = r.content,
+                    createdAt = parseIsoTime(r.created_at)
                 )
+
+                val updated = localPosts.value.map { post ->
+                    if (post.id == postId) {
+                        post.copy(
+                            replyCount = post.replyCount + 1,
+                            replies = post.replies + newReply
+                        )
+                    } else {
+                        post
+                    }
+                }
+                localPosts.value = updated
+                emit(Resource.Success(newReply))
             } else {
-                post
+                emit(Resource.Error("Could not publish reply on server"))
             }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error creating reply"))
         }
-        localPosts.value = updated
-        emit(Resource.Success(newReply))
+    }
+
+    fun getRepliesForPost(postId: String): Flow<Resource<List<NearbyReply>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.getReplies(postId)
+            if (response.isSuccessful && response.body() != null) {
+                val replies = response.body()!!.replies.map { r ->
+                    NearbyReply(
+                        id = r.id,
+                        postId = r.post_id,
+                        userId = r.user_id,
+                        authorName = r.author_name,
+                        authorAvatarUrl = r.author_avatar_url,
+                        authorAvatarColor = Color(0xFFE91E63),
+                        content = r.content,
+                        createdAt = parseIsoTime(r.created_at)
+                    )
+                }
+                emit(Resource.Success(replies))
+            } else {
+                emit(Resource.Error("Could not load replies"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error fetching replies"))
+        }
     }
 
     fun reportPost(postId: String) {
@@ -179,72 +271,14 @@ class NearbyRepository @Inject constructor(
         localPosts.value = localPosts.value.filterNot { it.userId == userId }
     }
 
-    private fun createInitialSamplePosts(): List<NearbyPost> {
-        val now = System.currentTimeMillis()
-        return listOf(
-            NearbyPost(
-                id = "nearby_sample_1",
-                userId = "user_sizwe",
-                authorName = "Sizwe M.",
-                authorAvatarColor = Color(0xFF00B4D8),
-                content = "Anyone know why the power is out near the main campus area?",
-                coarseAreaName = "Braamfontein",
-                distanceKm = 1.5,
-                likeCount = 15,
-                replyCount = 42,
-                isLiked = false,
-                createdAt = now - (5 * 60 * 1000L),
-                recentCommenterAvatars = listOf("avatar_1", "avatar_2", "avatar_3"),
-                replies = listOf(
-                    NearbyReply(
-                        id = "r1",
-                        postId = "nearby_sample_1",
-                        userId = "user_thabo",
-                        authorName = "Thabo K.",
-                        content = "City Power said there is a cable fault at the local substation. Expected resolution in 2 hours.",
-                        createdAt = now - (3 * 60 * 1000L)
-                    )
-                )
-            ),
-            NearbyPost(
-                id = "nearby_sample_2",
-                userId = "user_kgotso",
-                authorName = "Kgotso",
-                authorAvatarColor = Color(0xFFE91E63),
-                content = "Selling my textbook for second year econ. Perfect condition, DM me!",
-                coarseAreaName = "Braamfontein",
-                distanceKm = 2.1,
-                likeCount = 4,
-                replyCount = 8,
-                isLiked = false,
-                createdAt = now - (25 * 60 * 1000L)
-            ),
-            NearbyPost(
-                id = "nearby_sample_3",
-                userId = "user_lerato",
-                authorName = "Lerato P.",
-                authorAvatarColor = Color(0xFF4CAF50),
-                content = "Study group meeting at the library second floor study room at 4 PM for CS201. Everyone welcome!",
-                coarseAreaName = "Milpark",
-                distanceKm = 3.8,
-                likeCount = 22,
-                replyCount = 12,
-                isLiked = false,
-                createdAt = now - (2 * 3600 * 1000L)
-            ),
-            NearbyPost(
-                id = "nearby_sample_4",
-                userId = "user_ayanda",
-                authorName = "Ayanda B.",
-                authorAvatarColor = Color(0xFFFF9800),
-                content = "Lost silver keys with a blue keychain near the coffee shop on Jorissen St. Please let me know if found!",
-                coarseAreaName = "Braamfontein",
-                distanceKm = 0.8,
-                likeCount = 18,
-                replyCount = 9,
-                isLiked = false,
-                createdAt = now - (4 * 3600 * 1000L)
-            )
-        )
+    private fun parseIsoTime(iso: String?): Long {
+        if (iso.isNullOrBlank()) return System.currentTimeMillis()
+        return try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            sdf.timeZone = TimeZone.getTimeZone("UTC")
+            sdf.parse(iso)?.time ?: System.currentTimeMillis()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
     }
 }

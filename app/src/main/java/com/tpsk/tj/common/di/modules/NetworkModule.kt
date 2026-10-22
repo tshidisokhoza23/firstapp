@@ -265,4 +265,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideNewsApi(retrofit: Retrofit): com.tpsk.tj.media.data.api.NewsApi = retrofit.create(com.tpsk.tj.media.data.api.NewsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNearbyApi(retrofit: Retrofit): com.tpsk.tj.chat.nearby.data.api.NearbyApi = retrofit.create(com.tpsk.tj.chat.nearby.data.api.NearbyApi::class.java)
 }

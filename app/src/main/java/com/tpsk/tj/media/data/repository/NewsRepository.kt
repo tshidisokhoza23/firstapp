@@ -10,7 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface NewsRepository {
-    fun getNews(category: String, cursor: String? = null): Flow<Resource<List<NewsArticle>>>
+    fun getNews(category: String? = null, cursor: String? = null, limit: Int = 30): Flow<Resource<Pair<List<NewsArticle>, String?>>>
     fun toggleLike(articleId: String): Flow<Resource<Boolean>>
 }
 
@@ -19,13 +19,15 @@ class NewsRepositoryImpl @Inject constructor(
     private val newsApi: NewsApi
 ) : NewsRepository {
 
-    override fun getNews(category: String, cursor: String?): Flow<Resource<List<NewsArticle>>> = flow {
+    override fun getNews(category: String?, cursor: String?, limit: Int): Flow<Resource<Pair<List<NewsArticle>, String?>>> = flow {
         emit(Resource.Loading())
         try {
-            val catParam = if (category.equals("All", ignoreCase = true)) null else category.lowercase()
-            val response = newsApi.getNews(category = catParam, cursor = cursor)
+            val catParam = if (category.isNullOrBlank() || category.equals("All", ignoreCase = true)) null else category.lowercase()
+            val response = newsApi.getNews(category = catParam, cursor = cursor, limit = limit)
             if (response.isSuccessful && response.body() != null) {
-                val apiArticles = response.body()!!.articles
+                val body = response.body()!!
+                val apiArticles = body.articles ?: emptyList()
+                val nextCursor = body.next_cursor
                 val articles = apiArticles.map { api ->
                     NewsArticle(
                         id = api.id,
@@ -43,12 +45,12 @@ class NewsRepositoryImpl @Inject constructor(
                         isLiked = api.has_liked ?: false
                     )
                 }
-                emit(Resource.Success(articles))
+                emit(Resource.Success(Pair(articles, nextCursor)))
             } else {
-                emit(Resource.Error("Could not load news", emptyList()))
+                emit(Resource.Error("Could not load news", Pair(emptyList(), null)))
             }
         } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Network error", emptyList()))
+            emit(Resource.Error(e.message ?: "Network error", Pair(emptyList(), null)))
         }
     }
 
