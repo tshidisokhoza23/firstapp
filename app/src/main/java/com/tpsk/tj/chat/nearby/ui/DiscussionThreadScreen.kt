@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
 import com.tpsk.tj.chat.nearby.ui.viewmodel.NearbyViewModel
 import com.tpsk.tj.common.ui.viewmodel.UserViewModel
@@ -58,6 +59,7 @@ fun DiscussionThreadScreen(
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val currentUser by userViewModel.currentUser.collectAsState()
+    val uiState by nearbyViewModel.uiState.collectAsState()
 
     var replyText by remember { mutableStateOf("") }
     var showRulesBanner by remember { mutableStateOf(false) }
@@ -67,40 +69,27 @@ fun DiscussionThreadScreen(
         currentUser?.displayName?.ifBlank { currentUser?.username }?.ifBlank { "You" } ?: "You"
     }
 
-    // Sample initial replies matching the mockup
-    val repliesList = remember(postId) {
-        mutableStateListOf(
-            NearbyReply(
-                id = "r_1",
-                postId = postId,
-                userId = "u_thabo",
-                authorName = "Thabo K.",
-                authorAvatarColor = Color(0xFFAB47BC),
-                content = "City Power said there is a cable fault at the local substation. Expected resolution in 2 hours.",
-                createdAt = System.currentTimeMillis() - (5 * 60 * 1000L)
-            ),
-            NearbyReply(
-                id = "r_2",
-                postId = postId,
-                userId = "u_lerato",
-                authorName = "Lerato M.",
-                authorAvatarColor = Color(0xFF26A69A),
-                content = "My building also just went dark. Local power grid is currently offline.",
-                createdAt = System.currentTimeMillis() - (4 * 60 * 1000L)
-            ),
-            NearbyReply(
-                id = "r_3",
-                postId = postId,
-                userId = "u_jabu",
-                authorName = "Jabu S.",
-                authorAvatarColor = Color(0xFFFF7043),
-                content = "Same here in Braamfontein... hope it doesn't take all night, I need to study.",
-                createdAt = System.currentTimeMillis() - (2 * 60 * 1000L)
+    val repliesList = uiState.activeThreadPost?.takeIf { it.id == postId }?.replies.orEmpty()
+    val participantCount = repliesList.size + 1
+
+    LaunchedEffect(postId) {
+        nearbyViewModel.openThread(
+            NearbyPost(
+                id = postId,
+                userId = "",
+                authorName = authorName,
+                content = postContent,
+                coarseAreaName = postSubtitle.substringBefore("•").trim().ifBlank { "Nearby" }
             )
         )
     }
 
-    var participantCount by remember(postId) { mutableIntStateOf(repliesList.size + 1) }
+    LaunchedEffect(uiState.errorMessage) {
+        val message = uiState.errorMessage
+        if (!message.isNullOrBlank()) {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     val resolvedTitle = remember(authorName, postTitle) {
         if (postTitle.isNotBlank()) postTitle
@@ -282,23 +271,24 @@ fun DiscussionThreadScreen(
                             .clickable(enabled = replyText.trim().isNotEmpty()) {
                                 val trimmed = replyText.trim()
                                 if (trimmed.isNotEmpty()) {
-                                    val newReply = NearbyReply(
-                                        id = "r_" + System.currentTimeMillis(),
+                                    nearbyViewModel.replyToPost(
                                         postId = postId,
-                                        userId = currentUser?.id.orEmpty().ifBlank { "user_you" },
+                                        replyContent = trimmed,
+                                        authorId = currentUser?.id.orEmpty(),
                                         authorName = currentUserName,
                                         authorAvatarUrl = currentUser?.avatarUrl,
-                                        authorAvatarColor = Color(0xFF689F38),
-                                        content = trimmed,
-                                        createdAt = System.currentTimeMillis()
+                                        onSuccess = {
+                                            replyText = ""
+                                            coroutineScope.launch {
+                                                if (repliesList.isNotEmpty()) {
+                                                    listState.animateScrollToItem(repliesList.lastIndex)
+                                                }
+                                            }
+                                        },
+                                        onError = { message ->
+                                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                        }
                                     )
-                                    repliesList.add(newReply)
-                                    participantCount++
-                                    replyText = ""
-
-                                    coroutineScope.launch {
-                                        listState.animateScrollToItem(repliesList.size)
-                                    }
                                 }
                             }
                     ) {
@@ -407,7 +397,11 @@ fun DiscussionThreadScreen(
             }
 
             // Discussion Replies List
-            if (repliesList.isEmpty()) {
+            if (uiState.isLoading && repliesList.isEmpty()) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = AccentCyan)
+                }
+            } else if (repliesList.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .weight(1f)

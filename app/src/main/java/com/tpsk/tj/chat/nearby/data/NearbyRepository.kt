@@ -232,7 +232,7 @@ class NearbyRepository @Inject constructor(
                 localPosts.value = updated
                 emit(Resource.Success(newReply))
             } else {
-                emit(Resource.Error("Could not publish reply on server"))
+                emit(Resource.Error(response.errorText("Could not publish reply")))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Network error creating reply"))

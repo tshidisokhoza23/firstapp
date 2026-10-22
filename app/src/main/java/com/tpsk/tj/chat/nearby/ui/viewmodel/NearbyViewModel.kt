@@ -225,19 +225,33 @@ class NearbyViewModel @Inject constructor(
     }
 
     fun openThread(post: NearbyPost) {
-        _uiState.value = _uiState.value.copy(activeThreadPost = post)
+        _uiState.value = _uiState.value.copy(
+            activeThreadPost = post.copy(replies = emptyList()),
+            isLoading = true,
+            errorMessage = null
+        )
         viewModelScope.launch {
             repository.getRepliesForPost(post.id).collect { res ->
-                if (res is Resource.Success && res.data != null) {
-                    val currentActive = _uiState.value.activeThreadPost
-                    if (currentActive?.id == post.id) {
+                val currentActive = _uiState.value.activeThreadPost
+                if (currentActive?.id != post.id) return@collect
+                when (res) {
+                    is Resource.Success -> {
+                        val replies = res.data.orEmpty()
                         _uiState.value = _uiState.value.copy(
+                            isLoading = false,
                             activeThreadPost = currentActive.copy(
-                                replyCount = res.data.size,
-                                replies = res.data
+                                replyCount = replies.size,
+                                replies = replies
                             )
                         )
                     }
+                    is Resource.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = res.message ?: "Could not load replies"
+                        )
+                    }
+                    is Resource.Loading -> Unit
                 }
             }
         }
