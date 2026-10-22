@@ -112,6 +112,10 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             },
             onRequestCreatePost = { replyId, quoteId ->
                 navController.navigate(Screen.CreatePost.createRoute(replyId, quoteId))
+            },
+            onHashtagClick = { tag ->
+                val clean = tag.removePrefix("#").trim()
+                if (clean.isNotBlank()) navController.navigate(Screen.ContestFeed.createRoute(clean))
             }
         )
     }
@@ -156,6 +160,10 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onShareClick = { post ->
                 mediaViewModel.sharePost(post.id, post.shares)
                 com.tpsk.tj.common.util.ShareUtils.sharePost(navController.context, post)
+            },
+            onHashtagClick = { tag ->
+                val clean = tag.removePrefix("#").trim()
+                if (clean.isNotBlank()) navController.navigate(Screen.ContestFeed.createRoute(clean))
             }
         )
     }
@@ -255,6 +263,11 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onNavigateBack = { navController.popBackStack() },
             onPostClick = { postId ->
                 navController.navigate(Screen.PostDetail.createRoute(postId))
+            },
+            onProfileClick = { userId ->
+                if (userId.isNotBlank() && userId != "null") {
+                    navController.navigate(Screen.UserProfile.createRoute(userId))
+                }
             }
         )
     }

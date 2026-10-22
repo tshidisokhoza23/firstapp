@@ -20,6 +20,7 @@ import com.tpsk.tj.ui.navigation.Screen
 import kotlin.text.*
 
 import androidx.paging.compose.collectAsLazyPagingItems
+import android.content.Intent
 
 @Composable
 fun MediaTabScreen(
@@ -83,7 +84,47 @@ fun MediaTabScreen(
             onProfileViewChange = { }, 
             onGetUserPosts = onGetUserPosts,
             userViewModel = userViewModel,
-            mediaViewModel = mediaViewModel
+            mediaViewModel = mediaViewModel,
+            onVotePoll = { postId, optionId -> mediaViewModel.votePoll(postId, optionId) },
+            onFollowUser = { userId, _ ->
+                if (userId.isNotBlank() && userId != "null") mediaViewModel.followUser(userId)
+            },
+            onRefresh = {
+                mediaViewModel.loadFeed("standard")
+                pagedPosts.refresh()
+            },
+            onDirectMessagesClick = { navController.navigate(Screen.DirectMessages.route) },
+            onSavedPostsClick = { navController.navigate(Screen.SavedPosts.route) },
+            onNotificationsClick = { navController.navigate(Screen.SocialNotification.route) },
+            onShortClick = { short ->
+                navController.navigate(Screen.PostDetail.createRoute(short.id))
+            },
+            onMediaClick = { url, type, position ->
+                if (url.isNotBlank()) {
+                    navController.navigate(Screen.MediaViewer.createRoute(url, type, position))
+                }
+            },
+            onShareClick = { post ->
+                val text = post.content.ifBlank { "Check this out on FirstApp" }
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    this.type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
+                navController.context.startActivity(Intent.createChooser(send, "Share"))
+            },
+            onProfileClick = { userId ->
+                if (userId.isNotBlank() && userId != "null") {
+                    navController.navigate(Screen.UserProfile.createRoute(userId))
+                }
+            },
+            onNavigateToCircles = { navController.navigate(Screen.Circles.route) },
+            onNavigateToCreatorDashboard = { navController.navigate(Screen.CreatorDashboard.route) },
+            onHashtagNavigate = { tag ->
+                val clean = tag.removePrefix("#").trim()
+                if (clean.isNotBlank()) {
+                    navController.navigate(Screen.ContestFeed.createRoute(clean))
+                }
+            }
         )
 
         // Social Feed Floating Action Button (FAB)

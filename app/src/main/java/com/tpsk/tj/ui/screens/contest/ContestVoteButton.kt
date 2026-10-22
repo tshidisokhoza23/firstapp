@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.ads.rewarded.RewardedAd
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,13 +27,22 @@ import com.google.android.gms.ads.rewarded.RewardedAd
 fun ContestVoteButton(
     initialVotes: Int,
     candidateName: String = "Candidate",
+    postId: String? = null,
     rewardedAd: RewardedAd? = null,
-    onCastVote: (voteCount: Int, pointsSpent: Int) -> Unit = { _, _ -> }
+    onCastVote: (voteCount: Int, pointsSpent: Int) -> Unit = { _, _ -> },
+    contestViewModel: ContestViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var currentVotes by remember { mutableIntStateOf(initialVotes) }
-    var userPointsBalance by remember { mutableIntStateOf(20) } // Default user points
+    var currentVotes by remember(postId) { mutableIntStateOf(initialVotes) }
+    val serverPoints by contestViewModel.points.collectAsState()
+    var userPointsBalance by remember { mutableIntStateOf(serverPoints) }
     var showVoteSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialVotes) {
+        if (initialVotes > currentVotes) currentVotes = initialVotes
+    }
+    LaunchedEffect(Unit) { contestViewModel.refreshPoints() }
+    LaunchedEffect(serverPoints) { userPointsBalance = serverPoints }
 
     Button(
         onClick = { showVoteSheet = true },
@@ -62,19 +72,31 @@ fun ContestVoteButton(
                 userPointsBalance = userPointsBalance,
                 rewardedAd = rewardedAd,
                 onConfirmVote = { votesToCast, ptsCost ->
-                    if (userPointsBalance >= ptsCost) {
-                        userPointsBalance -= ptsCost
-                        currentVotes += votesToCast
-                        onCastVote(votesToCast, ptsCost)
-                        Toast.makeText(context, "Vote recorded! $ptsCost points deducted. Thanks for supporting $candidateName.", Toast.LENGTH_LONG).show()
-                        showVoteSheet = false
-                    } else {
-                        Toast.makeText(context, "Insufficient points. Watch an ad to top up (+10 pts)!", Toast.LENGTH_SHORT).show()
+                    if (postId.isNullOrBlank()) {
+                        Toast.makeText(context, "This entry is not ready to receive votes yet.", Toast.LENGTH_SHORT).show()
+                    } else if (userPointsBalance < ptsCost) {
+                        Toast.makeText(context, "Not enough points. Watch an ad to add 10.", Toast.LENGTH_SHORT).show()
+                    } else contestViewModel.castVote(postId, votesToCast) { result ->
+                        result.onSuccess { (votes, points) ->
+                            currentVotes = votes
+                            userPointsBalance = points
+                            onCastVote(votesToCast, ptsCost)
+                            Toast.makeText(context, "Vote recorded for $candidateName.", Toast.LENGTH_SHORT).show()
+                            showVoteSheet = false
+                        }.onFailure { err ->
+                            Toast.makeText(context, err.message ?: "Vote failed", Toast.LENGTH_LONG).show()
+                        }
                     }
                 },
-                onTopUpPoints = { added ->
-                    userPointsBalance += added
-                    Toast.makeText(context, "+$added points added to your balance!", Toast.LENGTH_SHORT).show()
+                onTopUpPoints = { _ ->
+                    contestViewModel.topUp { result ->
+                        result.onSuccess { points ->
+                            userPointsBalance = points
+                            Toast.makeText(context, "Points added. You now have $points.", Toast.LENGTH_SHORT).show()
+                        }.onFailure { err ->
+                            Toast.makeText(context, err.message ?: "Could not add points", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             )
         }

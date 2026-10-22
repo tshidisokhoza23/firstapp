@@ -44,6 +44,9 @@ import com.tpsk.tj.common.ui.theme.LocalIsDarkTheme
 import com.tpsk.tj.media.model.Post
 import com.tpsk.tj.media.ui.components.AiAssistSheet
 import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
+import com.tpsk.tj.ui.screens.contest.ContestViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -144,6 +147,10 @@ fun CreatePostScreen(
     var showContestDialog by remember { mutableStateOf(false) }
     var contestHashtagInput by remember { mutableStateOf("") }
     var managerAccessCodeInput by remember { mutableStateOf("") }
+    val contestViewModel: ContestViewModel = hiltViewModel()
+    val activeContestTags by contestViewModel.activeHashtags.collectAsState()
+    val postScope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { contestViewModel.loadActiveHashtags() }
     var artistTags by remember { mutableStateOf(setOf<String>()) }
 
     Scaffold(
@@ -175,6 +182,21 @@ fun CreatePostScreen(
                         onClick = {
                             if (!canPost || isPostingState) return@Button
                             isPostingState = true
+                            postScope.launch {
+                            val contestTag = contestHashtagInput.trim().removePrefix("#").lowercase()
+                            if (isContestSelected) {
+                                if (contestTag.isBlank() || managerAccessCodeInput.isBlank()) {
+                                    isPostingState = false
+                                    Toast.makeText(context, "Enter the contest hashtag and manager code", Toast.LENGTH_SHORT).show()
+                                    return@launch
+                                }
+                                val redeemed = contestViewModel.redeem(contestTag, managerAccessCodeInput)
+                                if (redeemed.isFailure) {
+                                    isPostingState = false
+                                    Toast.makeText(context, redeemed.exceptionOrNull()?.message ?: "Invalid manager code", Toast.LENGTH_LONG).show()
+                                    return@launch
+                                }
+                            }
 
                             val imageUriStrings = selectedImageUris.map { it.toString() } + listOfNotNull(voicePath)
                             val postType = when {
@@ -191,6 +213,7 @@ fun CreatePostScreen(
                                 content = content,
                                 mediaUris = imageUriStrings,
                                 postType = postType,
+                                tags = if (isContestSelected && contestTag.isNotBlank()) listOf(contestTag) else emptyList(),
                                 pollOptions = finalPoll,
                                 location = selectedLocation,
                                 parentPostId = replyToPost?.id,
@@ -212,6 +235,7 @@ fun CreatePostScreen(
                             )
 
                             onPostCreated()
+                            }
                         },
                         enabled = canPost && !isPostingState,
                         shape = RoundedCornerShape(20.dp),
@@ -320,9 +344,10 @@ fun CreatePostScreen(
                     }
 
                     if (isContestSelected) {
-                        val validHashtags = remember { listOf("#missthembisa", "#thembisatalent", "#misssoweto", "#gautengpageant", "#missection1") }
-                        val currentCleanTag = contestHashtagInput.trim().lowercase()
-                        val isValidTag = currentCleanTag.isBlank() || validHashtags.contains(if (currentCleanTag.startsWith("#")) currentCleanTag else "#$currentCleanTag")
+                        val currentCleanTag = contestHashtagInput.trim().removePrefix("#").lowercase()
+                        val isValidTag = currentCleanTag.isBlank() || activeContestTags.isEmpty() || activeContestTags.any {
+                            it.removePrefix("#").equals(currentCleanTag, ignoreCase = true)
+                        }
 
                         Column(
                             modifier = Modifier

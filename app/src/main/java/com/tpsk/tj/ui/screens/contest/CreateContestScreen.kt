@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +36,8 @@ fun CreateContestScreen(
     var participantLimit by remember { mutableStateOf("20") }
     var generatedCodes by remember { mutableStateOf<List<String>>(emptyList()) }
     var isSubmitted by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    val contestViewModel: ContestViewModel = hiltViewModel()
 
     val bgColor = MaterialTheme.colorScheme.background
     val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
@@ -143,17 +146,30 @@ fun CreateContestScreen(
                 // Submit Launch Button
                 Button(
                     onClick = {
-                        if (title.isBlank() || hashtag.isBlank()) {
+                        if (title.isBlank() || hashtag.isBlank() || isSaving) {
                             Toast.makeText(context, "Please enter a title and hashtag", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
+                        isSaving = true
                         val limit = participantLimit.toIntOrNull() ?: 20
-                        val prefix = hashtag.removePrefix("#").take(5).uppercase()
-                        generatedCodes = (1..limit).map { idx ->
-                            "MGR-$prefix-${1000 + idx}"
-                        }
-                        isSubmitted = true
+                        contestViewModel.createContest(
+                            title = title,
+                            description = description,
+                            hashtag = hashtag,
+                            limit = limit,
+                            onSuccess = { created ->
+                                generatedCodes = created.codes.orEmpty()
+                                hashtag = "#${created.hashtag.removePrefix("#")}"
+                                isSaving = false
+                                isSubmitted = true
+                            },
+                            onError = { message ->
+                                isSaving = false
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            }
+                        )
                     },
+                    enabled = !isSaving,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),

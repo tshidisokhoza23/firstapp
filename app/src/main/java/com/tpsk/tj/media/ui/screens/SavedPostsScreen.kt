@@ -28,7 +28,8 @@ fun SavedPostsScreen(
     onPostClick: (String) -> Unit,
     onProfileClick: (String) -> Unit,
     onMediaClick: (String, String, Long) -> Unit,
-    onShareClick: (Post) -> Unit
+    onShareClick: (Post) -> Unit,
+    onHashtagClick: (String) -> Unit = {}
 ) {
     val savedPostsFlow = remember(mediaViewModel) {
         mediaViewModel.getSavedPostsPaging()
@@ -90,7 +91,8 @@ fun SavedPostsScreen(
                                 onReplyClick = { p, _ -> onPostClick(p.id) },
                                 onProfileClick = { onProfileClick(it) },
                                 onMediaClick = onMediaClick,
-                                onShareClick = { onShareClick(it) }
+                                onShareClick = { onShareClick(it) },
+                                onHashtagClick = onHashtagClick
                             )
                         }
                     }

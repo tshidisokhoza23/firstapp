@@ -714,7 +714,9 @@ fun VerticalFeedPostCard(
                 ) {
                     if (post.isContest && displayPost.type != PostType.JOB) {
                         com.tpsk.tj.ui.screens.contest.ContestVoteButton(
-                            initialVotes = post.likes.toInt().coerceAtLeast(10)
+                            initialVotes = post.contestVotes,
+                            candidateName = post.authorName.ifBlank { "Candidate" },
+                            postId = post.id
                         )
                     }
 
@@ -763,7 +765,7 @@ fun VerticalFeedPostCard(
                     PostPill(
                         text = viewsText, 
                         icon = Icons.Outlined.BarChart,
-                        onClick = {},
+                        onClick = onCommentClick,
                         backgroundColor = transparentBg,
                         textColor = actionTextColor
                     )

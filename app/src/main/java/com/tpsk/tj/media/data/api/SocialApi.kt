@@ -46,7 +46,8 @@ interface SocialApi {
         @Query("user_id") authorId: String,
         @Query("type") feedType: String,
         @Query("category_id") categoryId: String? = null,
-        @Query("quality") quality: String? = null
+        @Query("quality") quality: String? = null,
+        @Query("hashtag") hashtag: String? = null
     ): Response<List<ApiPost>>
 
     @GET("media/feed/shorts")
@@ -256,6 +257,7 @@ data class ApiPost(
     @SerializedName("thread_count") val thread_count: Int = 0,
     val location: String? = null,
     val tags: List<String>? = null,
+    @SerializedName("is_contest") val is_contest: Boolean = false,
     val author: ApiPostAuthor? = null,
     val replies: List<ApiPost>? = null,
     @SerializedName("original_post") val original_post: ApiPost? = null,

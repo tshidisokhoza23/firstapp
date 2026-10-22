@@ -617,10 +617,21 @@ fun ProfileView(
                                         onMoreClick = { selectedPostForMore = it },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetId ->
-                                            if (targetId != userId) {
-                                                onBack() // Or navigate to that profile
+                                            if (targetId.isNotBlank() && targetId != "null" && targetId != userId) {
+                                                com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
+                                                    com.tpsk.tj.ui.navigation.Screen.UserProfile.createRoute(targetId)
+                                                )
                                             }
                                         },
+                                        onHashtagClick = { tag ->
+                                            val clean = tag.removePrefix("#").trim()
+                                            if (clean.isNotBlank()) {
+                                                com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
+                                                    com.tpsk.tj.ui.navigation.Screen.ContestFeed.createRoute(clean)
+                                                )
+                                            }
+                                        },
+                                        onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                                         onPlaySong = { _, _ -> },
                                         onVotePoll = { pid, oid -> },
                                         onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
@@ -732,11 +743,22 @@ fun ProfileView(
                                         onMoreClick = { selectedPostForMore = it },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetId ->
-                                            if (targetId != userId) {
+                                            if (targetId.isNotBlank() && targetId != "null" && targetId != userId) {
+                                                com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
+                                                    com.tpsk.tj.ui.navigation.Screen.UserProfile.createRoute(targetId)
+                                                )
+                                            }
+                                        },
+                                        onHashtagClick = { tag ->
+                                            val clean = tag.removePrefix("#").trim()
+                                            if (clean.isNotBlank()) {
+                                                com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
+                                                    com.tpsk.tj.ui.navigation.Screen.ContestFeed.createRoute(clean)
+                                                )
                                             }
                                         },
                                         onPlaySong = { _, _ -> },
-                                        onVotePoll = { pid, oid -> },
+                                        onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                                         onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
                                         onShareClick = { p -> 
                                             mediaViewModel.sharePost(p.id, p.shares)
@@ -776,11 +798,22 @@ fun ProfileView(
                                         onMoreClick = { selectedPostForMore = it },
                                         onReplyClick = { p, r -> onNavigateToPostDetail(p.id) },
                                         onProfileClick = { targetId ->
-                                            if (targetId != userId) {
+                                            if (targetId.isNotBlank() && targetId != "null" && targetId != userId) {
+                                                com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
+                                                    com.tpsk.tj.ui.navigation.Screen.UserProfile.createRoute(targetId)
+                                                )
+                                            }
+                                        },
+                                        onHashtagClick = { tag ->
+                                            val clean = tag.removePrefix("#").trim()
+                                            if (clean.isNotBlank()) {
+                                                com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
+                                                    com.tpsk.tj.ui.navigation.Screen.ContestFeed.createRoute(clean)
+                                                )
                                             }
                                         },
                                         onPlaySong = { _, _ -> },
-                                        onVotePoll = { pid, oid -> },
+                                        onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                                         onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
                                         onShareClick = { p -> 
                                             mediaViewModel.sharePost(p.id, p.shares)

@@ -52,7 +52,8 @@ fun PostDetailScreen(
     onProfileClick: (String) -> Unit,
     onMediaClick: (String, String, Long) -> Unit,
     onReplyDetailClick: (String) -> Unit = {},
-    onRequestCreatePost: (replyId: String?, quoteId: String?) -> Unit = { _, _ -> }
+    onRequestCreatePost: (replyId: String?, quoteId: String?) -> Unit = { _, _ -> },
+    onHashtagClick: (String) -> Unit = {}
 ) {
     val uiState by mediaViewModel.uiState.collectAsState()
     val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
@@ -183,6 +184,7 @@ fun PostDetailScreen(
                         onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                         onProfileClick = onProfileClick,
                         onMediaClick = onMediaClick,
+                        onHashtagClick = onHashtagClick,
                         onMoreClick = { selectedPostForMore = it },
                         onQuotedPostClick = { quotedPost -> onReplyDetailClick(quotedPost.id) },
                         onClick = {

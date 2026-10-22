@@ -140,6 +140,7 @@ fun MediaScreen(
     onQualityModeSelected: (String) -> Unit = {},
     onContestsClick: () -> Unit = {},
     onTrendingClick: () -> Unit = {},
+    onHashtagNavigate: (String) -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     var lastRefreshTime by remember { mutableLongStateOf(0L) }
@@ -304,7 +305,13 @@ fun MediaScreen(
                             autoplayEnabled = autoplayEnabled,
                             autoplayGifsEnabled = autoplayGifsEnabled,
                             onPostClick = onPostSelect,
-                            onProfileClick = onProfileClick
+                            onProfileClick = onProfileClick,
+                            onLike = onLikePost,
+                            onBookmark = onBookmarkPost,
+                            onShareClick = onShareClick,
+                            onMediaClick = onMediaClick,
+                            onFollowUser = onFollowUser,
+                            onHashtagClick = onHashtagNavigate
                         )
                     } else {
                         MainFeedSection(
@@ -339,8 +346,7 @@ fun MediaScreen(
                             onFollowUser = onFollowUser,
                             onPostViewed = onPostViewed,
                             onHashtagClick = { tag ->
-                                isSearchActive = true
-                                searchQuery = "#${tag.removePrefix("#")}"
+                                if (tag.isNotBlank()) onHashtagNavigate(tag)
                             },
                             categories = categories,
                             selectedCategoryId = selectedCategoryId,
@@ -842,7 +848,13 @@ fun SearchResultsList(
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
     onPostClick: (Post) -> Unit,
-    onProfileClick: (String) -> Unit
+    onProfileClick: (String) -> Unit,
+    onLike: (String, Long, Boolean) -> Unit = { _, _, _ -> },
+    onBookmark: (String) -> Unit = {},
+    onShareClick: (Post) -> Unit = {},
+    onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
+    onFollowUser: (String, Boolean) -> Unit = { _, _ -> },
+    onHashtagClick: (String) -> Unit = {}
 ) {
     when (results) {
         is Resource.Loading -> {
@@ -868,15 +880,16 @@ fun SearchResultsList(
                             post = post,
                             autoplayEnabled = autoplayEnabled,
                             autoplayGifsEnabled = autoplayGifsEnabled,
-                            onLikeClick = {},
-                            onCommentClick = {},
-                            onRepostClick = {},
-                            onShareClick = {},
-                            onBookmarkClick = {},
-                            onFollowClick = {},
-                            onMoreClick = {},
+                            onLikeClick = { onLike(post.id, post.likes, post.isLiked) },
+                            onCommentClick = { onPostClick(post) },
+                            onRepostClick = { onPostClick(post) },
+                            onShareClick = { onShareClick(post) },
+                            onBookmarkClick = { onBookmark(post.id) },
+                            onFollowClick = { onFollowUser(post.authorId, false) },
+                            onMoreClick = { onPostClick(post) },
                             onProfileClick = onProfileClick,
-                            onMediaClick = { _, _, _ -> },
+                            onMediaClick = onMediaClick,
+                            onHashtagClick = onHashtagClick,
                             modifier = Modifier.clickable { onPostClick(post) }
                         )
                         HorizontalDivider(

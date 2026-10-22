@@ -1,9 +1,12 @@
 package com.tpsk.tj.chat.nearby.ui
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -60,7 +63,17 @@ fun NearbyTabScreen(
     val authorName = remember(currentUser) {
         currentUser?.displayName?.ifBlank { currentUser?.username }?.ifBlank { "You" } ?: "You"
     }
-    val authorId = remember(currentUser) { currentUser?.id.orEmpty().ifBlank { "current_user" } }
+    val authorId = remember(currentUser) { currentUser?.id.orEmpty() }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { nearbyViewModel.refreshLocationAndFeed() }
+
+    LaunchedEffect(uiState.errorMessage) {
+        val message = uiState.errorMessage
+        if (!message.isNullOrBlank()) {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -232,16 +245,17 @@ fun NearbyTabScreen(
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Button(
                                         onClick = {
-                                            val intent = Intent(
-                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                                Uri.fromParts("package", context.packageName, null)
+                                            locationPermissionLauncher.launch(
+                                                arrayOf(
+                                                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                                                    Manifest.permission.ACCESS_FINE_LOCATION
+                                                )
                                             )
-                                            context.startActivity(intent)
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(20.dp)
                                     ) {
-                                        Text("Enable in Settings")
+                                        Text("Allow location")
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     OutlinedButton(

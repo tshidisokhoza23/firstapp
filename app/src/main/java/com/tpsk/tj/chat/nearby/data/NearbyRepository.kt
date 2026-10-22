@@ -9,6 +9,7 @@ import com.tpsk.tj.chat.nearby.data.api.NearbyApi
 import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
 import com.tpsk.tj.common.util.Resource
+import retrofit2.Response
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,7 +105,7 @@ class NearbyRepository @Inject constructor(
                 localPosts.value = mapped
                 emit(Resource.Success(mapped))
             } else {
-                emit(Resource.Error("Unable to fetch nearby posts from server", localPosts.value))
+                emit(Resource.Error(response.errorText("Unable to fetch nearby posts"), localPosts.value))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Network error fetching nearby posts", localPosts.value))
@@ -115,7 +116,10 @@ class NearbyRepository @Inject constructor(
         content: String,
         authorId: String,
         authorName: String,
-        authorAvatarUrl: String? = null
+        authorAvatarUrl: String? = null,
+        areaName: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null
     ): Flow<Resource<NearbyPost>> = flow {
         val trimmed = content.trim().replace(Regex("\\s+"), " ")
         if (trimmed.isBlank()) {
@@ -131,9 +135,9 @@ class NearbyRepository @Inject constructor(
         try {
             val req = CreateNearbyPostRequest(
                 content = trimmed,
-                area_name = getCachedCoarseAreaName(),
-                latitude = getCachedCoarseLat(),
-                longitude = getCachedCoarseLng()
+                area_name = areaName?.takeIf { it.isNotBlank() } ?: getCachedCoarseAreaName(),
+                latitude = latitude ?: getCachedCoarseLat(),
+                longitude = longitude ?: getCachedCoarseLng()
             )
             val response = nearbyApi.createPost(req)
             if (response.isSuccessful && response.body() != null) {
@@ -155,7 +159,7 @@ class NearbyRepository @Inject constructor(
                 localPosts.value = listOf(newPost) + localPosts.value
                 emit(Resource.Success(newPost))
             } else {
-                emit(Resource.Error("Failed to publish post on server"))
+                emit(Resource.Error(response.errorText("Failed to publish nearby post")))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Network error creating post"))
@@ -281,4 +285,10 @@ class NearbyRepository @Inject constructor(
             System.currentTimeMillis()
         }
     }
+}
+
+private fun <T> Response<T>.errorText(fallback: String): String {
+    val raw = runCatching { errorBody()?.string() }.getOrNull().orEmpty()
+    val parsed = Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.getOrNull(1)
+    return parsed ?: raw.take(180).ifBlank { "$fallback ($code)" }
 }

@@ -20,7 +20,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
+import kotlin.coroutines.resume
 
 data class NearbyUiState(
     val isLoading: Boolean = false,
@@ -57,9 +59,10 @@ class NearbyViewModel @Inject constructor(
             val hasPermission = checkPermission()
             val gpsOn = isGpsProviderEnabled()
 
-            val areaName = _uiState.value.selectedCity ?: repository.getCachedCoarseAreaName()
-            val lat = repository.getCachedCoarseLat()
-            val lng = repository.getCachedCoarseLng()
+            val resolved = resolveLocation()
+            val areaName = _uiState.value.selectedCity ?: resolved.third
+            val lat = resolved.first
+            val lng = resolved.second
 
             _uiState.value = _uiState.value.copy(
                 hasLocationPermission = hasPermission,
@@ -105,6 +108,25 @@ class NearbyViewModel @Inject constructor(
         }
     }
 
+    private suspend fun resolveLocation(): Triple<Double, Double, String> {
+        val fallback = Triple(
+            repository.getCachedCoarseLat(),
+            repository.getCachedCoarseLng(),
+            repository.getCachedCoarseAreaName()
+        )
+        if (!checkPermission()) return fallback
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val location = suspendCancellableCoroutine<Location?> { cont ->
+            client.lastLocation
+                .addOnSuccessListener { cont.resume(it) }
+                .addOnFailureListener { cont.resume(null) }
+        }
+        if (location == null) return fallback
+        val area = _uiState.value.selectedCity ?: fallback.third
+        repository.saveCoarseLocation(location.latitude, location.longitude, area)
+        return Triple(location.latitude, location.longitude, area)
+    }
+
     fun setRadius(radiusKm: Int) {
         _uiState.value = _uiState.value.copy(radiusKm = radiusKm)
         refreshLocationAndFeed()
@@ -134,11 +156,28 @@ class NearbyViewModel @Inject constructor(
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            repository.createPost(content, authorId, authorName, authorAvatarUrl).collect { result ->
+            val area = _uiState.value.selectedCity ?: _uiState.value.coarseAreaName
+            repository.createPost(
+                content = content,
+                authorId = authorId,
+                authorName = authorName,
+                authorAvatarUrl = authorAvatarUrl,
+                areaName = area,
+                latitude = repository.getCachedCoarseLat(),
+                longitude = repository.getCachedCoarseLng()
+            ).collect { result ->
                 when (result) {
                     is Resource.Success -> {
-                        refreshLocationAndFeed()
+                        val created = result.data
+                        if (created != null) {
+                            _uiState.value = _uiState.value.copy(
+                                posts = listOf(created) + _uiState.value.posts.filter { it.id != created.id },
+                                showCreatePostSheet = false,
+                                errorMessage = null
+                            )
+                        }
                         onSuccess()
+                        refreshLocationAndFeed()
                     }
                     is Resource.Error -> {
                         onError(result.message ?: "Failed to post")
