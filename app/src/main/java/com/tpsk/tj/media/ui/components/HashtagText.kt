@@ -60,9 +60,7 @@ fun HashtagText(
         style = TextStyle(color = color, fontSize = fontSize, lineHeight = lineHeight),
         onClick = { offset ->
             annotated.getStringAnnotations("hashtag", offset, offset).firstOrNull()?.item?.let { tag ->
-                if (isContestHashtag(tag)) {
-                    GlobalNavigation.navigateTo(Screen.ContestFeed.createRoute("#$tag"))
-                } else if (onHashtagClick != null) {
+                if (onHashtagClick != null) {
                     onHashtagClick(tag)
                 } else {
                     GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "social", subTab = "#$tag"))

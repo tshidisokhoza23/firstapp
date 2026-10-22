@@ -275,7 +275,9 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             onNavigateBack = { navController.popBackStack() },
             onTopicClick = { topic ->
                 val tag = if (topic.startsWith("#")) topic else "#$topic"
-                navController.navigate(Screen.ContestFeed.createRoute(tag))
+                navController.navigate(Screen.Main.createRoute(tab = "social", subTab = tag)) {
+                    popUpTo(Screen.Main.route) { inclusive = false }
+                }
             }
         )
     }
