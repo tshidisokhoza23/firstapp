@@ -55,7 +55,7 @@ data class ToggleLikeResponse(
 )
 
 interface NearbyApi {
-    @GET("api/v1/nearby/posts")
+    @GET("nearby/posts")
     suspend fun getPosts(
         @Query("lat") lat: Double? = null,
         @Query("lng") lng: Double? = null,
@@ -63,22 +63,22 @@ interface NearbyApi {
         @Query("area") area: String? = null
     ): Response<NearbyPostsResponse>
 
-    @POST("api/v1/nearby/posts")
+    @POST("nearby/posts")
     suspend fun createPost(
         @Body request: CreateNearbyPostRequest
     ): Response<ApiNearbyPost>
 
-    @POST("api/v1/nearby/posts/{id}/like")
+    @POST("nearby/posts/{id}/like")
     suspend fun toggleLike(
         @Path("id") id: String
     ): Response<ToggleLikeResponse>
 
-    @GET("api/v1/nearby/posts/{id}/replies")
+    @GET("nearby/posts/{id}/replies")
     suspend fun getReplies(
         @Path("id") id: String
     ): Response<NearbyRepliesResponse>
 
-    @POST("api/v1/nearby/posts/{id}/replies")
+    @POST("nearby/posts/{id}/replies")
     suspend fun createReply(
         @Path("id") id: String,
         @Body request: CreateNearbyReplyRequest
