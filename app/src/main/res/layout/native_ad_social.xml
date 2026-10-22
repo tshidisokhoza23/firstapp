@@ -13,7 +13,7 @@
         android:orientation="vertical"
         android:paddingHorizontal="16dp"
         android:paddingTop="12dp"
-        android:paddingBottom="14dp">
+        android:paddingBottom="12dp">
 
         <!-- Header Row -->
         <LinearLayout
@@ -22,6 +22,7 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
+            <!-- 1. App Icon / Avatar -->
             <ImageView
                 android:id="@+id/ad_app_icon"
                 android:layout_width="42dp"
@@ -29,7 +30,7 @@
                 android:scaleType="centerCrop"
                 android:layout_marginEnd="10dp" />
 
-            <!-- Title & Badge Column -->
+            <!-- 2. Text Container: Takes all remaining horizontal space -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -38,7 +39,7 @@
 
                 <TextView
                     android:id="@+id/ad_headline"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textStyle="bold"
                     android:textSize="15sp"
@@ -46,26 +47,28 @@
                     android:ellipsize="end"
                     android:textColor="#1F2937" />
 
+                <!-- Prevents vertical letter splitting -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Sponsored"
-                    android:singleLine="true"
                     android:textSize="12sp"
+                    android:lines="1"
+                    android:ellipsize="none"
                     android:textColor="#6B7280" />
             </LinearLayout>
 
-            <!-- Install / Open Button -->
+            <!-- 3. Action Button: Strict wrap_content width -->
             <Button
                 android:id="@+id/ad_call_to_action"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="12dp"
                 android:backgroundTint="#00ADEF"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
-                android:paddingHorizontal="14dp" />
+                android:paddingHorizontal="16dp" />
         </LinearLayout>
 
         <!-- Body text -->
@@ -92,11 +95,11 @@
                 android:layout_height="200dp" />
         </androidx.cardview.widget.CardView>
 
-        <!-- Bottom separator line matching post items -->
+        <!-- Bottom separator line matching feed posts -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:background="#E5E7EB" />
     </LinearLayout>
 </com.google.android.gms.ads.nativead.NativeAdView>
