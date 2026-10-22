@@ -337,9 +337,9 @@ private fun createSampleNativeJobs(): List<Job> {
         Job(
             id = "job_native_4",
             title = "Digital Marketing & Growth Specialist",
-            companyName = "Media Matrix Tembisa",
+            companyName = "Media Matrix Midrand",
             companyLogoUrl = null,
-            location = "Tembisa / Midrand",
+            location = "Midrand / Sandton",
             logoColor = blueColor,
             salaryRange = "R25,000 - R35,000 / month",
             jobType = "Contract",

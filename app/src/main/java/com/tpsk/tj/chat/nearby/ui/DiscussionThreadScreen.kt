@@ -85,7 +85,7 @@ fun DiscussionThreadScreen(
                 userId = "u_lerato",
                 authorName = "Lerato M.",
                 authorAvatarColor = Color(0xFF26A69A),
-                content = "My building also just went dark. Wits campus is completely offline.",
+                content = "My building also just went dark. Local power grid is currently offline.",
                 createdAt = System.currentTimeMillis() - (4 * 60 * 1000L)
             ),
             NearbyReply(

@@ -52,8 +52,8 @@ fun EventsScreen(
         listOf(
             EventItem(
                 id = "event_1",
-                title = "Campus Spring Bash 2026",
-                timeAndLocation = "Saturday, 24 Oct • 12:00 • Wits Campus, JHB",
+                title = "Johannesburg Tech & Innovation Summit",
+                timeAndLocation = "Saturday, 24 Oct • 12:00 • Sandton Convention Centre, JHB",
                 imageUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800",
                 ticketBadge = "R50 Tickets",
                 interestedText = "500+ interested",
@@ -61,8 +61,8 @@ fun EventsScreen(
             ),
             EventItem(
                 id = "event_2",
-                title = "Tembisa Food & Craft Market",
-                timeAndLocation = "Sunday, 25 Oct • 10:00 • Tembisa Plaza",
+                title = "Gauteng Artisanal Food & Craft Market",
+                timeAndLocation = "Sunday, 25 Oct • 10:00 • Waterfall Park, Midrand",
                 imageUrl = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800",
                 ticketBadge = "Free Entry",
                 interestedText = "120+ interested",
