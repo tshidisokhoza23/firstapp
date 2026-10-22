@@ -913,6 +913,6 @@ fun FeedNativeAdCard(adManager: AdManager, adUnitId: String, post: Post) {
         adUnitId = adUnitId.ifBlank { com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID },
         slotKey = "post_ad_${post.id}",
         reserveSlot = false,
-        layoutResId = com.tpsk.tj.R.layout.native_ad_social_item
+        layoutResId = com.tpsk.tj.R.layout.native_ad_social
     )
 }

@@ -154,7 +154,10 @@ fun NewsScreen(
                                 )
                             }
                             is NewsFeedItem.NativeAdItem -> {
-                                NativeAdCard(adObject = item.adObject)
+                                NativeAdCard(
+                                    adObject = item.adObject,
+                                    layoutResId = com.tpsk.tj.R.layout.native_ad_news
+                                )
                             }
                         }
                     }
