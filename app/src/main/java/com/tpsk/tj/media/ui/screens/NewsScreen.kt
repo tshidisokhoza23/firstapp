@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.tpsk.tj.common.data.ads.AdUnitConfig
 import com.tpsk.tj.common.ui.components.NativeAdCard
 import com.tpsk.tj.media.ui.viewmodel.NewsViewModel
 import com.tpsk.tj.media.util.NewsCustomTabsHelper
@@ -46,9 +45,9 @@ data class NewsArticle(
     var isLiked: Boolean = false
 )
 
-sealed class NewsFeedItem {
-    data class ArticleItem(val article: NewsArticle) : NewsFeedItem()
-    data class NativeAdItem(val adId: String) : NewsFeedItem()
+sealed interface NewsFeedItem {
+    data class ArticleItem(val article: NewsArticle) : NewsFeedItem
+    data class NativeAdItem(val adObject: Any) : NewsFeedItem
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,7 +124,7 @@ fun NewsScreen(
                     itemsIndexed(feedItems, key = { index, item ->
                         when (item) {
                             is NewsFeedItem.ArticleItem -> "article_${item.article.id}"
-                            is NewsFeedItem.NativeAdItem -> "ad_${item.adId}_$index"
+                            is NewsFeedItem.NativeAdItem -> "ad_${item.adObject.hashCode()}_$index"
                         }
                     }) { _, item ->
                         when (item) {
@@ -155,7 +154,7 @@ fun NewsScreen(
                                 )
                             }
                             is NewsFeedItem.NativeAdItem -> {
-                                NativeAdCard(adUnitId = AdUnitConfig.NATIVE_POSTS_ID)
+                                NativeAdCard(adObject = item.adObject)
                             }
                         }
                     }

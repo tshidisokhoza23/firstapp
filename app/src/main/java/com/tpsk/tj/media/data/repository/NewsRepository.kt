@@ -10,7 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface NewsRepository {
-    fun getNews(category: String? = null, cursor: String? = null, limit: Int = 30): Flow<Resource<Pair<List<NewsArticle>, String?>>>
+    fun getNews(category: String? = null, cursor: String? = null, limit: Int = 20): Flow<Resource<Pair<List<NewsArticle>, String?>>>
     fun toggleLike(articleId: String): Flow<Resource<Boolean>>
 }
 

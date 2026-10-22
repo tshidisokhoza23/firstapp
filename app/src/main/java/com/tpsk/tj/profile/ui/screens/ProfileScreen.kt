@@ -633,7 +633,6 @@ fun ProfileView(
                                         },
                                         onVotePoll = { pid, oid -> mediaViewModel.votePoll(pid, oid) },
                                         onPlaySong = { _, _ -> },
-                                        onVotePoll = { pid, oid -> },
                                         onMediaClick = { url, type, pos -> onNavigateToMediaViewer(url, type, pos) },
                                         onShareClick = { p -> 
                                             mediaViewModel.sharePost(p.id, p.shares)

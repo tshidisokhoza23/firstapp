@@ -1,12 +1,17 @@
 package com.tpsk.tj.media.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tpsk.tj.common.data.ads.AdManager
+import com.tpsk.tj.common.data.ads.AdUnitConfig
+import com.tpsk.tj.common.data.ads.NativeAdPool
 import com.tpsk.tj.common.util.Resource
 import com.tpsk.tj.media.data.repository.NewsRepository
 import com.tpsk.tj.media.ui.screens.NewsArticle
 import com.tpsk.tj.media.ui.screens.NewsFeedItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +20,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class NewsViewModel @Inject constructor(
-    private val newsRepository: NewsRepository
+    private val newsRepository: NewsRepository,
+    private val adManager: AdManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _articles = MutableStateFlow<List<NewsArticle>>(emptyList())
@@ -37,6 +44,8 @@ class NewsViewModel @Inject constructor(
     private var canLoadMore = true
 
     init {
+        // Pre-warm ad pool asynchronously in background
+        NativeAdPool.warm(adManager, context, AdUnitConfig.NATIVE_POSTS_ID, portrait = false, target = 3)
         loadInitialNews()
     }
 
@@ -47,7 +56,7 @@ class NewsViewModel @Inject constructor(
             nextCursor = null
             canLoadMore = true
 
-            newsRepository.getNews(cursor = null, limit = 30).collect { resource ->
+            newsRepository.getNews(cursor = null, limit = 20).collect { resource ->
                 when (resource) {
                     is Resource.Loading -> {
                         _isLoading.value = true
@@ -79,7 +88,7 @@ class NewsViewModel @Inject constructor(
             _isPaginationLoading.value = true
             val currentCursor = nextCursor
 
-            newsRepository.getNews(cursor = currentCursor, limit = 30).collect { resource ->
+            newsRepository.getNews(cursor = currentCursor, limit = 20).collect { resource ->
                 when (resource) {
                     is Resource.Loading -> {
                         _isPaginationLoading.value = true
@@ -106,11 +115,17 @@ class NewsViewModel @Inject constructor(
         val items = mutableListOf<NewsFeedItem>()
         articlesList.forEachIndexed { index, article ->
             items.add(NewsFeedItem.ArticleItem(article))
-            if ((index + 1) % 5 == 0) {
-                items.add(NewsFeedItem.NativeAdItem("ad_news_${index + 1}"))
+            // Insert pre-warmed native ad every 6 articles IF available in NativeAdPool
+            if ((index + 1) % 6 == 0) {
+                val preloadedAd = NativeAdPool.take(adManager, context, AdUnitConfig.NATIVE_POSTS_ID, portrait = false)
+                if (preloadedAd != null) {
+                    items.add(NewsFeedItem.NativeAdItem(preloadedAd))
+                }
             }
         }
         _feedItems.value = items
+        // Replenish pool in background
+        NativeAdPool.warm(adManager, context, AdUnitConfig.NATIVE_POSTS_ID, portrait = false, target = 3)
     }
 
     fun toggleLike(articleId: String) {

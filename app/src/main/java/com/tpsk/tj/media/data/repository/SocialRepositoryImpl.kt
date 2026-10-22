@@ -65,7 +65,7 @@ class SocialRepositoryImpl @Inject constructor(
             config = if (isShorts) {
                 PagingConfig(pageSize = 6, initialLoadSize = 6, prefetchDistance = 2, enablePlaceholders = false)
             } else {
-                PagingConfig(pageSize = 20, initialLoadSize = 20, prefetchDistance = 10, enablePlaceholders = false)
+                PagingConfig(pageSize = 15, initialLoadSize = 15, prefetchDistance = 4, enablePlaceholders = false)
             },
             remoteMediator = PostRemoteMediator(
                 socialApi = socialApi,

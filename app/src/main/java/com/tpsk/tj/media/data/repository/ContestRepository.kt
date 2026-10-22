@@ -91,7 +91,7 @@ class ContestRepository @Inject constructor(
     private fun <T> Response<T>.errorText(fallback: String): String {
         val raw = runCatching { errorBody()?.string() }.getOrNull().orEmpty()
         val parsed = Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.getOrNull(1)
-        return parsed ?: raw.take(180).ifBlank { "$fallback ($code)" }
+        return parsed ?: raw.take(180).ifBlank { "$fallback (${code()})" }
     }
 }
 

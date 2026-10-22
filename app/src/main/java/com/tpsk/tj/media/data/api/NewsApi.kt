@@ -34,7 +34,7 @@ interface NewsApi {
     suspend fun getNews(
         @Query("category") category: String? = null,
         @Query("cursor") cursor: String? = null,
-        @Query("limit") limit: Int = 30
+        @Query("limit") limit: Int = 20
     ): Response<NewsResponse>
 
     @POST("api/v1/news/{id}/like")

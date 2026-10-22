@@ -9,7 +9,7 @@ import java.util.ArrayList
 interface SocialApi {
     @GET("media/feed")
     suspend fun getFeed(
-        @Query("limit") limit: Int = 20,
+        @Query("limit") limit: Int = 15,
         @Query("offset") offset: Int = 0,
         @Query("category_id") categoryId: String? = null,
         @Query("quality") quality: String? = null
