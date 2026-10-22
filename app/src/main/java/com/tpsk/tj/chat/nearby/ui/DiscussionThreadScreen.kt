@@ -212,7 +212,7 @@ fun DiscussionThreadScreen(
                     // Current User Avatar
                     if (!currentUser?.avatarUrl.isNullOrBlank()) {
                         AsyncImage(
-                            model = currentUser?.avatarUrl,
+                            model = com.tpsk.tj.common.util.MediaUtils.formatUrl(currentUser?.avatarUrl),
                             contentDescription = "You",
                             modifier = Modifier
                                 .size(34.dp)
@@ -432,7 +432,7 @@ fun DiscussionThreadScreen(
                             // Avatar
                             if (!reply.authorAvatarUrl.isNullOrBlank()) {
                                 AsyncImage(
-                                    model = reply.authorAvatarUrl,
+                                    model = com.tpsk.tj.common.util.MediaUtils.formatUrl(reply.authorAvatarUrl),
                                     contentDescription = reply.authorName,
                                     modifier = Modifier
                                         .size(34.dp)

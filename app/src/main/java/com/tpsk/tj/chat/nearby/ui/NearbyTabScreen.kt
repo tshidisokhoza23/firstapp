@@ -295,7 +295,11 @@ fun NearbyTabScreen(
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = "No posts found within ${uiState.radiusKm} km in ${uiState.coarseAreaName}.",
+                                        text = if (!uiState.hasLocationFix) {
+                                            "Nearby could not read your location. Turn on location, or pick your city."
+                                        } else {
+                                            "No posts found within ${uiState.radiusKm} km in ${uiState.coarseAreaName}."
+                                        },
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
@@ -308,6 +312,15 @@ fun NearbyTabScreen(
                                         Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text("Ask a question to people nearby")
+                                    }
+                                    if (!uiState.hasLocationFix) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        OutlinedButton(
+                                            onClick = { showCityPickerSheet = true },
+                                            shape = RoundedCornerShape(20.dp)
+                                        ) {
+                                            Text("Select City/Town Manually")
+                                        }
                                     }
                                 }
                             }
@@ -537,7 +550,7 @@ fun NearbyPostCard(
                 // Author Avatar
                 if (!post.authorAvatarUrl.isNullOrBlank()) {
                     AsyncImage(
-                        model = post.authorAvatarUrl,
+                        model = com.tpsk.tj.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
                         contentDescription = post.authorName,
                         modifier = Modifier
                             .size(42.dp)
@@ -722,7 +735,7 @@ fun NearbyPostCard(
                 ) {
                     if (!currentUserAvatarUrl.isNullOrBlank()) {
                         AsyncImage(
-                            model = currentUserAvatarUrl,
+                            model = com.tpsk.tj.common.util.MediaUtils.formatUrl(currentUserAvatarUrl),
                             contentDescription = "You",
                             modifier = Modifier
                                 .size(28.dp)
@@ -988,14 +1001,23 @@ fun NearbyPostThreadSheet(
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(post.authorAvatarColor),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(post.authorName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                if (!post.authorAvatarUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = com.tpsk.tj.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
+                                        contentDescription = post.authorName,
+                                        modifier = Modifier.size(36.dp).clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(post.authorAvatarColor),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(post.authorName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
@@ -1040,14 +1062,23 @@ fun NearbyPostThreadSheet(
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(reply.authorAvatarColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(reply.authorName.take(1).uppercase(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        if (!reply.authorAvatarUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = com.tpsk.tj.common.util.MediaUtils.formatUrl(reply.authorAvatarUrl),
+                                contentDescription = reply.authorName,
+                                modifier = Modifier.size(32.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(reply.authorAvatarColor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(reply.authorName.take(1).uppercase(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Surface(

@@ -45,15 +45,25 @@ class NearbyRepository @Inject constructor(
     }
 
     fun getCachedCoarseAreaName(): String {
-        return prefs.getString("coarse_area_name", null) ?: "Braamfontein"
+        return prefs.getString("coarse_area_name", null)?.takeIf { it.isNotBlank() } ?: "Nearby"
     }
 
     fun getCachedCoarseLat(): Double {
-        return prefs.getFloat("coarse_lat", -26.19f).toDouble()
+        return prefs.getFloat("coarse_lat", 0f).toDouble()
     }
 
     fun getCachedCoarseLng(): Double {
-        return prefs.getFloat("coarse_lng", 28.03f).toDouble()
+        return prefs.getFloat("coarse_lng", 0f).toDouble()
+    }
+
+    fun hasRealCachedLocation(): Boolean {
+        if (!prefs.contains("cached_at_ms")) return false
+        val lat = getCachedCoarseLat()
+        val lng = getCachedCoarseLng()
+        if (lat == 0.0 || lng == 0.0) return false
+        val sentinel = kotlin.math.abs(lat - (-26.19)) < 0.001 && kotlin.math.abs(lng - 28.03) < 0.001
+        val name = prefs.getString("coarse_area_name", null)
+        return !(sentinel && (name.isNullOrBlank() || name.equals("Braamfontein", ignoreCase = true)))
     }
 
     fun getNearbyPosts(
@@ -77,10 +87,12 @@ class NearbyRepository @Inject constructor(
                         id = api.id,
                         userId = api.user_id,
                         authorName = api.author_name,
-                        authorAvatarUrl = api.author_avatar_url,
+                        authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(api.author_avatar_url),
                         authorAvatarColor = Color(0xFF00B4D8),
                         content = api.content,
                         coarseAreaName = api.area_name,
+                        latitude = api.latitude,
+                        longitude = api.longitude,
                         distanceKm = api.distance_km,
                         likeCount = api.like_count,
                         replyCount = maxOf(api.reply_count, api.replies?.size ?: 0),
@@ -92,7 +104,7 @@ class NearbyRepository @Inject constructor(
                                 postId = r.post_id,
                                 userId = r.user_id,
                                 authorName = r.author_name,
-                                authorAvatarUrl = r.author_avatar_url,
+                                authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(r.author_avatar_url),
                                 authorAvatarColor = Color(0xFFE91E63),
                                 content = r.content,
                                 createdAt = parseIsoTime(r.created_at)
@@ -133,11 +145,17 @@ class NearbyRepository @Inject constructor(
 
         emit(Resource.Loading())
         try {
+            val postLat = latitude ?: getCachedCoarseLat()
+            val postLng = longitude ?: getCachedCoarseLng()
+            if (postLat == 0.0 || postLng == 0.0) {
+                emit(Resource.Error("Turn on location before posting nearby"))
+                return@flow
+            }
             val req = CreateNearbyPostRequest(
                 content = trimmed,
                 area_name = areaName?.takeIf { it.isNotBlank() } ?: getCachedCoarseAreaName(),
-                latitude = latitude ?: getCachedCoarseLat(),
-                longitude = longitude ?: getCachedCoarseLng()
+                latitude = postLat,
+                longitude = postLng
             )
             val response = nearbyApi.createPost(req)
             if (response.isSuccessful && response.body() != null) {
@@ -146,10 +164,12 @@ class NearbyRepository @Inject constructor(
                     id = api.id,
                     userId = api.user_id,
                     authorName = if (api.author_name.isNotBlank() && api.author_name != "User") api.author_name else authorName,
-                    authorAvatarUrl = api.author_avatar_url ?: authorAvatarUrl,
+                    authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(api.author_avatar_url) ?: authorAvatarUrl,
                     authorAvatarColor = Color(0xFF00B4D8),
                     content = api.content,
                     coarseAreaName = api.area_name,
+                    latitude = api.latitude,
+                    longitude = api.longitude,
                     distanceKm = 0.5,
                     likeCount = api.like_count,
                     replyCount = api.reply_count,
@@ -213,7 +233,7 @@ class NearbyRepository @Inject constructor(
                     postId = r.post_id,
                     userId = r.user_id,
                     authorName = if (r.author_name.isNotBlank() && r.author_name != "User") r.author_name else authorName,
-                    authorAvatarUrl = r.author_avatar_url ?: authorAvatarUrl,
+                    authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(r.author_avatar_url) ?: authorAvatarUrl,
                     authorAvatarColor = Color(0xFFE91E63),
                     content = r.content,
                     createdAt = parseIsoTime(r.created_at)
@@ -250,7 +270,7 @@ class NearbyRepository @Inject constructor(
                         postId = r.post_id,
                         userId = r.user_id,
                         authorName = r.author_name,
-                        authorAvatarUrl = r.author_avatar_url,
+                        authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(r.author_avatar_url),
                         authorAvatarColor = Color(0xFFE91E63),
                         content = r.content,
                         createdAt = parseIsoTime(r.created_at)

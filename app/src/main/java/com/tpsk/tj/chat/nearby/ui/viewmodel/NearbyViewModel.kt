@@ -3,12 +3,16 @@ package com.tpsk.tj.chat.nearby.ui.viewmodel
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Address
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.tpsk.tj.chat.nearby.data.NearbyRepository
 import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
@@ -19,10 +23,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.coroutines.resume
+import java.util.Locale
 
 data class NearbyUiState(
     val isLoading: Boolean = false,
@@ -30,7 +37,10 @@ data class NearbyUiState(
     val posts: List<NearbyPost> = emptyList(),
     val hasLocationPermission: Boolean = true,
     val isGpsEnabled: Boolean = true,
-    val coarseAreaName: String = "Braamfontein",
+    val coarseAreaName: String = "Nearby",
+    val userLat: Double = 0.0,
+    val userLng: Double = 0.0,
+    val hasLocationFix: Boolean = false,
     val radiusKm: Int = 10,
     val selectedCity: String? = null,
     val emptyReason: String? = null,
@@ -60,17 +70,31 @@ class NearbyViewModel @Inject constructor(
             val gpsOn = isGpsProviderEnabled()
 
             val resolved = resolveLocation()
-            val areaName = _uiState.value.selectedCity ?: resolved.third
-            val lat = resolved.first
-            val lng = resolved.second
+            if (!resolved.hasFix) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    hasLocationPermission = hasPermission,
+                    isGpsEnabled = gpsOn,
+                    coarseAreaName = "Nearby",
+                    userLat = 0.0,
+                    userLng = 0.0,
+                    hasLocationFix = false,
+                    posts = emptyList(),
+                    emptyReason = if (!hasPermission) "NO_LOCATION_PERMISSION" else "NO_LOCATION"
+                )
+                return@launch
+            }
 
             _uiState.value = _uiState.value.copy(
                 hasLocationPermission = hasPermission,
                 isGpsEnabled = gpsOn,
-                coarseAreaName = areaName
+                coarseAreaName = resolved.area,
+                userLat = resolved.lat,
+                userLng = resolved.lng,
+                hasLocationFix = true
             )
 
-            loadFeed(lat, lng, _uiState.value.radiusKm, _uiState.value.selectedCity)
+            loadFeed(resolved.lat, resolved.lng, _uiState.value.radiusKm, null)
         }
     }
 
@@ -92,6 +116,7 @@ class NearbyViewModel @Inject constructor(
                             posts = postsList,
                             emptyReason = reason
                         )
+                        relabelPlaceholderAreas(postsList)
                     }
                     is Resource.Error -> {
                         _uiState.value = _uiState.value.copy(
@@ -108,23 +133,154 @@ class NearbyViewModel @Inject constructor(
         }
     }
 
-    private suspend fun resolveLocation(): Triple<Double, Double, String> {
-        val fallback = Triple(
-            repository.getCachedCoarseLat(),
-            repository.getCachedCoarseLng(),
-            repository.getCachedCoarseAreaName()
-        )
-        if (!checkPermission()) return fallback
-        val client = LocationServices.getFusedLocationProviderClient(context)
-        val location = suspendCancellableCoroutine<Location?> { cont ->
-            client.lastLocation
-                .addOnSuccessListener { cont.resume(it) }
-                .addOnFailureListener { cont.resume(null) }
+    private data class ResolvedLocation(
+        val lat: Double,
+        val lng: Double,
+        val area: String,
+        val hasFix: Boolean
+    )
+
+    private suspend fun resolveLocation(): ResolvedLocation {
+        val selected = _uiState.value.selectedCity?.takeIf { it.isNotBlank() }
+        if (selected != null) {
+            val coords = geocodeName(selected)
+            if (coords != null) {
+                repository.saveCoarseLocation(coords.first, coords.second, selected)
+                return ResolvedLocation(coords.first, coords.second, selected, true)
+            }
         }
-        if (location == null) return fallback
-        val area = _uiState.value.selectedCity ?: fallback.third
+        if (!checkPermission()) return cachedFix()
+        val location = requestFreshLocation() ?: lastKnownLocation()
+        if (location == null) return cachedFix()
+        val area = selected ?: reverseGeocode(location.latitude, location.longitude) ?: "Nearby"
         repository.saveCoarseLocation(location.latitude, location.longitude, area)
-        return Triple(location.latitude, location.longitude, area)
+        return ResolvedLocation(location.latitude, location.longitude, area, true)
+    }
+
+    private suspend fun cachedFix(): ResolvedLocation {
+        if (!repository.hasRealCachedLocation()) {
+            return ResolvedLocation(0.0, 0.0, "Nearby", false)
+        }
+        val lat = repository.getCachedCoarseLat()
+        val lng = repository.getCachedCoarseLng()
+        var area = repository.getCachedCoarseAreaName()
+        if (area.equals("Braamfontein", ignoreCase = true)) {
+            area = reverseGeocode(lat, lng) ?: area
+            repository.saveCoarseLocation(lat, lng, area)
+        }
+        return ResolvedLocation(lat, lng, area, true)
+    }
+
+    private suspend fun requestFreshLocation(): Location? {
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        return suspendCancellableCoroutine { cont ->
+            try {
+                client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                    .addOnSuccessListener { cont.resume(it) }
+                    .addOnFailureListener { cont.resume(null) }
+            } catch (_: SecurityException) {
+                cont.resume(null)
+            }
+        }
+    }
+
+    private suspend fun lastKnownLocation(): Location? {
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        return suspendCancellableCoroutine { cont ->
+            try {
+                client.lastLocation
+                    .addOnSuccessListener { cont.resume(it) }
+                    .addOnFailureListener { cont.resume(null) }
+            } catch (_: SecurityException) {
+                cont.resume(null)
+            }
+        }
+    }
+
+    private suspend fun reverseGeocode(lat: Double, lng: Double): String? {
+        val address = lookupAddress(lat, lng) ?: return null
+        return formatAddress(address)
+    }
+
+    private suspend fun geocodeName(name: String): Pair<Double, Double>? {
+        if (!Geocoder.isPresent()) return null
+        val geocoder = Geocoder(context, Locale.getDefault())
+        val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            suspendCancellableCoroutine { cont ->
+                geocoder.getFromLocationName(name, 1, object : Geocoder.GeocodeListener {
+                    override fun onGeocode(addresses: MutableList<Address>) {
+                        cont.resume(addresses.firstOrNull())
+                    }
+
+                    override fun onError(errorMessage: String?) {
+                        cont.resume(null)
+                    }
+                })
+            }
+        } else {
+            withContext(Dispatchers.IO) {
+                @Suppress("DEPRECATION")
+                runCatching { geocoder.getFromLocationName(name, 1)?.firstOrNull() }.getOrNull()
+            }
+        } ?: return null
+        return address.latitude to address.longitude
+    }
+
+    private suspend fun lookupAddress(lat: Double, lng: Double): Address? {
+        if (!Geocoder.isPresent()) return null
+        val geocoder = Geocoder(context, Locale.getDefault())
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            suspendCancellableCoroutine { cont ->
+                geocoder.getFromLocation(lat, lng, 1, object : Geocoder.GeocodeListener {
+                    override fun onGeocode(addresses: MutableList<Address>) {
+                        cont.resume(addresses.firstOrNull())
+                    }
+
+                    override fun onError(errorMessage: String?) {
+                        cont.resume(null)
+                    }
+                })
+            }
+        } else {
+            withContext(Dispatchers.IO) {
+                @Suppress("DEPRECATION")
+                runCatching { geocoder.getFromLocation(lat, lng, 1)?.firstOrNull() }.getOrNull()
+            }
+        }
+    }
+
+    private fun relabelPlaceholderAreas(posts: List<NearbyPost>) {
+        val placeholders = posts.filter {
+            it.coarseAreaName.equals("Braamfontein", ignoreCase = true) && it.latitude != 0.0 && it.longitude != 0.0
+        }
+        if (placeholders.isEmpty()) return
+        viewModelScope.launch {
+            val renamed = placeholders.mapNotNull { post ->
+                val area = reverseGeocode(post.latitude, post.longitude) ?: return@mapNotNull null
+                if (area.equals(post.coarseAreaName, ignoreCase = true)) return@mapNotNull null
+                post.id to area
+            }.toMap()
+            if (renamed.isEmpty()) return@launch
+            val current = _uiState.value.posts
+            _uiState.value = _uiState.value.copy(
+                posts = current.map { post ->
+                    renamed[post.id]?.let { post.copy(coarseAreaName = it) } ?: post
+                }
+            )
+        }
+    }
+
+    private fun formatAddress(address: Address): String {
+        val suburb = address.subLocality?.trim().orEmpty()
+        val city = address.locality?.trim().orEmpty()
+        return when {
+            suburb.isNotBlank() && city.isNotBlank() && !suburb.equals(city, true) -> "$suburb, $city"
+            suburb.isNotBlank() -> suburb
+            city.isNotBlank() -> city
+            !address.subAdminArea.isNullOrBlank() -> address.subAdminArea
+            !address.adminArea.isNullOrBlank() -> address.adminArea
+            else -> "Nearby"
+        }
     }
 
     fun setRadius(radiusKm: Int) {
@@ -133,7 +289,7 @@ class NearbyViewModel @Inject constructor(
     }
 
     fun setSelectedCity(city: String?) {
-        _uiState.value = _uiState.value.copy(selectedCity = city)
+        _uiState.value = _uiState.value.copy(selectedCity = city?.takeIf { it.isNotBlank() })
         refreshLocationAndFeed()
     }
 
@@ -156,15 +312,19 @@ class NearbyViewModel @Inject constructor(
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            val area = _uiState.value.selectedCity ?: _uiState.value.coarseAreaName
+            if (!_uiState.value.hasLocationFix) {
+                onError("Turn on location so Nearby can use your area")
+                return@launch
+            }
+            val area = _uiState.value.coarseAreaName
             repository.createPost(
                 content = content,
                 authorId = authorId,
                 authorName = authorName,
                 authorAvatarUrl = authorAvatarUrl,
                 areaName = area,
-                latitude = repository.getCachedCoarseLat(),
-                longitude = repository.getCachedCoarseLng()
+                latitude = _uiState.value.userLat,
+                longitude = _uiState.value.userLng
             ).collect { result ->
                 when (result) {
                     is Resource.Success -> {

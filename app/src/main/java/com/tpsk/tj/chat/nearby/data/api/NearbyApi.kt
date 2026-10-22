@@ -9,9 +9,9 @@ data class ApiNearbyPost(
     val author_name: String,
     val author_avatar_url: String? = null,
     val content: String,
-    val area_name: String = "Braamfontein",
-    val latitude: Double = -26.19,
-    val longitude: Double = 28.03,
+    val area_name: String = "Nearby",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val like_count: Int = 0,
     val reply_count: Int = 0,
     val is_liked: Boolean = false,
@@ -40,9 +40,9 @@ data class NearbyRepliesResponse(
 
 data class CreateNearbyPostRequest(
     val content: String,
-    val area_name: String = "Braamfontein",
-    val latitude: Double = -26.19,
-    val longitude: Double = 28.03
+    val area_name: String = "Nearby",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0
 )
 
 data class CreateNearbyReplyRequest(
