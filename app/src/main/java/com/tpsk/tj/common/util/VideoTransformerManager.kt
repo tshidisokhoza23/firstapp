@@ -28,9 +28,9 @@ enum class VideoUploadProfile(
     val height: Int,
     val videoBitrate: Int
 ) {
-    STORY(30_000L, 15L * 1024 * 1024, 720, 1_800_000),
-    SHORT(60_000L, 30L * 1024 * 1024, 720, 2_000_000),
-    GENERAL(180_000L, 40L * 1024 * 1024, 720, 2_000_000)
+    STORY(60_000L, 50L * 1024 * 1024, 720, 1_800_000),
+    SHORT(Long.MAX_VALUE, 250L * 1024 * 1024, 1080, 3_500_000),
+    GENERAL(Long.MAX_VALUE, 250L * 1024 * 1024, 1080, 3_500_000)
 }
 
 class VideoTooLargeException(message: String) : Exception(message)
@@ -39,28 +39,60 @@ class VideoTooLargeException(message: String) : Exception(message)
 object VideoTransformerManager {
 
     /**
-     * 720p H.264 + AAC. Rejects clips over the profile duration or compressed size.
+     * Hardware-accelerated 1080p/720p compression via Android MediaCodec.
+     * Max size is 250MB with no duration restrictions for Shorts.
      */
     suspend fun exportForUpload(
         context: Context,
         inputUri: Uri,
         profile: VideoUploadProfile
-    ): File {
+    ): File = withContext(Dispatchers.IO) {
+        // 1. File size validation up front (Max 250MB for SHORT)
+        val pfd = runCatching { context.contentResolver.openFileDescriptor(inputUri, "r") }.getOrNull()
+        val inputSize = pfd?.statSize ?: 0L
+        pfd?.close()
+
+        if (inputSize > profile.maxBytes) {
+            val maxMb = profile.maxBytes / (1024 * 1024)
+            throw VideoTooLargeException("Video exceeds $maxMb MB size limit")
+        }
+
+        // 2. Only validate duration if the profile explicitly specifies a finite limit (e.g. STORY)
+        if (profile.maxDurationMs < Long.MAX_VALUE) {
+            val durationMs = readDurationMs(context, inputUri)
+            if (durationMs > profile.maxDurationMs + 750) {
+                throw VideoTooLargeException(
+                    "Video is ${durationMs / 1000}s. Max allowed is ${profile.maxDurationMs / 1000}s."
+                )
+            }
+        }
+
+        // 3. Attempt hardware-accelerated MediaCodec compression
         val durationMs = readDurationMs(context, inputUri)
-        if (durationMs > profile.maxDurationMs + 750) {
-            throw VideoTooLargeException(
-                "Video is ${durationMs / 1000}s. Max is ${profile.maxDurationMs / 1000}s."
-            )
-        }
-        val endMs = if (durationMs > 0L) durationMs else profile.maxDurationMs
+        val endMs = if (durationMs > 0L) durationMs else 300_000L
+
         val exported = trimAndExportVideo(context, inputUri, 0L, endMs, profile = profile)
-            ?: throw VideoTooLargeException("Could not compress this video. Try a shorter clip.")
-        if (exported.length() > profile.maxBytes) {
-            exported.delete()
-            val mb = profile.maxBytes / (1024 * 1024)
-            throw VideoTooLargeException("Compressed video is still over ${mb} MB.")
+
+        if (exported != null && exported.exists() && exported.length() > 0 && exported.length() <= profile.maxBytes) {
+            return@withContext exported
         }
-        return exported
+
+        // 4. Fallback: Copy original file directly if under 250MB
+        val tempDir = File(context.cacheDir, "media_temp")
+        if (!tempDir.exists()) tempDir.mkdirs()
+        val fallbackFile = File(tempDir, "short_direct_${System.currentTimeMillis()}.mp4")
+        context.contentResolver.openInputStream(inputUri)?.use { input ->
+            fallbackFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        if (fallbackFile.length() > profile.maxBytes) {
+            fallbackFile.delete()
+            throw VideoTooLargeException("Video file exceeds 250 MB limit")
+        }
+
+        fallbackFile
     }
 
     suspend fun trimAndExportVideo(
@@ -86,6 +118,8 @@ object VideoTransformerManager {
         val edited = EditedMediaItem.Builder(mediaItem)
             .setEffects(Effects(emptyList(), listOf(Presentation.createForHeight(profile.height))))
             .build()
+
+        // Use Android hardware-accelerated encoders (Qualcomm, MediaTek, Exynos, Tensor)
         val encoder = DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(
                 VideoEncoderSettings.Builder().setBitrate(profile.videoBitrate).build()
@@ -109,7 +143,7 @@ object VideoTransformerManager {
                         exportResult: ExportResult,
                         exportException: ExportException
                     ) {
-                        Log.e("VideoTransformer", "Export failed", exportException)
+                        Log.e("VideoTransformer", "Hardware export warning: ${exportException.message}")
                         outputFile.delete()
                         if (continuation.isActive) continuation.resume(null)
                     }
@@ -120,7 +154,7 @@ object VideoTransformerManager {
             try {
                 transformer.start(edited, outputFile.absolutePath)
             } catch (e: Exception) {
-                Log.e("VideoTransformer", "Failed to start export", e)
+                Log.e("VideoTransformer", "Failed to start hardware export", e)
                 outputFile.delete()
                 if (continuation.isActive) continuation.resume(null)
             }

@@ -116,7 +116,7 @@ class CreateShortViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 val message = if (e is VideoTooLargeException) {
-                    e.message ?: "Short must be 60 seconds or less and under 30 MB"
+                    e.message ?: "Video must be under 250 MB"
                 } else {
                     e.localizedMessage ?: "Network error occurred"
                 }

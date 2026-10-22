@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -35,6 +36,7 @@ fun DynamicAdCard(
     slotKey: String = adUnitId,
     playMedia: Boolean = false,
     reserveSlot: Boolean = false,
+    layoutResId: Int = R.layout.native_ad_social_item,
     onAdRevenuePaid: ((Double) -> Unit)? = null
 ) {
     if (isBanner) {
@@ -57,6 +59,7 @@ fun DynamicAdCard(
         adUnitId = adUnitId,
         slotKey = slotKey,
         reserveSlot = reserveSlot,
+        layoutResId = layoutResId,
         modifier = modifier
     )
 }
@@ -146,6 +149,7 @@ private fun FeedPooledAd(
     adUnitId: String,
     slotKey: String,
     reserveSlot: Boolean,
+    layoutResId: Int,
     modifier: Modifier
 ) {
     val context = LocalContext.current
@@ -169,18 +173,18 @@ private fun FeedPooledAd(
     Box(
         modifier
             .fillMaxWidth()
-            .then(if (ad == null) Modifier.height(0.dp) else Modifier.height(320.dp))
-            .clip(RoundedCornerShape(12.dp))
+            .then(if (ad == null) Modifier.height(0.dp) else Modifier.wrapContentHeight())
     ) {
         if (ad != null) {
             ReadyNativeAd(
                 adObject = ad,
-                modifier = Modifier.fillMaxSize(),
-                layoutResId = R.layout.item_media_native_ad,
-                playMedia = false
+                modifier = Modifier.fillMaxWidth(),
+                layoutResId = layoutResId,
+                playMedia = false,
+                cornerRadius = 0
             )
         } else if (reserveSlot) {
-            NativeAdShimmer(modifier = Modifier.fillMaxSize())
+            NativeAdShimmer(modifier = Modifier.fillMaxWidth().height(280.dp))
         }
     }
 }
